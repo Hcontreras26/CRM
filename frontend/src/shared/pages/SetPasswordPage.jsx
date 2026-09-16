@@ -62,7 +62,7 @@ export default function SetPasswordPage() {
       <div className="w-full max-w-[400px]">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm mb-4">
+          <div className="w-12 h-12 rounded-xl bg-success text-white flex items-center justify-center shadow-sm mb-4">
             <ShieldCheck size={22} weight="bold" />
           </div>
           <h1 className="font-semibold text-base">MultiCRM</h1>
@@ -76,8 +76,8 @@ export default function SetPasswordPage() {
 
           {success ? (
             <div className="text-center py-8 animate-in fade-in zoom-in-95 duration-300">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center mx-auto mb-4">
-                <Check size={32} className="text-emerald-600 dark:text-emerald-400" weight="bold" />
+              <div className="w-16 h-16 rounded-full bg-success-soft flex items-center justify-center mx-auto mb-4">
+                <Check size={32} className="text-success" weight="bold" />
               </div>
               <h2 className="text-lg font-semibold">Contraseña guardada</h2>
               <p className="text-muted-foreground text-sm mt-2">Redirigiendo al login...</p>
@@ -138,7 +138,7 @@ export default function SetPasswordPage() {
                 {checks.map((check) => (
                   <div key={check.id} className="flex items-center gap-2.5 text-xs">
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
-                      check.passed ? 'bg-emerald-500 scale-100' : 'bg-border scale-95'
+                      check.passed ? 'bg-success scale-100' : 'bg-border scale-95'
                     }`}>
                       {check.passed
                         ? <Check size={11} weight="bold" className="text-white" />
@@ -146,7 +146,7 @@ export default function SetPasswordPage() {
                       }
                     </div>
                     <span className={`font-medium transition-colors ${
-                      check.passed ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'
+                      check.passed ? 'text-success-soft-foreground' : 'text-muted-foreground'
                     }`}>
                       {check.label}
                     </span>
@@ -155,7 +155,7 @@ export default function SetPasswordPage() {
               </div>
 
               {error && (
-                <div role="alert" className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg px-4 py-2.5 font-medium">
+                <div role="alert" className="text-sm text-destructive-soft-foreground bg-destructive-soft border border-destructive/30 rounded-lg px-4 py-2.5 font-medium">
                   {error}
                 </div>
               )}
@@ -163,7 +163,7 @@ export default function SetPasswordPage() {
               <button
                 type="submit"
                 disabled={!allPassed || loading}
-                className="w-full h-12 bg-emerald-600 text-white rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none shadow-sm hover:shadow-md focus:outline-none focus:ring-4 focus:ring-emerald-500/20"
+                className="w-full h-12 bg-success text-white rounded-lg font-semibold text-sm hover:bg-success transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none shadow-sm hover:shadow-md focus:outline-none focus:ring-4 focus:ring-success/20"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -179,7 +179,7 @@ export default function SetPasswordPage() {
         </div>
 
         {!token && (
-          <div role="alert" className="mt-4 flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-4 py-3 font-medium border border-amber-200 dark:border-amber-900">
+          <div role="alert" className="mt-4 flex items-start gap-2 text-xs text-warning-soft-foreground bg-warning-soft rounded-lg px-4 py-3 font-medium border border-warning/30">
             <X size={14} weight="bold" className="flex-shrink-0 mt-0.5" />
             <span>Token no detectado — esta página normalmente se accede desde el email de invitación.</span>
           </div>
