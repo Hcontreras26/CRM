@@ -84,8 +84,33 @@ describe('colores sueltos escritos a mano (#32)', () => {
   });
 
   it('deja escrito cuánta deuda queda por módulo, que es la tarea #34', () => {
-    // No falla nunca: es el marcador. Cuando un bloque del #34 se termina, su
-    // número baja a cero aquí y se ve sin tener que fiarse de nadie.
+    // ESTO SÍ FALLA, y es la mitad que faltaba del #32.
+    //
+    // Hasta ahora solo imprimía el marcador y comprobaba `total >= 0`, que es
+    // verdad siempre. O sea: medía, pero no cerraba. Llevar los ocho bloques a
+    // cero cuesta semanas y volver a ensuciarlos cuesta una línea, así que sin
+    // tope el trabajo se deshace solo y nadie se entera hasta la siguiente
+    // revisión.
+    //
+    // EL TECHO SOLO PUEDE BAJAR. Si un bloque sube por encima de su número, la
+    // prueba falla y dice cuál y cuánto. Si baja —porque alguien ha limpiado
+    // más— no falla: avisa de que se puede apretar la tuerca, y apretarla es
+    // cambiar un número en esta tabla.
+    //
+    // Se pone a cero porque ahí están los ocho hoy. Si esta rama entrara antes
+    // de que los bloques estén limpios, habría que escribir aquí el número de
+    // ese momento y bajarlo después.
+    const TECHO = {
+      '1 · Prospectos': 0,
+      '2 · Clientes y matrículas': 0,
+      '3 · Ventas y conversiones': 0,
+      '4 · Finanzas': 0,
+      '5 · Tutores y comisiones': 0,
+      '6 · Publicidad y análisis': 0,
+      '7 · Ajustes y administración': 0,
+      '8 · Entrar, contraseña y errores': 0,
+    };
+
     const bloques = {
       '1 · Prospectos': ['modules/leads'],
       '2 · Clientes y matrículas': ['modules/clients', 'modules/matriculas'],
@@ -143,6 +168,34 @@ describe('colores sueltos escritos a mano (#32)', () => {
       );
     }
 
-    expect(total).toBeGreaterThanOrEqual(0);
+    // EL CIERRE. Un bloque por encima de su techo para la entrega y dice cuál.
+    const conTecho = Object.entries(bloques).map(([nombre, dirs]) => ({
+      nombre,
+      n: dirs.reduce((suma, d) => suma + contar(d).total, 0),
+      techo: TECHO[nombre] ?? 0,
+    }));
+
+    const subidos = conTecho.filter((x) => x.n > x.techo);
+    expect(
+      subidos.map((x) => `  ${x.nombre}: ${x.n} colores a pelo, y el techo es ${x.techo}`).join('\n'),
+      [
+        'han entrado colores sueltos en un bloque que ya estaba limpio.',
+        'Usa los tokens de index.css —success, warning, info, destructive, cada uno',
+        'con su -soft y su -soft-foreground— en vez de bg-red-100 y compañía.',
+        'Si el color es de una paleta de identidad, va en shared/lib/ui.ts.',
+      ].join('\n'),
+    ).toBe('');
+
+    // Y si alguien ha limpiado de más, que se note: apretar la tuerca es
+    // cambiar un número en TECHO, y si no se cambia, el siguiente puede volver
+    // a ensuciar hasta el techo viejo sin que nadie se queje.
+    const bajados = conTecho.filter((x) => x.n < x.techo);
+    if (bajados.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `se puede bajar el techo en colores-sueltos.test.js:\n${
+          bajados.map((x) => `  ${x.nombre}: ${x.techo} → ${x.n}`).join('\n')}\n`,
+      );
+    }
   });
 });
