@@ -156,11 +156,11 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
           </div>
           <div className="bg-card border border-border rounded-md p-3">
             <div className="text-[10px] text-muted-foreground font-bold mb-1">Total pagado</div>
-            <div className="text-xl font-semibold text-green-600 tabular-nums">{formatCurrency(totalPagado)}</div>
+            <div className="text-xl font-semibold text-success tabular-nums">{formatCurrency(totalPagado)}</div>
           </div>
           <div className="bg-card border border-border rounded-md p-3">
             <div className="text-[10px] text-muted-foreground font-bold mb-1">Pendiente</div>
-            <div className="text-xl font-semibold text-orange-600 tabular-nums">{formatCurrency(totalPendiente)}</div>
+            <div className="text-xl font-semibold text-warning tabular-nums">{formatCurrency(totalPendiente)}</div>
           </div>
         </div>
       </div>
@@ -206,9 +206,9 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-semibold">{c.producto_contratado}</h3>
-                      {pagado && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"><CheckCircle size={10} weight="fill" /> Pagado</span>}
-                      {vencido && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"><WarningCircle size={10} weight="fill" /> Vencido</span>}
-                      {!pagado && !vencido && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">Pendiente</span>}
+                      {pagado && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-success-soft text-success-soft-foreground"><CheckCircle size={10} weight="fill" /> Pagado</span>}
+                      {vencido && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-destructive-soft text-destructive-soft-foreground"><WarningCircle size={10} weight="fill" /> Vencido</span>}
+                      {!pagado && !vencido && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning-soft text-warning-soft-foreground">Pendiente</span>}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {formatDate(c.fecha_conversion)} {c.metodo_pago ? `• ${c.metodo_pago}` : ''}
@@ -242,7 +242,7 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                       )}
                       <button
                         onClick={() => setEditDialogConv(c)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300 text-xs font-semibold hover:bg-sky-200 dark:hover:bg-sky-950/60"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-info-soft text-info-soft-foreground text-xs font-semibold hover:bg-info-soft/70"
                         title="Editar datos de la conversión (producto, importe, fechas, método)"
                       >
                         <PencilSimple size={14} weight="bold" />
@@ -250,7 +250,7 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                       </button>
                       <button
                         onClick={() => setInstallmentsDialogConv(c)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300 text-xs font-semibold hover:bg-violet-200 dark:hover:bg-violet-950/60"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20"
                         title={c.metodo_pago === 'fraccionado' ? 'Ver/editar cuotas' : 'Convertir a fraccionado'}
                       >
                         <Coins size={14} weight="bold" />
@@ -259,7 +259,7 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                       {Number(c.importe_pagado) > 0 && (
                         <button
                           onClick={() => setRefundDialogConv(c)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-950/60"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-warning-soft text-warning-soft-foreground text-xs font-semibold hover:bg-warning-soft/70"
                           title="Registrar devolución (fase de prueba)"
                         >
                           <ArrowCounterClockwise size={14} weight="bold" />
@@ -269,7 +269,7 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                       )}
                       <button
                         onClick={() => handleDeleteConversion(c.id)}
-                        className="p-1 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600"
+                        className="p-1 rounded-md hover:bg-destructive-soft text-muted-foreground hover:text-destructive"
                         title="Eliminar"
                       >
                         <Trash size={14} weight="bold" />
@@ -297,11 +297,11 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
 
                 {/* Desglose descuento + IVA */}
                 {(c.descuento_tipo !== 'none' || Number(c.descuento_importe) > 0) && (
-                  <div className="mb-3 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-900 rounded-md px-3 py-2 text-xs space-y-0.5">
+                  <div className="mb-3 bg-success-soft/50 border border-success/30 rounded-md px-3 py-2 text-xs space-y-0.5">
                     <div className="flex justify-between text-muted-foreground">
                       <span>Subtotal</span><span className="tabular-nums">{formatCurrency(Number(c.subtotal_bruto || c.importe_total))}</span>
                     </div>
-                    <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-semibold">
+                    <div className="flex justify-between text-success-soft-foreground font-semibold">
                       <span>Descuento {c.descuento_tipo === 'pct' ? `(${Number(c.descuento_valor)}%)` : '(monto)'}</span>
                       <span className="tabular-nums">−{formatCurrency(Number(c.descuento_importe))}</span>
                     </div>
@@ -321,11 +321,11 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                   </div>
                   <div className="bg-muted/50 rounded-lg p-2">
                     <div className="text-[9px] text-muted-foreground font-bold">Pagado</div>
-                    <div className="text-sm font-semibold text-green-600 tabular-nums">{formatCurrency(c.importe_pagado)}</div>
+                    <div className="text-sm font-semibold text-success tabular-nums">{formatCurrency(c.importe_pagado)}</div>
                   </div>
                   <div className="bg-muted/50 rounded-lg p-2">
                     <div className="text-[9px] text-muted-foreground font-bold">Pendiente</div>
-                    <div className="text-sm font-semibold text-orange-600 tabular-nums">{formatCurrency(pendiente)}</div>
+                    <div className="text-sm font-semibold text-warning tabular-nums">{formatCurrency(pendiente)}</div>
                   </div>
                 </div>
 
@@ -356,10 +356,10 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
 
                 {/* Devoluciones (FASE DE PRUEBA) */}
                 {(refundsByConv[c.id]?.length || 0) > 0 && (
-                  <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-900">
+                  <div className="mt-3 pt-3 border-t border-warning/30">
                     <div className="flex items-center gap-2 mb-2">
-                      <ArrowCounterClockwise size={12} className="text-amber-600" weight="bold" />
-                      <span className="text-[10px] font-bold uppercase text-amber-700 dark:text-amber-300">
+                      <ArrowCounterClockwise size={12} className="text-warning" weight="bold" />
+                      <span className="text-[10px] font-bold uppercase text-warning-soft-foreground">
                         Devoluciones registradas — fase de prueba
                       </span>
                       <span className="text-[10px] text-muted-foreground ml-auto">
@@ -368,14 +368,14 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                     </div>
                     <div className="space-y-1">
                       {(refundsByConv[c.id] || []).map((r) => (
-                        <div key={r.id} className="flex items-center gap-2 text-[11px] bg-amber-50/50 dark:bg-amber-950/20 rounded px-2 py-1">
+                        <div key={r.id} className="flex items-center gap-2 text-[11px] bg-warning-soft/50 rounded px-2 py-1">
                           <span className="font-mono text-muted-foreground">{r.fecha}</span>
-                          <span className="font-semibold text-amber-700 dark:text-amber-300 tabular-nums">−{formatCurrency(r.importe)}</span>
+                          <span className="font-semibold text-warning-soft-foreground tabular-nums">−{formatCurrency(r.importe)}</span>
                           <span className="flex-1 text-muted-foreground truncate">{r.motivo || '(sin motivo)'}</span>
                           {r.created_by_nombre && <span className="text-muted-foreground italic">por {r.created_by_nombre}</span>}
                           {canManage && (
                             <button onClick={() => handleDeleteRefund(r.id)}
-                              className="text-muted-foreground hover:text-red-600 p-0.5"
+                              className="text-muted-foreground hover:text-destructive p-0.5"
                               title="Eliminar devolución">
                               <Trash size={10} weight="bold" />
                             </button>
@@ -448,7 +448,7 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                   ].map((r) => (
                     <button key={r.value} type="button"
                       onClick={() => setDeleteReason(r.value)}
-                      className={`h-9 rounded-md border text-xs font-medium ${deleteReason === r.value ? 'bg-red-600 text-white border-red-600' : 'border-border bg-card hover:bg-muted'}`}
+                      className={`h-9 rounded-md border text-xs font-medium ${deleteReason === r.value ? 'bg-destructive text-white border-destructive' : 'border-border bg-card hover:bg-muted'}`}
                     >{r.label}</button>
                   ))}
                 </div>
@@ -472,7 +472,7 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                 Cancelar
               </button>
               <button onClick={doDeleteConversion}
-                className="h-9 px-4 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700 inline-flex items-center gap-1">
+                className="h-9 px-4 rounded-md bg-destructive text-white text-sm font-semibold hover:bg-destructive inline-flex items-center gap-1">
                 <Trash size={14} weight="bold" /> Eliminar
               </button>
             </div>
@@ -524,12 +524,12 @@ function PaymentsList({ conversionId, onDelete, canManage, markInitial }: Paymen
             <span className="font-semibold tabular-nums">{formatCurrency(p.importe)}</span>
             <span className="text-muted-foreground ml-2">{formatDate(p.fecha)}</span>
             {p.id === initialId && (
-              <span className="ml-2 inline-flex items-center rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-800 dark:bg-violet-950/50 dark:text-violet-300">
+              <span className="ml-2 inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                 Inicial pagada
               </span>
             )}
             {(p.pagado_por_stripe || p.metodo === 'tarjeta_stripe') && (
-              <span className="ml-2 inline-flex items-center rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300">
+              <span className="ml-2 inline-flex items-center rounded bg-info-soft px-1.5 py-0.5 text-[10px] font-bold text-info-soft-foreground">
                 Pagado por Stripe
               </span>
             )}
@@ -540,7 +540,7 @@ function PaymentsList({ conversionId, onDelete, canManage, markInitial }: Paymen
             {/* Factura de ESTE pago */}
             <PaymentInvoiceCell src={p} onChanged={reload} />
             {canManage && (
-              <button onClick={() => onDelete(p.id)} className="text-muted-foreground hover:text-red-600 p-0.5" title="Eliminar pago">
+              <button onClick={() => onDelete(p.id)} className="text-muted-foreground hover:text-destructive p-0.5" title="Eliminar pago">
                 <Trash size={12} weight="bold" />
               </button>
             )}
@@ -599,7 +599,7 @@ function PaymentInvoiceCell({ src, onChanged }: { src: FacturaSrc; onChanged: ()
         onClick={onClick}
         title={warn ? 'Faltan datos: complétalos para descargar/enviar' : `Ver factura ${src.factura_codigo || ''}`}
         className={`inline-flex items-center gap-1 h-6 px-2 rounded text-[10px] font-semibold border ${
-          warn ? 'border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300'
+          warn ? 'border-warning bg-warning-soft text-warning-soft-foreground'
                : 'border-border bg-card hover:bg-muted'}`}
       >
         {warn ? <Warning size={11} weight="bold" /> : <Receipt size={11} weight="bold" />}
@@ -661,16 +661,16 @@ function CuotasInline({ conversionId, canManage, refreshKey, onManage }:
                 <span className="inline-flex items-center justify-center min-w-[22px] h-[18px] px-1 rounded bg-primary/10 text-primary font-bold text-[10px]">#{q.numero}</span>
                 <span className="font-semibold tabular-nums">{formatCurrency(Number(pagada ? (q.importe_cobrado ?? q.importe_previsto) : q.importe_previsto))}</span>
                 {pagada ? (
-                  <span className="text-green-600 dark:text-green-400 inline-flex items-center gap-1">
+                  <span className="text-success inline-flex items-center gap-1">
                     <CheckCircle size={11} weight="fill" /> Pagada {formatDate(q.fecha_cobro!)}
                   </span>
                 ) : (
-                  <span className={vencida ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}>
+                  <span className={vencida ? 'text-destructive font-medium' : 'text-muted-foreground'}>
                     Vence {formatDate(q.fecha_vencimiento)}{vencida ? ' · vencida' : ''}
                   </span>
                 )}
                 {pagada && (q.pagado_por_stripe || q.metodo === 'tarjeta_stripe') && (
-                  <span className="inline-flex items-center rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300">
+                  <span className="inline-flex items-center rounded bg-info-soft px-1.5 py-0.5 text-[10px] font-bold text-info-soft-foreground">
                     Pagado por Stripe
                   </span>
                 )}

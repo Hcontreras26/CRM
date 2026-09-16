@@ -109,11 +109,11 @@ export default function PaymentDialog({ open, onClose, conversion, onPaid }: Pay
             </div>
             <div className="flex justify-between mb-1">
               <span className="text-muted-foreground">Pagado:</span>
-              <span className="font-semibold text-green-600 tabular-nums">{formatCurrency(conversion.importe_pagado)}</span>
+              <span className="font-semibold text-success tabular-nums">{formatCurrency(conversion.importe_pagado)}</span>
             </div>
             <div className="flex justify-between pt-1 border-t border-border">
               <span className="text-muted-foreground">Pendiente:</span>
-              <span className="font-bold text-orange-600 tabular-nums">{formatCurrency(pendiente)}</span>
+              <span className="font-bold text-warning tabular-nums">{formatCurrency(pendiente)}</span>
             </div>
           </div>
 

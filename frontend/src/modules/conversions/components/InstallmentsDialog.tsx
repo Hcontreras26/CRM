@@ -362,17 +362,17 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                       </div>
                       {pagada ? (
                         <>
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700 dark:text-green-400">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success-soft-foreground">
                             <CheckCircle size={14} weight="fill" /> {inst.fecha_cobro ? formatDate(inst.fecha_cobro) : 'Pagada'} · {formatCurrency(Number(inst.importe_cobrado || 0))}
                           </span>
                           <button onClick={() => handleEditPaid(inst)}
                             title="Editar pago (fecha o importe)"
-                            className="px-2 py-1 rounded-md text-[11px] font-semibold text-sky-700 hover:bg-sky-100 dark:hover:bg-sky-950/40">
+                            className="px-2 py-1 rounded-md text-[11px] font-semibold text-info-soft-foreground hover:bg-info-soft">
                             Editar
                           </button>
                           <button onClick={() => handleUnpay(inst)}
                             title="Deshacer el pago (vuelve a pendiente)"
-                            className="px-2 py-1 rounded-md text-[11px] font-semibold text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-950/40">
+                            className="px-2 py-1 rounded-md text-[11px] font-semibold text-warning-soft-foreground hover:bg-warning-soft">
                             Deshacer
                           </button>
                         </>
@@ -384,7 +384,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                           </button>
                           <button onClick={() => handleDeleteInstallment(inst)}
                             title="Eliminar cuota"
-                            className="p-1 text-muted-foreground hover:text-red-600"><Trash size={14} /></button>
+                            className="p-1 text-muted-foreground hover:text-destructive"><Trash size={14} /></button>
                         </>
                       )}
                     </div>
@@ -417,8 +417,8 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
               )}
 
               {/* Editor de importe total para aplicar descuentos/becas */}
-              <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-md p-3">
-                <label className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 mb-1 block">
+              <div className="border border-warning/30 bg-warning-soft rounded-md p-3">
+                <label className="text-[11px] font-semibold text-warning-soft-foreground mb-1 block">
                   ¿Aplicar descuento o beca? Modifica el importe total antes de fraccionar:
                 </label>
                 <div className="flex gap-2 items-center">
@@ -430,12 +430,12 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                   <button
                     onClick={handleSaveTotal}
                     disabled={savingTotal || Number(totalDraft) === Number(conversion.importe_total)}
-                    className="h-9 px-3 rounded-md bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-50"
+                    className="h-9 px-3 rounded-md bg-warning text-white text-xs font-semibold hover:bg-warning disabled:opacity-50"
                   >
                     {savingTotal ? '...' : 'Actualizar total'}
                   </button>
                 </div>
-                <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
+                <p className="text-[10px] text-warning-soft-foreground mt-1">
                   Ejemplo: 30% de beca sobre 950€ → escribe <strong>665</strong>. Luego abajo las 6 cuotas sumarán ese nuevo total.
                 </p>
               </div>
@@ -497,7 +497,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                       className="h-8 px-2 rounded-md border border-border bg-muted/50 text-sm"
                     />
                     <button onClick={() => setDraftInstallments(draftInstallments.filter((_, j) => j !== i))}
-                      className="p-1 text-muted-foreground hover:text-red-600"><Trash size={12} /></button>
+                      className="p-1 text-muted-foreground hover:text-destructive"><Trash size={12} /></button>
                   </div>
                 ))}
                 <div className="p-2 flex items-center justify-between">

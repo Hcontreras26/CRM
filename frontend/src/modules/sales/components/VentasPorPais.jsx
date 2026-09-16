@@ -94,7 +94,7 @@ export default function VentasPorPais({ projectId = null, issuerId = null, from 
 
   if (cargando) return <div className="bg-card border border-border rounded-lg p-6 h-[360px] animate-pulse" />;
   if (error) {
-    return <div className="bg-card border border-border rounded-lg p-6 text-sm text-red-600 dark:text-red-400">{error}</div>;
+    return <div className="bg-card border border-border rounded-lg p-6 text-sm text-destructive">{error}</div>;
   }
   if (!conPais.length && !sinTelefono) return null;
 
@@ -174,9 +174,9 @@ export default function VentasPorPais({ projectId = null, issuerId = null, from 
       </div>
 
       {sinTelefono && (
-        <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 p-2.5">
-          <Warning size={15} weight="fill" className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <div className="text-xs text-amber-900 dark:text-amber-300">
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-warning/30 bg-warning-soft p-2.5">
+          <Warning size={15} weight="fill" className="text-warning shrink-0 mt-0.5" />
+          <div className="text-xs text-warning-soft-foreground">
             <strong>{num(sinTelefono.ventas)} ventas ({eur(sinTelefono.vendido)})</strong> sin teléfono, así que no
             se les puede asignar país. Son{' '}
             <strong>{total ? Math.round((sinTelefono.vendido / total) * 100) : 0}%</strong> de lo vendido:

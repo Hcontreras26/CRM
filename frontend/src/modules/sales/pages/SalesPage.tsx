@@ -181,7 +181,7 @@ export default function SalesPage() {
       )}
 
       {!hasActiveCtx ? (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-6 text-center text-sm text-amber-800 dark:text-amber-300">
+        <div className="bg-warning-soft border border-warning/30 rounded-lg p-6 text-center text-sm text-warning-soft-foreground">
           Cargando proyectos…
         </div>
       ) : (

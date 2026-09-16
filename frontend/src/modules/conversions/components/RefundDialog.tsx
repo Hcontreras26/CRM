@@ -59,13 +59,13 @@ export default function RefundDialog({ open, conversion, onClose, onSaved }: Pro
       <div className="fixed inset-0 !m-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div role="dialog" className="relative bg-card sm:rounded-lg border border-border w-full max-w-md flex flex-col">
         <div className="px-5 py-4 border-b border-border flex items-start gap-3">
-          <div className="w-9 h-9 rounded-md bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-md bg-warning-soft text-warning-soft-foreground flex items-center justify-center flex-shrink-0">
             <ArrowCounterClockwise size={18} weight="regular" />
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-base flex items-center gap-2">
               Registrar devolución
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 uppercase tracking-wide">Fase prueba</span>
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning-soft text-warning-soft-foreground uppercase tracking-wide">Fase prueba</span>
             </h3>
             <p className="text-xs text-muted-foreground truncate">
               {conversion.producto_contratado} · Pagado: {pagado.toFixed(2)}€
@@ -74,9 +74,9 @@ export default function RefundDialog({ open, conversion, onClose, onSaved }: Pro
         </div>
 
         <div className="p-5 space-y-3">
-          <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-            <Warning size={16} className="text-amber-600 flex-shrink-0 mt-0.5" weight="duotone" />
-            <p className="text-[11px] text-amber-800 dark:text-amber-300">
+          <div className="flex items-start gap-2 p-3 rounded-md bg-warning-soft border border-warning/30">
+            <Warning size={16} className="text-warning flex-shrink-0 mt-0.5" weight="duotone" />
+            <p className="text-[11px] text-warning-soft-foreground">
               Esta funcionalidad está en <strong>fase de prueba</strong>. No se recomienda usar todavía en operativa real porque pueden perderse datos. El importe se registra pero no modifica el "pagado" original de la conversión (se calcula neto al leer).
             </p>
           </div>
@@ -122,7 +122,7 @@ export default function RefundDialog({ open, conversion, onClose, onSaved }: Pro
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving || !importe}
-            className="inline-flex items-center h-9 px-4 rounded-md bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 disabled:opacity-50">
+            className="inline-flex items-center h-9 px-4 rounded-md bg-warning text-white text-sm font-semibold hover:bg-warning disabled:opacity-50">
             {saving ? 'Guardando...' : 'Registrar devolución'}
           </button>
         </div>
