@@ -8,7 +8,7 @@ import { Cifra, FilaDeCifras } from '@/shared/components/ui/Cifra';
  * que se pregunta aquí: cuánta gente ha comprado y cómo va el dinero.
  *
  * Aquí había tres recuadros hechos a mano, con su propio tamaño de letra y sus
- * colores sueltos (`text-green-600`, `text-orange-600`), que no se parecían a
+ * colores sueltos (`text-success`, `text-warning`), que no se parecían a
  * los de Prospectos. Los números son los mismos; lo que cambia es que ahora son
  * la misma pieza.
  *

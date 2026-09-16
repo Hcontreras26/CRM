@@ -90,9 +90,9 @@ function CeldaCuotas({ client: c }: { client: Client }) {
         {total} {total === 1 ? 'cuota' : 'cuotas'}
       </span>
       <div className="mt-1 text-[10px] text-muted-foreground whitespace-nowrap">
-        <span className="text-green-700 dark:text-green-400">{pagadas} pagadas</span>
+        <span className="text-success-soft-foreground">{pagadas} pagadas</span>
         <span> · </span>
-        <span className={pendientes > 0 ? 'text-orange-700 dark:text-orange-400' : ''}>
+        <span className={pendientes > 0 ? 'text-warning-soft-foreground' : ''}>
           {pendientes} pendientes
         </span>
       </div>
@@ -130,25 +130,25 @@ function QuickActions({ client: c, onUpsell, onDelete }: QuickActionsProps) {
     <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
       {wa && (
         <button type="button" onClick={() => abrirAqui()} title="WhatsApp" aria-label="Abrir WhatsApp"
-          className="p-1.5 rounded hover:bg-green-100 dark:hover:bg-green-950/40 text-muted-foreground hover:text-green-700 dark:hover:text-green-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
+          className="p-1.5 rounded hover:bg-success-soft text-muted-foreground hover:text-success-soft-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
           <WhatsappLogo size={14} weight="regular" />
         </button>
       )}
       {c.email && (
         <a href={`mailto:${c.email}`} title="Email" aria-label="Enviar email"
-          className="p-1.5 rounded hover:bg-amber-100 dark:hover:bg-amber-950/40 text-muted-foreground hover:text-amber-700 dark:hover:text-amber-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
+          className="p-1.5 rounded hover:bg-warning-soft text-muted-foreground hover:text-warning-soft-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
           <EnvelopeSimple size={14} weight="regular" />
         </a>
       )}
       {onUpsell && (
         <button onClick={() => onUpsell(c)} title="Nueva venta / upsell" aria-label="Registrar nueva venta o upsell"
-          className="p-1.5 rounded hover:bg-violet-100 dark:hover:bg-violet-950/40 text-muted-foreground hover:text-violet-700 dark:hover:text-violet-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
+          className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
           <ShoppingCart size={14} weight="regular" />
         </button>
       )}
       {onDelete && (
         <button onClick={() => onDelete(c)} title="Eliminar cliente (soft delete)" aria-label="Eliminar cliente"
-          className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400/40">
+          className="p-1.5 rounded hover:bg-destructive-soft text-muted-foreground hover:text-destructive transition-colors focus:outline-none focus:ring-2 focus:ring-destructive/40">
           <Trash size={14} weight="regular" />
         </button>
       )}
@@ -515,7 +515,7 @@ export default function ClientsPage() {
                         <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-semibold">{c.conversiones}</span>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmt(c.total_compras)}</td>
-                      <td className={`px-4 py-3 text-right tabular-nums font-semibold ${Number(c.pendiente) > 0 ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                      <td className={`px-4 py-3 text-right tabular-nums font-semibold ${Number(c.pendiente) > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
                         {fmt(c.pendiente)}
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -563,7 +563,7 @@ export default function ClientsPage() {
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Pendiente</div>
-                      <div className={`tabular-nums font-semibold ${Number(c.pendiente) > 0 ? 'text-orange-600' : 'text-muted-foreground'}`}>{fmt(c.pendiente)}</div>
+                      <div className={`tabular-nums font-semibold ${Number(c.pendiente) > 0 ? 'text-warning' : 'text-muted-foreground'}`}>{fmt(c.pendiente)}</div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-1 border-t border-border/60">

@@ -135,7 +135,7 @@ function WebhookCard({ token, onEdit, onDelete }: { token: WebhookToken; onEdit:
           <button
             onClick={onDelete}
             aria-label="Eliminar webhook"
-            className="h-9 w-9 inline-flex items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+            className="h-9 w-9 inline-flex items-center justify-center rounded hover:bg-destructive-soft text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/40"
           >
             <Trash size={14} />
           </button>
@@ -251,10 +251,10 @@ function WebhookEditor({ token, onSave, onClose }: EditorProps) {
                 {!listening ? (
                   <button onClick={startListening} className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary/40">Esperar payload</button>
                 ) : (
-                  <button onClick={stopListening} className="h-9 px-3 rounded-lg bg-amber-500 text-white text-xs font-bold whitespace-nowrap animate-pulse focus:outline-none focus:ring-2 focus:ring-amber-500/40">Escuchando... (cancelar)</button>
+                  <button onClick={stopListening} className="h-9 px-3 rounded-lg bg-warning text-white text-xs font-bold whitespace-nowrap animate-pulse focus:outline-none focus:ring-2 focus:ring-warning/40">Escuchando... (cancelar)</button>
                 )}
               </div>
-              {listening && <p className="text-xs text-amber-600 mt-2">→ Manda ahora un POST de prueba al URL de arriba con tu sistema externo o curl.</p>}
+              {listening && <p className="text-xs text-warning mt-2">→ Manda ahora un POST de prueba al URL de arriba con tu sistema externo o curl.</p>}
             </div>
           )}
 
@@ -275,7 +275,7 @@ function WebhookEditor({ token, onSave, onClose }: EditorProps) {
                         <button
                           onClick={() => { const m = { ...mapping }; delete m[t.key]; setMapping(m); }}
                           aria-label={`Quitar mapping de ${t.label}`}
-                          className="text-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/40 rounded"
+                          className="text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/40 rounded"
                         >
                           <X size={12} />
                         </button>
@@ -334,7 +334,7 @@ function PayloadTree({ obj, path, onSelect, mapping }: PayloadTreeProps) {
     return (
       <button
         onClick={() => onSelect(path)}
-        className={`text-left px-1.5 py-0.5 rounded text-[11px] font-mono hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40 ${usedAs ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : ''}`}
+        className={`text-left px-1.5 py-0.5 rounded text-[11px] font-mono hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40 ${usedAs ? 'bg-success-soft text-success-soft-foreground' : ''}`}
         title={usedAs ? `Mapeado a: ${usedAs}` : 'Click para mapear'}
       >
         {String(obj).slice(0, 80)}{usedAs && ` ← ${usedAs}`}

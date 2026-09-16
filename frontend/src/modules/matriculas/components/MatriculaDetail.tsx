@@ -104,7 +104,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
           </div>
 
           {m.estado === 'rechazada' && m.motivo_rechazo && (
-            <div className="p-3 bg-red-50 dark:bg-red-950/40 rounded-lg text-xs text-red-700 dark:text-red-300"><strong>Motivo:</strong> {m.motivo_rechazo}</div>
+            <div className="p-3 bg-destructive-soft rounded-lg text-xs text-destructive-soft-foreground"><strong>Motivo:</strong> {m.motivo_rechazo}</div>
           )}
 
           {onEstado && (
@@ -112,7 +112,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
             {m.estado !== 'validada' && (
               <button
                 onClick={() => onEstado(m, 'validada')}
-                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-success hover:bg-success text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-success/40"
               >
                 <CheckCircle size={14} weight="bold" /> Validar
               </button>
@@ -120,7 +120,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
             {m.estado !== 'rechazada' && (
               <button
                 onClick={() => onEstado(m, 'rechazada')}
-                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-destructive hover:bg-destructive text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-destructive/40"
               >
                 <XCircle size={14} weight="bold" /> Rechazar
               </button>
@@ -128,7 +128,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
             {m.estado !== 'pendiente' && (
               <button
                 onClick={() => onEstado(m, 'pendiente')}
-                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-warning hover:bg-warning text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-warning/40"
               >
                 <Clock size={14} weight="bold" /> Pendiente
               </button>
