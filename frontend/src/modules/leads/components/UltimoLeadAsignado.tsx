@@ -109,7 +109,7 @@ export default function UltimoLeadAsignado(
         <Users size={15} weight="bold" className="text-muted-foreground" />
         <h3 className="text-sm font-semibold">Último lead de cada gestora</h3>
         {datos && datos.sin_responsable > 0 && (
-          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300">
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-warning-soft text-warning-soft-foreground">
             {datos.sin_responsable} sin gestora
           </span>
         )}
@@ -124,7 +124,7 @@ export default function UltimoLeadAsignado(
       </header>
 
       {paradas.length > 0 && (
-        <p className="text-xs flex items-start gap-1.5 text-amber-800 dark:text-amber-300">
+        <p className="text-xs flex items-start gap-1.5 text-warning-soft-foreground">
           <WarningCircle size={14} weight="fill" className="flex-shrink-0 mt-0.5" />
           <span>
             {paradas.length === 1 ? 'Una gestora lleva' : `${paradas.length} gestoras llevan`}
@@ -162,7 +162,7 @@ export default function UltimoLeadAsignado(
                   <td className="py-2 pr-3 text-muted-foreground whitespace-nowrap">
                     {f.lead_canal || '—'}
                   </td>
-                  <td className={`py-2 pr-3 whitespace-nowrap ${parada ? 'text-amber-700 dark:text-amber-400 font-semibold' : 'text-muted-foreground'}`}>
+                  <td className={`py-2 pr-3 whitespace-nowrap ${parada ? 'text-warning font-semibold' : 'text-muted-foreground'}`}>
                     {parada && <Clock size={11} weight="bold" className="inline mr-1 -mt-0.5" />}
                     {cuantoHace(f.horas_sin_recibir)}
                     {f.lead_entro && (
