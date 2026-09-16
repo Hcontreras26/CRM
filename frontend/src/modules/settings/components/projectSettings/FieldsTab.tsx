@@ -149,7 +149,7 @@ export default function FieldsTab({ project, onSaved }) {
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-semibold">{bf.label}</span>
                   <span className="font-mono text-secundario text-muted-foreground">{bf.key}</span>
-                  {bf.alwaysRequired && <span className="px-1.5 py-0.5 rounded text-secundario font-bold bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300">SIEMPRE REQ</span>}
+                  {bf.alwaysRequired && <span className="px-1.5 py-0.5 rounded text-secundario font-bold bg-destructive-soft text-destructive-soft-foreground">SIEMPRE REQ</span>}
                 </div>
                 <div className="flex items-center gap-4">
                   <label className={`flex items-center gap-1.5 text-xs ${bf.key === 'nombre' || bf.key === 'email' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
@@ -241,8 +241,8 @@ export default function FieldsTab({ project, onSaved }) {
                             <span className="font-semibold text-sm">{f.label}</span>
                             <span className="font-mono text-secundario text-muted-foreground">{f.field_key}</span>
                             <span className="px-1.5 py-0.5 rounded text-secundario font-medium bg-primary/10 text-primary">{FIELD_TYPES.find(t => t.v === f.type)?.label || f.type}</span>
-                            {f.required && <span className="px-1.5 py-0.5 rounded text-secundario font-bold bg-red-50 text-red-600">REQ</span>}
-                            {f.grupo && <span className="px-1.5 py-0.5 rounded text-secundario font-bold bg-amber-50 text-amber-700">{f.grupo}</span>}
+                            {f.required && <span className="px-1.5 py-0.5 rounded text-secundario font-bold bg-destructive-soft text-destructive">REQ</span>}
+                            {f.grupo && <span className="px-1.5 py-0.5 rounded text-secundario font-bold bg-warning-soft text-warning-soft-foreground">{f.grupo}</span>}
                           </div>
                           {Array.isArray(f.options) && f.options.length > 0 && (
                             <p className="text-secundario text-muted-foreground mt-1 truncate">Opciones: {f.options.join(', ')}</p>
@@ -253,13 +253,13 @@ export default function FieldsTab({ project, onSaved }) {
                     <div className="flex items-center gap-1">
                       {isEditing ? (
                         <>
-                          <button onClick={() => saveEdit(f)} aria-label="Guardar" className="p-1.5 rounded hover:bg-green-50 text-green-600"><FloppyDisk size={14} weight="bold" /></button>
+                          <button onClick={() => saveEdit(f)} aria-label="Guardar" className="p-1.5 rounded hover:bg-success-soft text-success"><FloppyDisk size={14} weight="bold" /></button>
                           <button onClick={() => setEditingId(null)} aria-label="Cancelar edición" className="p-1.5 rounded hover:bg-muted"><X size={14} /></button>
                         </>
                       ) : (
                         <>
                           <button onClick={() => startEdit(f)} aria-label="Editar campo" className="p-1.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100"><Gear size={14} /></button>
-                          <button onClick={() => handleDelete(f.id)} aria-label="Eliminar campo" className="p-1.5 rounded hover:bg-red-50 text-red-500 opacity-0 group-hover:opacity-100"><X size={14} /></button>
+                          <button onClick={() => handleDelete(f.id)} aria-label="Eliminar campo" className="p-1.5 rounded hover:bg-destructive-soft text-destructive opacity-0 group-hover:opacity-100"><X size={14} /></button>
                         </>
                       )}
                     </div>
@@ -281,7 +281,7 @@ export default function FieldsTab({ project, onSaved }) {
                 {items.map(f => (
                   <div key={f.id} className={f.type === 'textarea' ? 'col-span-2' : ''}>
                     <label className="text-xs font-semibold mb-1 block">
-                      {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                      {f.label}{f.required && <span className="text-destructive ml-0.5">*</span>}
                     </label>
                     <input disabled type={f.type === 'number' ? 'number' : 'text'} className={smallInput} placeholder={`(${f.field_key})`} />
                   </div>

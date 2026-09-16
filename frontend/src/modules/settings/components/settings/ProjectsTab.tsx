@@ -58,8 +58,8 @@ export default function ProjectsTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-sm truncate">{p.nombre}</p>
-                    <span className={`px-1.5 py-0.5 rounded text-secundario font-medium ${p.type === 'ia' ? 'bg-violet-100 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'}`}>{p.type}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-secundario font-medium ${p.active ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-secundario font-medium ${p.type === 'ia' ? 'bg-primary/10 text-primary' : 'bg-info-soft text-info-soft-foreground'}`}>{p.type}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-secundario font-medium ${p.active ? 'bg-success-soft text-success' : 'bg-destructive-soft text-destructive'}`}>
                       {p.active ? 'activo' : 'inactivo'}
                     </span>
                   </div>

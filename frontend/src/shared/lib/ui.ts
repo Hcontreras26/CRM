@@ -59,3 +59,29 @@ export function getInitials(name: string | null | undefined): string {
 
 export const inputClass =
   'w-full h-9 px-3 rounded-md border border-border bg-muted/50 text-sm outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-card placeholder:text-muted-foreground';
+
+/**
+ * Los colores con los que se distinguen los roles a medida (#31).
+ *
+ * **Segunda excepción a «todo con tokens», y por la misma razón que
+ * `AVATAR_COLORS`:** quien crea un rol elige un color para reconocerlo de un
+ * vistazo entre otros. No dice si el rol es bueno, peligroso ni informativo —
+ * dice «este es el mío».
+ *
+ * Pasarlos a tokens semánticos es justo lo que NO hay que hacer, y lo intenté:
+ * al migrar el bloque 7 del #34 convertí `rose` en `destructive` y `emerald` en
+ * `success`, y entonces un rol llamado «rose» se leía como un aviso de peligro
+ * y otro como algo que va bien. El color dejaba de significar «este» para
+ * significar otra cosa.
+ *
+ * Viven aquí, en un solo sitio, que es lo que sí se exige.
+ */
+export const ROLE_COLORS = {
+  rose: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+  violet: 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+  sky: 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
+  emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  amber: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+} as const;
+
+export type RoleColor = keyof typeof ROLE_COLORS;

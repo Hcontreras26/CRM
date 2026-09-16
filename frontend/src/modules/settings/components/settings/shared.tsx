@@ -29,9 +29,9 @@ export const TABS: SettingsTab[] = [
 ];
 
 export const ROLE_STYLES: Record<string, string> = {
-  superadmin: 'bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400',
-  soporte: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400',
-  admin: 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400',
+  superadmin: 'bg-primary/10 text-primary',
+  soporte: 'bg-success-soft text-success-soft-foreground',
+  admin: 'bg-info-soft text-info-soft-foreground',
   gestor: 'bg-muted text-muted-foreground',
 };
 

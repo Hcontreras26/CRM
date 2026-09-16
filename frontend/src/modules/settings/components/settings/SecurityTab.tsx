@@ -22,15 +22,15 @@ export default function SecurityTab() {
         {ITEMS.map((s) => (
           <div key={s.label} className="bg-card p-4 rounded-lg border border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-50 dark:bg-emerald-950/30">
-                <ShieldCheck size={16} className="text-emerald-600" weight="regular" />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-success-soft">
+                <ShieldCheck size={16} className="text-success" weight="regular" />
               </div>
               <div>
                 <p className="text-normal font-semibold">{s.label}</p>
                 <p className="text-secundario text-muted-foreground">{s.value}</p>
               </div>
             </div>
-            <span className="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 px-2.5 py-1 rounded-full text-secundario font-medium">OK</span>
+            <span className="bg-success-soft text-success-soft-foreground px-2.5 py-1 rounded-full text-secundario font-medium">OK</span>
           </div>
         ))}
       </div>

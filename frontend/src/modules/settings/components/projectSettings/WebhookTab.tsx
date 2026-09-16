@@ -50,7 +50,7 @@ export default function WebhookTab({ project }) {
           <div className="flex gap-2">
             <input readOnly value={url} className={inputClass + ' font-mono text-xs'} />
             <button onClick={() => doCopy(url, 'url')} className="h-10 px-3 rounded-lg border border-border bg-card text-xs font-semibold hover:bg-muted flex items-center gap-1">
-              {copied === 'url' ? <CheckCircle size={12} weight="bold" className="text-green-600" /> : <Copy size={12} />} Copiar
+              {copied === 'url' ? <CheckCircle size={12} weight="bold" className="text-success" /> : <Copy size={12} />} Copiar
             </button>
           </div>
         </div>
@@ -62,9 +62,9 @@ export default function WebhookTab({ project }) {
               {revealed ? <EyeSlash size={14} /> : <Eye size={14} />}
             </button>
             <button onClick={() => doCopy(apiKey, 'key')} className="h-10 px-3 rounded-lg border border-border bg-card text-xs font-semibold hover:bg-muted flex items-center gap-1">
-              {copied === 'key' ? <CheckCircle size={12} weight="bold" className="text-green-600" /> : <Copy size={12} />} Copiar
+              {copied === 'key' ? <CheckCircle size={12} weight="bold" className="text-success" /> : <Copy size={12} />} Copiar
             </button>
-            <button onClick={regenerate} className="h-10 px-3 rounded-lg bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 flex items-center gap-1">
+            <button onClick={regenerate} className="h-10 px-3 rounded-lg bg-destructive-soft text-destructive text-xs font-semibold hover:bg-destructive-soft flex items-center gap-1">
               <ArrowsClockwise size={14} weight="bold" /> Regenerar
             </button>
           </div>

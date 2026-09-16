@@ -13,15 +13,12 @@ import * as api from '../api/permissions.api';
 import type { CustomRole, SystemDefaults } from '../api/permissions.api';
 import { toast } from '@/shared/hooks/useToast';
 
-type RoleColor = 'rose' | 'violet' | 'sky' | 'emerald' | 'amber';
+// Los colores de un rol son IDENTIDAD, no semántica: quien lo crea elige uno
+// para reconocerlo entre otros. Viven en `shared/lib/ui` junto a los de avatar,
+// que es la misma excepción y el mismo sitio único.
+import { ROLE_COLORS, type RoleColor } from '@/shared/lib/ui';
 
-const COLOR_BG: Record<RoleColor, string> = {
-  rose:    'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
-  violet:  'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
-  sky:     'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
-  emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-  amber:   'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-};
+const COLOR_BG: Record<RoleColor, string> = ROLE_COLORS;
 
 // Las cuatro acciones que llevan columna propia; el resto van a «Otros».
 // Es el vocabulario del backend: `view`/`edit`, no `read`/`update`.
@@ -106,11 +103,11 @@ export default function RolesPage() {
       />
 
       {customRolesAvailable === false && (
-        <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200">
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-warning/30 bg-warning-soft text-warning-soft-foreground">
           <Warning size={20} weight="bold" className="flex-shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="font-semibold">Roles custom no disponibles aún</p>
-            <p className="text-xs mt-0.5 text-amber-800 dark:text-amber-300">
+            <p className="text-xs mt-0.5 text-warning-soft-foreground">
               El backend de roles personalizados (CRM-228) está en otra rama y aún no se ha mergeado.
               Mientras tanto puedes ver los 4 roles fijos del sistema y la matriz de permisos por defecto.
             </p>
@@ -241,7 +238,7 @@ export default function RolesPage() {
                             <td key={a} className="py-2 px-2 text-center">
                               {res.actions.includes(a) ? (
                                 has(a) ? (
-                                  <CheckCircle size={16} weight="fill" className="inline text-emerald-500" />
+                                  <CheckCircle size={16} weight="fill" className="inline text-success" />
                                 ) : (
                                   <Circle size={16} className="inline text-muted-foreground/40" />
                                 )
@@ -252,7 +249,7 @@ export default function RolesPage() {
                           ))}
                           <td className="py-2 px-2 text-center text-[11px] text-muted-foreground">
                             {others.length === 0 ? '—' : others.map((a) => (
-                              <span key={a} className={`inline-block px-1.5 mx-0.5 rounded ${has(a) ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted/40'}`}>
+                              <span key={a} className={`inline-block px-1.5 mx-0.5 rounded ${has(a) ? 'bg-success/15 text-success-soft-foreground' : 'bg-muted/40'}`}>
                                 {a}
                               </span>
                             ))}
@@ -279,7 +276,7 @@ export default function RolesPage() {
                           <div key={a} className="flex items-center gap-1.5">
                             {res.actions.includes(a) ? (
                               has(a) ? (
-                                <CheckCircle size={14} weight="fill" className="text-emerald-500 flex-shrink-0" />
+                                <CheckCircle size={14} weight="fill" className="text-success flex-shrink-0" />
                               ) : (
                                 <Circle size={14} className="text-muted-foreground/40 flex-shrink-0" />
                               )
@@ -293,7 +290,7 @@ export default function RolesPage() {
                       {others.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/50 flex flex-wrap gap-1">
                           {others.map((a) => (
-                            <span key={a} className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${has(a) ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted/40 text-muted-foreground'}`}>
+                            <span key={a} className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${has(a) ? 'bg-success/15 text-success-soft-foreground' : 'bg-muted/40 text-muted-foreground'}`}>
                               {a}
                             </span>
                           ))}

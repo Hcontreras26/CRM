@@ -145,14 +145,14 @@ export default function CategoriesTab({ project }) {
                     </span>
                   )}
                 </div>
-                <button onClick={() => handleDelete(p.id)} aria-label="Eliminar" className="p-1 rounded hover:bg-red-50 text-red-500"><X size={14} /></button>
+                <button onClick={() => handleDelete(p.id)} aria-label="Eliminar" className="p-1 rounded hover:bg-destructive-soft text-destructive"><X size={14} /></button>
               </div>
               {childrenByParent[p.id]?.length > 0 && (
                 <div className="mt-2 ml-5 space-y-1 border-l border-border pl-3">
                   {childrenByParent[p.id].map(c => (
                     <div key={c.id} className="flex items-center justify-between text-sm text-muted-foreground">
                       <span>— {c.nombre}</span>
-                      <button onClick={() => handleDelete(c.id)} aria-label="Eliminar" className="p-0.5 rounded hover:bg-red-50 text-red-500"><X size={12} /></button>
+                      <button onClick={() => handleDelete(c.id)} aria-label="Eliminar" className="p-0.5 rounded hover:bg-destructive-soft text-destructive"><X size={12} /></button>
                     </div>
                   ))}
                 </div>

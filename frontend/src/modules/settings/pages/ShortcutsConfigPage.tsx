@@ -179,7 +179,7 @@ export default function ShortcutsConfigPage() {
       <div className="space-y-6 pb-8">
         <PageHeader title="Atajos rápidos" backTo="/configuracion" backLabel="Configuración" subtitle="Acciones rápidas configurables por proyecto" />
         <div className="bg-card border border-border rounded-xl p-8 flex items-start gap-4">
-          <ShieldWarning size={28} className="text-amber-500 shrink-0" />
+          <ShieldWarning size={28} className="text-warning shrink-0" />
           <div>
             <h2 className="font-semibold">Acceso restringido</h2>
             <p className="text-sm text-muted-foreground mt-1">
@@ -201,7 +201,7 @@ export default function ShortcutsConfigPage() {
       />
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl p-4 text-sm text-red-700 dark:text-red-400">
+        <div className="bg-destructive-soft border border-destructive/30/50 rounded-xl p-4 text-sm text-destructive-soft-foreground">
           {error}
         </div>
       )}
@@ -276,7 +276,7 @@ export default function ShortcutsConfigPage() {
                               );
                             })}
                             {showAll && (
-                              <span className="text-secundario text-emerald-600 dark:text-emerald-400 ml-1">todos</span>
+                              <span className="text-secundario text-success ml-1">todos</span>
                             )}
                           </div>
                         )}
@@ -286,7 +286,7 @@ export default function ShortcutsConfigPage() {
                 </ul>
                 <div className="px-4 py-3 border-t border-border bg-muted/20 flex items-center justify-end gap-2">
                   {isDirty && !isSaving && (
-                    <span className="text-secundario text-amber-600 dark:text-amber-400">Cambios sin guardar</span>
+                    <span className="text-secundario text-warning">Cambios sin guardar</span>
                   )}
                   <button
                     type="button"
@@ -312,7 +312,7 @@ export default function ShortcutsConfigPage() {
       )}
 
       <section className="bg-muted/40 border border-border rounded-xl p-5 flex items-start gap-3">
-        <Check size={18} weight="regular" className="text-emerald-500 flex-shrink-0 mt-0.5" />
+        <Check size={18} weight="regular" className="text-success flex-shrink-0 mt-0.5" />
         <div className="text-sm text-muted-foreground space-y-1.5">
           <p className="font-semibold text-foreground">Cómo aparecen</p>
           <p>

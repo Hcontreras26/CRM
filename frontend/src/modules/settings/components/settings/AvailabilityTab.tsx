@@ -20,8 +20,8 @@ export default function AvailabilityTab() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-md p-3 text-xs flex items-start gap-2">
-        <CalendarBlank size={16} className="text-violet-600 flex-shrink-0 mt-0.5" weight="duotone" />
+      <div className="bg-info-soft border border-info/30 rounded-md p-3 text-xs flex items-start gap-2">
+        <CalendarBlank size={16} className="text-primary flex-shrink-0 mt-0.5" weight="duotone" />
         <div>
           <p className="font-semibold text-foreground">Disponibilidad para el reparto</p>
           <p className="text-muted-foreground">
@@ -32,11 +32,11 @@ export default function AvailabilityTab() {
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-3 text-xs flex items-start gap-2">
-          <WarningCircle size={15} weight="duotone" className="text-red-500 flex-shrink-0 mt-px" />
+        <div className="rounded-md border border-destructive/30 bg-destructive-soft p-3 text-xs flex items-start gap-2">
+          <WarningCircle size={15} weight="duotone" className="text-destructive flex-shrink-0 mt-px" />
           <div className="flex-1">
-            <p className="text-red-700 dark:text-red-300">{error}</p>
-            <button onClick={recargar} className="mt-1 font-semibold text-red-700 dark:text-red-300 underline">
+            <p className="text-destructive-soft-foreground">{error}</p>
+            <button onClick={recargar} className="mt-1 font-semibold text-destructive-soft-foreground underline">
               Reintentar
             </button>
           </div>
@@ -62,12 +62,12 @@ export default function AvailabilityTab() {
                       {ROLE_LABELS[u.role] || u.role}
                     </span>
                     {!u.active && (
-                      <span className="text-secundario px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400">
+                      <span className="text-secundario px-1.5 py-0.5 rounded bg-destructive-soft text-destructive-soft-foreground">
                         Inactivo
                       </span>
                     )}
                     {bloqueado && (
-                      <span className="text-secundario px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 inline-flex items-center gap-1">
+                      <span className="text-secundario px-1.5 py-0.5 rounded bg-warning-soft text-warning-soft-foreground inline-flex items-center gap-1">
                         <Clock size={10} weight="bold" />
                         Ausente hasta {formatFecha(u.bloque_activo!.fecha_fin)}
                       </span>
@@ -75,15 +75,15 @@ export default function AvailabilityTab() {
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                   {!u.is_available && u.unavailable_reason && (
-                    <p className="text-secundario text-amber-700 dark:text-amber-400 mt-0.5">Motivo: {u.unavailable_reason}</p>
+                    <p className="text-secundario text-warning-soft-foreground mt-0.5">Motivo: {u.unavailable_reason}</p>
                   )}
                 </div>
 
                 <span
                   className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md text-xs font-semibold border ${
                     u.is_available
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800'
-                      : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800'
+                      ? 'bg-success-soft text-success-soft-foreground border-success/30'
+                      : 'bg-destructive-soft text-destructive-soft-foreground border-destructive/30'
                   }`}
                 >
                   {u.is_available

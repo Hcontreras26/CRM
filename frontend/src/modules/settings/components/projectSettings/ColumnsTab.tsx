@@ -163,7 +163,7 @@ export default function ColumnsTab({ project, onSaved }) {
               <input type="checkbox" checked={c.visible} onChange={() => toggle(idx)} />
               Visible
             </label>
-            <button onClick={() => remove(idx)} className="p-1.5 rounded hover:bg-red-50 text-red-500" title="Quitar"><X size={14} /></button>
+            <button onClick={() => remove(idx)} className="p-1.5 rounded hover:bg-destructive-soft text-destructive" title="Quitar"><X size={14} /></button>
           </div>
         ))}
       </div>

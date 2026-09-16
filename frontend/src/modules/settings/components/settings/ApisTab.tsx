@@ -116,16 +116,16 @@ function CredentialCard({ service, projectName, credential, onConfigure, onTest,
         <>
           <span className={`px-2.5 py-1 rounded-full text-secundario font-medium ${
             credential.last_test_result === 'ok'
-              ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400'
-              : 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400'
+              ? 'bg-success-soft text-success-soft-foreground'
+              : 'bg-warning-soft text-warning-soft-foreground'
           }`}>{credential.last_test_result || 'sin probar'}</span>
-          <button onClick={onTest} className="px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 text-xs font-semibold">Test</button>
+          <button onClick={onTest} className="px-3 py-1.5 rounded-lg bg-info-soft text-info text-xs font-semibold">Test</button>
           <button onClick={onConfigure} className="px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold hover:bg-muted">Editar</button>
-          <button onClick={onDelete} aria-label="Eliminar credencial" className="p-2 rounded-lg hover:bg-red-50 text-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/40"><X size={14} /></button>
+          <button onClick={onDelete} aria-label="Eliminar credencial" className="p-2 rounded-lg hover:bg-destructive-soft text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/40"><X size={14} /></button>
         </>
       ) : (
         <>
-          <span className="px-2.5 py-1 rounded-full text-secundario font-medium bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">sin configurar</span>
+          <span className="px-2.5 py-1 rounded-full text-secundario font-medium bg-warning-soft text-warning-soft-foreground">sin configurar</span>
           <button onClick={onConfigure} className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90">Configurar</button>
         </>
       )}
