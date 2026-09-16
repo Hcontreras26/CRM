@@ -15,15 +15,15 @@ import {
 } from 'recharts';
 
 export const STATUS_STYLES_META: Record<MetaStatus, string> = {
-  ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  PAUSED: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
+  ACTIVE: 'bg-success-soft text-success-soft-foreground',
+  PAUSED: 'bg-warning-soft text-warning-soft-foreground',
   COMPLETED: 'bg-muted text-muted-foreground',
 };
 export const STATUS_LABEL_META: Record<MetaStatus, string> = { ACTIVE: 'Activa', PAUSED: 'Pausada', COMPLETED: 'Finalizada' };
 
 export const STATUS_STYLES_GOOGLE: Record<GoogleStatus, string> = {
-  ENABLED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-  PAUSED: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
+  ENABLED: 'bg-success-soft text-success-soft-foreground',
+  PAUSED: 'bg-warning-soft text-warning-soft-foreground',
   REMOVED: 'bg-muted text-muted-foreground',
 };
 export const STATUS_LABEL_GOOGLE: Record<GoogleStatus, string> = { ENABLED: 'Activa', PAUSED: 'Pausada', REMOVED: 'Eliminada' };
@@ -184,7 +184,7 @@ function PlatformRow({ icon: Icon, color, label, data }: { icon: Icon; color: st
       </div>
       <div>
         <div className="text-xs text-muted-foreground">CPA real</div>
-        <div className={`text-sm tabular-nums font-semibold ${data.cpaReal > CPA_ALERT_THRESHOLD ? 'text-red-600' : ''}`}>{fmtCpa(data.cpaReal)}</div>
+        <div className={`text-sm tabular-nums font-semibold ${data.cpaReal > CPA_ALERT_THRESHOLD ? 'text-destructive' : ''}`}>{fmtCpa(data.cpaReal)}</div>
       </div>
     </div>
   );
@@ -221,7 +221,7 @@ export function CampaignTable({ campaigns, statusStyles, statusLabel, getSubLabe
             {campaigns.map(c => {
               const cpaAlert = c.costPerCrmConversion > CPA_ALERT_THRESHOLD;
               return (
-                <tr key={c.campaignId} className={`border-b last:border-0 hover:bg-muted/30 ${cpaAlert ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}>
+                <tr key={c.campaignId} className={`border-b last:border-0 hover:bg-muted/30 ${cpaAlert ? 'bg-destructive-soft/40' : ''}`}>
                   <td className="px-4 py-3">
                     <div className="font-semibold truncate max-w-[280px]">{c.campaignName}</div>
                     <div className="text-[10px] text-muted-foreground">{getSubLabel(c)}</div>
@@ -236,7 +236,7 @@ export function CampaignTable({ campaigns, statusStyles, statusLabel, getSubLabe
                   <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{fmtCpa(c.metrics.cpc)}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{c.crmLeadCount}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{c.crmConversionCount}</td>
-                  <td className={`px-4 py-3 text-right tabular-nums font-semibold ${cpaAlert ? 'text-red-600' : ''}`}>
+                  <td className={`px-4 py-3 text-right tabular-nums font-semibold ${cpaAlert ? 'text-destructive' : ''}`}>
                     {cpaAlert && <WarningCircle size={12} weight="fill" className="inline mr-1" />}
                     {fmtCpa(c.costPerCrmConversion)}
                   </td>
@@ -251,7 +251,7 @@ export function CampaignTable({ campaigns, statusStyles, statusLabel, getSubLabe
         {campaigns.map(c => {
           const cpaAlert = c.costPerCrmConversion > CPA_ALERT_THRESHOLD;
           return (
-            <div key={c.campaignId} className={`p-4 space-y-2.5 ${cpaAlert ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}>
+            <div key={c.campaignId} className={`p-4 space-y-2.5 ${cpaAlert ? 'bg-destructive-soft/40' : ''}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="font-semibold truncate">{c.campaignName}</div>
@@ -272,7 +272,7 @@ export function CampaignTable({ campaigns, statusStyles, statusLabel, getSubLabe
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">CPA real</div>
-                  <div className={`tabular-nums font-semibold ${cpaAlert ? 'text-red-600' : ''}`}>
+                  <div className={`tabular-nums font-semibold ${cpaAlert ? 'text-destructive' : ''}`}>
                     {cpaAlert && <WarningCircle size={11} weight="fill" className="inline mr-0.5" />}
                     {fmtCpa(c.costPerCrmConversion)}
                   </div>
@@ -296,8 +296,8 @@ export function CampaignTable({ campaigns, statusStyles, statusLabel, getSubLabe
 export function ErrorState({ message }: { message: string }) {
   return (
     <div className="p-8 text-center text-sm">
-      <WarningCircle size={28} className="text-red-500 mx-auto mb-2" weight="regular" />
-      <p className="text-red-600 font-semibold mb-1">No se pudieron cargar las campanas</p>
+      <WarningCircle size={28} className="text-destructive mx-auto mb-2" weight="regular" />
+      <p className="text-destructive font-semibold mb-1">No se pudieron cargar las campanas</p>
       <p className="text-xs text-muted-foreground">{message}</p>
     </div>
   );
@@ -334,9 +334,9 @@ export function KeywordsTable({ keywords }: { keywords?: GoogleKeyword[] | null 
                 <td className="px-4 py-3 text-right tabular-nums">{fmtCpa(k.cpc)}</td>
                 <td className="px-4 py-3 text-right">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                    k.qualityScore >= 8 ? 'bg-emerald-100 text-emerald-700' :
-                    k.qualityScore >= 5 ? 'bg-amber-100 text-amber-700' :
-                    'bg-red-100 text-red-700'
+                    k.qualityScore >= 8 ? 'bg-success-soft text-success-soft-foreground' :
+                    k.qualityScore >= 5 ? 'bg-warning-soft text-warning-soft-foreground' :
+                    'bg-destructive-soft text-destructive-soft-foreground'
                   }`}>{k.qualityScore}/10</span>
                 </td>
               </tr>
@@ -350,8 +350,8 @@ export function KeywordsTable({ keywords }: { keywords?: GoogleKeyword[] | null 
             <div className="flex items-start justify-between gap-2">
               <div className="font-medium text-sm truncate">{k.keyword}</div>
               <span className={`px-2 py-0.5 rounded text-[10px] font-semibold flex-shrink-0 ${
-                k.qualityScore >= 8 ? 'bg-emerald-100 text-emerald-700' :
-                k.qualityScore >= 5 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                k.qualityScore >= 8 ? 'bg-success-soft text-success-soft-foreground' :
+                k.qualityScore >= 5 ? 'bg-warning-soft text-warning-soft-foreground' : 'bg-destructive-soft text-destructive-soft-foreground'
               }`}>QS {k.qualityScore}/10</span>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">

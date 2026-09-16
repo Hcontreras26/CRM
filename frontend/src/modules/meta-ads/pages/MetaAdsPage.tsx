@@ -21,9 +21,9 @@ function fmtDate(d?: string | null) {
 }
 
 const STATUS_TONE: Record<string, string> = {
-  ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-  PAUSED: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  DELETED: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+  ACTIVE: 'bg-success-soft text-success-soft-foreground',
+  PAUSED: 'bg-muted text-muted-foreground',
+  DELETED: 'bg-destructive-soft text-destructive-soft-foreground',
   ARCHIVED: 'bg-muted text-muted-foreground',
 };
 
@@ -121,7 +121,7 @@ export default function MetaAdsPage() {
   // Estados de página
   if (!projectId || projectId === -1) {
     return (
-      <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-6 text-center text-sm text-amber-800 dark:text-amber-300">
+      <div className="bg-warning-soft border border-warning/30 rounded-lg p-6 text-center text-sm text-warning-soft-foreground">
         Selecciona un proyecto en la barra superior.
       </div>
     );
@@ -155,7 +155,7 @@ export default function MetaAdsPage() {
       {/* Header con selector de cuenta (cuando hay >1) + info + acciones */}
       <div className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="w-10 h-10 rounded-md bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-md bg-info-soft text-info flex items-center justify-center flex-shrink-0">
             <PlugsConnected size={20} weight="duotone" />
           </div>
           <div className="min-w-0 flex-1">
@@ -186,13 +186,13 @@ export default function MetaAdsPage() {
                 <>
                   {account.ad_account_id} · {account.currency || '—'} ·{' '}
                   Última sync: {fmtDate(account.last_synced_at)}{' '}
-                  {account.last_sync_status === 'in_progress' && <span className="text-amber-600">(en progreso…)</span>}
-                  {account.last_sync_status === 'error' && <span className="text-red-600">(error)</span>}
+                  {account.last_sync_status === 'in_progress' && <span className="text-warning">(en progreso…)</span>}
+                  {account.last_sync_status === 'error' && <span className="text-destructive">(error)</span>}
                 </>
               )}
             </p>
             {!(filterAccountId == null && accounts.length > 1) && account.last_sync_error && (
-              <p className="text-[11px] text-red-600 mt-0.5" title={account.last_sync_error}>
+              <p className="text-[11px] text-destructive mt-0.5" title={account.last_sync_error}>
                 <Warning size={11} className="inline mr-0.5" />
                 Motivo: {account.last_sync_error}
               </p>
@@ -272,7 +272,7 @@ export default function MetaAdsPage() {
       {tab !== 'config' && tab !== 'manual' && dashboard && dashboard.daily.length > 0 && (
         <div className="bg-card border border-border rounded-lg p-4">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <ChartLineUp size={16} weight="duotone" className="text-blue-600" />
+            <ChartLineUp size={16} weight="duotone" className="text-info" />
             Evolución diaria
           </h3>
           <DailyChart daily={dashboard.daily} currency={currency} />
@@ -402,10 +402,10 @@ export default function MetaAdsPage() {
 
 function KpiCard({ icon: Icon, label, value, hint, tone = 'blue' }: { icon: any; label: string; value: string; hint?: string; tone?: string }) {
   const toneMap: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400',
-    emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400',
-    amber: 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400',
-    violet: 'bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400',
+    blue: 'bg-info-soft text-info-soft-foreground',
+    emerald: 'bg-success-soft text-success-soft-foreground',
+    amber: 'bg-warning-soft text-warning-soft-foreground',
+    violet: 'bg-primary/10 text-primary',
   };
   return (
     <div className="bg-card border border-border rounded-lg p-4">
@@ -432,8 +432,8 @@ function DailyChart({ daily, currency }: { daily: MetaDashboard['daily']; curren
         return (
           <div key={d.date} className="flex flex-col items-center gap-1 min-w-[24px] group relative">
             <div className="flex items-end gap-0.5 h-24">
-              <div className="w-2.5 bg-violet-400 rounded-t" style={{ height: `${hSpend}%` }} title={`Gasto: ${fmtMoney(d.spend, currency)}`} />
-              <div className="w-2.5 bg-emerald-400 rounded-t" style={{ height: `${hLeads}%` }} title={`Leads: ${d.leads}`} />
+              <div className="w-2.5 bg-primary rounded-t" style={{ height: `${hSpend}%` }} title={`Gasto: ${fmtMoney(d.spend, currency)}`} />
+              <div className="w-2.5 bg-success rounded-t" style={{ height: `${hLeads}%` }} title={`Leads: ${d.leads}`} />
             </div>
             <span className="text-[9px] text-muted-foreground rotate-45 origin-left">{d.date.slice(5)}</span>
             <div className="absolute bottom-full mb-1 hidden group-hover:block bg-popover border border-border rounded p-2 text-[10px] shadow-lg z-10 whitespace-nowrap">
@@ -504,7 +504,7 @@ function CampaignRow({ c, projectId, currency, dateFrom, dateTo, onAssociate, on
         </td>
         <td className="px-3 py-2.5 text-right tabular-nums text-xs"
           title="Leads que entraron al CRM con la UTM de esta campaña. Meta solo cuenta los de su propio formulario.">
-          <span className={c.leads_crm ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}>
+          <span className={c.leads_crm ? 'font-semibold text-success' : 'text-muted-foreground'}>
             {fmtNum(c.leads_crm || 0)}
           </span><br />
           <span className="text-muted-foreground">{c.cpl_crm != null ? fmtMoney(c.cpl_crm, currency) : '—'}</span>
@@ -674,14 +674,14 @@ function ProductsViewTable({ rows, currency }: { rows: any[]; currency: string }
         </thead>
         <tbody>
           {rows.map((r) => {
-            const roiTone = r.roi_pct == null ? '' : r.roi_pct >= 0 ? 'text-emerald-600' : 'text-red-600';
+            const roiTone = r.roi_pct == null ? '' : r.roi_pct >= 0 ? 'text-success' : 'text-destructive';
             return (
               <tr key={r.product_id} className="border-t border-border hover:bg-muted/30 align-top">
                 <td className="px-4 py-2.5">
                   <p className="font-medium truncate max-w-xs" title={r.producto_nombre}>{r.producto_nombre}</p>
                   <p className="text-[10px] text-muted-foreground">
                     {r.producto_precio != null && `${fmtMoney(r.producto_precio, currency)} · `}
-                    {r.producto_activo ? <span className="text-emerald-600">activo</span> : <span>inactivo</span>}
+                    {r.producto_activo ? <span className="text-success">activo</span> : <span>inactivo</span>}
                   </p>
                 </td>
                 <td className="px-3 py-2.5 text-xs">
@@ -716,14 +716,14 @@ function ProductLinks({ links }: { links: Array<{ scope: string; id: string; nam
     <div className="space-y-1">
       {camp.map((l) => (
         <div key={l.id} className="flex items-center gap-1.5">
-          <span className="text-[9px] px-1 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-semibold">Camp</span>
+          <span className="text-[9px] px-1 py-0.5 rounded bg-info-soft text-info-soft-foreground font-semibold">Camp</span>
           <span className="truncate max-w-xs" title={l.name}>{l.name}</span>
           {l.status && <span className={`text-[9px] px-1 py-0.5 rounded ${STATUS_TONE[l.status] || 'bg-muted'}`}>{l.status}</span>}
         </div>
       ))}
       {ads.map((l) => (
         <div key={l.id} className="flex items-center gap-1.5">
-          <span className="text-[9px] px-1 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 font-semibold">AdSet</span>
+          <span className="text-[9px] px-1 py-0.5 rounded bg-info-soft text-info-soft-foreground font-semibold">AdSet</span>
           <span className="truncate max-w-xs" title={l.name}>{l.name}</span>
           {l.status && <span className={`text-[9px] px-1 py-0.5 rounded ${STATUS_TONE[l.status] || 'bg-muted'}`}>{l.status}</span>}
         </div>
@@ -756,7 +756,7 @@ function RoiTable({ rows, currency }: { rows: MetaRoiRow[]; currency: string }) 
         </thead>
         <tbody>
           {rows.map((r) => {
-            const roiTone = r.roi_pct == null ? '' : r.roi_pct >= 0 ? 'text-emerald-600' : 'text-red-600';
+            const roiTone = r.roi_pct == null ? '' : r.roi_pct >= 0 ? 'text-success' : 'text-destructive';
             return (
               <tr key={r.campaign_id} className="border-t border-border hover:bg-muted/30">
                 <td className="px-4 py-2.5">

@@ -10,7 +10,7 @@ export default function MetaManual() {
   return (
     <div className="p-5 space-y-5 text-sm max-w-4xl">
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-md bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 flex items-center justify-center flex-shrink-0">
+        <div className="w-9 h-9 rounded-md bg-info-soft text-info-soft-foreground flex items-center justify-center flex-shrink-0">
           <Book size={18} weight="duotone" />
         </div>
         <div>
@@ -137,9 +137,9 @@ export default function MetaManual() {
 
 function Section({ title, icon: Icon, tone = 'blue', children }: { title: string; icon: any; tone?: 'blue'|'amber'|'emerald'; children: React.ReactNode }) {
   const toneMap = {
-    blue: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-    amber: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-    emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+    blue: 'bg-info-soft text-info-soft-foreground',
+    amber: 'bg-warning-soft text-warning-soft-foreground',
+    emerald: 'bg-success-soft text-success-soft-foreground',
   };
   return (
     <details open className="bg-card border border-border rounded-lg overflow-hidden">
@@ -158,9 +158,9 @@ function Section({ title, icon: Icon, tone = 'blue', children }: { title: string
 
 function Limit({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <div className="border-l-2 border-amber-300 dark:border-amber-800 pl-3 py-1 mb-2.5">
+    <div className="border-l-2 border-warning/30 pl-3 py-1 mb-2.5">
       <p className="font-semibold text-xs">
-        <span className="text-amber-700 dark:text-amber-400">#{n}</span> · {title}
+        <span className="text-warning-soft-foreground">#{n}</span> · {title}
       </p>
       <p className="text-xs text-muted-foreground mt-0.5">{children}</p>
     </div>

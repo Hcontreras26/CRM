@@ -51,7 +51,7 @@ export default function ConnectWizard({ projectId, projectName, onConnected }: P
 
       <details className="border border-border rounded-lg" open>
         <summary className="px-4 py-3 cursor-pointer text-sm font-semibold flex items-center gap-2">
-          <Info size={16} weight="duotone" className="text-blue-600" />
+          <Info size={16} weight="duotone" className="text-info" />
           ¿Cómo obtener el Access Token y el Ad Account ID? (paso a paso)
         </summary>
         <div className="px-4 pb-4 text-sm space-y-3 border-t border-border pt-3 leading-relaxed">
@@ -75,8 +75,8 @@ export default function ConnectWizard({ projectId, projectName, onConnected }: P
               <li>Selecciona <strong>Caducidad: Nunca</strong>. Pulsa <strong>Generar</strong> y copia el token (no se vuelve a mostrar).</li>
             </ol>
           </div>
-          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded p-3 text-xs">
-            <Warning size={14} className="inline mr-1 text-amber-600" />
+          <div className="bg-warning-soft border border-warning/30 rounded p-3 text-xs">
+            <Warning size={14} className="inline mr-1 text-warning" />
             El token es sensible: se guarda <strong>cifrado AES-256</strong> en la base de datos. Solo admin/superadmin puede acceder a esta pantalla.
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function ConnectWizard({ projectId, projectName, onConnected }: P
       </div>
 
       {testResult && (
-        <div className={`rounded-md p-3 text-sm ${testResult.ok ? 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300' : 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-800 dark:text-red-300'}`}>
+        <div className={`rounded-md p-3 text-sm ${testResult.ok ? 'bg-success-soft border border-success/30 text-success-soft-foreground' : 'bg-destructive-soft border border-destructive/30 text-destructive-soft-foreground'}`}>
           {testResult.ok ? (
             <>
               <CheckCircle size={16} weight="duotone" className="inline mr-1.5" />

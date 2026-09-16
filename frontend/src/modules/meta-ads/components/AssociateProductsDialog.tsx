@@ -97,7 +97,7 @@ export default function AssociateProductsDialog({ open, projectId, scope: scopeP
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
         <div role="dialog" aria-modal="true" className="relative bg-card rounded-lg border border-border w-full max-w-lg flex flex-col max-h-[85vh]">
           <div className="px-5 py-4 border-b border-border flex items-start gap-3">
-            <div className="w-9 h-9 rounded-md bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-md bg-info-soft text-info-soft-foreground flex items-center justify-center flex-shrink-0">
               <Package size={18} weight="duotone" />
             </div>
             <div className="min-w-0 flex-1">

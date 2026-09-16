@@ -376,7 +376,7 @@ export default function ReportsDownloadSection({ projectId, issuerId, projectNam
                   {preview.rows.slice(0, 50).map((row, i) => (
                     <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30">
                       {preview.report.cols.map((c) => (
-                        <td key={c.k} className={`px-3 py-1.5 whitespace-nowrap ${c.t === 'number' ? 'text-right tabular-nums' : ''} ${SIN_ASIGNAR.has(c.k) && (row[c.k] == null || row[c.k] === '') ? 'text-amber-600 dark:text-amber-500 italic' : ''}`}>
+                        <td key={c.k} className={`px-3 py-1.5 whitespace-nowrap ${c.t === 'number' ? 'text-right tabular-nums' : ''} ${SIN_ASIGNAR.has(c.k) && (row[c.k] == null || row[c.k] === '') ? 'text-warning italic' : ''}`}>
                           {cellText(c, row)}
                         </td>
                       ))}
