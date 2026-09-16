@@ -291,7 +291,7 @@ export default function TutoresPage() {
         <div className="text-[11px] text-muted-foreground font-semibold mt-0.5">retirado</div>
       )}
       {t.pendiente_de_entrar && (
-        <div className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold mt-0.5">
+        <div className="text-[11px] text-warning-soft-foreground font-semibold mt-0.5">
           aún no ha entrado
         </div>
       )}
@@ -758,7 +758,7 @@ export default function TutoresPage() {
                           )}
                           <td className="py-2 px-3">
                             {c.rige_hoy ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
                                 <CheckCircle size={13} weight="fill" /> vigente
                               </span>
                             ) : (
@@ -816,7 +816,7 @@ export default function TutoresPage() {
                             {!c.activa && editando !== c.id && (
                               <button type="button" onClick={() => alternarColab(c)}
                                 disabled={procesando}
-                                className="text-xs font-semibold inline-flex items-center gap-1 mr-3 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
+                                className="text-xs font-semibold inline-flex items-center gap-1 mr-3 text-success hover:text-success-soft-foreground">
                                 <ArrowsClockwise size={13} weight="bold" />
                                 Reactivar
                               </button>
@@ -834,7 +834,7 @@ export default function TutoresPage() {
                             )}
                             <button type="button" onClick={() => quitar(c)}
                               className={`text-xs font-semibold inline-flex items-center gap-1 ${
-                                borrando === c.id ? 'text-red-600' : 'text-muted-foreground hover:text-foreground'
+                                borrando === c.id ? 'text-destructive' : 'text-muted-foreground hover:text-foreground'
                               }`}>
                               <Trash size={13} weight="bold" />
                               {borrando === c.id ? '¿Seguro?' : 'Quitar'}
@@ -958,12 +958,12 @@ export default function TutoresPage() {
                 <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Quién es</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="mb-1.5 block px-1 text-secundario font-medium sm:col-span-2">
-                    Nombre y apellidos <span className="text-red-500">*</span>
+                    Nombre y apellidos <span className="text-destructive">*</span>
                     <input name="nombre" required autoFocus
                       className="mt-1 w-full h-9 px-3 rounded-md border border-border bg-background text-sm font-normal" />
                   </label>
                   <label className="mb-1.5 block px-1 text-secundario font-medium sm:col-span-2">
-                    Correo <span className="text-red-500">*</span>
+                    Correo <span className="text-destructive">*</span>
                     <input name="email" type="email" required
                       className="mt-1 w-full h-9 px-3 rounded-md border border-border bg-background text-sm font-normal" />
                     <span className="block text-[11px] text-muted-foreground font-normal mt-1">
@@ -1003,7 +1003,7 @@ export default function TutoresPage() {
                   </Button>
                   <Button type="button" variant="outline" size="sm" disabled={!contrasena}
                     onClick={() => { navigator.clipboard?.writeText(contrasena); setCopiada(true); }}>
-                    {copiada ? <CheckCircle size={14} weight="fill" className="text-emerald-600" /> : <Copy size={14} weight="bold" />}
+                    {copiada ? <CheckCircle size={14} weight="fill" className="text-success" /> : <Copy size={14} weight="bold" />}
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -1099,7 +1099,7 @@ export default function TutoresPage() {
                         </div>
                         <span className="tabular-nums font-semibold shrink-0">{c.pct} %</span>
                         <button type="button" aria-label="Quitar"
-                          className="text-muted-foreground hover:text-red-600 shrink-0"
+                          className="text-muted-foreground hover:text-destructive shrink-0"
                           onClick={() => setCursosAlta((prev) => prev.filter((x) => x.productId !== c.productId))}>
                           <Trash size={14} weight="bold" />
                         </button>
@@ -1116,7 +1116,7 @@ export default function TutoresPage() {
 
                 {ajustes && (
                   <p className="text-[11px] text-muted-foreground flex gap-1.5">
-                    <Warning size={13} weight="fill" className="text-amber-500 shrink-0 mt-0.5" />
+                    <Warning size={13} weight="fill" className="text-warning shrink-0 mt-0.5" />
                     <span>
                       Aunque pongas una fecha anterior, no se paga nada cobrado antes del{' '}
                       <strong className="tabular-nums">{enCastellano(String(ajustes.aplica_desde).slice(0, 10))}</strong>,
@@ -1188,7 +1188,7 @@ export default function TutoresPage() {
             </div>
 
             <p className="text-xs text-muted-foreground flex gap-1.5">
-              <Warning size={14} weight="fill" className="text-amber-500 shrink-0 mt-0.5" />
+              <Warning size={14} weight="fill" className="text-warning shrink-0 mt-0.5" />
               <span>
                 <strong>Desde</strong> es el día que empezó con esta formación, no el de hoy si ya llevaba
                 tiempo. Cobra los pagos a partir de esa fecha — y nunca antes del arranque general del módulo.
@@ -1226,11 +1226,11 @@ export default function TutoresPage() {
               </Button>
               <Button type="button" variant="outline" size="sm" aria-label="Copiar"
                 onClick={() => { navigator.clipboard?.writeText(claveNueva); setClaveCopiada(true); }}>
-                {claveCopiada ? <CheckCircle size={14} weight="fill" className="text-green-600" /> : <Copy size={14} weight="bold" />}
+                {claveCopiada ? <CheckCircle size={14} weight="fill" className="text-success" /> : <Copy size={14} weight="bold" />}
               </Button>
             </div>
             {claveNueva.length < 8 && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              <p className="text-[11px] text-warning">
                 Necesita al menos 8 caracteres.
               </p>
             )}

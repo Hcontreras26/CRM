@@ -193,7 +193,7 @@ export default function RulesDialog({ onClose, onSaved }: Props) {
                       className="w-20 h-9 px-2 rounded-lg border border-border bg-card text-sm text-right font-bold"
                     />
                     <span className="text-sm font-bold">%</span>
-                    <button onClick={() => handleDelete(r.id)} className="p-1.5 rounded hover:bg-red-50 text-red-500 opacity-0 group-hover:opacity-100">
+                    <button onClick={() => handleDelete(r.id)} className="p-1.5 rounded hover:bg-destructive-soft text-destructive opacity-0 group-hover:opacity-100">
                       <Trash size={14} />
                     </button>
                   </div>

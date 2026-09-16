@@ -205,11 +205,11 @@ export default function MisCursosPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <KpiCard icon={Coins} iconBg="bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+        <KpiCard icon={Coins} iconBg="bg-warning-soft text-warning-soft-foreground"
           label="Pendiente de cobro" value={euros(pendiente)} />
-        <KpiCard icon={Coins} iconBg="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+        <KpiCard icon={Coins} iconBg="bg-success-soft text-success-soft-foreground"
           label="Ya pagado este mes" value={euros(pagado)} />
-        <KpiCard icon={TrendUp} iconBg="bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+        <KpiCard icon={TrendUp} iconBg="bg-info-soft text-info-soft-foreground"
           label="Total acumulado" value={euros(totalHistorico)} />
       </div>
 
@@ -358,7 +358,7 @@ export default function MisCursosPage() {
               {ficha.brochure ? (
                 <button type="button" disabled={bajando} onClick={() => abrirBrochure(ficha.id)}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md border border-border hover:bg-muted/50 transition-colors text-left">
-                  <FilePdf size={20} weight="fill" className="text-red-600 shrink-0" />
+                  <FilePdf size={20} weight="fill" className="text-destructive shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate">{ficha.brochure.filename_original}</span>
                     <span className="block text-[11px] text-muted-foreground">
@@ -457,10 +457,10 @@ export default function MisCursosPage() {
                     <td className="py-2 px-4">
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
                         v.estado === 'pagada'
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          ? 'bg-success-soft text-success-soft-foreground'
                           : v.estado === 'revertida'
                             ? 'bg-muted text-muted-foreground'
-                            : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                            : 'bg-warning-soft text-warning-soft-foreground'
                       }`}>
                         {v.estado === 'pagada' ? 'pagada' : v.estado === 'revertida' ? 'devuelta' : 'pendiente'}
                       </span>

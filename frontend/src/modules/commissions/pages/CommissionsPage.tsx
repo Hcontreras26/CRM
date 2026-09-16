@@ -192,7 +192,7 @@ export default function CommissionsPage() {
                 onClick={() => setClosingMonth(true)}
                 aria-label="Cerrar mes"
                 title={`Cierra ${monthLabel(year, month)} para snapshot inmutable`}
-                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-950/60"
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-warning/30 bg-warning-soft text-warning-soft-foreground text-xs font-semibold hover:bg-warning-soft"
               >
                 <Lock size={14} weight="bold" /> <span className="hidden sm:inline">Cerrar mes</span>
               </button>
@@ -264,8 +264,8 @@ export default function CommissionsPage() {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard icon={ChartBar} label="Total generado" value={fmt(stats.total)} />
-          <KpiCard icon={CheckCircle} label="Pagado" value={fmt(stats.pagado)} iconBg="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400" />
-          <KpiCard icon={Clock} label="Pendiente" value={fmt(stats.pendiente)} iconBg="bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400" />
+          <KpiCard icon={CheckCircle} label="Pagado" value={fmt(stats.pagado)} iconBg="bg-success-soft text-success-soft-foreground" />
+          <KpiCard icon={Clock} label="Pendiente" value={fmt(stats.pendiente)} iconBg="bg-warning-soft text-warning-soft-foreground" />
           <KpiCard icon={CurrencyEur} label="Comisiones" value={stats.cantidad} />
         </div>
       )}
@@ -306,7 +306,7 @@ export default function CommissionsPage() {
               </button>
               <button
                 onClick={() => setBulkPay(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-success text-white text-xs font-semibold hover:bg-success"
               >
                 <CheckCircle size={12} weight="bold" /> Marcar todas como pagadas
               </button>
@@ -383,16 +383,16 @@ export default function CommissionsPage() {
                       <td className="px-4 py-3 text-right tabular-nums font-bold">{fmt(r.importe_comision)}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                          r.estado === 'pagado' ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' :
+                          r.estado === 'pagado' ? 'bg-success-soft text-success-soft-foreground' :
                           r.estado === 'cancelado' ? 'bg-muted text-muted-foreground' :
-                          'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400'
+                          'bg-warning-soft text-warning-soft-foreground'
                         }`}>{r.estado}</span>
                         {r.fecha_pago && <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(r.fecha_pago)}</p>}
                       </td>
                       {isAdmin && (
                         <td className="px-4 py-3 text-right">
                           {r.estado === 'pendiente' && Number(r.importe_comision) > 0 && (
-                            <button onClick={() => handlePay(r.id)} className="px-2 py-1 rounded bg-green-50 text-green-600 text-[11px] font-semibold hover:bg-green-100">
+                            <button onClick={() => handlePay(r.id)} className="px-2 py-1 rounded bg-success-soft text-success text-[11px] font-semibold hover:bg-success-soft">
                               Pagar
                             </button>
                           )}
@@ -414,9 +414,9 @@ export default function CommissionsPage() {
                       <div className="text-xs text-muted-foreground truncate">{r.product_nombre || r.producto_contratado || '—'}</div>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${
-                      r.estado === 'pagado' ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' :
+                      r.estado === 'pagado' ? 'bg-success-soft text-success-soft-foreground' :
                       r.estado === 'cancelado' ? 'bg-muted text-muted-foreground' :
-                      'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400'
+                      'bg-warning-soft text-warning-soft-foreground'
                     }`}>{r.estado}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm">
@@ -439,7 +439,7 @@ export default function CommissionsPage() {
                       {isAdmin && r.user_nombre && <span> · <span className="font-medium text-foreground">{r.user_nombre}</span></span>}
                     </div>
                     {isAdmin && r.estado === 'pendiente' && Number(r.importe_comision) > 0 && (
-                      <button onClick={() => handlePay(r.id)} className="px-2 py-1 rounded bg-green-50 text-green-600 text-[11px] font-semibold hover:bg-green-100 flex-shrink-0">
+                      <button onClick={() => handlePay(r.id)} className="px-2 py-1 rounded bg-success-soft text-success text-[11px] font-semibold hover:bg-success-soft flex-shrink-0">
                         Pagar
                       </button>
                     )}
