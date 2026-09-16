@@ -70,7 +70,7 @@ export default function LeadEmailsCard({ leadId, hasEmail, onCompose, refreshKey
       </div>
 
       {error && (
-        <div className="text-xs text-destructive bg-destructive-soft border border-destructive/30/50 rounded-md p-3">
+        <div className="text-xs text-destructive bg-destructive-soft border border-destructive/50 rounded-md p-3">
           {error}
         </div>
       )}

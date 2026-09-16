@@ -170,7 +170,7 @@ export default function InvoiceButton({ projectId, leadId, conversionId, items, 
     ? 'inline-flex items-center gap-1.5 h-9 px-3 rounded-md border text-sm font-semibold'
     : 'inline-flex items-center gap-1 h-7 px-2 rounded text-[11px] font-semibold border';
   const skin = (isDraft || incompleta)
-    ? 'border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300'
+    ? 'border-warning bg-warning-soft text-warning-soft-foreground hover:bg-warning-soft'
     : 'border-border bg-card hover:bg-muted';
 
   return (
@@ -216,7 +216,7 @@ export default function InvoiceButton({ projectId, leadId, conversionId, items, 
                   El siguiente libre es el <b>{sugerido}</b>. Puedes poner ese u otro.
                 </span>
               )}
-              <span className="block text-[11px] text-amber-700 dark:text-amber-300 mt-1.5">
+              <span className="block text-[11px] text-warning-soft-foreground mt-1.5">
                 ⚠ Comprueba la numeración en el Excel de facturación primero. Si hay discrepancia,
                 contacta con soporte; y si hace falta, genera {sinPago ? 'la proforma' : 'la factura'} manualmente y avisa.
               </span>
@@ -248,7 +248,7 @@ export default function InvoiceButton({ projectId, leadId, conversionId, items, 
                   El siguiente libre es el <b>{sugerido}</b>. Puedes poner ese u otro.
                 </span>
               )}
-              <span className="block text-[11px] text-amber-700 dark:text-amber-300 mt-1.5">
+              <span className="block text-[11px] text-warning-soft-foreground mt-1.5">
                 ⚠ Comprueba la numeración en el Excel de facturación primero. Si hay discrepancia,
                 contacta con soporte; y si hace falta, genera {sinPago ? 'la proforma' : 'la factura'} manualmente y avisa.
               </span>

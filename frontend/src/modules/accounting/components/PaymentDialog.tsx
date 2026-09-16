@@ -60,7 +60,7 @@ export default function PaymentDialog({ payable, onClose, onSaved }: Props) {
             <div>
               <h2 className="text-lg font-semibold">Registrar pago</h2>
               <p className="text-xs text-muted-foreground">{payable.proveedor} — {payable.concepto}</p>
-              <p className="text-xs text-orange-600 dark:text-orange-400 font-semibold mt-1 tabular-nums">Pendiente: {fmt(pendiente)}</p>
+              <p className="text-xs text-warning font-semibold mt-1 tabular-nums">Pendiente: {fmt(pendiente)}</p>
             </div>
             <button
               type="button"

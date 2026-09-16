@@ -229,7 +229,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
                       placeholder="Cant" className="col-span-2 h-9 px-2 rounded border border-border bg-background text-sm" />
                     <input type="number" step="0.01" value={it.precio_unitario} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: Number(e.target.value) } : x))}
                       placeholder="€" className="col-span-2 h-9 px-2 rounded border border-border bg-background text-sm" />
-                    <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-1 text-muted-foreground hover:text-red-500 text-xs">×</button>
+                    <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-1 text-muted-foreground hover:text-destructive text-xs">×</button>
                   </div>
                 ))}
                 <button onClick={() => setItems([...items, { descripcion: '', cantidad: 1, precio_unitario: 0 }])}
@@ -239,7 +239,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
 
             <Section title="Pago">
               <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Método de pago <span className="text-red-500">*</span></label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Método de pago <span className="text-destructive">*</span></label>
                 <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value as 'transferencia')}
                   className="w-full h-9 px-2 rounded border border-border bg-background text-sm">
                   <option value="transferencia">Transferencia bancaria</option>
@@ -270,7 +270,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
           {!isProforma && (
             <button onClick={() => save(true)} disabled={saving || !nombre.trim()}
               title="Guarda la factura como borrador (sin número fiscal) aunque falten datos; se completa y emite desde Facturación"
-              className="h-9 px-3 rounded-md border border-amber-400 text-amber-700 dark:text-amber-400 bg-card text-sm font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/30 disabled:opacity-50">
+              className="h-9 px-3 rounded-md border border-warning text-warning-soft-foreground bg-card text-sm font-semibold hover:bg-warning-soft disabled:opacity-50">
               {saving ? '…' : 'Guardar borrador'}
             </button>
           )}

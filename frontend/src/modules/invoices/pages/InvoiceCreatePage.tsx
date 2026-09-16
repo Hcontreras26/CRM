@@ -590,7 +590,7 @@ export default function InvoiceCreatePage() {
                 )}
               </div>
               {sugerido && sugerido.huecos.length > 0 && (
-                <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                <p className="mt-1.5 text-[11px] text-warning-soft-foreground">
                   Faltan números en esta serie: <b className="tabular-nums">{sugerido.huecos.join(', ')}</b>.
                   {' '}Si alguno es de una factura que hay que recuperar, ponlo aquí.
                 </p>
@@ -598,7 +598,7 @@ export default function InvoiceCreatePage() {
             </div>
           )}
           {fiscalMissing && !esProforma && (
-            <div className={`mt-2 flex items-start gap-2 rounded-md px-3 py-2 text-xs border ${fiscalBlock ? 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400'}`}>
+            <div className={`mt-2 flex items-start gap-2 rounded-md px-3 py-2 text-xs border ${fiscalBlock ? 'bg-destructive/10 border-destructive/30 text-destructive-soft-foreground' : 'bg-warning/10 border-warning/30 text-warning-soft-foreground'}`}>
               <span className="font-bold">{fiscalBlock ? '⛔' : '⚠'}</span>
               {fiscalBlock ? (
                 <span><b>No se puede emitir</b>: el CIF/NIF de la sociedad no tiene formato válido para España. Corrígelo en <b>Empresas emisoras</b>.</span>
@@ -625,7 +625,7 @@ export default function InvoiceCreatePage() {
                 </option>
               ))}
             </select>
-            {rectList.length === 0 && <p className="text-[11px] text-amber-600 mt-1">No hay facturas rectificables en esta sociedad.</p>}
+            {rectList.length === 0 && <p className="text-[11px] text-warning mt-1">No hay facturas rectificables en esta sociedad.</p>}
           </div>
           {rectOrig && (
             <div className="text-xs rounded-md border border-border bg-muted/30 px-3 py-2">
@@ -634,10 +634,10 @@ export default function InvoiceCreatePage() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Motivo del abono <span className="text-red-500">*</span></label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Motivo del abono <span className="text-destructive">*</span></label>
               <textarea value={rectMotivo} onChange={(e) => setRectMotivo(e.target.value)} rows={2}
                 placeholder="Ej: anulación por error, devolución, corrección de importe…"
-                className={`w-full px-2 py-1.5 rounded border bg-background text-sm ${!rectMotivo.trim() ? 'border-red-300' : 'border-border'}`} />
+                className={`w-full px-2 py-1.5 rounded border bg-background text-sm ${!rectMotivo.trim() ? 'border-destructive/40' : 'border-border'}`} />
             </div>
             <div>
               <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Importe a rectificar (opcional)</label>
@@ -753,7 +753,7 @@ export default function InvoiceCreatePage() {
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">{simboloMoneda}</span>
             </div>
             <span className="col-span-1 text-sm text-right tabular-nums font-medium">{subtotal.toFixed(2)}&nbsp;{simboloMoneda}</span>
-            <button onClick={() => setItems(items.length > 1 ? items.filter((_, i) => i !== idx) : items)} title="Quitar línea" className="col-span-1 text-muted-foreground hover:text-red-500 text-lg leading-none">×</button>
+            <button onClick={() => setItems(items.length > 1 ? items.filter((_, i) => i !== idx) : items)} title="Quitar línea" className="col-span-1 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
           </div>
           );
         })}
@@ -831,17 +831,17 @@ export default function InvoiceCreatePage() {
           {/* Doble moneda: al facturar en divisa, el importe en EUROS es obligatorio.
               Es el que manda en la contabilidad; la divisa es solo lo que se muestra. */}
           {moneda !== 'EUR' && (
-            <div className="p-2.5 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 space-y-1.5">
-              <p className="text-[10px] text-amber-800 dark:text-amber-300">
+            <div className="p-2.5 rounded-md border border-warning/30 bg-warning-soft space-y-1.5">
+              <p className="text-[10px] text-warning-soft-foreground">
                 Los conceptos van en <strong>{moneda}</strong> (importes manuales, sin conversión automática).
                 Indica también el total en euros: es el que cuenta para la contabilidad y los reportes.
                 En la factura saldrá <strong>{totalConceptos.toFixed(2)} {moneda} ({(Number(totalEur) || 0).toFixed(2)} €)</strong>.
               </p>
               <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Total en euros <span className="text-red-500">*</span></label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Total en euros <span className="text-destructive">*</span></label>
                 <input type="number" step="0.01" min="0" value={totalEur} onChange={(e) => setTotalEur(e.target.value)}
                   placeholder="0.00"
-                  className={`w-full h-9 px-2 rounded border bg-background text-sm ${!totalEur ? 'border-amber-400' : 'border-border'}`} />
+                  className={`w-full h-9 px-2 rounded border bg-background text-sm ${!totalEur ? 'border-warning' : 'border-border'}`} />
               </div>
             </div>
           )}
@@ -868,7 +868,7 @@ export default function InvoiceCreatePage() {
       <div className="flex justify-end gap-2">
         <Link to={`${invBase}/facturas`} className="h-10 px-4 rounded-md border border-border bg-card text-sm inline-flex items-center">Cancelar</Link>
         {esRect ? (
-          <button onClick={emitirAbono} disabled={saving || !rectOriginalId || !rectMotivo.trim()} className="h-10 px-5 rounded-md bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5">
+          <button onClick={emitirAbono} disabled={saving || !rectOriginalId || !rectMotivo.trim()} className="h-10 px-5 rounded-md bg-destructive text-white text-sm font-semibold hover:bg-destructive disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5">
             <FloppyDisk size={15} weight="bold" /> {saving ? 'Emitiendo abono…' : 'Emitir abono'}
           </button>
         ) : (

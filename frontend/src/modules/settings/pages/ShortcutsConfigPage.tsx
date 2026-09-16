@@ -201,7 +201,7 @@ export default function ShortcutsConfigPage() {
       />
 
       {error && (
-        <div className="bg-destructive-soft border border-destructive/30/50 rounded-xl p-4 text-sm text-destructive-soft-foreground">
+        <div className="bg-destructive-soft border border-destructive/50 rounded-xl p-4 text-sm text-destructive-soft-foreground">
           {error}
         </div>
       )}

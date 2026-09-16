@@ -10,9 +10,9 @@ const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', c
 function F({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="text-[11px] text-muted-foreground">{label} <span className="text-red-500">*</span></label>
+      <label className="text-[11px] text-muted-foreground">{label} <span className="text-destructive">*</span></label>
       <input value={value} onChange={(e) => onChange(e.target.value)}
-        className={`w-full h-9 px-2 rounded border bg-background text-sm ${!value.trim() ? 'border-amber-400' : 'border-border'}`} />
+        className={`w-full h-9 px-2 rounded border bg-background text-sm ${!value.trim() ? 'border-warning' : 'border-border'}`} />
     </div>
   );
 }
@@ -69,7 +69,7 @@ export default function EmitirBorradorDialog({ invoice, onClose, onEmitted }: { 
         </div>
         <div className="p-4 space-y-3 text-sm">
           {!completo && (
-            <div className="text-[11px] rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 px-3 py-2">
+            <div className="text-[11px] rounded-md border border-warning/30 bg-warning-soft text-warning-soft-foreground px-3 py-2">
               ⚠️ Para {esBorrador ? 'emitir' : 'descargar o enviar'} la factura debes rellenar estos datos (marcados en ámbar).
             </div>
           )}
@@ -87,7 +87,7 @@ export default function EmitirBorradorDialog({ invoice, onClose, onEmitted }: { 
         <div className="p-3 border-t border-border flex justify-end gap-2 bg-muted/20">
           <button onClick={onClose} className="h-9 px-3 rounded-md border border-border bg-card text-sm">Cancelar</button>
           <button onClick={emitir} disabled={working || !completo}
-            className="h-9 px-3 rounded-md bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 inline-flex items-center gap-1.5">
+            className="h-9 px-3 rounded-md bg-warning text-white text-sm font-semibold hover:bg-warning disabled:opacity-50 inline-flex items-center gap-1.5">
             <CheckCircle size={14} weight="bold" /> {working ? 'Guardando…' : (esBorrador ? 'Validar y emitir' : 'Guardar y desbloquear')}
           </button>
         </div>

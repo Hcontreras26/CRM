@@ -53,7 +53,7 @@ export default function TutorialButton({ src = 'tutoriales/facturacion.mp4', tit
               </button>
             )}
             <button onClick={() => setOpen(false)} title="Cerrar" aria-label="Cerrar"
-              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-red-600">
+              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive">
               <X size={14} weight="bold" />
             </button>
           </div>

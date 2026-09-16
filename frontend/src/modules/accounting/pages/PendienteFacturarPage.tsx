@@ -97,8 +97,8 @@ export default function PendienteFacturarPage() {
         subtitle={`Ventas registradas sin importe — completar para que aparezcan en facturación${activeProject?.nombre ? ` (${activeProject.nombre})` : ''}`}
       />
 
-      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-3 text-sm">
-        <p className="text-amber-900 dark:text-amber-300">
+      <div className="bg-warning-soft border border-warning/30 rounded-lg p-3 text-sm">
+        <p className="text-warning-soft-foreground">
           <strong>¿Por qué aparecen aquí?</strong> Estas ventas existen porque el lead se marcó como "convertido" sin
           que se registrara el importe. Edita cada una para añadir el precio real y se reflejará en el dashboard
           financiero.
@@ -144,7 +144,7 @@ export default function PendienteFacturarPage() {
                     </td>
                     <td className="px-4 py-3">{c.producto_contratado || <span className="italic text-muted-foreground">Sin programa</span>}</td>
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(c.fecha_conversion)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums font-bold text-amber-700 dark:text-amber-400">
+                    <td className="px-4 py-3 text-right tabular-nums font-bold text-warning-soft-foreground">
                       {fmt(c.importe_total)}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -173,7 +173,7 @@ export default function PendienteFacturarPage() {
                 </div>
                 <p className="text-xs text-muted-foreground">{c.producto_contratado || 'Sin programa'} · {fmtDate(c.fecha_conversion)}</p>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold tabular-nums text-amber-700">{fmt(c.importe_total)}</span>
+                  <span className="text-sm font-bold tabular-nums text-warning-soft-foreground">{fmt(c.importe_total)}</span>
                   <button onClick={() => setEditing(c)} className="inline-flex items-center gap-1 h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold">
                     <PencilSimple size={13} weight="bold" /> Completar
                   </button>
@@ -252,7 +252,7 @@ function EditDialog({ conversion, onClose, onSaved }: { conversion: Conversion; 
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
         <div role="dialog" aria-modal="true" className="relative bg-card rounded-lg border border-border w-full max-w-md flex flex-col">
           <div className="px-5 py-4 border-b border-border flex items-start gap-3">
-            <div className="w-9 h-9 rounded-md bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-md bg-success-soft text-success-soft-foreground flex items-center justify-center flex-shrink-0">
               <Receipt size={18} weight="regular" />
             </div>
             <div className="min-w-0 flex-1">

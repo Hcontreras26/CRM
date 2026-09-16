@@ -85,3 +85,35 @@ export const ROLE_COLORS = {
 } as const;
 
 export type RoleColor = keyof typeof ROLE_COLORS;
+
+/**
+ * Los colores con los que se distinguen las categorías de gasto.
+ *
+ * **Tercera excepción, y la misma de siempre:** la pantalla de Egresos existe
+ * para ver de un vistazo en qué se va el dinero, y eso pide que alquiler,
+ * salarios y publicidad se distingan entre sí. No dicen si un gasto es bueno o
+ * malo — todos son gastos.
+ *
+ * Migrando el bloque 4 del #34 las pasé a tokens semánticos y colapsé ocho en
+ * cuatro: salarios, servicios y comisiones de pasarela acabaron siendo el mismo
+ * azul, y proveedores y mantenimiento el mismo ámbar. Tres categorías
+ * indistinguibles en la pantalla cuyo trabajo es distinguirlas.
+ *
+ * Es la segunda vez que cometo este error —la primera fue con los roles— así
+ * que hay una prueba que exige que estas paletas tengan todos sus valores
+ * distintos. Ver `paletas-de-identidad.test.js`.
+ */
+export const EXPENSE_CATEGORY_COLORS = {
+  salarios: 'bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400',
+  alquiler: 'bg-purple-100 text-purple-800 dark:bg-purple-950/30 dark:text-purple-400',
+  proveedores: 'bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400',
+  software: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400',
+  publicidad: 'bg-pink-100 text-pink-800 dark:bg-pink-950/30 dark:text-pink-400',
+  impuestos: 'bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400',
+  servicios: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-400',
+  mantenimiento: 'bg-orange-100 text-orange-800 dark:bg-orange-950/30 dark:text-orange-400',
+  otros: 'bg-muted text-muted-foreground',
+  comision_pasarela_pago: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400',
+  comision_gestor: 'bg-teal-100 text-teal-800 dark:bg-teal-950/30 dark:text-teal-400',
+  nomina: 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
+} as const;
