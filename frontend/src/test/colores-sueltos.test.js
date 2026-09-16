@@ -88,10 +88,10 @@ describe('colores sueltos escritos a mano (#32)', () => {
     // número baja a cero aquí y se ve sin tener que fiarse de nadie.
     const bloques = {
       '1 · Prospectos': ['modules/leads'],
-      '2 · Clientes y matrículas': ['modules/clients'],
+      '2 · Clientes y matrículas': ['modules/clients', 'modules/matriculas'],
       '3 · Ventas y conversiones': ['modules/sales', 'modules/conversions'],
       '4 · Finanzas': ['modules/accounting', 'modules/invoices'],
-      '5 · Tutores y comisiones': ['modules/commissions', 'modules/tutors'],
+      '5 · Tutores y comisiones': ['modules/commissions', 'modules/tutores'],
       '6 · Publicidad y análisis': ['modules/campaigns', 'modules/meta-ads', 'modules/reports'],
       '7 · Ajustes y administración': ['modules/settings', 'modules/permissions', 'modules/preferences'],
       '8 · Entrar, contraseña y errores': ['shared/pages'],
@@ -107,6 +107,42 @@ describe('colores sueltos escritos a mano (#32)', () => {
 
     // eslint-disable-next-line no-console
     console.log(`\ncolores a pelo por bloque del #34:\n${filas.join('\n')}\n  ${'total'.padEnd(34)} ${String(total).padStart(5)}\n`);
+
+    // LO QUE NO VIGILA NADIE.
+    //
+    // Los ocho bloques no cubren todos los modulos, y lo que queda fuera no
+    // aparecia en ningun sitio: el numero se leia como «la deuda» cuando era
+    // «la deuda de lo que miramos». Una errata —`modules/tutors` por
+    // `modules/tutores`— escondio 102 durante semanas sin que nadie lo notara,
+    // porque un directorio que no existe cuenta cero y cero no llama la
+    // atencion.
+    //
+    // Asi que se listan. No se asignan a un bloque por mi cuenta —eso es
+    // redibujar el plan del #34, y es de Diego— pero se ven.
+    const enBloques = new Set(Object.values(bloques).flat());
+    // Las maquetas de referencia NO cuentan: son el SuiteDash de /testeo2 y el
+    // muestrario, que existen justamente para enseñar de donde salen los
+    // tokens. Exigirles tokens seria pedirle a la foto que se parezca al
+    // retrato.
+    const MAQUETAS = /^modules\/(suitedash-preview|ui-preview|dev)$/;
+    const sueltos = fs.readdirSync(path.join(RAIZ, 'modules'), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => `modules/${e.name}`)
+      .filter((d) => !enBloques.has(d) && !MAQUETAS.test(d))
+      .map((d) => ({ d, n: contar(d).total }))
+      .filter((x) => x.n > 0)
+      .sort((a, b) => b.n - a.n);
+
+    if (sueltos.length) {
+      const fuera = sueltos.reduce((s, x) => s + x.n, 0);
+      // eslint-disable-next-line no-console
+      console.log(
+        `sin asignar a ningun bloque — ${fuera} en ${sueltos.length} modulos:\n`
+        + sueltos.map((x) => `  ${x.d.padEnd(34)} ${String(x.n).padStart(5)}`).join('\n')
+        + `\n  ${'TOTAL DE VERDAD'.padEnd(34)} ${String(total + fuera).padStart(5)}\n`,
+      );
+    }
+
     expect(total).toBeGreaterThanOrEqual(0);
   });
 });
