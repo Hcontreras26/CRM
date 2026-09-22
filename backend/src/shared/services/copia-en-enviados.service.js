@@ -104,6 +104,18 @@ export async function guardarEnEnviados({ de, deNombre, para, asunto, html, fech
       auth: { user: USUARIO, pass: CLAVE },
       logger: false,
     });
+
+    // Lo mismo que en correo-entrante: el corte de red llega por el evento
+    // 'error' y no como rechazo de la promesa. Sin escucharlo, Node lo toma por
+    // excepcion sin capturar y se lleva por delante el proceso entero.
+    //
+    // ANTES de connect(), que es cuando mas falla. Y guardar la copia en
+    // Enviados es lo accesorio de mandar un correo: que falle no puede costar
+    // la API.
+    cliente.on('error', (err) => {
+      logger.warn({ err: err?.message, host: HOST }, 'Copia en Enviados: la conexion IMAP se corto');
+    });
+
     await cliente.connect();
 
     const carpeta = await carpetaDeEnviados(cliente);

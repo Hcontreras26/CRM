@@ -128,6 +128,25 @@ export async function leerBuzon({ desde = null } = {}) {
       auth: { user: USUARIO, pass: CLAVE },
       logger: false,
     });
+
+    // UN CORTE DE RED NO ES UN FALLO DE PROGRAMACION.
+    //
+    // ImapFlow avisa de los cortes por el evento 'error', no rechazando la
+    // promesa que se esta esperando. Sin nadie escuchandolo, Node lo trata como
+    // excepcion sin capturar y el manejador de app.js cierra el proceso a
+    // proposito: un ECONNRESET del servidor de correo tumbaba la API entera, y
+    // el try/catch de aqui abajo no lo veia pasar.
+    //
+    // Va ANTES de connect() a proposito. Puesto despues, un corte durante el
+    // propio connect vuelve a tumbarlo — y esa ventana es justo la que falla
+    // cuando el servidor de correo va mal.
+    //
+    // Anotar basta: el fallo real lo sigue recogiendo el catch de siempre
+    // cuando la operacion en curso se rompe.
+    cliente.on('error', (err) => {
+      logger.warn({ err: err?.message, host: HOST }, 'Correo entrante: la conexion IMAP se corto');
+    });
+
     await cliente.connect();
 
     // SOLO LECTURA. Sin esto, abrir el buzón marca correos como vistos y a
