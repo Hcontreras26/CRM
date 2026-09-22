@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { CheckCircle, Circle, WarningCircle, CaretRight, ListChecks } from '@phosphor-icons/react';
 import { traerPasosDeLead, type PasoDeLead } from '../api/agenda.api';
 import { iconoDeCanal, nombreDeCanal } from '../lib/canales';
+import PlantillaDelPaso from './PlantillaDelPaso';
+import type { DatosParaRellenar } from '@/modules/whatsapp/lib/plantilla';
 
 /**
  * El proceso comercial de ESTA persona, en su ficha.
@@ -23,7 +25,22 @@ function fecha(d: string) {
   return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
 }
 
-export default function AgendaDelProspecto({ leadId }: { leadId: number }) {
+export default function AgendaDelProspecto({
+  leadId,
+  projectId = null,
+  datos,
+  nombreProyecto,
+  alCopiar,
+}: {
+  leadId: number;
+  /** De qué proyecto es: sus plantillas son las que valen. */
+  projectId?: number | null;
+  /** Lo que hace falta para rellenar el mensaje. Sin esto no se ofrece. */
+  datos?: DatosParaRellenar;
+  nombreProyecto?: string | null;
+  /** Copiar el mensaje deja una nota en su historial. */
+  alCopiar?: (nombrePlantilla: string) => void;
+}) {
   const [pasos, setPasos] = useState<PasoDeLead[] | null>(null);
   const [cargando, setCargando] = useState(true);
 
@@ -103,6 +120,24 @@ export default function AgendaDelProspecto({ leadId }: { leadId: number }) {
           )}
           {siguiente.nota_del_paso && (
             <p className="mt-1.5 text-[11px] text-muted-foreground">{siguiente.nota_del_paso}</p>
+          )}
+
+          {/* Y su mensaje, ya escrito (#89: «qué paso toca, por qué, y su
+              plantilla»). Hasta ahora decía cuál toca y había que ir al chat a
+              buscar el texto; ahora está donde se lee la ficha.
+
+              Se copia para pegarlo y ajustarlo: el CRM no manda nada. */}
+          {datos && (
+            <div className="mt-2">
+              <PlantillaDelPaso
+                projectId={projectId}
+                pasoClave={siguiente.clave}
+                datos={datos}
+                nombreProyecto={nombreProyecto}
+                compacto
+                alCopiar={(p) => alCopiar?.(p.label)}
+              />
+            </div>
           )}
         </div>
       ) : (

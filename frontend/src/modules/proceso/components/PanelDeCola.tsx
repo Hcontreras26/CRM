@@ -6,6 +6,7 @@ import { cn } from '@/shared/lib/utils';
 import Field from '@/shared/components/ui/Field';
 import { iconoDeCanal, nombreDeCanal } from '../lib/canales';
 import { tipoDeInteraccion } from '../lib/cola';
+import PlantillaDelPaso from './PlantillaDelPaso';
 import type { PasoEnCola } from '../api/agenda.api';
 
 /**
@@ -29,6 +30,7 @@ export default function PanelDeCola({
   total,
   guardando,
   onContactado,
+  onPlantillaCopiada,
   onAnterior,
   onSiguiente,
   onCerrar,
@@ -39,6 +41,8 @@ export default function PanelDeCola({
   total: number;
   guardando: boolean;
   onContactado: (tipo: 'llamada' | 'email' | 'whatsapp' | 'nota', nota: string) => void;
+  /** Copiar el mensaje deja rastro en su ficha, pero NO cierra el paso. */
+  onPlantillaCopiada?: (nombrePlantilla: string) => void;
   onAnterior: () => void;
   onSiguiente: () => void;
   onCerrar: () => void;
@@ -116,6 +120,41 @@ export default function PanelDeCola({
               <p className="mt-0.5 text-normal">{fila.paso_nota}</p>
             </div>
           )}
+
+          {/* El mensaje que toca, ya escrito y con sus datos puestos. Es lo
+              que hace que la cola sirva para trabajar y no solo para saber a
+              quién llamar: antes había que ir al chat a buscar el texto.
+
+              Se copia. No se manda: «la plantilla marca el orden; las palabras
+              las pones tú». */}
+          <Field
+            label="El mensaje de este paso"
+            hint="Se copia para pegarlo y ajustarlo. El CRM no lo envía."
+          >
+            {/* Las plazas NO las lleva el CRM: las lleva admisiones, y de dos
+                contabilidades de lo mismo solo una puede tener razón. Por eso
+                el mensaje deja el hueco y aquí va el recordatorio, que es lo
+                que decidió Diego el 11/09. */}
+            {fila.avisa_plazas && (
+              <p className="mb-1.5 rounded border border-warning/30 bg-warning-soft px-2 py-1 text-[11px] font-medium text-warning-soft-foreground">
+                Comprueba cuántas plazas quedan antes de enviarlo. No las lleva el CRM.
+              </p>
+            )}
+            <PlantillaDelPaso
+              projectId={fila.project_id}
+              pasoClave={fila.clave}
+              nombreProyecto={fila.proyecto}
+              datos={{
+                nombre: fila.lead_nombre,
+                email: fila.lead_email ?? null,
+                telefono: fila.lead_telefono ?? null,
+                producto: fila.producto,
+                inicio: fila.fecha_inicio_texto ?? null,
+                cierre: fila.fecha_cierre_convocatoria ?? null,
+              }}
+              alCopiar={(p) => onPlantillaCopiada?.(p.label)}
+            />
+          </Field>
 
           <Field
             label="Por dónde lo has intentado"

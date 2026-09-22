@@ -230,6 +230,11 @@ export async function colaDelDia({ projectIds, asesoraId, hasta = null, limite =
     `WITH pendientes AS (
        SELECT ls.*, l.responsable_id, l.nombre AS lead_nombre, l.status AS lead_estado,
               l.producto_interes_id,
+              -- Para rellenar los huecos del mensaje sin salir de la cola
+              -- (#88). Son los mismos datos con los que se rellena en el chat:
+              -- si aqui se dejaran fuera, el mismo mensaje saldria a medias
+              -- segun desde donde se copie.
+              l.email AS lead_email, l.telefono AS lead_telefono,
               ${CONTACTOS} AS contactos,
               ROW_NUMBER() OVER (PARTITION BY ls.lead_id ORDER BY ls.orden) AS pos
          FROM lead_steps ls
@@ -245,6 +250,7 @@ export async function colaDelDia({ projectIds, asesoraId, hasta = null, limite =
           ${pProj} ${pAses}
      )
      SELECT q.lead_id, q.lead_nombre, q.lead_estado, q.responsable_id,
+            q.lead_email, q.lead_telefono,
             q.clave, q.orden, q.fecha_prevista, q.contactos,
             -- De que campus es cada fila. Con una EMPRESA elegida la cola
             -- junta los siete de CEDIA, y sin esto no se sabe a quien se
@@ -257,6 +263,10 @@ export async function colaDelDia({ projectIds, asesoraId, hasta = null, limite =
             -- Las plazas NO: solo la marca de que este paso las menciona y hay
             -- que ir a comprobarlas fuera.
             p.nombre AS producto, p.precio AS producto_precio,
+            -- Cuando empieza y cuando cierra la convocatoria: son huecos de
+            -- las plantillas y salen del catalogo, que es donde se mantienen.
+            -- Las PLAZAS no, y no es un olvido: ver la cabecera del fichero.
+            p.fecha_inicio_texto, p.fecha_cierre_convocatoria,
             COALESCE(s.avisa_plazas, false) AS avisa_plazas
        FROM pendientes q
        LEFT JOIN commercial_steps s ON s.id = q.step_id

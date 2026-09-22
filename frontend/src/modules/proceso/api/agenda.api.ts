@@ -11,6 +11,9 @@ export type PasoEnCola = {
   lead_id: number;
   lead_nombre: string | null;
   lead_estado: string;
+  /** Para rellenar los huecos del mensaje sin salir de la cola (#88). */
+  lead_email?: string | null;
+  lead_telefono?: string | null;
   responsable_id: number | null;
   gestora: string | null;
   clave: string;
@@ -26,6 +29,9 @@ export type PasoEnCola = {
       este paso las menciona y hay que ir a comprobarlas. */
   producto: string | null;
   producto_precio: string | number | null;
+  /** Cuándo empieza y cuándo cierra, tal como los lleva el catálogo. */
+  fecha_inicio_texto?: string | null;
+  fecha_cierre_convocatoria?: string | null;
   avisa_plazas: boolean;
   /** El campus. Solo importa cuando se mira una empresa entera. */
   project_id: number;

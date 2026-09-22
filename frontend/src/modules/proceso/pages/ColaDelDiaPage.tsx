@@ -219,6 +219,27 @@ export default function ColaDelDiaPage() {
     }
   }
 
+  /**
+   * Copiar el mensaje deja rastro en su ficha — pero NO cuenta como contacto.
+   *
+   * El issue lo pide: «lo que copia queda apuntado; sin eso, mañana la cola
+   * miente». Y va como NOTA a propósito, que es el único tipo que el recuento
+   * de contactos no suma: copiar no es hablar con nadie. Si contara, la
+   * persona saldría de la cola por haber copiado un texto que igual no llegó a
+   * enviarse nunca — y la cola mentiría en la otra dirección, que es peor
+   * porque nadie la echaría de menos.
+   *
+   * Si falla, se calla: el texto ya está copiado y lo que toca es escribirle,
+   * no leer un aviso de que no se apuntó una nota.
+   */
+  function apuntarCopia(leadId: number, nombrePlantilla: string) {
+    client.post(`/leads/${leadId}/interactions`, {
+      tipo: 'nota',
+      nota: `Copiado el mensaje «${nombrePlantilla}»`,
+      fecha: new Date().toISOString(),
+    }).catch(() => { /* el trabajo es escribirle, no apuntar la nota */ });
+  }
+
   const titulo = esAdmin && !gestoraId ? 'La cola del equipo' : 'Tu día';
   // El filtro de campus solo tiene sentido con una empresa puesta y mas de uno.
   const filtroCampus = Boolean(activeIssuer) && !elegido && campus.length > 1;
@@ -475,6 +496,7 @@ export default function ColaDelDiaPage() {
           total={visibles.length}
           guardando={apuntando}
           onContactado={(tipo, nota) => apuntarContacto(tipo, nota)}
+          onPlantillaCopiada={(nombre) => apuntarCopia(visibles[enFoco].lead_id, nombre)}
           onAnterior={() => setEnFoco((n) => (n === null ? null : Math.max(0, n - 1)))}
           onSiguiente={() => setEnFoco((n) => (n === null ? null : Math.min(visibles.length - 1, n + 1)))}
           onCerrar={() => setEnFoco(null)}

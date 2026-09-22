@@ -233,7 +233,22 @@ export default function LeadDetailPage() {
           <LeadInfoCard lead={lead} onUpdate={updateLead}
             onLlamada={(nota) => addInteraction('llamada', nota)}
             onWhatsapp={(nota) => addInteraction('whatsapp', nota)} />
-          <AgendaDelProspecto leadId={lead.id} />
+          <AgendaDelProspecto
+            leadId={lead.id}
+            projectId={lead.project_id}
+            nombreProyecto={lead.proyecto_nombre}
+            datos={{
+              nombre: lead.nombre,
+              email: lead.email,
+              telefono: lead.telefono,
+              producto: lead.producto_nombre,
+              inicio: lead.fecha_inicio_texto,
+              cierre: lead.fecha_cierre_convocatoria,
+            }}
+            // Queda en su historial, pero como NOTA: copiar no es contactar, y
+            // el recuento de contactos —el que cierra el paso— no suma notas.
+            alCopiar={(nombre) => addInteraction('nota', `Copiado el mensaje «${nombre}»`)}
+          />
           <LeadProductsCard leadId={lead.id} projectId={lead.project_id} isAdmin={isAdmin} />
           <LeadUtmsCard utms={utms} leadOrigen={lead.origen} />
           <LeadInteractionsCard
