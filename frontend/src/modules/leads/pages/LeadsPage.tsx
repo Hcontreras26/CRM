@@ -4,6 +4,7 @@ import SiguientesAcciones from '../components/SiguientesAcciones';
 import AccesosClave from '@/shared/components/ui/AccesosClave';
 import BarraFiltros from '@/shared/components/ui/BarraFiltros';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import ComoVoy from '@/modules/reports/components/ComoVoy';
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLeads } from '../hooks/useLeads';
@@ -606,6 +607,11 @@ export default function LeadsPage() {
           </button>
         ) : null}
       />
+
+      {/* Cómo va quien está mirando: su puesto en ventas y su tasa de
+          conversión del mes. Va aquí y no escondido en Informes porque es la
+          pantalla donde pasa el día. */}
+      <ComoVoy compacto />
 
       {/* Barra de herramientas de la pantalla. El titulo ya no vive aqui: esta
           arriba, en la cabecera del marco, igual que en todas las demas. */}

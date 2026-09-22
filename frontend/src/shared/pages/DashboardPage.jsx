@@ -31,6 +31,7 @@ import ChannelBadge, { CHANNEL_LABELS } from '@/shared/components/ui/ChannelBadg
 import EmptyState from '@/shared/components/ui/EmptyState';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import ComoVoy from '@/modules/reports/components/ComoVoy';
 import SkeletonTable, { SkeletonCard } from '@/shared/components/ui/SkeletonTable';
 import ConversionFunnel from '@/shared/components/dashboard/ConversionFunnel';
 import PerformanceInsights from '@/shared/components/dashboard/PerformanceInsights';
@@ -211,6 +212,10 @@ export default function DashboardPage() {
           ? `${activeIssuer.nombre} (${activeIssuer.campus.length} campus)`
           : (activeProject?.nombre || 'Sin proyecto')}`}
       />
+
+      {/* Como voy este mes: el puesto en ventas y la tasa de conversion.
+          Diego, 22/09: «eres la gestora numero X de ventas». */}
+      <ComoVoy />
 
       {/* Lo que toca, de la cola del proceso (#130). Va ANTES del resumen: lo
           primero de la mañana es que hay que hacer, no que paso ayer. */}

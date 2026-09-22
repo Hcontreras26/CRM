@@ -13,6 +13,7 @@ import useUrlFilters from '@/shared/hooks/useUrlFilters';
 // columnas DATE en crudo, así que le pasaba a toda la columna «Última compra».
 import { formatRelative, formatFecha as fmtFecha } from '@/shared/lib/fechas';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import ComoVoy from '@/modules/reports/components/ComoVoy';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import ClientsFiltersBar, { ESTADO_PAGO_LABELS, SORT_LABELS } from '../components/ClientsFiltersBar';
@@ -358,6 +359,10 @@ export default function ClientsPage() {
           </button>
         ) : null}
       />
+
+      {/* La misma tarjeta que en Prospectos: aquí se mira lo que ya se cerró,
+          y el porcentaje de cierre es justo lo que explica esta lista. */}
+      <ComoVoy compacto />
 
       <Suspense fallback={null}>
         <RegisterSaleDialog
