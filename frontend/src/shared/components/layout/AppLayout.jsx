@@ -155,6 +155,11 @@ const CON_SOCIEDAD_OK = [
   // mismo `comoLista` que usan Prospectos y Facturas, para que la regla de
   // «una empresa son sus campus» viva en un solo sitio.
   /^\/finanzas$/,
+  // Ingresos. Diego, 22/09: «ventas, ingresos y eso debe ponerse en toda la
+  // empresa, no por campus». La pantalla ya mandaba `issuerId` en sus cuatro
+  // llamadas y los cuatro endpoints ya lo entendian: lo unico que sobraba era
+  // este muro, que se levantaba antes de que la pantalla llegara a pedir nada.
+  /^\/finanzas\/ingresos$/,
   /^\/finanzas\/conversiones$/,
   /^\/finanzas\/egresos$/,
   /^\/finanzas\/por-cobrar$/,
@@ -162,6 +167,11 @@ const CON_SOCIEDAD_OK = [
   /^\/finanzas\/comisiones$/,
   /^\/finanzas\/pagos-stripe$/,
   /^\/finanzas\/pendiente-facturar$/,
+  // Nominas. Las paga la SOCIEDAD, asi que verlas campus a campus obligaba a
+  // sumar siete pantallas a mano. Leer acepta varios; crear una nomina,
+  // apuntar horas o generar un periodo siguen pidiendo un campus concreto,
+  // porque cada uno pertenece a un proyecto y «la nomina de CEDIA» no existe.
+  /^\/finanzas\/nominas$/,
   /^\/finanzas\/ventas\/\d+$/,
 ];
 

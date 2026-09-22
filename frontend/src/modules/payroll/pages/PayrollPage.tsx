@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { ponerAmbito } from '@/shared/lib/ambitoInforme';
 import client from '@/shared/api/client';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
@@ -60,8 +61,21 @@ const TABS: ReadonlyArray<{ id: TabId; label: string }> = [
   { id: 'hours', label: 'Horas' },
 ];
 
+/** El ambito como cadena de consulta: `issuerId=3` o `projectId=7`. */
+function consulta(ambito: { activeIssuerId?: number | null; activeProject?: { id?: number | null } | null }) {
+  return ponerAmbito(new URLSearchParams(), ambito).toString();
+}
+
 export default function PayrollPage() {
-  const { activeProject } = useProjectContext();
+  const { activeProject, activeIssuerId } = useProjectContext();
+  // Las nominas las paga la SOCIEDAD, no el campus: con una empresa elegida se
+  // ven las de todos sus campus juntas. Diego, 22/09: «ventas, ingresos y eso
+  // debe ponerse en toda la empresa, no por campus».
+  //
+  // Lo que se CREA sigue necesitando un campus concreto --una nomina pertenece
+  // a un proyecto-- y por eso los formularios piden elegirlo.
+  const ambito = { activeIssuerId, activeProject };
+  const deUnCampus = Boolean(activeProject?.id && activeProject.id !== -1);
   const [tab, setTab] = useState<TabId>('plans');
 
   return (
@@ -74,18 +88,44 @@ export default function PayrollPage() {
           </button>
         ))}
       </div>
-      {tab === 'plans' && <PlansTab project={activeProject} />}
-      {tab === 'periods' && <PeriodsTab project={activeProject} />}
-      {tab === 'hours' && <HoursTab project={activeProject} />}
+      {/* Con una empresa puesta se ven los campus juntos, que es lo que se
+          pidio; dar de alta sigue necesitando decir en cual. */}
+      {!deUnCampus && (
+        <EligeCampus que={tab === 'hours' ? 'apuntar horas'
+          : tab === 'periods' ? 'generar un periodo' : 'crear una nómina'} />
+      )}
+      {tab === 'plans' && <PlansTab project={activeProject} ambito={ambito} deUnCampus={deUnCampus} />}
+      {tab === 'periods' && <PeriodsTab project={activeProject} ambito={ambito} deUnCampus={deUnCampus} />}
+      {tab === 'hours' && <HoursTab project={activeProject} ambito={ambito} deUnCampus={deUnCampus} />}
     </div>
   );
 }
 
 interface TabProps {
   project: Project | null | undefined;
+  /** Un campus o una sociedad entera: es lo que se manda al leer. */
+  ambito: { activeIssuerId?: number | null; activeProject?: { id?: number | null } | null };
+  /** Con una sociedad puesta esto es falso: se puede mirar, pero no crear. */
+  deUnCampus: boolean;
 }
 
-function PlansTab({ project }: TabProps) {
+/**
+ * Lo que sale donde iria un boton de crear cuando hay una empresa elegida.
+ *
+ * Una nomina, unas horas o un periodo pertenecen a UN campus: «la nomina de
+ * CEDIA» no existe. Mirarlas todas juntas si tiene sentido, y es lo que se
+ * hace; para dar de alta, hay que decir de cual.
+ */
+function EligeCampus({ que }: { que: string }) {
+  return (
+    <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+      Estás viendo los campus de la empresa juntos. Para {que}, elige un campus
+      concreto en el selector de la cabecera.
+    </p>
+  );
+}
+
+function PlansTab({ project, ambito, deUnCampus }: TabProps) {
   const [plans, setPlans] = useState<PayrollPlan[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,7 +137,7 @@ function PlansTab({ project }: TabProps) {
     setLoading(true);
     try {
       const [pl, us] = await Promise.all([
-        client.get(`/payroll/plans?projectId=${project.id}`),
+        client.get(`/payroll/plans?${consulta(ambito)}`),
         client.get(`/users?incluirTodos=true`),
       ]);
       if (pl.success) setPlans(pl.data as PayrollPlan[]);
@@ -110,6 +150,7 @@ function PlansTab({ project }: TabProps) {
   async function handleSave(p: PayrollPlan): Promise<void> {
     if (!project?.id) return;
     try {
+      if (!deUnCampus) { toast({ title: 'Elige un campus', description: 'Una nómina es de un campus concreto.', variant: 'destructive' }); return; }
       await client.put('/payroll/plans', { ...p, project_id: project.id });
       toast({ title: 'Plan guardado' });
       setEditing(null); load();
@@ -249,7 +290,7 @@ function PlanEditor({ plan, users, onSave, onClose }: PlanEditorProps) {
   );
 }
 
-function PeriodsTab({ project }: TabProps) {
+function PeriodsTab({ project, ambito, deUnCampus }: TabProps) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -262,8 +303,8 @@ function PeriodsTab({ project }: TabProps) {
     setLoading(true);
     try {
       const [p, u] = await Promise.all([
-        client.get(`/payroll/periods?projectId=${project.id}&year=${year}&month=${month}`),
-        client.get(`/payroll/plans?projectId=${project.id}`),
+        client.get(`/payroll/periods?${consulta(ambito)}&year=${year}&month=${month}`),
+        client.get(`/payroll/plans?${consulta(ambito)}`),
       ]);
       if (p.success) setPeriods(p.data as PayrollPeriod[]);
       if (u.success) setUsers(u.data as PayrollPlan[]);
@@ -275,6 +316,7 @@ function PeriodsTab({ project }: TabProps) {
   async function generateAll(): Promise<void> {
     if (!project?.id) return;
     for (const u of users) {
+      if (!deUnCampus) { toast({ title: 'Elige un campus', description: 'Un periodo se genera para un campus concreto.', variant: 'destructive' }); return; }
       try { await client.post('/payroll/periods/generate', { project_id: project.id, user_id: u.user_id, year, month }); }
       catch { /* skip usuario si ya tiene periodo generado */ }
     }
@@ -366,7 +408,7 @@ function PeriodsTab({ project }: TabProps) {
   );
 }
 
-function HoursTab({ project }: TabProps) {
+function HoursTab({ project, ambito, deUnCampus }: TabProps) {
   const [hours, setHours] = useState<PayrollHour[]>([]);
   const [users, setUsers] = useState<PayrollPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -377,8 +419,8 @@ function HoursTab({ project }: TabProps) {
     setLoading(true);
     try {
       const [h, p] = await Promise.all([
-        client.get(`/payroll/hours?projectId=${project.id}`),
-        client.get(`/payroll/plans?projectId=${project.id}`),
+        client.get(`/payroll/hours?${consulta(ambito)}`),
+        client.get(`/payroll/plans?${consulta(ambito)}`),
       ]);
       if (h.success) setHours(h.data as PayrollHour[]);
       if (p.success) setUsers((p.data as PayrollPlan[]).filter(x => x.modo_horas != null && x.modo_horas !== ''));
@@ -391,6 +433,7 @@ function HoursTab({ project }: TabProps) {
     if (!project?.id) return;
     if (!form.user_id || !form.horas) { toast({ title: 'Usuario y horas requeridos', variant: 'destructive' }); return; }
     try {
+      if (!deUnCampus) { toast({ title: 'Elige un campus', description: 'Las horas se apuntan en un campus concreto.', variant: 'destructive' }); return; }
       await client.post('/payroll/hours', { project_id: project.id, user_id: parseInt(form.user_id), fecha: form.fecha, horas: parseFloat(form.horas), notas: form.notas });
       toast({ title: 'Registrado' });
       setForm({ user_id: '', fecha: new Date().toISOString().slice(0, 10), horas: '', notas: '' });
