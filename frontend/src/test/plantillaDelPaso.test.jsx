@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 /*
@@ -60,6 +60,11 @@ beforeEach(() => {
   plantillas.mockReset().mockResolvedValue({ success: true, data: LISTA });
   copiado.mockReset().mockResolvedValue(true);
 });
+
+// A mano y no por el arranque de las pruebas: los dos CRM no lo montan igual
+// —uno declara el entorno en su configuracion y el otro en cada fichero— y sin
+// esto la segunda prueba encuentra pintada tambien la primera.
+afterEach(cleanup);
 
 describe('el mensaje de este paso', () => {
   it('saca las del paso que toca y NINGUNA de los demás', async () => {
