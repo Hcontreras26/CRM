@@ -153,7 +153,11 @@ export async function dashboard(req, res, next) {
   try {
     const parsed = accountingDashboardSchema.safeParse(req.query);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
-    const stats = await model.getDashboardStats(parsed.data);
+    // El ambito se resuelve igual que en el resto de pantallas de cifras: una
+    // sociedad se traduce a sus campus y el modelo no se entera de la
+    // diferencia.
+    const { projectId, projectIds } = await proyectosDelAmbito(req);
+    const stats = await model.getDashboardStats({ ...parsed.data, projectId, projectIds });
     res.json({ success: true, data: stats });
   } catch (err) { next(err); }
 }

@@ -35,6 +35,41 @@ export async function listByProject(projectId, { includeInactive = false } = {})
   return rows;
 }
 
+/**
+ * Los pasos de VARIOS campus, que es como se mira una empresa entera.
+ *
+ * Los siete campus de CEDIA llevan el mismo proceso, asi que se devuelve UNA
+ * lista --la del primer campus que tenga cada paso-- y, en cada paso,
+ * `en_campus`: en cuantos de los campus del ambito existe. Cuando ese numero
+ * no es el total, alguno se ha separado y la pantalla lo dice en vez de
+ * enseñar una media que no es de nadie.
+ */
+export async function listByProjects(projectIds, { includeInactive = false } = {}) {
+  const { rows } = await query(
+    `SELECT DISTINCT ON (s.clave) ${COLS.split(',').map((c) => 's.' + c.trim()).join(', ')},
+            (SELECT count(*)::int FROM commercial_steps x
+              WHERE x.project_id = ANY($1::int[]) AND x.clave = s.clave
+                ${includeInactive ? '' : 'AND x.activo = true'}) AS en_campus
+       FROM commercial_steps s
+      WHERE s.project_id = ANY($1::int[]) ${includeInactive ? '' : 'AND s.activo = true'}
+      ORDER BY s.clave, s.project_id`,
+    [projectIds]
+  );
+  // El DISTINCT ON obliga a ordenar por clave; el orden que importa es el del
+  // proceso, y ese se pone aqui.
+  return rows.sort((a, b) => a.orden - b.orden || a.id - b.id);
+}
+
+/** El mismo paso en los demas campus de la empresa: los hermanos de clave. */
+export async function hermanosDeClave(clave, projectIds) {
+  const { rows } = await query(
+    `SELECT id, project_id FROM commercial_steps
+      WHERE clave = $1 AND project_id = ANY($2::int[]) ORDER BY project_id`,
+    [clave, projectIds]
+  );
+  return rows;
+}
+
 export async function findById(id) {
   const { rows } = await query(`SELECT ${COLS} FROM commercial_steps WHERE id = $1`, [id]);
   return rows[0] || null;

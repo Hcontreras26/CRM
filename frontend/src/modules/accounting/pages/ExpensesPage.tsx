@@ -120,8 +120,13 @@ export default function ExpensesPage() {
 
   async function handleExport() {
     try {
-      const params: Record<string, string | number> = { limit: 100, page: 1 };
-      if (activeProject?.id) params.projectId = activeProject.id;
+      const params: Record<string, string | number> = {
+        limit: 100, page: 1,
+        // El mismo ambito que la pantalla: si se exporta con CEDIA puesta, el
+        // fichero trae CEDIA. Antes mandaba `activeProject.id` a secas --que
+        // con «todos» vale -1-- y el servidor lo rechazaba.
+        ...ambitoComoObjeto({ activeIssuerId, activeProject }),
+      };
       if (filterCat) params.categoria = filterCat;
       const all: any[] = [];
       let page = 1;

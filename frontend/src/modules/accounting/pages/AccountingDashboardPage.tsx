@@ -21,7 +21,7 @@ import {
 } from '@phosphor-icons/react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { formatDate } from '@/shared/lib/format';
-import { ponerAmbito } from '@/shared/lib/ambitoInforme';
+import { ponerAmbito, ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 
 function fmt(n) {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n || 0));
@@ -55,7 +55,11 @@ export default function AccountingDashboardPage() {
       setLoading(true);
       try {
         const res = await accountingApi.dashboard({
-          ...(activeProject?.id ? { projectId: activeProject.id } : {}),
+          // Con una sociedad puesta, sus campus sumados; con un campus, ese.
+          // Antes se mandaba `activeProject.id` a secas, que con «todos» vale
+          // -1 y el servidor contestaba «Number must be greater than 0»: el
+          // panel se quedaba en blanco con un aviso rojo.
+          ...ambitoComoObjeto({ activeIssuerId, activeProject }),
           from: range.from,
           to: range.to,
         });
