@@ -375,6 +375,48 @@ de ellas.
 
 ---
 
+### 2026-09-23 · Repaso completo contra el documento
+
+Diego: «¿está todo del proceso comercial?». Lo contrasté contra las cuatro
+bases, no de memoria. Coincide todo menos una casilla:
+
+| Del documento | En la base |
+|---|---|
+| Cinco pasos, nombres y orden | exactos, en los 9 proyectos de MultiCRM y en ISEIE |
+| Día 4 distinto por marca | MultiCRM «Descuento de última oportunidad» · ISEIE «Convocatoria de becas CETLAT» |
+| Canales de cada paso | 1={whatsapp,email} · 2={llamada,whatsapp} · 3 y 4={llamada,whatsapp,email} · mensual={wasapi} |
+| Cuándo va cada uno | 0-1, 2-3, 4, 7-8 días y «final de mes» |
+| Los límites de cada columna | en `nota` de cada paso |
+| Las 10 plantillas de WhatsApp (3+3+2+1+1) | las del documento, con su etiqueta «Día N · …» |
+| Los 3 correos (días 1, 3 y 4) | uno por paso y por proyecto |
+| La captura del día 2 | `pide_adjunto` en «Día 2 · Opiniones · 1 de 3» |
+| Las 36 genéricas viejas | desactivadas, no estorban en la lista |
+
+**Lo que no cuadraba.** `avisa_plazas` en el paso 4 de ISEIE estaba en `false`.
+El documento dice que las plazas van «en el día 1, el día 3, el día 4 y el
+seguimiento mensual», y el propio correo de becas CETLAT escribe «[nº] plazas
+disponibles». En MultiCRM ya estaba en `true` en los nueve proyectos. Corregido
+en ISEIE staging; **falta en su producción**.
+
+**Sigue pendiente y no depende de esto:** la llamada por centralita de los días
+2, 3 y 4 (Zadarma, de Ángel) y la comprobación de los tres adjuntos del correo
+del día 1 (espera a que el CRM envíe correos).
+
+### 2026-09-23 · El repaso de fin de mes, fila a fila
+
+Diego: «el seguimiento del mes debe ser más interactivo». El envío en bloque ya
+estaba desde esta mañana, pero atender a cinco o seis seguidas obligaba a abrir
+el panel cada vez. Cada fila lleva ahora WhatsApp y correo: abre el chat,
+apunta el contacto y la fila sale de la lista.
+
+El texto solo va escrito si sale entero, con la misma comprobación que usa el
+panel (`huecosSinRellenar`). Si falta el importe o el plan de pagos —que el CRM
+no lleva, como dejó dicho la migración 151— el chat se abre vacío.
+
+`frontend/src/modules/proceso/components/AccionesDeFila.tsx`, en los dos CRMs.
+
+---
+
 ## Pendiente
 
 | Qué | De quién |
