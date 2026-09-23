@@ -346,8 +346,13 @@ export async function revertirComision(req, res, next) {
 export async function formacionesSinTutor(req, res, next) {
   try {
     await exigirGestion(req);
-    res.json({ success: true, data: await model.formacionesSinTutor(
-      await proyectosDelAmbito(req)) });
+    res.json({ success: true, data: await model.formacionesSinTutor({
+      ...(await proyectosDelAmbito(req)),
+      // Por defecto, solo desde el corte --lo de siempre--. Con `todas=1` salen
+      // tambien las de antes, marcadas: es lo que hacia falta para ver los
+      // veintidos cursos de ICTESS de febrero a julio.
+      desdeElCorte: req.query.todas !== '1',
+    }) });
   } catch (err) { next(err); }
 }
 
