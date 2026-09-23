@@ -33,13 +33,42 @@ const PAISES = [
 
 interface Props {
   open: boolean;
-  projectId: number;
+  projectId?: number | null;
   onClose: () => void;
+  /**
+   * De dónde sale el fichero. Por defecto, los prospectos.
+   *
+   * El repaso de fin de mes usa este MISMO diálogo apuntando a su endpoint:
+   * Diego, 23/09, «el descargar para Wasapi debe tener las mismas condiciones
+   * como si fueran de prospectos». Un segundo diálogo parecido habría acabado
+   * con dos juegos de condiciones distintos y un fichero que sale de una forma
+   * u otra según por dónde lo pidas.
+   */
+  endpoint?: string;
+  /** Lo que el que llama ya tiene filtrado y manda siempre (ámbito incluido). */
+  paramsBase?: Record<string, string>;
+  /** Los bloques que el que llama ya controla en su pantalla. */
+  ocultar?: Array<'gestor' | 'producto' | 'fechas' | 'convertidos'>;
+  titulo?: string;
+  descripcion?: string;
+  /** Una línea diciendo qué se lleva ya aplicado de la pantalla de detrás. */
+  resumenFiltros?: string | null;
+  nombreFichero?: string;
 }
 
-export default function WasapiExportDialog({ open, projectId, onClose }: Props) {
+export default function WasapiExportDialog({
+  open, projectId, onClose,
+  endpoint = '/leads/export/wasapi',
+  paramsBase,
+  ocultar = [],
+  titulo = 'Exportar plantilla Wasapi',
+  descripcion,
+  resumenFiltros = null,
+  nombreFichero = 'wasapi-leads',
+}: Props) {
   const { user } = useAuth() as { user: { userId: number; role: string } | null };
   const isGestor = user?.role === 'gestor';
+  const seVe = (b: 'gestor' | 'producto' | 'fechas' | 'convertidos') => !ocultar.includes(b);
 
   const [gestores, setGestores] = useState<Gestor[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -59,38 +88,44 @@ export default function WasapiExportDialog({ open, projectId, onClose }: Props) 
   const [format, setFormat] = useState<'csv' | 'xlsx'>('xlsx');
 
   useEffect(() => {
-    if (!open || !projectId) return;
+    if (!open) return;
     // Solo admin/superadmin necesitan la lista de gestores; gestor solo ve sus leads.
-    if (!isGestor) {
+    if (!isGestor && seVe('gestor')) {
       client.get('/users', { params: { limit: 100 } })
         .then((res: any) => setGestores(Array.isArray(res?.data) ? res.data : []))
         .catch(() => setGestores([]));
     }
-    client.get('/products', { params: { projectId, limit: 500 } })
-      .then((res: any) => setProductos(Array.isArray(res?.data) ? res.data : []))
-      .catch(() => setProductos([]));
-  }, [open, projectId, isGestor]);
+    if (projectId && seVe('producto')) {
+      client.get('/products', { params: { projectId, limit: 500 } })
+        .then((res: any) => setProductos(Array.isArray(res?.data) ? res.data : []))
+        .catch(() => setProductos([]));
+    }
+    // `seVe` se recalcula en cada pintada; lo que importa es `ocultar`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, projectId, isGestor, ocultar]);
 
   async function handleDownload() {
-    if (!projectId) return;
     setLoading(true);
     try {
       // Construyo URL con filtros — el client.get(blob) no es estándar, así que uso fetch directo.
-      const params = new URLSearchParams({ projectId: String(projectId) });
+      // Primero lo que manda quien llama --su ámbito y lo que ya tiene
+      // filtrado en pantalla--, y encima lo que se elija aquí.
+      const params = new URLSearchParams(paramsBase || {});
+      if (projectId) params.set('projectId', String(projectId));
       if (responsableId) params.set('responsableId', responsableId);
       if (excludeStatus.length) params.set('excludeStatus', excludeStatus.join(','));
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);
       if (productId) params.set('productId', productId);
       if (pais) params.set('pais', pais);
-      if (onlyWithPhone) params.set('onlyWithPhone', 'true');
+      params.set('onlyWithPhone', onlyWithPhone ? 'true' : 'false');
       if (includeConverted) params.set('includeConverted', 'true');
       params.set('format', format);
 
       // Fetch directo porque client.get parsea como JSON y queremos un blob CSV.
       // Reusamos accessToken y baseURL del wrapper para mantener auth/refresh.
       const token = getAccessToken();
-      const res = await fetch(`${API_BASE_URL}/leads/export/wasapi?${params.toString()}`, {
+      const res = await fetch(`${API_BASE_URL}${endpoint}?${params.toString()}`, {
         credentials: 'include',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -102,7 +137,7 @@ export default function WasapiExportDialog({ open, projectId, onClose }: Props) 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `wasapi-leads-${new Date().toISOString().slice(0, 10)}.${format}`;
+      a.download = `${nombreFichero}-${new Date().toISOString().slice(0, 10)}.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -128,15 +163,25 @@ export default function WasapiExportDialog({ open, projectId, onClose }: Props) 
               <WhatsappLogo size={18} weight="duotone" />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-base">Exportar plantilla Wasapi</h3>
+              <h3 className="font-semibold text-base">{titulo}</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Exporta los prospectos para enviarles WhatsApp desde Wasapi.io. Elige <strong>de qué fechas</strong> y marca <strong>a quién excluir</strong>. Todo es opcional: sin filtros se descargan todos los prospectos del proyecto.
+                {descripcion
+                  || <>Exporta los prospectos para enviarles WhatsApp desde Wasapi.io. Elige <strong>de qué fechas</strong> y marca <strong>a quién excluir</strong>. Todo es opcional: sin filtros se descargan todos los prospectos del proyecto.</>}
               </p>
             </div>
             <button onClick={onClose} className="p-1 rounded hover:bg-muted text-muted-foreground"><X size={18} /></button>
           </div>
 
           <div className="p-5 space-y-4 overflow-y-auto">
+            {/* Lo que ya trae puesto la pantalla de detrás. Se dice, no se
+                esconde: si no, se descarga creyendo que van todos. */}
+            {resumenFiltros && (
+              <div className="bg-muted/40 border border-border rounded p-2.5 text-xs flex gap-2">
+                <Info size={14} className="flex-shrink-0 mt-0.5" weight="duotone" />
+                <span>Se descargará <strong>lo que tienes filtrado</strong>: {resumenFiltros}</span>
+              </div>
+            )}
+
             {isGestor && (
               <div className="bg-info-soft border border-info/30 rounded p-2.5 text-xs text-info flex gap-2">
                 <Info size={14} className="flex-shrink-0 mt-0.5" weight="duotone" />
@@ -145,7 +190,7 @@ export default function WasapiExportDialog({ open, projectId, onClose }: Props) 
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {!isGestor && (
+              {!isGestor && seVe('gestor') && (
                 <Field label="Gestor (responsable)">
                   <select value={responsableId} onChange={(e) => setResponsableId(e.target.value)}
                     className="w-full h-9 px-2 rounded-md border border-border bg-card text-sm">
@@ -155,6 +200,7 @@ export default function WasapiExportDialog({ open, projectId, onClose }: Props) 
                 </Field>
               )}
 
+              {seVe('producto') && (
               <Field label="Producto de interés">
                 <select value={productId} onChange={(e) => setProductId(e.target.value)}
                   className="w-full h-9 px-2 rounded-md border border-border bg-card text-sm">
@@ -162,6 +208,7 @@ export default function WasapiExportDialog({ open, projectId, onClose }: Props) 
                   {productos.map((p) => (<option key={p.id} value={p.id}>{p.nombre}</option>))}
                 </select>
               </Field>
+              )}
 
               <Field label="País (derivado del teléfono)">
                 <select value={pais} onChange={(e) => setPais(e.target.value)}
@@ -171,6 +218,7 @@ export default function WasapiExportDialog({ open, projectId, onClose }: Props) 
                 </select>
               </Field>
 
+              {seVe('fechas') && (<>
               <Field label="Desde">
                 <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)}
                   className="w-full h-9 px-2 rounded-md border border-border bg-card text-sm" />
@@ -180,6 +228,7 @@ export default function WasapiExportDialog({ open, projectId, onClose }: Props) 
                 <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)}
                   className="w-full h-9 px-2 rounded-md border border-border bg-card text-sm" />
               </Field>
+              </>)}
             </div>
 
             <div className="pt-3 border-t border-border">
@@ -235,11 +284,13 @@ export default function WasapiExportDialog({ open, projectId, onClose }: Props) 
                   className="w-4 h-4 rounded border-border" />
                 Solo prospectos con teléfono válido <span className="text-muted-foreground">(recomendado — sin teléfono Wasapi no puede enviar)</span>
               </label>
+              {seVe('convertidos') && (
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={includeConverted} onChange={(e) => setIncludeConverted(e.target.checked)}
                   className="w-4 h-4 rounded border-border" />
                 Incluir prospectos ya convertidos <span className="text-muted-foreground">(normalmente excluidos)</span>
               </label>
+              )}
             </div>
 
             <details className="text-xs">
