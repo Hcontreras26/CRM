@@ -6,7 +6,7 @@ import BarraFiltros from '@/shared/components/ui/BarraFiltros';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import ComoVoy from '@/modules/reports/components/ComoVoy';
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLeads } from '../hooks/useLeads';
 import { useWhatsappTemplates } from '../hooks/useWhatsappTemplates';
 import LeadFormDialog from '../components/LeadFormDialog';
@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useProducts } from '@/modules/products/hooks/useProducts';
 import client from '@/shared/api/client';
-import {
+import { Gear, ArrowCounterClockwise, ListChecks,
   MagnifyingGlass,
   Plus,
 
@@ -80,6 +80,8 @@ import BloquePlegable from '@/shared/components/ui/BloquePlegable';
 // y quien reparte es Make. Se cambio por el de abajo, que enseña lo que ha
 // pasado en vez de lo que va a pasar. El componente viejo sigue en el repo.
 import UltimoLeadAsignado from '../components/UltimoLeadAsignado';
+import ParaHoyYManana from '@/shared/components/dashboard/ParaHoyYManana';
+import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 
 
 function StatPill({ label, value, dot }: { label: string; value: number; dot?: string }) {
@@ -162,6 +164,19 @@ export default function LeadsPage() {
   } = useLeads();
 
   const { activeProject, projects, activeIssuerId } = useProjectContext();
+  /**
+   * El ámbito para la cola: un campus, o los de la empresa.
+   *
+   * `-1` es «todos los proyectos», un valor interno del CRM: mandarlo pediría
+   * el proyecto número menos uno. Con una empresa puesta van sus campus, que
+   * es lo que el servidor sabe sumar.
+   */
+  const idsDelAmbito = useIdsDelAmbito();
+  const proyectoDeLaCola = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
+  const campusCsv = !proyectoDeLaCola && activeIssuerId && idsDelAmbito.length
+    ? idsDelAmbito.join(',')
+    : null;
+
   // Columna "Proyecto" visible siempre que el usuario tenga >1 proyecto asignado
   // (no solo en modo multi). Util para saber a qué proyecto pertenece cada lead.
   const showProjectColumn = (projects?.length || 0) > 1;
@@ -700,6 +715,44 @@ export default function LeadsPage() {
           conversión del mes. Va aquí y no escondido en Informes porque es la
           pantalla donde pasa el día. */}
       <ComoVoy compacto />
+
+      {/* LA COLA DEL DÍA, AQUÍ TAMBIÉN. Diego, 23/09: «la cola del día debe
+          de estar en prospectos también con atajos y todo».
+
+          Es el mismo bloque del dashboard, no una copia: los cuatro números
+          salen de `GET /proceso/cola/resumen`, que ya recorta por rol. Contar
+          aquí por mi cuenta sería una segunda contabilidad de la misma cola, y
+          el día que discrepen nadie sabría cuál creer.
+
+          Cada número abre la cola con ese tramo ya puesto, y debajo van los
+          atajos a las tres pantallas del proceso. */}
+      <div className="space-y-2">
+        <ParaHoyYManana projectId={proyectoDeLaCola} projectIds={campusCsv} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/prospectos/cola"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-normal font-semibold hover:bg-muted"
+          >
+            <ListChecks size={14} weight="bold" className="text-primary" />
+            La cola del día
+          </Link>
+          <Link
+            to="/prospectos/seguimiento"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-normal font-semibold hover:bg-muted"
+          >
+            <ArrowCounterClockwise size={14} weight="bold" className="text-primary" />
+            Seguimiento de fin de mes
+          </Link>
+          <Link
+            to="/prospectos/proceso"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-normal font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <Gear size={14} weight="bold" />
+            Proceso comercial
+          </Link>
+        </div>
+      </div>
+
 
       {/* Barra de herramientas de la pantalla. El titulo ya no vive aqui: esta
           arriba, en la cabecera del marco, igual que en todas las demas. */}
