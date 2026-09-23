@@ -11,7 +11,10 @@ export interface CrmUser {
   id: number;
   nombre: string;
   email: string;
+  /** El rol PRINCIPAL. Es el que sale en las listas y el que mira medio CRM. */
   role: UserRole;
+  /** Roles de MAS: solo suman permisos. Vacio en casi todo el mundo. */
+  roles_extra?: UserRole[];
   active: boolean;
   last_login_at: string | null;
   created_at: string | null;
@@ -74,6 +77,8 @@ function normalizeUser(raw: any): CrmUser {
     nombre: raw.nombre || raw.name || '',
     email: raw.email || '',
     role: raw.role,
+    // Los roles de mas, si los tiene. Vacio en casi todo el mundo.
+    roles_extra: Array.isArray(raw.roles_extra) ? raw.roles_extra : [],
     active: raw.active !== false,
     last_login_at: raw.last_login_at ?? null,
     created_at: raw.created_at ?? null,
@@ -112,6 +117,8 @@ export interface CreateUserPayload {
   nombre: string;
   email: string;
   role: UserRole;
+  /** Roles de MAS. Solo suman permisos; el principal sigue siendo `role`. */
+  roles_extra?: UserRole[];
   projects: ProjectAssignment[];
 }
 
@@ -131,6 +138,8 @@ export async function createUser(payload: CreateUserPayload): Promise<CreateUser
 export interface UpdateUserPayload {
   nombre?: string;
   role?: UserRole;
+  /** Roles de MAS. Una lista vacia los quita todos, que es lo que se espera. */
+  roles_extra?: UserRole[];
   projects?: ProjectAssignment[];
   /**
    * Formato viejo, que aqui sirve para una cosa que el nuevo no puede: dejar a

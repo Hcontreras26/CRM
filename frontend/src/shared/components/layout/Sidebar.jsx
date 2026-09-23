@@ -61,6 +61,7 @@ import {
   // que una de sus filas, deja de ordenar y pasa a confundir.
   Flask, House, Funnel, Books, ChalkboardTeacher, Bank, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
+import { rolesDe } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/shared/lib/utils';
@@ -362,7 +363,16 @@ export function applyLabel(original, overrides) {
 // aviso de llamada entrante. Teniendolo en dos sitios se llega a que uno diga
 // que si y el otro que no.
 
-function canSeeItem(item, role, modules, projectType, soloColaboraciones, permisos) {
+/**
+ * Que entradas del menu ve alguien.
+ *
+ * Recibe TODOS sus roles, no uno: desde que se puede tener mas de uno, «es
+ * gestor» dejo de ser una pregunta de igualdad. Quien es gestora y ademas
+ * tutora ve lo de las dos.
+ */
+function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permisos) {
+  const suyos = Array.isArray(roles) ? roles.filter(Boolean) : [roles].filter(Boolean);
+  const es = (...r) => r.some((x) => suyos.includes(x));
   if (item.apagable && moduloApagado(item.apagable)) return false;
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
@@ -370,7 +380,11 @@ function canSeeItem(item, role, modules, projectType, soloColaboraciones, permis
   // Un tutor solo ve lo suyo: lo que no le nombre expresamente queda fuera.
   // Al reves —listar lo prohibido— se olvida siempre algo, y lo que se olvida
   // es un tutor paseandose por Prospectos o por Finanzas.
-  if (role === 'tutor') return Array.isArray(item.roles) && item.roles.includes('tutor');
+  // El recorte del tutor es para quien es SOLO tutor. Con otro rol encima ya
+  // no se le esconde el CRM: se le suma lo suyo.
+  if (suyos.length === 1 && suyos[0] === 'tutor') {
+    return Array.isArray(item.roles) && item.roles.includes('tutor');
+  }
   // Un gestor de colaboraciones se dedica SOLO a los tutores: no lleva
   // prospectos, ni ventas, ni finanzas. Se declara lo que puede ver, igual que
   // con el tutor — enumerar lo prohibido deja fuera siempre la pantalla nueva.
@@ -388,7 +402,7 @@ function canSeeItem(item, role, modules, projectType, soloColaboraciones, permis
   }
 
   // soporte ve todo (rol generico tipo dev)
-  if (role === 'soporte' || role === 'superadmin') {
+  if (es('soporte', 'superadmin')) {
     if (item.module && modules && modules[item.module] === false) return false;
     return true;
   }
@@ -401,15 +415,17 @@ function canSeeItem(item, role, modules, projectType, soloColaboraciones, permis
   //
   // Se comprueba solo para gestor: un admin puede facturar por su rol, y a
   // soporte y superadmin se les ha dejado pasar justo arriba.
-  if (item.permiso && role === 'gestor' && !permisos?.[item.permiso]) return false;
-  if (item.roles && !item.roles.includes(role)) return false;
+  // Se comprueba a quien NO tiene un rol de mando: si ademas es admin, puede
+  // por ese otro rol y esconderselo seria quitarle lo que se le acaba de dar.
+  if (item.permiso && !es('admin', 'soporte', 'superadmin') && !permisos?.[item.permiso]) return false;
+  if (item.roles && !item.roles.some((r) => suyos.includes(r))) return false;
   if (item.module && modules && modules[item.module] === false) return false;
   return true;
 }
 
 function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, projectType, soloColab, permisos, labelOverrides, onNavigate, collapsed, onExpandSidebar }) {
   const visible = children
-    .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos))
+    .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos))  // `role` ya llega como lista
     .map((c) => ({ ...c, comingSoon: !isBetaAllowed(c.to) }));
   const location = useLocation();
   const hasActiveChild = visible.some((c) => !c.comingSoon && (location.pathname === c.to || location.pathname.startsWith(c.to + '/')));
@@ -1135,7 +1151,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       )}>
         {NAV_SECTIONS.map((section, sIdx) => {
           // Filtrar items que el usuario puede ver
-          const visibleItems = section.items.filter((item) => canSeeItem(item, user?.role, activeProject?.modules, activeProject?.type, soloColab, user));
+          const visibleItems = section.items.filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
           if (visibleItems.length === 0) return null;
           const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
@@ -1147,7 +1163,9 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
               <NavGroup
                 key={item.label}
                 {...item}
-                role={user?.role}
+                // Todos sus roles, no solo el principal: desde que se puede
+                // tener mas de uno, el menu tiene que sumar lo de cada uno.
+                role={rolesDe(user)}
                 modules={activeProject?.modules}
                 projectType={activeProject?.type}
                 soloColab={soloColab}

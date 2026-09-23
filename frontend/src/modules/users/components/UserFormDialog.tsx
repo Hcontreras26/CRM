@@ -13,6 +13,8 @@ export interface UserFormValues {
   nombre: string;
   email: string;
   role: UserRole;
+  /** Roles de MAS. Quien lleva prospectos y ademas da clase no tiene que elegir. */
+  roles_extra: UserRole[];
   projects: ProjectAssignment[];
   whatsapp_phone: string;
   factura_manager: boolean;
@@ -42,6 +44,14 @@ export default function UserFormDialog({
   const [nombre, setNombre] = useState(user?.nombre ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [role, setRole] = useState<UserRole>((user?.role as UserRole) ?? 'gestor');
+  // Los roles añadidos. Diego, 22/09: «necesitamos que se pueda colocar más de
+  // un rol a un usuario». El principal sigue mandando —es el que se enseña en
+  // las listas y el que usa medio CRM—; estos solo suman permisos.
+  const [rolesExtra, setRolesExtra] = useState<UserRole[]>(
+    (user?.roles_extra as UserRole[] | undefined) ?? [],
+  );
+  const alternarRolExtra = (r: UserRole) => setRolesExtra((prev) =>
+    prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
   const [seleccionados, setSeleccionados] = useState<ProjectAssignment[]>(user?.projects ?? []);
   const [telefono, setTelefono] = useState(user?.whatsapp_phone ?? '');
   const [facturaManager, setFacturaManager] = useState(!!user?.factura_manager);
@@ -89,6 +99,8 @@ export default function UserFormDialog({
       nombre: nombre.trim(),
       email: email.trim(),
       role,
+      // El principal nunca va repetido entre los añadidos.
+      roles_extra: rolesExtra.filter((r) => r !== role),
       projects: seleccionados,
       whatsapp_phone: telefono.trim(),
       factura_manager: facturaManager,
@@ -202,6 +214,45 @@ export default function UserFormDialog({
                 {ASSIGNABLE_ROLES.find((r) => r.value === role)?.hint}
               </p>
             </div>
+
+            {/* Y ADEMÁS. Hay quien lleva prospectos y también da clase: antes
+                había que elegir, y lo que no se eligiera se perdía.
+
+                Solo SUMAN: si un rol deja hacer algo, se puede. Nunca quitan,
+                porque entonces añadir un rol recortaría permisos, que es lo
+                contrario de lo que se busca al añadirlo. */}
+            <fieldset>
+              <legend className="mb-1.5 px-1 text-secundario text-muted-foreground">
+                Y además es…
+              </legend>
+              <div className="flex flex-wrap gap-1.5">
+                {ASSIGNABLE_ROLES.filter((r) => r.value !== role).map((r) => {
+                  const puesto = rolesExtra.includes(r.value);
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => alternarRolExtra(r.value)}
+                      aria-pressed={puesto}
+                      className={
+                        'rounded-md border px-2.5 py-1 text-normal transition-colors '
+                        + 'focus:outline-none focus:ring-2 focus:ring-primary/40 '
+                        + (puesto
+                          ? 'border-primary bg-primary/10 font-semibold text-primary'
+                          : 'border-border hover:bg-muted')
+                      }
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 px-1 text-secundario text-muted-foreground">
+                {rolesExtra.length === 0
+                  ? 'Opcional. Suma los permisos de otro rol sin perder los de este.'
+                  : `Podrá hacer lo de ${ASSIGNABLE_ROLES.find((r) => r.value === role)?.label} y también lo de ${rolesExtra.map((x) => ASSIGNABLE_ROLES.find((r) => r.value === x)?.label).join(' y ')}.`}
+              </p>
+            </fieldset>
 
             {projects.length > 0 && (
               <ProjectSelector

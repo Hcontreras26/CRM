@@ -54,6 +54,7 @@ export default function UsersPanel() {
           nombre: values.nombre,
           email: values.email,
           role: values.role,
+          roles_extra: values.roles_extra,
           projects: values.projects,
         });
         if (setPasswordToken) {
@@ -71,6 +72,9 @@ export default function UsersPanel() {
         await updateUser(dialogo.user.id, {
           nombre: values.nombre,
           role: values.role,
+          // Se manda SIEMPRE, aunque venga vacia: una lista vacia significa
+          // «quitale los de mas», y omitirla dejaria imposible volver atras.
+          roles_extra: values.roles_extra,
           // Desmarcarlos todos tiene que quitarlos de verdad, y para eso hay que
           // mandar el formato viejo: `projects: []` el backend lo ignora.
           ...(sinProyectos ? { projectIds: [] } : { projects: values.projects }),

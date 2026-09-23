@@ -9,6 +9,10 @@ export const createUserSchema = z.object({
   nombre: z.string().min(2, 'Nombre minimo 2 caracteres').max(200),
   email: z.string().email('Email invalido').transform((v) => v.toLowerCase().trim()),
   role: z.enum(['admin', 'gestor', 'soporte', 'tutor'], { message: 'Rol debe ser admin, gestor, soporte o tutor' }),
+  // Roles de MAS. Quien lleva prospectos y ademas da clase no tiene que elegir.
+  // Superadmin no cabe aqui a proposito: un rol añadido no puede dar acceso
+  // total --eso se pone como rol principal o no se pone--.
+  roles_extra: z.array(z.enum(['admin', 'gestor', 'soporte', 'tutor'])).optional(),
   // Legacy: lista de ids (recibe_leads queda en false).
   projectIds: z.array(z.number().int().positive()).optional().default([]),
   // Nuevo: lista con flag recibe_leads por proyecto.
@@ -66,6 +70,7 @@ export const createUserSchema = z.object({
 export const updateUserSchema = z.object({
   nombre: z.string().min(2).max(200).optional(),
   role: z.enum(['admin', 'gestor', 'soporte', 'tutor']).optional(),
+  roles_extra: z.array(z.enum(['admin', 'gestor', 'soporte', 'tutor'])).optional(),
   factura_manager: z.boolean().optional(),
   editar_fechas_factura: z.boolean().optional(),
   gestor_colaboraciones: z.boolean().optional(),
@@ -87,6 +92,7 @@ export const adminSetPasswordSchema = z.object({
 export const listUsersSchema = z.object({
   active: z.enum(['true', 'false']).optional(),
   role: z.enum(['superadmin', 'admin', 'gestor', 'soporte', 'tutor']).optional(),
+  roles_extra: z.array(z.enum(['admin', 'gestor', 'soporte', 'tutor'])).optional(),
   projectId: z.coerce.number().int().positive().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),

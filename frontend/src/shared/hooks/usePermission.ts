@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserRole } from '@/shared/types';
+import { rolesDe, tieneRol as tieneRolDe } from '@/shared/lib/roles';
 
 export type PermissionKey = string;
 export type PermissionMap = Record<PermissionKey, boolean>;
@@ -140,7 +141,12 @@ export const FIXED_ROLES: ReadonlyArray<FixedRole> = [
 
 export interface UsePermissionResult {
   can: (permission: PermissionKey) => boolean;
+  /** El rol PRINCIPAL. Para preguntar por uno cualquiera, `tieneRol`. */
   role: UserRole | undefined;
+  /** Todos sus roles: el principal y los añadidos. */
+  roles: UserRole[];
+  /** Si lo tiene, da igual que sea el principal o uno de mas. */
+  tieneRol: (...roles: UserRole[]) => boolean;
   isAdmin: boolean;
 }
 
@@ -151,7 +157,7 @@ export default function usePermission(): UsePermissionResult {
     if (!user) return false;
     // Solo el superadmin lo puede todo. Soporte NO: el backend le da un mapa
     // restrictivo y saltarselo aqui le pintaba botones que su rol no permite.
-    if (user.role === 'superadmin') return true;
+    if (tieneRolDe(user, 'superadmin')) return true;
     // Los del backend, que mandan sobre la tabla de abajo.
     //
     // Se leian de `user.permissions` y ahi no estan: `/auth/me` los devuelve AL
@@ -161,10 +167,19 @@ export default function usePermission(): UsePermissionResult {
     if (permissions && Object.keys(permissions).length > 0) {
       return permissions[permission] === true || permissions['*'] === true;
     }
-    // fallback: defaults por rol
-    const defaults = ROLE_DEFAULT_PERMISSIONS[user.role as UserRole] || {};
-    return defaults[permission] === true || defaults['*'] === true;
+    // Respaldo: los de cada uno de sus roles, sumados. Basta con que UNO lo
+    // permita —si se cruzaran al reves, añadir un rol quitaria permisos—.
+    return rolesDe(user).some((r) => {
+      const defaults = ROLE_DEFAULT_PERMISSIONS[r] || {};
+      return defaults[permission] === true || defaults['*'] === true;
+    });
   }
 
-  return { can, role: user?.role, isAdmin: user?.role === 'admin' || user?.role === 'superadmin' };
+  return {
+    can,
+    role: user?.role,
+    roles: rolesDe(user),
+    tieneRol: (...roles: UserRole[]) => tieneRolDe(user, ...roles),
+    isAdmin: tieneRolDe(user, 'admin', 'superadmin'),
+  };
 }
