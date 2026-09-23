@@ -53,6 +53,11 @@ export const listLeadsSchema = z.object({
   // Por que seguimiento va: 1, 2, 3, 4 o «5 o más». El tope evita que
   // alguien pida el seguimiento 900 y se lleve una consulta por delante.
   seguimiento: z.coerce.number().int().min(1).max(20).optional(),
+  // En que PASO del proceso comercial va. Diego, 23/09: «en filtros que diga
+  // proceso de ventas y puedas elegir cuál». La clave y no el id: los pasos son
+  // por proyecto --cada campus tiene los suyos-- y la clave es la misma en
+  // todos, asi que vale igual con un campus que con una empresa entera.
+  pasoProceso: z.string().max(40).optional(),
   responsableId: z.coerce.number().int().positive().optional(),
   unassigned: z.coerce.boolean().optional(),
   canal: z.enum(['meta_ads', 'google_ads', 'tiktok_ads', 'organico', 'chatgpt_ia', 'directo', 'referido', 'whatsapp']).optional(),

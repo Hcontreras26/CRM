@@ -10,6 +10,8 @@ import Select from '@/shared/components/ui/Select';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import ChannelBadge from '@/shared/components/ui/ChannelBadge';
 import { useLeadDetail } from '../hooks/useLeads';
+// Que paso del proceso le toca y cual lleva hecho.
+import AgendaDelProspecto from '@/modules/proceso/components/AgendaDelProspecto';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 import { detectCountryFromPhone } from '../lib/phoneCountry';
@@ -19,6 +21,12 @@ const EnrollSequenceModal = lazy(() => import('./EnrollSequenceModal'));
 
 const TABS = [
   { key: 'resumen', label: 'Resumen' },
+  // El proceso comercial, aqui dentro. Diego, 23/09: «cuando se crea un
+  // prospecto debe salir un apartado, proceso de ventas, e indicar en qué paso
+  // está y si está hecho». Estaba solo en la ficha entera, y a la ficha entera
+  // se entra cuando ya sabes que quieres mirar a esa persona: en la lista se
+  // abre ESTE cajon.
+  { key: 'proceso', label: 'Proceso' },
   { key: 'historial', label: 'Historial' },
   { key: 'interacciones', label: 'Interacciones' },
   { key: 'recordatorios', label: 'Recordatorios' },
@@ -114,6 +122,21 @@ export default function LeadDrawer({ leadId, open, onClose }: Props) {
             {lead && (
               <>
                 {tab === 'resumen' && <ResumenTab lead={lead} onEnroll={() => setEnrollOpen(true)} onSaved={refetch} />}
+                {tab === 'proceso' && (
+                  <AgendaDelProspecto
+                    leadId={lead.id}
+                    projectId={lead.project_id}
+                    nombreProyecto={lead.proyecto_nombre}
+                    datos={{
+                      nombre: lead.nombre,
+                      email: lead.email,
+                      telefono: lead.telefono,
+                      producto: lead.producto_nombre || lead.producto_interes,
+                      inicio: lead.fecha_inicio_texto,
+                      cierre: lead.fecha_cierre_convocatoria,
+                    }}
+                  />
+                )}
                 {tab === 'historial' && <HistorialTab timeline={timeline} />}
                 {tab === 'interacciones' && <InteraccionesTab leadId={lead.id} interacciones={interacciones} onRefetch={refetch} />}
                 {tab === 'recordatorios' && <RecordatoriosTab leadId={lead.id} reminders={reminders} onRefetch={refetch} />}

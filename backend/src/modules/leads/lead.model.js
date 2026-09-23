@@ -720,7 +720,7 @@ export const FILTROS_RAPIDOS = {
   urgent: `(${PROXIMO} <= CURRENT_DATE OR ${SIN_TOCAR})`,
 };
 
-export async function findAll({ projectId, projectIds, status, seguimiento, responsableId, unassigned, canal, productId, search, page, limit, includeConverted, dateFrom, dateTo, sort, dir, duplicated, reincidente, conConversion, qf }) {
+export async function findAll({ projectId, projectIds, status, seguimiento, pasoProceso, responsableId, unassigned, canal, productId, search, page, limit, includeConverted, dateFrom, dateTo, sort, dir, duplicated, reincidente, conConversion, qf }) {
   const conditions = [];
   const params = [];
   let paramIdx = 1;
@@ -790,6 +790,26 @@ export async function findAll({ projectId, projectIds, status, seguimiento, resp
       conditions.push(n >= 5 ? `${CUANTOS} >= $${paramIdx++}` : `${CUANTOS} = $${paramIdx++}`);
       params.push(n);
     }
+  }
+  /*
+    EN QUE PASO DEL PROCESO VA.
+
+    El paso «en el que va» es el PRIMERO que tiene pendiente y todavia no ha
+    cerrado, que es exactamente lo que enseña la cola del dia: el contacto n.º N
+    cierra el paso n.º N. Se calcula igual aqui para que la lista y la cola no
+    puedan decir cosas distintas de la misma persona.
+
+    Quien no tiene agenda --los de antes del proceso-- no sale con ningun paso
+    elegido, y es lo correcto: no estan en el proceso.
+  */
+  if (pasoProceso) {
+    const CONTACTOS = `(SELECT count(*) FROM lead_interactions li
+                         WHERE li.lead_id = l.id AND li.tipo <> 'nota')`;
+    conditions.push(`(SELECT ls.clave FROM lead_steps ls
+                       WHERE ls.lead_id = l.id AND ls.estado = 'pendiente'
+                         AND ${CONTACTOS} < ls.orden
+                       ORDER BY ls.orden LIMIT 1) = $${paramIdx++}`);
+    params.push(pasoProceso);
   }
   if (unassigned) {
     conditions.push(`l.responsable_id IS NULL`);

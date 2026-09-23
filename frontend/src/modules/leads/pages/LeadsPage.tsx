@@ -147,6 +147,7 @@ export default function LeadsPage() {
     setPage, search, setSearch,
     filterEstado, setFilterEstado,
     filterSeguimiento, setFilterSeguimiento,
+    filterPaso, setFilterPaso,
     filterOrigen, setFilterOrigen,
     filterResponsable, setFilterResponsable,
     filterProducto, setFilterProducto,
@@ -526,6 +527,31 @@ export default function LeadsPage() {
       : { title: 'No se ha podido copiar', variant: 'destructive' });
   }
 
+  /**
+   * Los pasos del proceso, para poder filtrar por ellos con su nombre.
+   *
+   * Se piden al servidor y no se escriben aquí: cada campus puede renombrarlos
+   * desde «Proceso comercial», y un filtro que diga «Día 2» cuando la pantalla
+   * de pasos dice «Prueba social» no lo entiende nadie.
+   */
+  const [pasosDelProceso, setPasosDelProceso] = useState<Array<{ clave: string; nombre: string; orden: number }>>([]);
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (activeIssuerId) p.set('issuerId', String(activeIssuerId));
+    else if (activeProject?.id && activeProject.id !== -1) p.set('projectId', String(activeProject.id));
+    else { setPasosDelProceso([]); return; }
+    let vivo = true;
+    client.get(`/proceso/pasos?${p.toString()}`)
+      .then((r: any) => {
+        if (!vivo) return;
+        const filas = r?.success ? (r.data || []) : [];
+        setPasosDelProceso(filas.map((x: any) => ({ clave: x.clave, nombre: x.nombre, orden: x.orden })));
+      })
+      // Sin proceso montado no hay filtro, y ya está: no es un error que enseñar.
+      .catch(() => { if (vivo) setPasosDelProceso([]); });
+    return () => { vivo = false; };
+  }, [activeProject?.id, activeIssuerId]);
+
   // Auto-log de interaccion al usar acciones rapidas (WhatsApp/Email)
   async function handleLogInteraction(lead, tipo) {
     try {
@@ -842,6 +868,8 @@ export default function LeadsPage() {
         search={search} setSearch={setSearch}
         filterEstado={filterEstado} setFilterEstado={setFilterEstadoSafe}
         filterSeguimiento={filterSeguimiento} setFilterSeguimiento={setFilterSeguimiento}
+        filterPaso={filterPaso} setFilterPaso={setFilterPaso}
+        pasosDelProceso={pasosDelProceso}
         filterOrigen={filterOrigen} setFilterOrigen={setFilterOrigen}
         filterResponsable={filterResponsable} setFilterResponsable={setFilterResponsable}
         filterProducto={filterProducto} setFilterProducto={setFilterProducto}
