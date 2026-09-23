@@ -464,6 +464,68 @@ export default function LeadsPage() {
     toast({ title: `${selected.length} prospectos exportados` });
   }
 
+/**
+   * Apunta el contacto a TODOS los seleccionados.
+   *
+   * Diego, 23/09: las opciones del envio masivo tambien aqui. Se va uno a uno
+   * contra el servidor --no hay endpoint de interacciones en bloque-- y se
+   * cuenta lo que sale bien y lo que no: con cuarenta personas, un «hecho» a
+   * secas no se puede comprobar a ojo.
+   */
+  async function marcarContactadosEnBloque() {
+    if (!selectedIds.length) return;
+    setBulkLoading(true);
+    let bien = 0;
+    let mal = 0;
+    for (const id of selectedIds) {
+      try {
+        await client.post(`/leads/${id}/interactions`, {
+          tipo: 'whatsapp',
+          nota: 'Contacto en bloque',
+          fecha: new Date().toISOString(),
+        });
+        bien += 1;
+      } catch { mal += 1; }
+    }
+    setBulkLoading(false);
+    clearSelection();
+    refetch?.();
+    toast(mal === 0
+      ? { title: `${bien} contactos apuntados` }
+      : {
+        title: `${bien} apuntados, ${mal} no`,
+        description: 'Los que fallaron siguen sin contacto apuntado.',
+        variant: 'destructive',
+      });
+  }
+
+  /** Los telefonos o los correos de los seleccionados, al portapapeles. */
+  async function copiarContactosEnBloque(que: 'telefono' | 'email') {
+    const elegidos = filteredLeads.filter((l) => selectedIds.includes(l.id));
+    const datos = elegidos
+      .map((l) => (que === 'telefono' ? l.telefono : l.email))
+      .filter(Boolean) as string[];
+    if (!datos.length) {
+      toast({
+        title: que === 'telefono' ? 'Ninguno tiene teléfono' : 'Ninguno tiene correo',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const { copyToClipboard } = await import('@/shared/lib/clipboard');
+    const ok = await copyToClipboard(datos.join('\n'));
+    toast(ok
+      ? {
+        title: `${datos.length} ${que === 'telefono' ? 'teléfonos' : 'correos'} copiados`,
+        // Se dice cuantos se quedan fuera: pegar 38 cuando se marcaron 40 y no
+        // enterarse es quedarse con dos personas sin avisar.
+        description: datos.length < elegidos.length
+          ? `${elegidos.length - datos.length} de los seleccionados no tienen ese dato.`
+          : undefined,
+      }
+      : { title: 'No se ha podido copiar', variant: 'destructive' });
+  }
+
   // Auto-log de interaccion al usar acciones rapidas (WhatsApp/Email)
   async function handleLogInteraction(lead, tipo) {
     try {
@@ -741,50 +803,15 @@ export default function LeadsPage() {
       </section>
       </BloquePlegable>
 
-      {/* Los cuatro filtros que más se usan, a la vista y en una fila, como la
-          maqueta. Estaban TODOS dentro del desplegable «Filtros»: para saber si
-          había algo puesto había que abrirlo, y un filtro que no se ve es un
-          filtro que se queda puesto sin querer — y entonces la pantalla enseña
-          menos de lo que hay sin decirlo.
-
-          Los otros siete (proyecto, gestora, programa, fechas, duplicados,
-          reincidentes y el orden fino) siguen detrás del botón: no caben en una
-          fila y no se usan a diario. */}
+      {/* Arriba solo el buscador. Estado, canal y orden se han ido DENTRO del
+          desplegable «Filtros» —Diego, 23/09: «mete esos filtros allí»—, con
+          los otros siete. Un solo sitio donde mirar; lo que haya puesto lo
+          canta el número del botón y las píldoras de al lado. */}
       <BarraFiltros
         busqueda={search}
         onBusqueda={setSearch}
         placeholder="Buscar por nombre, email o teléfono"
-        desplegables={[
-          {
-            nombre: 'Estado',
-            valor: filterEstado,
-            onChange: setFilterEstadoSafe,
-            opciones: [
-              { value: '', label: 'Todos los estados' },
-              ...STATUS_KEYS.map((k) => ({ value: k, label: STATUS_LABELS[k] || k })),
-            ],
-          },
-          {
-            nombre: 'Origen',
-            valor: filterOrigen,
-            onChange: setFilterOrigen,
-            opciones: [
-              { value: '', label: 'Todos los orígenes' },
-              ...Object.entries(CHANNEL_LABELS).map(([value, label]) => ({ value, label: String(label) })),
-            ],
-          },
-          {
-            nombre: 'Orden',
-            valor: sortMode,
-            onChange: (v) => setSortMode(v as 'value' | 'recent' | 'urgency' | 'recent_value'),
-            opciones: [
-              { value: 'recent', label: 'Más recientes' },
-              { value: 'urgency', label: 'Por urgencia' },
-              { value: 'value', label: 'Mayor valor' },
-              { value: 'recent_value', label: 'Reciente + valor' },
-            ],
-          },
-        ]}
+        desplegables={[]}
         hayFiltros={!!(search || filterEstado || filterOrigen || filterResponsable || filterProducto || dateFrom || dateTo || filterDup || filterReincidente || quickFilter)}
         onLimpiar={() => {
           setSearch('');
@@ -934,7 +961,8 @@ export default function LeadsPage() {
                           // Limpiar: convertir guiones a espacios + capitalizar primera letra
                           label = `Desde: ${last.replace(/-/g, ' ').replace(/^(.)/, (c) => c.toUpperCase())}`;
                         } catch { /* mantener fallback */ }
-                        return (
+
+  return (
                           <span className="inline-block px-2 py-0.5 bg-muted text-muted-foreground rounded font-medium italic" title={lead.landing_url}>
                             {label.length > 40 ? label.slice(0, 38) + '…' : label}
                           </span>
@@ -1143,6 +1171,8 @@ export default function LeadsPage() {
           onChangeStatus={can('leads.edit') ? (status => handleBulkStatusChange(status)) : undefined}
           onReassign={can('leads.assign') ? (gestorId => handleBulkReassign(gestorId)) : undefined}
           onExport={can('leads.export') ? handleBulkExportCsv : undefined}
+          onMarcarContactado={can('leads.edit') ? marcarContactadosEnBloque : undefined}
+          onCopiarContactos={copiarContactosEnBloque}
           gestores={gestores}
           isAdmin={can('leads.assign')}
           loading={bulkLoading}

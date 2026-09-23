@@ -244,11 +244,57 @@ export default function LeadsFiltersBar(props: Props) {
 
               {/* Filtros principales */}
               <Section title="Filtros principales">
-                {/* El «Estado» y el «Canal» que habia aqui se han ido a la fila
-                    de arriba (#125): tenerlos dos veces obliga a mirar en dos
-                    sitios para saber que hay puesto.
+                {/* ESTADO, CANAL Y ORDEN VUELVEN AQUÍ DENTRO. Diego, 23/09:
+                    «mete esos filtros allí».
 
-                    ESTO NO ES UN DUPLICADO Y POR ESO SE QUEDA. El «por que
+                    Estuvieron un tiempo en la fila de arriba (#125) para que se
+                    vieran sin abrir nada. El problema era otro: la fila se
+                    llenaba de desplegables y el botón «Filtros» parecía llevar
+                    a otro sitio distinto. Con todo dentro hay UN solo sitio
+                    donde mirar, y lo que haya puesto lo canta el número del
+                    botón y las píldoras de al lado — que es lo que de verdad
+                    evita el filtro puesto sin querer. */}
+                <Row label="Estado">
+                  <select
+                    value={filterEstado}
+                    onChange={(e) => setFilterEstado(e.target.value)}
+                    className="w-full h-9 px-3 rounded-md border border-border bg-muted/40 text-sm"
+                    aria-label="Estado"
+                  >
+                    <option value="">Todos los estados</option>
+                    {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+                </Row>
+                <Row label="Canal">
+                  <select
+                    value={filterOrigen}
+                    onChange={(e) => setFilterOrigen(e.target.value)}
+                    className="w-full h-9 px-3 rounded-md border border-border bg-muted/40 text-sm"
+                    aria-label="Canal de entrada"
+                  >
+                    <option value="">Todos los orígenes</option>
+                    {Object.entries(ORIGEN_LABELS).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+                </Row>
+                <Row label="Orden">
+                  <select
+                    value={sortMode}
+                    onChange={(e) => setSortMode(e.target.value as 'value' | 'recent' | 'urgency' | 'recent_value')}
+                    className="w-full h-9 px-3 rounded-md border border-border bg-muted/40 text-sm"
+                    aria-label="Orden de la lista"
+                  >
+                    {Object.entries(SORT_LABELS).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+                </Row>
+                {/* El «por que seguimiento va» cuelga del estado «En
+                    seguimiento» porque solo ahi significa algo: preguntar por el
+                    seguimiento 3 de un «no interesado» no dice nada. El «por que
                     seguimiento va» no esta arriba ni en ningun otro sitio, y
                     cuelga del estado «En seguimiento» porque solo ahi significa
                     algo: preguntar por el seguimiento 3 de un «no interesado» no

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Users, Export, CaretDown } from '@phosphor-icons/react';
+import { CheckCircle, Users, Export, CaretDown, Phone, EnvelopeSimple } from '@phosphor-icons/react';
 import { STATUS_LABELS } from '@/shared/components/ui/StatusBadge';
 
 interface Gestor {
@@ -15,6 +15,22 @@ interface Props {
   onChangeStatus?: (status: string) => void;
   onReassign?: (gestorId: number) => void;
   onExport?: () => void;
+  /**
+   * Apuntar el contacto a TODOS los seleccionados.
+   *
+   * El repaso de fin de mes se manda en bloque --Diego, 23/09: «suele ser
+   * masivo»-- y apuntarlo uno a uno despues de mandar cuarenta mensajes no lo
+   * hace nadie: la lista se queda mintiendo y al mes siguiente vuelven a salir
+   * los mismos.
+   */
+  onMarcarContactado?: () => void;
+  /**
+   * Los telefonos o los correos de los seleccionados, al portapapeles.
+   *
+   * Para pegarlos en la difusion de WhatsApp o en el correo masivo, que es como
+   * se manda de verdad un seguimiento a cien personas.
+   */
+  onCopiarContactos?: (que: 'telefono' | 'email') => void;
   gestores: Gestor[];
   isAdmin: boolean;
   loading?: boolean;
@@ -25,7 +41,8 @@ interface Props {
  * que aparece cuando hay leads seleccionados.
  */
 export default function BulkActionBar({
-  count, onClear, onChangeStatus, onReassign, onExport, gestores, isAdmin, loading,
+  count, onClear, onChangeStatus, onReassign, onExport,
+  onMarcarContactado, onCopiarContactos, gestores, isAdmin, loading,
 }: Props) {
   const [openMenu, setOpenMenu] = useState<'status' | 'reassign' | null>(null);
 
@@ -85,6 +102,35 @@ export default function BulkActionBar({
         )}
 
         {/* Exportar CSV */}
+        {onMarcarContactado && (
+          <button
+            onClick={onMarcarContactado}
+            disabled={loading}
+            className="h-8 inline-flex items-center gap-1.5 px-2.5 rounded-md border border-border bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            <CheckCircle size={13} weight="bold" /> Marcar contactados
+          </button>
+        )}
+
+        {onCopiarContactos && (
+          <>
+            <button
+              onClick={() => onCopiarContactos('telefono')}
+              disabled={loading}
+              className="h-8 inline-flex items-center gap-1.5 px-2.5 rounded-md border border-border bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              <Phone size={13} weight="bold" /> Copiar teléfonos
+            </button>
+            <button
+              onClick={() => onCopiarContactos('email')}
+              disabled={loading}
+              className="h-8 inline-flex items-center gap-1.5 px-2.5 rounded-md border border-border bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              <EnvelopeSimple size={13} weight="bold" /> Copiar correos
+            </button>
+          </>
+        )}
+
         {onExport && (
         <button
           onClick={onExport}

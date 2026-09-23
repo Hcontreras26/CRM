@@ -136,6 +136,8 @@ export async function miPuesto(req, res, next) {
     const { asesoraId, base, ...sinAsesora } = ambito;
     res.json({ success: true, data: await model.miPuesto({
       userId, from: desde, to: hasta, ...sinAsesora,
+      // El jefe se lleva la tabla entera; una gestora, solo lo suyo.
+      esJefe,
       // Por fecha de VENTA salvo que pidan lo contrario: es lo que la gestora
       // reconoce como suyo el dia que cierra.
       base: req.query.base === 'factura' ? 'factura' : 'cobro',
