@@ -91,6 +91,8 @@ const CON_SOCIEDAD_OK = [
   // procesos en empresas deben ser por empresa, no por proyecto».
   /^\/prospectos\/cola$/,
   /^\/prospectos\/proceso$/,
+  // El repaso de fin de mes suma los campus igual que la cola.
+  /^\/prospectos\/seguimiento$/,
   // Tutores, los cuatro. Diego, 15/09: «no me deja elegir la empresa ni los
   // proyectos y no puedo seguir con testeo».
   //

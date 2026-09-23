@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   CalendarCheck,
+  ArrowCounterClockwise,
   SquaresFour,
   Users,
   Package,
@@ -124,6 +125,9 @@ const NAV_SECTIONS = [
           // sitios a la vez.
           { label: 'Lista de prospectos', to: '/prospectos', detail: 'Lista, pipeline y más', icon: Users, end: true },
           { label: 'La cola del día', to: '/prospectos/cola', detail: 'A quién le toca hoy', icon: CalendarCheck },
+          // El quinto paso no cabe en la cola del dia: es toda la base que no
+          // compro, y se repasa cuando se puede, no cada mañana.
+          { label: 'Seguimiento de fin de mes', to: '/prospectos/seguimiento', detail: 'La base que no compró', icon: ArrowCounterClockwise },
           { label: 'Proceso comercial', to: '/prospectos/proceso', detail: 'Los cinco pasos', icon: ListChecks },
         ],
       },

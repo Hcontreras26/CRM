@@ -118,6 +118,8 @@ const ChangeRequestDetailPage = lazy(() => import('./modules/change-requests/pag
 const DupReviewQueuePage = lazy(() => import('./modules/leads/pages/DupReviewQueuePage'));
 const DuplicatesPage = lazy(() => import('./modules/leads/pages/DuplicatesPage'));
 const ColaDelDiaPage = lazy(() => import('./modules/proceso/pages/ColaDelDiaPage'));
+// El repaso de fin de mes: toda la base que no compro. No es la cola del dia.
+const SeguimientoPage = lazy(() => import('./modules/proceso/pages/SeguimientoPage'));
 const ProcesoPage = lazy(() => import('./modules/proceso/pages/ProcesoPage'));
 const EmailSequencesPage = lazy(() => import('./modules/email-sequences/pages/EmailSequencesPage'));
 const FormsPage = lazy(() => import('./modules/forms/pages/FormsPage'));
@@ -184,6 +186,7 @@ function App() {
               tenerlos juntos evita que alguien meta otra ruta en medio y
               «cola» o «proceso» acaben leyendose como el id de un prospecto. */}
           <Route path="/prospectos/cola" element={<ColaDelDiaPage />} />
+          <Route path="/prospectos/seguimiento" element={<SeguimientoPage />} />
           <Route path="/prospectos/proceso" element={<ProcesoPage />} />
           <Route path="/prospectos/:id" element={<LeadDetailPage />} />
 
