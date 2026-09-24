@@ -96,6 +96,10 @@ export default function ColaDelDiaPage() {
   // selector de arriba: es el filtro que pidio Diego el 14/09 —«que tengan
   // filtros si tengo que seleccionar un proyecto»—.
   const [soloCampus, setSoloCampus] = useState<number | null>(null);
+  // La pagina de la cola, y cuantos hay de verdad detras.
+  const [pagina, setPagina] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(1);
   useEffect(() => { setSoloCampus(null); }, [activeIssuer?.id, activeProject?.id]);
 
   const elegido = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
@@ -121,19 +125,25 @@ export default function ColaDelDiaPage() {
     return `${d.getFullYear()}-${mes}-${String(d.getDate()).padStart(2, '0')}`;
   }, [tramo]);
 
+  // Cualquier cambio de filtro vuelve al principio: quedarse en la pagina siete
+  // despues de filtrar enseña una lista vacia que parece que no hay nada.
+  useEffect(() => { setPagina(1); }, [proyecto, projectIds, gestoraId, hasta]);
+
   useEffect(() => {
     let vivo = true;
     setCargando(true);
     Promise.all([
-      traerCola({ projectId: proyecto, projectIds, gestoraId, hasta, limite: 300 }),
+      traerCola({ projectId: proyecto, projectIds, gestoraId, hasta, limite: 100, pagina }),
       traerResumen({ projectId: proyecto, projectIds, gestoraId }),
     ]).then(([c, r]) => {
       if (!vivo) return;
-      setCola(c);
+      setCola(c.filas);
+      setTotal(c.total);
+      setTotalPaginas(c.totalPaginas);
       setResumen(r);
     }).finally(() => { if (vivo) setCargando(false); });
     return () => { vivo = false; };
-  }, [proyecto, projectIds, gestoraId, hasta]);
+  }, [proyecto, projectIds, gestoraId, hasta, pagina]);
 
   // La lista de gestoras, solo para quien puede filtrar por ellas.
   useEffect(() => {
@@ -488,6 +498,36 @@ export default function ColaDelDiaPage() {
         Los pasos <strong className="text-foreground">se cierran solos</strong> al registrar un contacto con la
         persona: no hay que marcarlos. Para mover una fecha o saltarse un paso, entra en su ficha.
       </p>
+      {/* LA PAGINACIÓN. Antes la cola cortaba en 300 sin decirlo mientras los
+          contadores de arriba contaban todas: con CEDIA el contador decía 900 y
+          la lista enseñaba 300, y quien la trabajaba de arriba abajo creía
+          haberla terminado con mil personas sin tocar. */}
+      {totalPaginas > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+          <span className="text-secundario tabular-nums text-muted-foreground">
+            Página {pagina} de {totalPaginas} · {total} en la cola
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={pagina <= 1 || cargando}
+              onClick={() => setPagina((n) => Math.max(1, n - 1))}
+              className="rounded-md border border-border px-2.5 py-1.5 text-normal font-semibold hover:bg-muted disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              disabled={pagina >= totalPaginas || cargando}
+              onClick={() => setPagina((n) => Math.min(totalPaginas, n + 1))}
+              className="rounded-md border border-border px-2.5 py-1.5 text-normal font-semibold hover:bg-muted disabled:opacity-40"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {enFoco !== null && visibles[enFoco] && (
         <PanelDeCola
