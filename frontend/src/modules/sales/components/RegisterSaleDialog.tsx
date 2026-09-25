@@ -52,6 +52,11 @@ const PAYMENT_METHODS = [
  */
 type Mode = 'existing' | 'new' | 'sin_gestora' | 'otra_gestora';
 
+/** Para comparar lo que se escribe con lo que hay: sin tildes y en minusculas. */
+function sinTildes(s: string) {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
 export default function RegisterSaleDialog({ open, onClose, project, onSaved, modoInicial }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const { can } = usePermission();
@@ -173,6 +178,18 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
     return () => { vivo = false; };
   }, [open, pid]);
 
+  // SI LA BUSQUEDA DEJA UNA SOLA, SE ELIGE SOLA.
+  //
+  // Es lo que la gente espera al escribir el nombre entero: Ana escribio
+  // «Curso de Escritura Terapéutica y Narrativa», que solo casa con una, y aun
+  // asi el desplegable seguia en «— Selecciona —» y la venta no se dejaba
+  // registrar.
+  useEffect(() => {
+    if (!productSearch.trim()) return;
+    const hay = products.filter((p) => sinTildes(p.nombre).includes(sinTildes(productSearch)));
+    if (hay.length === 1 && productoId !== hay[0].id) setProductoId(hay[0].id);
+  }, [productSearch, products]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   // Productos del proyecto
   useEffect(() => {
     if (!open || !pid) return;
@@ -249,8 +266,10 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
 
   if (!open) return null;
 
+  // Sin tildes y sin mayusculas: «terapeutica» tiene que encontrar
+  // «Terapéutica». Nadie escribe las tildes en un buscador.
   const productosFiltrados = productSearch.trim()
-    ? products.filter((p) => p.nombre.toLowerCase().includes(productSearch.toLowerCase()))
+    ? products.filter((p) => sinTildes(p.nombre).includes(sinTildes(productSearch)))
     : products;
   const isRetroactiva = fecha < today;
 
@@ -728,6 +747,21 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                     <option key={p.id} value={p.id}>{p.nombre}{p.precio ? ` (${p.precio} ${p.moneda || ''})` : ''}</option>
                   ))}
                 </select>
+                {/* Que se sepa siempre en que punto esta: la caja de arriba
+                    solo filtra, y sin esto un desplegable vacio no dice si no
+                    hay formaciones, si no casa la busqueda, o si falta elegir
+                    el campus. */}
+                <p className="mt-1 px-1 text-[11px] text-muted-foreground">
+                  {!pid
+                    ? 'Elige antes el campus: las formaciones son suyas.'
+                    : products.length === 0
+                      ? 'Cargando las formaciones…'
+                      : productosFiltrados.length === 0
+                        ? <span className="text-amber-700 dark:text-amber-300">No hay ninguna formación con ese texto. Prueba con menos palabras.</span>
+                        : productoId
+                          ? 'Formación elegida.'
+                          : `${productosFiltrados.length} formación${productosFiltrados.length === 1 ? '' : 'es'} — elige una en la lista de arriba.`}
+                </p>
               </div>
 
               <FilaCampos>
