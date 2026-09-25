@@ -69,6 +69,7 @@ import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
 import { startReporteSemanalScheduler } from './jobs/reporteSemanalScheduler.js';
 import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js';
+import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -308,6 +309,7 @@ if (process.env.NODE_ENV !== 'test') {
     startTutorCommissionsScheduler();
     startVigilanteCatalogoScheduler();
     startLeadSinTocarScheduler();
+    startPasoVencidoScheduler();
     startResumenDiarioScheduler();
     startReporteSemanalScheduler();
   startCorreoEntranteScheduler();

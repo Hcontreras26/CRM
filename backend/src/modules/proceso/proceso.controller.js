@@ -1,6 +1,7 @@
 import * as Proceso from './proceso.service.js';
 import { crearPasoSchema, editarPasoSchema, reordenarSchema, ajustarPasoSchema } from './proceso.validation.js';
 import { leadsToWasapiCsv, leadsToWasapiXlsx, detectCountry } from '../../shared/utils/wasapiCsv.js';
+import { avanzarPorContacto } from '../../shared/services/estado-prospecto.service.js';
 
 export async function listarPasos(req, res, next) {
   try {
@@ -261,7 +262,18 @@ export async function replanificar(req, res, next) {
 export async function ajustarPasoDeLead(req, res, next) {
   try {
     const datos = ajustarPasoSchema.parse(req.body);
-    const paso = await Proceso.ajustarPaso(Number(req.params.id), datos);
-    res.json({ success: true, data: paso });
+    const paso = await Proceso.ajustarPaso(Number(req.params.id), datos, req.user.userId);
+
+    // Marcar el paso mueve tambien la etiqueta del prospecto: es el mismo
+    // hecho contado dos veces, y tenerlas separadas es lo que llevaba a
+    // «Contactado» con cero contactos. No se espera a que termine ni se
+    // rompe la respuesta si falla: el paso ya esta guardado, que es lo que
+    // pidio la gestora.
+    let estadoDelLead = null;
+    if (datos.estado === 'hecho' && paso) {
+      estadoDelLead = await avanzarPorContacto(paso.lead_id, req.user.userId).catch(() => null);
+    }
+
+    res.json({ success: true, data: { ...paso, estado_del_lead: estadoDelLead } });
   } catch (err) { next(err); }
 }

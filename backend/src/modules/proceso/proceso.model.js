@@ -215,13 +215,20 @@ export async function planificarPasosDeLead(leadId) {
 export async function pasosDeLead(leadId) {
   const { rows } = await query(
     `SELECT ls.id, ls.clave, ls.orden, ls.fecha_prevista, ls.estado, ls.nota,
+            ls.hecho_at, ls.hecho_por, u.nombre AS hecho_por_nombre,
             s.nombre, s.cuando, s.canales, s.nota AS nota_del_paso,
             COALESCE(s.avisa_plazas, false) AS avisa_plazas,
-            (${CONTACTOS}) >= ls.orden AS hecho,
+            -- Hecho por CUALQUIERA de las dos vias: marcado a mano, o deducido
+            -- de los contactos apuntados. Ni una sola: quien apunta sus
+            -- llamadas no tiene ademas que ir tachando, y quien cierra un paso
+            -- sin escribir puede decirlo.
+            (ls.estado = 'hecho' OR (${CONTACTOS}) >= ls.orden) AS hecho,
+            ls.estado = 'hecho' AS a_mano,
             (CURRENT_DATE - ls.fecha_prevista) AS dias_de_retraso
        FROM lead_steps ls
        JOIN leads l ON l.id = ls.lead_id
        LEFT JOIN commercial_steps s ON s.id = ls.step_id
+       LEFT JOIN users u ON u.id = ls.hecho_por
       WHERE ls.lead_id = $1
       ORDER BY ls.orden, ls.id`,
     [leadId]
@@ -411,17 +418,30 @@ export async function resumenDeLaCola({ projectIds, asesoraId }) {
   return rows[0];
 }
 
-/** Saltarse un paso o moverlo de fecha, a mano y con su porque. */
-export async function ajustarPaso(id, { estado, fecha_prevista, nota }) {
+/**
+ * Marcar un paso, saltarselo o moverlo de fecha, a mano y con su porque.
+ *
+ * Al marcarlo se guarda quien y cuando; al devolverlo a pendiente se borran los
+ * dos. Si no se limpiaran, un paso desmarcado seguiria diciendo que lo cerro
+ * alguien que ya se arrepintio.
+ */
+export async function ajustarPaso(id, { estado, fecha_prevista, nota }, userId = null) {
   const { rows } = await query(
     `UPDATE lead_steps
         SET estado = COALESCE($2, estado),
             fecha_prevista = COALESCE($3::date, fecha_prevista),
             nota = COALESCE($4, nota),
+            hecho_at  = CASE WHEN $2 = 'hecho' THEN NOW()
+                             WHEN $2 IS NULL   THEN hecho_at
+                             ELSE NULL END,
+            hecho_por = CASE WHEN $2 = 'hecho' THEN $5::int
+                             WHEN $2 IS NULL   THEN hecho_por
+                             ELSE NULL END,
             updated_at = NOW()
       WHERE id = $1
-      RETURNING id, lead_id, clave, orden, fecha_prevista, estado, nota`,
-    [id, estado || null, fecha_prevista || null, nota || null]
+      RETURNING id, lead_id, clave, orden, fecha_prevista, estado, nota,
+                hecho_at, hecho_por`,
+    [id, estado || null, fecha_prevista || null, nota || null, userId || null]
   );
   return rows[0] || null;
 }

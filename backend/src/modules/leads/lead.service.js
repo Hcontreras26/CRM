@@ -9,6 +9,7 @@ import { notifyAdmins, notifyUsers } from '../notifications/notifications.servic
 import * as dupQueue from './dup-queue.service.js';
 import * as leadProducts from './lead-products.service.js';
 import { planificarPasosDeLead } from '../proceso/proceso.model.js';
+import { avanzarPorContacto } from '../../shared/services/estado-prospecto.service.js';
 
 // Dispara secuencias de email activas que tengan el trigger indicado
 async function triggerSequences(triggerEvent, leadId, projectId) {
@@ -550,7 +551,21 @@ export async function addInteraction(leadId, tipo, nota, userId, fecha) {
   const lead = await leadModel.findById(leadId);
   if (!lead) throw new AppError('Lead no encontrado', 404, 'LEAD_NOT_FOUND');
 
-  return await leadModel.createInteraction(leadId, tipo, nota, userId, fecha);
+  const interaccion = await leadModel.createInteraction(leadId, tipo, nota, userId, fecha);
+
+  // Apuntar un contacto ES contactar: hasta ahora la etiqueta habia que moverla
+  // ademas a mano, y por eso en la cola hay gente marcada «Contactado» con cero
+  // contactos hechos y gente al reves. Una nota interna no cuenta: no se ha
+  // hablado con nadie.
+  //
+  // Si falla, la interaccion se queda igualmente. Perder el apunte por no poder
+  // mover una etiqueta seria cambiar un problema pequeño por uno grande.
+  if (tipo !== 'nota') {
+    avanzarPorContacto(leadId, userId).catch((err) =>
+      logger.warn({ err: err.message, leadId }, 'No se pudo mover el estado tras el contacto'));
+  }
+
+  return interaccion;
 }
 
 // Edición de una interacción existente. Gestor solo puede editar las suyas;

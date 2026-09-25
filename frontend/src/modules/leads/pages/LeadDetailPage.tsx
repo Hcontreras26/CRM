@@ -239,6 +239,9 @@ export default function LeadDetailPage() {
             onWhatsapp={(nota) => addInteraction('whatsapp', nota)} />
           <AgendaDelProspecto
             leadId={lead.id}
+            // Marcar un paso mueve el estado del prospecto: sin esto la
+            // cabecera seguiria diciendo el de antes hasta recargar.
+            alCambiar={() => refetch?.()}
             projectId={lead.project_id}
             nombreProyecto={lead.proyecto_nombre}
             datos={{

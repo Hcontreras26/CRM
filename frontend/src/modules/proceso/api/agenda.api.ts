@@ -78,9 +78,13 @@ export type PasoDeLead = {
   canales: string[] | null;
   nota_del_paso: string | null;
   fecha_prevista: string;
-  estado: 'pendiente' | 'saltado';
+  estado: 'pendiente' | 'saltado' | 'hecho';
   nota: string | null;
   hecho: boolean;
+  /** Lo marco una persona, en vez de deducirse de los contactos apuntados. */
+  a_mano: boolean;
+  hecho_at: string | null;
+  hecho_por_nombre: string | null;
   vencido: boolean;
   dias_de_retraso: number;
   /** Su mensaje dice cuántas plazas quedan: hay que comprobarlo fuera. */
@@ -156,7 +160,7 @@ export async function traerPasosDeLead(leadId: number): Promise<PasoDeLead[]> {
 }
 
 export async function ajustarPaso(id: number, datos: {
-  estado?: 'pendiente' | 'saltado'; fecha_prevista?: string; nota?: string;
+  estado?: 'pendiente' | 'saltado' | 'hecho'; fecha_prevista?: string; nota?: string;
 }) {
   const r = await client.patch(`/proceso/paso-lead/${id}`, datos);
   return r?.success ? r.data : null;

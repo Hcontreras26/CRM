@@ -126,6 +126,9 @@ export default function LeadDrawer({ leadId, open, onClose }: Props) {
                 {tab === 'proceso' && (
                   <AgendaDelProspecto
                     leadId={lead.id}
+                    // Marcar un paso mueve el estado del prospecto: sin esto la
+                    // cabecera seguiria diciendo el de antes hasta recargar.
+                    alCambiar={() => refetch?.()}
                     projectId={lead.project_id}
                     nombreProyecto={lead.proyecto_nombre}
                     datos={{
