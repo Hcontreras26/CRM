@@ -153,7 +153,7 @@ export default function SalesPage() {
                         <Robot size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
                         <span>
                           <span className="block text-sm font-semibold">Venta automática (sin gestora)</span>
-                          <span className="block text-[11px] text-muted-foreground">De cero y sin dueño: no cuenta para nadie.</span>
+                          <span className="block text-[11px] text-muted-foreground">La registra la plataforma, de cero: no cuenta para ninguna gestora.</span>
                         </span>
                       </button>
                     )}
