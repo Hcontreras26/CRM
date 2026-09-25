@@ -127,7 +127,7 @@ export async function createSale(data, requestUser) {
   // Se guarda en la venta en vez de dejarlo al COALESCE con el responsable del
   // lead. No es lo mismo: el responsable del lead cambia --se reasigna un
   // prospecto y ya esta-- y entonces una venta cerrada en marzo empezaria a
-  // contar para quien no la hizo. La venta es un hecho con fecha; su dueña
+  // contar para quien no la hizo. La venta es un hecho con fecha; su duena
   // tambien.
   //
   // Se comprueba que esa persona exista, este activa y tenga el proyecto: un id
@@ -319,12 +319,6 @@ function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, 
   else cond.push(SIN_PRUEBAS('cv.project_id'));
   if (from) { cond.push(`cv.fecha_conversion >= $${idx++}`); params.push(from); }
   if (to) { cond.push(`cv.fecha_conversion <= $${idx++}`); params.push(to); }
-  // Por gestora, mirando el reparto y no una sola vendedora.
-  //
-  // Antes era `COALESCE(cv.vendedora_id, l.responsable_id) = $n`, o sea UNA
-  // persona por venta: la venta atendida entre dos solo le salia a la dueña del
-  // lead. La otra veia su contador en 4,5 —eso si sale del reparto— y en la
-  // lista solo cuatro. Daniela, 21/09.
   if (responsableId) {
     cond.push(`EXISTS (SELECT 1 FROM conversion_reparto r
                         WHERE r.conversion_id = cv.id AND r.vendedora_id = $${idx++})`);
@@ -336,7 +330,7 @@ function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, 
     cond.push(`(${SIN_TILDES('l.nombre')} ILIKE ${SIN_TILDES('$' + idx)}
                 OR l.email ILIKE $${idx}
                 OR ${SIN_TILDES('cv.producto_contratado')} ILIKE ${SIN_TILDES('$' + idx)})`);
-    params.push(`%${search}%`); idx++;
+    params.push(`%${String(search).trim()}%`); idx++;
   }
   // Las dos reglas que definen que es una venta, iguales que en los informes:
   // una ficha marcada como mensualidad no es una venta nueva, y una venta sin
@@ -497,7 +491,6 @@ export async function getVentasPorCliente(filtros = {}) {
              cv.fecha_conversion,
              ROUND(${COBRADO_REAL} * ${PESO}, 2) AS importe_pagado,
              l.nombre AS cliente, l.email, l.telefono,
-             -- Atendida entre dos: se enseñan las dos, no una.
              EXISTS (SELECT 1 FROM conversion_vendedoras xv
                       WHERE xv.conversion_id = cv.id) AS compartida,
              COALESCE(
