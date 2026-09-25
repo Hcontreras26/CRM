@@ -63,9 +63,16 @@ export const whatsappApi = {
     projectId: number; label: string; body: string; ambito: 'compartida' | 'personal';
     /** De qué WhatsApp es, si no es el de quien la escribe. */
     usuarioId?: number | null;
+    /**
+     * De qué paso del proceso es.
+     *
+     * Sin esto una plantilla propia nacía suelta: existía, pero no salía nunca
+     * donde se trabaja —la ficha y la cola del día—, solo en el chat.
+     */
+    paso_clave?: string | null;
   }): Promise<ApiResponse<PlantillaWhatsapp>> => client.post('/whatsapp/templates', data),
 
-  editarPlantilla: (id: number, data: { label?: string; body?: string }):
+  editarPlantilla: (id: number, data: { label?: string; body?: string; paso_clave?: string | null }):
     Promise<ApiResponse<PlantillaWhatsapp>> => client.patch(`/whatsapp/templates/${id}`, data),
 
   borrarPlantilla: (id: number): Promise<ApiResponse<null>> =>

@@ -192,15 +192,22 @@ export default function ProcesoPage() {
               </span>
             )}
           </p>
+          {/* DE QUIÉN ES LO QUE SE EDITA. El desplegable ya existía y ya hacía
+              lo correcto --con la empresa puesta se tocan todos sus campus a la
+              vez, y eligiendo uno se toca solo ese--, pero decía «Elige uno…» y
+              nada más. Quien pulsaba «Nuevo paso» con CEDIA arriba lo creaba en
+              los siete campus sin saberlo, y quien quería cambiar uno solo no
+              tenía forma de adivinar que era ahí donde se hacía. El poder
+              estaba; lo que faltaba era decirlo. */}
           {activeIssuer && !elegido && campus.length > 0 && (
             <select
               value={soloCampus ?? ''}
               onChange={(e) => setSoloCampus(e.target.value ? Number(e.target.value) : null)}
               className="h-8 px-2 rounded-md border border-border bg-card text-normal focus:outline-none focus:ring-2 focus:ring-primary/40"
-              aria-label={`Campus de ${activeIssuer.nombre}`}
+              aria-label={`A qué campus de ${activeIssuer.nombre} afecta lo que edites`}
             >
-              <option value="">Elige uno…</option>
-              {campus.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              <option value="">Toda la empresa · los {campus.length} campus</option>
+              {campus.map((c) => <option key={c.id} value={c.id}>Solo {c.nombre}</option>)}
             </select>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Copy, Check, WarningCircle, ImageSquare, EnvelopeSimple } from '@phosphor-icons/react';
+import { Copy, Check, WarningCircle, ImageSquare, EnvelopeSimple, Plus, X } from '@phosphor-icons/react';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import { toast } from '@/shared/hooks/useToast';
 import { whatsappApi, type PlantillaWhatsapp } from '@/modules/whatsapp/api/whatsapp.api';
@@ -23,6 +23,18 @@ import { emailTemplatesApi, type EmailTemplate } from '@/modules/email-templates
  * que literal. La plantilla marca el orden; las palabras las pones tú»—, así
  * que aquí solo hay un botón de copiar. Si el CRM lo enviara solo, todos los
  * mensajes saldrían iguales y dejarían de funcionar.
+ *
+ * LAS PROPIAS TAMBIÉN. Diego, 24/09: «también poder usar las plantillas
+ * personalizadas». Cada una tiene la suya para según qué persona, y hasta ahora
+ * solo existían en el chat: al crear una no se guardaba de qué paso era, así
+ * que nacía suelta y no aparecía nunca aquí, que es donde se trabaja. Ahora se
+ * ven las de este paso mezcladas con las de la casa, las sueltas se pueden
+ * desplegar aparte, y se puede escribir una nueva sin salir de la ficha.
+ *
+ * SE GUARDA CON LOS HUECOS SIN RELLENAR. Guardar «Hola Marta» convierte la
+ * plantilla en un mensaje para Marta y mañana no sirve para nadie. Por eso el
+ * cuadro de escribir parte del texto CRUDO, con sus {huecos}, y no del que se
+ * ve ya relleno encima.
  */
 export default function PlantillaDelPaso({
   projectId,
@@ -54,9 +66,19 @@ export default function PlantillaDelPaso({
   compacto?: boolean;
 }) {
   const [todas, setTodas] = useState<PlantillaWhatsapp[] | null>(null);
+  // Las propias que no son de ningun paso: se enseñan plegadas, porque son de
+  // quien las escribio y no tienen por que valer para este momento.
+  const [verMias, setVerMias] = useState(false);
+  // El cuadro de escribir una nueva. `null` = cerrado.
+  const [nueva, setNueva] = useState<{ label: string; body: string } | null>(null);
+  const [guardando, setGuardando] = useState(false);
   // Cuál se acaba de copiar, para cambiarle el botón un momento. Sin esa
   // respuesta no se sabe si el clic ha hecho algo, y se copia dos veces.
   const [copiada, setCopiada] = useState<number | null>(null);
+
+  // Sube uno al crear una plantilla: es la forma de volver a pedir la lista sin
+  // duplicar la peticion ni inventarse la fila a mano.
+  const [recarga, setRecarga] = useState(0);
 
   useEffect(() => {
     let vivo = true;
@@ -67,7 +89,7 @@ export default function PlantillaDelPaso({
       // un error que haya que enseñar: sencillamente no hay plantillas.
       .catch(() => { if (vivo) setTodas([]); });
     return () => { vivo = false; };
-  }, [projectId, issuerId]);
+  }, [projectId, issuerId, recarga]);
 
   useEffect(() => { setCopiada(null); }, [pasoClave, datos.nombre]);
 
@@ -103,6 +125,45 @@ export default function PlantillaDelPaso({
     [todas, pasoClave],
   );
 
+  /**
+   * Mias y sin paso. Las que SI son de este paso ya salen arriba, con las de la
+   * casa: separarlas ahi obligaria a mirar en dos sitios el mismo momento.
+   */
+  const miasSueltas = useMemo(
+    () => (todas || [])
+      .filter((p) => p.ambito === 'personal' && !p.paso_clave)
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [todas],
+  );
+
+  async function guardarLaNueva() {
+    if (!nueva || !projectId) return;
+    const label = nueva.label.trim();
+    const body = nueva.body.trim();
+    if (!label || !body) {
+      toast({ title: 'Ponle un nombre y un texto', variant: 'destructive' });
+      return;
+    }
+    setGuardando(true);
+    try {
+      const r = await whatsappApi.crearPlantilla({
+        projectId, label, body, ambito: 'personal',
+        usuarioId: issuerId,
+        // Atada a ESTE paso: es lo que hace que mañana salga sola aqui.
+        paso_clave: pasoClave,
+      });
+      if (!r?.success) throw new Error(r?.error || 'no se pudo guardar');
+      setNueva(null);
+      setRecarga((n) => n + 1);
+      toast({ title: 'Guardada', description: 'Es tuya y sale en este paso.' });
+    } catch (e) {
+      toast({ title: 'No se ha podido guardar',
+              description: (e as Error)?.message || '', variant: 'destructive' });
+    } finally {
+      setGuardando(false);
+    }
+  }
+
   async function copiar(p: PlantillaWhatsapp) {
     const texto = rellenar(p.body, datos, nombreProyecto);
     const ok = await copyToClipboard(texto);
@@ -135,17 +196,117 @@ export default function PlantillaDelPaso({
     </button>
   ) : null;
 
+  /**
+   * El pie: las mias sueltas y el cuadro de escribir una nueva.
+   *
+   * Va en los dos caminos --haya plantillas de este paso o no--, porque el paso
+   * que no tiene ninguna es justo donde mas falta hace poder escribirla.
+   */
+  const pie = (
+    <div className="space-y-1.5 pt-0.5">
+      {miasSueltas.length > 0 && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setVerMias((v) => !v)}
+            className="text-[11px] font-semibold text-primary hover:underline"
+          >
+            {verMias ? 'Ocultar' : 'Ver'} mis plantillas sueltas ({miasSueltas.length})
+          </button>
+          {verMias && (
+            <div className="mt-1 space-y-1">
+              {miasSueltas.map((m) => (
+                <div key={m.id} className="flex items-start justify-between gap-2 rounded-md border border-dashed border-border px-2 py-1.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-semibold">{m.label}</p>
+                    <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                      {rellenar(m.body, datos, nombreProyecto)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copiar(m)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded border border-border bg-card px-2 py-1 text-[11px] font-semibold hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  >
+                    {copiada === m.id
+                      ? <><Check size={12} weight="bold" className="text-success" /> Copiado</>
+                      : <><Copy size={12} weight="bold" /> Copiar</>}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {nueva === null ? (
+        <button
+          type="button"
+          onClick={() => setNueva({
+            label: '',
+            // El texto CRUDO de la primera de este paso, con sus {huecos}: es
+            // el punto de partida honrado. Si se copiara el de arriba, ya
+            // relleno, la plantilla nacería escrita para esta persona.
+            body: suyas[0]?.body || '',
+          })}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+        >
+          <Plus size={11} weight="bold" /> Escribir una plantilla mía para este paso
+        </button>
+      ) : (
+        <div className="space-y-1.5 rounded-md border border-border bg-card p-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold">Tuya, y solo para este paso</p>
+            <button type="button" onClick={() => setNueva(null)} aria-label="Cerrar"
+              className="text-muted-foreground hover:text-foreground">
+              <X size={13} weight="bold" />
+            </button>
+          </div>
+          <input
+            value={nueva.label}
+            onChange={(e) => setNueva({ ...nueva, label: e.target.value })}
+            placeholder="Cómo la llamas: «Día 4 · mi versión»"
+            className="w-full rounded border border-border bg-background px-2 py-1 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring/40"
+          />
+          <textarea
+            value={nueva.body}
+            onChange={(e) => setNueva({ ...nueva, body: e.target.value })}
+            rows={5}
+            placeholder="El texto, con sus huecos: {nombre}, {producto}..."
+            className="w-full rounded border border-border bg-background px-2 py-1 text-[12px] leading-snug focus:outline-none focus:ring-2 focus:ring-ring/40"
+          />
+          <p className="text-[10px] leading-snug text-muted-foreground">
+            Déjale los huecos entre llaves. El CRM los rellena con los datos de cada
+            persona; si los escribes ya rellenos, mañana no sirve para nadie más.
+          </p>
+          <button
+            type="button"
+            disabled={guardando}
+            onClick={guardarLaNueva}
+            className="w-full rounded-md bg-primary px-2 py-1.5 text-[11px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   // Un paso sin plantilla no pinta una caja vacía: dice dónde se crea y ya.
   if (suyas.length === 0) {
-    if (elCorreo) return <div className="space-y-2">{elCorreo}</div>;
-    if (compacto) return null;
     return (
-      <p className="text-secundario text-muted-foreground">
-        Este paso no tiene mensaje guardado.{' '}
-        <Link to="/whatsapp/plantillas" className="text-primary hover:underline">
-          Escribir uno
-        </Link>
-      </p>
+      <div className="space-y-2">
+        {elCorreo}
+        {!compacto && (
+          <p className="text-secundario text-muted-foreground">
+            Este paso no tiene mensaje de la casa.{' '}
+            <Link to="/whatsapp/plantillas" className="text-primary hover:underline">
+              Verlas todas
+            </Link>
+          </p>
+        )}
+        {pie}
+      </div>
     );
   }
 
@@ -199,6 +360,7 @@ export default function PlantillaDelPaso({
         );
       })}
       {elCorreo}
+      {pie}
     </div>
   );
 }

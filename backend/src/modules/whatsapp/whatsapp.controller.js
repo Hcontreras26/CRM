@@ -75,7 +75,7 @@ export async function createTemplate(req, res, next) {
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message || 'Datos invalidos', 400, 'VALIDATION_ERROR');
-    const { projectId, label, body, ambito } = parsed.data;
+    const { projectId, label, body, ambito, paso_clave: pasoClave } = parsed.data;
     // Una compartida la ve todo el equipo, asi que la crea quien manda. Las
     // personales, cualquiera: son suyas.
     if (ambito === 'compartida' && !esAdmin(req)) {
@@ -86,6 +86,7 @@ export async function createTemplate(req, res, next) {
       // La plantilla es del NUMERO; quien la escribio queda en `created_by`,
       // que es lo que hace falta para saber de donde salio.
       ownerId: await duenoDeLasPersonales(req), createdBy: req.user.userId,
+      pasoClave,
     });
     res.status(201).json({ success: true, data: row });
   } catch (err) { next(siFaltaLaTabla(err)); }
@@ -106,7 +107,12 @@ export async function updateTemplate(req, res, next) {
     await permitida(req, parseInt(req.params.id));
     const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.issues[0]?.message || 'Datos invalidos', 400, 'VALIDATION_ERROR');
-    res.json({ success: true, data: await model.updateTemplate(parseInt(req.params.id), parsed.data) });
+    // El esquema lo llama `paso_clave`, como viaja por la red; el modelo,
+    // `pasoClave`. Se traduce aqui y no en el modelo para que `undefined`
+    // siga significando «no lo toques».
+    const { paso_clave: pasoClave, ...resto } = parsed.data;
+    res.json({ success: true, data: await model.updateTemplate(parseInt(req.params.id),
+      'paso_clave' in parsed.data ? { ...resto, pasoClave } : resto) });
   } catch (err) { next(siFaltaLaTabla(err)); }
 }
 

@@ -146,24 +146,53 @@ export default function SeguimientoPage() {
     setPagina(1);
   }, [buscaLenta, producto, estado, bloque, soloSinContactar, elegido, projectIds]);
 
-  /** Las formaciones del ámbito, para el filtro. */
+  /**
+   * Las formaciones del ámbito, para el filtro.
+   *
+   * Diego, 24/09: «puse una formación y me cambié de campus y se bugearon los
+   * filtros». Eran DOS fallos a la vez, y juntos dejaban la pantalla diciendo
+   * 890 arriba y ninguna fila debajo:
+   *
+   *   · `/products` solo entiende UN proyecto. Con una empresa puesta se le
+   *     mandaba `issuerId`, que no mira, así que contestaba con un error y el
+   *     desplegable se quedaba con «Cualquier formación» y nada más. Ahora se
+   *     piden los de cada campus y se juntan.
+   *   · Y la formación elegida NO se soltaba al cambiar de ámbito. El id de una
+   *     formación del campus anterior seguía puesto, no existe en el nuevo, y
+   *     la lista salía vacía. Los contadores de arriba no llevan ese filtro, y
+   *     por eso seguían contando 890.
+   */
   const [productos, setProductos] = useState<Array<{ id: number; nombre: string }>>([]);
   useEffect(() => {
-    const p = new URLSearchParams();
-    if (elegido) p.set('projectId', String(elegido));
-    else if (activeIssuer?.id) p.set('issuerId', String(activeIssuer.id));
-    else { setProductos([]); return; }
-    p.set('limit', '500');
+    const ids = elegido ? [elegido] : idsEmpresa;
+    if (!ids.length) { setProductos([]); return; }
     let vivo = true;
-    client.get(`/products?${p.toString()}`)
-      .then((r: any) => {
+    Promise.all(ids.map((id) =>
+      client.get(`/products?projectId=${id}&limit=500`)
+        .then((r: any) => (r?.success ? (r.data || []) : []))
+        .catch(() => [])))
+      .then((tandas: any[][]) => {
         if (!vivo) return;
-        const filas = r?.success ? (r.data || []) : [];
-        setProductos(filas.map((x: any) => ({ id: x.id, nombre: x.nombre })));
-      })
-      .catch(() => { if (vivo) setProductos([]); });
+        // Los siete campus de CEDIA repiten formaciones: se juntan por NOMBRE,
+        // que es lo que lee la gestora. Dos filas con el mismo texto en un
+        // desplegable no se distinguen y una de las dos no filtra nada.
+        const porNombre = new Map<string, { id: number; nombre: string }>();
+        for (const filas of tandas) {
+          for (const x of filas) {
+            const clave = String(x.nombre || '').trim().toLowerCase();
+            if (clave && !porNombre.has(clave)) porNombre.set(clave, { id: x.id, nombre: x.nombre });
+          }
+        }
+        setProductos([...porNombre.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      });
     return () => { vivo = false; };
-  }, [elegido, activeIssuer?.id]);
+  }, [elegido, idsEmpresa]);
+
+  // Cambiar de campus o de empresa suelta la formación elegida: la de antes no
+  // existe aquí, y dejarla puesta vacía la lista sin decir por qué.
+  useEffect(() => {
+    setProducto('');
+  }, [elegido, projectIds]);
 
   useEffect(() => {
     let vivo = true;

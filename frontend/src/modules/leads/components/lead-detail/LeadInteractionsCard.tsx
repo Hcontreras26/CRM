@@ -81,11 +81,14 @@ export function InteractionDialog({ open, onClose, onSubmit }: InteractionDialog
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!nota.trim() && tipo !== 'llamada') return;
+    // La nota es opcional para TODOS los canales, no solo para la llamada.
+    // Antes, un WhatsApp sin nota se iba en silencio: ni guardaba ni avisaba.
+    // Apuntar que has escrito vale por si solo; el servidor tampoco la exige.
+    const texto = nota.trim() || `${tipo[0].toUpperCase()}${tipo.slice(1)} apuntada desde la ficha`;
     setLoading(true);
     try {
       const fechaIso = fecha ? new Date(fecha).toISOString() : undefined;
-      await onSubmit(tipo, nota, fechaIso);
+      await onSubmit(tipo, texto, fechaIso);
       toast({ title: 'Interacción registrada' });
       setNota('');
       setTipo('llamada');

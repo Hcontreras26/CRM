@@ -10,12 +10,18 @@ export const createSchema = z.object({
   // Sobre que WhatsApp se esta trabajando. Sin esto la personal se guarda a
   // nombre de quien la escribe, y no del numero desde el que se manda.
   usuarioId: z.coerce.number().int().positive().optional(),
+  // De que paso del proceso comercial es (migracion 172). Sin esto, una
+  // plantilla propia nacia suelta: existia, pero no salia nunca en la ficha ni
+  // en la cola, que es donde se trabaja. Solo se veia en el chat.
+  paso_clave: z.string().trim().max(60).nullable().optional(),
 });
 
 export const updateSchema = z.object({
   label: z.string().trim().min(1).max(120).optional(),
   body: z.string().trim().min(1).max(4000).optional(),
   orden: z.coerce.number().int().min(0).optional(),
+  // Se puede cambiar de paso, o soltarla con null.
+  paso_clave: z.string().trim().max(60).nullable().optional(),
 });
 
 /**

@@ -315,10 +315,15 @@ function InteraccionesTab({ leadId, interacciones, onRefetch }) {
 
   async function add(e) {
     e.preventDefault();
-    if (!nota.trim()) return;
+    // La nota es OPCIONAL. Antes, con el campo vacío, esto se iba en silencio:
+    // ni guardaba ni avisaba, y quien pulsaba «+» se quedaba mirando. Apuntar
+    // que has llamado ya vale por sí solo, aunque no tengas nada que escribir;
+    // el servidor tampoco la exige. Cuando no la hay se guarda de qué fue, que
+    // es lo que se lee en la lista.
+    const texto = nota.trim() || `${tipo[0].toUpperCase()}${tipo.slice(1)} apuntada desde la ficha`;
     setLoading(true);
     try {
-      await client.post(`/leads/${leadId}/interactions`, { tipo, nota });
+      await client.post(`/leads/${leadId}/interactions`, { tipo, nota: texto });
       setNota('');
       toast({ title: 'Interacción registrada' });
       onRefetch();
