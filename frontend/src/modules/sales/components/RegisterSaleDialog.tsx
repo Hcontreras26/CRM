@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Receipt, X, MagnifyingGlass, UserCheck, UserPlus, UserMinus } from '@phosphor-icons/react';
 import usePermission from '@/shared/hooks/usePermission';
+import { lazy, Suspense } from 'react';
+import { invoicesApi } from '@/modules/invoices/api/invoices.api';
+const FiscalDataDialog = lazy(() => import('@/modules/invoices/components/FiscalDataDialog'));
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
@@ -72,6 +75,24 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
   const pid = project?.id && project.id !== -1 ? project.id : campus;
   const hayQueElegirCampus = !(project?.id && project.id !== -1);
 
+  // EL NUMERO DE FACTURA, AQUI MISMO.
+  //
+  // Diego, 25/09: «falta anadir que se puedan poner el numero de factura como
+  // en los demas». «Los demas» es el dialogo de convertir un prospecto, que
+  // desde el 15/09 pregunta el numero y emite. Registrar la venta desde
+  // Finanzas te dejaba sin esa opcion: la venta caia en la cola y habia que ir
+  // a Facturacion a buscarla.
+  //
+  // Se reusa la MISMA cadena --el siguiente numero del servidor y
+  // FiscalDataDialog para emitir-- y no se escribe otra numeracion. Una segunda
+  // via de numerar es una segunda via de dejar huecos en la serie.
+  const [numeraAqui, setNumeraAqui] = useState(false);
+  const [numero, setNumero] = useState('');
+  const [sugerido, setSugerido] = useState('');
+  // La venta recien creada, mientras se decide si se le pone documento.
+  const [creada, setCreada] = useState<{ sale_id: number; lead_id: number } | null>(null);
+  const [emitir, setEmitir] = useState<'factura' | 'proforma' | null>(null);
+
   const [mode, setMode] = useState<Mode>(modoInicial || 'existing');
 
   // Cliente nuevo
@@ -120,6 +141,24 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
     setImporteTotal(''); setImportePagado(''); setMetodo('transferencia');
     setFecha(today); setNotas('');
   }, [open, today]);
+
+  // Si esta empresa numera al registrar, y cual seria el siguiente libre. Se
+  // pregunta con el campus ya sabido: sin campus no hay serie.
+  useEffect(() => {
+    if (!open || !pid) { setNumeraAqui(false); return; }
+    let vivo = true;
+    invoicesApi.getConfig(pid)
+      .then((r: any) => { if (vivo) setNumeraAqui(Boolean(r?.success && r.data?.numera_al_convertir)); })
+      .catch(() => { if (vivo) setNumeraAqui(false); });
+    client.get<{ siguiente: number }>('/invoices/siguiente-numero?projectId=' + pid)
+      .then((r: any) => {
+        if (!vivo || !r?.success) return;
+        setSugerido(String(r.data.siguiente));
+        setNumero(String(r.data.siguiente));
+      })
+      .catch(() => { /* se escribe a mano */ });
+    return () => { vivo = false; };
+  }, [open, pid]);
 
   // Productos del proyecto
   useEffect(() => {
@@ -306,13 +345,96 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
         : (data.retroactiva ? `Venta histórica registrada (${fecha})${data.duplicado ? ' — sobre cliente existente' : ''}` : `Venta registrada${data.duplicado ? ' — sobre cliente existente' : ''}`);
       toast({ title: 'Venta creada', description: desc });
       onSaved?.(data);
-      onClose();
+      // Con numeracion al registrar, la venta no se cierra todavia: se ofrece
+      // ponerle el numero y emitir. Sin ella, como siempre — el cobro se queda
+      // en la cola de facturacion, que es el freno del 14/09.
+      if (numeraAqui) setCreada({ sale_id: data.sale_id, lead_id: data.lead_id });
+      else onClose();
     } catch (err: unknown) {
       const e = err as { data?: { error?: string }; message?: string };
       toast({ title: 'Error', description: e?.data?.error || e?.message || 'No se pudo registrar', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
+  }
+
+  // Emitiendo: el mismo dialogo fiscal que usa la conversion, con su numero.
+  if (emitir && creada && pid) {
+    return (
+      <Suspense fallback={null}>
+        <FiscalDataDialog
+          projectId={pid}
+          leadId={creada.lead_id}
+          conversionId={creada.sale_id}
+          docTipo={emitir}
+          numero={numero ? Number(numero) : null}
+          defaultItems={[{
+            descripcion: products.find((p) => p.id === productoId)?.nombre || 'Servicio',
+            cantidad: 1,
+            precio_unitario: Number(importeTotal) || 0,
+          }]}
+          defaultNotas={notas.trim() || undefined}
+          onClose={() => { setEmitir(null); setCreada(null); onClose(); }}
+          onCreated={(id: number) => {
+            invoicesApi.openPdf(id).catch(() => {});
+            setEmitir(null); setCreada(null); onClose();
+          }}
+        />
+      </Suspense>
+    );
+  }
+
+  // Venta ya registrada, y esta empresa numera aqui: se pregunta el numero.
+  if (creada) {
+    const sinCobro = Number(importePagado === '' ? importeTotal : importePagado) <= 0;
+    return (
+      <Portal>
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+          <div role="dialog" aria-modal="true" className="relative w-full max-w-md rounded-lg border border-border bg-card p-5">
+            <h2 className="text-base font-semibold">Venta registrada</h2>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {sinCobro
+                ? <>Se registro <b>sin cobro</b>, asi que lo que toca es una <b>proforma</b>: reserva el numero y pasa a factura cuando entre el pago.</>
+                : <>Le pones ya el numero de factura, o la dejas en la cola de facturacion?</>}
+            </p>
+
+            <label className="mt-4 block text-sm">
+              <span className="font-medium">Numero de {sinCobro ? 'proforma' : 'factura'}</span>
+              <input
+                type="number" min="1" value={numero}
+                onChange={(e) => setNumero(e.target.value)}
+                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm tabular-nums"
+              />
+            </label>
+            {sugerido && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                El siguiente libre es el <b>{sugerido}</b>. Puedes poner ese u otro.
+              </p>
+            )}
+            <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+              Comprueba la numeracion en el Excel de facturacion primero. Si hay discrepancia,
+              contacta con soporte.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setEmitir(sinCobro ? 'proforma' : 'factura')}
+              className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Emitir {sinCobro ? 'proforma' : 'factura'}{numero ? ' n.o ' + numero : ''}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setCreada(null); onClose(); }}
+              className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-md border border-border text-sm hover:bg-muted"
+            >
+              Dejarla en la cola de facturacion
+            </button>
+          </div>
+        </div>
+      </Portal>
+    );
   }
 
   return (
