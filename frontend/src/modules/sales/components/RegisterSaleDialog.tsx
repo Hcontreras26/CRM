@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Receipt, X, MagnifyingGlass, UserCheck, UserPlus, UserMinus } from '@phosphor-icons/react';
 import usePermission from '@/shared/hooks/usePermission';
+import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 import Portal from '@/shared/components/ui/portal';
@@ -56,6 +57,21 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
   // el panel de permisos, que es lo que permite quitarlas o anadir a otra sin
   // un despliegue de por medio.
   const puedeSinGestora = can('conversions.sin_gestora');
+  // EL CAMPUS, CUANDO SE ENTRA CON UNA EMPRESA PUESTA.
+  //
+  // Diego, 25/09: «como voy a registrar una venta de una empresa y me sale
+  // esto, no puede pasar». Con CEDIA elegida `activeProject.id` es -1, y antes
+  // el boton salia apagado con un «selecciona un proyecto concreto»: te
+  // mandaba a cambiar el selector de la barra lateral y volver.
+  //
+  // Una venta ES de un campus --la matricula, la factura y la serie son suyas--
+  // asi que hay que saber cual. Pero eso se pregunta AQUI, en una linea, no
+  // cerrando la puerta.
+  const campusDelAmbito = useProyectosDelAmbito<{ id: number; nombre: string }>();
+  const [campus, setCampus] = useState<number | null>(null);
+  const pid = project?.id && project.id !== -1 ? project.id : campus;
+  const hayQueElegirCampus = !(project?.id && project.id !== -1);
+
   const [mode, setMode] = useState<Mode>(modoInicial || 'existing');
 
   // Cliente nuevo
@@ -107,21 +123,21 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
 
   // Productos del proyecto
   useEffect(() => {
-    if (!open || !project?.id) return;
-    client.get<Product[]>('/products', { params: { projectId: project.id, limit: 500 } })
+    if (!open || !pid) return;
+    client.get<Product[]>('/products', { params: { projectId: pid, limit: 500 } })
       .then((r) => setProducts(Array.isArray(r?.data) ? r.data : []))
       .catch(() => setProducts([]));
-  }, [open, project?.id]);
+  }, [open, pid]);
 
   // Búsqueda debounced de clientes existentes (leads convertidos del proyecto)
   useEffect(() => {
-    if ((mode !== 'existing' && mode !== 'otra_gestora') || !open || !project?.id) return;
+    if ((mode !== 'existing' && mode !== 'otra_gestora') || !open || !pid) return;
     if (clientSearch.trim().length < 2) { setClientResults([]); return; }
     const handle = setTimeout(() => {
       setSearching(true);
       client.get<LeadLite[]>('/leads', {
         params: {
-          projectId: project.id,
+          projectId: pid,
           // En «de otra gestora» se busca entre TODOS: es un prospecto al que
           // se le registra la venta, no un cliente que ya compro.
           ...(mode === 'existing' ? { status: 'convertido' } : {}),
@@ -133,7 +149,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
         .finally(() => setSearching(false));
     }, 250);
     return () => clearTimeout(handle);
-  }, [mode, open, project?.id, clientSearch]);
+  }, [mode, open, pid, clientSearch]);
 
   const productoSel = products.find((p) => p.id === productoId);
   useEffect(() => {
@@ -200,7 +216,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
   }
 
   async function handleSave() {
-    if (!project?.id) { toast({ title: 'Selecciona un proyecto', variant: 'destructive' }); return; }
+    if (!pid) { toast({ title: 'Elige el campus', description: 'Una venta es de un campus concreto.', variant: 'destructive' }); return; }
     if ((mode === 'existing' || mode === 'otra_gestora') && !selectedClient) {
       toast({ title: 'Selecciona un cliente', description: 'Búscalo por nombre, email o teléfono.', variant: 'destructive' }); return;
     }
@@ -248,7 +264,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
-        project_id: project.id,
+        project_id: pid,
         producto_interes_id: productoId,
         importe_total: totalNum,
         importe_pagado: pagadoNum,
@@ -318,6 +334,27 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
           </div>
 
           <div className="p-5 space-y-4 overflow-y-auto">
+            {/* DE QUE CAMPUS. Solo sale cuando hace falta: con un campus ya
+                elegido en la barra lateral, preguntarlo otra vez sobra. */}
+            {hayQueElegirCampus && (
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Campus de la venta *
+                </label>
+                <select
+                  value={campus ?? ''}
+                  onChange={(e) => setCampus(e.target.value ? Number(e.target.value) : null)}
+                  className="h-10 w-full rounded-md border border-border bg-card px-2 text-sm"
+                >
+                  <option value="">Elige el campus…</option>
+                  {campusDelAmbito.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  La venta es de un campus: de ahí salen su matrícula y su factura.
+                </p>
+              </div>
+            )}
+
             {/* Cliente existente o nuevo. Solo en la venta propia: en los
                 otros modos ya lo dijo el desplegable del boton. */}
             {(mode === 'existing' || mode === 'new') && (

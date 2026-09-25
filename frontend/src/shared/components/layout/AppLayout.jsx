@@ -68,6 +68,15 @@ const CON_SOCIEDAD_OK = [
   // factura-- y las ventas sin factura por sus campus. Diego: «si elijo facturas
   // y estoy eligiendo CEDIA debe de salir, no debe de salir esto».
   /^\/finanzas\/facturas$/,
+  // Y EMITIR UNA, tambien. Diego, 25/09: «como voy a registrar una venta de una
+  // empresa y me sale esto, no puede pasar».
+  //
+  // La pantalla YA sabe: tiene su propio selector de proyecto --y solo ofrece
+  // los de la misma sociedad, que no se factura cruzado--. Lo que pasaba es que
+  // el muro se levantaba antes de que llegara a pintarlo, asi que ese selector
+  // no lo veia nadie. Con el listado ya abierto y la emision cerrada, se podia
+  // mirar una factura de CEDIA pero no hacerla.
+  /^\/finanzas\/facturas\/nueva$/,
   // Prospectos, su kanban y Clientes. La pantalla y el servidor YA saben sumar
   // varios campus --mandan `projectIds` y el modelo los recibe--: lo unico que
   // faltaba era que el muro les dejara pasar. Diego, 15/09: «en prospectos si
