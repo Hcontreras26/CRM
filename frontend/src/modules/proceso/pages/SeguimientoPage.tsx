@@ -260,27 +260,28 @@ export default function SeguimientoPage() {
    * arriba abajo y ver desaparecer la fila es lo que dice que ya está. Si el
    * guardado falla se vuelve a poner, porque entonces NO está hecho.
    */
-  async function atenderDesdeLaFila(p: EnSeguimiento, tipo: 'whatsapp' | 'email') {
+  /**
+   * Se ha copiado el mensaje de alguien.
+   *
+   * Deja una NOTA, no un contacto, y la fila NO se va: copiar no es escribirle,
+   * que es lo que dice el pie de esta pantalla y como se comporta ya la cola
+   * del día. Antes esto apuntaba un contacto de verdad y la persona
+   * desaparecía del repaso hasta el mes siguiente sin que nadie le hubiera
+   * escrito.
+   *
+   * Si la nota no se guarda no se avisa: el mensaje ya está en el portapapeles
+   * y la gestora va a pegarlo igual. Un aviso rojo por una nota interna que no
+   * cambia nada de lo que ella ve sería ruido.
+   */
+  async function anotarLaCopia(p: EnSeguimiento) {
     try {
       await client.post(`/leads/${p.lead_id}/interactions`, {
-        tipo,
-        nota: 'Seguimiento de fin de mes',
+        tipo: 'nota',
+        nota: '📋 Mensaje del paso copiado desde el repaso de fin de mes.',
         fecha: new Date().toISOString(),
       });
-      setBase((b) => b.filter((x) => x.lead_id !== p.lead_id));
-      traerResumenSeguimiento({ projectId: elegido, projectIds })
-        .then((r) => { if (r) setResumen(r); }).catch(() => {});
-    } catch (e) {
-      // El chat se ha abierto igual, asi que lo unico que se puede hacer es
-      // decir que NO ha quedado apuntado. Callarlo es lo peor: la gestora
-      // habla con la persona convencida de que consta.
-      toast({
-        title: 'El contacto no ha quedado apuntado',
-        description: 'Se ha abierto igual, pero apúntalo a mano: '
-          + ((e as Error)?.message || 'no se pudo guardar'),
-        variant: 'destructive',
-      });
-      throw e;
+    } catch {
+      /* la copia ya está hecha: no hay nada que rehacer */
     }
   }
 
@@ -672,7 +673,7 @@ export default function SeguimientoPage() {
                 <AccionesDeFila
                   fila={p}
                   plantillas={plantillas}
-                  onAtendido={(tipo) => atenderDesdeLaFila(p, tipo)}
+                  onCopiado={() => anotarLaCopia(p)}
                 />
                 <DescartarDelRepaso
                   nombre={p.lead_nombre}
@@ -741,8 +742,10 @@ export default function SeguimientoPage() {
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        Al apuntar un contacto, la persona <strong className="text-foreground">sale de este repaso</strong> y no vuelve
-        a salir hasta dentro de un mes. Copiar el mensaje no cuenta: copiar no es escribirle.
+        Copiar el mensaje <strong className="text-foreground">no la saca de aquí</strong>: copiar no es
+        escribirle. Esta lista se manda por Wasapi, con la descarga de arriba. Quien sí sale es
+        quien recibe un contacto apuntado —desde su ficha o desde la cola del día— y no vuelve
+        hasta dentro de un mes, y quien se descarta con el botón de la derecha.
       </p>
 
       {enFoco !== null && visibles[enFoco] && (
