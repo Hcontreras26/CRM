@@ -27,6 +27,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
   admin: {
     'leads.view': true,         'leads.create': true,       'leads.edit': true,         'leads.delete': true,       'leads.export': true,       'leads.assign': true,       'leads.bulk_action': true,
     'conversions.view': true,    'conversions.create': true,  'conversions.edit': true,    'conversions.delete': true,
+    'conversions.sin_gestora': true,
     'products.view': true,    'products.create': true,  'products.edit': true,    'products.delete': true,
     'clients.view': true,    'clients.create': true,  'clients.edit': true,    'clients.delete': true,  'clients.export': true,
     'dossiers.view': true,    'dossiers.upload': true,  'dossiers.delete': true,
@@ -107,7 +108,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
 // guardia mira. `permisosEspejo.test.js` compara las dos listas.
 export const PERMISSION_RESOURCES: ReadonlyArray<PermissionResource> = [
   { key: 'leads',            label: 'Prospectos',           actions: ['view', 'create', 'edit', 'delete', 'export', 'assign', 'bulk_action'] },
-  { key: 'conversions',      label: 'Conversiones',         actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'conversions',      label: 'Conversiones',         actions: ['view', 'create', 'edit', 'delete', 'sin_gestora'] },
   { key: 'products',         label: 'Productos',            actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'clients',          label: 'Clientes',             actions: ['view', 'create', 'edit', 'delete', 'export'] },
   { key: 'dossiers',         label: 'Dosieres',             actions: ['view', 'upload', 'delete'] },

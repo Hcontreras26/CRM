@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Receipt, X, MagnifyingGlass, UserCheck, UserPlus } from '@phosphor-icons/react';
+import { Receipt, X, MagnifyingGlass, UserCheck, UserPlus, UserMinus } from '@phosphor-icons/react';
+import usePermission from '@/shared/hooks/usePermission';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 import Portal from '@/shared/components/ui/portal';
+
+import FilaCampos from '@/shared/components/ui/FilaCampos';
 
 interface Product { id: number; nombre: string; precio?: number | string; moneda?: string }
 interface Project { id: number; nombre?: string }
@@ -22,10 +25,25 @@ const PAYMENT_METHODS = [
   { value: 'fraccionado', label: 'Fraccionado' },
 ];
 
-type Mode = 'existing' | 'new';
+/**
+ * De quien es la venta que se esta registrando.
+ *
+ * `sin_gestora` es de Diego (25/09): una venta que se crea de cero y **no es de
+ * nadie**. Hoy, quien la registra se la queda --si es gestor-- o el round-robin
+ * se la encaja a la gestora que toque --si es admin--, y en los dos casos el
+ * informe acaba diciendo que vendio quien solo la apunto. Lo piden las
+ * contables de CEDIA e ICTESS, que registran ventas que no cerraron ellas.
+ */
+type Mode = 'existing' | 'new' | 'sin_gestora';
 
 export default function RegisterSaleDialog({ open, onClose, project, onSaved }: Props) {
   const today = new Date().toISOString().slice(0, 10);
+  const { can } = usePermission();
+  // Quien puede registrar una venta que no es de nadie. De serie admin y
+  // superadmin; a las contables de CEDIA e ICTESS se les da por persona desde
+  // el panel de permisos, que es lo que permite quitarlas o anadir a otra sin
+  // un despliegue de por medio.
+  const puedeSinGestora = can('conversions.sin_gestora');
   const [mode, setMode] = useState<Mode>('existing');
 
   // Cliente nuevo
@@ -172,6 +190,11 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
         toast({ title: 'Email o teléfono requerido', variant: 'destructive' }); return;
       }
     }
+    // Sin gestora basta el nombre: esta venta se registra justo cuando no hay
+    // nada mas, y pedir un correo inventado es peor que no pedir nada.
+    if (mode === 'sin_gestora' && !nombre.trim()) {
+      toast({ title: 'Nombre requerido', variant: 'destructive' }); return;
+    }
     if (!productoId) { toast({ title: 'Producto requerido', variant: 'destructive' }); return; }
     const totalNum = parseFloat(importeTotal);
     if (!totalNum || totalNum <= 0) { toast({ title: 'Importe inválido', variant: 'destructive' }); return; }
@@ -219,6 +242,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
           fecha_vencimiento: it.fecha_vencimiento,
         }));
       }
+      if (mode === 'sin_gestora') body.sin_gestora = true;
       if (mode === 'existing' && selectedClient) {
         body.lead_id = selectedClient.id;
       } else {
@@ -267,8 +291,8 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
           </div>
 
           <div className="p-5 space-y-4 overflow-y-auto">
-            {/* Toggle: existente / nuevo */}
-            <div className="bg-muted/40 p-1 rounded-lg grid grid-cols-2 gap-1">
+            {/* Toggle: existente / nuevo / sin gestora */}
+            <div className={`bg-muted/40 p-1 rounded-lg grid gap-1 ${puedeSinGestora ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <button
                 type="button"
                 onClick={() => { setMode('existing'); clearSelectedClient(); }}
@@ -283,6 +307,18 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
               >
                 <UserPlus size={14} weight="bold" /> Cliente nuevo
               </button>
+              {/* VENTA SIN GESTORA. Se esconde a quien no puede, pero el
+                  candado de verdad esta en el servidor: esconder no es
+                  impedir. */}
+              {puedeSinGestora && (
+                <button
+                  type="button"
+                  onClick={() => { setMode('sin_gestora'); clearSelectedClient(); }}
+                  className={`h-9 rounded-md text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors ${mode === 'sin_gestora' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <UserMinus size={14} weight="bold" /> Sin gestora
+                </button>
+              )}
             </div>
 
             {/* MODO: cliente existente */}
@@ -290,7 +326,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
               <div className="space-y-3">
                 {!selectedClient ? (
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Buscar cliente *</label>
+                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Buscar cliente *</label>
                     <div className="relative">
                       <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <input
@@ -342,28 +378,59 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
               </div>
             )}
 
+            {/* MODO: venta sin gestora. Pide lo mismo que «cliente nuevo» pero
+                con el nombre solo basta, y avisa de en que se nota. */}
+            {mode === 'sin_gestora' && (
+              <div className="space-y-3">
+                <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-[12px] text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-200">
+                  Esta venta <strong>no se le asigna a nadie</strong>: no cuenta en los
+                  números de ninguna gestora ni avanza el reparto de prospectos. Con el
+                  nombre basta.
+                </p>
+                <div>
+                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Nombre del cliente *</label>
+                  <input value={nombre} onChange={(e) => setNombre(e.target.value)}
+                    className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
+                </div>
+                <FilaCampos>
+                  <div>
+                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Email</label>
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                      placeholder="opcional"
+                      className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Teléfono</label>
+                    <input value={telefono} onChange={(e) => setTelefono(e.target.value)}
+                      placeholder="opcional"
+                      className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
+                  </div>
+                </FilaCampos>
+              </div>
+            )}
+
             {/* MODO: cliente nuevo */}
             {mode === 'new' && (
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Nombre del cliente *</label>
+                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Nombre del cliente *</label>
                   <input value={nombre} onChange={(e) => setNombre(e.target.value)}
                     className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <FilaCampos>
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Email</label>
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                       placeholder="correo@ejemplo.com"
                       className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Teléfono</label>
+                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Teléfono</label>
                     <input value={telefono} onChange={(e) => setTelefono(e.target.value)}
                       placeholder="+34..."
                       className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
                   </div>
-                </div>
+                </FilaCampos>
                 <p className="text-[11px] text-muted-foreground -mt-1">Requerido al menos uno de los dos.</p>
               </div>
             )}
@@ -371,7 +438,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
             {/* Datos fiscales (opcionales, común a ambos modos) */}
             <div className="space-y-2">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
                   Identificación fiscal <span className="text-muted-foreground/70">(opcional)</span>
                 </label>
                 <input
@@ -383,7 +450,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
                   Dirección fiscal <span className="text-muted-foreground/70">(opcional)</span>
                 </label>
                 <textarea
@@ -401,7 +468,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
             {/* Producto + importes (común a ambos modos) */}
             <div className="border-t border-border pt-3 space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Producto *</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Producto *</label>
                 <input value={productSearch} onChange={(e) => setProductSearch(e.target.value)}
                   placeholder="Buscar producto…"
                   className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm mb-1.5" />
@@ -414,39 +481,39 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <FilaCampos>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Importe total *</label>
+                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Importe total *</label>
                   <input type="number" min="0" step="0.01" value={importeTotal}
                     onChange={(e) => setImporteTotal(e.target.value)}
                     className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Importe pagado</label>
+                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Importe pagado</label>
                   <input type="number" min="0" step="0.01" value={importePagado}
                     onChange={(e) => setImportePagado(e.target.value)}
                     placeholder={`Por defecto: ${importeTotal || 'igual al total'}`}
                     className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
                 </div>
-              </div>
+              </FilaCampos>
 
-              <div className="grid grid-cols-2 gap-3">
+              <FilaCampos>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Método de pago</label>
+                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Método de pago</label>
                   <select value={metodo} onChange={(e) => setMetodo(e.target.value)}
                     className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm">
                     {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">
+                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
                     Fecha de pago *
                     {isRetroactiva && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">Histórica</span>}
                   </label>
                   <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} max={today}
                     className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
                 </div>
-              </div>
+              </FilaCampos>
 
               {/* Cuotas — solo cuando método es fraccionado */}
               {metodo === 'fraccionado' && (
@@ -459,20 +526,20 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
                       Auto-distribuir
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <FilaCampos>
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">N° de cuotas</label>
+                      <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">N° de cuotas</label>
                       <input type="number" min={2} max={36} value={numCuotas}
                         onChange={(e) => { setNumCuotas(parseInt(e.target.value) || 2); setInstallmentsDirty(false); }}
                         className="w-full h-9 px-3 rounded-md border border-border bg-card text-sm" />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">1ª fecha de vencimiento</label>
+                      <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">1ª fecha de vencimiento</label>
                       <input type="date" value={fechaPrimeraCuota}
                         onChange={(e) => { setFechaPrimeraCuota(e.target.value); setInstallmentsDirty(false); }}
                         className="w-full h-9 px-3 rounded-md border border-border bg-card text-sm" />
                     </div>
-                  </div>
+                  </FilaCampos>
                   {installments.length > 0 && (
                     <div className="space-y-1.5">
                       <div className="grid grid-cols-[40px_1fr_1fr] gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
@@ -507,7 +574,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved }: 
               )}
 
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Notas (opcional)</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Notas (opcional)</label>
                 <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2}
                   placeholder="Comentarios sobre la venta…"
                   className="w-full px-3 py-2 rounded-md border border-border bg-card text-sm resize-none" />
