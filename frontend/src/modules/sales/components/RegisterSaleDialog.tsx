@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Receipt, X, MagnifyingGlass, UserCheck, UserPlus, UserMinus } from '@phosphor-icons/react';
 import usePermission from '@/shared/hooks/usePermission';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useRef } from 'react';
 import { invoicesApi } from '@/modules/invoices/api/invoices.api';
 const FiscalDataDialog = lazy(() => import('@/modules/invoices/components/FiscalDataDialog'));
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
@@ -87,6 +87,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
   // FiscalDataDialog para emitir-- y no se escribe otra numeracion. Una segunda
   // via de numerar es una segunda via de dejar huecos en la serie.
   const [numeraAqui, setNumeraAqui] = useState(false);
+  const numeraAquiRef = useRef(false);
   const [numero, setNumero] = useState('');
   const [sugerido, setSugerido] = useState('');
   // La venta recien creada, mientras se decide si se le pone documento.
@@ -148,13 +149,25 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
     if (!open || !pid) { setNumeraAqui(false); return; }
     let vivo = true;
     invoicesApi.getConfig(pid)
-      .then((r: any) => { if (vivo) setNumeraAqui(Boolean(r?.success && r.data?.numera_al_convertir)); })
+      .then((r: any) => {
+        if (!vivo) return;
+        const numera = Boolean(r?.success && r.data?.numera_al_convertir);
+        setNumeraAqui(numera);
+        numeraAquiRef.current = numera;
+        // Solo se rellena solo a quien numera al registrar. A los demas se les
+        // deja vacio: vacio = a la cola, que es como funcionan hoy.
+        if (numera) {
+          setNumero((n) => n || '');
+        }
+      })
       .catch(() => { if (vivo) setNumeraAqui(false); });
     client.get<{ siguiente: number }>('/invoices/siguiente-numero?projectId=' + pid)
       .then((r: any) => {
         if (!vivo || !r?.success) return;
         setSugerido(String(r.data.siguiente));
-        setNumero(String(r.data.siguiente));
+        // Con numeracion al registrar se deja puesto el siguiente libre; si no,
+        // solo se ensena como pista.
+        setNumero((n) => (n ? n : (numeraAquiRef.current ? String(r.data.siguiente) : '')));
       })
       .catch(() => { /* se escribe a mano */ });
     return () => { vivo = false; };
@@ -350,7 +363,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
       // en la cola de facturacion, que es el freno del 14/09.
       // Con numero escrito se emite ya, sin preguntar otra vez: el numero se
       // puso arriba a proposito. Vacio = se deja en la cola de facturacion.
-      if (numeraAqui && numero.trim()) {
+      if (numero.trim()) {
         const sinCobro = Number(pagadoNum) <= 0;
         setCreada({ sale_id: data.sale_id, lead_id: data.lead_id });
         setEmitir(sinCobro ? 'proforma' : 'factura');
@@ -668,20 +681,29 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                   numera al registrar --CEDIA e ICTESS lo tienen puesto--; el
                   resto sigue con el cobro en la cola, que es el freno del
                   14/09. */}
-              {numeraAqui && (
+              {(
                 <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
                   <label className="block text-sm">
                     <span className="font-medium">Número de factura</span>
                     <input
                       type="number" min="1" value={numero}
+                      disabled={!pid}
                       onChange={(e) => setNumero(e.target.value)}
-                      placeholder={sugerido || 'automático'}
-                      className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm tabular-nums"
+                      placeholder={pid ? (sugerido || 'automático') : 'elige antes el campus'}
+                      className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm tabular-nums disabled:opacity-60"
                     />
                   </label>
-                  {sugerido && (
+                  {!pid ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      La serie y el número son del campus, así que hace falta elegirlo antes.
+                    </p>
+                  ) : sugerido ? (
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       El siguiente libre es el <b className="tabular-nums">{sugerido}</b>. Puedes poner ese u otro.
+                      Si lo dejas vacío, la venta se queda en la cola de facturación.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       Si lo dejas vacío, la venta se queda en la cola de facturación.
                     </p>
                   )}
