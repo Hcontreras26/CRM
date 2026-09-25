@@ -348,8 +348,15 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
       // Con numeracion al registrar, la venta no se cierra todavia: se ofrece
       // ponerle el numero y emitir. Sin ella, como siempre — el cobro se queda
       // en la cola de facturacion, que es el freno del 14/09.
-      if (numeraAqui) setCreada({ sale_id: data.sale_id, lead_id: data.lead_id });
-      else onClose();
+      // Con numero escrito se emite ya, sin preguntar otra vez: el numero se
+      // puso arriba a proposito. Vacio = se deja en la cola de facturacion.
+      if (numeraAqui && numero.trim()) {
+        const sinCobro = Number(pagadoNum) <= 0;
+        setCreada({ sale_id: data.sale_id, lead_id: data.lead_id });
+        setEmitir(sinCobro ? 'proforma' : 'factura');
+      } else {
+        onClose();
+      }
     } catch (err: unknown) {
       const e = err as { data?: { error?: string }; message?: string };
       toast({ title: 'Error', description: e?.data?.error || e?.message || 'No se pudo registrar', variant: 'destructive' });
@@ -381,59 +388,6 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
           }}
         />
       </Suspense>
-    );
-  }
-
-  // Venta ya registrada, y esta empresa numera aqui: se pregunta el numero.
-  if (creada) {
-    const sinCobro = Number(importePagado === '' ? importeTotal : importePagado) <= 0;
-    return (
-      <Portal>
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
-          <div role="dialog" aria-modal="true" className="relative w-full max-w-md rounded-lg border border-border bg-card p-5">
-            <h2 className="text-base font-semibold">Venta registrada</h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              {sinCobro
-                ? <>Se registro <b>sin cobro</b>, asi que lo que toca es una <b>proforma</b>: reserva el numero y pasa a factura cuando entre el pago.</>
-                : <>Le pones ya el numero de factura, o la dejas en la cola de facturacion?</>}
-            </p>
-
-            <label className="mt-4 block text-sm">
-              <span className="font-medium">Numero de {sinCobro ? 'proforma' : 'factura'}</span>
-              <input
-                type="number" min="1" value={numero}
-                onChange={(e) => setNumero(e.target.value)}
-                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm tabular-nums"
-              />
-            </label>
-            {sugerido && (
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                El siguiente libre es el <b>{sugerido}</b>. Puedes poner ese u otro.
-              </p>
-            )}
-            <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-300">
-              Comprueba la numeracion en el Excel de facturacion primero. Si hay discrepancia,
-              contacta con soporte.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setEmitir(sinCobro ? 'proforma' : 'factura')}
-              className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-            >
-              Emitir {sinCobro ? 'proforma' : 'factura'}{numero ? ' n.o ' + numero : ''}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setCreada(null); onClose(); }}
-              className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-md border border-border text-sm hover:bg-muted"
-            >
-              Dejarla en la cola de facturacion
-            </button>
-          </div>
-        </div>
-      </Portal>
     );
   }
 
@@ -707,6 +661,35 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                 />
               </div>
               <p className="text-[11px] text-muted-foreground">Para emitir factura. Si no los tienes, déjalos vacíos.</p>
+
+              {/* EL NUMERO DE FACTURA, AQUI.
+                  Diego, 25/09: «no veo donde poner la factura aqui la
+                  enumeracion al registrar la venta». Solo sale si la empresa
+                  numera al registrar --CEDIA e ICTESS lo tienen puesto--; el
+                  resto sigue con el cobro en la cola, que es el freno del
+                  14/09. */}
+              {numeraAqui && (
+                <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+                  <label className="block text-sm">
+                    <span className="font-medium">Número de factura</span>
+                    <input
+                      type="number" min="1" value={numero}
+                      onChange={(e) => setNumero(e.target.value)}
+                      placeholder={sugerido || 'automático'}
+                      className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm tabular-nums"
+                    />
+                  </label>
+                  {sugerido && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      El siguiente libre es el <b className="tabular-nums">{sugerido}</b>. Puedes poner ese u otro.
+                      Si lo dejas vacío, la venta se queda en la cola de facturación.
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+                    Comprueba la numeración en el Excel de facturación antes de emitir.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Producto + importes (común a ambos modos) */}
