@@ -165,7 +165,6 @@ function exportReportCSV(data, project, range, panel, seguimiento) {
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts';
 
 import { ponerAmbito, sociedadSinCampus } from '@/shared/lib/ambitoInforme';
-import DesglosePorCampus from '../components/DesglosePorCampus';
 import { ATAJOS, rangoPorDefecto, atajoDe } from '@/shared/lib/rangosDeFecha';
 
 function fmt(n) {
@@ -506,17 +505,20 @@ export default function ReportsPage() {
 
       {/* El mismo panel de resumen que el CRM hermano: KPIs comparados con el
           periodo anterior y la grafica con selector de serie. */}
-      {/* De donde vienen las cifras de la sociedad: el reparto por campus
-          (#125). Sin esto, «120.409 €» es un numero del que no se puede hacer
-          nada. */}
-      {campusDeLaSociedad.length > 0 && (
-        <DesglosePorCampus
-          campus={campusDeLaSociedad}
-          from={range.from}
-          to={range.to}
-          cobradoDeLaSociedad={Number(data?.conversions?.cobrado) || null}
-        />
-      )}
+      {/* AQUÍ ESTABA «De dónde vienen estas cifras», y se ha ido.
+          Diego, 24/09: «en informes está esto duplicado, hay muchos datos
+          duplicados y llamados varias veces».
+
+          Era la misma tabla que «Cuánto pone cada proyecto», de arriba: mismas
+          columnas, mismas cifras. Y la de arriba sale gratis --`por_proyecto`
+          viene en la respuesta del informe-- mientras que esta pedía
+          `/informes/overview` UNA VEZ POR CAMPUS: con CEDIA, siete peticiones
+          para recomponer algo que ya estaba servido.
+
+          Lo único suyo que no está arriba es el aviso de descuadre, que
+          comparaba la suma de los campus con el cobrado de la sociedad. El
+          componente sigue en el repo sin montar, por si se quiere recuperar esa
+          comprobación dentro de la tabla que se queda. */}
 
       <PanelResumen
         projectId={activeProject?.id}

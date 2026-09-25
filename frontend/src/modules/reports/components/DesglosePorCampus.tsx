@@ -1,3 +1,16 @@
+/**
+ * NO ESTÁ MONTADO. Lo quitó Diego el 24/09: «en informes está esto duplicado,
+ * hay muchos datos duplicados y llamados varias veces».
+ *
+ * Enseñaba la misma tabla que «Cuánto pone cada proyecto» de la propia pantalla
+ * de informes --mismas columnas, mismas cifras-- y, para componerla, pedía
+ * `/informes/overview` una vez por campus: siete peticiones en CEDIA para
+ * recomponer algo que ya venía servido en `por_proyecto`.
+ *
+ * Se conserva por UNA cosa que la otra tabla no hace: avisar del descuadre
+ * entre la suma de los campus y el cobrado de la sociedad. Si esa comprobación
+ * se lleva a la tabla que se queda, este fichero se puede borrar.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { Buildings, Warning } from '@phosphor-icons/react';
 import client from '@/shared/api/client';
