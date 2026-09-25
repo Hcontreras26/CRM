@@ -647,8 +647,18 @@ export default function ColaDelDiaPage() {
                     {mezcla && p.proyecto && (
                       <div className="inline-flex items-center gap-1"><Buildings size={11} />{p.proyecto}</div>
                     )}
-                    {esAdmin && !gestoraId && p.gestora && (
-                      <div className="inline-flex items-center gap-1"><User size={11} />{p.gestora}</div>
+                    {/* DE QUIÉN ES. Diego, 24/09: «en la cola de los seguimientos
+                        debe salir su nombre de la gestora claramente». Antes se
+                        escondía salvo que fueras admin y estuvieras mirando a
+                        todo el equipo, así que en la cola de una empresa con
+                        siete campus no se sabía a quién se llamaba de parte de
+                        quién. Sale siempre que haya alguien asignado: cuando
+                        estás mirando la cola de una sola gestora es redundante,
+                        pero ahí no estorba, y en las demás vistas hace falta. */}
+                    {p.gestora && (
+                      <div className="inline-flex items-center gap-1 font-medium text-foreground">
+                        <User size={11} weight="bold" />{p.gestora}
+                      </div>
                     )}
                     <div className="tabular-nums">
                       {p.contactos === 0

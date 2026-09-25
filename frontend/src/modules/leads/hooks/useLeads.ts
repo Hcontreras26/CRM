@@ -454,6 +454,18 @@ export function useLeadDetail(id: number | string | null | undefined): UseLeadDe
   }, [fetchLead]);
 
   const interacciones = lead?.interactions || [];
+  // Los pasos de esta persona, para poder contar en el historial los que
+  // alguien marcó a mano. Van aparte porque son de otro módulo.
+  const [pasosDelProceso, setPasosDelProceso] = useState<any[]>([]);
+  useEffect(() => {
+    if (!id) { setPasosDelProceso([]); return; }
+    let vivo = true;
+    client.get(`/proceso/lead/${id}`)
+      .then((r: any) => { if (vivo) setPasosDelProceso(r?.success ? (r.data || []) : []); })
+      // Sin proceso montado no hay pasos que contar, y eso no es un error.
+      .catch(() => { if (vivo) setPasosDelProceso([]); });
+    return () => { vivo = false; };
+  }, [id, lead?.updated_at]);
   const reminders = lead?.reminders || [];
   const recordatorio = reminders[0] || null;
   const utms = lead?.utms || null;
@@ -495,8 +507,56 @@ export function useLeadDetail(id: number | string | null | undefined): UseLeadDe
     };
   });
 
-  const timeline: TimelineItem[] = [...timelineStatus, ...timelineAudit]
-    .sort((a, b) => ((b as any)._ts || 0) - ((a as any)._ts || 0));
+  /**
+   * LO QUE SE HABLÓ CON LA PERSONA, que es lo que se viene a buscar aquí.
+   *
+   * Diego, 24/09: «todo lo del proceso y interacciones debe ponerse aquí en el
+   * historial, sí o sí, no puede haber fallos». Y tenía razón: el historial se
+   * montaba solo con los cambios de estado y las ediciones de campos, así que
+   * una ficha con cuatro llamadas apuntadas enseñaba una línea —«estado
+   * cambiado a contactado»— y nada más. Las llamadas vivían en su pestaña, los
+   * pasos en la suya, y no había ningún sitio donde leer la relación entera por
+   * orden.
+   *
+   * La nota interna entra también: no es hablar con nadie, pero es parte de lo
+   * que pasó y por eso se marca como nota y no como contacto.
+   */
+  const ICONO_CANAL: Record<string, string> = {
+    llamada: '📞', whatsapp: '💬', email: '✉️', nota: '📝',
+  };
+  const timelineContactos: TimelineItem[] = interacciones.map((it: any, i: number) => ({
+    id: `i-${it.id || i}`,
+    action: `${ICONO_CANAL[it.tipo] || '•'} ${it.nota || (it.tipo === 'nota' ? 'Nota' : it.tipo)}`
+      + (it.created_by_nombre ? ` · por ${it.created_by_nombre}` : ''),
+    date: it.fecha ? new Date(it.fecha).toLocaleString('es-ES') : '',
+    _ts: it.fecha ? new Date(it.fecha).getTime() : 0,
+    source: it.tipo === 'nota' ? 'Nota' : 'Contacto',
+    color: it.tipo === 'nota' ? 'hsl(var(--muted-foreground))' : 'hsl(var(--success))',
+  }));
+
+  /**
+   * Y los pasos del proceso que alguien dio por hechos a mano.
+   *
+   * Solo los marcados: son los únicos que tienen hora de verdad —`hecho_at`—.
+   * Un paso que se cierra solo, por los contactos apuntados, no necesita línea
+   * propia: sus contactos ya están arriba, y repetirlo sería contar dos veces
+   * lo mismo.
+   */
+  const timelinePasos: TimelineItem[] = (pasosDelProceso || [])
+    .filter((x: any) => x.hecho_at)
+    .map((x: any, i: number) => ({
+      id: `p-${x.id || i}`,
+      action: `✅ Paso ${x.orden} dado por hecho: ${x.nombre || x.clave}`
+        + (x.hecho_por_nombre ? ` · por ${x.hecho_por_nombre}` : ''),
+      date: new Date(x.hecho_at).toLocaleString('es-ES'),
+      _ts: new Date(x.hecho_at).getTime(),
+      source: 'Proceso',
+      color: 'hsl(var(--warning))',
+    }));
+
+  const timeline: TimelineItem[] = [
+    ...timelineStatus, ...timelineAudit, ...timelineContactos, ...timelinePasos,
+  ].sort((a, b) => ((b as any)._ts || 0) - ((a as any)._ts || 0));
 
   if (timeline.length === 0 && lead) {
     timeline.push({

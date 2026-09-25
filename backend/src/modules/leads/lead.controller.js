@@ -223,6 +223,11 @@ export async function exportWasapi(req, res, next) {
     if (req.query.onlyWithPhone === 'true') {
       leads = leads.filter((l) => l.telefono && String(l.telefono).replace(/[^\d]/g, '').length >= 7);
     }
+    // Las MISMAS condiciones en los dos sitios: un fichero que sale distinto
+    // segun desde donde se pida acaba mandando la difusion a quien no tocaba.
+    if (req.query.onlyWithProduct === 'true') {
+      leads = leads.filter((l) => String(l.producto_nombre || '').trim());
+    }
     if (req.query.pais) {
       const paisFilter = String(req.query.pais).toLowerCase();
       leads = leads.filter((l) => (detectCountry(l.telefono) || '').toLowerCase() === paisFilter);

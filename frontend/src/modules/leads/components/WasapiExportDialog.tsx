@@ -84,6 +84,9 @@ export default function WasapiExportDialog({
   const [productId, setProductId] = useState<string>('');
   const [pais, setPais] = useState<string>('');
   const [onlyWithPhone, setOnlyWithPhone] = useState(true);
+  // Apagado por defecto: recorta mucho, y quien baja la lista entera para
+  // mandar un mensaje genérico no quiere perder a nadie.
+  const [onlyWithProduct, setOnlyWithProduct] = useState(false);
   const [includeConverted, setIncludeConverted] = useState(false);
   const [format, setFormat] = useState<'csv' | 'xlsx'>('xlsx');
 
@@ -119,6 +122,7 @@ export default function WasapiExportDialog({
       if (productId) params.set('productId', productId);
       if (pais) params.set('pais', pais);
       params.set('onlyWithPhone', onlyWithPhone ? 'true' : 'false');
+      if (onlyWithProduct) params.set('onlyWithProduct', 'true');
       if (includeConverted) params.set('includeConverted', 'true');
       params.set('format', format);
 
@@ -283,6 +287,21 @@ export default function WasapiExportDialog({
                 <input type="checkbox" checked={onlyWithPhone} onChange={(e) => setOnlyWithPhone(e.target.checked)}
                   className="w-4 h-4 rounded border-border" />
                 Solo prospectos con teléfono válido <span className="text-muted-foreground">(recomendado — sin teléfono Wasapi no puede enviar)</span>
+              </label>
+              {/* La columna «Producto» sale vacía en mucha gente, y no es un
+                  fallo de la descarga: son prospectos antiguos que entraron sin
+                  formación apuntada. Se nota más de lo que parece porque la
+                  lista va por los más olvidados primero, que son justo esos: en
+                  CEDIA, las 138 primeras filas salen sin formación y las 374
+                  que sí la tienen quedan abajo.
+
+                  Si el mensaje de la difusión nombra la formación, una fila sin
+                  ella manda un WhatsApp a medias. Con esto se baja solo a quien
+                  se le puede escribir ese mensaje. */}
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={onlyWithProduct} onChange={(e) => setOnlyWithProduct(e.target.checked)}
+                  className="w-4 h-4 rounded border-border" />
+                Solo los que tienen formación apuntada <span className="text-muted-foreground">(márcalo si el mensaje la nombra: si no, esas filas salen con el hueco vacío)</span>
               </label>
               {seVe('convertidos') && (
               <label className="flex items-center gap-2 text-sm cursor-pointer">

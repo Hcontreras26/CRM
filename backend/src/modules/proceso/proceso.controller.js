@@ -145,6 +145,19 @@ export async function wasapiSeguimiento(req, res, next) {
       leads = leads.filter((l) => l.telefono && String(l.telefono).replace(/[^\d]/g, '').length >= 7);
     }
 
+    // SOLO LOS QUE TIENEN FORMACION. Diego, 24/09: «la descarga para Wasapi no
+    // esta trayendo los productos». El fichero SI los trae --374 de las 1.930
+    // filas de CEDIA-- pero la lista va por los mas olvidados primero, y los
+    // olvidados son los viejos, que entraron sin formacion apuntada: las 138
+    // primeras filas salen vacias y parece que no hay ninguna.
+    //
+    // Cuando el mensaje de la difusion nombra la formacion, una fila sin ella
+    // manda un WhatsApp que dice «tu interes en » y se queda a medias. Con esto
+    // se baja solo a quien se le puede escribir ese mensaje.
+    if (req.query.onlyWithProduct === 'true') {
+      leads = leads.filter((l) => String(l.producto_nombre || '').trim());
+    }
+
     // El pais sale del prefijo del telefono, igual que alli.
     if (req.query.pais) {
       const cual = String(req.query.pais).toLowerCase();
