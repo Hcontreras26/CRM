@@ -128,12 +128,32 @@ export default function TutoresPage() {
 
   useEffect(() => { if (puede) cargar(); }, [cargar, puede]);
 
+  // Las formaciones del ámbito. Con una empresa puesta y sin campus elegido,
+  // `/products` no contesta --solo entiende UN proyecto-- y el desplegable se
+  // quedaba vacío sin decir por qué. Se piden las de cada campus y se juntan
+  // por nombre, que es lo que se lee: los campus de una empresa repiten
+  // formaciones y dos filas con el mismo texto no se distinguen.
   useEffect(() => {
-    if (!projectId) return;
-    client.get(`/products?projectId=${projectId}&limit=500`)
-      .then((r) => setFormaciones(r.success ? (r.data || []) : []))
-      .catch(() => setFormaciones([]));
-  }, [projectId]);
+    const ids = projectId ? [projectId] : campus.map((c) => c.id);
+    if (!ids.length) { setFormaciones([]); return; }
+    let vivo = true;
+    Promise.all(ids.map((id) =>
+      client.get(`/products?projectId=${id}&limit=500`)
+        .then((r) => (r.success ? (r.data || []) : []))
+        .catch(() => [])))
+      .then((tandas) => {
+        if (!vivo) return;
+        const porNombre = new Map<string, Formacion>();
+        for (const filas of tandas) {
+          for (const x of filas as Formacion[]) {
+            const clave = String(x.nombre || '').trim().toLowerCase();
+            if (clave && !porNombre.has(clave)) porNombre.set(clave, x);
+          }
+        }
+        setFormaciones([...porNombre.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      });
+    return () => { vivo = false; };
+  }, [projectId, campus]);
 
   // El arranque del modulo manda sobre la fecha por defecto: si las comisiones
   // empiezan en agosto, proponer hoy solo invita a ponerlo mal.

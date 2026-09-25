@@ -523,7 +523,26 @@ export async function baseDeSeguimiento({
 
   // Quien no ha sido contactado NUNCA. Es distinto de «lleva mucho»: a este no
   // le ha escrito nadie desde que entro, y es el que mas urge.
-  const pNunca = sinContactar ? `AND ${ULTIMO_SQL} IS NULL` : '';
+  /**
+   * «Sin contactar nunca» de verdad.
+   *
+   * Diego, 24/09: «tambien debe tomar en cuenta que no tocara en los que se ha
+   * cambiado su estado». Antes solo miraba si habia contactos apuntados, y ahi
+   * se colaba media lista: a quien alguien movio de «nuevo» a «contactado» a
+   * mano lo tocaron, aunque no lo escribiera. Salia marcado como si nadie lo
+   * hubiera mirado nunca, y la gestora lo llamaba otra vez.
+   *
+   * Se mira el historial de estados y no el estado actual: un lead que sigue en
+   * «nuevo» porque nadie lo movio no tiene ninguna linea ahi, y ese si esta sin
+   * tocar. Los cambios que hace el CRM solo --el de las 3:00-- no cuentan: van
+   * sin usuario, y que un proceso lo devuelva a «por contactar» no es que
+   * alguien haya hablado con el.
+   */
+  const pNunca = sinContactar
+    ? `AND ${ULTIMO_SQL} IS NULL
+       AND NOT EXISTS (SELECT 1 FROM lead_status_history h
+                        WHERE h.lead_id = l.id AND h.changed_by IS NOT NULL)`
+    : '';
 
   // El bloque de antiguedad se traduce a dias AQUI y no en la pantalla, con los
   // mismos cortes que `bloqueDeAntiguedad`: si cada sitio pusiera los suyos, el
@@ -634,7 +653,15 @@ export async function resumenDeSeguimiento({
             count(*) FILTER (WHERE ${DIAS} >= 30 AND ${DIAS} < 90)::int    AS uno_a_tres,
             count(*) FILTER (WHERE ${DIAS} >= 90 AND ${DIAS} < 180)::int   AS tres_a_seis,
             count(*) FILTER (WHERE ${DIAS} >= 180)::int                    AS mas_de_seis,
-            count(*) FILTER (WHERE ${ULTIMO} IS NULL)::int                 AS nunca_contactados
+            -- La MISMA regla que el filtro de la lista: sin contacto apuntado
+            -- y sin que nadie le haya movido el estado a mano. Si aqui se
+            -- contara de otra forma, el boton diria 202 y la lista ensenaria
+            -- otra cifra al pulsarlo.
+            count(*) FILTER (
+              WHERE ${ULTIMO} IS NULL
+                AND NOT EXISTS (SELECT 1 FROM lead_status_history h
+                                 WHERE h.lead_id = l.id AND h.changed_by IS NOT NULL)
+            )::int                                                        AS nunca_contactados
        FROM leads l
       WHERE l.deleted_at IS NULL
         AND l.status NOT IN ('convertido', 'no_interesado')

@@ -202,10 +202,18 @@ export default function PlantillasWhatsappPage() {
     else toast({ title: 'No se pudo crear', description: r.error, variant: 'destructive' });
   }
 
-  if (!projectId) {
+  // Diego, 24/09: «si yo soy gestora y estoy en una empresa general o en un
+  // proyecto debe salirme, no tengo que sí o sí seleccionar un campus».
+  //
+  // Y ya se podía: `cargar()` pide las de toda la empresa cuando hay `issuerId`.
+  // Lo que pasaba es que este guardia cortaba ANTES de pintar, mirando solo el
+  // campus, así que la pantalla decía «elige un proyecto concreto» con las
+  // plantillas ya traídas. Ahora solo corta cuando no hay ni empresa ni campus,
+  // que es la única situación en la que de verdad no hay nada que enseñar.
+  if (!projectId && !issuerId) {
     return (
       <div className="bg-card border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
-        Elige un proyecto concreto para ver sus plantillas.
+        Elige una empresa o un campus para ver sus plantillas.
       </div>
     );
   }
@@ -232,10 +240,18 @@ export default function PlantillasWhatsappPage() {
               ? <><PencilSimple size={14} weight="bold" /> Editar</>
               : <><MagnifyingGlass size={14} weight="bold" /> Consultar</>}
           </button>
+          {/* Leer es de la empresa entera; ESCRIBIR sigue necesitando un
+              campus, porque la plantilla se guarda dentro de un proyecto. El
+              botón no se esconde: se apaga y dice por qué. Un botón que
+              desaparece parece un permiso que no tienes. */}
           {modo === 'editar' && !nueva && (
             <button type="button"
+              disabled={!projectId}
+              title={projectId
+                ? 'Escribir una plantilla nueva'
+                : 'Para escribir una hay que elegir un campus: la plantilla se guarda en uno concreto'}
               onClick={() => setNueva({ label: '', body: '', ambito: esAdmin ? 'compartida' : 'personal' })}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed">
               <Plus size={14} weight="bold" /> Nueva
             </button>
           )}

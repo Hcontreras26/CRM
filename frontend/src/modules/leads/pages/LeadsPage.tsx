@@ -868,8 +868,21 @@ export default function LeadsPage() {
         />
         <SiguientesAcciones
           leads={leads}
-          onAbrir={(id) => navigate(`/prospectos/${id}`)}
-          onVerTodos={() => setQuickFilter('urgent')}
+          // El PANEL, no la ficha entera. Diego, 24/09: «y abra el panel, no la
+          // ficha completa». Desde aquí se entra a ver qué toca con alguien y
+          // se vuelve a la lista; irse a otra pantalla obliga a volver atrás
+          // por cada persona.
+          onAbrir={(id) => setDrawerLeadId(id)}
+          // «Esto debe funcionar directamente, tuve que tocarlo para verlo.»
+          // Llevaba a «Necesitan acción hoy», que es UN tramo, y los demás
+          // estaban escondidos dentro del panel de Filtros. Ahora quita el
+          // filtro --se ven todos, los vencidos arriba-- y baja a la lista,
+          // que ya lleva los tramos a la vista.
+          onVerTodos={() => {
+            setQuickFilter('');
+            document.getElementById('lista-de-prospectos')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
         />
         <AccesosClave
           accesos={[
@@ -962,6 +975,44 @@ export default function LeadsPage() {
           <p className="text-sm text-destructive font-medium">{error}</p>
         </div>
       )}
+
+      {/* LOS TRAMOS, A LA VISTA.
+          Estos cuatro botones existían, pero vivían dentro del panel «Filtros»,
+          plegado. Diego, 24/09: «esto debe funcionar directamente, tuve que
+          tocarlo para verlo [...] sí o sí mostrar todos y atrasados, con
+          filtros hoy, mañana, vencidos». Un filtro que hay que descubrir no lo
+          usa nadie, y este es el que ordena la mañana. Siguen estando también
+          dentro del panel, con el resto: aquí se sacan los que se pulsan a
+          diario, no se mudan. */}
+      <div id="lista-de-prospectos" className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mr-1">
+          Cuándo toca
+        </span>
+        {([
+          ['', 'Todos', undefined],
+          ['overdue', 'Vencidos', quickCounts?.overdue],
+          ['today', 'Hoy', quickCounts?.today],
+          ['tomorrow', 'Mañana', quickCounts?.tomorrow],
+        ] as Array<[string, string, number | undefined]>).map(([valor, texto, cuantos]) => (
+          <button
+            key={valor || 'todos'}
+            type="button"
+            onClick={() => setQuickFilter(valor)}
+            aria-pressed={quickFilter === valor}
+            className={'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors '
+              + (quickFilter === valor
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card hover:bg-muted')}
+          >
+            {texto}
+            {typeof cuantos === 'number' && cuantos > 0 && (
+              <span className={'tabular-nums text-[11px] ' + (quickFilter === valor ? 'opacity-80' : 'text-muted-foreground')}>
+                {cuantos}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
       {/* Table */}
       <div className="bg-card rounded-lg border border-border">
