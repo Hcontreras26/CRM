@@ -169,3 +169,48 @@ describe('el protocolo', () => {
     }));
   });
 });
+
+// ─── URL personal (para «Agregar conector personalizado») ─────────────────
+
+describe('la URL personal', () => {
+  const porUrl = (token, method, params = {}) => request(app).post(`/api/mcp/u/${token}`)
+    .set('Accept', 'application/json, text/event-stream')
+    .set('Content-Type', 'application/json')
+    .send({ jsonrpc: '2.0', id: ++idRpc, method, params });
+
+  it('con la URL personal se conecta sin cabecera de token', async () => {
+    const r = await porUrl(TOKEN_ANA, 'tools/list');
+    expect(r.status).toBe(200);
+    expect(r.body.result.tools.map((t) => t.name)).toContain('mis_proyectos');
+  });
+
+  it('y aplica los mismos filtros: a una gestora se le impone su id', async () => {
+    modelo.findUserById.mockImplementation(async (id) => ({ ...PERSONAS[id], usa_mcp: true }));
+    await porUrl(TOKEN_LUIS, 'tools/call', { name: 'buscar_prospectos', arguments: {} });
+    expect(modelo.buscarProspectos).toHaveBeenCalledWith(expect.objectContaining({ responsableId: 2, projectIds: [10] }));
+  });
+
+  it('una URL inventada o revocada: 401 y la base no da datos', async () => {
+    expect((await porUrl('lo-que-sea', 'tools/list')).status).toBe(401);
+    const r = await porUrl(TOKEN_REVOCADO, 'tools/list');
+    expect(r.status).toBe(401);
+  });
+
+  it('un gestor sin la casilla tampoco entra por URL', async () => {
+    expect((await porUrl(TOKEN_LUIS, 'tools/list')).status).toBe(403);
+  });
+
+  it('GET y DELETE: 405', async () => {
+    expect((await request(app).get(`/api/mcp/u/${TOKEN_ANA}`)).status).toBe(405);
+    expect((await request(app).delete(`/api/mcp/u/${TOKEN_ANA}`)).status).toBe(405);
+  });
+
+  it('el secreto se tapa en la URL de la peticion: no puede acabar en un registro', async () => {
+    const { urlPersonal } = await import('../src/modules/mcp/mcp.auth.js');
+    const req = { params: { secreto: TOKEN_ANA }, url: `/u/${TOKEN_ANA}`, originalUrl: `/api/mcp/u/${TOKEN_ANA}` };
+    urlPersonal(req, {}, () => {});
+    expect(req.mcpTokenDeUrl).toBe(TOKEN_ANA);
+    expect(req.url).toBe('/u/***');
+    expect(req.originalUrl).toBe('/api/mcp/u/***');
+  });
+});

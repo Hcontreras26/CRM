@@ -12,7 +12,8 @@ export interface McpToken {
   /** Los primeros caracteres, para reconocerlo. Nunca el token. */
   prefijo: string;
   created_at: string;
-  expires_at: string;
+  /** null = no caduca. */
+  expires_at: string | null;
   last_used_at: string | null;
   revoked_at: string | null;
   vivo: boolean;
@@ -35,7 +36,8 @@ export interface McpEstado {
   tieneAcceso: boolean;
   puedeAdministrar: boolean;
   soloLoSuyo: boolean;
-  diasDeVida: number;
+  /** null = los tokens no caducan. */
+  diasDeVida: number | null;
   proyectos: McpProyecto[];
   herramientas: McpHerramienta[];
   tokens: McpToken[];

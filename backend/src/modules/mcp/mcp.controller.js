@@ -93,9 +93,11 @@ export async function personas(req, res, next) {
 /**
  * PATCH /api/mcp/panel/personas/:id — enciende o apaga la casilla.
  *
- * Al apagarla se revocan sus tokens: la puerta ya estaria cerrada porque se
- * mira en cada peticion, pero un token que no sirve para nada no debe quedarse
- * vivo esperando a que alguien vuelva a encender la casilla.
+ * Apagarla PAUSA, no borra (decidido con Diana el 28/09). La puerta se cierra
+ * en la siguiente consulta porque `puedeUsarMcp` se mira en cada peticion; pero
+ * sus URLs no se revocan, asi que si se le devuelve el acceso vuelven a
+ * funcionar en su Claude sin tener que crear otra y cambiarla en el conector.
+ * Para cortar del todo esta «Revocar» (la persona) o desactivar el usuario.
  */
 export async function cambiarAcceso(req, res, next) {
   try {
@@ -114,7 +116,6 @@ export async function cambiarAcceso(req, res, next) {
       throw new AppError('Solo puedes dar acceso a personas de tus campus.', 403, 'FORBIDDEN');
     }
     await model.setUsaMcp(persona.id, usa_mcp);
-    if (!usa_mcp) await model.revocarTodos(persona.id);
     logger.info({ por: quien.id, userId: persona.id, usa_mcp }, 'MCP: acceso cambiado');
     res.json({ success: true, data: { id: persona.id, usa_mcp } });
   } catch (err) { next(err); }

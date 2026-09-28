@@ -15,7 +15,10 @@
 --
 --  2. `mcp_tokens`: el token personal que cada persona pega en su Claude. Se
 --     guarda SOLO su huella (SHA-256), nunca el token: quien lea la base no
---     puede conectarse como nadie. Caduca (90 dias) y se puede revocar.
+--     puede conectarse como nadie. NO CADUCA (decidido con Diana el 28/09: la
+--     URL que se pega en Claude tiene que seguir funcionando sin rehacerla); deja
+--     de valer si se revoca, si se quita el acceso o si se desactiva el usuario.
+--     `expires_at` queda por si algun dia se quiere poner fecha.
 --
 --  3. `mcp_auditoria`: una fila por consulta. Claude pregunta en nombre de una
 --     persona; si un dato sale de donde no debia, esto dice quien, que y cuando.
@@ -37,7 +40,7 @@ CREATE TABLE IF NOT EXISTS mcp_tokens (
     token_hash    CHAR(64)      NOT NULL UNIQUE,
     -- Los primeros caracteres, para reconocerlo en la lista sin enseñarlo.
     prefijo       VARCHAR(16)   NOT NULL,
-    expires_at    TIMESTAMPTZ   NOT NULL,
+    expires_at    TIMESTAMPTZ,              -- NULL = no caduca
     last_used_at  TIMESTAMPTZ,
     revoked_at    TIMESTAMPTZ,
     created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()

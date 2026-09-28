@@ -68,7 +68,7 @@ export async function findTokenVivo(hash) {
   const { rows } = await query(
     `SELECT t.id AS token_id, t.user_id
        FROM mcp_tokens t
-      WHERE t.token_hash = $1 AND t.revoked_at IS NULL AND t.expires_at > NOW()`,
+      WHERE t.token_hash = $1 AND t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > NOW())`,
     [hash]
   );
   return rows[0] || null;
@@ -86,9 +86,9 @@ export async function marcarUso(tokenId) {
 export async function listarTokens(userId) {
   const { rows } = await query(
     `SELECT id, nombre, prefijo, created_at, expires_at, last_used_at, revoked_at,
-            (revoked_at IS NULL AND expires_at > NOW()) AS vivo
+            (revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())) AS vivo
        FROM mcp_tokens WHERE user_id = $1
-      ORDER BY (revoked_at IS NULL AND expires_at > NOW()) DESC, created_at DESC
+      ORDER BY (revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())) DESC, created_at DESC
       LIMIT 50`,
     [userId]
   );
@@ -98,7 +98,7 @@ export async function listarTokens(userId) {
 export async function contarTokensVivos(userId) {
   const { rows } = await query(
     `SELECT COUNT(*)::int AS n FROM mcp_tokens
-      WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()`,
+      WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())`,
     [userId]
   );
   return rows[0].n;
@@ -107,7 +107,7 @@ export async function contarTokensVivos(userId) {
 export async function crearToken({ userId, nombre, hash, prefijo, dias }) {
   const { rows } = await query(
     `INSERT INTO mcp_tokens (user_id, nombre, token_hash, prefijo, expires_at)
-     VALUES ($1, $2, $3, $4, NOW() + make_interval(days => $5))
+     VALUES ($1, $2, $3, $4, CASE WHEN $5::int IS NULL THEN NULL ELSE NOW() + make_interval(days => $5::int) END)
      RETURNING id, nombre, prefijo, created_at, expires_at`,
     [userId, nombre, hash, prefijo, dias]
   );
@@ -122,10 +122,6 @@ export async function revocarToken(id, userId) {
     [id, userId]
   );
   return rowCount > 0;
-}
-
-export async function revocarTodos(userId) {
-  await query(`UPDATE mcp_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
 }
 
 /**
@@ -145,7 +141,7 @@ export async function listarPersonas(quien) {
   const { rows } = await query(
     `SELECT u.id, u.nombre, u.email, u.role, COALESCE(u.usa_mcp, false) AS usa_mcp,
             (SELECT COUNT(*)::int FROM mcp_tokens t
-              WHERE t.user_id = u.id AND t.revoked_at IS NULL AND t.expires_at > NOW()) AS tokens_vivos,
+              WHERE t.user_id = u.id AND t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > NOW())) AS tokens_vivos,
             (SELECT MAX(t.last_used_at) FROM mcp_tokens t WHERE t.user_id = u.id) AS ultimo_uso
        FROM users u
       WHERE u.active = true AND u.role::text <> 'tutor' ${filtro}
