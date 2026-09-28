@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import puppeteer from 'puppeteer';
+import sharp from 'sharp';
 import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
 
@@ -16,34 +16,26 @@ import { logger } from '../../shared/utils/logger.js';
  * ya pegado sobre el fondo de la marca, con el filete de su color debajo— y el
  * correo la enseña como una sola imagen opaca. Ningún tema ni cliente la toca.
  *
- * Se dibuja con el Chrome de puppeteer, el mismo que hace los PDF: el logo se
- * baja antes y entra como data URI, así Chrome no necesita red. Se guarda en
- * memoria por marca y versión (logo + colores): cambiar la marca en el panel
- * cambia la versión, y el correo siguiente pide la nueva.
+ * Con sharp, no con el Chrome de puppeteer: en el servidor de MultiCRM ese
+ * Chrome no arranca (le faltan librerías del sistema), y sharp trae su propio
+ * motor. Se guarda en memoria por marca y versión (logo + colores): cambiar la
+ * marca en el panel cambia la versión, y el correo siguiente pide la nueva.
  */
 
-const ANCHO = 560;
-const ALTO = 88;
-const CHROME_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-background-networking'];
-// `${id}:${version}` -> la promesa del PNG: si llegan diez peticiones a la vez
-// para una marca sin dibujar, se lanza UN Chrome, no diez.
-const hechas = new Map();
+// Al doble del tamaño con el que se ve (560 × 88): en retina no sale borroso.
+const ANCHO = 1120;
+const ALTO = 176;
+const FILETE = 8;
+const MARGEN = 48;
+const LOGO_ALTO = 104;
+const LOGO_ANCHO = 520;
 const MAX_EN_MEMORIA = 60;
 
-const hex = (v) => (/^#[0-9a-f]{6}$/i.test(v || '') ? v : null);
-const escapar = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// `${id}:${version}` -> la promesa del PNG: si llegan diez peticiones a la vez
+// para una marca sin dibujar, se dibuja una vez, no diez.
+const hechas = new Map();
 
-/** Texto blanco u oscuro sobre ese fondo (el mismo cálculo que el correo). */
-function tintaSobre(fondo) {
-  const m = /^#([0-9a-f]{6})$/i.exec(fondo || '');
-  if (!m) return '#1d2530';
-  const [r, g, b] = [0, 2, 4]
-    .map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255)
-    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  const luz = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return 1.05 / (luz + 0.05) >= (luz + 0.05) / (0.0178 + 0.05) ? '#ffffff' : '#1d2530';
-}
+const hex = (v) => (/^#[0-9a-f]{6}$/i.test(v || '') ? v : null);
 
 /** La versión de la cabecera: cambia en cuanto cambia el logo o un color. */
 export function versionDe(marca) {
@@ -59,44 +51,42 @@ async function marcaDe(projectId) {
   return rows[0] || null;
 }
 
-/** El logo, bajado y en data URI. Sin logo o si no baja: null (sale el nombre). */
-async function logoEnDataUri(url) {
+/** El logo, bajado de la web de la marca. Sin logo o si no baja: null. */
+async function bajarLogo(url) {
   if (!url) return null;
   try {
     const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (CRM cabecera de correo)' }, signal: AbortSignal.timeout(10000) });
     if (!res.ok) return null;
-    const tipo = (res.headers.get('content-type') || 'image/png').split(';')[0];
-    if (!tipo.startsWith('image/')) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    return `data:${tipo};base64,${buf.toString('base64')}`;
+    return Buffer.from(await res.arrayBuffer());
   } catch (err) {
     logger.warn({ err: err.message, url }, 'cabecera: no se pudo bajar el logo');
     return null;
   }
 }
 
-async function dibujar(marca) {
+/** Un rectángulo liso de un color, para el fondo y el filete. */
+const liso = (width, height, background) => sharp({ create: { width, height, channels: 3, background } });
+
+export async function dibujar(marca) {
   const fondo = hex(marca.color_cabecera) || '#ffffff';
   const acento = hex(marca.theme_color) || '#1f4e79';
-  const logo = await logoEnDataUri(marca.logo_url);
-  const dentro = logo
-    ? `<img src="${logo}" style="max-height:52px;max-width:260px;display:block">`
-    : `<span style="font:bold 20px Arial,Helvetica,sans-serif;color:${tintaSobre(fondo)}">${escapar(marca.nombre)}</span>`;
-  const html = `<!doctype html><html><body style="margin:0;background:${fondo}">
-    <div style="width:${ANCHO}px;height:${ALTO}px;box-sizing:border-box;background:${fondo};border-bottom:4px solid ${acento};
-                display:flex;align-items:center;padding:0 24px">${dentro}</div></body></html>`;
-  const opts = { headless: 'new', args: CHROME_ARGS };
-  if (process.env.CHROME_PATH) opts.executablePath = process.env.CHROME_PATH;
-  const browser = await puppeteer.launch(opts);
-  try {
-    const page = await browser.newPage();
-    // Al doble de resolución: en pantallas retina el logo no sale borroso.
-    await page.setViewport({ width: ANCHO, height: ALTO, deviceScaleFactor: 2 });
-    await page.setContent(html, { waitUntil: 'load', timeout: 15000 });
-    return await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: ANCHO, height: ALTO }, omitBackground: false });
-  } finally {
-    await browser.close();
+  const capas = [{ input: await liso(ANCHO, FILETE, acento).png().toBuffer(), top: ALTO - FILETE, left: 0 }];
+  const original = await bajarLogo(marca.logo_url);
+  if (original) {
+    try {
+      // `inside`: cabe entero sin deformarse; el transparente se queda
+      // transparente y al pegarlo encima toma el color del fondo.
+      const logo = await sharp(original).resize({ width: LOGO_ANCHO, height: LOGO_ALTO, fit: 'inside' }).png().toBuffer();
+      const { height } = await sharp(logo).metadata();
+      capas.push({ input: logo, top: Math.round((ALTO - FILETE - height) / 2), left: MARGEN });
+    } catch (err) {
+      logger.warn({ err: err.message, url: marca.logo_url }, 'cabecera: el logo no se pudo leer');
+    }
   }
+  // Sin logo, la cabecera queda en el color de la marca y el correo lleva su
+  // nombre en el texto de al lado (`alt`): mejor eso que letras sin fuente.
+  // Sin canal de transparencia: nada que un proxy pueda volver a pintar de negro.
+  return liso(ANCHO, ALTO, fondo).composite(capas).removeAlpha().png().toBuffer();
 }
 
 /** La cabecera de esa marca, de memoria o recién dibujada. */
