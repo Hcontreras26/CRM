@@ -14,6 +14,8 @@ export default function GeneralTab({ project, onSaved }) {
     emoji: project.emoji || '',
     logo_url: project.logo_url || '',
     theme_color: project.theme_color || '',
+    color_cabecera: project.color_cabecera || '',
+    remitente_no_contestar: project.remitente_no_contestar || '',
     meta_account_id: project.meta_account_id || '',
     google_account_id: project.google_account_id || '',
     gsc_property: project.gsc_property || '',
@@ -27,7 +29,8 @@ export default function GeneralTab({ project, onSaved }) {
     e.preventDefault();
     // Validar color si está definido
     const trimmedColor = form.theme_color.trim();
-    if (trimmedColor && !isValidHexColor(trimmedColor)) {
+    const cabecera = form.color_cabecera.trim();
+    if ((trimmedColor && !isValidHexColor(trimmedColor)) || (cabecera && !isValidHexColor(cabecera))) {
       toast({ title: 'Color inválido', description: 'Usa formato #rrggbb (ej. #3b82f6)', variant: 'destructive' });
       return;
     }
@@ -40,6 +43,8 @@ export default function GeneralTab({ project, onSaved }) {
         emoji: form.emoji || null,
         logo_url: form.logo_url ? form.logo_url.trim() : null,
         theme_color: trimmedColor || null,
+        color_cabecera: cabecera || null,
+        remitente_no_contestar: form.remitente_no_contestar.trim() || null,
         meta_account_id: form.meta_account_id || null,
         google_account_id: form.google_account_id || null,
         gsc_property: form.gsc_property || null,
@@ -136,6 +141,63 @@ export default function GeneralTab({ project, onSaved }) {
             Quitar
           </button>
         )}
+      </div>
+
+      <SectionTitle
+        title="Correos y formularios de la marca"
+        subtitle="Lo que ven sus alumnos: el correo de feedback y su encuesta. El logo y el color son los de arriba."
+      />
+      <div className="space-y-3 p-4 bg-muted/20 rounded-md border border-border">
+        <Field label="Fondo de la cabecera" hint="Sobre qué color va el logo. Blanco si el logo es de color; oscuro si es la versión blanca. Vacío = blanco.">
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={isValidHexColor(form.color_cabecera) ? form.color_cabecera : '#ffffff'}
+              onChange={(e) => setForm({ ...form, color_cabecera: e.target.value })}
+              aria-label="Fondo de la cabecera"
+              className="w-12 h-10 rounded border border-border cursor-pointer flex-shrink-0"
+            />
+            <input
+              type="text"
+              value={form.color_cabecera}
+              onChange={(e) => setForm({ ...form, color_cabecera: e.target.value })}
+              placeholder="#ffffff"
+              className={inputClass + ' font-mono text-sm flex-1'}
+              maxLength={7}
+            />
+            {form.color_cabecera && (
+              <button type="button" onClick={() => setForm({ ...form, color_cabecera: '' })}
+                className="text-xs text-muted-foreground hover:text-foreground flex-shrink-0">Quitar</button>
+            )}
+          </div>
+        </Field>
+        {/* Así se verá la cabecera del correo y de la encuesta. */}
+        <div className="overflow-hidden rounded-md border border-border" aria-label="Vista previa de la cabecera">
+          <div
+            className="flex min-h-[64px] items-center px-5 py-3"
+            style={{
+              background: isValidHexColor(form.color_cabecera) ? form.color_cabecera : '#ffffff',
+              borderBottom: `4px solid ${isValidHexColor(form.theme_color) ? form.theme_color : '#1f4e79'}`,
+            }}
+          >
+            {logoPreviewSrc
+              ? <img src={logoPreviewSrc} alt={form.nombre} className="max-h-11 max-w-[200px]" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              : <span className="text-base font-bold text-[#1d2530]">{form.nombre}</span>}
+          </div>
+          <p className="bg-card px-5 py-2 text-xs text-muted-foreground">Vista previa de la cabecera</p>
+        </div>
+        <Field
+          label="Remitente «no contestar»"
+          hint="Del que salen sus correos. Tiene que ser de un dominio autenticado en su cuenta de Brevo (pestaña APIs → Brevo). Vacío = el del CRM."
+        >
+          <input
+            type="email"
+            value={form.remitente_no_contestar}
+            onChange={(e) => setForm({ ...form, remitente_no_contestar: e.target.value })}
+            placeholder="no-responder@sudominio.com"
+            className={inputClass}
+          />
+        </Field>
       </div>
 
       <SectionTitle title="Terminologia del proyecto" subtitle="Como se llaman &quot;productos&quot; aqui (ej Formacion, Plan, Servicio)" />

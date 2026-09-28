@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger.js';
 import { getDecryptedValue } from '../../modules/credentials/credentials.model.js';
+import { query } from '../config/db.js';
 import { yaSeEnvio, registrar } from './email-log.service.js';
 import { dejaPasar, porQueSeParo } from './email-freno.service.js';
 import { guardarEnEnviados, hayBuzon } from './copia-en-enviados.service.js';
@@ -9,19 +10,9 @@ const BREVO_API_URL = 'https://api.brevo.com/v3';
 const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'no-reply@crm-test.local';
 const FROM_NAME = process.env.BREVO_FROM_NAME || 'CRM MultiProyecto';
 
-async function getApiKey(projectId = null, cuenta = null) {
-  // La cuenta de los CAMPUS (Diego, 28/09). Sus dominios (fonoaprende.com,
-  // ictess.com, isecd.com...) estan autenticados en OTRA cuenta de Brevo, la
-  // de Psicologo IA; 360crm.tech sigue en la de siempre. Solo la usa quien
-  // firma con el «no responder» del campus: todo lo demas sale de 360crm.tech,
-  // que esa cuenta no acepta.
-  if (cuenta === 'campus' && process.env.BREVO_CAMPUS_API_KEY) return process.env.BREVO_CAMPUS_API_KEY;
-  // Prioridad: credencial especifica del proyecto > credencial global > env var
+/** La cuenta del CRM: la clave global de la base y, si no hay, la del .env. */
+async function getApiKey() {
   try {
-    if (projectId) {
-      const perProject = await getDecryptedValue('brevo', projectId);
-      if (perProject) return perProject;
-    }
     const fromDb = await getDecryptedValue('brevo', null);
     if (fromDb) return fromDb;
   } catch (err) {
@@ -30,6 +21,37 @@ async function getApiKey(projectId = null, cuenta = null) {
   const envKey = process.env.BREVO_API_KEY;
   if (!envKey || envKey === 'test') return null;
   return envKey;
+}
+
+/**
+ * La cuenta de Brevo de la MARCA, si la tiene (Diego, 28/09).
+ *
+ * Los dominios de los campus (fonoaprende.com, ictess.com...) no estan en la
+ * cuenta del CRM, donde vive 360crm.tech, sino en otra. Cada marca guarda la
+ * suya en «Configurar esta marca → APIs → Brevo» —cifrada, en la base: se
+ * cambia desde el panel sin tocar codigo ni servidor— y su «no contestar» en
+ * «General». Con las dos, sus correos salen por su cuenta y con su remitente.
+ *
+ * Una cuenta de marca solo sirve con un remitente de la marca: sin remitente,
+ * nada (y el correo sale por la del CRM, como siempre).
+ */
+async function cuentaDeLaMarca(projectId, fromEmail) {
+  if (!projectId) return null;
+  try {
+    const apiKey = await getDecryptedValue('brevo', projectId);
+    if (!apiKey) return null;
+    let remitente = fromEmail;
+    if (!remitente) {
+      // to_jsonb: la columna es de la migracion 177; sin ella, null y no rompe.
+      const { rows } = await query(
+        "SELECT to_jsonb(p) ->> 'remitente_no_contestar' AS r FROM projects p WHERE p.id = $1", [projectId]);
+      remitente = rows[0]?.r || null;
+    }
+    return remitente ? { apiKey, remitente } : null;
+  } catch (err) {
+    logger.warn({ err: err.message, projectId }, 'Brevo: error leyendo la cuenta de la marca');
+    return null;
+  }
 }
 
 // Cuantas veces se intenta y cuanto se espera entre intentos. Tres intentos con
@@ -80,8 +102,9 @@ function dejarCopiaEnEnviados({ de, deNombre, para, asunto, html, messageId }) {
  * Quien no la pase se comporta exactamente igual que antes, salvo que ahora
  * queda anotado el intento.
  *
- *   · cuenta — 'campus' para salir por la cuenta de Brevo de los campus
- *              (`BREVO_CAMPUS_API_KEY`). Sin esa variable, la de siempre.
+ *   · cuenta — 'crm' obliga a salir por la cuenta del CRM aunque la marca
+ *              tenga la suya. Sin nada: la de la marca si la tiene
+ *              (`cuentaDeLaMarca`), la del CRM si no.
  */
 async function sendEmail({ to, subject, htmlContent, textContent, tags = [], projectId = null, fromEmail, fromName, replyTo, attachment, clave = null, cuenta = null }) {
   // `to` llega de cuatro formas: cadena, objeto, lista de objetos, y una cadena
@@ -89,7 +112,7 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
   const destinatarios = Array.isArray(to)
     ? to.map((d) => d?.email || d).filter(Boolean).join(',')
     : (to?.email || to || '');
-  const remitente = fromEmail || FROM_EMAIL;
+  let remitente = fromEmail || FROM_EMAIL;
 
   // EL FRENO, antes que nada.
   //
@@ -119,6 +142,11 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
     logger.info({ clave, to: destinatarios, subject }, 'Brevo: ya se envio antes, no se repite');
     return { sent: false, reason: 'YA_ENVIADO', repetido: true };
   }
+
+  // ¿Por que cuenta de Brevo? La de la marca, si la tiene; entonces tambien su
+  // remitente, si quien llama no puso otro.
+  const marca = cuenta === 'crm' ? null : await cuentaDeLaMarca(projectId, fromEmail);
+  if (marca) remitente = marca.remitente;
 
   // ¿SALE POR EL BUZON PROPIO?
   //
@@ -151,7 +179,7 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
     logger.warn({ motivo: r.reason, to: destinatarios, subject }, 'Buzon: no salio, se intenta por Brevo');
   }
 
-  const apiKey = await getApiKey(projectId, cuenta);
+  const apiKey = marca?.apiKey || await getApiKey();
   if (!apiKey) {
     logger.warn({ to, subject }, 'Brevo: sin API key configurada, email no enviado');
     await registrar({ clave, destinatarios, asunto: subject, etiquetas: tags, projectId,
@@ -238,6 +266,16 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
   await registrar({ clave, destinatarios, asunto: subject, etiquetas: tags, projectId,
       cuerpoHtml: htmlContent, remitente,
     estado: 'fallido', intentos: hechos, error: `${ultimoFallo.reason} · ${ultimoFallo.details ?? ''}` });
+  // Con un remitente que no es el del CRM —el de la marca—, una vez mas por la
+  // cuenta del CRM y con su remitente: que llegue desde 360crm.tech es mejor
+  // que no llegue. Suele ser un dominio aun sin autenticar o una clave caducada.
+  if (cuenta !== 'crm' && remitente !== FROM_EMAIL) {
+    logger.warn({ remitente, to: destinatarios, subject, fallo: ultimoFallo.reason },
+      'Brevo: no salio con el remitente de la marca; se intenta por la cuenta del CRM');
+    const otra = await sendEmail({ to, subject, htmlContent, textContent, tags, projectId,
+      fromEmail: undefined, fromName, replyTo, attachment, clave, cuenta: 'crm' });
+    return { ...otra, primerFallo: ultimoFallo.reason };
+  }
   return { sent: false, ...ultimoFallo, intentos: hechos };
 }
 

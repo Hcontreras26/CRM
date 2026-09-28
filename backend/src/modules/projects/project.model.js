@@ -7,6 +7,7 @@ export async function findAll({ active }) {
   const { rows } = await query(
     `SELECT p.id, p.nombre, p.slug, p.type, p.emoji, p.logo_url, p.logo_key, p.producto_label, p.producto_label_plural,
             p.modules, p.shortcuts, p.external_panels, p.sidebar_labels, p.theme_color, p.auto_email_documents,
+            p.color_cabecera, p.remitente_no_contestar,
             p.webhook_api_key, p.meta_account_id, p.google_account_id,
             p.gsc_property, p.dias_alerta_inactividad, p.active, p.created_at, p.updated_at,
             p.sociedad_emisora_id, s.razon_social AS sociedad_nombre,
@@ -60,6 +61,7 @@ export async function findById(id) {
   const { rows } = await query(
     `SELECT id, nombre, slug, type, emoji, logo_url, logo_key, producto_label, producto_label_plural,
             modules, shortcuts, external_panels, sidebar_labels, theme_color, auto_email_documents,
+            color_cabecera, remitente_no_contestar,
             webhook_api_key, meta_account_id, google_account_id,
             gsc_property, dias_alerta_inactividad, active, created_at, updated_at,
             ${columnas.join(', ')}
@@ -108,7 +110,9 @@ export async function update(id, fields) {
                    'producto_label', 'producto_label_plural', 'logo_url', 'logo_key', 'modules',
                    'lead_base_fields_config', 'lead_columns', 'client_columns', 'product_columns',
                    'external_panels', 'sidebar_labels',
-                   'theme_color', 'auto_email_documents', 'sociedad_emisora_id'];
+                   'theme_color', 'auto_email_documents', 'sociedad_emisora_id',
+                   // Correos y formularios de la marca (migraciones 177 y 180).
+                   'color_cabecera', 'remitente_no_contestar'];
   const sets = [];
   const params = [];
   let idx = 1;
