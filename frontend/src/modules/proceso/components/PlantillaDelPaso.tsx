@@ -148,7 +148,10 @@ export default function PlantillaDelPaso({
     try {
       const r = await whatsappApi.crearPlantilla({
         projectId, label, body, ambito: 'personal',
-        usuarioId: issuerId,
+        // SIN usuarioId: la propia es de quien la escribe. Aqui se mandaba el
+        // id de la EMPRESA como si fuera una persona: sin empresa llegaba vacio
+        // y rompia («Number must be greater than 0»); con CEDIA puesta se habria
+        // guardado a nombre de quien tuviera ese mismo numero. Diego, 28/09.
         // Atada a ESTE paso: es lo que hace que mañana salga sola aqui.
         paso_clave: pasoClave,
       });
