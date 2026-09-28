@@ -168,10 +168,15 @@ export async function enviar(version, { alcance, userId = null, correo = null })
 /**
  * Al arrancar en PRODUCCIÓN: si la versión actual no se ha mandado todavía al
  * equipo, se manda. Es lo que hace que «al subirlo se mande» sin que nadie se
- * acuerde. Se apaga con NOVEDADES_AUTO=0.
+ * acuerde.
+ *
+ * Hay que ENCENDERLO: NOVEDADES_AUTO=1 en el .env de producción, el día de la
+ * subida. Encendido por defecto, cualquier despliegue suelto de este código
+ * —un arreglo copiado a mano, o ISEIE, que saca producción y pruebas de la
+ * misma rama— mandaría la versión al equipo antes de tiempo.
  */
 export async function autoEnvio() {
-  if (process.env.NODE_ENV !== 'production' || process.env.NOVEDADES_AUTO === '0') return null;
+  if (process.env.NODE_ENV !== 'production' || process.env.NOVEDADES_AUTO !== '1') return null;
   const { rows } = await query(
     "SELECT 1 FROM novedades_envios WHERE version = $1 AND alcance = 'equipo' LIMIT 1", [ACTUAL.version]);
   if (rows.length) return null;

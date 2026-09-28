@@ -7,7 +7,8 @@ import { autoEnvio } from '../modules/novedades/novedades.service.js';
  * el índice único de `novedades_envios`.
  *
  * Espera dos minutos: un despliegue reinicia varias veces seguidas, y así no
- * sale nada hasta que la API está de pie y estable. Se apaga con NOVEDADES_AUTO=0.
+ * sale nada hasta que la API está de pie y estable. Solo con NOVEDADES_AUTO=1
+ * en el .env (ver `autoEnvio`).
  */
 const ESPERA_MS = parseInt(process.env.NOVEDADES_ESPERA_MS || String(2 * 60 * 1000), 10);
 
