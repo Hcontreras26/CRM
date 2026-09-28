@@ -52,6 +52,7 @@ import makeModule from './modules/make/index.js';
 import messagesModule from './modules/messages/index.js';
 import statusModule from './modules/status/index.js';
 import changeRequestsModule from './modules/change-requests/index.js';
+import mcpModule from './modules/mcp/index.js';
 import { resolveActiveModules } from './bundles/manifest.js';
 import { query } from './shared/config/db.js';
 import { startEmailSequenceScheduler } from './jobs/emailSequenceScheduler.js';
@@ -170,6 +171,8 @@ const ALL_MODULES = [
   { name: 'connectors', mod: connectorsModule },
   { name: 'make', mod: makeModule },
   { name: 'messages', mod: messagesModule },
+  // Conexion de Claude por MCP: solo consulta, con token personal.
+  { name: 'mcp', mod: mcpModule },
 ];
 
 // Módulos siempre activos (fuera del sistema de bundles)
