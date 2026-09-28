@@ -12,6 +12,7 @@ import ChannelBadge from '@/shared/components/ui/ChannelBadge';
 import { useLeadDetail } from '../hooks/useLeads';
 // Que paso del proceso le toca y cual lleva hecho.
 import AgendaDelProspecto from '@/modules/proceso/components/AgendaDelProspecto';
+import FeedbackDeLaFicha from '@/modules/feedback/components/FeedbackDeLaFicha';
 import { traerPasosDeLead } from '@/modules/proceso/api/agenda.api';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
@@ -194,6 +195,8 @@ function ResumenTab({ lead, onEnroll, onSaved }) {
 
   return (
     <div className="space-y-5">
+      {/* El correo de «¿por que has desistido?», si se le mando. */}
+      <FeedbackDeLaFicha leadId={lead.id} />
       <div className="flex items-center gap-2">
         <StatusBadge status={lead.estado} />
         {lead.canal && <ChannelBadge channel={lead.canal} />}

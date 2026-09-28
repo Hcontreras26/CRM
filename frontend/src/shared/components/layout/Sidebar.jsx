@@ -246,6 +246,8 @@ const NAV_SECTIONS = [
     icon: ChartPieSlice,
     items: [
       { label: 'Reportes', to: '/informes', detail: 'Números descargables', icon: ChartLineUp, roles: ['superadmin', 'admin'], module: 'reports' },
+      // Por que no compran: enviados, respondidos y motivos (#170).
+      { label: 'Feedback', to: '/informes/feedback', detail: 'Por qué no compran', icon: ChatCircleText, roles: ['superadmin', 'admin'], module: 'reports' },
       { label: 'Análisis IA', to: '/informes/ia', detail: 'Lectura automática', icon: Sparkle, roles: ['superadmin', 'admin'], projectType: 'ia' },
       // El Chat IA (#30) esta APARCADO hasta la fase 5: no se va a usar la API
       // todavia. La pantalla y la ruta se quedan —el trabajo esta hecho y

@@ -76,6 +76,9 @@ const CorreosPage = lazy(() => import('./modules/correos/pages/CorreosPage'));
 const NotificacionesPage = lazy(() => import('./modules/notificaciones/pages/NotificacionesPage'));
 const ReportsPage = lazy(() => import('./modules/reports/pages/ReportsPage'));
 const ReportsIAPage = lazy(() => import('./modules/reports-ia/pages/ReportsIAPage'));
+// El feedback de «¿por que has desistido?» (#169, #170): la encuesta es PUBLICA.
+const FeedbackEncuestaPage = lazy(() => import('./modules/feedback/pages/FeedbackEncuestaPage'));
+const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPanelPage'));
 const AIChatPage = lazy(() => import('./modules/ai-chat/pages/AIChatPage'));
 const SettingsPage = lazy(() => import('./modules/settings/pages/SettingsPage'));
 const AccountingDashboardPage = lazy(() => import('./modules/accounting/pages/AccountingDashboardPage'));
@@ -167,6 +170,8 @@ function App() {
       <DocumentTitle />
       <Routes>
         <Route path="/embed/form/:embedId" element={<EmbedFormPage />} />
+        {/* Sin sesion: la abre desde el correo quien no compro. */}
+        <Route path="/feedback/:token" element={<FeedbackEncuestaPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
         {IS_TESTEO2_BASE && SuiteDashCrmPreviewPage && (
@@ -282,6 +287,7 @@ function App() {
           <Route path="/configuracion/plantillas-email" element={<EmailTemplatesPage />} />
           <Route path="/informes" element={<ReportsPage />} />
           <Route path="/informes/ia" element={<ReportsIAPage />} />
+          <Route path="/informes/feedback" element={<FeedbackPanelPage />} />
           <Route path="/chat-ia" element={<AIChatPage />} />
           <Route path="/soporte" element={<SoportePage />} />
           <Route path="/registro" element={<RegistroPage />} />
