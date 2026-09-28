@@ -18,7 +18,6 @@ import AsesorasPanel from '../components/AsesorasPanel';
 import RankingsPanel from '@/shared/components/RankingsPanel';
 import PanelResumen from '@/shared/components/PanelResumen';
 import PanelSeguimiento from '@/shared/components/PanelSeguimiento';
-import ReportesDisponibles from '@/shared/components/ReportesDisponibles';
 
 function exportReportCSV(data, project, range, panel, seguimiento) {
   const sections = [];
@@ -537,8 +536,10 @@ export default function ReportsPage() {
 
       <ReportsDownloadSection projectId={proyectoEfectivo?.id} issuerId={issuerEfectivo} projectName={nombreAmbito} from={range.from} to={range.to} />
 
-      {/* El catálogo de reportes por tema, igual que en el CRM hermano. */}
-      <ReportesDisponibles />
+      {/* AQUI ESTABA «Reportes disponibles», el catalogo de reportes PREVISTOS.
+          No descargaba nada y repetia los temas de «Reportes descargables», que
+          esta justo encima y si funciona. Diego, 28/09: «siguen saliendo varias
+          tablas repetidas». */}
 
       {/* Pipeline de leads + ingresos mensual */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -598,124 +599,13 @@ export default function ReportsPage() {
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4">
-          <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Users size={16} /> Prospectos por gestor</h3>
-          {(data.leads_por_gestor || []).length === 0 ? (
-            <EmptyState icon={Users} title="Sin datos" description="No hay prospectos asignados." />
-          ) : (
-            <>
-              {/* Desktop table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-[11px] text-muted-foreground">
-                    <tr>
-                      <th className="text-left px-4 py-3 font-semibold uppercase tracking-wide">Gestor</th>
-                      <th className="text-right px-4 py-3 font-semibold uppercase tracking-wide">Prospectos</th>
-                      <th className="text-right px-4 py-3 font-semibold uppercase tracking-wide">Convertidos</th>
-                      <th className="text-right px-4 py-3 font-semibold uppercase tracking-wide">Tasa</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.leads_por_gestor.map(g => {
-                      const tasa = g.total > 0 ? Math.round((g.convertidos / g.total) * 100) : 0;
-                      return (
-                        <tr key={g.gestor} className="border-b border-border last:border-0">
-                          <td className="px-4 py-3 font-semibold">{g.gestor}</td>
-                          <td className="px-4 py-3 text-right tabular-nums">{g.total}</td>
-                          <td className="px-4 py-3 text-right tabular-nums text-green-600 dark:text-green-400">{g.convertidos}</td>
-                          <td className="px-4 py-3 text-right tabular-nums">{tasa}%</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile cards */}
-              <div className="md:hidden space-y-2">
-                {data.leads_por_gestor.map(g => {
-                  const tasa = g.total > 0 ? Math.round((g.convertidos / g.total) * 100) : 0;
-                  return (
-                    <div key={g.gestor} className="bg-muted/30 border border-border rounded-lg p-3">
-                      <p className="text-sm font-semibold mb-2 truncate">{g.gestor}</p>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div>
-                          <p className="text-muted-foreground text-[10px]">Prospectos</p>
-                          <p className="tabular-nums font-semibold">{g.total}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-[10px]">Convertidos</p>
-                          <p className="tabular-nums font-semibold text-green-600 dark:text-green-400">{g.convertidos}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-[10px]">Tasa</p>
-                          <p className="tabular-nums font-semibold">{tasa}%</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
+        {/* AQUI ESTABA «Prospectos por gestor»: prospectos, convertidos y tasa por
+            gestora, que es lo que ya da el panel «Asesoras» de arriba, mes a mes y
+            con el detalle de cada numero. (28/09) */}
       </div>
 
-      {/* Top productos */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Package size={16} /> Top productos por ventas</h3>
-        {(data.top_productos || []).length === 0 ? (
-          <EmptyState icon={Package} title="Sin ventas" description="No hay conversiones en el rango seleccionado." />
-        ) : (
-          <>
-            {/* Desktop table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-[11px] text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-semibold uppercase tracking-wide">Producto</th>
-                    <th className="text-right px-4 py-3 font-semibold uppercase tracking-wide">Ventas</th>
-                    <th className="text-right px-4 py-3 font-semibold uppercase tracking-wide">Facturado</th>
-                    <th className="text-right px-4 py-3 font-semibold uppercase tracking-wide">Cobrado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.top_productos.map((p, i) => (
-                    <tr key={i} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3 font-semibold">{p.producto}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{p.ventas}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{fmt(p.total)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-green-600 dark:text-green-400">{fmt(p.cobrado)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile cards */}
-            <div className="md:hidden space-y-2">
-              {data.top_productos.map((p, i) => (
-                <div key={i} className="bg-muted/30 border border-border rounded-lg p-3">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <p className="text-sm font-semibold truncate">{p.producto}</p>
-                    <span className="text-xs tabular-nums text-muted-foreground flex-shrink-0">{p.ventas} venta{p.ventas !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <p className="text-muted-foreground text-[10px]">Facturado</p>
-                      <p className="tabular-nums font-semibold">{fmt(p.total)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-[10px]">Cobrado</p>
-                      <p className="tabular-nums font-semibold text-green-600 dark:text-green-400">{fmt(p.cobrado)}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+      {/* AQUI ESTABA «Top productos por ventas»: el mismo ranking que
+          «Formaciones más vendidas», en el panel de rankings de arriba. (28/09) */}
       </>}
     </div>
   );
