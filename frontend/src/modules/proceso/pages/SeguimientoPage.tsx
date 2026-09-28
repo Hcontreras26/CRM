@@ -28,8 +28,7 @@ import { copyToClipboard } from '@/shared/lib/clipboard';
 import BulkActionBar from '@/modules/leads/components/BulkActionBar';
 import {
   traerSeguimiento, traerResumenSeguimiento,
-  type EnSeguimiento, type ResumenSeguimiento, type PasoEnCola,
-} from '../api/agenda.api';
+  type EnSeguimiento, type ResumenSeguimiento, type PasoEnCola,, type FormacionDeLaLista } from '../api/agenda.api';
 import PanelDeCola from '../components/PanelDeCola';
 import AccionesDeFila from '../components/AccionesDeFila';
 import DescartarDelRepaso from '../components/DescartarDelRepaso';
@@ -162,31 +161,11 @@ export default function SeguimientoPage() {
    *     la lista salía vacía. Los contadores de arriba no llevan ese filtro, y
    *     por eso seguían contando 890.
    */
-  const [productos, setProductos] = useState<Array<{ id: number; nombre: string }>>([]);
-  useEffect(() => {
-    const ids = elegido ? [elegido] : idsEmpresa;
-    if (!ids.length) { setProductos([]); return; }
-    let vivo = true;
-    Promise.all(ids.map((id) =>
-      client.get(`/products?projectId=${id}&limit=500`)
-        .then((r: any) => (r?.success ? (r.data || []) : []))
-        .catch(() => [])))
-      .then((tandas: any[][]) => {
-        if (!vivo) return;
-        // Los siete campus de CEDIA repiten formaciones: se juntan por NOMBRE,
-        // que es lo que lee la gestora. Dos filas con el mismo texto en un
-        // desplegable no se distinguen y una de las dos no filtra nada.
-        const porNombre = new Map<string, { id: number; nombre: string }>();
-        for (const filas of tandas) {
-          for (const x of filas) {
-            const clave = String(x.nombre || '').trim().toLowerCase();
-            if (clave && !porNombre.has(clave)) porNombre.set(clave, { id: x.id, nombre: x.nombre });
-          }
-        }
-        setProductos([...porNombre.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-      });
-    return () => { vivo = false; };
-  }, [elegido, idsEmpresa]);
+  //
+  // 28/09: ya no se pide el catalogo. Las formaciones las manda el servidor
+  // CON la lista: solo las que tiene su gente, juntadas por nombre y con
+  // TODOS sus ids --la misma formacion en siete campus son siete ids--.
+  const [productos, setProductos] = useState<FormacionDeLaLista[]>([]);
 
   // Cambiar de campus o de empresa suelta la formación elegida: la de antes no
   // existe aquí, y dejarla puesta vacía la lista sin decir por qué.
@@ -201,7 +180,7 @@ export default function SeguimientoPage() {
       traerSeguimiento({
         projectId: elegido, projectIds,
         busca: buscaLenta || null,
-        productoId: producto ? Number(producto) : null,
+        productoIds: producto || null,
         antiguedad: bloque,
         sinContactar: soloSinContactar ? '1' : null,
         estado: estado || null,
@@ -212,6 +191,8 @@ export default function SeguimientoPage() {
     ]).then(([b, r]) => {
       if (!vivo) return;
       setBase(b.filas);
+      setProductos(b.formaciones);
+      if (producto && !b.formaciones.some((f) => f.ids.join(',') === producto)) setProducto('');
       setTotal(b.total);
       setTotalPaginas(b.totalPaginas);
       setResumen(r);
@@ -334,7 +315,7 @@ export default function SeguimientoPage() {
     if (elegido) p.projectId = String(elegido);
     if (projectIds) p.projectIds = projectIds;
     if (buscaLenta) p.busca = buscaLenta;
-    if (producto) p.productoId = producto;
+    if (producto) p.productoIds = producto;
     if (estado) p.estado = estado;
     if (bloque) p.antiguedad = bloque;
     if (soloSinContactar) p.sinContactar = '1';
@@ -565,7 +546,7 @@ export default function SeguimientoPage() {
         >
           <option value="">Cualquier formación</option>
           {productos.map((p) => (
-            <option key={p.id} value={p.id}>{p.nombre}</option>
+            <option key={p.ids.join(',')} value={p.ids.join(',')}>{p.nombre} ({p.personas})</option>
           ))}
         </select>
 
