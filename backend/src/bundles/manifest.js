@@ -14,7 +14,7 @@ export const BUNDLES = {
   leads: {
     label: 'Leads / Captacion',
     description: 'Pipeline + audiencias + forms + webhooks',
-    modules: ['leads', 'proceso', 'convocatorias', 'forms', 'webhook-tokens', 'audiences', 'make', 'meta-ads', 'widget', 'whatsapp'],
+    modules: ['leads', 'proceso', 'feedback', 'convocatorias', 'forms', 'webhook-tokens', 'audiences', 'make', 'meta-ads', 'widget', 'whatsapp'],
     requires: ['core'],
   },
   comercial: {
