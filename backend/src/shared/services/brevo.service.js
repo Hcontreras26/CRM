@@ -9,7 +9,13 @@ const BREVO_API_URL = 'https://api.brevo.com/v3';
 const FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'no-reply@crm-test.local';
 const FROM_NAME = process.env.BREVO_FROM_NAME || 'CRM MultiProyecto';
 
-async function getApiKey(projectId = null) {
+async function getApiKey(projectId = null, cuenta = null) {
+  // La cuenta de los CAMPUS (Diego, 28/09). Sus dominios (fonoaprende.com,
+  // ictess.com, isecd.com...) estan autenticados en OTRA cuenta de Brevo, la
+  // de Psicologo IA; 360crm.tech sigue en la de siempre. Solo la usa quien
+  // firma con el «no responder» del campus: todo lo demas sale de 360crm.tech,
+  // que esa cuenta no acepta.
+  if (cuenta === 'campus' && process.env.BREVO_CAMPUS_API_KEY) return process.env.BREVO_CAMPUS_API_KEY;
   // Prioridad: credencial especifica del proyecto > credencial global > env var
   try {
     if (projectId) {
@@ -73,8 +79,11 @@ function dejarCopiaEnEnviados({ de, deNombre, para, asunto, html, messageId }) {
  *
  * Quien no la pase se comporta exactamente igual que antes, salvo que ahora
  * queda anotado el intento.
+ *
+ *   · cuenta — 'campus' para salir por la cuenta de Brevo de los campus
+ *              (`BREVO_CAMPUS_API_KEY`). Sin esa variable, la de siempre.
  */
-async function sendEmail({ to, subject, htmlContent, textContent, tags = [], projectId = null, fromEmail, fromName, replyTo, attachment, clave = null }) {
+async function sendEmail({ to, subject, htmlContent, textContent, tags = [], projectId = null, fromEmail, fromName, replyTo, attachment, clave = null, cuenta = null }) {
   // `to` llega de cuatro formas: cadena, objeto, lista de objetos, y una cadena
   // con varios correos separados por comas (los avisos a administradores).
   const destinatarios = Array.isArray(to)
@@ -142,7 +151,7 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
     logger.warn({ motivo: r.reason, to: destinatarios, subject }, 'Buzon: no salio, se intenta por Brevo');
   }
 
-  const apiKey = await getApiKey(projectId);
+  const apiKey = await getApiKey(projectId, cuenta);
   if (!apiKey) {
     logger.warn({ to, subject }, 'Brevo: sin API key configurada, email no enviado');
     await registrar({ clave, destinatarios, asunto: subject, etiquetas: tags, projectId,
