@@ -81,9 +81,13 @@ export async function atenderPeticion(req, res) {
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
+  // `close()` devuelve una promesa: si falla al cortar el cliente a medias, se
+  // anota y ya. Una promesa rota aqui no puede llevarse el CRM entero.
   res.on('close', () => {
-    transport.close();
-    server.close();
+    Promise.resolve()
+      .then(() => transport.close())
+      .then(() => server.close())
+      .catch((err) => logger.warn({ err: err.message }, 'MCP: error al cerrar la conexion'));
   });
   try {
     await server.connect(transport);

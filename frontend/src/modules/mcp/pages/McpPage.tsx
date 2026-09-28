@@ -283,7 +283,7 @@ export default function McpPage() {
               {estado.herramientas.map((h) => (
                 <li key={h.nombre} className="text-sm">
                   <span className="font-semibold">{h.titulo}</span>
-                  <span className="text-muted-foreground"> — {h.descripcion.split('. ')[0]}.</span>
+                  <span className="text-muted-foreground"> — {h.descripcion.split('. ')[0].replace(/\.$/, '')}.</span>
                 </li>
               ))}
             </ul>
