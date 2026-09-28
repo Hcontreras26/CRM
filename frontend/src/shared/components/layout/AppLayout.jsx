@@ -74,6 +74,8 @@ const CON_SOCIEDAD_OK = [
   // y no empresas… lo hemos dicho»): la pantalla ya manda issuerId y el
   // backend lo resuelve con proyectosDelAmbito. Solo faltaba esta línea.
   /^\/informes\/feedback$/,
+  // Las novedades son del CRM entero, no de un campus.
+  /^\/novedades$/,
   /^\/ventas$/,
   /^\/finanzas\/ventas$/,
   /^\/prospectos$/,

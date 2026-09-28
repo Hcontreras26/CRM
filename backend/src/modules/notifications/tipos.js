@@ -72,6 +72,12 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Duplicados por revisar', agrupa: true,
     descripcion: 'Hay fichas esperando en la cola de revisión',
   },
+  // Una versión nueva del CRM (Diego, 28/09). Pide algo —leerla— y por eso va
+  // arriba y cuenta en la campana hasta que se abre. Una por versión.
+  novedades: {
+    clase: ACCION, etiqueta: 'Novedades del CRM', agrupa: false,
+    descripcion: 'Cuando sale una versión nueva, con todo lo que trae',
+  },
   rfc_created: {
     clase: ACCION, etiqueta: 'Solicitud de cambio', agrupa: false,
     descripcion: 'Alguien pide un cambio y hace falta aprobarlo',

@@ -32,6 +32,7 @@ import commissionsModule from './modules/commissions/index.js';
 import reportsModule from './modules/reports/index.js';
 import matriculasModule from './modules/matriculas/index.js';
 import feedbackModule from './modules/feedback/index.js';
+import novedadesModule from './modules/novedades/index.js';
 import emailSequencesModule from './modules/email-sequences/index.js';
 import formsModule from './modules/forms/index.js';
 import payrollModule from './modules/payroll/index.js';
@@ -72,6 +73,7 @@ import { startReporteSemanalScheduler } from './jobs/reporteSemanalScheduler.js'
 import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js';
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
+import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -161,6 +163,7 @@ const ALL_MODULES = [
   { name: 'reports', mod: reportsModule },
   { name: 'matriculas', mod: matriculasModule },
   { name: 'feedback', mod: feedbackModule },
+  { name: 'novedades', mod: novedadesModule },
   { name: 'email-sequences', mod: emailSequencesModule },
   { name: 'forms', mod: formsModule },
   { name: 'payroll', mod: payrollModule },
@@ -314,6 +317,7 @@ if (process.env.NODE_ENV !== 'test') {
     startLeadSinTocarScheduler();
     startPasoVencidoScheduler();
     startFeedbackDia7Scheduler();
+    startNovedadesScheduler();
     startResumenDiarioScheduler();
     startReporteSemanalScheduler();
   startCorreoEntranteScheduler();

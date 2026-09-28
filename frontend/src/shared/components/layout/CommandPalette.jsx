@@ -36,6 +36,7 @@ import {
   BookOpen,
   CreditCard,
   Keyboard,
+  Sparkle,
 } from '@phosphor-icons/react';
 
 // Páginas / secciones navegables
@@ -66,7 +67,8 @@ const SECTIONS = [
   { label: 'Comisiones', to: '/commissions', icon: Coins, keywords: 'gestores' },
   { label: 'Nóminas', to: '/payroll', icon: Coins, keywords: 'salarios' },
   { label: 'Reportes', to: '/informes', icon: ChartBar, keywords: 'analytics estadisticas' },
-  { label: 'Soporte / Novedades', to: '/soporte', icon: Headset, keywords: 'ayuda changelog' },
+  { label: 'Novedades', to: '/novedades', icon: Sparkle, keywords: 'version changelog nuevo 2.0.0 cambios' },
+  { label: 'Soporte', to: '/soporte', icon: Headset, keywords: 'ayuda' },
   { label: 'Manual', to: '/manual', icon: BookOpen, keywords: 'documentacion ayuda' },
   { label: 'Configuración', to: '/configuracion', icon: Gear, keywords: 'ajustes preferencias' },
 ];

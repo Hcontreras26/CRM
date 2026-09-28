@@ -272,6 +272,8 @@ const NAV_SECTIONS = [
     label: 'Sistema',
     icon: Gear,
     items: [
+      // Lo que trae cada versión del CRM (Diego, 28/09). Para todo el equipo.
+      { label: 'Novedades', to: '/novedades', detail: 'Versión 2.0.0', icon: Sparkle, roles: ['superadmin', 'admin', 'gestor', 'soporte'] },
       { label: 'Mensajes', to: '/mensajes', detail: 'Del equipo', icon: ChatsCircle },
       { label: 'Solicitudes de cambio', to: '/solicitudes-cambio', detail: 'Pedir un cambio', icon: GitMerge },
       { label: 'Notificaciones', to: '/notificaciones', detail: 'Lo que ha pasado', icon: BookOpen },
