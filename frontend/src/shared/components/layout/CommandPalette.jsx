@@ -177,8 +177,15 @@ export default function CommandPalette() {
         // `status <> 'convertido'` y la busqueda general esconde a TODO el que
         // ya compro --justo a quien mas se busca, para cobrar o facturar--.
         // Diego, 14/09: busco a un cliente por nombre y por correo y no sale.
-        client.get(`/leads?projectId=${activeProject.id}&search=${encodeURIComponent(q)}&limit=5&includeConverted=1`).catch(() => ({ success: false })),
-        client.get(`/products?projectId=${activeProject.id}`).catch(() => ({ success: false })),
+        // Con «Todos» o una empresa el proyecto activo es -1: mandarlo tal cual
+        // hacia que el servidor rechazara la busqueda y el buscador no
+        // encontraba a nadie (28/09: miles de rechazos, Ana y Dayana incluidas).
+        // Sin proyecto concreto se busca en todo lo suyo; los productos, que son
+        // de un campus, solo con uno elegido.
+        client.get(`/leads?${activeProject.id > 0 ? `projectId=${activeProject.id}&` : ''}search=${encodeURIComponent(q)}&limit=5&includeConverted=1`).catch(() => ({ success: false })),
+        activeProject.id > 0
+          ? client.get(`/products?projectId=${activeProject.id}`).catch(() => ({ success: false }))
+          : Promise.resolve({ success: true, data: [] }),
       ]);
       setLeadResults(leadsRes.success ? (leadsRes.data || []) : []);
       // Filtrado client-side para productos (típicamente <100/proyecto)

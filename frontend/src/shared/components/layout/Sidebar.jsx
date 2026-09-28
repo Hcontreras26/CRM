@@ -970,7 +970,10 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
     async function fetchBadge() {
       if (typeof document !== 'undefined' && document.hidden) return;
       try {
-        const res = await client.get(`/leads?projectId=${activeProject.id}&status=nuevo&limit=1`);
+        // -1 = «Todos» o una empresa: sin proyecto, cuenta los nuevos de todo lo
+        // suyo (con -1 el servidor lo rechazaba cada vez).
+        const pid = activeProject.id > 0 ? `projectId=${activeProject.id}&` : '';
+        const res = await client.get(`/leads?${pid}status=nuevo&limit=1`);
         if (!cancelled && res.success) setNewLeadsBadge(res.pagination?.total || 0);
       } catch {}
     }

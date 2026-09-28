@@ -45,7 +45,9 @@ export default function NotificationsBell({ collapsed = false, className = '' })
         // 2) Resumen del día y leads nuevos — sólo admin/superadmin con proyecto activo.
         let todayRes = { success: false, data: null };
         let leadsRes = { success: false, data: [] };
-        if (isAdminLike && activeProject?.id) {
+        // Solo con un proyecto de verdad: con «Todos» o una empresa (-1) el
+        // servidor rechazaba las dos peticiones.
+        if (isAdminLike && activeProject?.id > 0) {
           [todayRes, leadsRes] = await Promise.all([
             client.get(`/leads/today`, { params: { projectId: activeProject.id } }).catch(() => ({ success: false, data: null })),
             // 'por_contactar' y no 'nuevo': la migracion 076 cambio el DEFAULT de la
