@@ -65,16 +65,19 @@ export default function FeedbackEncuestaPage() {
 
   return (
     <div className="min-h-screen bg-[#f4f6f8] px-4 py-10 text-[#1d2530]">
-      <main className="mx-auto max-w-lg rounded-xl bg-white p-6 shadow-sm sm:p-8" style={{ borderTop: `4px solid ${color}` }}>
+      <main className="mx-auto max-w-lg overflow-hidden rounded-xl bg-white shadow-sm">
+        {/* La marca en una banda de su color: muchas guardan la version CLARA del
+            logo (la de la cabecera oscura de su web) y sobre blanco no se ve. */}
+        <header className="flex items-center gap-3 px-6 py-4 text-white sm:px-8" style={{ background: color }}>
+          {datos?.logo_url && <img src={datos.logo_url} alt="" className="max-h-10 max-w-[160px]" />}
+          {datos?.marca && <span className="text-lg font-bold">{datos.marca}</span>}
+        </header>
+        <div className="p-6 sm:p-8">
         {vista && (
           <p className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Vista previa: así la verá la persona. Lo que marques aquí no se guarda.
           </p>
         )}
-        {datos?.logo_url
-          ? <img src={datos.logo_url} alt={datos.marca || ''} className="mb-6 max-h-12 max-w-[200px]" />
-          : datos?.marca && <p className="mb-6 text-lg font-bold" style={{ color }}>{datos.marca}</p>}
-
         {error && !datos && <p className="text-base">{error}</p>}
         {!datos && !error && <p className="text-sm text-[#5b6572]">Cargando…</p>}
 
@@ -131,6 +134,7 @@ export default function FeedbackEncuestaPage() {
             </button>
           </div>
         )}
+        </div>
       </main>
     </div>
   );

@@ -57,9 +57,13 @@ function correoDe(d, token, { vista = false } = {}) {
   const saludo = nombre ? `Hola, ${escapar(nombre)}:` : 'Hola:';
   const programa = d.producto ? `sobre <strong>${escapar(d.producto)}</strong>` : 'sobre nuestro programa';
   const marca = escapar(d.proyecto || '');
+  // La marca va en una BANDA de su color, con el logo y el nombre. Muchas
+  // guardan la version CLARA del logo --la de la cabecera oscura de su web--
+  // y sobre blanco no se veia: el de ISAEG es literalmente «logo-blanco».
   const logo = d.logo_url
-    ? `<img src="${escapar(d.logo_url)}" alt="${marca}" style="max-height:48px;max-width:200px;display:block;margin:0 0 20px">`
-    : `<div style="font-size:18px;font-weight:bold;color:${color};margin:0 0 20px">${marca}</div>`;
+    ? `<img src="${escapar(d.logo_url)}" alt="" style="max-height:40px;max-width:160px;vertical-align:middle;margin-right:12px">`
+    : '';
+  const cabecera = `<div style="background:${color};border-radius:10px 10px 0 0;padding:16px 24px;color:#ffffff;font-size:17px;font-weight:bold">${logo}${marca}</div>`;
   const aviso = vista
     ? `<div style="background:#fff4d6;border:1px solid #f0c75e;border-radius:6px;padding:10px 12px;margin:0 0 18px;font-size:13px;color:#6b4e00">
          Vista previa: esto es lo que recibirá la persona. Todavía no se le ha enviado.</div>`
@@ -67,8 +71,9 @@ function correoDe(d, token, { vista = false } = {}) {
   const asunto = '¿Por qué has desistido de saber más sobre nuestro programa?';
   const html = `<!doctype html><html><body style="margin:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1d2530">
   <div style="max-width:560px;margin:0 auto;padding:28px 16px">
-    <div style="background:#ffffff;border-radius:10px;padding:28px 24px;border-top:4px solid ${color}">
-      ${aviso}${logo}
+    ${cabecera}
+    <div style="background:#ffffff;border-radius:0 0 10px 10px;padding:24px 24px 28px">
+      ${aviso}
       <p style="font-size:16px;margin:0 0 14px">${saludo}</p>
       <p style="font-size:15px;line-height:1.55;margin:0 0 14px">
         Hace unos días nos pediste información ${programa} y no seguiste adelante.
