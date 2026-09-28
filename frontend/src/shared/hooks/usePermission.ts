@@ -159,8 +159,16 @@ export default function usePermission(): UsePermissionResult {
     // LADO del usuario, no dentro. O sea que esta rama no se cumplia nunca y
     // todo el mundo caia en los defaults — los roles a medida no pintaban nada
     // aunque el backend llevara tiempo calculandolos.
-    if (permissions && Object.keys(permissions).length > 0) {
-      return permissions[permission] === true || permissions['*'] === true;
+    //
+    // Solo en lo que el backend DEFINE: lo que no esta en su mapa sigue saliendo
+    // de la tabla de abajo, como hasta ahora. Y no para el tutor: el backend no
+    // tiene tabla de tutor y le calcula la de gestora, que le pintaria botones
+    // que no son suyos.
+    if (permissions && user.role !== 'tutor') {
+      if (permissions['*'] === true) return true;
+      if (Object.prototype.hasOwnProperty.call(permissions, permission)) {
+        return permissions[permission] === true;
+      }
     }
     // fallback: defaults por rol
     const defaults = ROLE_DEFAULT_PERMISSIONS[user.role as UserRole] || {};

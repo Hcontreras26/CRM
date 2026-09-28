@@ -32,6 +32,14 @@ export function AuthProvider({ children }) {
     return guardada === null ? null : Number(guardada);
   });
   const [loading, setLoading] = useState(!BYPASS); // bypass salta el loader
+
+  // LOS PERMISOS DE CADA UNO, los que calcula el backend.
+  //
+  // `/auth/me` los manda desde hace tiempo --rol, rol a medida y lo que se le
+  // da a una persona suelta-- y aqui no se guardaban: la pantalla solo sabia el
+  // rol. Ana, Dayana y Yosbely tenian «venta sin gestora» dado en el panel de
+  // permisos y el boton no les salia nunca. Ana, 28/09.
+  const [permissions, setPermissions] = useState(null);
   const initialized = useRef(false);
 
   // Al montar, intentar restaurar sesión con refresh token (cookie httpOnly)
@@ -62,6 +70,7 @@ export function AuthProvider({ children }) {
           const meRes = await client.get('/auth/me');
           if (meRes.success) {
             setUser(meRes.data.user);
+            setPermissions(meRes.data.permissions || null);
             setProjects(meRes.data.projects || []);
             // Restaurar proyecto activo de localStorage o usar el primero
             const savedProjectId = localStorage.getItem('crm_active_project_id');
@@ -86,6 +95,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     setOnAuthFailure(() => {
       setUser(null);
+      setPermissions(null);
       setProjects([]);
       setActiveProjectId(null);
       setAccessToken(null);
@@ -114,6 +124,12 @@ export function AuthProvider({ children }) {
     setActiveProjectId(projectId);
     if (projectId) localStorage.setItem('crm_active_project_id', String(projectId));
 
+    // El login no trae los permisos; `/auth/me` si. Sin esperar: hasta que
+    // lleguen, vale la tabla del rol, que es lo que habia.
+    client.get('/auth/me')
+      .then((me) => { if (me.success) setPermissions(me.data.permissions || null); })
+      .catch(() => {});
+
     return userData;
   }, []);
 
@@ -125,6 +141,7 @@ export function AuthProvider({ children }) {
     }
     setAccessToken(null);
     setUser(null);
+    setPermissions(null);
     setProjects([]);
     setActiveProjectId(null);
     localStorage.removeItem('crm_active_project_id');
@@ -193,6 +210,7 @@ export function AuthProvider({ children }) {
       const res = await client.get('/auth/me');
       if (res.success) {
         setUser(res.data.user);
+        setPermissions(res.data.permissions || null);
         setProjects(res.data.projects || []);
       }
     } catch { /* ignore */ }
@@ -201,6 +219,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user,
+      permissions,
       projects,
       activeProject,
       activeProjectId: activeProject?.id || null,
