@@ -437,6 +437,13 @@ export async function resumenFacturas(filtros) {
  * Reutiliza «Cuentas por cobrar» tal cual, para dar el mismo numero que la
  * pantalla. Esa funcion es de UN proyecto, asi que se llama una vez por campus
  * y se juntan; son pocos campus por persona.
+ *
+ * OJO: esa pantalla se fia de `conversions.importe_pagado`, y `listarVentas`
+ * suma `conversion_payments`. Una venta marcada como pagada sin pagos
+ * registrados sale pendiente en una y no en la otra (visto con Claude el 28/09
+ * en local: 2.300 € aqui frente a 6.340 € en ventas). No se arregla aqui porque
+ * es la logica de dinero de la pantalla; la descripcion de la herramienta se lo
+ * explica a Claude.
  */
 export async function cobrosPendientes({ projectIds, responsableId, desde, hasta, limite = 50 }) {
   const partes = await Promise.all(

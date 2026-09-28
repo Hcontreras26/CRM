@@ -269,13 +269,14 @@ const NAV_SECTIONS = [
     ],
   },
   // Conexión (MCP de Claude). Diego: «estará en el menú en la sección de
-  // conexión y pondrás algo como MCP». Super admin y admin por su rol; un
-  // gestor solo si se le ha puesto la casilla `usa_mcp` — la misma regla que
-  // el servidor en `mcp.acceso.js`.
+  // conexión y pondrás algo como MCP». «Roles únicamente que tendrán acceso a
+  // Claude: super admin, admin, personas que se le puedes colocar».
+  // `accesoMcp` y no `roles`/`permiso`: soporte se salta esos dos, y aquí no
+  // puede. Es la misma regla que el servidor (`puedeUsarMcp` en mcp.acceso.js).
   {
     label: 'Conexión',
     items: [
-      { label: 'MCP', to: '/conexion/mcp', icon: Robot, roles: ['superadmin', 'admin', 'gestor'], permiso: 'usa_mcp' },
+      { label: 'MCP', to: '/conexion/mcp', icon: Robot, accesoMcp: true },
     ],
   },
   {
@@ -381,6 +382,14 @@ export function applyLabel(original, overrides) {
 // aviso de llamada entrante. Teniendolo en dos sitios se llega a que uno diga
 // que si y el otro que no.
 
+// Espejo de `puedeUsarMcp` (backend/src/modules/mcp/mcp.acceso.js). Con el rol
+// PRINCIPAL, como el servidor: un rol añadido no da el MCP.
+export function tieneAccesoMcp(role, permisos) {
+  if (role === 'superadmin' || role === 'admin') return true;
+  if (role === 'tutor') return false;
+  return permisos?.usa_mcp === true;
+}
+
 /**
  * Que entradas del menu ve alguien.
  *
@@ -403,6 +412,9 @@ function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permi
   if (suyos.length === 1 && suyos[0] === 'tutor') {
     return Array.isArray(item.roles) && item.roles.includes('tutor');
   }
+  // MCP de Claude: super admin y admin por su rol; el resto solo con la casilla.
+  // Va ANTES del atajo de soporte: «roles únicamente», dijo Diego.
+  if (item.accesoMcp) return tieneAccesoMcp(suyos[0], permisos);
   // Un gestor de colaboraciones se dedica SOLO a los tutores: no lleva
   // prospectos, ni ventas, ni finanzas. Se declara lo que puede ver, igual que
   // con el tutor — enumerar lo prohibido deja fuera siempre la pantalla nueva.
