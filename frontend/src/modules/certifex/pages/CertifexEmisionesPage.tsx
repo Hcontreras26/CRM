@@ -49,8 +49,13 @@ const ESTADOS: { clave: EstadoEmision; rotulo: string; cuenta: (r: Recuentos) =>
   { clave: 'todas', rotulo: 'Todas', cuenta: (r) => r.matriculados },
 ];
 
-/** Tope de Certifex por llamada al emitir (MAX_EMISIONES). */
-const TANDA_EMITIR = 50;
+/**
+ * Cuántas matrículas por llamada al emitir. Certifex acepta hasta 50 (MAX_EMISIONES),
+ * pero en un campus con Moodle cada una baja su expediente del campus, en serie: 50
+ * pasan del minuto que espera nginx, y el CRM recibiría un 504 aunque la emisión
+ * terminara. Con 10 cada tanda cabe de sobra, y se reparte en más llamadas.
+ */
+const TANDA_EMITIR = 10;
 
 const fecha = (iso: string) => new Date(iso).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' });
 const host = (url: string | null) => {
