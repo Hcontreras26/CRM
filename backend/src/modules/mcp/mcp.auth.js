@@ -2,7 +2,15 @@ import { construirAmbito, huella, pareceToken, puedeUsarMcp } from './mcp.acceso
 import * as model from './mcp.model.js';
 
 /**
- * La puerta del MCP: el token personal de `Authorization: Bearer crm_mcp_…`.
+ * La puerta del MCP: el token personal, de una de estas dos formas:
+ *
+ *   · Cabecera `Authorization: Bearer crm_mcp_…` (Claude Code, o Claude
+ *     Desktop por configuracion).
+ *   · URL personal `/api/mcp/u/crm_mcp_…` (Claude Desktop con «Agregar
+ *     conector personalizado»). Ese formulario solo pide una URL: no tiene
+ *     donde poner una cabecera, y sin token Claude intenta OAuth y falla
+ *     (probado el 28/09 con un tunel). La URL personal ES la llave; por eso
+ *     se tapa en cuanto llega (ver `urlPersonal`) y no queda en ningun registro.
  *
  * No se usa el JWT del CRM: dura 8 horas y vive en la memoria del navegador.
  * Claude necesita algo que se pegue una vez en su configuracion.
@@ -17,13 +25,31 @@ function rechazar(res, status, message) {
   return res.status(status).json({ jsonrpc: '2.0', error: { code: -32001, message }, id: null });
 }
 
+/**
+ * Para `/u/:secreto`: guarda el token y lo TAPA en la URL de la peticion.
+ *
+ * Todo lo que escribe el registro sale de `req.path`/`req.originalUrl` (el
+ * errorHandler anota la ruta de cada rechazo). Si el secreto se quedara ahi,
+ * cualquiera con acceso a los logs podria entrar como esa persona.
+ */
+export function urlPersonal(req, _res, next) {
+  const secreto = req.params.secreto;
+  req.mcpTokenDeUrl = secreto;
+  req.url = req.url.replace(secreto, '***');
+  req.originalUrl = req.originalUrl.replace(secreto, '***');
+  next();
+}
+
 export async function verificarTokenMcp(req, res, next) {
   try {
     const cabecera = req.headers.authorization || '';
-    const token = cabecera.startsWith('Bearer ') ? cabecera.slice(7).trim() : null;
+    const token = req.mcpTokenDeUrl
+      || (cabecera.startsWith('Bearer ') ? cabecera.slice(7).trim() : null);
     if (!pareceToken(token)) {
       res.set('WWW-Authenticate', 'Bearer realm="crm-mcp"');
-      return rechazar(res, 401, 'Falta el token MCP. Créalo en el CRM: Conexión → MCP.');
+      return rechazar(res, 401, req.mcpTokenDeUrl
+        ? 'URL de MCP no válida. Cópiala de nuevo del CRM: Conexión → MCP.'
+        : 'Falta el token MCP. Créalo en el CRM: Conexión → MCP.');
     }
 
     const vivo = await model.findTokenVivo(huella(token));

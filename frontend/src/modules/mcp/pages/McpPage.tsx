@@ -43,6 +43,12 @@ const configEscritorio = (url: string, token: string) => JSON.stringify({
   },
 }, null, 2);
 
+/**
+ * La URL personal: lo único que pide «Agregar conector personalizado» en Claude
+ * Desktop y claude.ai. El token va dentro, así que ESTA URL ES LA LLAVE.
+ */
+const urlPersonal = (url: string, token: string) => `${url}/u/${token}`;
+
 const comandoClaudeCode = (url: string, token: string) =>
   `claude mcp add --transport http crm-iseih ${url} --header "Authorization: Bearer ${token}"`;
 
@@ -98,15 +104,15 @@ export default function McpPage() {
       setNombre('');
       cargar();
     } catch (e) {
-      toast({ title: 'No se pudo crear el token', description: (e as Error).message, variant: 'destructive' });
+      toast({ title: 'No se pudo crear la URL', description: (e as Error).message, variant: 'destructive' });
     } finally { setCreando(false); }
   }
 
   async function revocar(t: McpToken) {
-    if (!window.confirm(`Se va a revocar el token «${t.nombre}».\n\nEl Claude que lo use dejará de poder consultar el CRM al momento. ¿Seguir?`)) return;
+    if (!window.confirm(`Se va a revocar la URL «${t.nombre}».\n\nEl Claude que la use dejará de poder consultar el CRM al momento. Borra también el conector en Claude → Configuración → Conectores. ¿Seguir?`)) return;
     try {
       await mcpApi.revocarToken(t.id);
-      toast({ title: 'Token revocado' });
+      toast({ title: 'URL revocada' });
       cargar();
     } catch (e) {
       toast({ title: 'No se pudo revocar', description: (e as Error).message, variant: 'destructive' });
@@ -114,13 +120,17 @@ export default function McpPage() {
   }
 
   async function cambiarAcceso(p: McpPersona, valor: boolean) {
+    // Quitar el acceso PAUSA, no borra: su URL deja de traer datos, pero si se
+    // le devuelve el acceso vuelve a funcionar en su Claude sin tocar nada.
     if (!valor && p.tokens_vivos > 0
-      && !window.confirm(`${p.nombre} tiene ${p.tokens_vivos} token(s) activo(s). Al quitarle el acceso se revocan. ¿Seguir?`)) return;
+      && !window.confirm(`${p.nombre} dejará de poder consultar el CRM desde Claude.
+
+Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que tenga que cambiar nada. ¿Seguir?`)) return;
     try {
       await mcpApi.cambiarAcceso(p.id, valor);
       setPersonas((lista) => lista.map((x) => (x.id === p.id
-        ? { ...x, usa_mcp: valor, tieneAcceso: valor, tokens_vivos: valor ? x.tokens_vivos : 0 } : x)));
-      toast({ title: valor ? `Acceso dado a ${p.nombre}` : `Acceso quitado a ${p.nombre}` });
+        ? { ...x, usa_mcp: valor, tieneAcceso: valor } : x)));
+      toast({ title: valor ? `Acceso dado a ${p.nombre}` : `Acceso pausado a ${p.nombre}` });
     } catch (e) {
       toast({ title: 'No se pudo cambiar el acceso', description: (e as Error).message, variant: 'destructive' });
     }
@@ -160,7 +170,7 @@ export default function McpPage() {
           <div className="bg-card border border-border rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2">
               <ShieldCheck size={18} weight="bold" className="text-emerald-600" />
-              <h2 className="font-semibold text-sm">Lo que Claude podrá consultar con tu token</h2>
+              <h2 className="font-semibold text-sm">Lo que Claude podrá consultar con tu URL</h2>
             </div>
             <p className="text-sm text-muted-foreground">
               {estado.soloLoSuyo
@@ -190,13 +200,23 @@ export default function McpPage() {
               <div className="flex items-start gap-2">
                 <CheckCircle size={20} weight="fill" className="text-emerald-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-sm">Token creado. Cópialo ahora: no se volverá a mostrar.</p>
-                  <p className="text-xs text-muted-foreground">Si lo pierdes, revócalo y crea otro. No lo compartas: da acceso a tus datos del CRM.</p>
+                  <p className="font-semibold text-sm">URL creada. Cópiala ahora: no se volverá a mostrar.</p>
+                  <p className="text-xs text-muted-foreground">Si la pierdes, revócala y crea otra. No la compartas: da acceso a tus datos del CRM.</p>
                 </div>
               </div>
-              <Bloque titulo="Tu token" texto={nuevo} />
-              <Bloque titulo="Claude Desktop · claude_desktop_config.json" texto={configEscritorio(url, nuevo)} />
-              <Bloque titulo="Claude Code · terminal" texto={comandoClaudeCode(url, nuevo)} />
+              <Bloque titulo="Tu URL para Claude · Conectores → Agregar conector personalizado" texto={urlPersonal(url, nuevo)} />
+              <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                <WarningCircle size={14} weight="fill" className="flex-shrink-0 mt-0.5" />
+                Esta URL es tu llave: quien la tenga consulta el CRM con tus permisos. No la compartas ni la pegues en capturas.
+              </p>
+              <details className="text-sm">
+                <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Otras formas de conectar (Claude Code, archivo de configuración)</summary>
+                <div className="space-y-3 mt-3">
+                  <Bloque titulo="Claude Code · terminal" texto={comandoClaudeCode(url, nuevo)} />
+                  <Bloque titulo="Claude Desktop · claude_desktop_config.json" texto={configEscritorio(url, nuevo)} />
+                  <Bloque titulo="Solo el token" texto={nuevo} />
+                </div>
+              </details>
               <button
                 onClick={() => setNuevo(null)}
                 className="h-8 px-3 rounded-md border border-border bg-card text-xs font-semibold hover:bg-muted"
@@ -204,11 +224,11 @@ export default function McpPage() {
             </div>
           )}
 
-          {/* Mis tokens */}
+          {/* Mis URLs */}
           <div className="bg-card border border-border rounded-lg overflow-hidden">
             <div className="p-4 border-b border-border flex flex-wrap items-center gap-2">
               <Key size={18} weight="bold" className="text-primary" />
-              <h2 className="font-semibold text-sm flex-1">Mis tokens</h2>
+              <h2 className="font-semibold text-sm flex-1">Mis URLs de Claude</h2>
               <input
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
@@ -221,17 +241,19 @@ export default function McpPage() {
                 onClick={crear}
                 disabled={creando || !nombre.trim()}
                 className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
-              ><Plus size={14} weight="bold" /> Crear token</button>
+              ><Plus size={14} weight="bold" /> Crear mi URL para Claude</button>
             </div>
             {!estado.tokens.length ? (
-              <EmptyState icon={Key} title="Aún no tienes tokens"
-                description={`Crea uno para conectar tu Claude. Caduca a los ${estado.diasDeVida} días.`} />
+              <EmptyState icon={Key} title="Aún no tienes ninguna URL"
+                description={estado.diasDeVida
+                  ? `Crea una para conectar tu Claude. Caduca a los ${estado.diasDeVida} días.`
+                  : 'Crea una para conectar tu Claude. No caduca: funciona hasta que la revoques.'} />
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr className="text-[11px] uppercase text-muted-foreground">
                     <th className="text-left font-bold px-4 py-2.5">Nombre</th>
-                    <th className="text-left font-bold px-4 py-2.5">Token</th>
+                    <th className="text-left font-bold px-4 py-2.5">URL</th>
                     <th className="text-left font-bold px-4 py-2.5">Creado</th>
                     <th className="text-left font-bold px-4 py-2.5">Caduca</th>
                     <th className="text-left font-bold px-4 py-2.5">Último uso</th>
@@ -245,14 +267,14 @@ export default function McpPage() {
                       <td className="px-4 py-3"><code className="text-[13px] text-muted-foreground">{t.prefijo}…</code></td>
                       <td className="px-4 py-3 text-muted-foreground">{fecha(t.created_at)}</td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {t.revoked_at ? 'Revocado' : t.vivo ? fecha(t.expires_at) : 'Caducado'}
+                        {t.revoked_at ? 'Revocado' : !t.vivo ? 'Caducado' : t.expires_at ? fecha(t.expires_at) : 'Nunca'}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{fecha(t.last_used_at)}</td>
                       <td className="px-4 py-3 text-right">
                         {t.vivo && (
                           <button
                             onClick={() => revocar(t)}
-                            aria-label={`Revocar el token ${t.nombre}`}
+                            aria-label={`Revocar la URL ${t.nombre}`}
                             className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs font-semibold text-muted-foreground hover:text-destructive hover:border-destructive/30"
                           ><Trash size={14} weight="bold" /> Revocar</button>
                         )}
@@ -268,12 +290,15 @@ export default function McpPage() {
           <div className="bg-card border border-border rounded-lg p-4 space-y-3">
             <h2 className="font-semibold text-sm">Cómo conectar Claude</h2>
             <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
-              <li>Crea un token arriba y cópialo.</li>
-              <li>Claude Desktop: pega la configuración en <em>Ajustes → Desarrollador → Editar configuración</em> y reinícialo (necesita Node.js).</li>
-              <li>Claude Code: ejecuta el comando en tu terminal.</li>
+              <li>Pulsa <strong>Crear mi URL para Claude</strong> y cópiala.</li>
+              <li>Claude Desktop o claude.ai: <em>Configuración → Conectores → Agregar → Agregar conector personalizado</em>, ponle un nombre y pega la URL.</li>
+              <li>Claude Code: usa el comando de «Otras formas de conectar».</li>
               <li>Pregúntale a Claude, por ejemplo: «¿cuántos prospectos nuevos entraron este mes en mis campus?».</li>
             </ol>
-            <Bloque titulo="Dirección del MCP" texto={url} />
+            <p className="text-xs text-muted-foreground">
+              «Agregar conector personalizado» solo acepta direcciones <strong>https</strong>: funciona con el CRM publicado, no con uno abierto en tu equipo (localhost).
+            </p>
+            <Bloque titulo="Dirección general del MCP (sin tu llave)" texto={url} />
           </div>
 
           {/* Que puede consultar */}
@@ -303,7 +328,7 @@ export default function McpPage() {
               <tr className="text-[11px] uppercase text-muted-foreground">
                 <th className="text-left font-bold px-4 py-2.5">Persona</th>
                 <th className="text-left font-bold px-4 py-2.5">Rol</th>
-                <th className="text-left font-bold px-4 py-2.5">Tokens activos</th>
+                <th className="text-left font-bold px-4 py-2.5">URLs activas</th>
                 <th className="text-left font-bold px-4 py-2.5">Último uso</th>
                 <th className="text-left font-bold px-4 py-2.5">Acceso</th>
               </tr>

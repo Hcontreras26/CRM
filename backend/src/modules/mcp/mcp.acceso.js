@@ -35,8 +35,15 @@ export const ROLES_QUE_ADMINISTRAN = ['superadmin', 'admin'];
  */
 export const ROLES_SIN_MCP = ['tutor'];
 
-/** Lo que dura un token desde que se crea. Decidido con Diana el 28/09. */
-export const DIAS_DE_VIDA_DEL_TOKEN = 90;
+/**
+ * Lo que dura un token desde que se crea. `null` = no caduca.
+ *
+ * Decidido con Diana el 28/09: la URL personal se pega una vez en Claude
+ * Desktop y tiene que seguir funcionando. Deja de valer si la persona la
+ * revoca, si se le quita el acceso o si se desactiva su usuario — y eso se
+ * comprueba en cada consulta, no depende de una fecha.
+ */
+export const DIAS_DE_VIDA_DEL_TOKEN = null;
 
 /** Maximo de tokens vivos por persona: uno por equipo, no una coleccion. */
 export const MAX_TOKENS_VIVOS = 5;

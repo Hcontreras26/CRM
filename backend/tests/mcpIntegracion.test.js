@@ -339,6 +339,17 @@ describe('gestora con acceso: solo lo suyo, dentro de su campus', () => {
     expect(nombresDe(nuestros(datos.prospectos), L)).toEqual(['A_GEMA']);
   });
 
+  it('por la URL personal (Agregar conector) ve exactamente lo mismo: solo lo suyo', async () => {
+    const r = await request.post(`/api/mcp/u/${TOKENS.GEMA}`)
+      .set('Accept', 'application/json, text/event-stream')
+      .send({ jsonrpc: '2.0', id: ++idRpc, method: 'tools/call',
+        params: { name: 'buscar_prospectos', arguments: { texto: MARCA, limite: 100 } } });
+    RESPUESTAS.push(JSON.stringify(r.body));
+    expect(r.status).toBe(200);
+    const datos = JSON.parse(r.body.result.content[0].text);
+    expect(nombresDe(nuestros(datos.prospectos), L)).toEqual(['A_GEMA']);
+  });
+
   it('la ficha del prospecto de Gus: no existe para ella', async () => {
     const r = await llamar('GEMA', 'ver_prospecto', { id: L.A_GUS });
     expect(r.ok).toBe(false);
@@ -422,7 +433,7 @@ describe('la puerta, con la base de verdad', () => {
     expect(nombresDe(nuestras, U)).toEqual(['ANA', 'GEMA', 'GUS']);
   });
 
-  it('dar acceso a Gus, usarlo, quitarlo: su token muere al momento', async () => {
+  it('dar acceso a Gus, usarlo, quitarlo (se pausa) y devolverlo: la MISMA URL vuelve a valer', async () => {
     const jwtAna = await jwtDe('ANA');
     let r = await request.patch(`/api/mcp/panel/personas/${U.GUS}`)
       .set('Authorization', `Bearer ${jwtAna}`).send({ usa_mcp: true });
@@ -432,11 +443,31 @@ describe('la puerta, con la base de verdad', () => {
     const { datos } = await llamar('GUS', 'buscar_prospectos', { texto: MARCA });
     expect(nombresDe(nuestros(datos.prospectos), L)).toEqual(['A_GUS']);
 
+    // Quitar el acceso: la puerta se cierra en la siguiente consulta...
     r = await request.patch(`/api/mcp/panel/personas/${U.GUS}`)
       .set('Authorization', `Bearer ${jwtAna}`).send({ usa_mcp: false });
     expect(r.status).toBe(200);
-    const despues = await rpc(TOKENS.GUS, 'tools/list');
-    expect([401, 403]).toContain(despues.status);
+    expect((await rpc(TOKENS.GUS, 'tools/list')).status).toBe(403);
+    // ...pero su URL NO se borra (decidido con Diana el 28/09)...
+    const { revocado } = await one(`SELECT (revoked_at IS NOT NULL) AS revocado FROM mcp_tokens WHERE user_id = $1`, [U.GUS]);
+    expect(revocado).toBe(false);
+
+    // ...y al devolverle el acceso, la misma URL vuelve a funcionar sin tocar su Claude.
+    await request.patch(`/api/mcp/panel/personas/${U.GUS}`)
+      .set('Authorization', `Bearer ${jwtAna}`).send({ usa_mcp: true }).expect(200);
+    const otraVez = await request.post(`/api/mcp/u/${TOKENS.GUS}`)
+      .set('Accept', 'application/json, text/event-stream')
+      .send({ jsonrpc: '2.0', id: ++idRpc, method: 'tools/list' });
+    expect(otraVez.status).toBe(200);
+
+    await request.patch(`/api/mcp/panel/personas/${U.GUS}`)
+      .set('Authorization', `Bearer ${jwtAna}`).send({ usa_mcp: false }).expect(200);
+  });
+
+  it('los tokens no caducan: se crean sin fecha de fin', async () => {
+    const filas = await q(`SELECT expires_at FROM mcp_tokens WHERE user_id = ANY($1::int[])`, [[U.ANA, U.GEMA]]);
+    expect(filas.length).toBeGreaterThan(0);
+    expect(filas.every((f) => f.expires_at === null)).toBe(true);
   });
 
   it('quitar el campus a una persona: deja de verlo en la siguiente pregunta', async () => {

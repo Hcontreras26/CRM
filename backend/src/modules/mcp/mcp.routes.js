@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { verifyToken, soloRoles } from '../../shared/middleware/auth.js';
-import { verificarTokenMcp } from './mcp.auth.js';
+import { urlPersonal, verificarTokenMcp } from './mcp.auth.js';
 import { atenderPeticion, metodoNoPermitido } from './mcp.server.js';
 import { huella } from './mcp.acceso.js';
 import * as ctrl from './mcp.controller.js';
@@ -33,12 +33,22 @@ const limite = rateLimit({
   // Sin cabecera (peticion que va a ser rechazada) se cuenta por IP, con el
   // helper de la libreria para que una IPv6 no se salte el limite cambiando
   // de direccion dentro de su bloque.
-  keyGenerator: (req) => (req.headers.authorization ? huella(req.headers.authorization) : ipKeyGenerator(req.ip)),
+  keyGenerator: (req) => {
+    const llave = req.mcpTokenDeUrl || req.headers.authorization;
+    return llave ? huella(llave) : ipKeyGenerator(req.ip);
+  },
   message: { jsonrpc: '2.0', error: { code: -32029, message: 'Demasiadas consultas. Espera un minuto.' }, id: null },
 });
 
 router.post('/', limite, verificarTokenMcp, atenderPeticion);
 router.get('/', metodoNoPermitido);
 router.delete('/', metodoNoPermitido);
+
+// La URL personal, para «Agregar conector personalizado» de Claude Desktop y
+// claude.ai. `urlPersonal` va PRIMERO: tapa el secreto antes que nada pueda
+// escribirlo en un registro, y el limite cuenta por token igual que arriba.
+router.post('/u/:secreto', urlPersonal, limite, verificarTokenMcp, atenderPeticion);
+router.get('/u/:secreto', urlPersonal, metodoNoPermitido);
+router.delete('/u/:secreto', urlPersonal, metodoNoPermitido);
 
 export default router;
