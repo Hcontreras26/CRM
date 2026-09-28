@@ -70,6 +70,10 @@ function pathAllowsAll(pathname) {
 //   un proyecto» es la respuesta correcta, no un fallo.
 const CON_SOCIEDAD_OK = [
   /^\/informes$/,
+  // Feedback suma los campus de la empresa (Diego, 28/09: «tiene que ser campus
+  // y no empresas… lo hemos dicho»): la pantalla ya manda issuerId y el
+  // backend lo resuelve con proyectosDelAmbito. Solo faltaba esta línea.
+  /^\/informes\/feedback$/,
   /^\/ventas$/,
   /^\/finanzas\/ventas$/,
   /^\/prospectos$/,
