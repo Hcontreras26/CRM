@@ -28,7 +28,8 @@ import { copyToClipboard } from '@/shared/lib/clipboard';
 import BulkActionBar from '@/modules/leads/components/BulkActionBar';
 import {
   traerSeguimiento, traerResumenSeguimiento,
-  type EnSeguimiento, type ResumenSeguimiento, type PasoEnCola,, type FormacionDeLaLista } from '../api/agenda.api';
+  type EnSeguimiento, type ResumenSeguimiento, type PasoEnCola, type FormacionDeLaLista,
+} from '../api/agenda.api';
 import PanelDeCola from '../components/PanelDeCola';
 import AccionesDeFila from '../components/AccionesDeFila';
 import DescartarDelRepaso from '../components/DescartarDelRepaso';
