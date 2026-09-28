@@ -18,8 +18,9 @@ import AsesorasPanel from '../components/AsesorasPanel';
 import RankingsPanel from '@/shared/components/RankingsPanel';
 import PanelResumen from '@/shared/components/PanelResumen';
 import PanelSeguimiento from '@/shared/components/PanelSeguimiento';
+import FeedbackEnReportes, { feedbackEnCsv } from '@/modules/feedback/components/FeedbackEnReportes';
 
-function exportReportCSV(data, project, range, panel, seguimiento) {
+function exportReportCSV(data, project, range, panel, seguimiento, feedback = null) {
   const sections = [];
   const sep = row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
 
@@ -152,6 +153,12 @@ function exportReportCSV(data, project, range, panel, seguimiento) {
     data.ingresos_mensual.forEach(r => sections.push(sep([r.mes, Number(r.ingresos).toFixed(2)])));
   }
 
+  // El feedback: las mismas cifras que su panel, con este rango y este ámbito.
+  if (feedback?.totales) {
+    sections.push('');
+    sections.push(...feedbackEnCsv(feedback, sep));
+  }
+
   const csv = sections.join('\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -217,6 +224,7 @@ export default function ReportsPage() {
   // que es media pantalla.
   const [panelResumen, setPanelResumen] = useState(null);
   const [panelSeguimiento, setPanelSeguimiento] = useState(null);
+  const [panelFeedback, setPanelFeedback] = useState(null);
 
 
   useEffect(() => {
@@ -350,7 +358,7 @@ export default function ReportsPage() {
                 <>
                   <button
                     type="button"
-                    onClick={() => exportReportCSV(data, nombreAmbito, range, panelResumen, panelSeguimiento)}
+                    onClick={() => exportReportCSV(data, nombreAmbito, range, panelResumen, panelSeguimiento, panelFeedback)}
                     aria-label="Exportar reporte a CSV"
                     title="Exportar CSV"
                     className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -533,6 +541,10 @@ export default function ReportsPage() {
 
       {/* Paises y formaciones: en pantalla, no solo descargables. */}
       <RankingsPanel from={range.from} to={range.to} />
+
+      {/* Por qué no compran: las cifras de «Análisis → Feedback», con este rango y ámbito. */}
+      <FeedbackEnReportes from={range.from} to={range.to} issuerId={issuerEfectivo}
+        project={proyectoEfectivo} onDatos={setPanelFeedback} />
 
       <ReportsDownloadSection projectId={proyectoEfectivo?.id} issuerId={issuerEfectivo} projectName={nombreAmbito} from={range.from} to={range.to} />
 
