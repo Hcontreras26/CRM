@@ -39,6 +39,7 @@ export const BETA_ROUTES: readonly string[] = [
   '/preferencias',            // Mis preferencias
   '/perfil',                // Perfil
   '/configuracion',               // Ajustes (gestión de usuarios, proyectos, etc.)
+  '/conexion',               // Conexión: MCP de Claude (solo consulta)
   '/set-password',           // Flujo de bienvenida
 ];
 

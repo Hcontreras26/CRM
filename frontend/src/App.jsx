@@ -133,6 +133,7 @@ const MakeWebhooksPage = lazy(() => import('./modules/make-webhooks/pages/MakeWe
 const MakeWebhookDetailPage = lazy(() => import('./modules/make-webhooks/pages/MakeWebhookDetailPage'));
 const FieldDefinitionsPage = lazy(() => import('./modules/field-definitions/pages/FieldDefinitionsPage'));
 const ClavesPage = lazy(() => import('./modules/settings/pages/ClavesPage'));
+const McpPage = lazy(() => import('./modules/mcp/pages/McpPage'));
 const RolesPage = lazy(() => import('./modules/permissions/pages/RolesPage'));
 const CategoriesTreePage = lazy(() => import('./modules/product-categories/pages/CategoriesTreePage'));
 const ChannelsConfigPage = lazy(() => import('./modules/settings/pages/ChannelsConfigPage'));
@@ -279,6 +280,8 @@ function App() {
           {/* Claves y variables (#80). El recorte de rol lo hace el servidor con
               `soloRoles`; aqui solo se sirve la pantalla. */}
           <Route path="/configuracion/claves" element={<ClavesPage />} />
+          {/* Conexión → MCP. Quién puede usarlo lo decide el servidor; la página lo dice. */}
+          <Route path="/conexion/mcp" element={<McpPage />} />
           <Route path="/configuracion/roles" element={<RolesPage />} />
           <Route path="/configuracion/canales" element={<ChannelsConfigPage />} />
           <Route path="/configuracion/proceso" element={<Navigate to="/prospectos/proceso" replace />} />

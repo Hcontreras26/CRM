@@ -62,6 +62,7 @@ export const ROUTE_TITLES = {
   '/configuracion/campos': 'Campos personalizados',
   '/prospectos/proceso': 'Proceso comercial',
   '/configuracion/claves': 'Claves y variables',
+  '/conexion/mcp': 'Conexión MCP',
   '/configuracion/roles': 'Roles y Permisos',
   '/configuracion/canales': 'Canales del proyecto',
   '/configuracion/atajos': 'Atajos rápidos',

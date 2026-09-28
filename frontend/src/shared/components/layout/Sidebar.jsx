@@ -268,6 +268,16 @@ const NAV_SECTIONS = [
       { label: 'Matrículas', to: '/clientes/matriculas', detail: 'Altas en cada curso', icon: GraduationCap, module: 'matriculas' },
     ],
   },
+  // Conexión (MCP de Claude). Diego: «estará en el menú en la sección de
+  // conexión y pondrás algo como MCP». Super admin y admin por su rol; un
+  // gestor solo si se le ha puesto la casilla `usa_mcp` — la misma regla que
+  // el servidor en `mcp.acceso.js`.
+  {
+    label: 'Conexión',
+    items: [
+      { label: 'MCP', to: '/conexion/mcp', icon: Robot, roles: ['superadmin', 'admin', 'gestor'], permiso: 'usa_mcp' },
+    ],
+  },
   {
     label: 'Sistema',
     icon: Gear,

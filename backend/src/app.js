@@ -56,6 +56,7 @@ import statusModule from './modules/status/index.js';
 import registroModule from './modules/registro/index.js';
 import correosModule from './modules/correos/index.js';
 import changeRequestsModule from './modules/change-requests/index.js';
+import mcpModule from './modules/mcp/index.js';
 import { resolveActiveModules } from './bundles/manifest.js';
 import { query } from './shared/config/db.js';
 import { startEmailSequenceScheduler } from './jobs/emailSequenceScheduler.js';
@@ -182,6 +183,8 @@ const ALL_MODULES = [
   { name: 'messages', mod: messagesModule },
   { name: 'registro', mod: registroModule },
   { name: 'correos', mod: correosModule },
+  // Conexion de Claude por MCP: solo consulta, con token personal.
+  { name: 'mcp', mod: mcpModule },
 ];
 
 // Módulos siempre activos (fuera del sistema de bundles)
