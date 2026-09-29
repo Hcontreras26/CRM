@@ -45,13 +45,18 @@ function avisoDelTipo(tipo: TipoConector): string | undefined {
 interface Props {
   /** `null` = alta. Un conector = cambio. */
   conector: Conector | null;
-  projectId: number;
+  /** El campus del alta. Sin él (empresa puesta), se elige entre `campus`. */
+  projectId: number | null;
+  campus?: Array<{ id: number; nombre: string }>;
   onCerrar: () => void;
   onGuardado: () => void;
 }
 
-export default function DialogoConector({ conector, projectId, onCerrar, onGuardado }: Props) {
+export default function DialogoConector({ conector, projectId, campus = [], onCerrar, onGuardado }: Props) {
   const esAlta = conector === null;
+  // Un conector es SIEMPRE de un campus: con la empresa puesta se elige aquí
+  // (si la empresa tiene uno solo, ya va puesto).
+  const [proyecto, setProyecto] = useState<number | null>(projectId ?? (campus.length === 1 ? campus[0].id : null));
 
   const [tipo, setTipo] = useState<TipoConector>(conector?.type || 'woocommerce_products');
   const [destino, setDestino] = useState<DestinoConector>(conector?.destination || 'product');
@@ -69,7 +74,7 @@ export default function DialogoConector({ conector, projectId, onCerrar, onGuard
     if (esAlta) setCampos({});
   };
 
-  const falta = definicion.some((c) => {
+  const falta = (esAlta && !proyecto) || definicion.some((c) => {
     if (!c.requerido) return false;
     if (c.secreto) return esAlta ? !campos[c.clave] : !(campos[c.clave] || yaGuardado[c.clave]);
     return !campos[c.clave];
@@ -89,7 +94,7 @@ export default function DialogoConector({ conector, projectId, onCerrar, onGuard
       }
 
       const r = esAlta
-        ? await conectoresApi.crear({ project_id: projectId, type: tipo, label: etiqueta.trim(), destination: destino, config })
+        ? await conectoresApi.crear({ project_id: proyecto!, type: tipo, label: etiqueta.trim(), destination: destino, config })
         : await conectoresApi.cambiar(conector!.id, { label: etiqueta.trim(), destination: destino, config });
 
       if (!r.success) throw new Error((r as { error?: string }).error || 'no se pudo guardar');
@@ -123,6 +128,19 @@ export default function DialogoConector({ conector, projectId, onCerrar, onGuard
               —FiscalDataDialog, LeadFormDialog—. La gracia del #106 es que se
               parezcan, asi que el espaciado se copia en vez de elegirse. */}
           <div className="p-5 space-y-3">
+            {esAlta && !projectId && (
+              <Field label="Campus" required hint="El conector trae los datos a este campus.">
+                <Select
+                  value={proyecto ? String(proyecto) : ''}
+                  onChange={(v: string) => setProyecto(v ? Number(v) : null)}
+                  options={[{ value: '', label: 'Elige el campus' }, ...campus.map((p) => ({ value: String(p.id), label: p.nombre }))]}
+                  ariaLabel="Campus"
+                />
+              </Field>
+            )}
+            {!esAlta && conector?.proyecto && (
+              <p className="text-xs text-muted-foreground">Campus: <strong className="text-foreground">{conector.proyecto}</strong></p>
+            )}
             <Field label="Nombre" required hint="Para reconocerlo en la lista." htmlFor="conector-nombre">
               <input
                 id="conector-nombre"

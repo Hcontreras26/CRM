@@ -76,6 +76,8 @@ export const CAMPOS_POR_TIPO: Record<TipoConector, Array<{
 export interface Conector {
   id: number;
   project_id: number;
+  /** El nombre de su campus: con una empresa puesta salen los de varios. */
+  proyecto?: string | null;
   type: TipoConector;
   label: string;
   destination: DestinoConector;
@@ -112,7 +114,8 @@ export interface VistaPrevia {
 }
 
 export const conectoresApi = {
-  listar: (projectId: number) => client.get(`/connectors?projectId=${projectId}`),
+  /** `projectId` o `issuerId` (una empresa: los de todos sus campus), de `ponerAmbito`. */
+  listar: (ambito: URLSearchParams) => client.get(`/connectors?${ambito.toString()}`),
   uno: (id: number) => client.get(`/connectors/${id}`),
   crear: (datos: Partial<Conector>) => client.post('/connectors', datos),
   cambiar: (id: number, datos: Partial<Conector>) => client.patch(`/connectors/${id}`, datos),

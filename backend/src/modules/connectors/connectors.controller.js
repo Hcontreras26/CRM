@@ -2,6 +2,7 @@ import { z } from 'zod';
 import * as model from './connectors.model.js';
 import * as service from './connectors.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
+import { proyectosDelAmbito, comoLista } from '../../shared/utils/ambito.js';
 
 const VALID_TYPES = ['woocommerce_products', 'woocommerce_orders', 'wp_rest', 'acf', 'custom_api'];
 const VALID_DESTINATIONS = ['product', 'lead', 'matricula', 'category'];
@@ -56,20 +57,27 @@ function sinSecretos(conector) {
   return { ...conector, config, secretos_guardados: guardados };
 }
 
-function pid(req) {
-  const p = parseInt(req.query.projectId);
-  if (isNaN(p) || p <= 0) throw new AppError('projectId requerido', 400, 'PROJECT_REQUIRED');
-  return p;
-}
 function cid(req) {
   const id = parseInt(req.params.id);
   if (isNaN(id) || id <= 0) throw new AppError('id inválido', 400, 'INVALID_ID');
   return id;
 }
 
+/**
+ * Con un campus, los suyos. Con una EMPRESA (`issuerId`), los de todos sus
+ * campus —Diego, 29/09: «no puedo estar con la empresa»—: cada conector sigue
+ * siendo de un campus y sale con su nombre, y al crearlo se elige cuál.
+ */
 export async function list(req, res, next) {
-  try { const conectores = await model.listByProject(pid(req));
-    res.json({ success: true, data: conectores.map(sinSecretos) }); } catch (err) { next(err); }
+  try {
+    const { projectId, projectIds } = await proyectosDelAmbito(req);
+    const ids = comoLista(projectId, projectIds);
+    if (!ids || ids.some((id) => !Number.isInteger(id))) {
+      throw new AppError('Elige un campus o una empresa', 400, 'PROJECT_REQUIRED');
+    }
+    const conectores = await model.listByProjects(ids);
+    res.json({ success: true, data: conectores.map(sinSecretos) });
+  } catch (err) { next(err); }
 }
 
 export async function getById(req, res, next) {

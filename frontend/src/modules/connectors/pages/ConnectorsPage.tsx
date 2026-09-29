@@ -9,6 +9,8 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { toast } from '@/shared/hooks/useToast';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
+import { ponerAmbito, TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 import {
   conectoresApi, TIPOS, DESTINOS, type Conector,
 } from '../api/connectors.api';
@@ -155,8 +157,18 @@ function QueNoEsEsto() {
 }
 
 export default function ConnectorsPage() {
-  const { activeProject } = useProjectContext();
-  const projectId = activeProject?.id;
+  const { activeProject, activeIssuerId, activeIssuer } = useProjectContext() as {
+    activeProject: { id: number; nombre?: string } | null;
+    activeIssuerId: number | null;
+    activeIssuer: { nombre?: string } | null;
+  };
+  // Con una EMPRESA puesta (Diego, 29/09: «no puedo estar con la empresa»),
+  // los conectores de todos sus campus, cada uno con el suyo al lado. Un
+  // conector sigue siendo de UN campus: al crearlo se elige cuál.
+  const conEmpresa = Boolean(activeIssuerId);
+  const campus = useProyectosDelAmbito<{ id: number; nombre: string; sociedad_emisora_id?: number | null }>();
+  const projectId = !conEmpresa && activeProject?.id && activeProject.id !== TODOS_LOS_PROYECTOS ? activeProject.id : null;
+  const hayAmbito = conEmpresa || Boolean(projectId);
 
   const [conectores, setConectores] = useState<Conector[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -167,17 +179,17 @@ export default function ConnectorsPage() {
   const [importando, setImportando] = useState<number | null>(null);
 
   const cargar = useCallback(async () => {
-    if (!projectId) { setCargando(false); return; }
+    if (!hayAmbito) { setCargando(false); return; }
     setCargando(true);
     setError(null);
     try {
-      const r = await conectoresApi.listar(projectId);
+      const r = await conectoresApi.listar(ponerAmbito(new URLSearchParams(), { activeIssuerId, activeProject: projectId ? { id: projectId } : null }));
       if (r.success) setConectores(lista<Conector>(r.data));
       else setError(r.error || 'No se pudieron cargar los conectores');
     } catch (e: any) {
       setError(e?.message || 'No se pudieron cargar los conectores');
     } finally { setCargando(false); }
-  }, [projectId]);
+  }, [hayAmbito, activeIssuerId, projectId]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -232,14 +244,14 @@ export default function ConnectorsPage() {
     }
   }
 
-  if (!projectId) {
+  if (!hayAmbito) {
     return (
       <div className="space-y-4">
         <PageHeader title="Conectores" subtitle="El CRM va a buscar fuera lo que ya está escrito allí." />
         <EmptyState
           icon={PlugsConnected}
-          title="Elige un proyecto"
-          description="Los conectores son de cada proyecto. Selecciona uno arriba para ver los suyos."
+          title="Elige un campus o una empresa"
+          description="Cada conector es de un campus. Elige uno arriba, o una empresa para ver los de todos sus campus."
         />
       </div>
     );
@@ -251,7 +263,9 @@ export default function ConnectorsPage() {
         title="Conectores"
         // «Traer datos de fuera» era la misma frase que dice Webhooks («entradas
         // de fuera») en el menú. Lo que las separa es quién da el primer paso.
-        subtitle={`El CRM va a buscar fuera lo que ya está escrito allí · ${activeProject?.nombre || ''}`}
+        subtitle={`El CRM va a buscar fuera lo que ya está escrito allí · ${conEmpresa
+          ? `${activeIssuer?.nombre || 'Empresa'} · ${campus.length} campus`
+          : activeProject?.nombre || ''}`}
         actions={
           <div className="flex items-center gap-2">
             <button type="button" onClick={cargar} disabled={cargando}
@@ -300,6 +314,11 @@ export default function ConnectorsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold truncate">{c.label}</h3>
+                    {conEmpresa && c.proyecto && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        {c.proyecto}
+                      </span>
+                    )}
                     {!c.active && (
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                         Apagado
@@ -354,6 +373,7 @@ export default function ConnectorsPage() {
         <DialogoConector
           conector={editando}
           projectId={projectId}
+          campus={campus.map((p) => ({ id: p.id, nombre: p.nombre }))}
           onCerrar={() => setEditando(undefined)}
           onGuardado={() => { setEditando(undefined); cargar(); }}
         />

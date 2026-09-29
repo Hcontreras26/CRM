@@ -1,14 +1,19 @@
 import { query } from '../../shared/config/db.js';
 
-export async function listByProject(projectId) {
+/**
+ * Los conectores de uno o varios campus. Varios cuando hay una EMPRESA puesta:
+ * cada conector sigue siendo de un campus, y por eso sale con su nombre.
+ */
+export async function listByProjects(projectIds) {
   const { rows } = await query(
-    `SELECT id, project_id, type, label, destination, config, field_mapping,
-            sample_payload, sample_received_at, active,
-            last_sync_at, last_sync_status, last_sync_count, created_at, updated_at
-     FROM project_connectors
-     WHERE project_id = $1
-     ORDER BY id`,
-    [projectId]
+    `SELECT c.id, c.project_id, p.nombre AS proyecto, c.type, c.label, c.destination, c.config, c.field_mapping,
+            c.sample_payload, c.sample_received_at, c.active,
+            c.last_sync_at, c.last_sync_status, c.last_sync_count, c.created_at, c.updated_at
+     FROM project_connectors c
+     JOIN projects p ON p.id = c.project_id
+     WHERE c.project_id = ANY($1::int[])
+     ORDER BY p.nombre, c.id`,
+    [projectIds]
   );
   return rows;
 }

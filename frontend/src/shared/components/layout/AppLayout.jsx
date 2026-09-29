@@ -153,6 +153,10 @@ const CON_SOCIEDAD_OK = [
   /^\/configuracion\/atajos$/,
   /^\/configuracion\/roles$/,
   /^\/configuracion\/claves$/,
+  // Conectores. Diego, 29/09: «no puedo estar con la empresa, tengo que hacer
+  // la empresa». Con una empresa puesta salen los de todos sus campus, cada uno
+  // con el suyo, y al crear se elige el campus: un conector sigue siendo de uno.
+  /^\/captacion\/conectores$/,
 
   // ─────────────────────────────────────────────────────────────────────────
   // FINANZAS. Diego, 15/09: «catalogo y publicidad individual, pero finanzas es
