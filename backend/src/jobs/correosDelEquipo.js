@@ -133,7 +133,7 @@ export function tarjetas(lista) {
 export function tabla(cabeceras, filas) {
   if (!filas.length) return '';
   const th = cabeceras.map((c, i) => `<th style="text-align:${i ? 'right' : 'left'};font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:${GRIS};padding:6px 8px;border-bottom:1px solid ${LINEA}">${esc(c)}</th>`).join('');
-  const tr = filas.map((f) => `<tr>${f.map((v, i) => `<td style="text-align:${i ? 'right' : 'left'};font-size:14px;padding:7px 8px;border-bottom:1px solid #f1f3f6;color:${TINTA}">${v}</td>`).join('')}</tr>`).join('');
+  const tr = filas.map((f) => `<tr>${f.map((v, i) => `<td style="text-align:${i ? 'right' : 'left'};font-size:13px;padding:7px 6px;border-bottom:1px solid #f1f3f6;color:${TINTA}${i ? ';white-space:nowrap' : ''}">${v}</td>`).join('')}</tr>`).join('');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:8px">${`<tr>${th}</tr>`}${tr}</table>`;
 }
 
@@ -192,7 +192,8 @@ export async function empresasDe(persona) {
     }
     grupos.get(clave).campus.push(c);
   }
-  return [...grupos.values()];
+  // La que tiene mas campus, primero: suele ser la que mas pesa.
+  return [...grupos.values()].sort((a, b) => b.campus.length - a.campus.length || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
 /** La cabecera de marca: la del campus si solo hay uno; si no, la del CRM. */
@@ -244,11 +245,14 @@ export async function correoDiarioGestora(persona, ahora = new Date()) {
   const manana = new Date(ahora); manana.setDate(ahora.getDate() + 1);
 
   const [dia, cola, mes, contactos] = await Promise.all([
-    resumenDelDia({ projectIds: ids, asesoraId: persona.id }),
+    // `referencia`: el dia que cuenta como «hoy» lo dice quien llama, no el
+    // reloj de la base. Asi el correo de las 19:00 no depende de la hora del
+    // servidor, y una muestra de ayer se puede rehacer tal cual.
+    resumenDelDia({ projectIds: ids, asesoraId: persona.id, referencia: hoyIso }),
     resumenDeLaCola({ projectIds: ids, asesoraId: persona.id }),
     informes.miPuesto({ userId: persona.id, projectIds: ids, from: mesIni, to: hoyIso }).catch(() => null),
     query(`SELECT count(*)::int AS n FROM lead_interactions i JOIN leads l ON l.id = i.lead_id
-            WHERE l.responsable_id = $1 AND l.project_id = ANY($2::int[]) AND i.fecha::date = CURRENT_DATE`, [persona.id, ids])
+            WHERE l.responsable_id = $1 AND l.project_id = ANY($2::int[]) AND i.fecha::date = $3::date`, [persona.id, ids, hoyIso])
       .then((r) => r.rows[0].n),
   ]);
   const hoy = dia.find((x) => x.dia === 'hoy') || {};
@@ -363,17 +367,17 @@ export async function correoSemanalGestora(persona, ahora = new Date()) {
 
 // ─── DIRECCIÓN, cada tarde: «Resumen del día», por empresa ───────────────────
 
-async function porGestoraHoy(ids) {
+async function porGestoraHoy(ids, dia) {
   const { rows } = await query(
     `SELECT u.nombre,
             (SELECT count(*)::int FROM leads l WHERE l.responsable_id = u.id AND l.deleted_at IS NULL
-               AND l.project_id = ANY($1::int[]) AND l.created_at::date = CURRENT_DATE) AS leads,
+               AND l.project_id = ANY($1::int[]) AND l.created_at::date = $2::date) AS leads,
             (SELECT count(*)::int FROM lead_interactions i JOIN leads l ON l.id = i.lead_id
-              WHERE l.responsable_id = u.id AND l.project_id = ANY($1::int[]) AND i.fecha::date = CURRENT_DATE) AS contactos
+              WHERE l.responsable_id = u.id AND l.project_id = ANY($1::int[]) AND i.fecha::date = $2::date) AS contactos
        FROM users u
       WHERE u.active AND u.role = 'gestor'
         AND EXISTS (SELECT 1 FROM user_projects up WHERE up.user_id = u.id AND up.active AND up.project_id = ANY($1::int[]))
-      ORDER BY u.nombre`, [ids]);
+      ORDER BY u.nombre`, [ids, dia]);
   return rows;
 }
 
@@ -385,11 +389,11 @@ export async function correoDiarioDireccion(persona, ahora = new Date()) {
   for (const e of empresas) {
     const ids = e.campus.map((c) => c.id);
     const [dia, cola, cobradoHoy, ventas, gestoras] = await Promise.all([
-      resumenDelDia({ projectIds: ids }),
+      resumenDelDia({ projectIds: ids, referencia: hoyIso }),
       resumenDeLaCola({ projectIds: ids }),
       cobrado({ from: hoyIso, to: hoyIso, projectIds: ids }),
       informes.ventasVendedora({ projectIds: ids, from: hoyIso, to: hoyIso }).catch(() => []),
-      porGestoraHoy(ids),
+      porGestoraHoy(ids, hoyIso),
     ]);
     const hoy = dia.find((x) => x.dia === 'hoy') || {};
     const ayer = dia.find((x) => x.dia === 'ayer') || {};
@@ -403,7 +407,7 @@ export async function correoDiarioDireccion(persona, ahora = new Date()) {
     if (e.campus.length > 1) {
       const filasCampus = [];
       for (const c of e.campus) {
-        const d = (await resumenDelDia({ projectIds: [c.id] })).find((x) => x.dia === 'hoy') || {};
+        const d = (await resumenDelDia({ projectIds: [c.id], referencia: hoyIso })).find((x) => x.dia === 'hoy') || {};
         if (d.leads || d.ventas) filasCampus.push([esc(c.nombre), entero(d.leads), entero(d.ventas)]);
       }
       porCampus = filasCampus.length ? `<div style="font-size:13px;font-weight:bold;color:${GRIS};margin:18px 0 0">Por campus</div>${tabla(['Campus', 'Prospectos', 'Ventas'], filasCampus)}` : '';
