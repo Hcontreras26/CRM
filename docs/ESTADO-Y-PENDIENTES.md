@@ -1927,6 +1927,39 @@ merge habría arrastrado 34 commits de `deploy/16sep` que /testeo no tiene.
 
 *Asignada a **Diana**; el paso a staging lo hizo Diego (Claude).*
 
+## 29 de septiembre, cierre del día · v2.0.1 y todo al día
+
+**En producción después de la 2.0.0 (v2.0.1, los dos CRMs):**
+
+- **La cola del día por tramos.** «Para hoy», «Para mañana»… salían vacíos en
+  producción: la pantalla filtraba el tramo sobre la primera página de 100, que
+  eran todo atrasados. Ahora filtra el servidor, con su «hoy» y sobre el paso
+  actual de cada persona; cada botón da lo mismo que su contador (ISEIE: 229 ·
+  15 · 14; MultiCRM con CEDIA: 147 · 13 · 1).
+- **Un contacto solo cierra el paso que toca**, si ya llegó su día, y como mucho
+  uno por día (antes, 4 interacciones cerraban los pasos 1 a 4). Desde el 29/09
+  a las 17:00 UTC: lo apuntado antes cuenta como antes, así que nadie cambió de
+  paso al subirlo. Una sola regla en `backend/src/shared/utils/pasoCerrado.js`.
+- **/testeo y ISEIE staging** subidos desde `staging`: iguales que producción.
+
+**GitHub:** `main` = producción y `staging` = pruebas (ver «Ramas desde el 29/09»),
+releases `v2.0.0` y `v2.0.1` publicadas, `docs/README.md` al día (deploy,
+entornos, interruptores del `.env` e índice de migraciones completo).
+**Issues revisados contra el código de `main`:** cerrados 15 que ya estaban en
+producción (#24, #35, #88, #89, #90, #101, #103, #105, #123, #136, #157, #158,
+#168, #169, #170; #173 se cerró antes, con la rama de Diana integrada). Quedan
+42 abiertos. Comentado el estado de #163, #164 y #165.
+
+### Lo que queda para la próxima tanda
+
+1. **#163** · filtrar ventas compartidas (Todas · Solo compartidas · Solo enteras) en Ingresos y Análisis de ventas.
+2. **#164** · rehacer la pantalla de Comisiones de tutores: falta que Diego concrete qué cambia.
+3. **#165** · «Avisar tutor»: el envío sigue frenado (`NO_ESCRIBIR_A_TUTORES`) hasta arreglar el enlace de contraseña de Brevo.
+4. **MCP**: el token de la URL personal queda en el registro de nginx (decide Diego).
+5. **Rediseño** (#32, #34, #78, #79, #125) y el arranque de Diana (#166, #167).
+6. **Ramas con trabajo que no está en producción**: filtro de categorías y Certifex (Ángel), siete ramas de Fabián, `feat/suitedash-menu` y `prueba-ui-testeo`.
+7. **Dos pruebas desfasadas**: `avisoTutor.test.js` (el freno) y `plantillaDelPaso.test.jsx` (un texto que ya no existe).
+
 ## Ramas desde el 29/09: `main` = producción, `staging` = pruebas
 
 Diego, 29/09: «unifica ramas ya aprobadas y en producción claramente; testeo y
