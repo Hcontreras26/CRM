@@ -3,7 +3,10 @@ import { CRM_CORREOS } from '../shared/config/crm.js';
 import * as informes from '../modules/reports/report.model.js';
 import { resumenDelDia } from '../modules/reports/resumenDelDia.js';
 import { resumenDeLaCola } from '../modules/proceso/proceso.model.js';
-import { contarFiltrosRapidos } from '../modules/leads/lead.model.js';
+// Por el espacio de nombres y no por nombre: ISEIE no tiene los contadores del
+// listado (`contarFiltrosRapidos`) y un import por nombre tumbaria el modulo.
+// Sin ellos, el correo de la gestora sale sin el bloque de recordatorios.
+import * as leadModel from '../modules/leads/lead.model.js';
 import { versionDe } from '../modules/feedback/cabecera.js';
 
 /**
@@ -261,8 +264,8 @@ export async function correoDiarioGestora(persona, ahora = new Date()) {
   // Recordatorios y sin contactar, por campus: el listado trabaja sobre uno, y
   // el enlace tiene que abrir exactamente lo que cuenta la línea.
   const avisos = [];
-  for (const c of campus) {
-    const f = await contarFiltrosRapidos({ projectId: c.id, responsableId: persona.id });
+  for (const c of (leadModel.contarFiltrosRapidos ? campus : [])) {
+    const f = await leadModel.contarFiltrosRapidos({ projectId: c.id, responsableId: persona.id });
     const url = (qf) => `${base()}${R.prospectos}?projectId=${c.id}&qf=${qf}`;
     const lineas = [
       f.tomorrow ? lineaConEnlace(f.tomorrow, 'con recordatorio para mañana', url('tomorrow')) : '',

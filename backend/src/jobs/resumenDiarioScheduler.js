@@ -2,7 +2,9 @@ import { logger } from '../shared/utils/logger.js';
 import { query } from '../shared/config/db.js';
 import { sendEmail } from '../shared/services/brevo.service.js';
 import { vigilar } from './latido.js';
-import { comoVaLaRevision, sePuedeRevisar } from '../modules/leads/lead.model.js';
+// Por el espacio de nombres: el repaso mensual de la base (#132) solo existe en
+// MultiCRM. En ISEIE estas funciones no estan y el repaso no se manda.
+import * as leadModel from '../modules/leads/lead.model.js';
 import { correoDiarioDireccion, correoDiarioGestora, envoltorio } from './correosDelEquipo.js';
 import { CRM_CORREOS } from '../shared/config/crm.js';
 
@@ -96,7 +98,7 @@ async function loDeLaBase(userId) {
 
   const bloques = [];
   for (const proyecto of suyos) {
-    const c = await comoVaLaRevision({ projectId: proyecto.id, responsableId: userId });
+    const c = await leadModel.comoVaLaRevision({ projectId: proyecto.id, responsableId: userId });
     if (c.total) bloques.push({ proyecto, ...c });
   }
   return { bloques, variosProyectos: suyos.length > 1 };
@@ -192,7 +194,7 @@ async function vuelta() {
       // base» y lleva a una pantalla donde no se puede marcar es peor que no
       // mandarlo: se abre, no se puede hacer nada, y el mes siguiente ya no se
       // abre.
-      if (await sePuedeRevisar()) {
+      if (leadModel.sePuedeRevisar && await leadModel.sePuedeRevisar()) {
         const r = await mandar(
           'validacion_mensual',
           ['gestor'],
