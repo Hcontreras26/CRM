@@ -127,10 +127,10 @@ scripts/    # backup.sh, deploy.sh
 - **Ramas y entornos:**
   - `main` → **produccion** (https://360crm.tech/crm/, DB `crm_prod_db`, PM2 `crm-api-production` :3001, frontend `/var/www/crm/production/frontend`)
   - `staging` → **QA/testeo** (https://360crm.tech/testeo/, DB `crm_test_db`, PM2 `crm-api-staging` :3002, frontend `/var/www/crm/staging/frontend`)
-  - `feat/<nombre-corto>` → features en desarrollo (opcional, sin PRs)
-  - Flujo recomendado para cambios grandes: `feat/X` → merge a `staging` → validar QA → merge a `main` → deploy prod
-  - **Push directo a `main` está permitido** para fixes y cambios chicos (es el flujo habitual del owner). Para cambios riesgosos (pagos, auth, migraciones DB) pasar primero por `staging`.
-  - Ver `docs/09-deploy-y-ramas.md` para procedimiento de deploy completo, rollback, envs y webhooks externos.
+  - `feat/<nombre-corto>` → features en desarrollo, **salen de `staging`**
+  - Flujo (desde el 29/09/2026): `feat/X` → `staging` (se prueba en /testeo) → **pull request a `main`** cuando Diego lo aprueba → deploy a producción desde `main`. `staging` y `main` son independientes.
+  - **A `main` solo por pull request**: está protegida en GitHub y el gancho `pre-push` bloquea el push directo (también a `feat/angel|fabian|diego`). Se fusiona con `gh pr merge --admin`. Cada versión lleva su etiqueta (`v2.0.0`, `v2.0.1`…).
+  - Procedimiento de deploy, entornos, interruptores del `.env` y migraciones: `docs/README.md`, sección «Deploy y ramas».
 - Variables de entorno en `.env` — NUNCA hardcodeadas
 - Nunca commit de `.env`, `.env.production`, `node_modules/`, `dist/`
 - VPS: Hostinger `187.124.128.126` (DNS `360crm.tech`). HTTPS con Let's Encrypt + renovación auto (`certbot.timer`).

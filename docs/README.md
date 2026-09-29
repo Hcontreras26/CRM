@@ -3,12 +3,40 @@
 > **Fuente de verdad del esquema:** `backend/migrations/*.sql` — todos los SQL ejecutados, en orden.
 > Este es el **único** documento de referencia; el resto se consolidó aquí (el historial completo queda en git).
 
-## Deploy y ramas (resumen)
-- `main` = **producción**. ISEIH: https://360crm.tech/crm · VPS `187.124.128.126` · PM2 `crm-api-production` :3001 · front `/var/www/crm/production/frontend`.
-- ISEIE: https://crm.iseie.com · VPS `72.60.90.135` · PM2 `crm-iseie-api` · front `/var/www/crm-iseie`.
-- **Deploy front:** `npm run build` → tar dist → scp/paramiko → swap con backup → `chown www-data`. **Backend:** scp del módulo + `pm2 restart`.
-- **Migraciones:** aplicar en ambas DBs (`crm_prod_db` · `crm_iseie`).
-- **Paridad:** el módulo `invoices` es espejo entre ambos CRMs; navegación/rutas (Sidebar, App.jsx) NO se copian enteras.
+## Deploy y ramas (al día el 29/09/2026)
+
+**Ramas.** `main` = **producción**, con la etiqueta de cada versión (`v2.0.0`, `v2.0.1`). `staging` = **pruebas** (/testeo), independiente de `main`. Lo nuevo entra por `staging`; cuando Diego lo aprueba pasa a `main` con un **pull request** (`gh pr create` + `gh pr merge --admin`: la protección de `main` pide revisión y no se aplica a administradores). El gancho `pre-push` no deja empujar a `main` ni a `feat/angel|fabian|diego`. Las ramas de trabajo salen de `staging`.
+
+| | Producción | Pruebas |
+|---|---|---|
+| Web | https://360crm.tech/crm | https://360crm.tech/testeo |
+| Rama | `main` | `staging` |
+| Backend | `/opt/crm/production` · PM2 `crm-api-production` :3001 | `/opt/crm/staging` · PM2 `crm-api-staging` :3002 |
+| Frontal | `/var/www/crm/production/frontend` · `npm run build` | `/var/www/crm/staging/frontend` · `npm run build -- --mode staging` |
+| Base | `crm_prod_db` | `crm_test_db` |
+
+VPS `187.124.128.126`. PM2 corre como el usuario **claude** (`export PATH=~/.nvm/versions/node/v24.14.1/bin:$PATH; pm2 …`), no como root.
+
+**Subir el backend.** El código sale de la rama (`git archive <rama> backend/src …`), nunca de ficheros sueltos copiados a mano: así se perdió una vez una función. Antes de reiniciar se carga la app entera sin escuchar (`NODE_ENV=test node --env-file=.env -e "import('./src/app.js')"`); `node --check` no basta. Luego `pm2 restart` y `/api/health`.
+**Subir el frontal.** Comprobar en `dist/index.html` que las rutas son las del entorno (`/crm/` o `/testeo/`): un build del otro entorno deja la web en blanco con un 200. Se guarda copia de la carpeta anterior.
+**Migraciones.** Como `postgres` (`sudo -u postgres psql -v ON_ERROR_STOP=1`), con su bloque de GRANT a `crm_user`, y comprobando el catálogo después (un aviso sin «ERROR» ha dado por aplicada alguna que no lo estaba). Si la columna es un ENUM, hay que ampliar el tipo, no solo el CHECK.
+**Copias.** Antes de una subida grande: `pg_dump -Fc`, tar del backend y del frontal en `/var/backups/crm/`.
+
+**Interruptores del `.env` de producción** (29/09): `NOVEDADES_AUTO=1` (manda las Novedades de una versión nueva al arrancar, una sola vez) · `FEEDBACK_DIA7_INICIO=2026-09-29` (el correo del 7.º día solo para primeros contactos desde ese día) · `PASO_VENCIDO_DISABLED=1` (el trabajo de las 3:00 apagado) · correos del equipo encendidos (sin `RESUMEN_DISABLED` ni `REPORTE_SEMANAL_DISABLED`) · `LEAD_SIN_TOCAR_DISABLED=1`. En pruebas, `EMAIL_LISTA_BLANCA` frena los correos a todo el que no esté en la lista.
+**Frontal:** `VITE_BETA_MODE=true` en producción (lo que no está en `BETA_ROUTES` sale como «Próximamente»); `VITE_FACTURACION_V2` solo en pruebas (la emisión automática de facturas no va a producción).
+**Paridad:** ISEIE (https://crm.iseie.com, repo `CRM-ISEIE`) tiene las mismas funciones; los módulos se copian, la navegación no (ISEIE usa `/leads` donde aquí es `/prospectos`).
+
+## Versión 2.0.0 (en producción desde el 29/09/2026)
+
+Lo nuevo, con un botón para ir a cada pantalla, está dentro del CRM en **Novedades** (`backend/src/modules/novedades/versiones.js`) y en la release `v2.0.0` de GitHub. En corto:
+
+- **Proceso comercial**: la cola del día (por tramos: atrasados, hoy, mañana, semana), los pasos en la ficha, el seguimiento de fin de mes y el filtro por paso en Prospectos. Desde el 29/09 un contacto solo cierra **el paso que toca**, en su día y uno por día (`shared/utils/pasoCerrado.js`).
+- **Feedback de quien no compra**: correo con la marca de cada campus al descartar y al 7.º día, encuesta de seis preguntas (con comentarios), panel en Análisis → Feedback y su parte en Reportes.
+- **Novedades**: aviso en la campana, correo con PDF al equipo y el apartado para leerlas.
+- **Correos del equipo**: resumen de la tarde por empresa, «Tu día y lo de mañana» y los de los lunes.
+- **Claude por MCP** (#173, Diana): Conexión → MCP da una URL para consultar el CRM desde Claude, solo lectura y con el alcance de cada persona. **Conectores** (Captación) pueden ser de un campus, de una empresa o de todo el sistema, y el tipo «Claude (MCP)» saca una URL limitada a ese alcance.
+- **Ventas y facturación**: venta sin gestora, número de factura al registrar, ventas compartidas, IVA incluido por defecto, avisos de huecos en la numeración.
+- **Marca de cada campus** en correos y formularios (logo, color, fondo de cabecera, remitente y su cuenta de Brevo, editables desde el panel).
 
 ---
 
@@ -161,11 +189,54 @@ Fuente de verdad del esquema. Cada archivo en `backend/migrations/` es un SQL ej
 | 139 | 139_banco_de_mensajes.sql | Los indices que necesita el banco de mensajes, que recorre todo por fecha en vez de un hilo (#101). |
 | 140 | 140_tipos_de_proyecto.sql | Los tipos de proyecto que faltaban: educacion, ecommerce, servicios, inmobiliaria (#15). Sin ella el CRM no se rompe: los tipos nuevos salen como no disponibles y elegir uno contesta 409 diciendo que falta esta migracion. |
 | 141 | 141_columnas_por_entidad.sql | `client_columns` y `product_columns` en `projects`: la pestaña Columnas servia solo para prospectos (#8). Sin ella la pestaña sigue funcionando para leads y las otras dos salen deshabilitadas. |
+| 142 | 142_plazas_y_cierre.sql | #86 · Plazas y cierre de convocatoria en el catalogo. |
+| 143 | 143_pasos_comerciales.sql | #87 · Los cinco pasos del proceso comercial, en la base y editables. |
 | 144 | 144_registro_tareas.sql | El diario de las tareas programadas, para la pantalla de registro (#111). Sin ella el registro funciona igual: la fuente «Tareas» sale tachada y la pantalla avisa de que falta esta migracion, en vez de enseñar cinco fuentes como si fueran seis. |
+| 145 | 145_gasto_de_ia.sql | Lo que cuesta la IA, apuntado (#30, y sobre todo #22) |
+| 146 | 146_agenda_del_lead.sql | La agenda de cada prospecto: qué paso del proceso le toca y qué día. |
+| 147 | 147_convocatorias.sql | Las convocatorias, y a quién se le ofrecieron (#86). |
+| 148 | 148_proyecto_de_pruebas.sql | Un proyecto marcado como DE PRUEBAS, para trastear en producción sin |
+| 149 | 149_busqueda_de_tutor.sql | Si se está buscando tutor para una formación, y con qué anuncio. |
+| 150 | 150_ventas_compartidas.sql | Una venta, dos gestoras: repartir el mérito sin descuadrar los totales. |
+| 151 | 151_plantillas_proceso_comercial.sql | Las plantillas del proceso comercial, cargadas de verdad. |
+| 152 | 152_plantillas_dia4_y_opiniones.sql | El dia 4 donde no hay CETLAT, y el enlace real de opiniones. |
+| 153 | 153_plantilla_pide_adjunto.sql | Plantillas que llevan una imagen detrás. |
+| 154 | 154_plazas_solo_aviso.sql | Las plazas NO las lleva el CRM: solo avisa de que hay que mirarlas. |
+| 155 | 155_revision_de_la_base.sql | Que quede apuntado que una ficha se reviso (#132) |
+| 156 | 156_estados_comision_tutor.sql | Los estados de la comision del tutor: dos mas. |
+| 157 | 157_entregables_del_tutor.sql | Que ha entregado cada tutor de cada formacion. |
+| 158 | 158_numerar_al_convertir.sql | Quien puede poner el numero de factura EN EL MOMENTO de registrar la venta. |
+| 160 | 160_avisar_al_tutor.sql | «Avisar tutor»: el correo mensual de comisiones que pidio Diego el 14/09. |
+| 161 | 161_datos_de_cedia.sql | Los datos fiscales de CEDIA, que estaban sin rellenar. |
+| 162 | 162_factura_no_requerida.sql | La columna `conversions.factura_no_requerida`, que nunca tuvo migración. |
+| 163 | 163_estados_de_la_comision.sql | Los estados de la comisión del tutor. Diego, 14/09: |
+| 164 | 164_huecos_de_las_plantillas.sql | Las plantillas de correo del proceso comercial no rellenaban ni un hueco. |
+| 165 | 165_datos_de_ictess.sql | Los datos fiscales de ICTESS, que seguia con el marcador. |
+| 166 | 166_cuerpo_de_los_correos.sql | Guardar el correo, no solo que se mandó. Primera parte del #146. |
 | 167 | 167_usa_whatsapp.sql | La casilla «usa el WhatsApp del CRM», por persona (#128). Nace encendida para quien ya tiene conversaciones y apagada para el resto. Sin ella el CRM se queda EXACTAMENTE como hoy —sale todo el que puede por su rol— y la casilla de la ficha aparece sin poder tocarse, diciendo que falta esta migracion. |
 | 168 | 168_etiquetas_de_whatsapp.sql | Las etiquetas de WhatsApp de cada gestora y en que chats estan puestas (#128, #138). Sin ella no se guarda ninguna: la lista de chats no enseña etiquetas, el boton de la cabecera no se pinta y los avisos de WhatsApp se descartan sin error. Nada mas deja de funcionar. |
 | 169 | 169_etiquetas_pendientes.sql | Las etiquetas que llegan ANTES que su conversacion (#138). Al enlazar, WhatsApp manda las etiquetas antes que el historial: sin esta tabla se tiraban y no hay forma de recuperarlas —Evolution guarda las de cada chat pero no las devuelve por ningun endpoint—. Con una cuenta Business eso perdia la clasificacion entera de la gestora, en silencio. Sin ella, todo lo demas de etiquetas funciona: solo se pierde lo que llegue antes de tiempo. |
 | 170 | 170_lid_de_la_conversacion.sql | La otra llave de cada conversacion: el `@lid` si se guardo por telefono, o el telefono si se guardo por `@lid` (#138). WhatsApp direcciona cada vez mas por `@lid` y los avisos de etiquetas usan el que tengan a mano: sin esto una etiqueta puesta desde el movil no encuentra su chat. Ademas el puente traduce el `@lid` y Evolution no, asi que sin ella el resultado cambia entre local y produccion. Sin aplicarla, esas etiquetas se quedan esperando en la 169 en vez de perderse. |
+| 171 | 171_correo_recibido.sql | El correo que ENTRA. Segunda mitad del #146. |
+| 171 | 171_hora_de_sincronizacion.sql | La hora a la que sincroniza cada proyecto su catalogo. |
+| 172 | 172_plantilla_por_paso.sql | Cada plantilla, atada a su paso del proceso comercial. |
+| 173 | 173_correo_por_paso.sql | El correo de cada paso, atado al paso (la otra mitad del #88). |
+| 174 | 174_roles_adicionales.sql | Un usuario puede tener MAS DE UN ROL. |
+| 175 | 175_paso_hecho_a_mano.sql | Marcar un paso a mano, y que el estado del prospecto lo siga |
+| 176 | 176_feedback.sql | El correo de «¿por qué has desistido?» y lo que contesta cada uno |
+| 177 | 177_remitente_no_contestar.sql | El remitente «no contestar» de cada campus |
+| 178 | 178_feedback_respuestas.sql | La encuesta de feedback, con todas sus preguntas |
+| 179 | 179_remitentes_campus.sql | El «no responder» de cada campus, para el correo de feedback |
+| 180 | 180_cabecera_de_marca.sql | El fondo de la cabecera de cada marca, en correos y formularios |
+| 181 | 181_novedades.sql | Las novedades de cada versión: cuándo y a quién se mandaron |
+| 182 | 182_mcp_acceso.sql | Conexion de Claude al CRM por MCP (Model Context Protocol). |
+| 183 | 183_conectores_alcance.sql | Conectores de un campus, de una EMPRESA o de TODO el sistema. |
+| 184 | 184_mcp_por_conector.sql | Un token del MCP de Claude puede nacer de un CONECTOR. |
+
+> **Comprobado el 29/09/2026 contra el catálogo de producción** (no contra la
+> salida de ningún comando): aplicadas todas las de esta lista hasta la **184**.
+> Las de la 2.0.0 se aplicaron ese día (160, 164, 166, 171 correo recibido y 175–184).
+
 
 > **Comprobado el 04/09/2026 contra el catalogo de las dos bases**, no contra la
 > salida de ningun comando: un `sudo` que pide contraseña devuelve un aviso sin
