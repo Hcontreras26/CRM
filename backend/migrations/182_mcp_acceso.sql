@@ -63,4 +63,17 @@ CREATE TABLE IF NOT EXISTS mcp_auditoria (
 
 CREATE INDEX IF NOT EXISTS idx_mcp_auditoria_user_fecha ON mcp_auditoria(user_id, created_at DESC);
 
+-- Permisos para el usuario de la aplicacion: la migracion la corre postgres y,
+-- sin esto, la API no podria leer ni escribir las tablas nuevas.
+DO $$
+DECLARE r text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['crm_user', 'crm_iseie_user'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON mcp_tokens, mcp_auditoria TO %I', r);
+      EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE mcp_tokens_id_seq, mcp_auditoria_id_seq TO %I', r);
+    END IF;
+  END LOOP;
+END $$;
+
 COMMIT;
