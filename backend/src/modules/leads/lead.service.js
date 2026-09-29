@@ -5,10 +5,11 @@ import { query } from '../../shared/config/db.js';
 import { sendLeadAssignedEmail } from '../../shared/services/brevo.service.js';
 import { logger } from '../../shared/utils/logger.js';
 import { normalizePhone } from '../../shared/utils/normalizePhone.js';
-import { notifyAdmins } from '../notifications/notifications.service.js';
+import { notifyAdmins, notifyUsers } from '../notifications/notifications.service.js';
 import * as dupQueue from './dup-queue.service.js';
 import * as leadProducts from './lead-products.service.js';
 import { planificarPasosDeLead } from '../proceso/proceso.model.js';
+import { avanzarPorContacto } from '../../shared/services/estado-prospecto.service.js';
 
 // Dispara secuencias de email activas que tengan el trigger indicado
 async function triggerSequences(triggerEvent, leadId, projectId) {
@@ -191,6 +192,14 @@ async function _createLeadCore(project, leadData) {
     duplicate.producto_interes_id === productoInteresId
   );
 
+  // Canal: override de Make > deteccion automatica por UTMs.
+  //
+  // Se declara AQUI y no mas abajo porque el burst-merge de justo debajo lo
+  // devuelve, y `const` no se puede leer antes de su linea: daba
+  // `ReferenceError: Cannot access 'canalDetectado' before initialization`, o
+  // sea un 500 cada vez que entraba esa rama.
+  const canalDetectado = leadData.canal || detectChannel(leadData.utm_source, leadData.utm_medium);
+
   // Burst-merge: si el MISMO email/tel pide el MISMO producto en una ventana
   // corta (default 2min), no creamos un lead nuevo — sumamos una interacción
   // al lead original. Esto agrupa los rebotes de Make / form duplicados y
@@ -230,9 +239,6 @@ async function _createLeadCore(project, leadData) {
     converted.producto_interes_id !== productoInteresId
   );
   const propuestoDe = esPropuesto ? converted.id : null;
-
-  // Canal: override de Make > deteccion automatica por UTMs
-  const canalDetectado = leadData.canal || detectChannel(leadData.utm_source, leadData.utm_medium);
 
   // Si es spam recurrente, no malgastamos un slot del round-robin.
   // Forzamos responsable null pasandolo como flag y luego lo soft-deleteamos.
@@ -300,6 +306,28 @@ async function _createLeadCore(project, leadData) {
     await planificarPasosDeLead(lead.id);
   } catch (err) {
     logger.warn({ err: err.message, leadId: lead.id }, 'No se pudo planificar la agenda del prospecto');
+  }
+
+  // AVISAR A QUIEN LE HA TOCADO (#111).
+  //
+  // «Es el aviso que mas falta hace y hoy no existe: la gestora se entera si
+  // mira el listado.» El reparto es automatico, asi que sin esto una ficha
+  // nueva aparece en su cartera sin que nadie se lo diga.
+  //
+  // Va a ELLA, no a los admin: es su prospecto. Y no duplica ningun correo —
+  // hoy no se manda ninguno al asignar.
+  //
+  // Sin responsable no hay a quien avisar: pasa cuando el reparto esta apagado
+  // o no hay gestoras en el proyecto, y de eso ya avisa el panel de la cola.
+  if (lead.responsable_id) {
+    notifyUsers({
+      targetUserIds: [lead.responsable_id],
+      type: 'lead_asignado',
+      title: `Nuevo prospecto: ${lead.nombre || 'sin nombre'}`,
+      message: canalDetectado ? `Entro por ${canalDetectado}.` : 'Te lo ha asignado el reparto automatico.',
+      link_path: `/prospectos/${lead.id}`,
+      metadata: { lead_id: lead.id, project_id: project.id },
+    }).catch(() => {});
   }
 
   // Disparar email sequences con trigger lead_created (async)
@@ -394,7 +422,16 @@ export async function softDelete(leadId, { reason, motivo, userId }) {
     type: 'lead_deleted',
     title: `Lead #${leadId} eliminado`,
     message: `${leadInfo.nombre || '—'} (${leadInfo.email || leadInfo.telefono || '—'}) — motivo: ${reason}${motivo ? ' · ' + motivo : ''}`,
-    link_path: `/prospectos/papelera`,
+    // A la ficha, no a `/prospectos/papelera`: esa ruta NO existe en el
+    // router. Y como `/prospectos/:id` si existe, el aviso no daba un 404
+    // honesto — abria una ficha con el id «papelera», o sea una pantalla rota.
+    //
+    // Va a la ficha porque el `findById` de ESTE repositorio no filtra por
+    // `deleted_at` y el borrado se ve. Al portarlo hay que mirarlo: en ISEIE
+    // hace `if (!r || r.deleted_at) return null`, asi que alli este mismo
+    // enlace daria una pantalla vacia y toca apuntar a su pantalla de
+    // archivados.
+    link_path: `/prospectos/${leadId}`,
     metadata: { lead_id: leadId, reason, motivo, project_id: leadInfo.project_id },
     triggered_by_user_id: userId || null,
   });
@@ -487,7 +524,7 @@ export async function getTodaySummary(ctx) {
 // OPERACIONES
 // ============================================================
 
-export async function changeStatus(leadId, newStatus, motivo, userId) {
+export async function changeStatus(leadId, newStatus, motivo, userId, opts = {}) {
   const lead = await leadModel.findById(leadId);
   if (!lead) throw new AppError('Lead no encontrado', 404, 'LEAD_NOT_FOUND');
   if (lead.status === newStatus) throw new AppError('El lead ya tiene ese status', 400, 'SAME_STATUS');
@@ -507,6 +544,20 @@ export async function changeStatus(leadId, newStatus, motivo, userId) {
   // Disparar email sequences con trigger status_changed (async)
   triggerSequences('status_changed', leadId, lead.project_id);
 
+  // «¿POR QUE HAS DESISTIDO?» (#169): al pasar a no interesado a mano o al
+  // descartarlo del repaso. Sin esperarlo --el correo no puede retrasar el
+  // cambio de estado-- y sin que un fallo del correo lo tumbe. Una vez por
+  // persona: si ya se le pregunto, no hace nada.
+  //
+  // Solo desde aqui, el cambio de UNO en UNO. Las acciones en bloque no pasan
+  // por esta funcion, y es a proposito: marcar 500 como no interesados no
+  // puede disparar 500 correos sin que nadie lo haya pedido.
+  if (newStatus === 'no_interesado' && opts.feedback !== 'no') {
+    import('../feedback/feedback.service.js')
+      .then((f) => f.pedirFeedback(leadId, 'descarte', { userId, revisar: opts.feedback === 'revisar' }))
+      .catch((err) => logger.warn({ err: err.message, leadId }, 'feedback: no se pudo pedir al descartar'));
+  }
+
   return { previous: lead.status, current: newStatus };
 }
 
@@ -514,7 +565,21 @@ export async function addInteraction(leadId, tipo, nota, userId, fecha) {
   const lead = await leadModel.findById(leadId);
   if (!lead) throw new AppError('Lead no encontrado', 404, 'LEAD_NOT_FOUND');
 
-  return await leadModel.createInteraction(leadId, tipo, nota, userId, fecha);
+  const interaccion = await leadModel.createInteraction(leadId, tipo, nota, userId, fecha);
+
+  // Apuntar un contacto ES contactar: hasta ahora la etiqueta habia que moverla
+  // ademas a mano, y por eso en la cola hay gente marcada «Contactado» con cero
+  // contactos hechos y gente al reves. Una nota interna no cuenta: no se ha
+  // hablado con nadie.
+  //
+  // Si falla, la interaccion se queda igualmente. Perder el apunte por no poder
+  // mover una etiqueta seria cambiar un problema pequeño por uno grande.
+  if (tipo !== 'nota') {
+    avanzarPorContacto(leadId, userId).catch((err) =>
+      logger.warn({ err: err.message, leadId }, 'No se pudo mover el estado tras el contacto'));
+  }
+
+  return interaccion;
 }
 
 // Edición de una interacción existente. Gestor solo puede editar las suyas;
@@ -588,6 +653,37 @@ export async function reassign(leadId, newResponsableId, userId) {
     const newName = byId[newResponsableId] || `gestor #${newResponsableId}`;
     const actorName = byId[userId] || 'sistema';
     await leadModel.createInteraction(leadId, 'nota', `👤 Reasignado de ${prevName} a ${newName} por ${actorName}.`, userId, null);
+
+    // A LAS DOS PARTES (#111): «a quien lo recibe y a quien lo pierde».
+    //
+    // Hoy no se avisa a nadie: la ficha cambia de bandeja en silencio. Quien lo
+    // recibe no sabe que tiene trabajo nuevo, y quien lo pierde puede seguir
+    // llamando a alguien que ya no lleva.
+    //
+    // Dos avisos y no uno con los dos destinatarios: dicen cosas distintas.
+    notifyUsers({
+      targetUserIds: [newResponsableId],
+      type: 'lead_reasignado',
+      title: `Te han pasado un prospecto: ${lead.nombre || 'sin nombre'}`,
+      message: `${actorName} te lo asigno (antes lo llevaba ${prevName}).`,
+      link_path: `/prospectos/${leadId}`,
+      metadata: { lead_id: leadId },
+      triggered_by_user_id: userId,
+    }).catch(() => {});
+
+    // A quien lo pierde, solo si habia alguien y no es quien hizo el cambio:
+    // avisar a una persona de algo que acaba de hacer ella es ruido.
+    if (prevResponsableId && prevResponsableId !== userId) {
+      notifyUsers({
+        targetUserIds: [prevResponsableId],
+        type: 'lead_reasignado',
+        title: `Ya no llevas a ${lead.nombre || 'un prospecto'}`,
+        message: `${actorName} se lo paso a ${newName}.`,
+        link_path: `/prospectos/${leadId}`,
+        metadata: { lead_id: leadId },
+        triggered_by_user_id: userId,
+      }).catch(() => {});
+    }
   } catch (err) {
     logger.warn({ err: err.message, leadId }, 'No se pudo registrar interaction de reasignación (no crítico)');
   }
@@ -783,11 +879,50 @@ export async function createManualLead({ project_id, nombre, email, telefono, wh
   // Si el creador es gestor/admin (no superadmin/soporte), el lead se le asigna
   // a el/ella aunque venga por formulario manual — el round-robin avanza igual,
   // asi que la siguiente asignacion automatica no le vuelve a tocar.
+  // Un lead que entra por WhatsApp no es un lead repartido: es una conversacion
+  // que ya llego a alguien. Se queda con quien la atiende y NO mueve la rueda,
+  // asi que el reparto de los formularios sigue su orden intacto.
+  //
+  // Diego, 18/09: «si llega por whatsapp no afecta el robin lead».
+  //
+  // Antes se avanzaba el puntero una posicion sin asignar a nadie, con la idea
+  // de que a quien se quedaba el lead no le tocara otro enseguida. Pero el
+  // puntero no apunta a ella, apunta a la SIGUIENTE: el turno saltado se lo
+  // comia una tercera, que perdia un lead de formulario sin haber recibido
+  // nada a cambio. Con 176 leads de WhatsApp en 30 dias, eran 176 turnos
+  // saltados a personas que no tenian nada que ver.
+  //
+  // Esto vale mientras reparta el CRM. Cuando Make decida, manda el
+  // responsable en el webhook y este camino ni se usa.
   let forcedResponsableId = null;
-  let advanceRoundRobin = false;
+  const advanceRoundRobin = false;
   if (creatorUser && (creatorUser.role === 'gestor' || creatorUser.role === 'admin')) {
     forcedResponsableId = creatorUser.userId;
-    advanceRoundRobin = true;
+  }
+
+  // SIN DUENO, A PROPOSITO (venta sin gestora).
+  //
+  // No es lo mismo que no pasarle creador: sin creador el round-robin le
+  // encaja el lead a la gestora que toque, y esa persona no ha vendido nada.
+  // Aqui se pide expresamente que no sea de nadie, asi que tampoco se avanza
+  // la cola: el siguiente lead de verdad le toca a quien le tocaba.
+  //
+  // `advanceRoundRobin` ya es `false` siempre, y es `const` desde el 18/09:
+  // reasignarlo aqui tiraba «Assignment to constant variable» y rompia TODA
+  // venta sin gestora con cliente nuevo. Ana, 28/09, refs 6TY103 y CDC8R9.
+  if (opts.sinResponsable) {
+    forcedResponsableId = null;
+  }
+
+  // SIN DUENO, A PROPOSITO (venta sin gestora).
+  //
+  // No es lo mismo que no pasarle creador: sin creador el round-robin le
+  // encaja el lead a la gestora que toque, y esa persona no ha vendido nada.
+  // Aqui se pide expresamente que no sea de nadie, asi que tampoco se avanza
+  // la cola: el siguiente lead de verdad le toca a quien le tocaba.
+  if (opts.sinResponsable) {
+    forcedResponsableId = null;
+    advanceRoundRobin = false;
   }
 
   const lead = await leadModel.createLeadWithRoundRobin({
@@ -804,6 +939,7 @@ export async function createManualLead({ project_id, nombre, email, telefono, wh
     esPropuesto,
     propuestoDe,
     forcedResponsableId,
+    skipRoundRobin: Boolean(opts.sinResponsable),
     advanceRoundRobinAnyway: advanceRoundRobin,
     utms: {
       utm_source: null,
@@ -845,6 +981,27 @@ export async function createManualLead({ project_id, nombre, email, telefono, wh
     } catch (err) {
       logger.warn({ err: err.message, leadId: lead.id, duplicadoDe }, 'No se pudo registrar interaction de duplicado (no crítico)');
     }
+  }
+
+  // LA AGENDA DEL PROCESO, TAMBIEN AQUI.
+  //
+  // Esto faltaba, y se notaba en todo: un prospecto dado de alta desde el boton
+  // «Nuevo prospecto» --o por carga masiva, que pasa por aqui-- se quedaba SIN
+  // agenda. Sin agenda no sale en la cola del dia, la pestaña «Proceso» esta
+  // vacia y Recordatorios dice que no hay nada. Solo la montaba el camino del
+  // webhook (`_createLeadCore`), asi que el proceso comercial funcionaba con
+  // los leads que entraban solos y no con los que damos de alta nosotros.
+  //
+  // Diego, 23/09: «sigo registrando un prospecto y aun no pasa eso».
+  //
+  // Se AWAITA y va envuelto, igual que en el otro camino: son cuatro filas de
+  // una consulta, pero que falle la agenda NO puede tumbar el alta. Sin agenda
+  // se puede trabajar --se replanifica--; sin lead, no.
+  try {
+    await planificarPasosDeLead(lead.id);
+  } catch (err) {
+    logger.warn({ err: err.message, leadId: lead.id },
+      'No se pudo planificar la agenda del prospecto (alta manual)');
   }
 
   return {

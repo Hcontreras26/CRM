@@ -27,12 +27,13 @@ export async function yaSeEnvio(clave) {
 }
 
 /** Anota el intento, saliera o no. */
-export async function registrar({ clave, destinatarios, asunto, etiquetas, projectId, estado, intentos, brevoMsgId, error }) {
+export async function registrar({ clave, destinatarios, asunto, etiquetas, projectId, estado, intentos, brevoMsgId, error, cuerpoHtml, remitente }) {
   try {
     await query(
       `INSERT INTO email_envios
-         (clave, destinatarios, asunto, etiquetas, project_id, estado, intentos, brevo_msg_id, error)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (clave, destinatarios, asunto, etiquetas, project_id, estado, intentos, brevo_msg_id, error,
+          cuerpo_html, remitente)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (clave) WHERE clave IS NOT NULL DO NOTHING`,
       [clave || null, destinatarios, (asunto || '').slice(0, 500),
        Array.isArray(etiquetas) && etiquetas.length ? etiquetas : null,
@@ -42,7 +43,12 @@ export async function registrar({ clave, destinatarios, asunto, etiquetas, proje
          // hace creer que Brevo lo rechazo cuando ni se le pregunto.
          intentos ?? 1,
          brevoMsgId || null,
-       error ? String(error).slice(0, 2000) : null]
+       error ? String(error).slice(0, 2000) : null,
+       // El correo entero, tal y como salio. Sin recortar: recortarlo lo
+       // convierte en un resumen, y un resumen no contesta «¿que leyo esta
+       // persona?», que es para lo unico que se guarda.
+       cuerpoHtml || null,
+       remitente || null]
     );
   } catch (err) {
     logger.warn({ err: err.message, destinatarios, asunto }, 'Registro de correo: no se pudo anotar');

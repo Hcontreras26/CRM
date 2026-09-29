@@ -1,5 +1,45 @@
 import bcrypt from 'bcrypt';
 import { query, getClient } from '../../shared/config/db.js';
+import { AppError } from '../../shared/utils/AppError.js';
+
+/**
+ * Lo que todavia se le debe a un tutor.
+ *
+ * Se dice por lo que NO es, y a proposito. Los estados que significan «sigue sin
+ * cobrar» son ya tres —`pendiente`, `notificada`, `falta_factura`— y el dia que
+ * se añada un cuarto, esto lo cuenta solo. Listandolos, habria que acordarse de
+ * venir aqui, y no se acuerda nadie: avisar a un tutor lo sacaria de «Por
+ * pagar» y la pantalla diria que no se le debe nada.
+ *
+ * Pagada y revertida son las dos unicas que sacan el dinero de la cuenta.
+ */
+export const SE_LE_DEBE = "estado NOT IN ('pagada', 'revertida')";
+
+/** Los estados por los que se puede filtrar y a los que se puede cambiar. */
+export const ESTADOS_COMISION = ['pendiente', 'notificada', 'falta_factura', 'pagada', 'revertida'];
+
+
+/*
+  QUE UN CURSO TENGA TUTOR HOY.
+
+  No basta con la casilla `activa`: una colaboracion puede estar marcada activa
+  y su vigencia haber terminado, y entonces ese curso no lo lleva nadie aunque
+  la fila siga ahi. Al reves tambien: un tramo que empieza el mes que viene no
+  deberia tapar el curso desde hoy.
+
+  La regla estaba escrita en la lista de colaboraciones --como `rige_hoy`-- pero
+  «Formaciones sin tutor» solo miraba `activa`, asi que un curso cuya
+  colaboracion caducaba no volvia nunca al panel. Carlos, 17/09: «si se quita un
+  tutor de colaboracion de un curso, ese curso vuelve a estar disponible y por
+  tanto debe de volver al panel de cursos sin tutor».
+
+  Vive aqui una sola vez. `alias` es como se llame la tabla en cada consulta.
+*/
+export const RIGE_HOY = (alias = 'c') => `(
+  ${alias}.activa
+  AND ${alias}.vigente_desde <= CURRENT_DATE
+  AND (${alias}.vigente_hasta IS NULL OR ${alias}.vigente_hasta >= CURRENT_DATE)
+)`;
 
 // Tutores y colaboraciones.
 //
@@ -179,10 +219,8 @@ export async function colaboraciones({ tutorId, productId, soloActivas = false }
             p.project_id, pr.nombre AS proyecto,
             -- Una colaboracion puede estar marcada activa y aun asi no regir
             -- hoy, si su vigencia ya termino. Se dice por separado para que la
-            -- pantalla no tenga que recalcularlo.
-            (c.activa
-             AND c.vigente_desde <= CURRENT_DATE
-             AND (c.vigente_hasta IS NULL OR c.vigente_hasta >= CURRENT_DATE)) AS rige_hoy
+            -- pantalla no tenga que recalcularlo. La regla es la de RIGE_HOY.
+            ${RIGE_HOY('c')} AS rige_hoy
        FROM tutor_collaborations c
        JOIN users u ON u.id = c.tutor_id
        JOIN products p ON p.id = c.product_id
@@ -270,8 +308,28 @@ export async function borrarColaboracion(id) {
     [id]
   );
   if (c.n > 0) {
-    await query('UPDATE tutor_collaborations SET activa = FALSE, updated_at = NOW() WHERE id = $1', [id]);
-    return { borrada: false, desactivada: true, comisiones: c.n };
+    // Diego, 17/09: «hay que poner fecha de fin / si genera debe de guardar un
+    // historial». Antes solo se apagaba la casilla: quedaba constancia de que
+    // el tutor estuvo, pero no de hasta cuando, y esa es justo la fecha que
+    // hace falta para revisar una comision. La lista de colaboraciones ya
+    // devuelve las inactivas, asi que el historial se ve sin tocar la pantalla.
+    //
+    // LEAST y no COALESCE a secas: si el tramo tenia fin en diciembre y se
+    // quita hoy, el tutor no estuvo hasta diciembre. Y si ya habia terminado
+    // antes, se respeta la fecha que tenia.
+    const { rows: [h] } = await query(
+      `UPDATE tutor_collaborations
+          SET activa = FALSE,
+              vigente_hasta = LEAST(COALESCE(vigente_hasta, CURRENT_DATE), CURRENT_DATE),
+              updated_at = NOW()
+        WHERE id = $1
+      RETURNING vigente_desde, vigente_hasta`,
+      [id]
+    );
+    return {
+      borrada: false, desactivada: true, comisiones: c.n,
+      desde: h?.vigente_desde ?? null, hasta: h?.vigente_hasta ?? null,
+    };
   }
   await query('DELETE FROM tutor_collaborations WHERE id = $1', [id]);
   return { borrada: true, desactivada: false, comisiones: 0 };
@@ -469,7 +527,11 @@ export async function resumenComisiones({ periodo = null, tutorId = null, projec
             COALESCE(SUM(tc.importe) FILTER (WHERE tc.estado NOT IN ('pagada', 'revertida')), 0) AS pendiente,
             COALESCE(SUM(tc.importe) FILTER (WHERE tc.estado = 'pagada'), 0) AS pagada,
             COALESCE(SUM(tc.importe) FILTER (WHERE tc.estado = 'revertida'), 0) AS revertida,
-            MAX(tc.fecha_liquidacion) AS ultima_liquidacion
+            MAX(tc.fecha_liquidacion) AS ultima_liquidacion,
+            -- Cuando se le mando el correo de «Avisar tutor». Va aparte del
+            -- estado a proposito: avisar no es cobrar, y una comision avisada
+            -- sigue contando en «pendiente».
+            MAX(tc.avisado_at) AS avisado_at
        FROM tutor_commissions tc
        JOIN users u ON u.id = tc.tutor_id
        -- El IBAN y el correo viajan con el resumen: pagar a un profesor
@@ -501,9 +563,10 @@ export async function liquidar({ ids = null, periodo = null, tutorId = null, use
             fecha_liquidacion = CURRENT_DATE,
             liquidada_por = $1,
             updated_at = NOW()
-      -- Se paga lo que se debe, tambien si ya se le habia avisado o si faltaba
-      -- su factura: una revertida no, y una ya pagada tampoco dos veces.
-      WHERE estado IN ('pendiente', 'notificada', 'falta_factura')
+      -- Se paga lo que se debe, tambien si ya se le habia avisado o si
+      -- faltaba su factura. Se dice por descarte a proposito: asi un
+      -- estado nuevo entra solo, sin tener que acordarse de esta linea.
+      WHERE estado NOT IN ('pagada', 'revertida')
         AND ($2::int[] IS NULL OR id = ANY($2))
         AND ($3::char(7) IS NULL OR periodo = $3)
         AND ($4::int IS NULL OR tutor_id = $4)
@@ -513,32 +576,41 @@ export async function liquidar({ ids = null, periodo = null, tutorId = null, use
   return { liquidadas: rows.length, importe: rows.reduce((s, r) => s + Number(r.importe), 0) };
 }
 
-/**
- * Mover una comision entre los estados de SEGUIMIENTO: pendiente, notificada y
- * falta_factura. Los otros dos no entran aqui a proposito:
- *
- *   `pagada` la pone `liquidar`, que ademas apunta la fecha y quien pago.
- *   `revertida` la pone `revertirComision`, que exige un motivo.
- *
- * Dejarlas pasar por aqui seria poder marcar algo como pagado sin que quede
- * rastro de quien ni cuando. Diego, 14/09.
- */
-const ESTADOS_DE_SEGUIMIENTO = ['pendiente', 'notificada', 'falta_factura'];
-
-export async function cambiarEstadoComision(id, estado) {
-  if (!ESTADOS_DE_SEGUIMIENTO.includes(estado)) return null;
-  const { rows: [c] } = await query(
-    `UPDATE tutor_commissions
-        SET estado = $2, updated_at = NOW()
-      WHERE id = $1 AND estado = ANY($3::text[])
-      RETURNING *`,
-    [id, estado, ESTADOS_DE_SEGUIMIENTO]
-  );
-  return c || null;
-}
-
 // Deshacer una liquidacion o anular una comision. Queda escrito quien y por que:
 // esto mueve dinero y no puede pasar sin dejar rastro.
+/**
+ * Mover una comision de estado a mano. Diego, 14/09: «ahi que pone pendiente
+ * deben aparecer los siguientes estados: Pendiente, Notificada, Falta Factura».
+ *
+ * Solo entre esas tres. Pagar y revertir NO pasan por aqui y es a proposito:
+ * cada una tiene su camino —`liquidarComisiones` deja fecha y quien liquido,
+ * `revertirComision` pide motivo— y dejarlas caer en un cambio de estado suelto
+ * perderia ese rastro. Es dinero: quien lo movio y por que tiene que quedar.
+ *
+ * Y una que ya esta pagada no vuelve: eso seria deshacer un pago escribiendo en
+ * una casilla.
+ */
+export async function cambiarEstadoComision(id, estado, userId) {
+  const PERMITIDOS = ['pendiente', 'notificada', 'falta_factura'];
+  if (!PERMITIDOS.includes(estado)) {
+    throw new AppError(
+      `«${estado}» no se pone a mano. Para cobrar esta «Marcar pagado», y para deshacer, revertir.`,
+      400, 'ESTADO_NO_PERMITIDO');
+  }
+  const { rows } = await query(
+    `UPDATE tutor_commissions
+        SET estado = $2, updated_at = NOW()
+      WHERE id = $1 AND estado NOT IN ('pagada', 'revertida')
+      RETURNING id, estado, periodo, tutor_id`,
+    [id, estado]);
+  if (!rows[0]) {
+    throw new AppError(
+      'Esa comision ya esta pagada o revertida: su estado no se cambia desde aqui.',
+      409, 'COMISION_CERRADA');
+  }
+  return rows[0];
+}
+
 export async function revertirComision(id, { userId, motivo }) {
   const { rows: [c] } = await query(
     `UPDATE tutor_commissions
@@ -602,7 +674,25 @@ export async function pagosSinFormacion({ desde, hasta, projectId = null, projec
  * Cuenta los pagos, no las ventas: una venta a plazos con seis cobros ya lleva
  * seis comisiones sin dueño, y eso es lo que mide el agujero de verdad.
  */
-export async function formacionesSinTutor({ projectId = null, projectIds = null } = {}) {
+/**
+ * Las formaciones que nadie tutoriza.
+ *
+ * `desdeElCorte` manda sobre lo que se enseña:
+ *
+ *   true  (por defecto) · solo las ventas desde `tutor_settings.aplica_desde`.
+ *                         Es lo de siempre y es lo correcto para el dia a dia:
+ *                         antes del corte no se genera comision, y una venta de
+ *                         febrero pudo tener tutor entonces.
+ *   false · TODAS. Diego, 23/09: veintidos cursos de ICTESS sin tutor que no
+ *           salian en la lista --de febrero a julio, o sea por debajo del
+ *           corte--. La pantalla no los escondia por error, pero quien busca
+ *           «que esta descubierto» no puede enterarse de que hay doce mas solo
+ *           mirando el codigo.
+ *
+ * Cada fila dice si su venta mas reciente es anterior al corte, para que la
+ * pantalla pueda marcarlas y no mezclar las dos cosas sin avisar.
+ */
+export async function formacionesSinTutor({ projectId = null, projectIds = null, desdeElCorte = true } = {}) {
   const { rows } = await query(
     `WITH sin_tutor AS (
      SELECT p.id, p.nombre, p.precio, pr.nombre AS proyecto, p.project_id,
@@ -611,15 +701,23 @@ export async function formacionesSinTutor({ projectId = null, projectIds = null 
             count(cp.id)::int           AS pagos,
             COALESCE(sum(cp.importe), 0) AS cobrado,
             min(cp.fecha) AS primer_cobro,
-            max(cp.fecha) AS ultimo_cobro
+            max(cp.fecha) AS ultimo_cobro,
+            max(cv.fecha_conversion) AS ultima_venta,
+            -- Si su venta mas reciente es anterior al corte. Sirve para que la
+            -- pantalla las marque en vez de mezclarlas con las de ahora.
+            (max(cv.fecha_conversion) < min(s.aplica_desde)) AS antes_del_corte,
+            min(s.aplica_desde) AS corte
        FROM products p
        JOIN conversions cv ON cv.producto_contratado_id = p.id
        JOIN conversion_payments cp ON cp.conversion_id = cv.id
        LEFT JOIN projects pr ON pr.id = p.project_id
        CROSS JOIN tutor_settings s
       WHERE NOT EXISTS (
+              -- Con la vigencia, no solo con la casilla: un curso cuya
+              -- colaboracion ya caduco no lo lleva nadie y tiene que volver
+              -- aqui. Ver RIGE_HOY arriba.
               SELECT 1 FROM tutor_collaborations tc
-               WHERE tc.product_id = p.id AND tc.activa
+               WHERE tc.product_id = p.id AND ${RIGE_HOY('tc')}
             )
         -- El corte va sobre la fecha de la VENTA, no la del cobro.
         --
@@ -636,7 +734,7 @@ export async function formacionesSinTutor({ projectId = null, projectIds = null 
         -- Antes del corte tampoco se genera comision, y una venta de abril pudo
         -- tener tutor entonces y no tenerlo ahora: sacarla aqui seria acusar de
         -- un agujero que no existe.
-        AND cv.fecha_conversion >= s.aplica_desde
+        ${desdeElCorte ? 'AND cv.fecha_conversion >= s.aplica_desde' : ''}
         AND ($2::int[] IS NOT NULL AND p.project_id = ANY($2::int[])
              OR $2::int[] IS NULL AND ($1::int IS NULL OR p.project_id = $1))
       GROUP BY p.id, p.nombre, p.precio, pr.nombre, p.project_id
@@ -901,12 +999,14 @@ export async function retirarTutor(tutorId) {
     const { rowCount } = await client.query(
       `UPDATE tutor_collaborations
           SET activa = false,
-              vigente_hasta = COALESCE(vigente_hasta, CURRENT_DATE),
+              -- Mismo criterio que borrarColaboracion: el tramo se cierra hoy,
+              -- no en la fecha futura que tuviera puesta.
+              vigente_hasta = LEAST(COALESCE(vigente_hasta, CURRENT_DATE), CURRENT_DATE),
               updated_at = NOW()
         WHERE tutor_id = $1 AND activa`, [tutorId]);
     const { rows: [pend] } = await client.query(
       `SELECT COALESCE(SUM(importe), 0) AS pendiente
-         FROM tutor_commissions WHERE tutor_id = $1 AND estado = 'pendiente'`, [tutorId]);
+         FROM tutor_commissions WHERE tutor_id = $1 AND estado NOT IN ('pagada', 'revertida')`, [tutorId]);
     await client.query('COMMIT');
     return { ...t, cursosCerrados: rowCount, pendienteDePagar: Number(pend.pendiente) };
   } catch (e) {

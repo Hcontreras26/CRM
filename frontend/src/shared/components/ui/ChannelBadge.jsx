@@ -12,18 +12,17 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/shared/lib/utils';
 
-const CHANNEL_STYLES = {
-  meta_ads: 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400',
-  google_ads: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-500',
-  tiktok_ads: 'bg-pink-50 text-pink-600 dark:bg-pink-950/30 dark:text-pink-400',
-  organico: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400',
-  chatgpt_ia: 'bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400',
-  directo: 'bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400',
-  referido: 'bg-teal-50 text-teal-600 dark:bg-teal-950/30 dark:text-teal-400',
-  web: 'bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400',
-  whatsapp: 'bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400',
-  otro: 'bg-slate-50 text-slate-600 dark:bg-slate-800/30 dark:text-slate-400',
-};
+/**
+ * De donde vino el prospecto.
+ *
+ * Eran diez colores de marca —azul de Meta, amarillo de Google, rosa de TikTok,
+ * verde de WhatsApp...— uno por canal. En una tabla de veinte filas eso es un
+ * arcoiris: la columna que mas grita es la que menos hay que mirar.
+ *
+ * Ahora la etiqueta es neutra y quien identifica el canal es el icono, que ya
+ * ES el logotipo de la marca. Se reconoce igual de rapido y deja de competir
+ * con el estado, que si tiene color porque si quiere decir algo.
+ */
 
 export const CHANNEL_LABELS = {
   meta_ads: 'Meta Ads',
@@ -56,7 +55,6 @@ const CHANNEL_ICONS = {
  */
 export default function ChannelBadge({ channel, showIcon = true, className = '' }) {
   const key = channel || 'otro';
-  const style = CHANNEL_STYLES[key] || CHANNEL_STYLES.otro;
   const label = CHANNEL_LABELS[key] || key;
   const Icon = CHANNEL_ICONS[key] || DotsThree;
 
@@ -64,7 +62,7 @@ export default function ChannelBadge({ channel, showIcon = true, className = '' 
     <span
       className={cn(
         'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium',
-        style,
+        'bg-muted text-muted-foreground',
         className,
       )}
     >

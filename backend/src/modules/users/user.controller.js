@@ -64,6 +64,16 @@ export async function update(req, res, next) {
       wa.alPerderAcceso(id, `cambio de rol: ${antes.role} -> ${user.role}`).catch(() => {});
     }
 
+    // La casilla de WhatsApp (#128) se recuerda medio minuto para no preguntarla
+    // en cada vuelta del chat. Se olvida aqui para que apagarla se note al
+    // momento: quien la apaga recarga y espera verlo hecho, no dentro de un rato.
+    //
+    // OJO: esto NO desvincula el numero, y es a proposito. Apagar la casilla es
+    // reparto —deja de salir y de entrar—; desvincular solo pasa cuando alguien
+    // deja de PODER tener WhatsApp, que es el bloque de arriba.
+    const cache = await import('../whatsapp/usaWhatsapp.js');
+    cache.olvidar(id);
+
     res.json({ success: true, data: user });
   } catch (err) { next(err); }
 }
@@ -197,12 +207,14 @@ export async function deleteAvatar(req, res, next) {
 const AVISOS = [
   { aviso: 'lead_sin_tocar', titulo: 'Prospecto sin contactar',
     detalle: 'Cuando te asignan uno y pasa media hora sin que lo toques.' },
-  { aviso: 'resumen_del_dia', titulo: 'Resumen del dia',
-    detalle: 'Al cerrar la jornada: que ha entrado, que has hecho y que queda.' },
-  { aviso: 'plan_de_manana', titulo: 'Plan de mañana',
-    detalle: 'Por la noche, lo que te espera al dia siguiente.' },
-  { aviso: 'reporte_semanal', titulo: 'Reporte semanal',
-    detalle: 'Los lunes: como fue la semana comparada con la anterior. Solo administracion.' },
+  { aviso: 'resumen_del_dia', titulo: 'Resumen del día (dirección)',
+    detalle: 'Cada tarde, por empresa: prospectos, ventas, cobrado y cada gestora. Solo administración.' },
+  { aviso: 'plan_de_manana', titulo: 'Tu día y lo de mañana',
+    detalle: 'Cada noche: lo que hiciste hoy, tu cola de mañana, tus recordatorios y cómo va tu mes.' },
+  { aviso: 'semana_gestora', titulo: 'Tu semana',
+    detalle: 'Los lunes: tus números de la semana, contra la anterior y la media del equipo, y tu puesto.' },
+  { aviso: 'reporte_semanal', titulo: 'Reporte semanal (dirección)',
+    detalle: 'Los lunes, por empresa: la semana contra la anterior y el ranking. Solo administración.' },
 ];
 
 export async function misAvisos(req, res, next) {

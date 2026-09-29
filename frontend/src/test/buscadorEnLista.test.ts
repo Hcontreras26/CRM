@@ -8,27 +8,21 @@ import { describe, it, expect } from 'vitest';
  * Compulsivas»— cincuenta y pico lineas, sin forma de buscar. Encontrar una era
  * bajar a ojo. El mismo problema que ya tenian los 787 cursos de ISEIE.
  *
- * Aqui se prueba el filtro, que es lo unico del componente que no es pintar. Se
- * copia igual que en `BuscadorEnLista` a proposito: si alguien lo cambia alli
- * sin cambiarlo aqui, esto se cae — que es justo lo que se quiere.
+ * Aqui se prueba el filtro, que es lo unico del componente que no es pintar.
+ *
+ * Antes esta prueba se copiaba la funcion del componente, porque vivia dentro
+ * de el y no habia forma de importarla. Ya la hay: el filtro se saco a
+ * `shared/lib/buscarPorTrozos` para que el arbol del listado de productos
+ * busque igual que este buscador, y ahora esto prueba la funcion de verdad en
+ * vez de un gemelo que podia separarse de ella sin avisar.
  */
 
-const sinAcentos = (s: string) =>
-  String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+import { casaPorTrozos } from '@/shared/lib/buscarPorTrozos';
 
 interface Opcion { id: number; nombre: string; nota?: string | number | null }
 
-const filtrar = (opciones: Opcion[], texto: string) => {
-  const t = sinAcentos(texto).trim();
-  if (!t) return opciones.slice(0, 60);
-  const trozos = t.split(/\s+/);
-  return opciones.filter((c) => {
-    const donde = typeof c.nota === 'string'
-      ? sinAcentos(`${c.nombre} ${c.nota}`)
-      : sinAcentos(c.nombre);
-    return trozos.every((p) => donde.includes(p));
-  }).slice(0, 60);
-};
+const filtrar = (opciones: Opcion[], texto: string) =>
+  opciones.filter((c) => casaPorTrozos(texto, c.nombre, c.nota)).slice(0, 60);
 
 const CATEGORIAS: Opcion[] = [
   { id: 1, nombre: 'Adicciones y Conductas Compulsivas', nota: 'Cursos › Para Profesionales' },

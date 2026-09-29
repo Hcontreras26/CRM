@@ -14,22 +14,31 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const consultas = [];
 const enviados = [];
 
+// `vuelta()` no recibe la lista: la consulta ella misma. Asi que el prospecto
+// se le pone por aqui, que es por donde le llega de verdad — en vez de cambiar
+// la firma de la funcion para que quepa la prueba.
+let sinTocarDevuelve = [];
 vi.mock('../src/shared/config/db.js', () => ({
   query: vi.fn(async (sql, params) => {
     consultas.push({ sql, params });
+    if (sql.includes('FROM leads l')) return { rows: sinTocarDevuelve };
     return { rows: [] };
   }),
 }));
 vi.mock('../src/shared/services/brevo.service.js', () => ({
   sendEmail: vi.fn(async (args) => { enviados.push(args); return { sent: true }; }),
 }));
+const campanazos = [];
 vi.mock('../src/modules/notifications/notifications.service.js', () => ({
-  notifyUsers: vi.fn(async () => ({})),
+  notifyUsers: vi.fn(async (args) => { campanazos.push(args); return {}; }),
 }));
 
 const { _internos } = await import('../src/jobs/leadSinTocarScheduler.js');
 
-beforeEach(() => { consultas.length = 0; enviados.length = 0; });
+beforeEach(() => {
+  consultas.length = 0; enviados.length = 0; campanazos.length = 0;
+  sinTocarDevuelve = [];
+});
 
 describe('a quien se avisa', () => {
   it('solo mira los que siguen sin contactar', async () => {
@@ -109,5 +118,45 @@ describe('lo que se le cuenta a la gestora', () => {
 
   it('dice como apagarlo', () => {
     expect(_internos.cuerpo(lead)).toMatch(/Mis preferencias/);
+  });
+});
+
+/**
+ * Y el aviso DENTRO del CRM, que es la mitad que pide el #126 para el miercoles.
+ *
+ * Estaba escrito y funcionando, pero sin nada que lo comprobara: el mock de
+ * `notifyUsers` estaba puesto en este fichero y nadie miraba si se llamaba.
+ * Todo lo demas de aqui prueba el correo.
+ *
+ * El #111 lo pide con estas palabras: «Hoy solo manda correo; tiene que dejar
+ * tambien el aviso dentro del CRM, a la gestora que lo lleva, no a los admin».
+ */
+describe('el aviso dentro del CRM, no solo el correo', () => {
+  const unLead = {
+    id: 77, nombre: 'Marta Ruiz', responsable_id: 9,
+    gestora_email: 'gestora@empresa.com', telefono: '600', email: 'm@r.com', proyecto: 'Psiko',
+  };
+
+  it('deja el aviso en la campana de la gestora que lo lleva', async () => {
+    sinTocarDevuelve = [unLead];
+    await _internos.vuelta();
+    expect(campanazos).toHaveLength(1);
+    expect(campanazos[0].targetUserIds).toEqual([9]);
+    expect(campanazos[0].type).toBe('lead_sin_tocar');
+  });
+
+  it('con enlace a la ficha: un aviso sin adonde ir no sirve', async () => {
+    sinTocarDevuelve = [unLead];
+    await _internos.vuelta();
+    expect(campanazos[0].link_path).toBe('/prospectos/77');
+  });
+
+  it('y lo deja AUNQUE no haya correo de la gestora', async () => {
+    // Es el motivo de que la campanita vaya antes del `continue`: es el canal
+    // que no depende de que Brevo conteste ni de que el correo este puesto.
+    sinTocarDevuelve = [{ ...unLead, gestora_email: null }];
+    await _internos.vuelta();
+    expect(campanazos).toHaveLength(1);
+    expect(enviados).toHaveLength(0);
   });
 });

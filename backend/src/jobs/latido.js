@@ -18,10 +18,110 @@
  * que hace que una pantalla de estado se vuelva ruido y se deje de mirar.
  */
 
+import { query } from '../shared/config/db.js';
+import { logger } from '../shared/utils/logger.js';
+
 const tareas = new Map();
 
 /** Cuando arranco el proceso. Sirve para no dar por muerta a una tarea recien nacida. */
 const ARRANQUE = Date.now();
+
+/**
+ * El diario de las tareas, en la base (#111).
+ *
+ * El latido de arriba contesta «¿esto va?», y para eso la memoria del proceso
+ * basta. El registro contesta otra cosa: «¿que paso el martes a las tres?». Eso
+ * no se puede contestar con algo que se vacia en cada despliegue, asi que la
+ * vuelta tambien se apunta en `registro_tareas` (migracion 144).
+ *
+ * Se ficha en el MISMO envoltorio, por lo mismo que el latido: una tarea no
+ * puede dejar de aparecer en el registro porque aparecer no es cosa suya.
+ *
+ * Y se anotan TAMBIEN las vueltas que no hicieron nada. «La sincronizacion no
+ * corrio en tres dias» y «corrio y no habia cobros» se leen igual si la vuelta
+ * vacia no deja fila, y son dos averias distintas.
+ */
+
+/** Si la 142 no esta aplicada, esto no escribe y no se queja mas de una vez. */
+let hayTabla = null;
+
+async function tablaLista() {
+  if (hayTabla !== null) return hayTabla;
+  try {
+    const { rows } = await query(
+      `SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'registro_tareas'`
+    );
+    hayTabla = rows.length > 0;
+    if (!hayTabla) {
+      logger.warn('Registro de tareas: falta la migracion 144, las vueltas no se guardan');
+    }
+  } catch {
+    hayTabla = false;
+  }
+  return hayTabla;
+}
+
+/**
+ * Cuanto se guarda cada cosa.
+ *
+ * Lo que fallo dura mas que lo que salio bien: una vuelta correcta de hace un
+ * mes no dice nada, y un fallo de hace un mes explica por que falta un dato.
+ */
+const DIAS_QUE_SE_GUARDAN = { ok: 30, fallo: 180 };
+
+/**
+ * La limpieza va aqui y no en otro trabajo programado.
+ *
+ * Un trabajo mas es un sitio mas del que olvidarse; enganchada a la propia
+ * vuelta no puede dejar de correr mientras corra la tarea. Una de cada cien
+ * para que no pese: con trece tareas eso es varias veces al dia.
+ */
+let vueltasApuntadas = 0;
+
+async function limpiarDeVezEnCuando() {
+  vueltasApuntadas += 1;
+  if (vueltasApuntadas % 100 !== 0) return;
+  try {
+    await query(
+      `DELETE FROM registro_tareas
+        WHERE (ok AND termino < NOW() - ($1 || ' days')::interval)
+           OR (NOT ok AND termino < NOW() - ($2 || ' days')::interval)`,
+      [String(DIAS_QUE_SE_GUARDAN.ok), String(DIAS_QUE_SE_GUARDAN.fallo)]
+    );
+  } catch (err) {
+    logger.warn({ err: err.message }, 'Registro de tareas: no se pudo limpiar');
+  }
+}
+
+/**
+ * Apunta una vuelta. Nunca lanza.
+ *
+ * Que falle el registro no puede tumbar la tarea que registra — seria cambiar
+ * «no se que paso» por «ademas dejo de pasar».
+ */
+async function apuntarVuelta({ nombre, titulo, empezo, duracionMs, ok, mensaje, detalle }) {
+  if (!(await tablaLista())) return;
+  try {
+    await query(
+      `INSERT INTO registro_tareas
+         (nombre, titulo, empezo, termino, duracion_ms, ok, mensaje, detalle)
+       VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7)`,
+      [
+        nombre, titulo || null, new Date(empezo).toISOString(),
+        duracionMs, ok, mensaje ? String(mensaje).slice(0, 2000) : null,
+        detalle ? JSON.stringify(detalle) : null,
+      ]
+    );
+    await limpiarDeVezEnCuando();
+  } catch (err) {
+    logger.warn({ err: err.message, tarea: nombre }, 'Registro de tareas: no se pudo apuntar la vuelta');
+  }
+}
+
+/** Para las pruebas: olvidar lo que se averiguo de la tabla. */
+export const _olvidarTabla = () => { hayTabla = null; vueltasApuntadas = 0; };
+export { DIAS_QUE_SE_GUARDAN };
 
 /**
  * Programa una tarea y le toma el pulso.
@@ -50,16 +150,29 @@ export function vigilar(nombre, titulo, tick, cadaMs) {
     if (t.corriendo) return;
     t.corriendo = true;
     const inicio = Date.now();
+    // Lo que la vuelta cuente de si misma, si cuenta algo. Ninguna esta obligada
+    // —la mayoria no devuelve nada— y las que no, dejan igual su fila.
+    let resultado = null;
+    let fallo = null;
     try {
-      await tick();
+      const r = await tick();
+      resultado = (r && typeof r === 'object' && !Array.isArray(r)) ? r : null;
       t.vueltas += 1;
     } catch (err) {
+      fallo = String(err?.message || err).slice(0, 300);
       t.fallos += 1;
-      t.ultimoFallo = { cuando: Date.now(), mensaje: String(err?.message || err).slice(0, 300) };
+      t.ultimoFallo = { cuando: Date.now(), mensaje: fallo };
     } finally {
       t.duracionMs = Date.now() - inicio;
       t.ultima = Date.now();   // se ficha aunque falle: la tarea SIGUE VIVA, que
       t.corriendo = false;     // es lo que este dato responde. El fallo va aparte.
+      // Y en el diario, para poder mirar hacia atras (#111). Sin `await`: el
+      // pulso no espera a la base, que si esta lenta retrasaria la siguiente
+      // vuelta de la tarea por culpa de apuntarla.
+      apuntarVuelta({
+        nombre, titulo, empezo: inicio, duracionMs: t.duracionMs,
+        ok: !fallo, mensaje: fallo, detalle: resultado,
+      });
     }
   };
 

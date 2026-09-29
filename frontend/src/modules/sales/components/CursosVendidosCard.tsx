@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { GraduationCap } from '@phosphor-icons/react';
 import client from '@/shared/api/client';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { etiquetaProducto } from '@/shared/lib/etiquetas';
 
 interface Row {
   product_id: number | null;
@@ -65,7 +67,7 @@ const PERIODS: ReadonlyArray<{ key: Period; label: string }> = [
   { key: 'custom', label: 'Personalizado' },
 ];
 
-export default function CursosVendidosCard({ projectId, issuerId = null, responsableId = null, className = '', title = 'Cursos vendidos', from: fromProp = null, to: toProp = null }: Props) {
+export default function CursosVendidosCard({ projectId, issuerId = null, responsableId = null, className = '', title, from: fromProp = null, to: toProp = null }: Props) {
   const mandaFuera = !!(fromProp && toProp);
   // Arranca en el mes: al entrar interesa como va el mes, no si se ha vendido
   // algo en las ultimas horas. Con 'hoy' la tarjeta salia en blanco casi
@@ -95,6 +97,12 @@ export default function CursosVendidosCard({ projectId, issuerId = null, respons
     return () => { cancelled = true; };
   }, [projectId, issuerId, responsableId, from, to, customIncompleto]);
 
+  // Como llama ESTE proyecto a lo que vende. El titulo por defecto sale de
+  // aqui en vez de estar escrito: «Cursos vendidos» en una plataforma de IA no
+  // describe nada, y era lo que ponia siempre.
+  const { activeProject } = useProjectContext();
+  const etiqueta = etiquetaProducto(activeProject);
+
   const totalCursos = rows.reduce((s, r) => s + (r.ventas || 0), 0);
   const totalFacturado = rows.reduce((s, r) => s + Number(r.facturado || 0), 0);
 
@@ -103,7 +111,7 @@ export default function CursosVendidosCard({ projectId, issuerId = null, respons
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <GraduationCap size={16} weight="duotone" className="text-primary" />
-          {title}
+          {title || `${etiqueta.plural} vendidos`}
         </h3>
         {/* Si el periodo lo manda la pantalla, la tarjeta no pinta su propio
             selector: se elige una sola vez, arriba. */}
@@ -137,7 +145,7 @@ export default function CursosVendidosCard({ projectId, issuerId = null, respons
       <div className="flex items-end justify-between mb-3 px-1">
         <div>
           <div className="text-3xl font-bold tabular-nums leading-none">{loading ? '—' : totalCursos}</div>
-          <div className="text-[11px] text-muted-foreground mt-1">{totalCursos === 1 ? 'curso vendido' : 'cursos vendidos'}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">{totalCursos === 1 ? `${etiqueta.singular.toLowerCase()} vendido` : `${etiqueta.plural.toLowerCase()} vendidos`}</div>
         </div>
         <div className="text-right">
           <div className="text-sm font-semibold tabular-nums">{fmt(totalFacturado)}</div>

@@ -31,14 +31,14 @@ interface Props {
   filteredCount: number;
 }
 
-const ESTADO_PAGO_LABELS: Record<string, string> = {
+export const ESTADO_PAGO_LABELS: Record<string, string> = {
   pagado: 'Pagados',
   parcial: 'Pago parcial',
   sin_pagar: 'Sin pagar',
   sin_ventas: 'Sin compras registradas',
 };
 
-const SORT_LABELS: Record<string, string> = {
+export const SORT_LABELS: Record<string, string> = {
   recent: 'Más reciente',
   facturado: 'Más facturado',
   cobrado: 'Más cobrado',

@@ -31,6 +31,8 @@ import productCategoriesModule from './modules/product-categories/index.js';
 import commissionsModule from './modules/commissions/index.js';
 import reportsModule from './modules/reports/index.js';
 import matriculasModule from './modules/matriculas/index.js';
+import feedbackModule from './modules/feedback/index.js';
+import novedadesModule from './modules/novedades/index.js';
 import emailSequencesModule from './modules/email-sequences/index.js';
 import formsModule from './modules/forms/index.js';
 import payrollModule from './modules/payroll/index.js';
@@ -51,7 +53,10 @@ import connectorsModule from './modules/connectors/index.js';
 import makeModule from './modules/make/index.js';
 import messagesModule from './modules/messages/index.js';
 import statusModule from './modules/status/index.js';
+import registroModule from './modules/registro/index.js';
+import correosModule from './modules/correos/index.js';
 import changeRequestsModule from './modules/change-requests/index.js';
+import mcpModule from './modules/mcp/index.js';
 import { resolveActiveModules } from './bundles/manifest.js';
 import { query } from './shared/config/db.js';
 import { startEmailSequenceScheduler } from './jobs/emailSequenceScheduler.js';
@@ -66,6 +71,10 @@ import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoSchedul
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
 import { startReporteSemanalScheduler } from './jobs/reporteSemanalScheduler.js';
+import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js';
+import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
+import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
+import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -154,6 +163,8 @@ const ALL_MODULES = [
   { name: 'commissions', mod: commissionsModule },
   { name: 'reports', mod: reportsModule },
   { name: 'matriculas', mod: matriculasModule },
+  { name: 'feedback', mod: feedbackModule },
+  { name: 'novedades', mod: novedadesModule },
   { name: 'email-sequences', mod: emailSequencesModule },
   { name: 'forms', mod: formsModule },
   { name: 'payroll', mod: payrollModule },
@@ -170,6 +181,10 @@ const ALL_MODULES = [
   { name: 'connectors', mod: connectorsModule },
   { name: 'make', mod: makeModule },
   { name: 'messages', mod: messagesModule },
+  { name: 'registro', mod: registroModule },
+  { name: 'correos', mod: correosModule },
+  // Conexion de Claude por MCP: solo consulta, con token personal.
+  { name: 'mcp', mod: mcpModule },
 ];
 
 // Módulos siempre activos (fuera del sistema de bundles)
@@ -303,8 +318,12 @@ if (process.env.NODE_ENV !== 'test') {
     startTutorCommissionsScheduler();
     startVigilanteCatalogoScheduler();
     startLeadSinTocarScheduler();
+    startPasoVencidoScheduler();
+    startFeedbackDia7Scheduler();
+    startNovedadesScheduler();
     startResumenDiarioScheduler();
     startReporteSemanalScheduler();
+  startCorreoEntranteScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }

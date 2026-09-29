@@ -20,7 +20,37 @@ jobs:
 
       - name: Mirar qué se ha tocado
         run: |
-          BASE=$(git merge-base origin/main HEAD)
+          # Contra QUE se compara. Esto importa mas de lo que parece.
+          #
+          # Antes se comparaba contra `main`, y `main` lleva 202 commits de
+          # retraso (#24). Resultado: todo el backend que existe en la rama de
+          # trabajo y no en main le salia a Fabian como «has tocado el
+          # servidor» — 156 ficheros que el no habia tocado. Los seis PR suyos
+          # llevaban semanas en rojo por eso, y el aviso dejo de significar
+          # nada, que es la peor forma de tener un guardian.
+          #
+          # Se compara contra el tronco de verdad. Si algun dia `main` vuelve a
+          # ser el tronco, basta con quitarlo de la lista.
+          #
+          # `integracion/fabian` va PRIMERO, y esto es el mismo fallo un nivel
+          # mas arriba. Lo que corre en /testeo es esa rama, asi que toda tarea
+          # nueva sale de ahi — y esa rama trae el backend de Angel, que no esta
+          # en `integracion/todo`. Comparando contra `todo`, a Fabian le salian
+          # 43 ficheros de servidor que no habia tocado, igual que antes le
+          # salian 156 comparando contra `main`.
+          #
+          # El orden es de mas cercano a mas lejano y no debilita nada: se
+          # compara contra el punto de partida (`merge-base`), asi que lo que
+          # SI se toque despues de salir de la rama sigue apareciendo. Para una
+          # rama que salga de `todo` el resultado no cambia, porque `fabian`
+          # contiene a `todo` y el punto de partida es el mismo.
+          for CANDIDATA in origin/integracion/fabian origin/integracion/todo origin/main; do
+            if git rev-parse --verify --quiet "$CANDIDATA" > /dev/null; then
+              BASE=$(git merge-base "$CANDIDATA" HEAD)
+              echo "Comparando contra $CANDIDATA"
+              break
+            fi
+          done
           TOCADO=$(git diff --name-only "$BASE" HEAD -- backend/ || true)
           if [ -n "$TOCADO" ]; then
             echo "Esta rama es solo de frontend, y toca el servidor:"

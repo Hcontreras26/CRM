@@ -1,3 +1,4 @@
+import PageHeader from '@/shared/components/ui/PageHeader';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowsClockwise, CheckCircle, X, GitMerge, Warning, ArrowSquareOut } from '@phosphor-icons/react';
@@ -90,17 +91,15 @@ export default function DupReviewQueuePage() {
   }
 
   if (!projectId || projectId === -1) {
-    return <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-6 text-center text-sm text-amber-800 dark:text-amber-300">Selecciona un proyecto.</div>;
+    return <div className="bg-warning-soft border border-warning/30 rounded-lg p-6 text-center text-sm text-warning">Selecciona un proyecto.</div>;
   }
 
   return (
     <div className="space-y-5 pb-8">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Revisión de duplicados</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Leads que llegaron por webhook con datos duplicados. El webhook nunca se bloqueó (Make recibió 200 OK). Decide si conservas, fusionas con el original o descartas.
-        </p>
-      </div>
+      <PageHeader
+        title="Revisión de duplicados"
+        subtitle="Prospectos que llegaron por webhook con datos duplicados. El webhook nunca se bloqueó (Make recibió 200 OK). Decide si conservas, fusionas con el original o descartas."
+      />
 
       <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-2 flex-wrap">
         {([
@@ -133,7 +132,7 @@ export default function DupReviewQueuePage() {
         </div>
       ) : items.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-10 text-center text-muted-foreground">
-          <CheckCircle size={40} weight="duotone" className="mx-auto mb-2 text-emerald-500" />
+          <CheckCircle size={40} weight="duotone" className="mx-auto mb-2 text-success" />
           <p className="text-sm font-semibold">Sin {statusFilter === 'pending' ? 'pendientes' : 'registros'}</p>
           <p className="text-xs mt-1">Los duplicados que entren por webhook aparecerán aquí.</p>
         </div>
@@ -145,9 +144,9 @@ export default function DupReviewQueuePage() {
                 {/* Lado nuevo */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
-                    <Warning size={16} weight="duotone" className="text-amber-500" />
+                    <Warning size={16} weight="duotone" className="text-warning" />
                     <h3 className="text-sm font-semibold">Lead nuevo #{it.lead_id}</h3>
-                    {it.reincidente && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300 font-semibold">REINCIDENTE</span>}
+                    {it.reincidente && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive-soft text-destructive-soft-foreground font-semibold">REINCIDENTE</span>}
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{it.source}</span>
                   </div>
                   <p className="text-sm font-medium">{it.lead_nombre || '— sin nombre —'}</p>
@@ -167,7 +166,7 @@ export default function DupReviewQueuePage() {
                 {/* Lado original */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle size={16} weight="duotone" className="text-emerald-500" />
+                    <CheckCircle size={16} weight="duotone" className="text-success" />
                     <h3 className="text-sm font-semibold">Original #{it.original_lead_id || '?'}</h3>
                     <button onClick={() => navigate(`/leads/${it.original_lead_id}`)} title="Abrir original"
                       className="p-0.5 rounded hover:bg-muted">
@@ -185,15 +184,15 @@ export default function DupReviewQueuePage() {
               {statusFilter === 'pending' && (
                 <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
                   <button onClick={() => approve(it)} disabled={busyId === it.id}
-                    className="h-9 px-3 rounded-md bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5">
+                    className="h-9 px-3 rounded-md bg-success text-success-foreground text-sm font-semibold hover:bg-success/90 disabled:opacity-50 flex items-center gap-1.5">
                     <CheckCircle size={14} weight="bold" /> Aprobar (queda activo)
                   </button>
                   <button onClick={() => setMergeFor(it)} disabled={busyId === it.id}
-                    className="h-9 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5">
+                    className="h-9 px-3 rounded-md bg-info text-info-foreground text-sm font-semibold hover:bg-info/90 disabled:opacity-50 flex items-center gap-1.5">
                     <GitMerge size={14} weight="bold" /> Fusionar al original
                   </button>
                   <button onClick={() => { setRejectFor(it); setRejectNotas(''); }} disabled={busyId === it.id}
-                    className="h-9 px-3 rounded-md border border-red-200 dark:border-red-900 text-red-600 text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 flex items-center gap-1.5">
+                    className="h-9 px-3 rounded-md border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive-soft disabled:opacity-50 flex items-center gap-1.5">
                     <X size={14} weight="bold" /> Descartar
                   </button>
                   <button onClick={() => navigate(`/leads/${it.lead_id}`)} className="ml-auto text-xs text-primary hover:underline">
@@ -226,17 +225,17 @@ export default function DupReviewQueuePage() {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setRejectFor(null)} />
           <div className="relative bg-card rounded-lg border border-border w-full max-w-md p-5 space-y-3">
             <h3 className="font-semibold">Descartar lead #{rejectFor.lead_id}</h3>
-            <p className="text-xs text-muted-foreground">El lead se marcará como eliminado (soft-delete). Si es un error puedes restaurarlo después desde Papelera.</p>
+            <p className="text-xs text-muted-foreground">El prospecto se marcará como eliminado (soft-delete). Si es un error puedes restaurarlo después desde Papelera.</p>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Motivo (opcional)</label>
               <textarea value={rejectNotas} onChange={(e) => setRejectNotas(e.target.value)} rows={3}
-                placeholder="Ej: claramente es spam / lead duplicado de prueba / etc."
+                placeholder="Ej: claramente es spam / prospecto duplicado de prueba / etc."
                 className="w-full px-3 py-2 rounded-md border border-border bg-card text-sm resize-none" />
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setRejectFor(null)} className="h-9 px-4 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted">Cancelar</button>
               <button onClick={reject} disabled={busyId === rejectFor.id}
-                className="h-9 px-4 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50">
+                className="h-9 px-4 rounded-md bg-destructive text-destructive-foreground text-sm font-semibold hover:bg-destructive/90 disabled:opacity-50">
                 {busyId === rejectFor.id ? 'Descartando…' : 'Descartar'}
               </button>
             </div>

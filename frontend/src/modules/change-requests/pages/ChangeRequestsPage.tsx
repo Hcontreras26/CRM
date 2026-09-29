@@ -1,3 +1,4 @@
+import PageHeader from '@/shared/components/ui/PageHeader';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, GitMerge, MagnifyingGlass } from '@phosphor-icons/react';
@@ -64,16 +65,12 @@ export default function ChangeRequestsPage() {
 
   return (
     <div className="space-y-5 pb-8">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Solicitudes de cambio</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {fullVisibility
-              ? 'Todas las solicitudes de cambio (RFC) del proyecto. Tú eres PM/Admin y puedes completar la parte técnica y aprobar.'
-              : 'Tus solicitudes de cambio. Crea una nueva o consulta el estado de las existentes.'}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Solicitudes de cambio"
+        subtitle={fullVisibility
+          ? 'Todas las solicitudes de cambio (RFC) del proyecto. Tú eres PM/Admin y puedes completar la parte técnica y aprobar.'
+          : 'Tus solicitudes de cambio. Crea una nueva o consulta el estado de las existentes.'}
+      />
 
       {/* Crear nueva */}
       <div className="bg-card border border-border rounded-lg p-4 space-y-3">

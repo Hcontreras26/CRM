@@ -45,10 +45,17 @@ export default function NotificationsBell({ collapsed = false, className = '' })
         // 2) Resumen del día y leads nuevos — sólo admin/superadmin con proyecto activo.
         let todayRes = { success: false, data: null };
         let leadsRes = { success: false, data: [] };
-        if (isAdminLike && activeProject?.id) {
+        // Solo con un proyecto de verdad: con «Todos» o una empresa (-1) el
+        // servidor rechazaba las dos peticiones.
+        if (isAdminLike && activeProject?.id > 0) {
           [todayRes, leadsRes] = await Promise.all([
             client.get(`/leads/today`, { params: { projectId: activeProject.id } }).catch(() => ({ success: false, data: null })),
-            client.get(`/leads`, { params: { projectId: activeProject.id, status: 'nuevo', limit: 3 } }).catch(() => ({ success: false, data: [] })),
+            // 'por_contactar' y no 'nuevo': la migracion 076 cambio el DEFAULT de la
+            // columna. Buscando 'nuevo' este bloque solo encontraba fichas de antes
+            // de junio, y se llamaba «nuevos prospectos».
+            //
+            // El fallo esta en los dos CRMs, pero el numero no: alli es la 075.
+            client.get(`/leads`, { params: { projectId: activeProject.id, status: 'por_contactar', limit: 3 } }).catch(() => ({ success: false, data: [] })),
           ]);
         }
         if (cancelled) return;
@@ -57,15 +64,19 @@ export default function NotificationsBell({ collapsed = false, className = '' })
         // 1) Notifs reales (lead_reminder, lead_assigned, etc) — prioridad alta
         const notifs = Array.isArray(notifsRes?.data) ? notifsRes.data : [];
         for (const n of notifs.slice(0, 10)) {
+          // `sin_leer` y no `is_read`: la fila puede ser un grupo de seis, y
+          // la ultima estar leida con cinco sin leer detras (#111).
+          const sinLeer = (n.sin_leer ?? (n.is_read ? 0 : 1)) > 0;
           list.push({
-            id: `notif-${n.id}`,
+            id: `notif-${n.grupo || n.id}`,
             notifId: n.id,
-            kind: n.is_read ? 'info' : (n.type === 'lead_deleted' ? 'urgent' : 'info'),
-            title: n.title,
+            grupo: n.grupo || `id:${n.id}`,
+            kind: !sinLeer ? 'info' : (n.type === 'lead_deleted' ? 'urgent' : 'info'),
+            title: n.veces > 1 ? `${n.title} ×${n.veces}` : n.title,
             body: n.message || '',
             href: n.link_path || null,
             when: n.created_at,
-            isRead: n.is_read,
+            isRead: !sinLeer,
           });
         }
 
@@ -115,8 +126,8 @@ export default function NotificationsBell({ collapsed = false, className = '' })
   }, [canSee, isAdminLike, activeProject?.id]);
 
   async function handleItemClick(item) {
-    if (item.notifId && !item.isRead) {
-      client.patch(`/notifications/${item.notifId}/read`).catch(() => {});
+    if (item.grupo && !item.isRead) {
+      client.patch('/notifications/read-group', { grupo: item.grupo }).catch(() => {});
     }
     setOpen(false);
     if (item.href) navigate(item.href);
@@ -168,7 +179,10 @@ export default function NotificationsBell({ collapsed = false, className = '' })
 
   if (!canSee) return null;
 
-  const unread = items.length;
+  // Solo lo que sigue sin atender. Antes era `items.length`, o sea que
+  // contaba tambien lo ya leido: el globo nunca bajaba y por eso acababa
+  // ignorandose (#111).
+  const unread = items.filter((it) => (it.notifId ? !it.isRead : true)).length;
   const Icon = unread > 0 ? BellRinging : Bell;
 
   return (
@@ -190,7 +204,7 @@ export default function NotificationsBell({ collapsed = false, className = '' })
       >
         <Icon size={16} weight={unread > 0 ? 'fill' : 'regular'} />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-card">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center ring-2 ring-card">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -203,7 +217,7 @@ export default function NotificationsBell({ collapsed = false, className = '' })
             role="dialog"
             aria-label="Notificaciones"
             style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width }}
-            className="bg-card border border-border rounded-xl shadow-2xl z-[60] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="bg-card border border-border rounded-xl shadow-popover z-[60] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
           >
             <header className="flex items-center justify-between px-4 py-3 border-b border-border">
               <div>
@@ -239,7 +253,7 @@ export default function NotificationsBell({ collapsed = false, className = '' })
                       >
                         <span className={cn(
                           'w-2 h-2 rounded-full mt-1.5 flex-shrink-0',
-                          it.kind === 'overdue' ? 'bg-red-500' : it.kind === 'urgent' ? 'bg-amber-500' : 'bg-blue-500',
+                          it.kind === 'overdue' ? 'bg-destructive' : it.kind === 'urgent' ? 'bg-warning' : 'bg-info',
                         )} />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold leading-tight">{it.title}</p>

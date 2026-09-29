@@ -1,7 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 
-export const inputClass = 'w-full h-10 px-3 rounded-lg border border-border bg-muted/50 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+// Aqui vivia otra copia, con el campo mas alto (h-10) y las esquinas mas
+// redondeadas (rounded-lg) que en el resto del CRM: diez pestanas de ajustes
+// con los campos de otro tamano. Se reenvia la unica que hay; los diez
+// `import { inputClass } from './shared'` siguen valiendo.
+export { inputClass } from '@/shared/lib/ui';
 
 type ConfirmTone = 'destructive' | 'default' | 'warning';
 
@@ -195,7 +199,7 @@ export const AVAILABLE_EXTRA_COLUMNS = [
 ];
 
 export const PROJECT_SERVICES = [
-  { service: 'brevo', name: 'Brevo (Email)', description: 'API Key para emails transaccionales de este proyecto', placeholder: 'xkeysib-...' },
+  { service: 'brevo', name: 'Brevo (Email)', description: 'La cuenta de Brevo de esta marca, donde está autenticado su dominio. Con ella y su remitente «no contestar» (pestaña General), sus correos salen desde su dominio. Sin ella, desde el del CRM.', placeholder: 'xkeysib-...' },
   { service: 'meta', name: 'Meta Marketing', description: 'Token + account_id del pixel/cuenta publicitaria', placeholder: 'EAAD...' },
   { service: 'google_ads', name: 'Google Ads', description: 'Developer token + OAuth refresh token', placeholder: 'dev-token' },
   { service: 'gsc', name: 'Google Search Console', description: 'OAuth + property URL', placeholder: 'refresh_token' },

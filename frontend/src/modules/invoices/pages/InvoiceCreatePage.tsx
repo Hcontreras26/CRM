@@ -11,6 +11,14 @@ import type { Issuer, InvoiceItem } from '../api/invoices.api';
 import { conversionsApi, type Conversion } from '@/modules/conversions/api/conversions.api';
 import { toast } from '@/shared/hooks/useToast';
 
+import Field from '@/shared/components/ui/Field';
+import { inputClass } from '@/shared/lib/ui';
+import { cn } from '@/shared/lib/utils';
+import FilaCampos from '@/shared/components/ui/FilaCampos';
+// Si el servidor no manda una lista, la pantalla no se cae: se queda
+// vacia y se dice. (#113, el arreglo de las once pantallas en blanco.)
+import { lista } from '@/shared/lib/lista';
+
 type Tipo = 'persona' | 'empresa' | 'contado';
 interface LeadHit { id: number; nombre: string; email?: string | null; telefono?: string | null }
 
@@ -155,7 +163,7 @@ export default function InvoiceCreatePage() {
     }).catch(() => {});
     invoicesApi.listIssuers(pid).then((res) => {
       if (res.success && res.data) {
-        setIssuers(res.data);
+        setIssuers(lista(res.data));
         const def = res.data.find((i) => i.es_default) || res.data[0];
         if (def) setIssuerId(def.id);
       }
@@ -448,7 +456,39 @@ export default function InvoiceCreatePage() {
     } finally { setSaving(false); }
   }
 
-  if (!pid) return <div className="p-8 text-muted-foreground">Selecciona un proyecto.</div>;
+  // Sin campus elegido --se entra con una EMPRESA puesta-- se pregunta cual, y
+  // se pregunta aqui. Antes salia un «Selecciona un proyecto.» suelto sin nada
+  // que pulsar: el selector existe, pero vive mas abajo en esta misma pantalla
+  // y no se llegaba nunca.
+  if (!pid) {
+    return (
+      <div className="mx-auto max-w-lg p-8">
+        <div className="rounded-lg border border-border bg-card p-5">
+          <h2 className="text-base font-semibold">¿De qué campus es la factura?</h2>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            {activeProject?.nombre
+              ? <>Tienes puesta <strong>{activeProject.nombre}</strong>. Una factura sale de un campus concreto, porque la serie y el número son suyos.</>
+              : <>Una factura sale de un campus concreto, porque la serie y el número son suyos.</>}
+          </p>
+          {projectOptions.length > 0 ? (
+            <select
+              autoFocus
+              value=""
+              onChange={(e) => setProjectId(Number(e.target.value))}
+              className="mt-3 h-10 w-full rounded-md border border-border bg-background px-2 text-sm"
+            >
+              <option value="" disabled>Elige el campus…</option>
+              {projectOptions.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          ) : (
+            <p className="mt-3 text-[13px] text-muted-foreground">
+              No hay campus disponibles para facturar con esta empresa.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const TIPOS: { key: Tipo; label: string; desc: string; icon: any }[] = [
     { key: 'persona', label: 'Persona física', desc: 'Cliente individual con DNI', icon: User },
@@ -464,7 +504,7 @@ export default function InvoiceCreatePage() {
   const fiscalMissing = fs && fs.missing.length ? fs.missing : null;
 
   return (
-    <div className="space-y-4 pb-8 max-w-4xl">
+    <div className="space-y-4 pb-8 max-w-4xl mx-auto">
       <PageHeader title={editId ? 'Editar factura' : esRect ? 'Nuevo abono' : esProforma ? 'Nuevo presupuesto' : 'Nueva factura'} subtitle={activeProject?.nombre || ''}
         actions={(
           <Link to={`${invBase}/facturas`} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-sm font-semibold hover:bg-muted">
@@ -498,7 +538,7 @@ export default function InvoiceCreatePage() {
       {/* Proyecto de la factura — manda sobre cliente/leads, cursos y emisores */}
       {projectOptions.length > 0 && (
         <div className="bg-card border border-border rounded-lg p-4">
-          <label className="text-xs font-bold uppercase text-muted-foreground">Proyecto</label>
+          <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Proyecto</label>
           <select value={projectId ?? ''} onChange={(e) => setProjectId(Number(e.target.value))}
             className="w-full h-9 px-2 mt-1 rounded border border-primary/40 bg-background text-foreground text-sm font-medium [&>option]:bg-background [&>option]:text-foreground">
             {projectOptions.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
@@ -513,7 +553,7 @@ export default function InvoiceCreatePage() {
       {/* Emisor */}
       {issuers.length > 0 && (
         <div className="bg-card border border-border rounded-lg p-4">
-          <label className="text-xs font-bold uppercase text-muted-foreground">Empresa que emite</label>
+          <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Empresa que emite</label>
           <select value={issuerId ?? ''} onChange={(e) => setIssuerId(Number(e.target.value))}
             className="w-full h-9 px-2 mt-1 rounded border border-primary/40 bg-background text-foreground text-sm font-medium [&>option]:bg-background [&>option]:text-foreground">
             {/* Con alias se enseña el alias: dos emisoras pueden compartir razón
@@ -527,7 +567,7 @@ export default function InvoiceCreatePage() {
               si ese numero ya existe, el servidor dice QUIEN lo tiene. */}
           {!esProforma && !esRect && (
             <div className="mt-3">
-              <label className="text-xs font-bold uppercase text-muted-foreground">Número de factura</label>
+              <label className="mb-1.5 block px-1 text-secundario font-bold uppercase text-muted-foreground">Número de factura</label>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <input
                   value={numeroManual}
@@ -574,7 +614,7 @@ export default function InvoiceCreatePage() {
       {esRect && (
         <div className="bg-card border border-border rounded-lg p-4 space-y-3">
           <div>
-            <label className="text-xs font-bold uppercase text-muted-foreground">Factura a rectificar</label>
+            <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Factura a rectificar</label>
             <p className="text-[11px] text-muted-foreground">El abono copia los datos de la factura original en negativo. Elige de esta sociedad emisora.</p>
             <select value={rectOriginalId ?? ''} onChange={(e) => setRectOriginalId(e.target.value ? Number(e.target.value) : null)}
               className="w-full h-9 px-2 mt-1 rounded border border-primary/40 bg-background text-foreground text-sm [&>option]:bg-background [&>option]:text-foreground">
@@ -594,13 +634,13 @@ export default function InvoiceCreatePage() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="text-[11px] text-muted-foreground">Motivo del abono <span className="text-red-500">*</span></label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Motivo del abono <span className="text-red-500">*</span></label>
               <textarea value={rectMotivo} onChange={(e) => setRectMotivo(e.target.value)} rows={2}
                 placeholder="Ej: anulación por error, devolución, corrección de importe…"
                 className={`w-full px-2 py-1.5 rounded border bg-background text-sm ${!rectMotivo.trim() ? 'border-red-300' : 'border-border'}`} />
             </div>
             <div>
-              <label className="text-[11px] text-muted-foreground">Importe a rectificar (opcional)</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Importe a rectificar (opcional)</label>
               <input type="number" step="0.01" value={rectParcial} onChange={(e) => setRectParcial(e.target.value)}
                 placeholder={rectOrig ? `Total: ${Number(rectOrig.total)}` : 'Vacío = total'}
                 className="w-full h-9 px-2 rounded border border-border bg-background text-sm" />
@@ -630,7 +670,7 @@ export default function InvoiceCreatePage() {
       {tipo !== 'contado' && (
         <div className="bg-card border border-border rounded-lg p-4 space-y-3">
           <div>
-            <label className="text-xs font-bold uppercase text-muted-foreground">Cliente</label>
+            <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Cliente</label>
             <p className="text-[11px] text-muted-foreground">Buscá por nombre/email para traer sus datos; lo que falte lo completás abajo.</p>
             <div className="relative mt-1">
               <MagnifyingGlass size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -652,7 +692,7 @@ export default function InvoiceCreatePage() {
               conversión pendiente de pago). El concepto se escribe libre abajo. */}
           {!editId && leadId && leadConvs.length > 0 && (
             <div className="mb-3">
-              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Asociar a venta del cliente (opcional)</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Asociar a venta del cliente (opcional)</label>
               <select value={assocConvId} onChange={(e) => setAssocConvId(e.target.value ? Number(e.target.value) : '')}
                 className="w-full h-9 px-2 rounded border border-border bg-background text-sm">
                 <option value="">— Sin asociar (documento suelto) —</option>
@@ -669,16 +709,16 @@ export default function InvoiceCreatePage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={tipo === 'empresa' ? 'Razón social' : 'Nombre y apellido'} value={nombre} onChange={(v) => { setNombre(v); if (v !== search) setSearch(v); }} required />
-            <Field label={tipo === 'empresa' ? 'NIF / CIF' : 'DNI / NIF'} value={nif} onChange={setNif} required />
-            <Field label="Dirección" value={direccion} onChange={setDireccion} full />
-            <Field label="Ciudad" value={ciudad} onChange={setCiudad} />
-            <Field label="Código postal" value={cp} onChange={setCp} />
-            <Field label="País" value={pais} onChange={(v) => { setPais(v); setLlevaIva(!!v.toLowerCase().match(/españa|espana|spain|^es$/)); }} />
-            <Field label="Email (opcional)" value={email} onChange={setEmail} />
-            <Field label="Teléfono (opcional)" value={telefono} onChange={setTelefono} />
-          </div>
+          <FilaCampos>
+            <CampoTexto label={tipo === 'empresa' ? 'Razón social' : 'Nombre y apellido'} value={nombre} onChange={(v) => { setNombre(v); if (v !== search) setSearch(v); }} required />
+            <CampoTexto label={tipo === 'empresa' ? 'NIF / CIF' : 'DNI / NIF'} value={nif} onChange={setNif} required />
+            <CampoTexto label="Dirección" value={direccion} onChange={setDireccion} full />
+            <CampoTexto label="Ciudad" value={ciudad} onChange={setCiudad} />
+            <CampoTexto label="Código postal" value={cp} onChange={setCp} />
+            <CampoTexto label="País" value={pais} onChange={(v) => { setPais(v); setLlevaIva(!!v.toLowerCase().match(/españa|espana|spain|^es$/)); }} />
+            <CampoTexto label="Email (opcional)" value={email} onChange={setEmail} />
+            <CampoTexto label="Teléfono (opcional)" value={telefono} onChange={setTelefono} />
+          </FilaCampos>
           {tipo === 'empresa' && !pais.toLowerCase().match(/españa|espana|spain|^es$/) && (
             <label className="flex items-start gap-2 mt-3 p-2.5 rounded-md border border-border bg-muted/20 cursor-pointer">
               <input type="checkbox" checked={viesOk} onChange={(e) => setViesOk(e.target.checked)} className="mt-0.5" />
@@ -694,7 +734,7 @@ export default function InvoiceCreatePage() {
 
       {/* Conceptos */}
       <div className="bg-card border border-border rounded-lg p-4 space-y-2">
-        <label className="text-xs font-bold uppercase text-muted-foreground">Conceptos</label>
+        <p className="mb-1.5 px-1 text-tabla uppercase text-muted-foreground">Conceptos</p>
         {/* Cabecera de columnas para que se entienda qué es cada campo. */}
         <div className="grid grid-cols-12 gap-2 items-center px-0.5">
           <span className="col-span-6 text-[10px] font-semibold uppercase text-muted-foreground">Concepto</span>
@@ -753,7 +793,7 @@ export default function InvoiceCreatePage() {
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-card border border-border rounded-lg p-4 space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase text-muted-foreground">IVA / Régimen fiscal</label>
+            <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">IVA / Régimen fiscal</label>
             {regimenSel && (
               regimenAuto
                 ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary" title="Resuelto por el motor fiscal según país, CP y tipo de cliente">🤖 automático</span>
@@ -777,13 +817,13 @@ export default function InvoiceCreatePage() {
           {regimenSel?.coletilla && <p className="text-[10px] text-muted-foreground border-t border-border/60 pt-1 mt-1">📎 Coletilla: <i>{regimenSel.coletilla}</i></p>}
         </div>
         <div className="bg-card border border-border rounded-lg p-4 space-y-2">
-          <label className="text-xs font-bold uppercase text-muted-foreground">Pago</label>
+          <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Pago</label>
           <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value as 'transferencia')} className="w-full h-9 px-2 rounded border border-border bg-background text-sm">
             <option value="transferencia">Transferencia bancaria</option><option value="tarjeta">Tarjeta</option><option value="tarjeta_stripe">Tarjeta (Stripe)</option>
             <option value="efectivo">Efectivo</option><option value="bizum">Bizum</option><option value="paypal">PayPal</option><option value="fraccionado">Fraccionado</option><option value="otro">Otro</option>
           </select>
           <div>
-            <label className="text-[11px] text-muted-foreground">Moneda</label>
+            <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Moneda</label>
             <select value={moneda} onChange={(e) => setMoneda(e.target.value)} className="w-full h-9 px-2 rounded border border-border bg-background text-sm">
               {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.label}</option>)}
             </select>
@@ -798,7 +838,7 @@ export default function InvoiceCreatePage() {
                 En la factura saldrá <strong>{totalConceptos.toFixed(2)} {moneda} ({(Number(totalEur) || 0).toFixed(2)} €)</strong>.
               </p>
               <div>
-                <label className="text-[11px] text-muted-foreground">Total en euros <span className="text-red-500">*</span></label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Total en euros <span className="text-red-500">*</span></label>
                 <input type="number" step="0.01" min="0" value={totalEur} onChange={(e) => setTotalEur(e.target.value)}
                   placeholder="0.00"
                   className={`w-full h-9 px-2 rounded border bg-background text-sm ${!totalEur ? 'border-amber-400' : 'border-border'}`} />
@@ -809,12 +849,12 @@ export default function InvoiceCreatePage() {
           {editId && puedeFechas && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-muted-foreground">Fecha de emisión</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha de emisión</label>
                 <input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)}
                   className="w-full h-9 px-2 rounded border border-border bg-background text-sm" />
               </div>
               <div>
-                <label className="text-[11px] text-muted-foreground">Fecha de pago</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha de pago</label>
                 <input type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)}
                   className="w-full h-9 px-2 rounded border border-border bg-background text-sm" />
               </div>
@@ -881,13 +921,15 @@ export default function InvoiceCreatePage() {
   );
 }
 
-function Field({ label, value, onChange, required, full }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; full?: boolean }) {
+function CampoTexto({ label, value, onChange, required, full }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; full?: boolean }) {
   return (
-    <div className={full ? 'col-span-2' : ''}>
-      <label className="text-[11px] text-muted-foreground">{label}{required && <span className="text-red-500"> *</span>}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className={`w-full h-9 px-2 rounded border bg-background text-sm ${required && !value ? 'border-red-300' : 'border-border'}`} />
-
-
-    </div>
+    <Field label={label} required={required} className={full ? 'sm:col-span-2' : undefined}>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={required && !value ? true : undefined}
+        className={cn(inputClass, required && !value && 'border-destructive/50')}
+      />
+    </Field>
   );
 }

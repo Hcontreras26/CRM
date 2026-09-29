@@ -33,3 +33,27 @@ export async function switchProject(page, projectId) {
   await listbox.getByRole('option').nth(Number(projectId) - 1).click();
   await page.waitForTimeout(300);
 }
+
+/**
+ * La base del sitio: `/crm/` en local, `/testeo/` en QA.
+ *
+ * Hace falta porque `baseURL` de la configuracion NO la lleva —es
+ * `http://localhost:5173` a secas— y un `page.goto('/prospectos')` acaba fuera
+ * de la aplicacion, en la pagina de error de Vite. Con la base delante, no.
+ */
+export const BASE_APP = process.env.PLAYWRIGHT_APP_BASE || '/crm';
+
+/** Ir a una pantalla. Espera a que monte: las rutas van por `lazy`. */
+export const ir = (page, ruta, opciones = {}) => page.goto(
+  `${BASE_APP}${ruta}`,
+  { waitUntil: 'networkidle', ...opciones },
+);
+
+/**
+ * El patron para interceptar la API.
+ *
+ * `**\/api/**` a secas se traga tambien los modulos del navegador que cuelgan de
+ * rutas con «api» dentro, y la pagina sale en blanco. Con la base delante, solo
+ * caza las llamadas de verdad.
+ */
+export const API_GLOB = `**${BASE_APP}/api/**`;

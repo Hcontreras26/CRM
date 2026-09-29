@@ -9,6 +9,7 @@ import {
   CreditCard, ArrowsClockwise, CheckCircle, XCircle, WarningCircle, ArrowSquareOut,
   Link as LinkIcon, MagnifyingGlass, ArrowCounterClockwise,
 } from '@phosphor-icons/react';
+import { ponerAmbito } from '@/shared/lib/ambitoInforme';
 
 type Payment = {
   id: number;
@@ -56,7 +57,10 @@ export default function StripePaymentsPage() {
   // La gestora ve el correo del cobro, lo pone en la ficha del cliente y
   // sincroniza; el match se hace solo.
   const puedeAsociar = user?.role === 'admin' || user?.role === 'superadmin';
-  const { activeProject } = useProjectContext() as { activeProject: { id?: number | null; nombre?: string } };
+  const { activeProject, activeIssuerId } = useProjectContext() as {
+    activeProject: { id?: number | null; nombre?: string };
+    activeIssuerId: number | null;
+  };
   const pid = activeProject?.id;
 
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -68,10 +72,12 @@ export default function StripePaymentsPage() {
   const [disputeDialog, setDisputeDialog] = useState<Payment | null>(null);
 
   const load = useCallback(async () => {
-    if (!pid) return;
+    if (!pid && !activeIssuerId) return;
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ projectId: String(pid), limit: '100' });
+      // Los cobros ya estan en nuestra base, asi que una EMPRESA es leer los de
+      // sus campus --no hablar con varias cuentas de Stripe--.
+      const qs = ponerAmbito(new URLSearchParams({ limit: '100' }), { activeIssuerId, activeProject });
       if (filters.status) qs.set('status', filters.status);
       if (filters.linked) qs.set('linked', filters.linked);
       if (filters.search) qs.set('search', filters.search);
@@ -87,7 +93,7 @@ export default function StripePaymentsPage() {
       if (r1.success) setPayments(r1.data || []);
       if (r2.success) setStats(r2.data || null);
     } finally { setLoading(false); }
-  }, [pid, filters]);
+  }, [pid, activeIssuerId, filters]);
 
   useEffect(() => { load(); }, [load]);
 

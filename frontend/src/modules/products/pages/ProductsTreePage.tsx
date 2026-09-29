@@ -1,3 +1,4 @@
+import PageHeader from '@/shared/components/ui/PageHeader';
 import { useEffect, useState, useMemo } from 'react';
 import { useProject } from '@/shared/hooks/useProject';
 import client from '@/shared/api/client';
@@ -9,7 +10,6 @@ import {
   CaretDown,
   CaretRight,
   Tree,
-  Package,
   MagnifyingGlass,
   X,
 } from '@phosphor-icons/react';
@@ -138,10 +138,7 @@ export default function ProductsTreePage() {
 
   return (
     <div className="container mx-auto py-6">
-      <div className="flex items-center gap-3 mb-4">
-        <Package size={24} className="text-primary" />
-        <h1 className="text-2xl font-semibold">Productos por categoría</h1>
-      </div>
+      <PageHeader title="Productos por categoría" />
 
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
         {/* Sidebar árbol */}

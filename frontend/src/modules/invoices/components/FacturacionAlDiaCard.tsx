@@ -163,10 +163,10 @@ export default function FacturacionAlDiaCard({ projectId }: { projectId?: number
         <p className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
           <span aria-hidden="true">⚠</span>
           <span>
-    Comprueba la numeración en el Excel de facturación primero.
-    {' '}Si hay discrepancia, contacta con soporte; y si hace falta, genera la
-    {' '}factura manualmente y avisa.
-  </span>
+            Comprueba la numeración en el Excel de facturación primero.
+            {' '}Si hay discrepancia, contacta con soporte; y si hace falta, genera la
+            {' '}factura manualmente y avisa.
+          </span>
         </p>
         <input
 

@@ -2,7 +2,7 @@ import { logger } from '../shared/utils/logger.js';
 import { sendEmail } from '../shared/services/brevo.service.js';
 import { query } from '../shared/config/db.js';
 import * as model from '../modules/email-sequences/sequence.model.js';
-import { renderTemplate } from '../modules/email-templates/email-templates.service.js';
+import { renderTemplate, comoHtml } from '../modules/email-templates/email-templates.service.js';
 import { vigilar } from './latido.js';
 
 const TICK_MS = parseInt(process.env.EMAIL_SEQ_TICK_MS || String(2 * 60 * 1000)); // 2 min default
@@ -37,8 +37,11 @@ async function resolveStepContent(step, run) {
         user: { nombre: 'Sistema' },
       };
       return {
-        subject: renderTemplate(tpl.subject, ctx),
-        htmlContent: renderTemplate(tpl.body_html, ctx),
+        // El asunto NO es HTML: escaparlo estropea los nombres con & o '.
+        subject: renderTemplate(tpl.subject, ctx, { escapar: false }),
+        // Las plantillas se escriben como correos, no como HTML: los saltos
+        // de linea hay que convertirlos o todo llega en un parrafo corrido.
+        htmlContent: comoHtml(renderTemplate(tpl.body_html, ctx)),
       };
     }
   }

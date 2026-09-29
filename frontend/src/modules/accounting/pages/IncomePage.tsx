@@ -1,5 +1,4 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import RangoRapido from '@/shared/components/ui/RangoRapido';
 import { useNavigate } from 'react-router-dom';
 import client from '@/shared/api/client';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -8,11 +7,13 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
-import { CurrencyEur, ArrowRight, Receipt, CheckCircle, Plus, GraduationCap } from '@phosphor-icons/react';
+import { CurrencyEur, ArrowRight, Receipt, CheckCircle, Plus, GraduationCap, CaretDown, User, Users, Robot } from '@phosphor-icons/react';
+import usePermission from '@/shared/hooks/usePermission';
 import { formatDate } from '@/shared/lib/format';
 // Las metas son mensuales: el mes que toque segun el filtro de fechas. Misma
 // funcion que usa SalesPage, para que las dos pantallas digan el mismo mes.
 import { mesDe } from '@/modules/sales/components/FiltroPeriodo';
+import RangoRapido, { rangoDe } from '@/shared/components/ui/RangoRapido';
 
 const RegisterSaleDialog = lazy(() => import('@/modules/sales/components/RegisterSaleDialog'));
 const TutorialesVentas = lazy(() => import('@/modules/sales/components/TutorialesVentas'));
@@ -32,32 +33,12 @@ const PER_PAGE = 50;
   «hoy» se convierte en mañana. Un atajo que enseña el dia equivocado por la
   noche es peor que no tenerlo, asi que la fecha se arma con los numeros locales.
 */
-const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/* `iso` y `lunesDe` se fueron con los atajos: ahora los calcula `RangoRapido`,
+   que es quien pinta los botones. `sumaDias` se queda porque la usa el resto de
+   la pantalla. */
 const sumaDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
-/* «Esta semana» empieza en LUNES, no en domingo: es la semana con la que se
-   trabaja aqui. getDay() da 0 para el domingo, de ahi el ajuste. */
-const lunesDe = (d) => sumaDias(d, -((d.getDay() + 6) % 7));
 
-function atajosDeFecha() {
-  const hoy = new Date();
-  const ayer = sumaDias(hoy, -1);
-  const lunes = lunesDe(hoy);
-  const lunesPasado = sumaDias(lunes, -7);
-  const primeroDeMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  const finMesPasado = sumaDias(primeroDeMes, -1);
-  const primeroMesPasado = new Date(finMesPasado.getFullYear(), finMesPasado.getMonth(), 1);
-  return [
-    { id: 'hoy', texto: 'Hoy', from: iso(hoy), to: iso(hoy) },
-    { id: 'ayer', texto: 'Ayer', from: iso(ayer), to: iso(ayer) },
-    // De lunes a HOY, no a domingo: enseñar dias que aun no han pasado hace
-    // parecer que la semana va peor de lo que va.
-    { id: 'semana', texto: 'Esta semana', from: iso(lunes), to: iso(hoy) },
-    { id: 'semana_pasada', texto: 'Semana pasada', from: iso(lunesPasado), to: iso(sumaDias(lunes, -1)) },
-    { id: 'mes', texto: 'Este mes', from: iso(primeroDeMes), to: iso(hoy) },
-    { id: 'mes_pasado', texto: 'Mes pasado', from: iso(primeroMesPasado), to: iso(finMesPasado) },
-  ];
-}
 
 
 
@@ -93,7 +74,7 @@ function Tipo({ tipo, compartida }: { tipo: string; compartida?: boolean }) {
         className={`${base} bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300`}
         title="Venta repartida entre dos gestoras. Cada una suma su parte."
       >
-        A MEDIAS
+        COMPARTIDO
       </span>
     </span>
   );
@@ -115,6 +96,21 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registerOpen, setRegisterOpen] = useState(false);
+  // LOS TRES TIPOS DE VENTA, en el boton.
+  //
+  // Van AQUI y no solo en /ventas: esta es la pantalla que se usa --Finanzas >
+  // Ventas--, y son dos componentes distintos con el mismo nombre. Ponerlo solo
+  // en el otro fue como no ponerlo.
+  const { can } = usePermission();
+  const puedeSinGestora = can('conversions.sin_gestora');
+  const puedeDeOtra = can('leads.assign') || can('leads.reassign');
+  const [modoVenta, setModoVenta] = useState<'existing' | 'otra_gestora' | 'sin_gestora'>('existing');
+  const [menuVenta, setMenuVenta] = useState(false);
+  function abrirVenta(modo: 'existing' | 'otra_gestora' | 'sin_gestora') {
+    setModoVenta(modo);
+    setMenuVenta(false);
+    setRegisterOpen(true);
+  }
   const [tutorialesOpen, setTutorialesOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [viewUserId, setViewUserId] = useState('all');
@@ -130,12 +126,10 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
     facturadoEnPeriodo: { n: 0, importe: 0 },
     cobrosDelPeriodo: { matricula: { n: 0, importe: 0 }, cuotas: { n: 0, importe: 0 } }, facturasPorClase: { venta: { n: 0, importe: 0 }, cuota: { n: 0, importe: 0 }, parte: { n: 0, importe: 0 }, suelta: { n: 0, importe: 0 } }, porProyecto: [],
   });
-  const atajos = atajosDeFecha();
   // Por defecto, ESTE MES. Diego: «por defecto es este mes». Sin fechas la
   // lista era el historico entero, y la etiqueta venta/cuota solo tiene sentido
   // con un periodo: asi la pantalla abre ya con la lista mezclada y etiquetada.
-  const esteMes = atajos.find((a) => a.id === 'mes') || { from: '', to: '' };
-  const [rango, setRango] = useState({ from: esteMes.from, to: esteMes.to });
+  const [rango, setRango] = useState(rangoDe('mes'));
   // La lista de abajo con fechas puestas: ventas + cuotas facturadas, cada una
   // con su etiqueta. Sin fechas, la lista sigue siendo la de ventas.
   const [filas, setFilas] = useState<any[]>([]);
@@ -173,7 +167,6 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   // de cuotas: era el de las fechas de antes.
   useEffect(() => { setCuotas([]); setVerCuotas(false); },
     [projectIdParam, issuerIdParam, effectiveResponsableId, rango.from, rango.to]);
-
   useEffect(() => { setPage(1); }, [projectIdParam, issuerIdParam, effectiveResponsableId, filterCurso, rango.from, rango.to]);
 
   useEffect(() => {
@@ -246,7 +239,10 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         clave: `venta-${r.id}`, tipo: 'venta', fecha: r.fecha_conversion || r.fecha_compra, fecha_de_la_venta: r.fecha_conversion,
         lead_id: r.lead_id, venta_id: r.id, cliente: r.lead_nombre, producto: r.producto_contratado,
         total: r.importe_total, pagado: r.importe_pagado, factura: null, factura_no_requerida: false,
-        compartida: false,
+        // Estaba a false a mano: sin fechas puestas, una venta repartida entre
+        // dos gestoras salia como cualquier otra y parecia que el reparto no se
+        // habia guardado. Con fechas si se veia, porque /filas si lo trae.
+        compartida: Boolean(r.compartida),
         estado: estadoDe(r.importe_total, r.importe_pagado),
       }));
   const totalLista = conFechas ? totalFilas : total;
@@ -283,16 +279,72 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         >
           Análisis
         </button>
-        {activeProject?.id && (
+        {activeProject?.id && ((puedeSinGestora || puedeDeOtra) ? (
+          <div className="relative self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setMenuVenta((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menuVenta}
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90"
+            >
+              <Plus size={14} weight="bold" />
+              Nueva venta
+              <CaretDown size={12} weight="bold" className={menuVenta ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            </button>
+            {menuVenta && (
+              <>
+                {/* Pulsar fuera lo cierra. */}
+                <div className="fixed inset-0 z-10" onClick={() => setMenuVenta(false)} aria-hidden="true" />
+                <div role="menu" className="absolute right-0 z-20 mt-1 w-72 overflow-hidden rounded-md border border-border bg-card shadow-lg">
+                  <button
+                    type="button" role="menuitem" onClick={() => abrirVenta('existing')}
+                    className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted"
+                  >
+                    <User size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                    <span>
+                      <span className="block text-sm font-semibold">Venta propia</span>
+                      <span className="block text-[11px] text-muted-foreground">La registras tú y cuenta para ti.</span>
+                    </span>
+                  </button>
+                  {puedeDeOtra && (
+                    <button
+                      type="button" role="menuitem" onClick={() => abrirVenta('otra_gestora')}
+                      className="flex w-full items-start gap-2.5 border-t border-border px-3 py-2.5 text-left hover:bg-muted"
+                    >
+                      <Users size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        <span className="block text-sm font-semibold">Venta de otra gestora</span>
+                        <span className="block text-[11px] text-muted-foreground">Eliges el prospecto y la venta queda de quien lo lleva.</span>
+                      </span>
+                    </button>
+                  )}
+                  {puedeSinGestora && (
+                    <button
+                      type="button" role="menuitem" onClick={() => abrirVenta('sin_gestora')}
+                      className="flex w-full items-start gap-2.5 border-t border-border px-3 py-2.5 text-left hover:bg-muted"
+                    >
+                      <Robot size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        <span className="block text-sm font-semibold">Venta automática (sin gestora)</span>
+                        <span className="block text-[11px] text-muted-foreground">La registra la plataforma, de cero: no cuenta para ninguna gestora.</span>
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
           <button
             type="button"
-            onClick={() => setRegisterOpen(true)}
+            onClick={() => abrirVenta('existing')}
             className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 self-start sm:self-auto"
           >
             <Plus size={14} weight="bold" />
             Nueva venta
           </button>
-        )}
+        ))}
         </div>
       </div>
 
@@ -303,6 +355,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       <Suspense fallback={null}>
         <RegisterSaleDialog
           open={registerOpen}
+          modoInicial={modoVenta}
           project={activeProject}
           onClose={() => setRegisterOpen(false)}
           onSaved={() => setReloadKey((k) => k + 1)}
@@ -425,8 +478,8 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           <label className="text-xs font-semibold text-muted-foreground">Hasta:</label>
           <input type="date" value={rango.to} onChange={(e) => setRango((v) => ({ ...v, to: e.target.value }))}
             className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
-          {(viewUserId !== 'all' || filterCurso !== 'all' || rango.from !== esteMes.from || rango.to !== esteMes.to) && (
-            <button type="button" onClick={() => { setViewUserId('all'); setFilterCurso('all'); setRango({ from: esteMes.from, to: esteMes.to }); }} className="text-[11px] text-primary hover:underline">
+          {(viewUserId !== 'all' || filterCurso !== 'all' || rango.from !== rangoDe('mes').from || rango.to !== rangoDe('mes').to) && (
+            <button type="button" onClick={() => { setViewUserId('all'); setFilterCurso('all'); setRango(rangoDe('mes')); }} className="text-[11px] text-primary hover:underline">
               Quitar filtros
             </button>
           )}
@@ -435,22 +488,10 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
               queden escondidos al final de una fila larga de filtros. */}
           <div className="basis-full flex flex-wrap items-center gap-1.5 pt-1">
             <span className="text-xs font-semibold text-muted-foreground mr-0.5">Rápido:</span>
-            {atajos.map((a) => {
-              const puesto = rango.from === a.from && rango.to === a.to;
-              return (
-                <button key={a.id} type="button"
-                  onClick={() => setRango(puesto ? { from: '', to: '' } : { from: a.from, to: a.to })}
-                  // Se dice el periodo exacto que coge: «Semana pasada» no
-                  // significa lo mismo para todo el mundo.
-                  title={`${a.from} → ${a.to}`}
-                  className={`h-7 px-2.5 rounded-md border text-xs font-medium transition-colors ${
-                    puesto
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border text-muted-foreground hover:bg-muted'}`}>
-                  {a.texto}
-                </button>
-              );
-            })}
+            {/* El componente compartido. Antes esta pantalla tenia su propia
+                copia de los seis atajos, con las mismas cuentas escritas otra
+                vez: tres copias en el CRM era lo que el ticket pedia evitar. */}
+            <RangoRapido valor={rango} alElegir={setRango} />
           </div>
         </div>
       )}
@@ -645,20 +686,6 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
               )}
             </p>
           )}
-          {false && (
-            <p className="text-xs text-sky-800 dark:text-sky-300 mt-1 leading-relaxed">
-              Del dinero que entró en estas fechas,{' '}
-              <strong>{fmt(totales.cobrosDelPeriodo.matricula.importe)}</strong> son de ventas
-              nuevas y <strong>{fmt(totales.cobrosDelPeriodo.cuotas.importe)}</strong> son{' '}
-              {totales.cobrosDelPeriodo.cuotas.n} {totales.cobrosDelPeriodo.cuotas.n === 1 ? 'cuota' : 'cuotas'}{' '}
-              de ventas anteriores.{' '}
-              <button type="button" onClick={abrirCuotas}
-                className="font-semibold underline hover:no-underline">
-                {verCuotas ? 'Ocultar el detalle' : 'Ver cuáles son'}
-              </button>
-            </p>
-          )}
-
           {verCuotas && (
             <div className="mt-2 rounded-md border border-sky-200 dark:border-sky-900 bg-card overflow-x-auto">
               {cargandoCuotas ? (

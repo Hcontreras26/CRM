@@ -53,6 +53,11 @@ export const listLeadsSchema = z.object({
   // Por que seguimiento va: 1, 2, 3, 4 o «5 o más». El tope evita que
   // alguien pida el seguimiento 900 y se lleve una consulta por delante.
   seguimiento: z.coerce.number().int().min(1).max(20).optional(),
+  // En que PASO del proceso comercial va. Diego, 23/09: «en filtros que diga
+  // proceso de ventas y puedas elegir cuál». La clave y no el id: los pasos son
+  // por proyecto --cada campus tiene los suyos-- y la clave es la misma en
+  // todos, asi que vale igual con un campus que con una empresa entera.
+  pasoProceso: z.string().max(40).optional(),
   responsableId: z.coerce.number().int().positive().optional(),
   unassigned: z.coerce.boolean().optional(),
   canal: z.enum(['meta_ads', 'google_ads', 'tiktok_ads', 'organico', 'chatgpt_ia', 'directo', 'referido', 'whatsapp']).optional(),
@@ -64,6 +69,10 @@ export const listLeadsSchema = z.object({
   // Filtro por rango de fechas (sobre fecha_solicitud o created_at)
   dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato dateFrom: YYYY-MM-DD').optional(),
   dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato dateTo: YYYY-MM-DD').optional(),
+  // Filtro rapido, el mismo que las pestañas del listado (#132). Se valida
+  // como enum porque su valor elige un fragmento de SQL: cerrado por
+  // construccion, no por confianza.
+  qf: z.enum(['overdue', 'today', 'tomorrow', 'week', 'no-reminder', 'no-contact', 'urgent', 'sin-revisar']).optional(),
   // Orden: recent = cronológico puro (DEFAULT). dir invierte asc/desc.
   sort: z.enum(['value', 'recent', 'urgency', 'recent_value']).optional(),
   dir: z.enum(['asc', 'desc']).optional(),
@@ -101,6 +110,9 @@ export const checkDuplicateSchema = z.object({
 export const updateStatusSchema = z.object({
   status: z.enum(['nuevo', 'por_contactar', 'contactado', 'en_seguimiento', 'convertido', 'no_interesado', 'proxima_convocatoria']),
   motivo: z.string().max(500).optional().nullable(),
+  // Solo cuenta al pasar a «no interesado»: que salga el correo de «¿por que
+  // has desistido?» (#169), que se prepare para verlo antes, o que no salga.
+  feedback: z.enum(['enviar', 'revisar', 'no']).optional(),
 }).refine(
   (data) => data.status !== 'no_interesado' || (data.motivo && data.motivo.trim().length >= 1),
   { message: 'Motivo requerido al marcar como no interesado', path: ['motivo'] }
@@ -108,13 +120,15 @@ export const updateStatusSchema = z.object({
 
 export const createInteractionSchema = z.object({
   tipo: z.enum(['llamada', 'email', 'whatsapp', 'nota']),
-  nota: z.string().max(2000).optional(),
+  // 10.000, no 2.000: una nota con el resumen de una llamada larga no cabía y
+  // se rechazaba entera (M.ª Eugenia, seis veces en una tarde). La columna es TEXT.
+  nota: z.string().max(10000, 'La nota es demasiado larga (máx. 10.000 caracteres)').optional(),
   fecha: z.string().datetime().optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/)).optional(),
 });
 
 export const updateInteractionSchema = z.object({
   tipo: z.enum(['llamada', 'email', 'whatsapp', 'nota']).optional(),
-  nota: z.string().max(2000).optional(),
+  nota: z.string().max(10000, 'La nota es demasiado larga (máx. 10.000 caracteres)').optional(),
   fecha: z.string().datetime().optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/)).optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'Al menos un campo a actualizar' });
 
@@ -161,4 +175,28 @@ export const updateLeadSchema = z.object({
   custom_fields: z.record(z.string(), z.any()).nullable().optional(),
 }).refine((data) => Object.keys(data).length > 0, {
   message: 'Al menos un campo debe ser proporcionado',
+});
+
+/** Contadores de los filtros rapidos (#132). */
+export const quickCountsSchema = z.object({
+  projectId: z.coerce.number().int().positive().optional(),
+  projectIds: z.string().regex(/^\d+(,\d+)*$/).optional()
+    .transform((v) => v ? v.split(',').map(Number) : undefined),
+  responsableId: z.coerce.number().int().positive().optional(),
+  includeConverted: z.coerce.boolean().optional(),
+});
+
+/**
+ * El repaso de fin de mes: que dijo la gestora al mirar la ficha (#132).
+ *
+ * Los tres valores son los que pidio Diego: «quien sigue vivo, quien ya no,
+ * quien cambio de idea». Cerrado por enum y no por texto libre, porque de esto
+ * se cuenta despues: con texto libre acabarian conviviendo «no sigue», «No
+ * Sigue» y «ya no» y no se podria sumar nada.
+ */
+export const revisarLeadSchema = z.object({
+  resultado: z.enum(['sigue', 'no_sigue', 'cambio'], {
+    message: 'resultado debe ser sigue, no_sigue o cambio',
+  }),
+  nota: z.string().max(1000).optional().nullable(),
 });

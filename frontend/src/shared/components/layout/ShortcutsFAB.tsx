@@ -136,7 +136,7 @@ export default function ShortcutsFAB() {
         onClick={() => setOpen(o => !o)}
         aria-label={open ? 'Cerrar atajos' : 'Abrir atajos rápidos'}
         aria-expanded={open}
-        className={`fixed bottom-4 right-16 z-[57] w-11 h-11 rounded-full shadow-lg transition-all flex items-center justify-center
+        className={`fixed bottom-4 right-16 z-[57] w-11 h-11 rounded-full shadow-popover transition-all flex items-center justify-center
           ${open
             ? 'bg-card border border-border text-foreground hover:bg-muted'
             : 'bg-primary text-primary-foreground hover:scale-110'

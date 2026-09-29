@@ -68,7 +68,12 @@ describe('elegir una plantilla desde el chat', () => {
     montar({ alElegir, alCerrar });
     await waitFor(() => expect(screen.getByText('Primer contacto')).toBeTruthy());
     fireEvent.click(screen.getByText('Primer contacto'));
-    expect(alElegir).toHaveBeenCalledWith('Hola Marta, te escribo por Máster en Logopedia.');
+    // El primer argumento es el texto ya relleno. Detrás va la plantilla
+    // entera, que el chat necesita para saber si pide adjunto: se comprueba el
+    // texto y no la llamada exacta, que es lo que dejó esta prueba en rojo
+    // cuando se añadió el segundo argumento.
+    expect(alElegir).toHaveBeenCalled();
+    expect(alElegir.mock.calls[0][0]).toBe('Hola Marta, te escribo por Máster en Logopedia.');
     expect(alCerrar).toHaveBeenCalled();
   });
 
@@ -126,5 +131,46 @@ describe('elegir una plantilla desde el chat', () => {
     plantillas.mockResolvedValue({ success: false, error: 'No hay conexión' });
     montar();
     await waitFor(() => expect(screen.getByText('No hay conexión')).toBeTruthy());
+  });
+});
+
+describe('elegir por paso del proceso', () => {
+  // La gestora sabe en que paso va esta persona, no como se llama la plantilla.
+  // Hasta ahora habia que reconocerla por el nombre —«Dia 2 · Opiniones · 1 de
+  // 3»— entre todas las del proyecto.
+  const DEL_PROCESO = [
+    { id: 10, label: 'Día 1 · Saludo', body: 'Hola', ambito: 'compartida', paso_clave: 'paso_1' },
+    { id: 11, label: 'Día 2 · Opiniones · 1 de 3', body: 'Mira esto', ambito: 'compartida', paso_clave: 'paso_2' },
+    { id: 12, label: 'Día X · Fin de mes', body: 'Seguimos?', ambito: 'compartida', paso_clave: 'seguimiento_mensual' },
+    { id: 13, label: 'Oferta', body: 'Tenemos una oferta', ambito: 'compartida' },
+  ];
+
+  beforeEach(() => { plantillas.mockResolvedValue({ success: true, data: DEL_PROCESO }); });
+
+  it('solo salen los pasos que ese proyecto tiene de verdad', async () => {
+    montar();
+    await waitFor(() => expect(screen.getByText('Día 1 · Saludo')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Paso 1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Paso 2' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Fin de mes' })).toBeTruthy();
+    // No hay ninguna del paso 3 ni del 4: sus botones no se inventan.
+    expect(screen.queryByRole('button', { name: 'Paso 3' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Paso 4' })).toBeNull();
+  });
+
+  it('al elegir un paso, solo quedan las suyas', async () => {
+    montar();
+    await waitFor(() => expect(screen.getByText('Día 1 · Saludo')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Paso 2' }));
+    expect(screen.getByText('Día 2 · Opiniones · 1 de 3')).toBeTruthy();
+    expect(screen.queryByText('Día 1 · Saludo')).toBeNull();
+  });
+
+  it('las que no son del proceso quedan en «Sueltas», no desaparecen', async () => {
+    montar();
+    await waitFor(() => expect(screen.getByText('Oferta')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Sueltas' }));
+    expect(screen.getByText('Oferta')).toBeTruthy();
+    expect(screen.queryByText('Día 1 · Saludo')).toBeNull();
   });
 });

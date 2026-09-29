@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { inputClass } from '@/shared/lib/ui';import { useState } from 'react';
 import { payableApi } from '../api/payable.api';
 import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
@@ -51,7 +52,6 @@ export default function PayableDialog({ projectId, onClose, onSaved }: Props) {
     } finally { setSaving(false); }
   }
 
-  const inputClass = 'w-full h-9 px-3 rounded-lg border border-border bg-muted/50 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
   return (
     <Portal>
@@ -81,11 +81,11 @@ export default function PayableDialog({ projectId, onClose, onSaved }: Props) {
             <input required type="number" step="0.01" placeholder="Importe total" value={data.importe_total} onChange={e => setData({ ...data, importe_total: e.target.value })} className={inputClass + ' tabular-nums'} />
             <div></div>
             <div>
-              <label className="text-[10px] font-medium text-muted-foreground block mb-1">Fecha factura</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha factura</label>
               <input type="date" value={data.fecha_factura} onChange={e => setData({ ...data, fecha_factura: e.target.value })} className={inputClass} required />
             </div>
             <div>
-              <label className="text-[10px] font-medium text-muted-foreground block mb-1">Vence</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Vence</label>
               <input type="date" value={data.fecha_compromiso_pago} onChange={e => setData({ ...data, fecha_compromiso_pago: e.target.value })} className={inputClass} />
             </div>
             <textarea placeholder="Notas (opcional)" value={data.notas} onChange={e => setData({ ...data, notas: e.target.value })} className={inputClass + ' col-span-2 h-20 py-2 resize-none'} />

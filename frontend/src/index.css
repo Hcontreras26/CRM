@@ -25,18 +25,37 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --primary: 230 75% 55%;
+    /* ── La paleta de la maqueta SuiteDash (#78) ──────────────────────
+       Neutros `slate` y acento `cyan`. Antes eran neutros `zinc` (240°) y
+       acento índigo (230°): la diferencia es que el slate tiene una pizca de
+       azul, así que el gris no sale muerto al lado del acento.
+
+       Dos valores NO son los de la maqueta, y es a propósito:
+
+       · El acento va en cyan-700, no en cyan-600. La maqueta pinta su botón
+         principal `bg-cyan-600 text-white`, y eso son 3,68:1 — no pasa AA. Con
+         cyan-700, 5,37:1. Entre 36% y 31% de luminosidad casi no se ve la
+         diferencia; entre leerse y no leerse, sí.
+
+       · El texto secundario va un punto por debajo de slate-500. Tal cual, la
+         maqueta pone `text-slate-500` sobre `bg-slate-100` —37 y 13 usos— y
+         eso son 4,34:1. A 45% son 4,63:1 sobre la píldora y 5,07:1 sobre la
+         tarjeta.
+
+       Y `text-slate-400`, que la maqueta usa 12 veces sobre el fondo, se queda
+       en 2,45:1. No entra: lo que iba ahí usa `muted-foreground`. */
+    --background: 210 40% 98%;            /* slate-50 */
+    --foreground: 229 84% 5%;             /* slate-950 */
+    --card: 0 0% 100%;                    /* blanco, para que la tarjeta suba */
+    --card-foreground: 229 84% 5%;
+    --primary: 193 82% 31%;               /* cyan-700 · blanco encima 5,37:1 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 6% 10%;
+    --secondary: 210 40% 96%;             /* slate-100 */
+    --secondary-foreground: 222 47% 11%;  /* slate-900 */
+    --muted: 210 40% 96%;                 /* slate-100 */
+    --muted-foreground: 215 16% 45%;      /* slate-500, un punto más oscuro */
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
     /* Era `0 84% 60%` (red-500): con texto blanco encima se queda en 3,8:1 y no
        pasa AA. Afectaba a TODO `<Button variant="destructive">`, no a un sitio
        suelto. Bajado a red-600, que es además el valor que ya tenía el tema
@@ -44,9 +63,13 @@
        Es el único cambio de esta tanda que altera el aspecto actual. */
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 230 75% 55%;
+    --border: 214 32% 91%;                /* slate-200 */
+    --input: 214 32% 91%;
+    /* El halo del foco va en cyan-600, no en cyan-500. Es el único indicador
+       de por dónde va el teclado, y WCAG le pide 3:1 contra lo que tiene al
+       lado: cyan-500 se queda en 2,32:1 sobre el fondo. cyan-600 da 3,65:1
+       sobre el fondo y 3,82:1 sobre una tarjeta. */
+    --ring: 192 91% 36%;                  /* cyan-600 */
     --radius: 0.5rem;
 
     /* ── Estados: éxito, aviso, peligro, información ──────────────────
@@ -91,23 +114,32 @@
   }
 
   .dark {
-    --background: 240 10% 4%;
-    --foreground: 0 0% 95%;
-    --card: 240 10% 6%;
-    --card-foreground: 0 0% 95%;
-    --primary: 230 75% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 12%;
-    --secondary-foreground: 0 0% 85%;
-    --muted: 240 5% 12%;
-    --muted-foreground: 240 4% 55%;
-    --accent: 240 5% 14%;
-    --accent-foreground: 0 0% 90%;
+    /* El oscuro lo derivo yo: la maqueta es solo tema claro — no lleva una
+       sola clase `dark:`. Mismos escalones de slate, al revés.
+
+       Lo que NO se puede copiar del claro: ahí el botón es cian oscuro con
+       texto blanco, y en oscuro un cian oscuro sobre fondo negro no se ve. Se
+       aclara a cyan-500 — y entonces el blanco encima son 2,43:1. Así que el
+       texto del botón pasa a ser oscuro. Es lo mismo que ya hacen `success` y
+       `warning` aquí abajo, y por eso el token trae su propio `-foreground`:
+       quien escribe `bg-primary text-primary-foreground` no tiene que saberlo. */
+    --background: 229 84% 5%;             /* slate-950 */
+    --foreground: 210 40% 98%;            /* slate-50 */
+    --card: 222 47% 11%;                  /* slate-900 */
+    --card-foreground: 210 40% 98%;
+    --primary: 189 94% 43%;               /* cyan-500 · texto oscuro 8,31:1 */
+    --primary-foreground: 229 84% 5%;     /* slate-950 */
+    --secondary: 217 33% 17%;             /* slate-800 */
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 17%;                 /* slate-800 */
+    --muted-foreground: 215 20% 65%;      /* slate-400 · 5,71:1 sobre slate-800 */
+    --accent: 217 33% 20%;
+    --accent-foreground: 210 40% 96%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 15%;
-    --input: 240 6% 15%;
-    --ring: 230 75% 60%;
+    --border: 217 33% 17%;                /* slate-800 */
+    --input: 217 33% 17%;
+    --ring: 188 86% 53%;                  /* cyan-400 */
 
     /* En oscuro se invierte la pareja suave: el fondo pasa al tono 950 y el
        texto al 400 — que es lo que ya hacía a mano media aplicación.
@@ -163,6 +195,21 @@
     rounded-sm     detalles pequeños dentro de un control
 
   Todos cuelgan de --radius, así que se mueven juntos.
+
+  ---
+
+  El ritmo, medido igual y con el mismo resultado: una tarjeta se rellenaba de
+  OCHO maneras (p-4 110 veces, p-5 70, p-3 42, p-6 39, y p-8/p-2/p-7/p-12), y
+  para separar bloques no había ni un valor dominante — space-y-5 66, space-y-3
+  54, space-y-2 46, space-y-6 31, space-y-4 31.
+
+    space-y-bloque   entre los bloques de una pantalla   (24px)
+    p-tarjeta        relleno de una tarjeta              (16px, lo pone <Card>)
+    gap-fila         entre controles de una fila         (8px)
+
+  No se elige un número: se elige qué es. La escala numérica de Tailwind sigue
+  ahí para los casos sueltos; esto es para las tres decisiones que se repiten en
+  las 82 pantallas.
 
   (Aquí vivían `.crm-card` y `.crm-card-interactive`. Se han quitado: cero usos
   en todo el frontal. Lo que hacen ahora lo hace la primitiva Card, que además

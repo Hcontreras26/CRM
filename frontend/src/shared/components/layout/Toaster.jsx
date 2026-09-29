@@ -18,14 +18,14 @@ export default function Toaster() {
           key={t.id}
           className={`pointer-events-auto flex items-start gap-3 p-4 rounded-lg border animate-in slide-in-from-bottom-4 fade-in-0 ${
             t.variant === 'destructive'
-              ? 'bg-red-50 border-red-200 text-red-900 dark:bg-red-950 dark:border-red-800 dark:text-red-100'
+              ? 'bg-destructive-soft border-destructive/30 text-destructive-soft-foreground'
               : 'bg-card border-border text-foreground'
           }`}
         >
           <div className="flex-shrink-0 mt-0.5">
             {t.variant === 'destructive'
-              ? <WarningCircle size={18} weight="regular" className="text-red-500" />
-              : <CheckCircle size={18} weight="regular" className="text-emerald-500" />
+              ? <WarningCircle size={18} weight="regular" className="text-destructive" />
+              : <CheckCircle size={18} weight="regular" className="text-success" />
             }
           </div>
           <div className="flex-1 min-w-0">

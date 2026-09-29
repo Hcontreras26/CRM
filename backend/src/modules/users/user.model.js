@@ -1,4 +1,31 @@
 import { query, getClient } from '../../shared/config/db.js';
+import { limpiaRolesExtra } from '../../shared/utils/roles.js';
+import { logger } from '../../shared/utils/logger.js';
+
+/**
+ * Si la columna del #128 ya existe.
+ *
+ * Mientras la migracion 156 no este aplicada —y la aprueba Diego, no yo— guardar
+ * un usuario NO puede fallar por eso: el formulario manda la casilla siempre, y
+ * un `column "usa_whatsapp" does not exist` tumbaria el guardado entero, nombre
+ * y proyectos incluidos. Es la leccion del panel de claves (#113).
+ *
+ * Se pregunta una vez por proceso: una columna no aparece a mitad de la tarde, y
+ * cuando se aplique la migracion el servidor se reinicia.
+ */
+let hayUsaWhatsapp = null;
+async function existeUsaWhatsapp() {
+  if (hayUsaWhatsapp !== null) return hayUsaWhatsapp;
+  const { rows } = await query(
+    `SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'usa_whatsapp'`
+  );
+  hayUsaWhatsapp = rows.length > 0;
+  if (!hayUsaWhatsapp) {
+    logger.warn('Usuarios: falta la migracion 156; la casilla de WhatsApp no se guarda todavia');
+  }
+  return hayUsaWhatsapp;
+}
 
 // Esta lista es «quien puede llevar un prospecto», porque es para lo que la usa
 // casi todo el CRM: el filtro de Prospectos, asignar responsable, la exportacion
@@ -48,7 +75,7 @@ export async function findAll({ active, role, projectId, page, limit, incluirTod
   const total = parseInt(countResult.rows[0].count);
 
   const { rows } = await query(
-    `SELECT u.id, u.nombre, u.email, u.role, u.active, u.last_login_at, u.created_at, u.avatar_url, u.avatar_key,
+    `SELECT u.id, u.nombre, u.email, u.role, u.roles_extra::text[] AS roles_extra, u.active, u.last_login_at, u.created_at, u.avatar_url, u.avatar_key,
             u.whatsapp_phone, u.whatsapp_display_name,
             -- Los permisos acotados viajan en el listado: sin esto la pantalla no
             -- puede enseñar quien los tiene, que es como se paso por alto que a Ana
@@ -59,6 +86,11 @@ export async function findAll({ active, role, projectId, page, limit, incluirTod
             COALESCE(u.factura_manager, false) AS factura_manager,
             COALESCE(u.editar_fechas_factura, false) AS editar_fechas_factura,
             COALESCE(u.gestor_colaboraciones, false) AS gestor_colaboraciones,
+            -- La casilla del #128. Se pide con to_jsonb y SIN coalesce a
+            -- proposito: mientras la 156 no este aplicada la columna no existe y
+            -- esto vale null, que es lo que la pantalla necesita para enseñar la
+            -- casilla apagada y sin poder tocarla en vez de fingir que guarda.
+            (to_jsonb(u) ->> 'usa_whatsapp')::boolean AS usa_whatsapp,
             COALESCE(
               (SELECT json_agg(up.project_id ORDER BY up.project_id)
                FROM user_projects up
@@ -85,7 +117,7 @@ export async function findAll({ active, role, projectId, page, limit, incluirTod
 
 export async function findById(id) {
   const { rows } = await query(
-    `SELECT u.id, u.nombre, u.email, u.role, u.active, u.last_login_at, u.created_at, u.avatar_url, u.avatar_key
+    `SELECT u.id, u.nombre, u.email, u.role, u.roles_extra::text[] AS roles_extra, u.active, u.last_login_at, u.created_at, u.avatar_url, u.avatar_key
      FROM users u WHERE u.id = $1`,
     [id]
   );
@@ -108,15 +140,16 @@ export async function getUserProjects(userId) {
   return rows;
 }
 
-export async function create({ nombre, email, passwordHash, role, projectIds, projects, setPasswordToken, setPasswordExpires }) {
+export async function create({ nombre, email, passwordHash, role, roles_extra: rolesExtra = [], projectIds, projects, setPasswordToken, setPasswordExpires }) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
 
     const { rows } = await client.query(
-      `INSERT INTO users (nombre, email, password_hash, role, set_password_token, set_password_expires)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, nombre, email, role, active, created_at`,
-      [nombre, email, passwordHash, role, setPasswordToken, setPasswordExpires]
+      `INSERT INTO users (nombre, email, password_hash, role, roles_extra, set_password_token, set_password_expires)
+       VALUES ($1, $2, $3, $4, $5::user_role[], $6, $7)
+       RETURNING id, nombre, email, role, roles_extra::text[] AS roles_extra, active, created_at`,
+      [nombre, email, passwordHash, role, limpiaRolesExtra(rolesExtra, role), setPasswordToken, setPasswordExpires]
     );
     const user = rows[0];
 
@@ -142,9 +175,9 @@ export async function create({ nombre, email, passwordHash, role, projectIds, pr
   }
 }
 
-export async function update(id, { nombre, role, projectIds, projects, avatar_url, avatar_key,
+export async function update(id, { nombre, role, roles_extra: rolesExtra, projectIds, projects, avatar_url, avatar_key,
   whatsapp_phone, whatsapp_display_name,
-  factura_manager, editar_fechas_factura, gestor_colaboraciones }) {
+  factura_manager, editar_fechas_factura, gestor_colaboraciones, usa_whatsapp }) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -155,6 +188,16 @@ export async function update(id, { nombre, role, projectIds, projects, avatar_ur
 
     if (nombre) { sets.push(`nombre = $${paramIdx++}`); params.push(nombre); }
     if (role) { sets.push(`role = $${paramIdx++}`); params.push(role); }
+    // Los roles de mas. Se compara con undefined y no por verdadero: una lista
+    // vacia SIGNIFICA «quitaselos todos», y con `if (rolesExtra)` no se podria
+    // dejar a nadie con un solo rol otra vez.
+    if (rolesExtra !== undefined) {
+      // Contra el rol que va a quedar, no contra el que tenia: si en el mismo
+      // guardado pasa de gestora a tutora, el añadido 'tutora' sobra.
+      const principal = role || (await query('SELECT role FROM users WHERE id = $1', [id])).rows[0]?.role;
+      sets.push(`roles_extra = $${paramIdx++}::user_role[]`);
+      params.push(limpiaRolesExtra(rolesExtra, principal));
+    }
     if (avatar_url !== undefined) { sets.push(`avatar_url = $${paramIdx++}`); params.push(avatar_url); }
     if (avatar_key !== undefined) { sets.push(`avatar_key = $${paramIdx++}`); params.push(avatar_key); }
     // Teléfono WhatsApp del gestor (cadena vacía → NULL para limpiar).
@@ -165,6 +208,11 @@ export async function update(id, { nombre, role, projectIds, projects, avatar_ur
     if (factura_manager !== undefined) { sets.push(`factura_manager = $${paramIdx++}`); params.push(!!factura_manager); }
     if (editar_fechas_factura !== undefined) { sets.push(`editar_fechas_factura = $${paramIdx++}`); params.push(!!editar_fechas_factura); }
     if (gestor_colaboraciones !== undefined) { sets.push(`gestor_colaboraciones = $${paramIdx++}`); params.push(!!gestor_colaboraciones); }
+    // El WhatsApp del CRM (#128). Se guarda aparte del rol: dos personas del
+    // mismo rol pueden estar una encendida y la otra no, que es justo el caso.
+    if (usa_whatsapp !== undefined && await existeUsaWhatsapp()) {
+      sets.push(`usa_whatsapp = $${paramIdx++}`); params.push(!!usa_whatsapp);
+    }
 
     if (sets.length > 0) {
       sets.push(`updated_at = NOW()`);

@@ -236,15 +236,32 @@ describe('buildInvoicePreviewHtml', () => {
 });
 
 describe('buildCertP1Html', () => {
-  it('embebe alumno_nombre en cursive y firma', async () => {
+  // El nombre del alumno sale UNA vez, y la linea de firma va vacia.
+  //
+  // Esta prueba pedia dos: el nombre en cursiva y ademas un `alumno-firma-label`
+  // impreso sobre la linea de firma. Ese label lo quite en `fc6d205` a
+  // proposito —el alumno firma A MANO, imprimirle el nombre encima es
+  // justamente lo que no se quiere— y no toque la prueba. Lleva roja desde el 8
+  // de mayo, y con ella el CI entero.
+  //
+  // Asi que ahora dice lo que el certificado hace, y comprueba las dos cosas
+  // por separado en vez de contar apariciones: un contador «>= 2» tampoco
+  // habria avisado si el nombre saliera dos veces en el sitio equivocado.
+  it('el nombre del alumno sale una vez, en el bloque cursivo', async () => {
     const html = await buildCertP1Html({
       alumno_nombre: 'Juan Perez',
       alumno_dni: '12345678A',
       curso_nombre: 'Curso Test',
     });
-    // Aparece dos veces: nombre cursivo grande + label arriba de la firma
-    const matches = html.match(/Juan Perez/g) || [];
-    expect(matches.length).toBeGreaterThanOrEqual(2);
+    expect(html.match(/Juan Perez/g) || []).toHaveLength(1);
+    expect(html).toMatch(/class="t alumno-name">Juan Perez</);
+  });
+
+  it('y NO se imprime sobre la linea de firma', async () => {
+    // Si alguien repone el label, esto se cae y hay que decidirlo a proposito,
+    // que es lo que la vez pasada no paso.
+    const html = await buildCertP1Html({ alumno_nombre: 'Juan Perez' });
+    expect(html).not.toContain('alumno-firma-label');
   });
 
   it('embebe DNI en el subtitle', async () => {

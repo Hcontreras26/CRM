@@ -36,6 +36,7 @@ import {
   BookOpen,
   CreditCard,
   Keyboard,
+  Sparkle,
 } from '@phosphor-icons/react';
 
 // Páginas / secciones navegables
@@ -66,7 +67,8 @@ const SECTIONS = [
   { label: 'Comisiones', to: '/commissions', icon: Coins, keywords: 'gestores' },
   { label: 'Nóminas', to: '/payroll', icon: Coins, keywords: 'salarios' },
   { label: 'Reportes', to: '/informes', icon: ChartBar, keywords: 'analytics estadisticas' },
-  { label: 'Soporte / Novedades', to: '/soporte', icon: Headset, keywords: 'ayuda changelog' },
+  { label: 'Novedades', to: '/novedades', icon: Sparkle, keywords: 'version changelog nuevo 2.0.0 cambios' },
+  { label: 'Soporte', to: '/soporte', icon: Headset, keywords: 'ayuda' },
   { label: 'Manual', to: '/manual', icon: BookOpen, keywords: 'documentacion ayuda' },
   { label: 'Configuración', to: '/configuracion', icon: Gear, keywords: 'ajustes preferencias' },
 ];
@@ -177,8 +179,15 @@ export default function CommandPalette() {
         // `status <> 'convertido'` y la busqueda general esconde a TODO el que
         // ya compro --justo a quien mas se busca, para cobrar o facturar--.
         // Diego, 14/09: busco a un cliente por nombre y por correo y no sale.
-        client.get(`/leads?projectId=${activeProject.id}&search=${encodeURIComponent(q)}&limit=5&includeConverted=1`).catch(() => ({ success: false })),
-        client.get(`/products?projectId=${activeProject.id}`).catch(() => ({ success: false })),
+        // Con «Todos» o una empresa el proyecto activo es -1: mandarlo tal cual
+        // hacia que el servidor rechazara la busqueda y el buscador no
+        // encontraba a nadie (28/09: miles de rechazos, Ana y Dayana incluidas).
+        // Sin proyecto concreto se busca en todo lo suyo; los productos, que son
+        // de un campus, solo con uno elegido.
+        client.get(`/leads?${activeProject.id > 0 ? `projectId=${activeProject.id}&` : ''}search=${encodeURIComponent(q)}&limit=5&includeConverted=1`).catch(() => ({ success: false })),
+        activeProject.id > 0
+          ? client.get(`/products?projectId=${activeProject.id}`).catch(() => ({ success: false }))
+          : Promise.resolve({ success: true, data: [] }),
       ]);
       setLeadResults(leadsRes.success ? (leadsRes.data || []) : []);
       // Filtrado client-side para productos (típicamente <100/proyecto)
@@ -338,7 +347,7 @@ export default function CommandPalette() {
   return (
     <div role="dialog" aria-label="Búsqueda rápida" className="fixed inset-0 !m-0 z-[60] flex items-start justify-center pt-[15vh]">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-      <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-xl mx-4 overflow-hidden">
+      <div className="relative bg-card rounded-lg border border-border shadow-dialog w-full max-w-xl mx-4 overflow-hidden">
         {/* Search input */}
         <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 border-b border-border">
           <MagnifyingGlass size={18} className="text-muted-foreground flex-shrink-0" />

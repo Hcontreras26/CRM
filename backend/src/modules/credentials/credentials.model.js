@@ -1,5 +1,6 @@
 import { query } from '../../shared/config/db.js';
 import { encrypt, decrypt, maskSecret } from '../../shared/utils/crypto.js';
+import { logger } from '../../shared/utils/logger.js';
 
 export async function list({ projectId, service }) {
   const conditions = ['ac.active = true'];
@@ -162,7 +163,64 @@ export async function getDecryptedValue(service, projectId = null) {
   return decrypt(rows[0].encrypted_value, rows[0].iv, rows[0].auth_tag);
 }
 
+/**
+ * ¿Esta el indice unico que separa produccion de pruebas?
+ *
+ * El `ON CONFLICT` de abajo nombra las MISMAS expresiones del indice de la
+ * migracion (137 en MultiCRM, 105 en ISEIE). Si el indice no esta, Postgres no
+ * contesta «no pasa nada»: contesta 42P10, «there is no unique or exclusion
+ * constraint matching the ON CONFLICT specification», y guardar CUALQUIER
+ * credencial deja de funcionar. Comprobado, no supuesto.
+ *
+ * Y eso importa porque las migraciones se preparan aqui pero se aplican en el
+ * servidor: entre que este codigo sale y alguien corre la migracion hay una
+ * ventana en la que la pantalla de Configuracion que ya existia —y que hoy
+ * funciona— se caeria al guardar. Un puerto que rompe lo que habia no es un
+ * puerto.
+ *
+ * Se pregunta una vez y se recuerda; `olvidarIndice()` existe para no tener que
+ * reiniciar el proceso despues de aplicar la migracion.
+ */
+let hayIndicePorEntorno = null;
+
+async function separaPorEntorno() {
+  if (hayIndicePorEntorno !== null) return hayIndicePorEntorno;
+  try {
+    const { rows } = await query(
+      `SELECT 1 FROM pg_indexes
+        WHERE schemaname = 'public' AND indexname = 'uq_ac_proyecto_servicio_entorno'`
+    );
+    hayIndicePorEntorno = rows.length > 0;
+    if (!hayIndicePorEntorno) {
+      logger.warn('Credenciales: falta la migracion de claves por entorno; solo se puede guardar produccion');
+    }
+  } catch {
+    // Si no se puede ni preguntar, se supone lo viejo: es lo que no rompe.
+    hayIndicePorEntorno = false;
+  }
+  return hayIndicePorEntorno;
+}
+
+/** Para las pruebas, y para despues de aplicar la migracion sin reiniciar. */
+export const olvidarIndice = () => { hayIndicePorEntorno = null; };
+
 export async function upsert({ project_id, service, value, metadata, userId = null, entorno = null }) {
+  const porEntorno = await separaPorEntorno();
+
+  // Sin el indice solo cabe UNA fila por proyecto y servicio. Guardar ahi la de
+  // pruebas pisaria la de produccion sin decir nada — perder una clave de
+  // produccion en silencio es lo peor que puede hacer esta pantalla. Se dice
+  // que no se puede todavia, y por que.
+  if (!porEntorno && entorno && entorno !== 'produccion') {
+    const err = new Error(
+      'Todavia no se pueden guardar claves de pruebas: falta aplicar la migracion de claves por entorno. '
+      + 'La de produccion si se puede.'
+    );
+    err.statusCode = 409;
+    err.code = 'FALTA_MIGRACION_ENTORNO';
+    throw err;
+  }
+
   const { encrypted, iv, authTag } = encrypt(value);
   const pId = project_id || null;
   // El rastro va en `metadata` porque es jsonb y estaba sin usar: quien la puso,
@@ -174,13 +232,17 @@ export async function upsert({ project_id, service, value, metadata, userId = nu
     updated_by: userId,
   };
   const { rows } = await query(
-    // El conflicto se declara con las MISMAS expresiones del indice unico
-    // (migracion 137). Postgres no lo deduce de otra forma con un indice de
-    // expresiones, y `ON CONFLICT (project_id, service)` deja de existir en
-    // cuanto una credencial puede estar en dos entornos.
+    // El conflicto se declara con las MISMAS expresiones del indice unico.
+    // Postgres no lo deduce de otra forma con un indice de expresiones.
+    //
+    // Y si ese indice todavia no esta, se usa el par de siempre. No es un
+    // apano: es el unico que existe hasta que se aplique la migracion, y con el
+    // arriba impidiendo guardar «pruebas» no se puede pisar nada.
     `INSERT INTO api_credentials (project_id, service, encrypted_value, iv, auth_tag, metadata)
      VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (COALESCE(project_id, -1), service, COALESCE(metadata->>'entorno', 'produccion'))
+     ON CONFLICT ${porEntorno
+       ? `(COALESCE(project_id, -1), service, COALESCE(metadata->>'entorno', 'produccion'))`
+       : `(project_id, service)`}
      DO UPDATE
        SET encrypted_value = EXCLUDED.encrypted_value,
            iv = EXCLUDED.iv,

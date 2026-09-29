@@ -25,14 +25,14 @@ export function ResultsHeader({ totalCount, loading, meetsMinimum, filename, onD
             <span className="text-2xl sm:text-3xl font-semibold tabular-nums">
               {loading ? <span className="text-muted-foreground">…</span> : fmtNum(totalCount)}
             </span>
-            <span className="text-sm text-muted-foreground">leads</span>
+            <span className="text-sm text-muted-foreground">prospectos</span>
             {!loading && totalCount > 0 && (
               meetsMinimum ? (
-                <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-semibold inline-flex items-center gap-1">
+                <span className="text-xs px-2 py-0.5 rounded-md bg-success-soft text-success font-semibold inline-flex items-center gap-1">
                   <Check size={11} weight="bold" /> Lista para Meta
                 </span>
               ) : (
-                <span className="text-xs px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 font-semibold inline-flex items-center gap-1">
+                <span className="text-xs px-2 py-0.5 rounded-md bg-warning-soft text-warning font-semibold inline-flex items-center gap-1">
                   <WarningCircle size={11} weight="fill" /> &lt; {MIN_AUDIENCE_SIZE} leads mínimo
                 </span>
               )
@@ -56,7 +56,7 @@ export function ResultsHeader({ totalCount, loading, meetsMinimum, filename, onD
             onClick={onMetaUpload}
             disabled={!meetsMinimum || metaInFlight || loading}
             aria-label="Subir audiencia a Meta"
-            className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-info text-info-foreground text-sm font-semibold hover:bg-info/90 disabled:opacity-50 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-info/40"
           >
             {metaInFlight ? <CircleNotch size={14} weight="bold" className="animate-spin" /> : <CloudArrowUp size={14} weight="bold" />}
             <span className="hidden sm:inline">Subir a Meta</span>
@@ -85,7 +85,7 @@ export function BreakdownCard({ title, data, colors }: BreakdownCardProps) {
           <p className="text-xs text-muted-foreground">Sin datos</p>
         ) : entries.map(([k, v]) => {
           const pct = (v / total) * 100;
-          const color = colors?.[k] || '#9ca3af';
+          const color = colors?.[k] || 'hsl(var(--muted-foreground))';
           return (
             <div key={k} className="flex items-center gap-3">
               <span className="text-xs w-28 truncate text-muted-foreground">{k.replace(/_/g, ' ')}</span>

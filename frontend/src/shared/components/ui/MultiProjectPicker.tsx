@@ -64,7 +64,7 @@ export default function MultiProjectPicker({
         <CaretDown size={11} weight="bold" className="text-muted-foreground" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-md shadow-lg z-40 w-72 max-w-[calc(100vw-1.5rem)] max-h-96 flex flex-col">
+        <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-md shadow-popover z-40 w-72 max-w-[calc(100vw-1.5rem)] max-h-96 flex flex-col">
           <div className="p-2 border-b border-border">
             <div className="relative">
               <MagnifyingGlass size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />

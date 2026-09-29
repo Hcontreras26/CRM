@@ -13,10 +13,13 @@ export interface UserFormValues {
   nombre: string;
   email: string;
   role: UserRole;
+  /** Roles de MAS. Quien lleva prospectos y ademas da clase no tiene que elegir. */
+  roles_extra: UserRole[];
   projects: ProjectAssignment[];
   whatsapp_phone: string;
   factura_manager: boolean;
   editar_fechas_factura: boolean;
+  usa_whatsapp: boolean;
 }
 
 interface Props {
@@ -41,10 +44,23 @@ export default function UserFormDialog({
   const [nombre, setNombre] = useState(user?.nombre ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [role, setRole] = useState<UserRole>((user?.role as UserRole) ?? 'gestor');
+  // Los roles añadidos. Diego, 22/09: «necesitamos que se pueda colocar más de
+  // un rol a un usuario». El principal sigue mandando —es el que se enseña en
+  // las listas y el que usa medio CRM—; estos solo suman permisos.
+  const [rolesExtra, setRolesExtra] = useState<UserRole[]>(
+    (user?.roles_extra as UserRole[] | undefined) ?? [],
+  );
+  const alternarRolExtra = (r: UserRole) => setRolesExtra((prev) =>
+    prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
   const [seleccionados, setSeleccionados] = useState<ProjectAssignment[]>(user?.projects ?? []);
   const [telefono, setTelefono] = useState(user?.whatsapp_phone ?? '');
   const [facturaManager, setFacturaManager] = useState(!!user?.factura_manager);
   const [editarFechas, setEditarFechas] = useState(!!user?.editar_fechas_factura);
+  // WhatsApp del CRM (#128). `null` no es «apagado»: es que falta la migracion
+  // 156. Se separa para poder decirlo en vez de enseñar una casilla que no
+  // guardaria nada.
+  const faltaMigracionWhatsapp = esEdicion && user?.usa_whatsapp === null;
+  const [usaWhatsapp, setUsaWhatsapp] = useState(!!user?.usa_whatsapp);
 
   const [nuevaPass, setNuevaPass] = useState('');
   const [guardandoPass, setGuardandoPass] = useState(false);
@@ -83,12 +99,15 @@ export default function UserFormDialog({
       nombre: nombre.trim(),
       email: email.trim(),
       role,
+      // El principal nunca va repetido entre los añadidos.
+      roles_extra: rolesExtra.filter((r) => r !== role),
       projects: seleccionados,
       whatsapp_phone: telefono.trim(),
       factura_manager: facturaManager,
       // Poder cambiar fechas sin poder facturar no sirve de nada: la pantalla de
       // fechas se abre desde la factura. Si se quita lo primero, cae lo segundo.
       editar_fechas_factura: facturaManager && editarFechas,
+      usa_whatsapp: usaWhatsapp,
     });
   }
 
@@ -174,7 +193,7 @@ export default function UserFormDialog({
               </div>
             ) : (
               <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block px-1">Email</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Email</label>
                 <input value={user!.email} readOnly disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
                 <p className="text-secundario text-muted-foreground mt-1 px-1 flex items-start gap-1">
                   <Info size={11} className="mt-px flex-shrink-0" />
@@ -184,7 +203,7 @@ export default function UserFormDialog({
             )}
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block px-1">Rol *</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Rol *</label>
               <Select<UserRole>
                 value={role}
                 onChange={setRole}
@@ -195,6 +214,45 @@ export default function UserFormDialog({
                 {ASSIGNABLE_ROLES.find((r) => r.value === role)?.hint}
               </p>
             </div>
+
+            {/* Y ADEMÁS. Hay quien lleva prospectos y también da clase: antes
+                había que elegir, y lo que no se eligiera se perdía.
+
+                Solo SUMAN: si un rol deja hacer algo, se puede. Nunca quitan,
+                porque entonces añadir un rol recortaría permisos, que es lo
+                contrario de lo que se busca al añadirlo. */}
+            <fieldset>
+              <legend className="mb-1.5 px-1 text-secundario text-muted-foreground">
+                Y además es…
+              </legend>
+              <div className="flex flex-wrap gap-1.5">
+                {ASSIGNABLE_ROLES.filter((r) => r.value !== role).map((r) => {
+                  const puesto = rolesExtra.includes(r.value);
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => alternarRolExtra(r.value)}
+                      aria-pressed={puesto}
+                      className={
+                        'rounded-md border px-2.5 py-1 text-normal transition-colors '
+                        + 'focus:outline-none focus:ring-2 focus:ring-primary/40 '
+                        + (puesto
+                          ? 'border-primary bg-primary/10 font-semibold text-primary'
+                          : 'border-border hover:bg-muted')
+                      }
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 px-1 text-secundario text-muted-foreground">
+                {rolesExtra.length === 0
+                  ? 'Opcional. Suma los permisos de otro rol sin perder los de este.'
+                  : `Podrá hacer lo de ${ASSIGNABLE_ROLES.find((r) => r.value === role)?.label} y también lo de ${rolesExtra.map((x) => ASSIGNABLE_ROLES.find((r) => r.value === x)?.label).join(' y ')}.`}
+              </p>
+            </fieldset>
 
             {projects.length > 0 && (
               <ProjectSelector
@@ -242,6 +300,37 @@ export default function UserFormDialog({
                     </span>
                   </span>
                 </label>
+              </div>
+            )}
+
+            {/* WhatsApp del CRM (#128). Aparte del rol a proposito: el rol dice
+                quien PUEDE tenerlo —un tutor no— y esto quien lo usa. Hoy son
+                las gestoras y Daniela; manana entra alguien y se enciende aqui,
+                sin desplegar nada. Un tutor no lo ve porque no le corresponde. */}
+            {esEdicion && role !== 'tutor' && (
+              <div className="rounded-lg border border-border p-3">
+                <label className={`flex items-start gap-2 px-1 ${faltaMigracionWhatsapp ? 'opacity-50' : 'cursor-pointer'}`}>
+                  <input
+                    type="checkbox"
+                    checked={usaWhatsapp}
+                    disabled={faltaMigracionWhatsapp}
+                    onChange={(e) => setUsaWhatsapp(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm">
+                    Usa el WhatsApp del CRM
+                    <span className="block text-secundario text-muted-foreground">
+                      Sale en el panel de sesiones y puede enlazar su número.
+                      Apagarlo no desvincula el número que ya tenga.
+                    </span>
+                  </span>
+                </label>
+                {faltaMigracionWhatsapp && (
+                  <p className="text-secundario text-amber-600 dark:text-amber-500 mt-1.5 px-1">
+                    Falta aplicar la migración 156. Hasta entonces esto no se
+                    puede guardar y el panel sigue enseñando a todo el que puede.
+                  </p>
+                )}
               </div>
             )}
 

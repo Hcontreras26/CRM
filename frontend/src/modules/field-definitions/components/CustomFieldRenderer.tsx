@@ -1,7 +1,7 @@
-import type { FieldDefinition } from '../api/fields.api';
+
+import { inputClass } from '@/shared/lib/ui';import type { FieldDefinition } from '../api/fields.api';
 import Select from '@/shared/components/ui/Select';
 
-const inputClass = 'w-full h-10 px-3 rounded-md border border-border bg-muted/30 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all';
 
 export type CustomFieldValue = string | number | boolean | null | undefined;
 

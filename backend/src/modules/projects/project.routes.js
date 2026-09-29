@@ -37,6 +37,9 @@ router.delete('/:id/logo', roleGuard('admin', 'superadmin'), ctrl.deleteLogo);
 router.put('/:id/shortcuts', roleGuard('admin', 'superadmin'), shortcutsCtrl.saveShortcuts);
 
 // Round-robin: estado de la cola de gestores (cualquier autenticado)
+// Lo que ha recibido cada gestora de verdad (#11). El `queue-state` de
+// abajo se queda: lo usa el alta manual, que si va por round-robin.
+router.get('/:id/ultimo-lead', shortcutsCtrl.getUltimoLead);
 router.get('/:id/queue-state', shortcutsCtrl.getQueueState);
 
 export default router;

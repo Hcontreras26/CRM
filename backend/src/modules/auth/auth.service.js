@@ -13,7 +13,12 @@ const REFRESH_TOKEN_EXPIRY_DAYS = 30;
 
 function generateAccessToken(user, activeProjectId = null) {
   return jwt.sign(
-    { userId: user.id, email: user.email, role: user.role, customRoleId: user.custom_role_id ?? null, activeProjectId },
+    // `roles_extra` viaja en el token para que cada guardia no tenga que ir a
+    // la base a preguntar. Si a alguien le cambian los roles, los ve al
+    // renovar --como el resto de lo que hay aqui dentro--.
+    { userId: user.id, email: user.email, role: user.role,
+      roles_extra: Array.isArray(user.roles_extra) ? user.roles_extra : [],
+      customRoleId: user.custom_role_id ?? null, activeProjectId },
     process.env.JWT_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY }
   );
@@ -60,7 +65,7 @@ export async function login(email, password, ipAddress) {
     accessToken,
     refreshToken,
     refreshTokenExpiryDays: REFRESH_TOKEN_EXPIRY_DAYS,
-    user: { id: user.id, nombre: user.nombre, email: user.email, role: user.role, avatar_url: user.avatar_url, factura_manager: !!user.factura_manager, editar_fechas_factura: !!user.editar_fechas_factura, gestor_colaboraciones: !!user.gestor_colaboraciones },
+    user: { id: user.id, nombre: user.nombre, email: user.email, role: user.role, avatar_url: user.avatar_url, factura_manager: !!user.factura_manager, editar_fechas_factura: !!user.editar_fechas_factura, gestor_colaboraciones: !!user.gestor_colaboraciones, usa_mcp: !!user.usa_mcp },
     projects: sanitizeProjects(projects, user.role),
     activeProjectId,
   };

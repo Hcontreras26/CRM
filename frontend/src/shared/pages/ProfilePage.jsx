@@ -20,6 +20,8 @@ import {
   Trash,
 } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import { inputClass } from '@/shared/lib/ui';
+import Field from '@/shared/components/ui/Field';
 const ConfirmDialog = lazy(() => import('@/shared/components/ui/ConfirmDialog'));
 // Proyectos ahora vienen del AuthContext via ProjectContext
 
@@ -34,19 +36,8 @@ const passwordSchema = z.object({
   confirmar: z.string().min(1, 'Requerido'),
 }).refine((d) => d.nueva === d.confirmar, { message: 'Las contraseñas no coinciden', path: ['confirmar'] });
 
-const inputClass = 'w-full h-9 px-3 rounded-md border border-border bg-muted/50 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-card placeholder:text-muted-foreground';
 
 const primaryBtn = 'inline-flex items-center justify-center h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/40';
-
-function Field({ label, error, children }) {
-  return (
-    <div>
-      <label className="text-xs text-muted-foreground mb-1.5 block px-1">{label}</label>
-      {children}
-      {error && <p className="text-xs text-red-500 mt-1 px-1" role="alert">{error}</p>}
-    </div>
-  );
-}
 
 const ROLE_LABELS = { superadmin: 'Superadmin', admin: 'Admin', gestor: 'Gestor' };
 
@@ -136,7 +127,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-5 max-w-2xl mx-auto">
       <PageHeader
         title="Mi Perfil"
         subtitle="Gestiona tu información personal y seguridad"

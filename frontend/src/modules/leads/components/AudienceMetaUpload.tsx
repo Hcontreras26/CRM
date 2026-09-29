@@ -17,7 +17,7 @@ export function UploadStatusCard({ upload, onReset }: { upload: MetaUpload; onRe
   return (
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex items-start gap-3 mb-4">
-        <div className="w-9 h-9 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+        <div className="w-9 h-9 rounded-md bg-info-soft text-info-soft-foreground flex items-center justify-center flex-shrink-0">
           <FacebookLogo size={18} weight="bold" />
         </div>
         <div className="min-w-0 flex-1">
@@ -44,13 +44,13 @@ export function UploadStatusCard({ upload, onReset }: { upload: MetaUpload; onRe
           return (
             <div key={stage.id} className="flex items-center flex-1 sm:flex-initial">
               <div className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium ${
-                completed ? 'text-emerald-700 dark:text-emerald-400' :
-                active ? 'text-blue-700 dark:text-blue-400' :
+                completed ? 'text-success' :
+                active ? 'text-info' :
                 'text-muted-foreground'
               }`}>
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                  completed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40' :
-                  active ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40' :
+                  completed ? 'bg-success-soft text-success-soft-foreground' :
+                  active ? 'bg-info-soft text-info-soft-foreground' :
                   'bg-muted'
                 }`}>
                   {completed ? <Check size={10} weight="bold" /> :
@@ -60,7 +60,7 @@ export function UploadStatusCard({ upload, onReset }: { upload: MetaUpload; onRe
                 <span className="hidden sm:inline">{stage.label}</span>
               </div>
               {i < UPLOAD_STAGES.length - 1 && (
-                <div className={`flex-1 h-px mx-1 ${completed ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-border'}`} />
+                <div className={`flex-1 h-px mx-1 ${completed ? 'bg-success dark:bg-success' : 'bg-border'}`} />
               )}
             </div>
           );
@@ -68,8 +68,8 @@ export function UploadStatusCard({ upload, onReset }: { upload: MetaUpload; onRe
       </div>
 
       {isDone && upload.matchRate && (
-        <div className="mt-3 flex items-center gap-2 text-sm bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-md px-3 py-2">
-          <Check size={14} weight="bold" className="text-emerald-700 dark:text-emerald-400" />
+        <div className="mt-3 flex items-center gap-2 text-sm bg-success-soft border border-success/30 rounded-md px-3 py-2">
+          <Check size={14} weight="bold" className="text-success" />
           <span>Match rate: <span className="font-semibold tabular-nums">{upload.matchRate}%</span></span>
         </div>
       )}
@@ -114,9 +114,9 @@ export function MetaHistorySection({ history, loading }: { history: MetaUploadHi
                 </td>
                 <td className="px-4 py-2.5">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                    h.status === 'completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' :
-                    h.status === 'error' ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300' :
-                    'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                    h.status === 'completed' ? 'bg-success-soft text-success-soft-foreground' :
+                    h.status === 'error' ? 'bg-destructive-soft text-destructive-soft-foreground' :
+                    'bg-info-soft text-info-soft-foreground'
                   }`}>{h.status}</span>
                 </td>
               </tr>
@@ -133,9 +133,9 @@ export function MetaHistorySection({ history, loading }: { history: MetaUploadHi
                 <div className="text-[10px] text-muted-foreground font-mono">{h.audienceId}</div>
               </div>
               <span className={`px-2 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${
-                h.status === 'completed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' :
-                h.status === 'error' ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300' :
-                'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                h.status === 'completed' ? 'bg-success-soft text-success-soft-foreground' :
+                h.status === 'error' ? 'bg-destructive-soft text-destructive-soft-foreground' :
+                'bg-info-soft text-info-soft-foreground'
               }`}>{h.status}</span>
             </div>
             <div className="flex items-center gap-3 text-xs">

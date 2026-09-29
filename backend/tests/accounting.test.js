@@ -51,6 +51,9 @@ describe('POST /api/accounting/expenses - crear egreso', () => {
         concepto: 'Hosting cloudflare',
         importe: 25,
         categoria: 'software',
+        // `fecha` es obligatoria desde 2d9816e (24-abr). La prueba es del 23 y
+        // nunca se actualizo: llevaba rojo desde entonces.
+        fecha: '2026-04-15',
       });
     expect(res.status).toBe(201);
     expect(res.body.data.project_id).toBeNull();
@@ -103,7 +106,7 @@ describe('DELETE /api/accounting/expenses/:id', () => {
   it('elimina egreso', async () => {
     const temp = await request.post('/api/accounting/expenses')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ concepto: 'Temp', importe: 10 });
+      .send({ concepto: 'Temp', importe: 10, fecha: '2026-04-15' });
     const id = temp.body.data.id;
 
     const res = await request.delete(`/api/accounting/expenses/${id}`)

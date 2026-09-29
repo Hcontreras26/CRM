@@ -1,4 +1,5 @@
-import { useState, useEffect, type FormEvent } from 'react';
+
+import { inputClass } from '@/shared/lib/ui';import { useState, useEffect, type FormEvent } from 'react';
 import Portal from '@/shared/components/ui/portal';
 import { X } from '@phosphor-icons/react';
 import { conversionsApi, type Conversion } from '../api/conversions.api';
@@ -85,7 +86,6 @@ export default function PaymentDialog({ open, onClose, conversion, onPaid }: Pay
     }
   }
 
-  const inputClass = 'w-full h-9 px-3 rounded-lg border border-border bg-muted/50 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
   return (
     <Portal>
@@ -119,7 +119,7 @@ export default function PaymentDialog({ open, onClose, conversion, onPaid }: Pay
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Importe del abono (EUR) *</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Importe del abono (EUR) *</label>
               <input
                 type="number"
                 step="0.01"
@@ -135,12 +135,12 @@ export default function PaymentDialog({ open, onClose, conversion, onPaid }: Pay
             </div>
 
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Fecha</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha</label>
               <input type="date" aria-label="Fecha del abono" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} className={inputClass} />
             </div>
 
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Notas</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Notas</label>
               <input value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })} placeholder="Primer plazo, segunda cuota, etc..." className={inputClass} />
             </div>
 

@@ -253,14 +253,28 @@ describe('PATCH /api/leads/:id/status', () => {
       .send({ status: 'contactado', motivo: 'Se le llamo por telefono' });
 
     expect(res.status).toBe(200);
-    expect(res.body.data.previous).toBe('nuevo');
+    // Un lead nace 'por_contactar', no 'nuevo': lo cambio la migracion
+    // 076_default_por_contactar.sql.
+    expect(res.body.data.previous).toBe('por_contactar');
     expect(res.body.data.current).toBe('contactado');
   });
 
-  it('falla sin motivo', async () => {
+  // El motivo dejo de ser obligatorio para avanzar el pipeline (aa783bc,
+  // 5-jun: el cambio rapido de estado guardaba 400). Solo se exige donde
+  // importa, que es al descartar. La prueba comprueba las dos mitades de esa
+  // regla, no solo la que ya no se cumple.
+  it('deja avanzar sin motivo', async () => {
     const res = await request.patch(`/api/leads/${createdLeadId}/status`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ status: 'en_seguimiento' });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('pero exige motivo para marcar no interesado', async () => {
+    const res = await request.patch(`/api/leads/${createdLeadId}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'no_interesado' });
 
     expect(res.status).toBe(400);
   });
@@ -268,7 +282,7 @@ describe('PATCH /api/leads/:id/status', () => {
   it('falla con mismo status', async () => {
     const res = await request.patch(`/api/leads/${createdLeadId}/status`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ status: 'contactado', motivo: 'Repetido' });
+      .send({ status: 'en_seguimiento', motivo: 'Repetido' });
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('SAME_STATUS');

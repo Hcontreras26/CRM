@@ -91,9 +91,28 @@ describe('getPriorityStyle', () => {
     expect(getPriorityStyle(undefined)).toBe(getPriorityStyle('normal'));
   });
 
-  it('overdue tiene tono rojo, urgent ámbar, won violeta', () => {
-    expect(getPriorityStyle('overdue').dotClass).toContain('red');
-    expect(getPriorityStyle('urgent').dotClass).toContain('amber');
-    expect(getPriorityStyle('won').dotClass).toContain('violet');
+  it('el tono dice qué hay que hacer, no cuál de los siete es', () => {
+    // Antes se comprobaba el nombre del color de Tailwind —rojo, ámbar,
+    // violeta—, que es justo lo que se ha quitado. Lo que no debe cambiar es el
+    // significado: vencido alarma, urgente avisa, convertido es el final bueno.
+    expect(getPriorityStyle('overdue').dotClass).toContain('destructive');
+    expect(getPriorityStyle('urgent').dotClass).toContain('warning');
+    // Verde y no violeta: convertido es una victoria y el color tiene que
+    // decirlo. En violeta no se distinguía de «nuevo».
+    expect(getPriorityStyle('won').dotClass).toContain('success');
+  });
+
+  it('los tres tonos que importan no se parecen entre sí', () => {
+    const tonos = ['overdue', 'urgent', 'won', 'lost'].map((p) => getPriorityStyle(p).dotClass);
+    expect(new Set(tonos).size).toBe(tonos.length);
+  });
+
+  it('el borde de la fila va con el mismo tono que el punto', () => {
+    // Se descuadraban: el punto era ámbar y el borde de la fila, azul.
+    for (const p of ['overdue', 'urgent', 'fresh', 'won']) {
+      const { dotClass, borderClass } = getPriorityStyle(p);
+      const tono = dotClass.replace('bg-', '').split('/')[0];
+      expect(borderClass, 'el borde de ' + p + ' no usa ' + tono).toContain(tono);
+    }
   });
 });

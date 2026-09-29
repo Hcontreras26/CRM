@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react';
+
+import { inputClass } from '@/shared/lib/ui';import { useEffect, useState, type FormEvent } from 'react';
 import { commissionsApi, type CommissionRule } from '../api/commissions.api';
 import Portal from '@/shared/components/ui/portal';
 import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
@@ -8,7 +9,6 @@ import { Gear, X, Plus, Trash } from '@phosphor-icons/react';
 import client from '@/shared/api/client';
 import type { User, Project } from '@/shared/types';
 
-const inputClass = 'h-9 px-3 rounded-lg border border-border bg-card text-sm';
 
 interface ProductOption {
   id: number;

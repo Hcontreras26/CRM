@@ -5,6 +5,7 @@ import client from '@/shared/api/client';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import ProjectSettingsDialog from '../ProjectSettingsDialog';
 import ProjectDialog from './ProjectDialog';
+import { lista } from '@/shared/lib/lista';
 
 export default function ProjectsTab() {
   const { user, refreshUser } = useAuth();
@@ -20,7 +21,7 @@ export default function ProjectsTab() {
     setLoading(true);
     try {
       const res = await client.get('/projects');
-      if (res.success) setProjects(res.data);
+      if (res.success) setProjects(lista(res.data));
       // Refresca AuthContext.projects para que el sidebar incluya proyectos nuevos
       refreshUser?.();
     } finally { setLoading(false); }

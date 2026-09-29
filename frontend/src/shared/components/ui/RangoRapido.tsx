@@ -29,6 +29,14 @@ function iso(d: Date): string {
   return `${d.getFullYear()}-${mes}-${dia}`;
 }
 
+/**
+ * El rango de un atajo, sin pintar nada. Lo usa quien necesita abrir con un
+ * periodo puesto —Ingresos abre en «este mes»— sin copiarse la cuenta.
+ */
+export function rangoDe(clave: string): Rango {
+  return calcular(clave);
+}
+
 function calcular(clave: string): Rango {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
@@ -104,13 +112,17 @@ export default function RangoRapido({
     <div className={`flex flex-wrap items-center gap-1 ${className}`} role="group" aria-label="Atajos de fecha">
       {ATAJOS.map((a) => {
         const puesto = activo === a.clave;
+        // Se dice el periodo exacto que coge. Viene del de Ingresos, y es buena
+        // idea: «Semana pasada» no significa lo mismo para todo el mundo, y con
+        // dinero delante conviene que no haya que adivinarlo.
+        const r = calcular(a.clave);
         return (
           <button
             key={a.clave}
             type="button"
             aria-pressed={puesto}
             onClick={() => alElegir(puesto ? { from: '', to: '' } : calcular(a.clave))}
-            title={puesto ? 'Quitar este filtro' : undefined}
+            title={puesto ? 'Quitar este filtro' : `${r.from} → ${r.to}`}
             className={
               'h-7 px-2.5 rounded-md border text-xs font-medium transition-colors '
               + (puesto

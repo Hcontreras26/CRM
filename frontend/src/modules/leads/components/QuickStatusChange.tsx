@@ -1,3 +1,4 @@
+import { puntoDeEstado } from '../lib/estadoTono';
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { CaretDown, CheckCircle } from '@phosphor-icons/react';
@@ -11,14 +12,9 @@ const LeadLossDialog = lazy(() => import('./lead-detail/LeadLossDialog'));
 // Colores sólidos para el dot del menú — tienen que ser opacos sobre fondo
 // blanco/negro para que el menú nunca se vea transparente como pasaba con
 // los badges semitransparentes anteriores.
-const STATUS_DOT_COLORS: Record<string, string> = {
-  nuevo: 'bg-blue-500',
-  por_contactar: 'bg-orange-500',
-  contactado: 'bg-emerald-500',
-  en_seguimiento: 'bg-amber-500',
-  convertido: 'bg-violet-500',
-  no_interesado: 'bg-red-500',
-};
+// El mapa vive en lib/estadoTono.ts: aqui habia una copia, y decia que
+// «contactado» es verde y «convertido» azul — al reves que la etiqueta de la
+// misma fila.
 
 // Cambio rápido de estado de un lead desde la lista o pipeline, sin abrir la ficha.
 // - Click en el badge → popover con los estados disponibles
@@ -129,25 +125,25 @@ export default function QuickStatusChange({ leadId, currentStatus, responsableId
             ref={menuRef}
             role="menu"
             style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-            className="z-[100] min-w-[200px] rounded-md shadow-2xl py-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700"
+            className="z-[100] min-w-[200px] rounded-md shadow-popover py-1 bg-card border border-border"
           >
             {STATUS_KEYS.map((s) => {
               const isCurrent = s === currentStatus;
-              const dotClass = STATUS_DOT_COLORS[s] || 'bg-zinc-400';
+              const dotClass = puntoDeEstado(s);
               return (
                 <button
                   key={s}
                   type="button"
                   role="menuitem"
                   onClick={() => handleSelect(s)}
-                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between gap-2 transition-colors ${isCurrent ? 'opacity-50 cursor-default' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer'} text-zinc-900 dark:text-zinc-100`}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between gap-2 transition-colors ${isCurrent ? 'opacity-50 cursor-default' : 'hover:bg-muted dark:hover:bg-muted cursor-pointer'} text-foreground dark:text-background`}
                   disabled={isCurrent}
                 >
                   <span className="inline-flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${dotClass} flex-shrink-0`} />
                     <span className="font-medium">{STATUS_LABELS[s]}</span>
                   </span>
-                  {isCurrent && <CheckCircle size={12} weight="bold" className="text-emerald-600 flex-shrink-0" />}
+                  {isCurrent && <CheckCircle size={12} weight="bold" className="text-success flex-shrink-0" />}
                 </button>
               );
             })}

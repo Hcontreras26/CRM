@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
+import { CalendarBlank,
   X, ArrowSquareOut, EnvelopeSimple, Phone, WhatsappLogo,
   CalendarCheck, ClockCounterClockwise, ChatCircleText, Plus, CheckCircle,
   PencilSimple, Trash,
@@ -10,6 +10,10 @@ import Select from '@/shared/components/ui/Select';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import ChannelBadge from '@/shared/components/ui/ChannelBadge';
 import { useLeadDetail } from '../hooks/useLeads';
+// Que paso del proceso le toca y cual lleva hecho.
+import AgendaDelProspecto from '@/modules/proceso/components/AgendaDelProspecto';
+import FeedbackDeLaFicha from '@/modules/feedback/components/FeedbackDeLaFicha';
+import { traerPasosDeLead } from '@/modules/proceso/api/agenda.api';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 import { detectCountryFromPhone } from '../lib/phoneCountry';
@@ -19,6 +23,12 @@ const EnrollSequenceModal = lazy(() => import('./EnrollSequenceModal'));
 
 const TABS = [
   { key: 'resumen', label: 'Resumen' },
+  // El proceso comercial, aqui dentro. Diego, 23/09: «cuando se crea un
+  // prospecto debe salir un apartado, proceso de ventas, e indicar en qué paso
+  // está y si está hecho». Estaba solo en la ficha entera, y a la ficha entera
+  // se entra cuando ya sabes que quieres mirar a esa persona: en la lista se
+  // abre ESTE cajon.
+  { key: 'proceso', label: 'Proceso' },
   { key: 'historial', label: 'Historial' },
   { key: 'interacciones', label: 'Interacciones' },
   { key: 'recordatorios', label: 'Recordatorios' },
@@ -71,7 +81,7 @@ export default function LeadDrawer({ leadId, open, onClose }: Props) {
       <div role="dialog" aria-label="Detalle de prospecto" aria-modal="true" className="fixed inset-0 z-[60]">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose} />
 
-        <aside className="absolute top-0 right-0 h-full w-full max-w-[480px] bg-card border-l border-border shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+        <aside className="absolute top-0 right-0 h-full w-full max-w-[480px] bg-card border-l border-border shadow-dialog flex flex-col animate-in slide-in-from-right duration-200">
           <header className="flex items-start justify-between p-5 border-b border-border">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
@@ -109,11 +119,29 @@ export default function LeadDrawer({ leadId, open, onClose }: Props) {
           </nav>
 
           <div className="flex-1 overflow-y-auto p-5">
-            {error && <p className="text-sm text-red-500">Error: {error}</p>}
+            {error && <p className="text-sm text-destructive">Error: {error}</p>}
             {loading && !lead && <p className="text-sm text-muted-foreground">Cargando datos...</p>}
             {lead && (
               <>
                 {tab === 'resumen' && <ResumenTab lead={lead} onEnroll={() => setEnrollOpen(true)} onSaved={refetch} />}
+                {tab === 'proceso' && (
+                  <AgendaDelProspecto
+                    leadId={lead.id}
+                    // Marcar un paso mueve el estado del prospecto: sin esto la
+                    // cabecera seguiria diciendo el de antes hasta recargar.
+                    alCambiar={() => refetch?.()}
+                    projectId={lead.project_id}
+                    nombreProyecto={lead.proyecto_nombre}
+                    datos={{
+                      nombre: lead.nombre,
+                      email: lead.email,
+                      telefono: lead.telefono,
+                      producto: lead.producto_nombre || lead.producto_interes,
+                      inicio: lead.fecha_inicio_texto,
+                      cierre: lead.fecha_cierre_convocatoria,
+                    }}
+                  />
+                )}
                 {tab === 'historial' && <HistorialTab timeline={timeline} />}
                 {tab === 'interacciones' && <InteraccionesTab leadId={lead.id} interacciones={interacciones} onRefetch={refetch} />}
                 {tab === 'recordatorios' && <RecordatoriosTab leadId={lead.id} reminders={reminders} onRefetch={refetch} />}
@@ -167,25 +195,27 @@ function ResumenTab({ lead, onEnroll, onSaved }) {
 
   return (
     <div className="space-y-5">
+      {/* El correo de «¿por que has desistido?», si se le mando. */}
+      <FeedbackDeLaFicha leadId={lead.id} />
       <div className="flex items-center gap-2">
         <StatusBadge status={lead.estado} />
         {lead.canal && <ChannelBadge channel={lead.canal} />}
         {lead.es_propuesto && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300" title="Cliente existente preguntando por otro programa">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-info-soft text-info-soft-foreground" title="Cliente existente preguntando por otro programa">
             Propuesto
           </span>
         )}
       </div>
 
       {history.length > 0 && (
-        <div className="rounded-lg border border-violet-200 dark:border-violet-900 bg-violet-50 dark:bg-violet-950/30 p-3">
-          <p className="text-xs font-bold text-violet-700 dark:text-violet-300 mb-2">Historial de compra ({history.length})</p>
+        <div className="rounded-lg border border-info/30 bg-info-soft p-3">
+          <p className="text-xs font-bold text-info mb-2">Historial de compra ({history.length})</p>
           <div className="space-y-1.5">
             {history.map((h) => (
               <div key={h.id} className="text-[11px] bg-card border border-border rounded px-2 py-1.5 flex items-center gap-2">
                 <span className="font-semibold flex-1 truncate">{h.producto_contratado}</span>
                 <span className="text-muted-foreground tabular-nums">
-                  {Number(h.importe_total).toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                  {Number(h.importe_total).toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 {h.fecha_compra && <span className="text-muted-foreground">{new Date(h.fecha_compra).toLocaleDateString('es-ES')}</span>}
               </div>
@@ -288,10 +318,15 @@ function InteraccionesTab({ leadId, interacciones, onRefetch }) {
 
   async function add(e) {
     e.preventDefault();
-    if (!nota.trim()) return;
+    // La nota es OPCIONAL. Antes, con el campo vacío, esto se iba en silencio:
+    // ni guardaba ni avisaba, y quien pulsaba «+» se quedaba mirando. Apuntar
+    // que has llamado ya vale por sí solo, aunque no tengas nada que escribir;
+    // el servidor tampoco la exige. Cuando no la hay se guarda de qué fue, que
+    // es lo que se lee en la lista.
+    const texto = nota.trim() || `${tipo[0].toUpperCase()}${tipo.slice(1)} apuntada desde la ficha`;
     setLoading(true);
     try {
-      await client.post(`/leads/${leadId}/interactions`, { tipo, nota });
+      await client.post(`/leads/${leadId}/interactions`, { tipo, nota: texto });
       setNota('');
       toast({ title: 'Interacción registrada' });
       onRefetch();
@@ -427,7 +462,7 @@ function InteraccionesTab({ leadId, interacciones, onRefetch }) {
                     </button>
                     <button onClick={() => removeInteraction(it.id)} title="Eliminar"
                       aria-label="Eliminar interacción"
-                      className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-600">
+                      className="p-1 rounded hover:bg-destructive-soft text-muted-foreground hover:text-destructive">
                       <Trash size={12} weight="bold" />
                     </button>
                   </div>
@@ -437,6 +472,84 @@ function InteraccionesTab({ leadId, interacciones, onRefetch }) {
           })}
         </ol>
       )}
+    </div>
+  );
+}
+
+/**
+ * La agenda del proceso, dentro de Recordatorios.
+ *
+ * Diego, 23/09: «en recordatorios debe de mostrar una vez la programación de
+ * cada paso de ventas cuando registro el lead, para que funcione y avise».
+ *
+ * Al dar de alta un prospecto se le monta su agenda --los cinco pasos, cada uno
+ * con su fecha-- pero esa agenda vivía solo en la pestaña «Proceso». Quien
+ * abría Recordatorios leía «Sin recordatorios programados» y se lo creía,
+ * aunque la persona tuviera cuatro pasos por delante. Decir que no hay nada
+ * cuando sí lo hay es peor que no decir nada.
+ *
+ * NO SE DUPLICAN EN LA TABLA DE RECORDATORIOS. Se leen de la agenda y se
+ * pintan. Crear un recordatorio de verdad por cada paso llenaría la tabla de
+ * cinco filas por prospecto y las dos listas se desincronizarían en cuanto
+ * alguien moviera una fecha.
+ */
+function AgendaDelProceso({ leadId }) {
+  const [pasos, setPasos] = useState(null);
+
+  useEffect(() => {
+    let vivo = true;
+    traerPasosDeLead(leadId)
+      .then((r) => { if (vivo) setPasos(r || []); })
+      // Sin proceso montado no hay agenda. No es un error que enseñar.
+      .catch(() => { if (vivo) setPasos([]); });
+    return () => { vivo = false; };
+  }, [leadId]);
+
+  if (!pasos || pasos.length === 0) return null;
+
+  const pendientes = pasos.filter((p) => !p.hecho && p.estado !== 'saltado');
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3">
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+        <CalendarBlank size={13} weight="bold" />
+        Del proceso de ventas
+        <span className="font-normal">
+          · {pendientes.length} {pendientes.length === 1 ? 'paso pendiente' : 'pasos pendientes'} de {pasos.length}
+        </span>
+      </p>
+      <ol className="space-y-1.5">
+        {pasos.map((p) => (
+          <li key={p.id} className="flex items-baseline gap-2 text-xs">
+            <span className={`w-4 shrink-0 text-right font-bold tabular-nums ${p.hecho ? 'text-muted-foreground' : 'text-primary'}`}>
+              {p.orden}
+            </span>
+            <span className={`min-w-0 flex-1 truncate ${p.hecho ? 'text-muted-foreground line-through' : ''}`}>
+              {p.nombre || p.clave}
+            </span>
+            {/* Qué le pasa a este paso: hecho, saltado, vencido o a la espera.
+                Con palabra además del color, que un ámbar a secas no lo
+                distingue quien no ve bien el color. */}
+            {p.hecho ? (
+              <span className="shrink-0 text-muted-foreground">hecho</span>
+            ) : p.estado === 'saltado' ? (
+              <span className="shrink-0 text-muted-foreground">saltado</span>
+            ) : p.vencido ? (
+              <span className="shrink-0 font-semibold text-warning-soft-foreground">
+                tarde {p.dias_de_retraso} {p.dias_de_retraso === 1 ? 'día' : 'días'}
+              </span>
+            ) : (
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {new Date(p.fecha_prevista).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Los pasos se cierran solos al registrar un contacto. Para mover una fecha,
+        entra en la pestaña «Proceso».
+      </p>
     </div>
   );
 }
@@ -483,6 +596,10 @@ function RecordatoriosTab({ leadId, reminders, onRefetch }) {
 
   return (
     <div className="space-y-4">
+      {/* Lo que ya esta programado por el proceso, ANTES del formulario: es lo
+          que hay, y ponerlo debajo de una caja vacia hacia que nadie lo viera. */}
+      <AgendaDelProceso leadId={leadId} />
+
       <form onSubmit={add} className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
         <input
           type="datetime-local"
@@ -501,12 +618,12 @@ function RecordatoriosTab({ leadId, reminders, onRefetch }) {
         </button>
       </form>
       {reminders.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-6">Sin recordatorios programados.</p>
+        <p className="text-sm text-muted-foreground text-center py-6">Sin recordatorios puestos a mano.</p>
       ) : (
         <ol className="space-y-3">
           {reminders.map((r) => (
             <li key={r.id} className="flex gap-3 items-start">
-              <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div className="w-7 h-7 rounded-full bg-info-soft text-info flex items-center justify-center flex-shrink-0 mt-0.5">
                 <CalendarCheck size={12} weight="regular" />
               </div>
               <div className="min-w-0 flex-1">
@@ -517,7 +634,7 @@ function RecordatoriosTab({ leadId, reminders, onRefetch }) {
                 <button
                   onClick={() => complete(r.id)}
                   title="Marcar completado"
-                  className="p-1.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-950/40 text-muted-foreground hover:text-emerald-700"
+                  className="p-1.5 rounded hover:bg-success-soft text-muted-foreground hover:text-success"
                 >
                   <CheckCircle size={14} weight="regular" />
                 </button>
@@ -571,8 +688,8 @@ function EmailsTab({ leadId, onEnroll }) {
       {runs.map((r) => {
         const totalSteps = Array.isArray(r.steps) ? r.steps.length : 0;
         const statusColor = {
-          active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-          completed: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+          active: 'bg-success-soft text-success-soft-foreground',
+          completed: 'bg-info-soft text-info-soft-foreground',
           stopped: 'bg-muted text-muted-foreground',
         }[r.status] || 'bg-muted';
         return (
@@ -590,7 +707,7 @@ function EmailsTab({ leadId, onEnroll }) {
               </p>
             )}
             {r.status === 'active' && (
-              <button onClick={() => stop(r.id)} className="text-xs text-red-600 hover:underline">Detener</button>
+              <button onClick={() => stop(r.id)} className="text-xs text-destructive hover:underline">Detener</button>
             )}
           </div>
         );

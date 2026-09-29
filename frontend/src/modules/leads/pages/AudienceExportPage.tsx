@@ -1,3 +1,4 @@
+import { cssDeEstado } from '../lib/estadoTono';
 import { useState } from 'react';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
@@ -30,14 +31,12 @@ const CANAL_OPTIONS = [
   { v: 'referido', label: 'Referido' },
 ];
 
-const STATUS_COLORS = {
-  nuevo: '#3b82f6',
-  por_contactar: '#f59e0b',
-  contactado: '#10b981',
-  en_seguimiento: '#eab308',
-  convertido: '#8b5cf6',
-  no_interesado: '#ef4444',
-};
+// El color sale de lib/estadoTono.ts, como en el resto del modulo. Aqui habia
+// una cuarta copia en hexadecimal, y no coincidia con ninguna de las otras.
+const STATUS_COLORS = Object.fromEntries(
+  ['nuevo', 'por_contactar', 'contactado', 'en_seguimiento', 'convertido', 'no_interesado']
+    .map((e) => [e, cssDeEstado(e)]),
+);
 
 const PRESETS = [
   { id: 'no-convertidos', label: 'No convertidos', desc: 'Ideal para retargeting', filter: { statuses: ['nuevo', 'por_contactar', 'contactado', 'en_seguimiento'] } },

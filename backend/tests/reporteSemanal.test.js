@@ -134,10 +134,16 @@ describe('el correo', () => {
 describe('a quien va y cuantas veces', () => {
   it('solo a administracion, y respetando a quien lo apago', async () => {
     await _internos.destinatarios();
-    const sql = consultas[0].sql;
-    expect(sql).toMatch(/role IN \('admin', 'superadmin'\)/);
+    const { sql, params } = consultas[0];
+    expect(params[0]).toEqual(['admin', 'superadmin']);
     expect(sql).toMatch(/avisos_apagados/);
-    expect(sql).toMatch(/reporte_semanal/);
+    expect(params[1]).toBe('reporte_semanal');
+  });
+
+  it('el de las gestoras (28/09) va a gestoras y se apaga por separado', async () => {
+    await _internos.destinatarios('semana_gestora', ['gestor']);
+    const { params } = consultas[0];
+    expect(params).toEqual([['gestor'], 'semana_gestora']);
   });
 
   it('el dinero sale de conversion_payments, no de importe_pagado', () => {

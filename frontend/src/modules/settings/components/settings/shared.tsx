@@ -17,6 +17,7 @@ export const TABS: SettingsTab[] = [
   { id: 'fields',       label: 'Campos custom',       icon: ListChecks,     to: '/configuracion/campos' },
   { id: 'cat-tree',     label: 'Árbol de categorías', icon: Tree,           to: '/configuracion/categorias-arbol' },
   { id: 'channels',     label: 'Canales',             icon: ChatCircleText, to: '/configuracion/canales' },
+  { id: 'proceso',      label: 'Proceso comercial',   icon: ListChecks,     to: '/prospectos/proceso' },
   { id: 'forms',        label: 'Formularios',         icon: Globe },
   { id: 'webhooks',     label: 'Webhooks',            icon: PlugsConnected, to: '/captacion/webhooks' },
   { id: 'sequences',    label: 'Email seguimiento',   icon: Envelope,       to: '/secuencias-email' },

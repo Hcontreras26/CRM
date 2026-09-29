@@ -1,3 +1,4 @@
+import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { createPayableSchema, updatePayableSchema, paymentSchema } from './payable.validation.js';
 import * as model from './payable.model.js';
@@ -6,7 +7,7 @@ export async function list(req, res, next) {
   try {
     const { projectId, estado, from, to } = req.query;
     const rows = await model.list({
-      projectId: projectId ? Number(projectId) : null,
+      ...(await proyectosDelAmbito(req)),
       estado: estado || null,
       from: from || null,
       to: to || null,
@@ -19,7 +20,7 @@ export async function stats(req, res, next) {
   try {
     const { projectId, from, to } = req.query;
     const s = await model.getStats({
-      projectId: projectId ? Number(projectId) : null,
+      ...(await proyectosDelAmbito(req)),
       from: from || null,
       to: to || null,
     });

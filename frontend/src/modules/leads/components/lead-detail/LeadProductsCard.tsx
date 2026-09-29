@@ -74,7 +74,7 @@ export default function LeadProductsCard({ leadId, projectId, isAdmin }: Props) 
     <div className="bg-card border border-border rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Package size={16} weight="duotone" className="text-blue-600" />
+          <Package size={16} weight="duotone" className="text-info" />
           Programas de interés
           <span className="text-[11px] font-normal text-muted-foreground">({items.length})</span>
         </h3>
@@ -104,7 +104,7 @@ export default function LeadProductsCard({ leadId, projectId, isAdmin }: Props) 
       ) : (
         <ul className="space-y-2 mt-2">
           {items.map((it) => (
-            <li key={it.id != null ? `lp-${it.id}` : 'principal'} className={`border border-border rounded-md p-2.5 ${it.is_principal ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''}`}>
+            <li key={it.id != null ? `lp-${it.id}` : 'principal'} className={`border border-border rounded-md p-2.5 ${it.is_principal ? 'bg-warning-soft' : ''}`}>
               {editingId === it.id && it.id ? (
                 <EditForm
                   item={it}
@@ -117,7 +117,7 @@ export default function LeadProductsCard({ leadId, projectId, isAdmin }: Props) 
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold flex items-center gap-1.5">
-                      {it.is_principal && <Star size={12} weight="fill" className="text-amber-500" />}
+                      {it.is_principal && <Star size={12} weight="fill" className="text-warning" />}
                       <span className="truncate" title={it.product_nombre}>{it.product_nombre}</span>
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -136,7 +136,7 @@ export default function LeadProductsCard({ leadId, projectId, isAdmin }: Props) 
                       <button onClick={() => setEditingId(it.id!)} title="Editar gestor/notas" className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
                         <PencilSimple size={12} />
                       </button>
-                      <button onClick={() => removeItem(it)} title="Quitar del lead" className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-600">
+                      <button onClick={() => removeItem(it)} title="Quitar del prospecto" className="p-1 rounded hover:bg-destructive-soft text-muted-foreground hover:text-destructive">
                         <X size={12} weight="bold" />
                       </button>
                     </div>

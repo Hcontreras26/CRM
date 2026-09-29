@@ -4,6 +4,14 @@ import {
   Heart, Star, Lock, Bell,
 } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import Card, { CardSection } from '@/shared/components/ui/Card';
+import StatusDot from '@/shared/components/ui/StatusDot';
+import SubNav from '@/shared/components/ui/SubNav';
+import MetricLabel from '@/shared/components/ui/MetricLabel';
+import NeedsProjectBanner from '@/shared/components/ui/NeedsProjectBanner';
+import SearchableSelect from '@/shared/components/ui/SearchableSelect';
+import PromptDialog from '@/shared/components/ui/PromptDialog';
+import MultiProjectPicker from '@/shared/components/ui/MultiProjectPicker';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable, { SkeletonCard } from '@/shared/components/ui/SkeletonTable';
@@ -24,10 +32,13 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <section className="space-y-3">
       <header>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        <h2 className="text-seccion">{title}</h2>
+        {description && <p className="text-secundario text-muted-foreground">{description}</p>}
       </header>
-      <div className="bg-card border border-border rounded-lg p-4">{children}</div>
+      {/* Con <Card>, no con `bg-card border border-border rounded-lg p-4` a mano:
+          esta pantalla enseña las primitivas, seria raro que fuera la primera en
+          no usarlas. */}
+      <Card>{children}</Card>
     </section>
   );
 }
@@ -45,15 +56,18 @@ export default function DevComponentsPage() {
   const [progress, setProgress] = useState(67);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [demoModalOpen, setDemoModalOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [gestoraDemo, setGestoraDemo] = useState('');
+  const [proyectosDemo, setProyectosDemo] = useState<number[]>([]);
 
   return (
     <div className="space-y-6 pb-8">
       <PageHeader
-        title="Catálogo de componentes UI"
-        subtitle="Preview visual de los primitivos compartidos. Solo accesible en development."
+        title="Las 22 primitivas, juntas"
+        subtitle="Todas las piezas compartidas en una pantalla, para verlas de una vez y en los dos temas."
         actions={
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-xs font-bold">
-            <WarningCircle size={12} weight="bold" /> DEV ONLY
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-warning-soft text-warning-soft-foreground text-secundario font-bold">
+            <WarningCircle size={12} weight="bold" /> No sale en producción
           </span>
         }
       />
@@ -70,7 +84,7 @@ export default function DevComponentsPage() {
             label="Cobrado"
             numericValue={45230}
             format={fmtMoney}
-            iconBg="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+            iconBg="bg-success-soft text-success-soft-foreground"
             badge="+12%"
             trend="up"
           />
@@ -78,17 +92,17 @@ export default function DevComponentsPage() {
             icon={ChartLineUp}
             label="CTR"
             value="3.42%"
-            iconBg="bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+            iconBg="bg-warning-soft text-warning-soft-foreground"
             badge="-0.3%"
             trend="down"
-            badgeColor="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+            badgeColor="bg-destructive-soft text-destructive-soft-foreground"
           />
           <KpiCard
             icon={TrendUp}
             label="Conversiones"
             numericValue={89}
             format={fmtNum}
-            iconBg="bg-violet-100 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400"
+            iconBg="bg-info-soft text-info-soft-foreground"
           />
         </div>
       </Section>
@@ -231,7 +245,7 @@ export default function DevComponentsPage() {
         </div>
       </Section>
 
-      <Section title="Field (label + input)" description="Patrón canónico de formulario.">
+      <Section title="Select y campos" description="Patrón canónico de formulario.">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
           <label className="block">
             <span className="text-xs font-bold uppercase text-muted-foreground">Nombre *</span>
@@ -270,7 +284,7 @@ export default function DevComponentsPage() {
         </div>
       </Section>
 
-      <Section title="Dialog modal" description="Patrón Portal + overlay + card. Confirmación destructiva con ConfirmDialog.">
+      <Section title="ConfirmDialog y diálogos" description="Confirmar algo que no se puede deshacer, y el patrón de diálogo del que sale.">
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setDemoModalOpen(true)}>
             Abrir modal demo
@@ -290,7 +304,7 @@ export default function DevComponentsPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <header className="flex items-center justify-between p-5 border-b border-border">
-                <h3 className="font-extrabold flex items-center gap-2"><Star size={18} weight="fill" className="text-amber-500" /> Modal de demo</h3>
+                <h3 className="font-extrabold flex items-center gap-2"><Star size={18} weight="fill" className="text-warning" /> Modal de demo</h3>
                 <button onClick={() => setDemoModalOpen(false)} aria-label="Cerrar" className="p-1.5 rounded hover:bg-muted">×</button>
               </header>
               <div className="p-5 space-y-3">
@@ -324,6 +338,140 @@ export default function DevComponentsPage() {
           }}
           onCancel={() => setConfirmOpen(false)}
         />
+      </Section>
+
+      {/* ─────────────────────────────────────────────────────────────────
+          A partir de aquí, las que faltaban. El muestrario enseñaba 12 de
+          22, así que para diez primitivas no había dónde ver cómo quedan —
+          que es justo lo que evita que la pantalla 40 no se parezca a la 3.
+          ───────────────────────────────────────────────────────────────── */}
+
+      <Section title="Card" description="La superficie sobre la que va todo. El patrón estaba escrito a mano 337 veces en 13 variantes.">
+        <div className="grid gap-3 md:grid-cols-3">
+          <Card>
+            <p className="text-normal font-semibold">Relleno normal</p>
+            <p className="text-secundario text-muted-foreground">El de siempre: <code className="codigo">padding=&quot;md&quot;</code> (p-tarjeta).</p>
+          </Card>
+          <Card padding="sm">
+            <p className="text-normal font-semibold">Relleno corto</p>
+            <p className="text-secundario text-muted-foreground">Para tarjetas apretadas dentro de una rejilla.</p>
+          </Card>
+          <Card padding="none" overflowHidden>
+            <div className="p-tarjeta">
+              <p className="text-normal font-semibold">Sin relleno</p>
+              <p className="text-secundario text-muted-foreground">Cuando dentro va una tabla, que trae el suyo.</p>
+            </div>
+            <CardSection>
+              <p className="text-secundario text-muted-foreground">Una franja separada por una línea: pies de tabla, barras de filtros.</p>
+            </CardSection>
+          </Card>
+        </div>
+      </Section>
+
+      <Section title="StatusDot" description="Punto y palabra. El punto solo es una señal: quien no distingue el color necesita la palabra al lado.">
+        <div className="flex flex-wrap items-center gap-4">
+          <StatusDot tono="success">Activo</StatusDot>
+          <StatusDot tono="warning" title="Le quedan 3 días">Caduca pronto</StatusDot>
+          <StatusDot tono="danger">Vencido</StatusDot>
+          <StatusDot tono="info">En revisión</StatusDot>
+          <StatusDot tono="neutral">Sin datos</StatusDot>
+        </div>
+      </Section>
+
+      <Section title="SubNav" description="Las pestañas de un apartado. Van a todo lo ancho, pegadas bajo la cabecera del marco.">
+        <div className="rounded-md border border-border overflow-hidden">
+          <SubNav
+            sectionLabel="Ejemplo"
+            sectionIcon={Users}
+            tabs={[
+              { label: 'Listado', to: '/prueba_ui' },
+              { label: 'Pipeline', to: '/prueba_ui_leads' },
+              { label: 'Audiencias', to: '/prueba_ui_clientes' },
+            ]}
+          />
+        </div>
+      </Section>
+
+      <Section title="MetricLabel" description="Una sigla con su explicación al pasar el ratón. Nadie tiene por qué saber qué es un ROAS.">
+        <div className="flex flex-wrap items-center gap-5 text-normal">
+          <MetricLabel term="ROAS">ROAS</MetricLabel>
+          <MetricLabel term="CPL">CPL</MetricLabel>
+          <MetricLabel term="LTV">LTV</MetricLabel>
+          <MetricLabel hint="Explicación escrita a mano, sin pasar por el glosario.">Personalizada</MetricLabel>
+        </div>
+      </Section>
+
+      <Section title="NeedsProjectBanner" description="Cuando estás en «Todos los proyectos» y la pantalla necesita uno concreto.">
+        <NeedsProjectBanner feature="el catálogo" />
+      </Section>
+
+      <Section title="SearchableSelect" description="Un desplegable con buscador, para listas que no caben de un vistazo.">
+        <SearchableSelect
+          value={gestoraDemo}
+          onChange={setGestoraDemo}
+          allLabel="Todas las gestoras"
+          ariaLabel="Gestora de ejemplo"
+          options={[
+            { value: '1', label: 'Ana Comercial' },
+            { value: '2', label: 'Beatriz Ruiz' },
+            { value: '3', label: 'Carlos Méndez' },
+          ]}
+        />
+      </Section>
+
+      <Section title="MultiProjectPicker" description="Elegir varias marcas a la vez. Vacío = solo la activa.">
+        <MultiProjectPicker
+          projects={[
+            { id: 1, nombre: 'Fono Aprende' },
+            { id: 2, nombre: 'ISEIH' },
+            { id: 3, nombre: 'Psiko Aprende' },
+          ]}
+          selected={proyectosDemo}
+          onChange={setProyectosDemo}
+          activeProjectId={1}
+        />
+      </Section>
+
+      <Section title="PromptDialog" description="Pedir un texto sin salir de la pantalla. Es el hermano de ConfirmDialog.">
+        <Button variant="outline" onClick={() => setPromptOpen(true)}>Abrir PromptDialog</Button>
+        <PromptDialog
+          open={promptOpen}
+          title="Motivo del cambio"
+          message="Queda registrado en el historial del prospecto."
+          placeholder="Ej. el cliente pidió aplazar la matrícula"
+          multiline
+          onConfirm={(valor: string) => {
+            toast({ title: 'Guardado', description: valor || '(vacío)' });
+            setPromptOpen(false);
+          }}
+          onCancel={() => setPromptOpen(false)}
+        />
+      </Section>
+
+      <Section
+        title="BetaDisclaimer y portal"
+        description="Las dos que no se pueden enseñar en vivo aquí, y por qué."
+      >
+        <div className="space-y-3 text-normal">
+          <div>
+            <p className="font-semibold">BetaDisclaimer</p>
+            <p className="text-secundario text-muted-foreground">
+              Al montarse abre un aviso a pantalla completa la primera vez del día y deja una
+              franja arriba. Ponerlo aquí taparía el muestrario cada vez que se entra, así que
+              se ve donde se usa: en las secciones marcadas como en pruebas.
+            </p>
+            <pre className="mt-2 overflow-x-auto rounded-md bg-muted p-3 text-secundario">{'<BetaDisclaimer sectionKey="finanzas" description="..." />'}</pre>
+          </div>
+          <div>
+            <p className="font-semibold">portal</p>
+            <p className="text-secundario text-muted-foreground">
+              No pinta nada: saca a su hijo fuera del árbol del DOM para que un menú o un
+              diálogo no lo recorte el <code className="codigo">overflow</code> de la tarjeta que
+              lo contiene. Se ve funcionando en el selector de proyecto y en los diálogos de aquí
+              arriba.
+            </p>
+          </div>
+        </div>
       </Section>
     </div>
   );

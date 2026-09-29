@@ -4,6 +4,7 @@ import {
   type Icon,
 } from '@phosphor-icons/react';
 import { documentsApi, type AuditEntry, type CrmDocument } from '../api/documents.api';
+import { lista } from '@/shared/lib/lista';
 
 interface AuditDrawerProps {
   doc: CrmDocument;
@@ -50,7 +51,7 @@ export default function AuditDrawer({ doc, projectId, onClose }: AuditDrawerProp
       try {
         const res = await documentsApi.audit(doc.id, projectId);
         if (cancelled) return;
-        if (res.success && res.data) setEntries(res.data);
+        if (res.success && res.data) setEntries(lista(res.data));
         else setError('No se pudo cargar el historial');
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Error de red');

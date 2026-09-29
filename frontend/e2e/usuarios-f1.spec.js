@@ -6,10 +6,11 @@
 // casos que en un servidor real cuesta reproducir (lista vacía, 403).
 
 import { test, expect } from '@playwright/test';
-
-// El puerto cambia si ya hay otro Vite levantado, así que se puede fijar con
-// E2E_BASE_URL. Mirar lo que imprime `npm run dev` antes de lanzarlo.
-const BASE = process.env.E2E_BASE_URL || 'http://localhost:5173/testeo';
+// La base sale de `helpers`, no de una direccion escrita aqui. Este fichero se
+// quedo con `http://localhost:5173/testeo` fija mientras las otras tres specs
+// pasaban a `helpers`: en local la aplicacion cuelga de `/crm`, asi que este se
+// iba a la pagina de error de Vite y fallaba entero sin decir por que.
+import { ir, API_GLOB } from './helpers';
 
 const PROYECTOS = [
   { id: 1, nombre: 'Psiko Aprende', slug: 'psiko-aprende', type: 'crm', active: true },
@@ -64,11 +65,11 @@ const json = (body, status = 200) => ({
  * para poder afirmar sobre el método, la ruta y el cuerpo enviados.
  */
 async function mockApi(page, { usuarios = USUARIOS, usersStatus = 200, espia = [] } = {}) {
-  // El patrón tiene que colgar de BASE. Con `**/api/**` también se cazaba
+  // El patron tiene que colgar de la base. Con `**/api/**` tambien se cazaba
   // `/testeo/src/shared/api/client.js` —un fuente con «api» en la ruta—, se le
   // devolvía JSON, el navegador lo rechazaba por MIME y la aplicación no
   // arrancaba: pantalla en blanco y los trece tests fuera.
-  await page.route(`${BASE}/api/**`, async (route) => {
+  await page.route(API_GLOB, async (route) => {
     const req = route.request();
     const url = new URL(req.url());
     const ruta = url.pathname.replace(/^.*\/api/, '');
@@ -134,7 +135,7 @@ async function mockApi(page, { usuarios = USUARIOS, usersStatus = 200, espia = [
  * esperarlo ahí es esperar algo que no va a existir.
  */
 async function abrirUsuarios(page, { esperarPanel = true } = {}) {
-  await page.goto(`${BASE}/configuracion`);
+  await ir(page, '/configuracion');
   await page.getByRole('button', { name: 'Usuarios', exact: true }).click();
   if (esperarPanel) {
     await expect(page.getByRole('heading', { name: 'Gestión de usuarios' })).toBeVisible();

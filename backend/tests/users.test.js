@@ -112,6 +112,10 @@ describe('POST /api/users', () => {
     expect(res.body.code).toBe('EMAIL_EXISTS');
   });
 
+  // El minimo de proyectos depende del rol, y lo decide `projectAccess`:
+  // superadmin y soporte pasan por encima del filtro; admin y gestor no, asi
+  // que sin proyectos reciben 403 en todo. Ver el comentario largo de
+  // `user.validation.js`.
   it('falla sin projectIds', async () => {
     const res = await request.post('/api/users')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -123,6 +127,46 @@ describe('POST /api/users', () => {
       });
 
     expect(res.status).toBe(400);
+  });
+
+  it('un admin sin proyectos tampoco: recibiria 403 en cada pantalla', async () => {
+    const res = await request.post('/api/users')
+      .set('Authorization', `Bearer ${superadminToken}`)
+      .send({
+        nombre: 'Admin Sin Proyectos',
+        email: 'adminnoproj@test-users.com',
+        role: 'admin',
+        projectIds: [],
+      });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('pero un soporte SI se puede crear sin proyectos', async () => {
+    // No es un descuido de la regla: `projectAccess` deja pasar a soporte sin
+    // mirar `user_projects`. Exigirselo seria pedir un dato que no usa.
+    const res = await request.post('/api/users')
+      .set('Authorization', `Bearer ${superadminToken}`)
+      .send({
+        nombre: 'Soporte Sin Proyectos',
+        email: 'soportenoproj@test-users.com',
+        role: 'soporte',
+      });
+
+    expect(res.status).toBe(201);
+  });
+
+  it('y vale que los proyectos vengan en `projects`, no solo en `projectIds`', async () => {
+    const res = await request.post('/api/users')
+      .set('Authorization', `Bearer ${superadminToken}`)
+      .send({
+        nombre: 'Gestor Con Projects',
+        email: 'gestorprojects@test-users.com',
+        role: 'gestor',
+        projects: [{ projectId: 1, recibeLeads: true }],
+      });
+
+    expect(res.status).toBe(201);
   });
 
   it('falla con role superadmin', async () => {

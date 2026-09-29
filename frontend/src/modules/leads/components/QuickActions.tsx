@@ -89,7 +89,7 @@ export default function QuickActions({
             type="button"
             onClick={() => setWaMenuOpen((o) => !o)}
             title="WhatsApp con plantilla"
-            className="p-1.5 rounded hover:bg-green-100 dark:hover:bg-green-950/40 text-muted-foreground hover:text-green-700 dark:hover:text-green-400 transition-colors"
+            className="p-1.5 rounded hover:bg-success-soft text-muted-foreground hover:text-success transition-colors"
           >
             <WhatsappLogo size={14} weight="regular" />
           </button>
@@ -141,7 +141,7 @@ export default function QuickActions({
         <button
           onClick={() => onEnrollSequence(lead)}
           title="Enrolar en secuencia de email"
-          className="p-1.5 rounded hover:bg-amber-100 dark:hover:bg-amber-950/40 text-muted-foreground hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
+          className="p-1.5 rounded hover:bg-warning-soft text-muted-foreground hover:text-warning transition-colors"
         >
           <EnvelopeSimple size={14} weight="regular" />
         </button>
@@ -150,7 +150,7 @@ export default function QuickActions({
         <button
           onClick={() => onCreateReminder(lead)}
           title="Programar siguiente contacto"
-          className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-950/40 text-muted-foreground hover:text-blue-700 dark:hover:text-blue-400 transition-colors"
+          className="p-1.5 rounded hover:bg-info-soft text-muted-foreground hover:text-info transition-colors"
         >
           <CalendarPlus size={14} weight="regular" />
         </button>
@@ -159,7 +159,7 @@ export default function QuickActions({
         <button
           onClick={() => onMarkContacted(lead)}
           title="Marcar contactado"
-          className="p-1.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-950/40 text-muted-foreground hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors"
+          className="p-1.5 rounded hover:bg-success-soft text-muted-foreground hover:text-success transition-colors"
         >
           <CheckCircle size={14} weight="regular" />
         </button>
@@ -168,7 +168,7 @@ export default function QuickActions({
         <button
           onClick={() => onConvert(lead)}
           title="Convertir a cliente"
-          className="p-1.5 rounded hover:bg-violet-100 dark:hover:bg-violet-950/40 text-muted-foreground hover:text-violet-700 dark:hover:text-violet-400 transition-colors"
+          className="p-1.5 rounded hover:bg-info-soft text-muted-foreground hover:text-info transition-colors"
         >
           <Lightning size={14} weight="regular" />
         </button>
@@ -177,7 +177,7 @@ export default function QuickActions({
         <button
           onClick={() => onReportSpam(lead)}
           title="Reportar como spam (revisa superadmin)"
-          className="p-1.5 rounded hover:bg-orange-100 dark:hover:bg-orange-950/40 text-muted-foreground hover:text-orange-700 dark:hover:text-orange-400 transition-colors"
+          className="p-1.5 rounded hover:bg-warning-soft text-muted-foreground hover:text-warning transition-colors"
         >
           <Flag size={14} weight="regular" />
         </button>
@@ -186,7 +186,7 @@ export default function QuickActions({
         <button
           onClick={() => onSoftDelete(lead)}
           title="Eliminar (superadmin)"
-          className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-muted-foreground hover:text-red-700 dark:hover:text-red-400 transition-colors"
+          className="p-1.5 rounded hover:bg-destructive-soft text-muted-foreground hover:text-destructive transition-colors"
         >
           <Trash size={14} weight="regular" />
         </button>

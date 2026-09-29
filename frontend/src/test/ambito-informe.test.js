@@ -3,6 +3,8 @@ import {
   ponerAmbito,
   ambitoComoObjeto,
   sociedadSinCampus,
+  proyectosDelAmbito,
+  idsDelAmbito,
   TODOS_LOS_PROYECTOS,
 } from '@/shared/lib/ambitoInforme';
 
@@ -82,5 +84,41 @@ describe('una sociedad sin campus', () => {
     // Estar en «todos los proyectos» no es estar en una sociedad vacia.
     expect(sociedadSinCampus(null)).toBe(false);
     expect(sociedadSinCampus(undefined)).toBe(false);
+  });
+});
+
+describe('qué proyectos entran en lo que miras (#103)', () => {
+  const TODOS = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 7 }, { id: 8 }];
+  const CEDIA = { id: 3, nombre: 'CEDIA', campus: [{ id: 1 }, { id: 2 }, { id: 3 }] };
+
+  it('una sociedad son sus campus, no todos', () => {
+    // Es la diferencia entre «CEDIA» y «todo»: si devolviera los cinco, la
+    // pantalla enseñaria ICTESS bajo la etiqueta de CEDIA.
+    expect(idsDelAmbito({ activeIssuer: CEDIA, isAllProjects: true, projects: TODOS })).toEqual([1, 2, 3]);
+  });
+
+  it('la sociedad manda aunque «todos» siga puesto por dentro', () => {
+    // Al elegir una sociedad el proyecto activo se queda en «todos» a
+    // proposito: si ganara `isAllProjects`, elegir CEDIA no haria nada.
+    expect(proyectosDelAmbito({ activeIssuer: CEDIA, isAllProjects: true, projects: TODOS })).toHaveLength(3);
+  });
+
+  it('sin sociedad, todos son todos', () => {
+    expect(idsDelAmbito({ isAllProjects: true, projects: TODOS })).toEqual([1, 2, 3, 7, 8]);
+  });
+
+  it('con un campus suelto no hay lista: se usa el projectId de siempre', () => {
+    expect(idsDelAmbito({ isAllProjects: false, projects: TODOS })).toEqual([]);
+  });
+
+  it('una sociedad sin campus da una lista vacia, no todos', () => {
+    // Si cayera a «todos», una sociedad recien creada enseñaria el CRM entero.
+    const vacia = { id: 9, nombre: 'NUEVA SL', campus: [] };
+    expect(idsDelAmbito({ activeIssuer: vacia, isAllProjects: true, projects: TODOS })).toEqual([]);
+  });
+
+  it('sin nada puesto no revienta', () => {
+    expect(idsDelAmbito({})).toEqual([]);
+    expect(proyectosDelAmbito()).toEqual([]);
   });
 });

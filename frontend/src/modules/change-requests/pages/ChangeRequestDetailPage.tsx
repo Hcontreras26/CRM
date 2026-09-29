@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef, lazy, Suspense } from 'react';
+
+import Field from '@/shared/components/ui/Field';import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, PaperPlaneTilt, FloppyDisk, FilePdf, Trash, PaperclipHorizontal, DownloadSimple, ArrowCounterClockwise, CheckCircle, XCircle, ClockClockwise } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -185,7 +186,7 @@ export default function ChangeRequestDetailPage() {
               {ESTADO_LABELS[rfc.estado] || rfc.estado}
             </span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight mt-2">{rfc.titulo}</h1>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mt-2">{rfc.titulo}</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Solicitante: <strong>{rfc.solicitante_nombre}</strong> ({rfc.solicitante_email})
             · {new Date(rfc.fecha_solicitud).toLocaleDateString('es-ES')}
@@ -444,15 +445,6 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
       <h2 className="text-base font-bold mb-1">{title}</h2>
       {subtitle && <p className="text-[11px] text-muted-foreground mb-3">{subtitle}</p>}
       <div className="space-y-3">{children}</div>
-    </div>
-  );
-}
-
-function Field({ label, disabled, children }: { label: string; disabled?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className={`text-[11px] font-bold uppercase tracking-wider mb-1.5 block ${disabled ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>{label}</label>
-      {children}
     </div>
   );
 }

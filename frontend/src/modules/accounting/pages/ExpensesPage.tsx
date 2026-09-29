@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+
+import { inputClass } from '@/shared/lib/ui';import { lazy, Suspense, useEffect, useState } from 'react';
 import { accountingApi, MANUAL_CATEGORIES, AUTO_CATEGORIES } from '../api/accounting.api';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import useUrlFilters from '@/shared/hooks/useUrlFilters';
@@ -11,6 +12,8 @@ import Select from '@/shared/components/ui/Select';
 import { Plus, X, Receipt, Trash, PencilSimple, Paperclip, UploadSimple, Lightning, DownloadSimple } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import { formatDate } from '@/shared/lib/format';
+import { lista } from '@/shared/lib/lista';
+import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 
 const ConfirmDialog = lazy(() => import('@/shared/components/ui/ConfirmDialog'));
 
@@ -82,7 +85,7 @@ function fmt(n) {
 }
 
 export default function ExpensesPage() {
-  const { activeProject } = useProjectContext();
+  const { activeProject, activeIssuerId } = useProjectContext();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -100,11 +103,11 @@ export default function ExpensesPage() {
   async function load() {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = {};
-      if (activeProject?.id) params.projectId = activeProject.id;
+      // Con una EMPRESA puesta van sus campus; el servidor lo traduce.
+      const params: Record<string, string | number> = { ...ambitoComoObjeto({ activeIssuerId, activeProject }) };
       if (filterCat) params.categoria = filterCat;
       const res = await accountingApi.listExpenses(params);
-      if (res.success) setExpenses(res.data);
+      if (res.success) setExpenses(lista(res.data));
     } catch (err) {
       toast({ title: 'Error cargando egresos', description: err?.data?.error || err.message, variant: 'destructive' });
     } finally {
@@ -112,13 +115,18 @@ export default function ExpensesPage() {
     }
   }
 
-  useEffect(() => { load(); }, [activeProject?.id, filterCat, page]);
+  useEffect(() => { load(); }, [activeProject?.id, activeIssuerId, filterCat, page]);
   useEffect(() => { setPage(1); }, [activeProject?.id, filterCat]);
 
   async function handleExport() {
     try {
-      const params: Record<string, string | number> = { limit: 100, page: 1 };
-      if (activeProject?.id) params.projectId = activeProject.id;
+      const params: Record<string, string | number> = {
+        limit: 100, page: 1,
+        // El mismo ambito que la pantalla: si se exporta con CEDIA puesta, el
+        // fichero trae CEDIA. Antes mandaba `activeProject.id` a secas --que
+        // con «todos» vale -1-- y el servidor lo rechazaba.
+        ...ambitoComoObjeto({ activeIssuerId, activeProject }),
+      };
       if (filterCat) params.categoria = filterCat;
       const all: any[] = [];
       let page = 1;
@@ -495,7 +503,6 @@ function ExpenseDialog({ open, onClose, expense, activeProjectId, onSaved }) {
     }
   }
 
-  const inputClass = 'w-full h-9 px-3 rounded-lg border border-border bg-muted/50 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
   return (
     <Portal>
@@ -515,23 +522,23 @@ function ExpenseDialog({ open, onClose, expense, activeProjectId, onSaved }) {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Concepto *</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Concepto *</label>
               <input value={form.concepto} onChange={e => setForm({ ...form, concepto: e.target.value })} placeholder="Alquiler oficina, salarios enero..." className={inputClass} required autoFocus />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Importe (EUR) *</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Importe (EUR) *</label>
                 <input type="number" step="0.01" min="0.01" value={form.importe} onChange={e => setForm({ ...form, importe: e.target.value })} className={inputClass + ' tabular-nums'} required />
               </div>
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Fecha *</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha *</label>
                 <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} className={inputClass} required />
               </div>
             </div>
 
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Categoría</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Categoría</label>
               <Select<string>
                 value={form.categoria}
                 onChange={(v) => setForm({ ...form, categoria: v })}
@@ -542,7 +549,7 @@ function ExpenseDialog({ open, onClose, expense, activeProjectId, onSaved }) {
 
             {/* Comprobante (PDF/JPG/PNG/WEBP, máx 15MB) */}
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
                 Comprobante <span className="text-muted-foreground/70">(opcional, PDF/JPG/PNG/WEBP)</span>
               </label>
               {form.comprobante_url ? (
@@ -570,7 +577,7 @@ function ExpenseDialog({ open, onClose, expense, activeProjectId, onSaved }) {
             </div>
 
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Notas</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Notas</label>
               <textarea value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })} rows={2} className="w-full px-3 py-2 rounded-lg border border-border bg-muted/50 text-sm outline-none resize-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
             </div>
 

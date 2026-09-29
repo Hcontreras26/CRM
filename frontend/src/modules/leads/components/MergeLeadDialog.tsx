@@ -112,22 +112,22 @@ export default function MergeLeadDialog({ open, winner, projectId, initialLoserI
       <div className="fixed inset-0 !m-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div role="dialog" className="relative bg-card sm:rounded-lg border border-border w-full max-w-xl flex flex-col max-h-[90vh]">
         <div className="px-5 py-4 border-b border-border flex items-start gap-3">
-          <div className="w-9 h-9 rounded-md bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-md bg-info-soft text-info flex items-center justify-center flex-shrink-0">
             <GitMerge size={18} weight="regular" />
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-base">Fusionar duplicado</h3>
             <p className="text-xs text-muted-foreground truncate">
-              Lead actual: <strong>#{winner.id} {winner.nombre}</strong> (quedará activo)
+              Prospecto actual: <strong>#{winner.id} {winner.nombre}</strong> (quedará activo)
             </p>
           </div>
           <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X size={18} /></button>
         </div>
 
         <div className="p-5 space-y-4 overflow-y-auto">
-          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3 text-[11px] text-amber-800 dark:text-amber-300 flex gap-2">
+          <div className="bg-warning-soft border border-warning/30 rounded-md p-3 text-[11px] text-warning flex gap-2">
             <Warning size={14} weight="duotone" className="flex-shrink-0 mt-0.5" />
-            <span>Todo el historial (interacciones, recordatorios, conversiones, emails) se moverá al lead actual. El duplicado se borrará (soft) con tu comentario como motivo.</span>
+            <span>Todo el historial (interacciones, recordatorios, conversiones, emails) se moverá al prospecto actual. El duplicado se borrará (soft) con tu comentario como motivo.</span>
           </div>
 
           <div>
@@ -187,7 +187,7 @@ export default function MergeLeadDialog({ open, winner, projectId, initialLoserI
           <button
             onClick={handleMerge}
             disabled={saving || !selected || comment.trim().length < 3}
-            className="h-9 px-4 rounded-md bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-50 inline-flex items-center gap-2"
+            className="h-9 px-4 rounded-md bg-info text-info-foreground text-sm font-semibold hover:bg-info/90 disabled:opacity-50 inline-flex items-center gap-2"
           >
             <GitMerge size={14} weight="bold" />
             {saving ? 'Fusionando…' : 'Fusionar leads'}

@@ -12,6 +12,7 @@ import Portal from '@/shared/components/ui/portal';
 import { toast } from '@/shared/hooks/useToast';
 import { Receipt, PencilSimple, X, FloppyDisk, ArrowSquareOut } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
+import { ponerAmbito } from '@/shared/lib/ambitoInforme';
 
 interface Conversion {
   id: number;
@@ -38,7 +39,11 @@ const PAYMENT_METHODS = [
 ];
 
 function fmt(n: number | string): string {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(n || 0));
+  // Con centimos: es el importe exacto que va a ir en una factura.
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency', currency: 'EUR',
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }).format(Number(n || 0));
 }
 
 function fmtDate(d?: string | null): string {
@@ -49,7 +54,10 @@ function fmtDate(d?: string | null): string {
 const PER_PAGE = 50;
 
 export default function PendienteFacturarPage() {
-  const { activeProject } = useProjectContext() as { activeProject: { id?: number | null; nombre?: string } };
+  const { activeProject, activeIssuerId } = useProjectContext() as {
+    activeProject: { id?: number | null; nombre?: string };
+    activeIssuerId: number | null;
+  };
   const navigate = useNavigate();
   const [items, setItems] = useState<Conversion[]>([]);
   const [total, setTotal] = useState(0);
@@ -58,13 +66,15 @@ export default function PendienteFacturarPage() {
   const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
-    if (!activeProject?.id) return;
+    if (!activeProject?.id && !activeIssuerId) return;
     setLoading(true);
     try {
       // Paginado: antes pedia 100 y el contador mentia en cuanto habia mas.
-      const res = await client.get<Conversion[]>(
-        `/conversions?projectId=${activeProject.id}&pendingBilling=true&page=${page}&limit=${PER_PAGE}`
+      const p = ponerAmbito(
+        new URLSearchParams({ pendingBilling: 'true', page: String(page), limit: String(PER_PAGE) }),
+        { activeIssuerId, activeProject },
       );
+      const res = await client.get<Conversion[]>(`/conversions?${p.toString()}`);
       if (res.success) {
         setItems(res.data || []);
         setTotal(((res as { pagination?: { total?: number } }).pagination?.total) ?? (res.data?.length || 0));
@@ -73,10 +83,10 @@ export default function PendienteFacturarPage() {
       const e = err as { message?: string };
       toast({ title: 'Error', description: e?.message || 'No se pudo cargar la lista', variant: 'destructive' });
     } finally { setLoading(false); }
-  }, [activeProject?.id, page]);
+  }, [activeProject?.id, activeIssuerId, page]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [activeProject?.id]);
+  useEffect(() => { setPage(1); }, [activeProject?.id, activeIssuerId]);
 
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 

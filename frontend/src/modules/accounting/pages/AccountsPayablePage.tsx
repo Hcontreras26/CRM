@@ -16,6 +16,7 @@ import {
   CheckCircle,
   Trash,
 } from '@phosphor-icons/react';
+import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 
 const ConfirmDialog = lazy(() => import('@/shared/components/ui/ConfirmDialog'));
 const PayableDialog = lazy(() => import('../components/PayableDialog'));
@@ -34,7 +35,7 @@ function fmt(n) {
 }
 
 export default function AccountsPayablePage() {
-  const { activeProject } = useProjectContext();
+  const { activeProject, activeIssuerId } = useProjectContext();
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,14 +48,13 @@ export default function AccountsPayablePage() {
   async function load() {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = {};
-      if (projId) params.projectId = projId;
+      const ambito = ambitoComoObjeto({ activeIssuerId, activeProject });
+      const params: Record<string, string | number> = { ...ambito };
       if (filterEstado) params.estado = filterEstado;
       if (rango.from) params.from = rango.from;
       if (rango.to) params.to = rango.to;
       // Las tarjetas de arriba respetan el mismo rango que el listado.
-      const statsParams: Record<string, string | number> = {};
-      if (projId) statsParams.projectId = projId;
+      const statsParams: Record<string, string | number> = { ...ambito };
       if (rango.from) statsParams.from = rango.from;
       if (rango.to) statsParams.to = rango.to;
       const [listRes, statsRes] = await Promise.all([
@@ -70,7 +70,7 @@ export default function AccountsPayablePage() {
     }
   }
 
-  useEffect(() => { load();   }, [projId, filterEstado, rango.from, rango.to]);
+  useEffect(() => { load();   }, [projId, activeIssuerId, filterEstado, rango.from, rango.to]);
 
   function handleDelete(id) { setPendingDelete(id); }
   async function doDelete() {

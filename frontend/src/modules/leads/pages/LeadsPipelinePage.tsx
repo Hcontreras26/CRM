@@ -1,35 +1,33 @@
+import { fondoDeEstado, puntoDeEstado, haloDeEstado, cssDeEstado } from '../lib/estadoTono';
+import { avatarColorFor } from '@/shared/lib/ui';
 import { useState, useEffect, useCallback, lazy, Suspense, type DragEvent } from 'react';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 import client from '@/shared/api/client';
 import LeadFormDialog from '../components/LeadFormDialog';
-import LeadsViewToggle from '../components/LeadsViewToggle';
 import { getLeadPriority, getPriorityStyle } from '../lib/leadPriority';
 import { toast } from '@/shared/hooks/useToast';
 import { Plus, User, DotsSixVertical, Users, CalendarBlank } from '@phosphor-icons/react';
 import ChannelBadge from '@/shared/components/ui/ChannelBadge';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import type { Lead, LeadStatus } from '@/shared/types';
+import { idsDelAmbito } from '@/shared/lib/ambitoInforme';
 
 const LeadDrawer = lazy(() => import('../components/LeadDrawer'));
 
 type PipelineLead = Lead & { gestor?: string; fecha?: string };
 
+// Los tonos salen de lib/estadoTono.ts. Aqui estaban a mano, con un hexadecimal
+// ademas de la clase, y los dos podian irse por su lado.
 const COLUMNS = [
-  { key: 'nuevo', label: 'Nuevo', color: '#3b82f6', bg: 'bg-blue-50 dark:bg-blue-950/30', dot: 'bg-blue-500', ring: 'ring-blue-400' },
-  { key: 'por_contactar', label: 'Por contactar', color: '#f59e0b', bg: 'bg-orange-50 dark:bg-orange-950/30', dot: 'bg-amber-500', ring: 'ring-amber-400' },
-  { key: 'contactado', label: 'Contactado', color: '#10b981', bg: 'bg-emerald-50 dark:bg-emerald-950/30', dot: 'bg-emerald-500', ring: 'ring-emerald-400' },
-  { key: 'en_seguimiento', label: 'En seguimiento', color: '#eab308', bg: 'bg-amber-50 dark:bg-amber-950/30', dot: 'bg-yellow-500', ring: 'ring-yellow-400' },
-  { key: 'convertido', label: 'Convertido', color: '#8b5cf6', bg: 'bg-violet-50 dark:bg-violet-950/30', dot: 'bg-violet-500', ring: 'ring-violet-400' },
-  { key: 'no_interesado', label: 'No interesado', color: '#ef4444', bg: 'bg-red-50 dark:bg-red-950/30', dot: 'bg-red-500', ring: 'ring-red-400' },
-  { key: 'proxima_convocatoria', label: 'Próxima convocatoria', color: '#06b6d4', bg: 'bg-cyan-50 dark:bg-cyan-950/30', dot: 'bg-cyan-500', ring: 'ring-cyan-400' },
-];
-
-const AVATAR_COLORS = [
-  'bg-rose-100 text-rose-700', 'bg-sky-100 text-sky-700',
-  'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-700',
-  'bg-violet-100 text-violet-700', 'bg-teal-100 text-teal-700',
-];
+  { key: 'nuevo', label: 'Nuevo' },
+  { key: 'por_contactar', label: 'Por contactar' },
+  { key: 'contactado', label: 'Contactado' },
+  { key: 'en_seguimiento', label: 'En seguimiento' },
+  { key: 'convertido', label: 'Convertido' },
+  { key: 'no_interesado', label: 'No interesado' },
+  { key: 'proxima_convocatoria', label: 'Próxima convocatoria' },
+].map((c) => ({ ...c, bg: fondoDeEstado(c.key), dot: puntoDeEstado(c.key), ring: haloDeEstado(c.key), color: cssDeEstado(c.key) }));
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return '??';
@@ -64,11 +62,11 @@ function nextContactInfo(dateStr: string | null | undefined) {
   const today = todayLocal();
   const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
   if (diffDays < 0) {
-    return { label: `vencido ${Math.abs(diffDays)}d`, classes: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300' };
+    return { label: `vencido ${Math.abs(diffDays)}d`, classes: 'bg-destructive-soft text-destructive-soft-foreground' };
   }
-  if (diffDays === 0) return { label: 'hoy', classes: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' };
-  if (diffDays === 1) return { label: 'mañana', classes: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' };
-  if (diffDays <= 7) return { label: `en ${diffDays}d`, classes: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300' };
+  if (diffDays === 0) return { label: 'hoy', classes: 'bg-success-soft text-success-soft-foreground' };
+  if (diffDays === 1) return { label: 'mañana', classes: 'bg-info-soft text-info-soft-foreground' };
+  if (diffDays <= 7) return { label: `en ${diffDays}d`, classes: 'bg-info-soft text-info-soft-foreground' };
   return { label: target.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }), classes: 'bg-muted text-muted-foreground' };
 }
 
@@ -111,7 +109,7 @@ function LeadCard({ lead, onClick, onDragStart, onDragEnd }: LeadCardProps) {
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0 ${AVATAR_COLORS[lead.id % AVATAR_COLORS.length]}`}>
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0 ${avatarColorFor(lead.id)}`}>
             {getInitials(lead.nombre)}
           </div>
           <div className="min-w-0">
@@ -157,10 +155,11 @@ function LeadCard({ lead, onClick, onDragStart, onDragEnd }: LeadCardProps) {
 }
 
 export default function LeadsPipelinePage() {
-  const { activeProject, projects, isAllProjects } = useProjectContext() as {
+  const { activeProject, projects, isAllProjects, activeIssuer } = useProjectContext() as {
     activeProject: { id?: number | null; isAll?: boolean };
     projects: Array<{ id: number }>;
     isAllProjects: boolean;
+    activeIssuer: { id: number; nombre: string; campus: Array<{ id: number }> } | null;
   };
   const idsDelAmbito = useIdsDelAmbito();
   const pid = activeProject?.id;
@@ -283,6 +282,12 @@ export default function LeadsPipelinePage() {
         nombre: data.nombre,
         email: data.email,
         telefono: data.telefono || '',
+        // El usuario de WhatsApp tambien va: hay gente que solo da eso.
+        //
+        // Faltaba en la peticion y el servidor rechazaba el lead con «hace
+        // falta al menos una forma de contacto», aunque la gestora lo hubiera
+        // escrito. El formulario lo recogia y lo perdia aqui, al armar el envio.
+        whatsapp_usuario: data.whatsapp_usuario || null,
         producto_interes_id: productoInteresId,
         canal: data.origen || 'directo',
         notas: data.notas || '',
@@ -300,10 +305,7 @@ export default function LeadsPipelinePage() {
   if (loading) {
     return (
       <div className="space-y-5">
-        <div>
-          <h1 className="text-2xl font-semibold">Pipeline de Prospectos</h1>
-          <p className="text-muted-foreground text-sm">Cargando…</p>
-        </div>
+        <PageHeader title="Pipeline de Prospectos" subtitle="Cargando…" />
         <div className="flex gap-4 overflow-x-auto pb-4">
           {COLUMNS.map((col) => (
             <div key={col.key} className="flex-shrink-0 w-[260px] sm:w-[280px]">
@@ -333,17 +335,16 @@ export default function LeadsPipelinePage() {
       <LeadFormDialog open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleCreateLead} lead={null} />
 
       <PageHeader
-        title="Prospectos"
+        title="Pipeline de prospectos"
         subtitle="Arrastra una tarjeta para cambiar su estado"
         actions={
           <>
-            <LeadsViewToggle active="kanban" />
             <button
               onClick={() => setFormOpen(true)}
               aria-label="Nuevo prospecto"
               className="flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2"
             >
-              <Plus size={16} weight="bold" /> <span className="hidden sm:inline">Nuevo Prospecto</span>
+              <Plus size={16} weight="bold" /> <span className="hidden sm:inline">Nuevo prospecto</span>
             </button>
           </>
         }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
+import { casaPorTrozos } from '@/shared/lib/buscarPorTrozos';
 
 // Elegir UNO de una lista larga, escribiendo.
 //
@@ -25,9 +26,6 @@ export interface Elegible {
   /** Lo pequeño de la derecha. Un precio, una ruta, lo que distinga. */
   nota?: string | number | null;
 }
-
-const sinAcentos = (s: string) =>
-  String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 const euros = (n: string | number | undefined) =>
   n == null ? '' : Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
@@ -71,22 +69,10 @@ export default function BuscadorEnLista({
     return () => document.removeEventListener('mousedown', fuera);
   }, []);
 
-  // La busqueda, suelta de la lista: se usa dos veces —sobre lo disponible y
-  // sobre lo excluido— y repetirla era como se colaba la diferencia.
-  const casa = useMemo(() => {
-    const t = sinAcentos(texto).trim();
-    const trozos = t ? t.split(/\s+/) : [];
-    return (c: Elegible) => {
-      if (!trozos.length) return true;
-        // Se busca tambien en la NOTA cuando es texto — en las categorias ahi
-        // vive la ruta, y «prof adicc» tiene que llegar a «Para Profesionales ›
-        // Adicciones». Si la nota es un importe no aporta nada y se deja fuera.
-      const donde = typeof c.nota === 'string'
-        ? sinAcentos(`${c.nombre} ${c.nota}`)
-        : sinAcentos(c.nombre);
-      return trozos.every((p) => donde.includes(p));
-    };
-  }, [texto]);
+  // La busqueda, suelta de la lista: se usa dos veces --sobre lo disponible y
+  // sobre lo excluido-- y repetirla era como se colaba la diferencia. El como
+  // se compara es de `casaPorTrozos`, compartido con el resto de buscadores.
+  const casa = useMemo(() => (c: Elegible) => casaPorTrozos(texto, c.nombre, c.nota), [texto]);
 
   const resultados = useMemo(
     () => opciones.filter((c) => !excluir.includes(c.id)).filter(casa).slice(0, 60),

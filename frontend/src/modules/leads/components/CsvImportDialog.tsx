@@ -272,7 +272,7 @@ export default function CsvImportDialog({ open, onClose, projectId, onImported }
                     <div key={field.key} className="flex items-center gap-3">
                       <div className="w-32 text-xs font-medium flex-shrink-0">
                         {field.label}
-                        {field.required && <span className="text-red-600 ml-0.5">*</span>}
+                        {field.required && <span className="text-destructive ml-0.5">*</span>}
                       </div>
                       <ArrowRight size={12} className="text-muted-foreground flex-shrink-0" />
                       <Select<number | null>
@@ -309,7 +309,7 @@ export default function CsvImportDialog({ open, onClose, projectId, onImported }
                             const val = idx != null ? row[idx] : '';
                             const missing = f.required && !val;
                             return (
-                              <td key={f.key} className={`px-3 py-2 ${missing ? 'text-red-600 font-medium' : ''}`}>
+                              <td key={f.key} className={`px-3 py-2 ${missing ? 'text-destructive font-medium' : ''}`}>
                                 {val || (missing ? '—' : <span className="text-muted-foreground">—</span>)}
                               </td>
                             );
@@ -338,8 +338,8 @@ export default function CsvImportDialog({ open, onClose, projectId, onImported }
                   style={{ width: `${(progress.done / Math.max(1, parsed.rows.length)) * 100}%` }} />
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="text-emerald-600 font-semibold">{progress.ok} OK</span> ·
-                <span className="text-red-600 font-semibold ml-2">{progress.fail} errores</span>
+                <span className="text-success font-semibold">{progress.ok} OK</span> ·
+                <span className="text-destructive font-semibold ml-2">{progress.fail} errores</span>
               </p>
             </div>
           )}
@@ -348,24 +348,24 @@ export default function CsvImportDialog({ open, onClose, projectId, onImported }
           {step === 4 && (
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               <div className="text-center space-y-3">
-                <div className="w-16 h-16 rounded-md bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                <div className="w-16 h-16 rounded-md bg-success-soft text-success flex items-center justify-center mx-auto">
                   <Check size={28} weight="bold" />
                 </div>
                 <div>
                   <p className="font-semibold text-lg">Importación completada</p>
                   <p className="text-sm text-muted-foreground">
-                    <span className="text-emerald-600 font-semibold">{progress.ok}</span> creados ·
-                    <span className="text-red-600 font-semibold ml-2">{progress.fail}</span> errores
+                    <span className="text-success font-semibold">{progress.ok}</span> creados ·
+                    <span className="text-destructive font-semibold ml-2">{progress.fail}</span> errores
                   </p>
                 </div>
               </div>
 
               {progress.errors.length > 0 && (
-                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-md p-3">
-                  <p className="text-xs font-semibold text-red-800 dark:text-red-300 mb-2 flex items-center gap-1">
+                <div className="bg-destructive-soft border border-destructive/30 rounded-md p-3">
+                  <p className="text-xs font-semibold text-destructive mb-2 flex items-center gap-1">
                     <WarningCircle size={12} weight="fill" /> Primeros errores
                   </p>
-                  <ul className="text-xs space-y-1 text-red-700 dark:text-red-400">
+                  <ul className="text-xs space-y-1 text-destructive">
                     {progress.errors.map((e, i) => (
                       <li key={i}>Fila {e.line}: {e.error}</li>
                     ))}

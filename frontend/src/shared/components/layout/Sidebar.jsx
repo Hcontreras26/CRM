@@ -1,8 +1,8 @@
-import {
-  ListChecks, useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   CalendarCheck,
+  ArrowCounterClockwise,
   SquaresFour,
   Users,
   Package,
@@ -30,6 +30,7 @@ import {
   BookOpen,
   Headset,
   ActivityIcon as Activity,
+  ClipboardText,
   FilePdf,
   UserCircle,
   CaretUp,
@@ -44,6 +45,7 @@ import {
   Lightning,
   WebhooksLogo,
   Tree,
+  ListBullets,
   GraduationCap,
   CurrencyEur,
   TrendUp,
@@ -54,11 +56,17 @@ import {
   CopySimple,
   WhatsappLogo,
   ChatText,
-  UsersThree, QrCode, Warning, Key } from '@phosphor-icons/react';
+  UsersThree, QrCode, Warning, Key, ListChecks,
+  // Los de los encabezados de seccion (#105). Ninguno repite el de una
+  // entrada de su propia seccion: si el encabezado lleva el mismo dibujo
+  // que una de sus filas, deja de ordenar y pasa a confundir.
+  Flask, House, Funnel, Books, ChalkboardTeacher, Bank, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
+import { rolesDe } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/shared/lib/utils';
+import { avatarColorForName } from '@/shared/lib/ui';
 import { lazy, Suspense } from 'react';
 import client from '@/shared/api/client';
 import Portal from '@/shared/components/ui/portal';
@@ -79,21 +87,33 @@ const IS_REDESIGN_NAV_ENABLED = import.meta.env.DEV
 const NAV_SECTIONS = [
   {
     label: 'Testeo',
+    icon: Flask,
     items: [
-      { label: 'TESTEO2', to: '/testeo2', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true },
-      { label: 'SUITE DASH', to: '/suite-dash', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true },
+      { label: 'TESTEO2', to: '/testeo2', detail: 'Maqueta del rediseño', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true },
+      { label: 'SUITE DASH', to: '/suite-dash', detail: 'La referencia', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true },
+      // El muestrario de primitivas. Sin esta entrada existe pero no lo
+      // encuentra nadie: hay que escribir /dev/components a mano, que es
+      // exactamente lo que hacía que «no existiera».
+      { label: 'Las 22 primitivas', to: '/dev/components', detail: 'Las piezas, juntas', icon: Sparkle, previewOnly: true },
     ],
   },
   {
     label: 'Principal',
+    icon: House,
     items: [
-      { label: 'Dashboard', to: '/', icon: SquaresFour },
-      // Prospectos cuelga de si mismo, como WhatsApp: la lista y la cola del
-      // dia son el mismo sitio. La cola describe por donde va cada prospecto,
-      // asi que colgarla de aqui dice de que va sin tener que explicarlo.
+      { label: 'Dashboard', to: '/', detail: 'Cómo va hoy', icon: SquaresFour },
+      // Prospectos cuelga de si mismo, como WhatsApp: la lista, la cola del dia
+      // y el proceso son el mismo sitio. La cola dice a quien le toca hoy y el
+      // proceso es lo que la cola aplica; de «Sistema» o «Configuracion» no lo
+      // encontraba nadie.
       //
       // `defaultOpen` porque esta es la pantalla del dia: si el grupo arrancara
-      // cerrado, la gestora pagaria un clic de mas cada manana.
+      // cerrado, la gestora pagaria un clic de mas cada manana para llegar a lo
+      // que mas usa.
+      //
+      // Leerlo lo puede hacer cualquiera —la gestora necesita ver en que paso
+      // va cada prospecto—; editarlo, solo administradores, y eso lo decide la
+      // propia pantalla y el servidor.
       {
         label: 'Prospectos',
         icon: Users,
@@ -103,11 +123,12 @@ const NAV_SECTIONS = [
           // `end` porque si no, estando en la cola o en el proceso este
           // tambien se marcaria activo: el resaltado diria que estas en dos
           // sitios a la vez.
-          { label: 'Lista de prospectos', to: '/prospectos', icon: Users, end: true },
-          { label: 'La cola del día', to: '/prospectos/cola', icon: CalendarCheck },
-          // El proceso, al lado de la cola: es lo que la cola aplica. Leerlo
-          // lo puede hacer cualquiera; editarlo, solo admin.
-          { label: 'Proceso comercial', to: '/prospectos/proceso', icon: ListChecks },
+          { label: 'Lista de prospectos', to: '/prospectos', detail: 'Lista, pipeline y más', icon: Users, end: true },
+          { label: 'La cola del día', to: '/prospectos/cola', detail: 'A quién le toca hoy', icon: CalendarCheck },
+          // El quinto paso no cabe en la cola del dia: es toda la base que no
+          // compro, y se repasa cuando se puede, no cada mañana.
+          { label: 'Seguimiento de fin de mes', to: '/prospectos/seguimiento', detail: 'La base que no compró', icon: ArrowCounterClockwise },
+          { label: 'Proceso comercial', to: '/prospectos/proceso', detail: 'Los cinco pasos', icon: ListChecks },
         ],
       },
       // WhatsApp cuelga de su propia entrada, con lo suyo escalonado debajo: son
@@ -124,13 +145,13 @@ const NAV_SECTIONS = [
           // Abierto a todo el equipo por decision del owner. El aviso previo —lo
           // que puede pasarle a su numero— ya esta, con su casilla y su registro
           // de quien lo acepto (tarea #45).
-          { label: 'Chat', to: '/whatsapp/chat', icon: ChatText },
-          { label: 'Plantillas', to: '/whatsapp/plantillas', icon: ChatText },
+          { label: 'Chat', to: '/whatsapp/chat', detail: 'Conversaciones', icon: ChatText },
+          { label: 'Plantillas', to: '/whatsapp/plantillas', detail: 'Mensajes preparados', icon: ChatText },
           // El banco de mensajes (#101). Va aqui y no dentro del chat porque no
           // es el chat: uno sirve para conversar y este para buscar, auditar y
           // llevarse una copia. El servidor recorta lo que ve cada cual — un
           // admin lo ve entero, una gestora solo su numero.
-          { label: 'Banco de mensajes', to: '/whatsapp/banco', icon: ChatText },
+          { label: 'Banco de mensajes', to: '/whatsapp/banco', detail: 'Buscar y auditar', icon: ChatText },
           // «WhatsApp del equipo» no esta: entraba en la sesion de cada gestora
           // a traves del navegador remoto, y ese metodo se retiro. Su pantalla y
           // su codigo de servidor se borraron el 21/08/2026 — no quedaba ni una
@@ -140,110 +161,194 @@ const NAV_SECTIONS = [
           // Sin recorte por rol: cada gestora enlaza SU numero, y el servidor solo
           // la deja tocar el suyo. Estaba solo para administradores, asi que la
           // pantalla existia pero ninguna gestora podia llegar a ella.
-          { label: 'Conexión', to: '/whatsapp/conexion', icon: QrCode },
+          { label: 'Conexión', to: '/whatsapp/conexion', detail: 'Enlazar tu número', icon: QrCode },
           // La guia, en el menu y no escondida: si hay que preguntar donde esta,
           // ya se ha perdido a quien tenia que leerla.
-          { label: 'Cómo se usa', to: '/whatsapp/ayuda', icon: BookOpen },
+          { label: 'Cómo se usa', to: '/whatsapp/ayuda', detail: 'La guía, paso a paso', icon: BookOpen },
         ],
       },
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
-      { label: 'Ventas', to: '/finanzas/ventas', icon: Receipt, module: 'conversions' },
+      { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions' },
     ],
   },
   {
     label: 'Captación',
+    icon: Funnel,
     items: [
-      { label: 'Email', to: '/secuencias-email', icon: Envelope, roles: ['superadmin', 'admin'], module: 'email_sequences' },
-      { label: 'Formularios', to: '/captacion', icon: Globe, roles: ['superadmin', 'admin'], module: 'forms' },
-      { label: 'Make', to: '/captacion/make', icon: Lightning, roles: ['superadmin', 'admin'], module: 'make' },
-      { label: 'Webhooks', to: '/captacion/webhooks', icon: WebhooksLogo, roles: ['superadmin', 'admin'], module: 'webhooks' },
-      { label: 'Widget web', to: '/captacion/whatsapp', icon: WhatsappLogo, roles: ['superadmin', 'admin', 'soporte'] },
-      { label: 'Campañas', to: '/campanas', icon: Megaphone, roles: ['superadmin', 'admin'] },
-      { label: 'Tráfico orgánico', to: '/campanas/seo', icon: MagnifyingGlass, roles: ['superadmin', 'admin'] },
+      { label: 'Email', to: '/secuencias-email', detail: 'Correos automáticos', icon: Envelope, roles: ['superadmin', 'admin'], module: 'email_sequences' },
+      { label: 'Formularios', to: '/captacion', detail: 'Formularios de la web', icon: Globe, roles: ['superadmin', 'admin'], module: 'forms' },
+      { label: 'Make', to: '/captacion/make', detail: 'Escenarios de Make', icon: Lightning, roles: ['superadmin', 'admin'], module: 'make' },
+      { label: 'Webhooks', to: '/captacion/webhooks', detail: 'Entradas de fuera', icon: WebhooksLogo, roles: ['superadmin', 'admin'], module: 'webhooks' },
+      // Conectores (#6). El backend existia desde `bcf9c3e` y no habia forma
+      // de llegar: sin pantalla y sin entrada.
+      { label: 'Conectores', to: '/captacion/conectores', detail: 'Traer datos de fuera', icon: PlugsConnected, roles: ['superadmin', 'admin'], module: 'connectors' },
+      { label: 'Widget web', to: '/captacion/whatsapp', detail: 'El botón de la web', icon: WhatsappLogo, roles: ['superadmin', 'admin', 'soporte'] },
+      { label: 'Campañas', to: '/campanas', detail: 'Campañas y resultados', icon: Megaphone, roles: ['superadmin', 'admin'] },
+      { label: 'Tráfico orgánico', to: '/campanas/seo', detail: 'Búsquedas en Google', icon: MagnifyingGlass, roles: ['superadmin', 'admin'] },
     ],
   },
   {
     label: 'Publicidad',
+    icon: Megaphone,
     items: [
-      { label: 'Meta Ads', to: '/meta-ads', icon: ChartBar, roles: ['superadmin', 'admin'] },
-      { label: 'Google Ads', to: '/google-ads', icon: ChartBar, roles: ['superadmin', 'admin'], comingSoon: true, statusTag: 'Próx.' },
+      { label: 'Meta Ads', to: '/meta-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'] },
+      { label: 'Google Ads', to: '/google-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], comingSoon: true, statusTag: 'Próx.' },
     ],
   },
   {
     label: 'Catálogo',
+    icon: Books,
     items: [
-      { label: 'Productos', to: '/productos', icon: Package, roles: ['superadmin', 'admin'], module: 'products' },
-      { label: 'Cursos pendientes', to: '/productos/pendientes', icon: Clock, roles: ['superadmin', 'admin'], module: 'products' },
-      { label: 'WooCommerce', to: '/productos/woocommerce', icon: ShoppingBag, roles: ['superadmin', 'admin'], module: 'woocommerce' },
-      { label: 'Árbol de categorías', to: '/productos/arbol', icon: Tree, roles: ['superadmin', 'admin'], module: 'products' },
-      { label: 'Certificados', to: '/documentos', icon: FilePdf, roles: ['superadmin', 'admin'], module: 'documents' },
+      { label: 'Productos', to: '/productos', detail: 'Cursos a la venta', icon: Package, roles: ['superadmin', 'admin'], module: 'products' },
+      { label: 'Cursos pendientes', to: '/productos/pendientes', detail: 'Vendidos sin fecha', icon: Clock, roles: ['superadmin', 'admin'], module: 'products' },
+      { label: 'WooCommerce', to: '/productos/woocommerce', detail: 'Sincronía de tienda', icon: ShoppingBag, roles: ['superadmin', 'admin'], module: 'woocommerce' },
+      // Cada entrada se llama como la pantalla que abre (#79). «Árbol de
+      // categorías» apuntaba a /productos/arbol, que es OTRA pantalla, y el
+      // árbol de verdad no tenía entrada en ningún sitio.
+      { label: 'Productos por categoría', to: '/productos/arbol', detail: 'Productos agrupados', icon: ListBullets, roles: ['superadmin', 'admin'], module: 'products' },
+      { label: 'Árbol de categorías', to: '/productos/categorias', detail: 'Jerarquía de categorías', icon: Tree, roles: ['superadmin', 'admin'], module: 'products' },
+      { label: 'Certificados', to: '/documentos', detail: 'Certificados', icon: FilePdf, roles: ['superadmin', 'admin'], module: 'documents' },
     ],
   },
   {
     label: 'Tutores',
+    icon: ChalkboardTeacher,
     items: [
-      { label: 'Tutores', to: '/tutores', icon: GraduationCap, roles: ['superadmin', 'admin'], module: 'tutores' },
+      { label: 'Tutores', to: '/tutores', detail: 'Quién imparte qué', icon: GraduationCap, roles: ['superadmin', 'admin'], module: 'tutores' },
       // Lo unico que ve un tutor: sus cursos y lo que le corresponde.
-      { label: 'Mis cursos', to: '/mis-cursos', icon: GraduationCap, roles: ['tutor'] },
-      { label: 'Sin tutor', to: '/tutores/sin-tutor', icon: Warning, roles: ['superadmin', 'admin'], module: 'tutores' },
-      { label: 'Comisiones', to: '/tutores/comisiones', icon: Coins, roles: ['superadmin', 'admin'], module: 'tutores' },
+      { label: 'Mis cursos', to: '/mis-cursos', detail: 'Tus cursos y tu parte', icon: GraduationCap, roles: ['tutor'] },
+      { label: 'Sin tutor', to: '/tutores/sin-tutor', detail: 'Formaciones sin asignar', icon: Warning, roles: ['superadmin', 'admin'], module: 'tutores' },
+      { label: 'Comisiones', to: '/tutores/comisiones', detail: 'Lo que se les debe', icon: Coins, roles: ['superadmin', 'admin'], module: 'tutores' },
     ],
   },
   {
     label: 'Finanzas',
+    icon: Bank,
     items: [
-      { label: 'Dashboard', to: '/finanzas', icon: ChartBar, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
-      { label: 'Ventas', to: '/finanzas/ventas', icon: Receipt, module: 'conversions', statusTag: 'Pruebas' },
-      { label: 'Ingresos', to: '/finanzas/ingresos', icon: TrendUp, roles: ['superadmin', 'admin'], module: 'accounting_income', statusTag: 'Pruebas' },
-      { label: 'Conversiones', to: '/finanzas/conversiones', icon: CurrencyEur, roles: ['superadmin', 'admin'], module: 'conversions', statusTag: 'Pruebas' },
-      { label: 'Egresos', to: '/finanzas/egresos', icon: TrendDown, roles: ['superadmin', 'admin'], module: 'accounting_expenses', statusTag: 'Pruebas' },
-      { label: 'Cuentas por cobrar', to: '/finanzas/por-cobrar', icon: Wallet, roles: ['superadmin', 'admin', 'soporte', 'gestor'] },
-      { label: 'Cuentas por pagar', to: '/finanzas/por-pagar', icon: Receipt, roles: ['superadmin', 'admin'], module: 'accounting_payable', statusTag: 'Pruebas' },
-      { label: 'Comisiones', to: '/finanzas/comisiones', icon: HandCoins, roles: ['superadmin', 'admin'], module: 'commissions', statusTag: 'Pruebas' },
-      { label: 'Nóminas', to: '/finanzas/nominas', icon: Calculator, roles: ['superadmin', 'admin'], module: 'payroll', statusTag: 'Pruebas' },
-      { label: 'Pendientes de facturar', to: '/finanzas/pendiente-facturar', icon: WarningCircle, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
-      { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
-      { label: 'Facturación', to: '/finanzas/facturas', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'factura_manager' },
-      { label: 'Integraciones', to: '/finanzas/integraciones', icon: PlugsConnected, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
+      { label: 'Dashboard', to: '/finanzas', detail: 'Caja del mes', icon: ChartBar, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
+      { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions', statusTag: 'Pruebas' },
+      { label: 'Ingresos', to: '/finanzas/ingresos', detail: 'Entradas de dinero', icon: TrendUp, roles: ['superadmin', 'admin'], module: 'accounting_income', statusTag: 'Pruebas' },
+      { label: 'Conversiones', to: '/finanzas/conversiones', detail: 'Los que compraron', icon: CurrencyEur, roles: ['superadmin', 'admin'], module: 'conversions', statusTag: 'Pruebas' },
+      { label: 'Egresos', to: '/finanzas/egresos', detail: 'Gastos y salidas', icon: TrendDown, roles: ['superadmin', 'admin'], module: 'accounting_expenses', statusTag: 'Pruebas' },
+      { label: 'Cuentas por cobrar', to: '/finanzas/por-cobrar', detail: 'Pendiente de cobro', icon: Wallet, roles: ['superadmin', 'admin', 'soporte', 'gestor'] },
+      { label: 'Cuentas por pagar', to: '/finanzas/por-pagar', detail: 'Pendiente de pago', icon: Receipt, roles: ['superadmin', 'admin'], module: 'accounting_payable', statusTag: 'Pruebas' },
+      { label: 'Comisiones', to: '/finanzas/comisiones', detail: 'Del equipo comercial', icon: HandCoins, roles: ['superadmin', 'admin'], module: 'commissions', statusTag: 'Pruebas' },
+      { label: 'Nóminas', to: '/finanzas/nominas', detail: 'Pagos al equipo', icon: Calculator, roles: ['superadmin', 'admin'], module: 'payroll', statusTag: 'Pruebas' },
+      { label: 'Pendientes de facturar', to: '/finanzas/pendiente-facturar', detail: 'Ventas sin factura', icon: WarningCircle, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
+      { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', detail: 'Cobros por Stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
+      { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'factura_manager' },
+      { label: 'Integraciones', to: '/finanzas/integraciones', detail: 'Servicios conectados', icon: PlugsConnected, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
     ],
   },
   {
     label: 'Análisis',
+    icon: ChartPieSlice,
     items: [
-      { label: 'Reportes', to: '/informes', icon: ChartLineUp, roles: ['superadmin', 'admin'], module: 'reports' },
-      { label: 'Análisis IA', to: '/informes/ia', icon: Sparkle, roles: ['superadmin', 'admin'], projectType: 'ia' },
-      { label: 'Chat IA', to: '/chat-ia', icon: ChatCircleText, roles: ['superadmin', 'admin'] },
+      { label: 'Reportes', to: '/informes', detail: 'Números descargables', icon: ChartLineUp, roles: ['superadmin', 'admin'], module: 'reports' },
+      // Por que no compran: enviados, respondidos y motivos (#170).
+      { label: 'Feedback', to: '/informes/feedback', detail: 'Por qué no compran', icon: ChatCircleText, roles: ['superadmin', 'admin'], module: 'reports' },
+      { label: 'Análisis IA', to: '/informes/ia', detail: 'Lectura automática', icon: Sparkle, roles: ['superadmin', 'admin'], projectType: 'ia' },
+      // El Chat IA (#30) esta APARCADO hasta la fase 5: no se va a usar la API
+      // todavia. La pantalla y la ruta se quedan —el trabajo esta hecho y
+      // probado—, pero no se ofrece en el menu: enseñar una puerta que no
+      // lleva a ningun sitio es peor que no tenerla.
+      // Para devolverla, quitar el comentario de la linea de abajo.
+      // { label: 'Chat IA', to: '/chat-ia', detail: 'Preguntar a tus datos', icon: ChatCircleText, roles: ['superadmin', 'admin'] },
     ],
   },
   {
     // Clientes = consulta de datos de clientes (no ventas). Va al final.
     label: 'Clientes',
+    icon: UsersThree,
     items: [
-      { label: 'Clientes', to: '/clientes', icon: UserCheck, module: 'clients' },
-      { label: 'Revisión duplicados', to: '/prospectos/revision-duplicados', icon: GitMerge, roles: ['superadmin', 'admin'], module: 'leads' },
-      { label: 'Buscar duplicados', to: '/prospectos/duplicados', icon: CopySimple, roles: ['superadmin', 'admin'], module: 'leads' },
-      { label: 'Matrículas', to: '/clientes/matriculas', icon: GraduationCap, module: 'matriculas' },
+      { label: 'Clientes', to: '/clientes', detail: 'Quién ya compró', icon: UserCheck, module: 'clients' },
+      { label: 'Revisión duplicados', to: '/prospectos/revision-duplicados', detail: 'Repetidos por webhook', icon: GitMerge, roles: ['superadmin', 'admin'], module: 'leads' },
+      { label: 'Buscar duplicados', to: '/prospectos/duplicados', detail: 'Buscarlos a mano', icon: CopySimple, roles: ['superadmin', 'admin'], module: 'leads' },
+      { label: 'Matrículas', to: '/clientes/matriculas', detail: 'Altas en cada curso', icon: GraduationCap, module: 'matriculas' },
+    ],
+  },
+  // Conexión (MCP de Claude). Diego: «estará en el menú en la sección de
+  // conexión y pondrás algo como MCP». «Roles únicamente que tendrán acceso a
+  // Claude: super admin, admin, personas que se le puedes colocar».
+  // `accesoMcp` y no `roles`/`permiso`: soporte se salta esos dos, y aquí no
+  // puede. Es la misma regla que el servidor (`puedeUsarMcp` en mcp.acceso.js).
+  {
+    label: 'Conexión',
+    icon: PlugsConnected,
+    items: [
+      { label: 'MCP', to: '/conexion/mcp', icon: Robot, accesoMcp: true },
     ],
   },
   {
     label: 'Sistema',
+    icon: Gear,
     items: [
-      { label: 'Mensajes', to: '/mensajes', icon: ChatsCircle },
-      { label: 'Solicitudes de cambio', to: '/solicitudes-cambio', icon: GitMerge },
-      { label: 'Notificaciones', to: '/notificaciones', icon: BookOpen },
+      // Lo que trae cada versión del CRM (Diego, 28/09). Para todo el equipo.
+      { label: 'Novedades', to: '/novedades', detail: 'Versión 2.0.0', icon: Sparkle, roles: ['superadmin', 'admin', 'gestor', 'soporte'] },
+      { label: 'Mensajes', to: '/mensajes', detail: 'Del equipo', icon: ChatsCircle },
+      { label: 'Solicitudes de cambio', to: '/solicitudes-cambio', detail: 'Pedir un cambio', icon: GitMerge },
+      { label: 'Notificaciones', to: '/notificaciones', detail: 'Lo que ha pasado', icon: BookOpen },
       // El tutor entra aqui: es donde cambia su contraseña.
-      { label: 'Mis preferencias', to: '/preferencias', icon: UserCircle, roles: ['superadmin', 'admin', 'gestor', 'tutor'] },
-      { label: 'Soporte', to: '/soporte', icon: Headset },
+      { label: 'Mis preferencias', to: '/preferencias', detail: 'Tus ajustes', icon: UserCircle, roles: ['superadmin', 'admin', 'gestor', 'tutor'] },
+      { label: 'Soporte', to: '/soporte', detail: 'Ayuda y contacto', icon: Headset },
       // Claves y variables (#80). Los mismos roles que exige el servidor con
       // `soloRoles`: ofrecer en el menu lo que la API va a negar es peor que
       // no ofrecerlo.
-      { label: 'Claves y variables', to: '/configuracion/claves', icon: Key, roles: ['superadmin', 'soporte'] },
-      { label: 'Status', to: '/status', icon: Activity },
-      { label: 'Manual de usuario', to: '/manual', icon: BookOpen },
+      { label: 'Claves y variables', to: '/configuracion/claves', detail: 'Credenciales del proyecto', icon: Key, roles: ['superadmin', 'soporte'] },
+      // El registro (#111). Los mismos roles que exige el servidor con
+      // `roleGuard('admin', 'superadmin')`: cruza todas las fichas y a todos
+      // los compañeros, y ofrecerlo a quien la API va a negar es peor que no
+      // ofrecerlo.
+      { label: 'Registro', to: '/registro', detail: 'Todo lo que ha pasado', icon: ClipboardText, roles: ['superadmin', 'admin'] },
+      // Los correos que salen del CRM (#146). Mismos roles que el Registro, y
+      // aqui pesa mas: esto enseña el TEXTO de correos a personas.
+      { label: 'Correos', to: '/correos', detail: 'Lo que ha mandado el CRM', icon: EnvelopeSimple, roles: ['superadmin', 'admin'] },
+      { label: 'Status', to: '/status', detail: 'Si algo está caído', icon: Activity },
+      { label: 'Manual de usuario', to: '/manual', detail: 'Cómo se usa cada cosa', icon: BookOpen },
     ],
   },
 ];
+
+/**
+ * Cuál de las entradas está encendida. Gana la más concreta (#131).
+ *
+ * `NavLink` sin `end` enciende una entrada en cualquier ruta que cuelgue de la
+ * suya. Como `/captacion` es la de Formularios y Conectores vive en
+ * `/captacion/conectores`, al abrir Conectores el menú marcaba **Formularios**.
+ * Pasaba igual en todo el Catálogo: estando en WooCommerce —`/productos/
+ * woocommerce`— se encendía «Productos».
+ *
+ * Y no es un detalle de pintura: el #131 va de que cinco entradas parecidas no
+ * se distinguen. Que el menú señale la equivocada es la misma confusión, pero
+ * afirmada por el propio CRM.
+ *
+ * No vale con exigir coincidencia exacta: la ficha de un producto vive en
+ * `/productos/123`, no está en el menú, y ahí «Productos» SÍ tiene que
+ * encenderse. La regla es la de siempre en un menú: coincide la que encaja, y
+ * si encajan varias, gana la más larga.
+ */
+const RUTAS_DEL_MENU = NAV_SECTIONS.flatMap((s) =>
+  s.items.flatMap((it) => [it.to, ...(it.children || []).map((c) => c.to)]),
+).filter(Boolean);
+
+const encaja = (camino, ruta) => camino === ruta || camino.startsWith(`${ruta}/`);
+
+/**
+ * ¿Hay en el menú otra entrada más concreta que también encaje aquí?
+ *
+ * Se le pasa a `NavLink` como `end`, en vez de decidir el encendido por fuera:
+ * así el `aria-current="page"` que pone el router coincide con lo que se ve.
+ * Pintar una cosa y anunciar otra es peor que no pintar nada.
+ */
+export function hayRutaMasConcreta(camino, ruta, rutas = RUTAS_DEL_MENU) {
+  // «Más concreta QUE ESTA» solo significa algo si esta encaja. Sin esta línea
+  // devolvía true para una entrada que no pinta nada en la ruta actual: da
+  // igual para el `end` —esa entrada no se enciende de ninguna manera— pero
+  // hace que la función mienta, y alguien la va a leer para otra cosa.
+  if (!ruta || !encaja(camino, ruta)) return false;
+  return rutas.some((otra) => otra.length > ruta.length && encaja(camino, otra));
+}
 
 // CRM-217: catálogo de labels personalizables del sidebar para el editor de
 // "Etiquetas sidebar" en ProjectSettingsDialog. Cada label original sirve de
@@ -278,7 +383,24 @@ export function applyLabel(original, overrides) {
 // aviso de llamada entrante. Teniendolo en dos sitios se llega a que uno diga
 // que si y el otro que no.
 
-function canSeeItem(item, role, modules, projectType, soloColaboraciones, permisos) {
+// Espejo de `puedeUsarMcp` (backend/src/modules/mcp/mcp.acceso.js). Con el rol
+// PRINCIPAL, como el servidor: un rol añadido no da el MCP.
+export function tieneAccesoMcp(role, permisos) {
+  if (role === 'superadmin' || role === 'admin') return true;
+  if (role === 'tutor') return false;
+  return permisos?.usa_mcp === true;
+}
+
+/**
+ * Que entradas del menu ve alguien.
+ *
+ * Recibe TODOS sus roles, no uno: desde que se puede tener mas de uno, «es
+ * gestor» dejo de ser una pregunta de igualdad. Quien es gestora y ademas
+ * tutora ve lo de las dos.
+ */
+function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permisos) {
+  const suyos = Array.isArray(roles) ? roles.filter(Boolean) : [roles].filter(Boolean);
+  const es = (...r) => r.some((x) => suyos.includes(x));
   if (item.apagable && moduloApagado(item.apagable)) return false;
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
@@ -286,7 +408,14 @@ function canSeeItem(item, role, modules, projectType, soloColaboraciones, permis
   // Un tutor solo ve lo suyo: lo que no le nombre expresamente queda fuera.
   // Al reves —listar lo prohibido— se olvida siempre algo, y lo que se olvida
   // es un tutor paseandose por Prospectos o por Finanzas.
-  if (role === 'tutor') return Array.isArray(item.roles) && item.roles.includes('tutor');
+  // El recorte del tutor es para quien es SOLO tutor. Con otro rol encima ya
+  // no se le esconde el CRM: se le suma lo suyo.
+  if (suyos.length === 1 && suyos[0] === 'tutor') {
+    return Array.isArray(item.roles) && item.roles.includes('tutor');
+  }
+  // MCP de Claude: super admin y admin por su rol; el resto solo con la casilla.
+  // Va ANTES del atajo de soporte: «roles únicamente», dijo Diego.
+  if (item.accesoMcp) return tieneAccesoMcp(suyos[0], permisos);
   // Un gestor de colaboraciones se dedica SOLO a los tutores: no lleva
   // prospectos, ni ventas, ni finanzas. Se declara lo que puede ver, igual que
   // con el tutor — enumerar lo prohibido deja fuera siempre la pantalla nueva.
@@ -304,7 +433,7 @@ function canSeeItem(item, role, modules, projectType, soloColaboraciones, permis
   }
 
   // soporte ve todo (rol generico tipo dev)
-  if (role === 'soporte' || role === 'superadmin') {
+  if (es('soporte', 'superadmin')) {
     if (item.module && modules && modules[item.module] === false) return false;
     return true;
   }
@@ -317,15 +446,17 @@ function canSeeItem(item, role, modules, projectType, soloColaboraciones, permis
   //
   // Se comprueba solo para gestor: un admin puede facturar por su rol, y a
   // soporte y superadmin se les ha dejado pasar justo arriba.
-  if (item.permiso && role === 'gestor' && !permisos?.[item.permiso]) return false;
-  if (item.roles && !item.roles.includes(role)) return false;
+  // Se comprueba a quien NO tiene un rol de mando: si ademas es admin, puede
+  // por ese otro rol y esconderselo seria quitarle lo que se le acaba de dar.
+  if (item.permiso && !es('admin', 'soporte', 'superadmin') && !permisos?.[item.permiso]) return false;
+  if (item.roles && !item.roles.some((r) => suyos.includes(r))) return false;
   if (item.module && modules && modules[item.module] === false) return false;
   return true;
 }
 
 function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, projectType, soloColab, permisos, labelOverrides, onNavigate, collapsed, onExpandSidebar }) {
   const visible = children
-    .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos))
+    .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos))  // `role` ya llega como lista
     .map((c) => ({ ...c, comingSoon: !isBetaAllowed(c.to) }));
   const location = useLocation();
   const hasActiveChild = visible.some((c) => !c.comingSoon && (location.pathname === c.to || location.pathname.startsWith(c.to + '/')));
@@ -349,7 +480,7 @@ function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, pro
         title={displayLabel}
         aria-label={displayLabel}
         className={cn(
-          'w-full flex items-center justify-center h-10 rounded-md transition-colors',
+          'w-full flex items-center justify-center h-9 rounded-md transition-colors',
           hasActiveChild ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
         )}
       >
@@ -363,7 +494,7 @@ function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, pro
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-[13px] transition-all',
+          'w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-all',
           hasActiveChild ? 'text-foreground font-bold' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
         )}
       >
@@ -387,7 +518,11 @@ function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, pro
               <NavLink
                 key={child.to}
                 to={child.to}
-                end={child.end ?? child.to === '/accounting'}
+                // El `end` explicito del menu manda —lo lleva «Lista de
+                // prospectos»—; donde no lo hay, se deduce. Ver
+                // `hayRutaMasConcreta`: es lo que impedia que Conectores se
+                // encendiera al abrirlo.
+                end={child.end ?? (child.to === '/accounting' || hayRutaMasConcreta(location.pathname, child.to))}
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(
@@ -433,7 +568,7 @@ function ExternalPanelItem({ panel, collapsed, onClick }) {
         aria-label={collapsed ? panel.label : panel.label}
         className={cn(
           'relative flex items-center rounded-md text-[13px] transition-all text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
-          collapsed ? 'justify-center h-10' : 'gap-3 px-3 py-2.5',
+          collapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-1.5',
         )}
       >
         <Icon size={18} weight="regular" />
@@ -456,7 +591,7 @@ function ExternalPanelItem({ panel, collapsed, onClick }) {
       className={({ isActive }) =>
         cn(
           'relative flex items-center rounded-md text-[13px] transition-all',
-          collapsed ? 'justify-center h-10' : 'gap-3 px-3 py-2.5',
+          collapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-1.5',
           isActive
             ? 'bg-primary/10 text-primary font-bold shadow-sm'
             : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
@@ -476,7 +611,21 @@ function ExternalPanelItem({ panel, collapsed, onClick }) {
   );
 }
 
-function NavItem({ to, href, icon: Icon, label, badge, labelOverrides, onClick, collapsed, featured }) {
+/**
+ * Los subtitulos del menu, de momento solo en /testeo.
+ *
+ * Diego, 14/09: «cambiaste todo de las interfaces, eso se queda en testeo».
+ * Tenia razon: el despliegue de hoy metio 13 subtitulos nuevos en produccion
+ * sin que nadie los hubiera aprobado, y el menu es lo primero que ve todo el
+ * equipo cada mañana. Un cambio asi se enseña antes, no se cuela dentro de un
+ * despliegue que iba de facturacion.
+ *
+ * No se BORRAN --son de Fabian y estan bien--: se quedan visibles en testeo
+ * hasta que Diego los vea y diga. Quitar la bandera es una linea.
+ */
+const MOSTRAR_SUBTITULOS = import.meta.env.MODE !== 'production';
+
+function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, onClick, collapsed, featured }) {
   const displayLabel = applyLabel(label, labelOverrides);
   const location = useLocation();
   const comingSoon = !href && !isBetaAllowed(to);
@@ -487,7 +636,7 @@ function NavItem({ to, href, icon: Icon, label, badge, labelOverrides, onClick, 
         aria-label={`${displayLabel} — Próximamente`}
         className={cn(
           'relative flex items-center rounded-md text-[13px] text-muted-foreground/50 cursor-not-allowed select-none',
-          collapsed ? 'justify-center h-10' : 'gap-3 px-3 py-2.5'
+          collapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-1.5'
         )}
       >
         <Icon size={18} weight="regular" />
@@ -516,8 +665,8 @@ function NavItem({ to, href, icon: Icon, label, badge, labelOverrides, onClick, 
         className={cn(
           'relative flex items-center rounded-md text-[13px] transition-all',
           collapsed
-            ? 'justify-center h-10'
-            : 'gap-3 px-3 py-2.5',
+            ? 'justify-center h-9'
+            : 'gap-2.5 px-3 py-1.5',
           isActive
             ? featured
               ? 'bg-primary text-primary-foreground font-bold shadow-sm'
@@ -541,7 +690,17 @@ function NavItem({ to, href, icon: Icon, label, badge, labelOverrides, onClick, 
             </span>
           )}
         </span>
-        {!collapsed && displayLabel}
+        {!collapsed && (
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{displayLabel}</span>
+            {/* Que hay dentro, en pequeño. Es lo que pide la maqueta: el nombre
+                de una pantalla no dice si es la que buscas —«Captacion» puede
+                ser cuatro cosas—, y la segunda linea lo resuelve sin abrir. */}
+            {MOSTRAR_SUBTITULOS && detail && (
+              <span className="block truncate text-[11px] leading-tight opacity-70">{detail}</span>
+            )}
+          </span>
+        )}
         {!collapsed && badge && (
           <span className="ml-auto text-[10px] font-bold bg-primary/10 text-primary rounded-full px-2 py-0.5">
             {badge}
@@ -553,7 +712,9 @@ function NavItem({ to, href, icon: Icon, label, badge, labelOverrides, onClick, 
   return (
     <NavLink
       to={to}
-      end={to === '/'}
+      // Exacta solo cuando otra entrada del menú cubre esta ruta mejor. Ver
+      // `hayRutaMasConcreta`: es lo que impedía que Conectores se encendiera.
+      end={to === '/' || hayRutaMasConcreta(location.pathname, to)}
       onClick={onClick}
       title={collapsed ? displayLabel : undefined}
       aria-label={collapsed ? displayLabel : undefined}
@@ -561,8 +722,8 @@ function NavItem({ to, href, icon: Icon, label, badge, labelOverrides, onClick, 
         cn(
           'relative flex items-center rounded-md text-[13px] transition-all',
           collapsed
-            ? 'justify-center h-10'
-            : 'gap-3 px-3 py-2.5',
+            ? 'justify-center h-9'
+            : 'gap-2.5 px-3 py-1.5',
           isActive
             ? featured
               ? 'bg-primary text-primary-foreground font-bold shadow-sm'
@@ -589,7 +750,17 @@ function NavItem({ to, href, icon: Icon, label, badge, labelOverrides, onClick, 
               </span>
             )}
           </span>
-          {!collapsed && displayLabel}
+          {!collapsed && (
+          <span className="min-w-0 flex-1">
+            <span className="block truncate">{displayLabel}</span>
+            {/* Que hay dentro, en pequeño. Es lo que pide la maqueta: el nombre
+                de una pantalla no dice si es la que buscas —«Captacion» puede
+                ser cuatro cosas—, y la segunda linea lo resuelve sin abrir. */}
+            {MOSTRAR_SUBTITULOS && detail && (
+              <span className="block truncate text-[11px] leading-tight opacity-70">{detail}</span>
+            )}
+          </span>
+        )}
           {!collapsed && badge && (
             <span className="ml-auto text-[10px] font-bold bg-primary/10 text-primary rounded-full px-2 py-0.5">
               {badge}
@@ -619,26 +790,12 @@ function inicialesDe(nombre = '') {
   return sinPrefijo.slice(0, 2);
 }
 
-// El color sale del propio nombre, siempre el mismo para la misma marca. Asi
-// ISECD es verde hoy y verde mañana: la memoria visual funciona porque el color
-// no cambia, no porque sea bonito.
-const TONOS = [
-  'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300',
-  'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
-  'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-  'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300',
-  'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300',
-  'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300',
-  'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300',
-  'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300',
-];
-function tonoDe(nombre = '') {
-  let n = 0;
-  for (const ch of String(nombre)) n = (n * 31 + ch.charCodeAt(0)) % 9973;
-  return TONOS[n % TONOS.length];
-}
+// La paleta vive en shared/lib/ui.ts, que es el unico sitio donde puede vivir.
+// Aqui habia una copia; era la QUINTA del CRM, y la unica que llevaba variante
+// oscura — las otras cuatro pintaban un parche claro sobre fondo negro.
+const tonoDe = avatarColorForName;
 
-function ProjectAvatar({ project, size = 'md' }) {
+export function ProjectAvatar({ project, size = 'md' }) {
   const { theme } = useTheme();
   const [falloImagen, setFalloImagen] = useState(false);
   const dim = size === 'lg' ? 'w-12 h-12' : size === 'sm' ? 'w-7 h-7' : 'w-8 h-8';
@@ -646,7 +803,7 @@ function ProjectAvatar({ project, size = 'md' }) {
   // «Todos los proyectos» va primero: no es una marca, es una vista.
   if (project?.isAll) {
     return (
-      <div className={`${dim} rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 flex items-center justify-center flex-shrink-0 font-bold text-[11px]`}>
+      <div className={`${dim} rounded-lg bg-info-soft text-info-soft-foreground flex items-center justify-center flex-shrink-0 font-bold text-[11px]`}>
         ALL
       </div>
     );
@@ -709,8 +866,6 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const { activeProject, switchProject, projects, activeIssuer, switchIssuer } = useProjectContext();
   const { theme, toggleTheme } = useTheme();
   const [configOpen, setConfigOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerPos, setPickerPos] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userMenuPos, setUserMenuPos] = useState(null);
   const [userMenuView, setUserMenuView] = useState('main'); // 'main' | 'hide-dock'
@@ -795,51 +950,9 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       duration: 6000,
     });
   }
-  const pickerRef = useRef(null);
-  const pickerBtnRef = useRef(null);
-  const pickerPopRef = useRef(null);
   const userBtnRef = useRef(null);
   const userMenuRef = useRef(null);
 
-  useEffect(() => {
-    if (!pickerOpen) return;
-    function compute() {
-      const btn = pickerBtnRef.current;
-      if (!btn) return;
-      const rect = btn.getBoundingClientRect();
-      const margin = 8;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const width = Math.max(rect.width, 220);
-      const maxH = Math.min(320, vh - rect.bottom - margin * 2);
-      let left = rect.left;
-      if (left + width + margin > vw) left = vw - width - margin;
-      if (left < margin) left = margin;
-      // Si no hay espacio abajo, abrir hacia arriba
-      let top = rect.bottom + 6;
-      if (top + maxH + margin > vh && rect.top > maxH) {
-        top = rect.top - 6 - maxH;
-      }
-      setPickerPos({ top, left, width, maxHeight: maxH });
-    }
-    compute();
-    function onDocClick(e) {
-      if (pickerBtnRef.current?.contains(e.target)) return;
-      if (pickerPopRef.current?.contains(e.target)) return;
-      setPickerOpen(false);
-    }
-    function onKey(e) { if (e.key === 'Escape') setPickerOpen(false); }
-    window.addEventListener('resize', compute);
-    window.addEventListener('scroll', compute, true);
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('resize', compute);
-      window.removeEventListener('scroll', compute, true);
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [pickerOpen]);
 
   // User menu: posicionamiento + click fuera
   useEffect(() => {
@@ -882,7 +995,10 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
     async function fetchBadge() {
       if (typeof document !== 'undefined' && document.hidden) return;
       try {
-        const res = await client.get(`/leads?projectId=${activeProject.id}&status=nuevo&limit=1`);
+        // -1 = «Todos» o una empresa: sin proyecto, cuenta los nuevos de todo lo
+        // suyo (con -1 el servidor lo rechazaba cada vez).
+        const pid = activeProject.id > 0 ? `projectId=${activeProject.id}&` : '';
+        const res = await client.get(`/leads?${pid}status=nuevo&limit=1`);
         if (!cancelled && res.success) setNewLeadsBadge(res.pagination?.total || 0);
       } catch {}
     }
@@ -1003,195 +1119,37 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="font-semibold text-sm text-foreground truncate">MultiCRM</span>
               {BETA_MODE && (
-                <span className="text-[9px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded flex-shrink-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider bg-warning-soft text-warning-soft-foreground px-1.5 py-0.5 rounded flex-shrink-0">
                   BETA {BETA_VERSION}
                 </span>
               )}
             </div>
-            {/* La marca, ya con toda la anchura para ella: aqui si cabe entera. */}
-            <span className="block text-[11px] text-muted-foreground truncate">
-              {activeProject?.id === -1
-                ? 'todas las marcas'
-                : (activeProject?.nombre || 'sin marca elegida')}
-            </span>
+            {/* Aqui salia el nombre de la marca. Se ha quitado: salia TRES veces
+                en la misma pantalla —aqui, en el selector de abajo y en la
+                cabecera— y con eso no se sabe cual manda (#79, punto 2). Ahora
+                vive solo en la cabecera, y ademas desde alli se cambia. */}
           </div>
         )}
       </div>
 
-      {/* Project Selector */}
-      <div className={cn('mb-6', collapsed ? 'px-0' : 'px-1')}>
-        {!collapsed && (
-          <label className="text-xs font-medium text-muted-foreground px-2 mb-1.5 block">
-            Proyecto
-          </label>
-        )}
-        <div className={cn('flex items-center', collapsed ? 'flex-col gap-1.5' : 'gap-2')}>
-          <div className={cn('relative', collapsed ? 'w-full' : 'min-w-0 flex-1')} ref={pickerRef}>
-            <button
-              type="button"
-              ref={pickerBtnRef}
-              onClick={() => setPickerOpen((v) => !v)}
-              aria-haspopup="listbox"
-              aria-expanded={pickerOpen}
-              aria-label={`Selector de proyecto. Ahora: ${activeIssuer
-                ? `${activeIssuer.nombre} · ${activeIssuer.campus.length} campus`
-                : (activeProject?.nombre || 'sin elegir')}`}
-              title={activeIssuer
-                ? `${activeIssuer.nombre} · ${activeIssuer.campus.length} campus`
-                : (collapsed ? activeProject?.nombre : undefined)}
-              className={cn(
-                'rounded-lg border border-border text-sm font-semibold bg-secondary text-foreground outline-none cursor-pointer flex items-center focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all',
-                collapsed
-                  ? 'w-full h-10 justify-center'
-                  : 'w-full min-w-0 min-h-9 py-1 pl-1 pr-8 gap-2'
-              )}
-            >
-              <ProjectAvatar project={activeProject} size="sm" />
-              {!collapsed && (
-                <>
-                  {/* La cuenta va DEBAJO, no al lado. En la misma linea le
-                      quitaba el ancho al nombre y «CEDIA Investigacion y
-                      Desarrollo» se quedaba en «CEDIA Investigacion y Desarroll…»,
-                      que es justo lo que hay que poder leer. */}
-                  <span className="min-w-0 flex-1 text-left leading-tight">
-                    <span className="block truncate">
-                      {activeIssuer ? activeIssuer.nombre : (activeProject?.nombre || 'Selecciona proyecto')}
-                    </span>
-                    {activeIssuer && (
-                      <span className="block text-[10px] font-bold uppercase tracking-wide text-violet-600 dark:text-violet-300">
-                        {activeIssuer.campus.length} campus
-                      </span>
-                    )}
-                  </span>
-                  <CaretDown size={12} weight="bold" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                </>
-              )}
-            </button>
-            {pickerOpen && pickerPos && (
-              <Portal>
-                <ul
-                  ref={pickerPopRef}
-                  role="listbox"
-                  aria-label="Lista de proyectos"
-                  style={{
-                    position: 'fixed',
-                    top: pickerPos.top,
-                    left: pickerPos.left,
-                    width: pickerPos.width,
-                    maxHeight: pickerPos.maxHeight,
-                  }}
-                  className="z-[60] overflow-y-auto rounded-lg border border-border bg-card shadow-2xl py-1 animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-150 sidebar-scroll"
-                >
-                  {(() => {
-                    // Orden: agrupado por SOCIEDAD emisora (los sin sociedad al
-                    // final) y, dentro de cada una, por antiguedad.
-                    //
-                    // Antes iba por orden alfabetico y eso mezclaba las marcas
-                    // con las que se trabaja todos los dias con las que aun no
-                    // tienen ni web: ISEIH quedaba la quinta, detras de ISAEG,
-                    // ISECD e ISEF. Por antiguedad, lo que mas se usa queda
-                    // arriba, que es donde se busca sin leer.
-                    const sorted = [...projects].sort((a, b) => {
-                      const sA = a.sociedad_nombre || 'zzz';
-                      const sB = b.sociedad_nombre || 'zzz';
-                      if (sA !== sB) return sA.localeCompare(sB, 'es');
-                      return (a.id || 0) - (b.id || 0);
-                    });
-                    // Para poder decir «CEDIA · 6 campus» sin recontar en
-                    // cada encabezado.
-                    const campusPorSociedad = projects.reduce((cuenta, p) => {
-                      const id = p.sociedad_emisora_id;
-                      if (id) cuenta[id] = (cuenta[id] || 0) + 1;
-                      return cuenta;
-                    }, {});
-                    const allEntry = projects.length > 1 ? (
-                      <li key="__all__" role="option" aria-selected={!activeIssuer && activeProject?.id === -1}>
-                        <button
-                          type="button"
-                          onClick={() => { switchProject(-1); setPickerOpen(false); }}
-                          className={cn(
-                            'w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left hover:bg-secondary transition-colors border-b border-border',
-                            !activeIssuer && activeProject?.id === -1 && 'bg-secondary font-semibold'
-                          )}
-                        >
-                          <ProjectAvatar project={{ isAll: true }} size="sm" />
-                          <span className="flex-1 truncate">Todos los proyectos</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 font-bold">vista global</span>
-                        </button>
-                      </li>
-                    ) : null;
-                    let lastSoc = undefined;
-                    const items = sorted.map((p) => {
-                      const isActive = !activeIssuer && p.id === activeProject?.id;
-                      const soc = p.sociedad_nombre || null;
-                      const showHeader = soc !== lastSoc;
-                      lastSoc = soc;
-                      return (
-                        <div key={p.id}>
-                          {showHeader && (
-                            // Los encabezados eran letra muerta: se leian y no
-                            // se podian pulsar (#120). Al elegir uno se pide esa
-                            // sociedad entera —sus campus sumados—, que es lo que
-                            // Carlos mira. «Sin sociedad» no agrupa nada, asi que
-                            // ese sigue siendo un titulo y no un boton.
-                            soc && p.sociedad_emisora_id ? (
-                              <li role="option" aria-selected={activeIssuer?.id === Number(p.sociedad_emisora_id)}>
-                                <button
-                                  type="button"
-                                  onClick={() => { switchIssuer(Number(p.sociedad_emisora_id)); setPickerOpen(false); }}
-                                  className={cn(
-                                    'w-full flex items-center gap-2 px-2 pt-2 pb-0.5 text-left hover:bg-secondary transition-colors',
-                                    activeIssuer?.id === Number(p.sociedad_emisora_id) && 'bg-secondary'
-                                  )}
-                                >
-                                  <span title={soc} className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-wide text-muted-foreground/60">
-                                    {soc}
-                                  </span>
-                                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                                    {campusPorSociedad[p.sociedad_emisora_id] || 0} campus
-                                  </span>
-                                </button>
-                              </li>
-                            ) : (
-                              <div className="px-2 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground/60 select-none">
-                                {soc || 'Sin sociedad'}
-                              </div>
-                            )
-                          )}
-                          <li role="option" aria-selected={isActive}>
-                            <button
-                              type="button"
-                              onClick={() => { switchProject(Number(p.id)); setPickerOpen(false); }}
-                              className={cn(
-                                'w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left hover:bg-secondary transition-colors',
-                                isActive && 'bg-secondary font-semibold'
-                              )}
-                            >
-                              <ProjectAvatar project={p} size="sm" />
-                              <span className="flex-1 truncate">{p.nombre}</span>
-                            </button>
-                          </li>
-                        </div>
-                      );
-                    });
-                    return <>{allEntry}{items}</>;
-                  })()}
-                </ul>
-              </Portal>
-            )}
-          </div>
-          {(user?.role === 'admin' || user?.role === 'superadmin') && activeProject && !activeProject.isAll && !collapsed && (
-            <button
-              onClick={() => setConfigOpen(true)}
-              className="w-9 h-9 rounded-lg border border-border bg-secondary hover:bg-muted flex items-center justify-center flex-shrink-0 transition-colors"
-              title={`Configurar ${activeProject.nombre}`}
-              aria-label="Configurar proyecto activo"
-            >
-              <Gear size={14} weight="bold" className="text-muted-foreground" />
-            </button>
-          )}
+      {/* Aqui vivia el selector de proyecto. Se ha ido a la cabecera (#79,
+          punto 2): el nombre de la marca salia tres veces en la misma pantalla
+          y para cambiarla habia que bajar hasta aqui. El engranaje de
+          configurar la marca se queda, pero suelto: es cosa de administradores
+          y no hace falta tenerlo al lado del selector. */}
+      {(user?.role === 'admin' || user?.role === 'superadmin') && activeProject && !activeProject.isAll && !collapsed && (
+        <div className="mb-6 px-1">
+          <button
+            onClick={() => setConfigOpen(true)}
+            className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-secondary px-2 text-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title={`Configurar ${activeProject.nombre}`}
+            aria-label="Configurar proyecto activo"
+          >
+            <Gear size={14} weight="bold" />
+            Configurar esta marca
+          </button>
         </div>
-      </div>
+      )}
 
       {/* Buscador (oculto en collapsed; sigue accesible via Ctrl+K) */}
       {!collapsed && (
@@ -1223,20 +1181,25 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       {/* Navigation */}
       <nav className={cn(
         'flex-1 overflow-y-auto min-h-0 sidebar-scroll',
-        collapsed ? 'space-y-2 -mr-1 pr-1' : 'space-y-4 -mr-2 pr-2'
+        collapsed ? 'space-y-1.5 -mr-1 pr-1' : 'space-y-3 -mr-2 pr-2'
       )}>
         {NAV_SECTIONS.map((section, sIdx) => {
           // Filtrar items que el usuario puede ver
-          const visibleItems = section.items.filter((item) => canSeeItem(item, user?.role, activeProject?.modules, activeProject?.type, soloColab, user));
+          const visibleItems = section.items.filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
           if (visibleItems.length === 0) return null;
           const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
+          // El icono del encabezado (#105). Mismo tamano y peso que los de las
+          // entradas —18 y `regular`—: la idea es que ordenen, no que compitan.
+          const SectionIcon = section.icon;
           const renderItems = () => visibleItems.map((item) =>
             item.children ? (
               <NavGroup
                 key={item.label}
                 {...item}
-                role={user?.role}
+                // Todos sus roles, no solo el principal: desde que se puede
+                // tener mas de uno, el menu tiene que sumar lo de cada uno.
+                role={rolesDe(user)}
                 modules={activeProject?.modules}
                 projectType={activeProject?.type}
                 soloColab={soloColab}
@@ -1267,7 +1230,19 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
           if (collapsed) {
             return (
               <div key={section.label} className="space-y-1">
-                {sIdx > 0 && <div className="mx-2 my-1.5 border-t border-border" aria-hidden="true" />}
+                {sIdx > 0 && <div className="mx-2 mt-2 border-t border-border" aria-hidden="true" />}
+                {/* Plegado solo habia una raya: se veia que empezaba otra cosa,
+                    pero no cual. El icono lo dice, y al pasar por encima da el
+                    nombre. No es pulsable: una seccion no lleva a ningun sitio,
+                    y fingirlo aqui seria peor que no ponerlo. */}
+                {SectionIcon && (
+                  <div
+                    className="flex h-6 items-center justify-center text-muted-foreground/50"
+                    title={sectionLabel}
+                  >
+                    <SectionIcon size={18} weight="regular" />
+                  </div>
+                )}
                 {renderItems()}
               </div>
             );
@@ -1280,7 +1255,10 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                 aria-expanded={isOpen}
                 className="w-full flex items-center justify-between px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 hover:text-foreground hover:bg-secondary/40 transition-colors select-none"
               >
-                <span>{sectionLabel}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  {SectionIcon && <SectionIcon size={18} weight="regular" className="shrink-0" />}
+                  <span className="truncate">{sectionLabel}</span>
+                </span>
                 <CaretDown
                   size={10}
                   weight="bold"
@@ -1354,9 +1332,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
             </>
           )}
         </button>
-        <Suspense fallback={<div className="w-9 h-9 rounded-lg bg-secondary flex-shrink-0" />}>
-          <NotificationsBell />
-        </Suspense>
+        {/* La campana subió a la cabecera (Topbar): arriba a la derecha es
+            donde se busca, y desde ahí se ve sin desplegar el menú. */}
       </div>
 
       {/* User menu (Portal — escapa del sidebar) */}
@@ -1367,7 +1344,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
             role="menu"
             aria-label="Acciones de usuario"
             style={{ position: 'fixed', bottom: userMenuPos.bottom, left: userMenuPos.left, minWidth: userMenuPos.minWidth }}
-            className="w-max max-w-[90vw] bg-card border border-border rounded-lg shadow-xl ring-1 ring-black/5 dark:ring-white/5 z-[60] overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-1 duration-150"
+            className="w-max max-w-[90vw] bg-card border border-border rounded-lg shadow-dialog ring-1 ring-black/5 dark:ring-white/5 z-[60] overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-1 duration-150"
           >
             {userMenuView === 'main' ? (
               <div className="py-1.5">
@@ -1448,7 +1425,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
 
 function UserMenuItem({ icon: Icon, label, onClick, tone = 'default' }) {
   const toneClasses = tone === 'danger'
-    ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
+    ? 'text-destructive hover:bg-destructive-soft'
     : 'text-foreground hover:bg-muted';
   return (
     <button

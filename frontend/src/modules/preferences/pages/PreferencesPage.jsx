@@ -10,7 +10,7 @@ export default function PreferencesPage() {
   const { preferences, update, loading } = usePreferences(activeProject?.id);
 
   return (
-    <div className="space-y-6 pb-8 max-w-3xl">
+    <div className="space-y-6 pb-8 max-w-3xl mx-auto">
       <PageHeader
         title="Mis preferencias"
         subtitle="Personaliza como ves el CRM. Solo afecta a tu cuenta."

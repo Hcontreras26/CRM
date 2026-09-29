@@ -9,10 +9,10 @@ type InteractionTipo = Interaction['tipo'];
 
 const ICONS: Record<InteractionTipo, typeof Phone> = { llamada: Phone, email: EnvelopeSimple, whatsapp: WhatsappLogo, nota: Note };
 const COLORS: Record<InteractionTipo, string> = {
-  llamada: 'text-blue-600 bg-blue-50 dark:bg-blue-950/30',
-  email: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30',
-  whatsapp: 'text-green-600 bg-green-50 dark:bg-green-950/30',
-  nota: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30',
+  llamada: 'text-info bg-info-soft',
+  email: 'text-success bg-success-soft',
+  whatsapp: 'text-success bg-success-soft',
+  nota: 'text-warning bg-warning-soft',
 };
 
 function defaultDateTimeLocal(): string {
@@ -81,11 +81,14 @@ export function InteractionDialog({ open, onClose, onSubmit }: InteractionDialog
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!nota.trim() && tipo !== 'llamada') return;
+    // La nota es opcional para TODOS los canales, no solo para la llamada.
+    // Antes, un WhatsApp sin nota se iba en silencio: ni guardaba ni avisaba.
+    // Apuntar que has escrito vale por si solo; el servidor tampoco la exige.
+    const texto = nota.trim() || `${tipo[0].toUpperCase()}${tipo.slice(1)} apuntada desde la ficha`;
     setLoading(true);
     try {
       const fechaIso = fecha ? new Date(fecha).toISOString() : undefined;
-      await onSubmit(tipo, nota, fechaIso);
+      await onSubmit(tipo, texto, fechaIso);
       toast({ title: 'Interacción registrada' });
       setNota('');
       setTipo('llamada');
@@ -104,7 +107,7 @@ export function InteractionDialog({ open, onClose, onSubmit }: InteractionDialog
         <div className="fixed inset-0 !m-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
         <div className="relative bg-card rounded-lg border border-border shadow-[0_20px_25px_-5px_rgb(0_0_0/0.1)] w-full max-w-md p-6">
           <h2 className="text-lg font-semibold mb-1">Nueva interacción</h2>
-          <p className="text-muted-foreground text-sm mb-5">Registra un contacto con este lead</p>
+          <p className="text-muted-foreground text-sm mb-5">Registra un contacto con este prospecto</p>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-xs text-muted-foreground mb-1.5 block">Tipo</label>

@@ -4,13 +4,15 @@ import useUrlFilters from '@/shared/hooks/useUrlFilters';
 import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 import client from '@/shared/api/client';
 import type { Lead, LeadStatus, LeadOrigen } from '@/shared/types';
+import { idsDelAmbito } from '@/shared/lib/ambitoInforme';
 
 const PAGE_SIZE = 20;
 
-const URL_DEFAULTS: { q: string; estado: string; seg: string; origen: string; resp: string; prod: string; multi: string; from: string; to: string; sort: string; dir: string; page: number; dup: string; rein: string } = {
+const URL_DEFAULTS: { q: string; estado: string; seg: string; paso: string; origen: string; resp: string; prod: string; multi: string; from: string; to: string; sort: string; dir: string; page: number; dup: string; rein: string; qf: string } = {
   q: '',
   estado: '',
   seg: '',   // por que seguimiento va: 1..4, o 5 = «cinco o mas»
+  paso: '',  // en que paso del proceso comercial va (la clave del paso)
   origen: '',
   resp: '',
   prod: '',
@@ -21,6 +23,10 @@ const URL_DEFAULTS: { q: string; estado: string; seg: string; origen: string; re
   dir: 'desc',     // default: más reciente primero
   page: 1,
   dup: '',
+  // El filtro rapido. Va aqui, y no suelto en la pagina, porque ahora lo
+  // resuelve el servidor: si no viaja con la peticion, la lista sigue
+  // enseñando lo de la pagina que toque (#132).
+  qf: '',
   rein: '',
 };
 
@@ -46,6 +52,8 @@ export interface UseLeadsResult {
   setSearch: (v: string) => void;
   filterEstado: string;
   filterSeguimiento: string;
+  filterPaso: string;
+  setFilterPaso: (v: string) => void;
   setFilterEstado: (v: string) => void;
   setFilterSeguimiento: (v: string) => void;
   filterOrigen: string;
@@ -88,14 +96,15 @@ export function useLeads(): UseLeadsResult {
     activeProject: { id?: number } | null;
     projects: Array<{ id: number; sociedad_emisora_id?: number | null }>;
     isAllProjects: boolean;
+    activeIssuer: { id: number; nombre: string; campus: Array<{ id: number }> } | null;
   };
 
   const idsDelAmbito = useIdsDelAmbito();
   const pid = activeProject?.id;
 
   const [urlFilters, setUrlFilters] = useUrlFilters(URL_DEFAULTS);
-  const { q: search, estado: filterEstado, seg: filterSeguimiento, origen: filterOrigen, resp: filterResponsable, prod: filterProducto, multi: multiRaw, from: dateFrom, to: dateTo, sort: sortRaw, dir: dirRaw, page, dup: filterDup, rein: filterReincidente } = urlFilters as {
-    q: string; estado: string; seg: string; origen: string; resp: string; prod: string; multi: string; from: string; to: string; sort: string; dir: string; page: number; dup: string; rein: string;
+  const { q: search, estado: filterEstado, seg: filterSeguimiento, paso: filterPaso, origen: filterOrigen, resp: filterResponsable, prod: filterProducto, multi: multiRaw, from: dateFrom, to: dateTo, sort: sortRaw, dir: dirRaw, page, dup: filterDup, rein: filterReincidente, qf: filtroRapido } = urlFilters as {
+    q: string; estado: string; seg: string; paso: string; origen: string; resp: string; prod: string; multi: string; from: string; to: string; sort: string; dir: string; page: number; dup: string; rein: string; qf: string;
   };
   // Default CRONOLÓGICO ('recent') descendente = más reciente primero.
   const sortMode = (['value', 'recent', 'urgency', 'recent_value'].includes(sortRaw) ? sortRaw : 'recent') as 'value' | 'recent' | 'urgency' | 'recent_value';
@@ -109,6 +118,9 @@ export function useLeads(): UseLeadsResult {
   // Al cambiar de estado se limpia: «seguimiento 3» dentro de «no interesado»
   // no significa nada, y dejarlo puesto daria una lista vacia sin decir por que.
   const setFilterSeguimiento = useCallback((v: string) => setUrlFilters({ seg: v, page: 1 }), [setUrlFilters]);
+  // En que paso del proceso va. Como los demas: vive en la direccion, asi
+  // que el enlace se puede compartir y sobrevive a recargar.
+  const setFilterPaso = useCallback((v: string) => setUrlFilters({ paso: v, page: 1 }), [setUrlFilters]);
   const setFilterOrigen = useCallback((v: string) => setUrlFilters({ origen: v, page: 1 }), [setUrlFilters]);
   const setFilterResponsable = useCallback((v: string) => setUrlFilters({ resp: v, page: 1 }), [setUrlFilters]);
   const setFilterProducto = useCallback((v: string) => setUrlFilters({ prod: v, page: 1 }), [setUrlFilters]);
@@ -168,9 +180,10 @@ export function useLeads(): UseLeadsResult {
       }
       params.set('page', String(page));
       params.set('limit', String(PAGE_SIZE));
-      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (filterEstado) params.set('status', filterEstado);
       if (filterSeguimiento) params.set('seguimiento', filterSeguimiento);
+      if (filterPaso) params.set('pasoProceso', filterPaso);
       if (filterOrigen) params.set('canal', filterOrigen);
       if (filterResponsable === 'unassigned') params.set('unassigned', 'true');
       else if (filterResponsable) params.set('responsableId', filterResponsable);
@@ -181,6 +194,9 @@ export function useLeads(): UseLeadsResult {
       if (sortDir) params.set('dir', sortDir);
       if (filterDup === '1') params.set('duplicated', 'true');
       if (filterReincidente === '1') params.set('reincidente', 'true');
+      // Al servidor: antes se aplicaba aqui sobre las 20 filas de la pagina, o
+      // sea que «mañana» enseñaba los de mañana QUE CAYERAN en esa pagina.
+      if (filtroRapido) params.set('qf', filtroRapido);
 
       const res = await client.get(`/leads?${params.toString()}`, { signal: controller.signal });
       if (controller.signal.aborted) return;
@@ -198,7 +214,7 @@ export function useLeads(): UseLeadsResult {
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [pid, page, debouncedSearch, filterEstado, filterSeguimiento, filterOrigen, filterResponsable, filterProducto, multiRaw, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente]);
+  }, [pid, page, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterResponsable, filterProducto, multiRaw, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
 
   // Trae TODOS los leads que cumplen los filtros actuales (sin paginar) para
   // exportar. El listado va paginado de 20 en 20; el export debe llevarse todo
@@ -222,6 +238,7 @@ export function useLeads(): UseLeadsResult {
         if (debouncedSearch) p.set('search', debouncedSearch);
         if (filterEstado) p.set('status', filterEstado);
         if (filterSeguimiento) p.set('seguimiento', filterSeguimiento);
+        if (filterPaso) p.set('pasoProceso', filterPaso);
         if (filterOrigen) p.set('canal', filterOrigen);
         if (filterResponsable === 'unassigned') p.set('unassigned', 'true');
         else if (filterResponsable) p.set('responsableId', filterResponsable);
@@ -230,6 +247,9 @@ export function useLeads(): UseLeadsResult {
         if (dateTo) p.set('dateTo', dateTo);
         if (filterDup === '1') p.set('duplicated', 'true');
         if (filterReincidente === '1') p.set('reincidente', 'true');
+        // Tambien aqui: el export «con los filtros puestos» tiene que incluir
+        // el filtro rapido, o exportaria mas gente de la que se ve.
+        if (filtroRapido) p.set('qf', filtroRapido);
       }
       if (sortMode) p.set('sort', sortMode);
       if (sortDir) p.set('dir', sortDir);
@@ -253,7 +273,7 @@ export function useLeads(): UseLeadsResult {
       page += 1;
     }
     return all;
-  }, [pid, debouncedSearch, filterEstado, filterSeguimiento, filterOrigen, filterResponsable, filterProducto, multiRaw, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente]);
+  }, [pid, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterResponsable, filterProducto, multiRaw, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
 
   useEffect(() => () => {
     if (abortRef.current) abortRef.current.abort();
@@ -309,6 +329,11 @@ export function useLeads(): UseLeadsResult {
         en_seguimiento: Number(merged.en_seguimiento) || 0,
         convertido: Number(merged.convertidos) || 0,
         no_interesado: Number(merged.no_interesados) || 0,
+        // Se sumaba arriba y luego se tiraba aqui, asi que `stats.sin_asignar`
+        // era `undefined` para todo el mundo. El servidor lo devuelve
+        // (lead.model.js: responsable_id IS NULL y aun vivo) y es el numero que
+        // dice si hay prospectos que no esta trabajando nadie.
+        sin_asignar: Number(merged.sin_asignar) || 0,
       } as Partial<LeadStats>);
     } catch {
       // Stats son secundarios, no bloquear UI
@@ -336,6 +361,8 @@ export function useLeads(): UseLeadsResult {
     filterSeguimiento,
     setFilterEstado,
     setFilterSeguimiento,
+    filterPaso,
+    setFilterPaso,
     filterOrigen,
     setFilterOrigen,
     filterResponsable,
@@ -427,21 +454,36 @@ export function useLeadDetail(id: number | string | null | undefined): UseLeadDe
   }, [fetchLead]);
 
   const interacciones = lead?.interactions || [];
+  // Los pasos de esta persona, para poder contar en el historial los que
+  // alguien marcó a mano. Van aparte porque son de otro módulo.
+  const [pasosDelProceso, setPasosDelProceso] = useState<any[]>([]);
+  useEffect(() => {
+    if (!id) { setPasosDelProceso([]); return; }
+    let vivo = true;
+    client.get(`/proceso/lead/${id}`)
+      .then((r: any) => { if (vivo) setPasosDelProceso(r?.success && Array.isArray(r.data) ? r.data : []); })
+      // Sin proceso montado no hay pasos que contar, y eso no es un error.
+      .catch(() => { if (vivo) setPasosDelProceso([]); });
+    return () => { vivo = false; };
+  }, [id, lead?.updated_at]);
   const reminders = lead?.reminders || [];
   const recordatorio = reminders[0] || null;
   const utms = lead?.utms || null;
   const statusHistory = lead?.statusHistory || [];
   const auditLog = ((lead as unknown) as { auditLog?: any[] })?.auditLog || [];
 
-  const FIELD_LABELS: Record<string, { label: string; emoji: string }> = {
-    nombre: { label: 'Nombre', emoji: '📝' },
-    email: { label: 'Email', emoji: '✉️' },
-    telefono: { label: 'Teléfono', emoji: '📞' },
-    notas: { label: 'Notas', emoji: '🗒️' },
-    producto_interes_id: { label: 'Producto de interés', emoji: '📦' },
-    canal: { label: 'Canal', emoji: '🛰️' },
-    responsable_id: { label: 'Responsable', emoji: '👤' },
-    custom_fields: { label: 'Campos custom', emoji: '⚙️' },
+  // Sin emoji. La etiqueta ya dice que campo es —«Nombre», «Telefono»— y el
+  // emoji delante no anade nada: es ruido en una linea que se lee de corrido.
+  // Ademas la regla del rediseno es iconos, nunca emojis.
+  const FIELD_LABELS: Record<string, { label: string }> = {
+    nombre: { label: 'Nombre' },
+    email: { label: 'Email' },
+    telefono: { label: 'Teléfono' },
+    notas: { label: 'Notas' },
+    producto_interes_id: { label: 'Producto de interés' },
+    canal: { label: 'Canal' },
+    responsable_id: { label: 'Responsable' },
+    custom_fields: { label: 'Campos custom' },
   };
   const fmtVal = (v: string | null | undefined) => (v == null || v === '' ? '∅' : (v.length > 60 ? v.slice(0, 60) + '…' : v));
 
@@ -451,22 +493,70 @@ export function useLeadDetail(id: number | string | null | undefined): UseLeadDe
     date: h.changed_at ? new Date(h.changed_at).toLocaleString('es-ES') : '',
     _ts: h.changed_at ? new Date(h.changed_at).getTime() : 0,
     source: 'Sistema',
-    color: '#4361ee',
+    color: 'hsl(var(--primary))',
   }));
   const timelineAudit: TimelineItem[] = auditLog.map((a: any, i: number) => {
-    const meta = FIELD_LABELS[a.field_name] || { label: a.field_name, emoji: '📝' };
+    const meta = FIELD_LABELS[a.field_name] || { label: a.field_name };
     return {
       id: `a-${a.id || i}`,
-      action: `${meta.emoji} ${meta.label}: ${fmtVal(a.old_value)} → ${fmtVal(a.new_value)}${a.changed_by_nombre ? ' · por ' + a.changed_by_nombre : ''}`,
+      action: `${meta.label}: ${fmtVal(a.old_value)} → ${fmtVal(a.new_value)}${a.changed_by_nombre ? ' · por ' + a.changed_by_nombre : ''}`,
       date: a.changed_at ? new Date(a.changed_at).toLocaleString('es-ES') : '',
       _ts: a.changed_at ? new Date(a.changed_at).getTime() : 0,
       source: 'Edición',
-      color: '#7c3aed',
+      color: 'hsl(var(--info))',
     };
   });
 
-  const timeline: TimelineItem[] = [...timelineStatus, ...timelineAudit]
-    .sort((a, b) => ((b as any)._ts || 0) - ((a as any)._ts || 0));
+  /**
+   * LO QUE SE HABLÓ CON LA PERSONA, que es lo que se viene a buscar aquí.
+   *
+   * Diego, 24/09: «todo lo del proceso y interacciones debe ponerse aquí en el
+   * historial, sí o sí, no puede haber fallos». Y tenía razón: el historial se
+   * montaba solo con los cambios de estado y las ediciones de campos, así que
+   * una ficha con cuatro llamadas apuntadas enseñaba una línea —«estado
+   * cambiado a contactado»— y nada más. Las llamadas vivían en su pestaña, los
+   * pasos en la suya, y no había ningún sitio donde leer la relación entera por
+   * orden.
+   *
+   * La nota interna entra también: no es hablar con nadie, pero es parte de lo
+   * que pasó y por eso se marca como nota y no como contacto.
+   */
+  const ICONO_CANAL: Record<string, string> = {
+    llamada: '📞', whatsapp: '💬', email: '✉️', nota: '📝',
+  };
+  const timelineContactos: TimelineItem[] = interacciones.map((it: any, i: number) => ({
+    id: `i-${it.id || i}`,
+    action: `${ICONO_CANAL[it.tipo] || '•'} ${it.nota || (it.tipo === 'nota' ? 'Nota' : it.tipo)}`
+      + (it.created_by_nombre ? ` · por ${it.created_by_nombre}` : ''),
+    date: it.fecha ? new Date(it.fecha).toLocaleString('es-ES') : '',
+    _ts: it.fecha ? new Date(it.fecha).getTime() : 0,
+    source: it.tipo === 'nota' ? 'Nota' : 'Contacto',
+    color: it.tipo === 'nota' ? 'hsl(var(--muted-foreground))' : 'hsl(var(--success))',
+  }));
+
+  /**
+   * Y los pasos del proceso que alguien dio por hechos a mano.
+   *
+   * Solo los marcados: son los únicos que tienen hora de verdad —`hecho_at`—.
+   * Un paso que se cierra solo, por los contactos apuntados, no necesita línea
+   * propia: sus contactos ya están arriba, y repetirlo sería contar dos veces
+   * lo mismo.
+   */
+  const timelinePasos: TimelineItem[] = (pasosDelProceso || [])
+    .filter((x: any) => x.hecho_at)
+    .map((x: any, i: number) => ({
+      id: `p-${x.id || i}`,
+      action: `✅ Paso ${x.orden} dado por hecho: ${x.nombre || x.clave}`
+        + (x.hecho_por_nombre ? ` · por ${x.hecho_por_nombre}` : ''),
+      date: new Date(x.hecho_at).toLocaleString('es-ES'),
+      _ts: new Date(x.hecho_at).getTime(),
+      source: 'Proceso',
+      color: 'hsl(var(--warning))',
+    }));
+
+  const timeline: TimelineItem[] = [
+    ...timelineStatus, ...timelineAudit, ...timelineContactos, ...timelinePasos,
+  ].sort((a, b) => ((b as any)._ts || 0) - ((a as any)._ts || 0));
 
   if (timeline.length === 0 && lead) {
     timeline.push({
@@ -474,7 +564,7 @@ export function useLeadDetail(id: number | string | null | undefined): UseLeadDe
       action: 'Lead creado',
       date: lead.created_at ? new Date(lead.created_at).toLocaleString('es-ES') : '',
       source: 'Sistema',
-      color: '#4361ee',
+      color: 'hsl(var(--primary))',
     });
   }
 

@@ -1,3 +1,4 @@
+import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { ruleSchema, ruleUpdateSchema, paySchema } from './commission.validation.js';
 import * as model from './commission.model.js';
@@ -7,7 +8,7 @@ export async function listRules(req, res, next) {
   try {
     const { projectId, userId, productId } = req.query;
     const rows = await model.listRules({
-      projectId: projectId ? Number(projectId) : null,
+      ...(await proyectosDelAmbito(req)),
       userId: userId ? Number(userId) : null,
       productId: productId ? Number(productId) : null,
     });
@@ -60,7 +61,7 @@ export async function listAll(req, res, next) {
     const { userId, projectId, estado, from, to } = req.query;
     const rows = await model.listCommissions({
       userId: userId ? Number(userId) : null,
-      projectId: projectId ? Number(projectId) : null,
+      ...(await proyectosDelAmbito(req)),
       estado: estado || null,
       from: from || null,
       to: to || null,
@@ -86,7 +87,7 @@ export async function statsAll(req, res, next) {
     const { userId, projectId, from, to } = req.query;
     const s = await model.getStats({
       userId: userId ? Number(userId) : null,
-      projectId: projectId ? Number(projectId) : null,
+      ...(await proyectosDelAmbito(req)),
       from: from || null,
       to: to || null,
     });

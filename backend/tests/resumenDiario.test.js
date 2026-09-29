@@ -26,6 +26,12 @@ vi.mock('../src/shared/services/brevo.service.js', () => ({
 
 const { _internos } = await import('../src/jobs/resumenDiarioScheduler.js');
 
+/** Un solo proyecto, que es el caso normal de una gestora. */
+const unProyecto = (c) => ({
+  variosProyectos: false,
+  bloques: [{ proyecto: { id: 9, nombre: 'Proyecto de prueba' }, ...c }],
+});
+
 beforeEach(() => { consultas.length = 0; enviados.length = 0; });
 
 describe('a quien llega', () => {
@@ -53,14 +59,14 @@ describe('una vez al dia, y cada dia', () => {
   it('la clave lleva la fecha, al reves que el aviso de prospecto sin tocar', async () => {
     // Alli la clave es el id del lead —el aviso es ESE prospecto y repetirlo
     // seria acosar—. Aqui es «lo de hoy», y tiene que llegar cada dia.
-    await _internos.mandar('resumen_del_dia', ['gestor'], 'Resumen', async () => ({}));
+    await _internos.mandar('resumen_del_dia', ['gestor'], 'Resumen', async () => ({}), () => 'cuerpo');
     expect(enviados).toHaveLength(1);
     expect(enviados[0].clave).toMatch(/^resumen_del_dia-1-\d{4}-\d{2}-\d{2}$/);
   });
 
   it('cada persona lleva su propia clave', async () => {
     // Sin el id dentro, el primero en recibirlo dejaria sin aviso a los demas.
-    await _internos.mandar('resumen_del_dia', ['gestor'], 'Resumen', async () => ({}));
+    await _internos.mandar('resumen_del_dia', ['gestor'], 'Resumen', async () => ({}), () => 'cuerpo');
     expect(enviados[0].clave).toContain('-1-');
   });
 
@@ -73,41 +79,52 @@ describe('una vez al dia, y cada dia', () => {
   });
 });
 
-describe('lo que se cuenta', () => {
-  it('si no ha pasado nada, se dice y punto', () => {
-    // Un resumen de ceros disfrazado de informe es la forma mas rapida de que
-    // se deje de leer — y entonces tampoco se lee el dia que si importa.
-    const t = _internos.textoResumen('Ana', { entraron: 0, contactos: 0, convertidos: 0, sin_tocar: 0 });
-    expect(t).toMatch(/no ha entrado ningun prospecto/i);
-    expect(t).not.toMatch(/<li>/);
+/**
+ * Los correos nuevos (28/09): con datos y con la marca. Diego: «mejora los
+ * correos de notificación, muestra los datos, con el logo… y móntalo en
+ * staging». Las cifras salen de las funciones de las pantallas y se comprueban
+ * contra la base; aquí se prueba lo que no depende de ella: el diseño, los
+ * enlaces y las comparaciones.
+ */
+const C = await import('../src/jobs/correosDelEquipo.js');
+
+describe('el diseño de los correos', () => {
+  it('con cabecera de marca, la lleva como imagen; y dice cómo apagarlo', () => {
+    const h = C.envoltorio({ cabeceraUrl: 'https://crm/api/f/cabecera/3?v=1', preTitulo: 'X', titulo: 'Y', contenido: 'Z' });
+    expect(h).toContain('<img src="https://crm/api/f/cabecera/3?v=1"');
+    expect(h).toContain('Mis preferencias');
   });
 
-  it('lo que esta a cero no se enseña', () => {
-    // «0 convertidos» no informa de nada y alarga el correo.
-    const t = _internos.textoResumen('Ana', { entraron: 3, contactos: 0, convertidos: 0, sin_tocar: 0 });
-    expect(t).toMatch(/prospectos nuevos/);
-    expect(t).not.toMatch(/convertidos/);
+  it('sin cabecera, sale el nombre del CRM en su color', () => {
+    const h = C.envoltorio({ preTitulo: 'X', titulo: 'Y', contenido: 'Z' });
+    expect(h).not.toContain('<img');
+    expect(h).toMatch(/MultiCRM|CRM ISEIE/);
   });
 
-  it('lo que queda sin contactar se dice aunque el dia haya ido bien', () => {
-    const t = _internos.textoResumen('Ana', { entraron: 3, contactos: 9, convertidos: 2, sin_tocar: 4 });
-    expect(t).toMatch(/quedan 4 sin contactar/i);
+  it('las tarjetas van de dos en dos: en el móvil no caben cuatro', () => {
+    const h = C.tarjetas([1, 2, 3].map((i) => ({ etiqueta: `e${i}`, valor: i })));
+    expect((h.match(/<tr>/g) || []).length).toBe(2);
   });
 
-  it('y si no queda ninguno, tambien se dice', () => {
-    const t = _internos.textoResumen('Ana', { entraron: 3, contactos: 9, convertidos: 2, sin_tocar: 0 });
-    expect(t).toMatch(/No te queda ninguno/i);
+  it('una línea con enlace abre el CRM con su filtro, y la URL no está cableada', () => {
+    const antes = process.env.FEEDBACK_BASE_URL;
+    process.env.FEEDBACK_BASE_URL = 'https://ejemplo.test/crm/';
+    try {
+      const h = C.lineaConEnlace(7, 'para mañana', `${C.base()}/prospectos?projectId=9&qf=tomorrow`);
+      expect(h).toContain('https://ejemplo.test/crm/prospectos?projectId=9&amp;qf=tomorrow');
+      expect(h).toContain('>7<');
+    } finally { process.env.FEEDBACK_BASE_URL = antes; }
   });
 
-  it('el plan de mañana con nada pendiente no inventa trabajo', () => {
-    const t = _internos.textoPlan('Ana', { sin_tocar: 0, en_seguimiento: 0, recordatorios: 0 });
-    expect(t).toMatch(/no tienes nada pendiente/i);
+  it('las comparaciones no inventan porcentajes', () => {
+    expect(C.comparar(10, 8)).toMatchObject({ texto: '+25 %', signo: 'sube' });
+    expect(C.comparar(5, 0).texto).toBe('nuevo');
+    expect(C.comparar(0, 0).texto).toBe('igual');
   });
 
-  it('los dos dicen como apagarlos', () => {
-    const d = { entraron: 1, contactos: 1, convertidos: 0, sin_tocar: 1,
-                en_seguimiento: 1, recordatorios: 1 };
-    expect(_internos.textoResumen('Ana', d)).toMatch(/Mis preferencias/);
-    expect(_internos.textoPlan('Ana', d)).toMatch(/Mis preferencias/);
+  it('el repaso mensual sale con el mismo diseño', () => {
+    const t = _internos.textoValidacion('Ana', { bloques: [], variosProyectos: false });
+    expect(t).toContain('Toca repasar tu base');
+    expect(t).toContain('Mis preferencias');
   });
 });

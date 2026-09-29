@@ -29,6 +29,10 @@ export async function listTemplates({ projectId, projectIds = null, userId }) {
               -- pide_adjunto abre el selector de archivos al elegirla;
               -- pista es para la gestora y NO se envia.
               t.pide_adjunto, t.pista,
+              -- El paso del proceso al que pertenece. Sin esto, la cola del dia
+              -- no puede ofrecer «la plantilla de esta persona»: el nombre lo
+              -- dice para quien lo lee, no para el CRM.
+              t.paso_clave,
               u.nombre AS creada_por
          FROM whatsapp_templates t
          LEFT JOIN users u ON u.id = t.created_by
@@ -60,27 +64,36 @@ export async function getTemplate(id) {
   return rows[0] || null;
 }
 
-export async function createTemplate({ projectId, label, body, ambito, ownerId, createdBy }) {
+export async function createTemplate({ projectId, label, body, ambito, ownerId, createdBy,
+                                       pasoClave = null }) {
   const { rows } = await query(
-    `INSERT INTO whatsapp_templates (project_id, label, body, ambito, owner_id, created_by, orden)
+    `INSERT INTO whatsapp_templates (project_id, label, body, ambito, owner_id, created_by, orden,
+                                     paso_clave)
      VALUES ($1, $2, $3, $4, $5, $6,
-             COALESCE((SELECT MAX(orden) + 1 FROM whatsapp_templates WHERE project_id = $1), 1))
-     RETURNING id, project_id, label, body, ambito, owner_id, orden`,
-    [projectId, label, body, ambito, ambito === 'personal' ? ownerId : null, createdBy]
+             COALESCE((SELECT MAX(orden) + 1 FROM whatsapp_templates WHERE project_id = $1), 1),
+             $7)
+     RETURNING id, project_id, label, body, ambito, owner_id, orden, paso_clave`,
+    [projectId, label, body, ambito, ambito === 'personal' ? ownerId : null, createdBy,
+     pasoClave || null]
   );
   return rows[0];
 }
 
-export async function updateTemplate(id, { label, body, orden }) {
+export async function updateTemplate(id, { label, body, orden, pasoClave }) {
   const { rows } = await query(
     `UPDATE whatsapp_templates
         SET label      = COALESCE($2, label),
             body       = COALESCE($3, body),
             orden      = COALESCE($4, orden),
+            -- Sin mandarlo no se toca; con null explicito se suelta del paso.
+            -- Por eso va un testigo aparte y no un COALESCE: aqui el null es
+            -- un valor que se quiere guardar, no un 'no lo cambies'.
+            paso_clave = CASE WHEN $5 THEN $6 ELSE paso_clave END,
             updated_at = NOW()
       WHERE id = $1
-      RETURNING id, project_id, label, body, ambito, owner_id, orden`,
-    [id, label ?? null, body ?? null, orden ?? null]
+      RETURNING id, project_id, label, body, ambito, owner_id, orden, paso_clave`,
+    [id, label ?? null, body ?? null, orden ?? null,
+     pasoClave !== undefined, pasoClave ?? null]
   );
   return rows[0] || null;
 }

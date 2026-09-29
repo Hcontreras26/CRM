@@ -6,6 +6,7 @@ import {
   correo, parrafo, seccion, boton, tarjetas, nota, enlace, esc, etiqueta, T,
 } from '../shared/services/email-plantilla.service.js';
 import { vigilar } from './latido.js';
+import { NO_ESCRIBIR_A_TUTORES } from '../shared/config/frenoTutores.js';
 
 /**
  * «Hoy te han comprado.» El aviso al tutor, tarea #82.
@@ -167,6 +168,14 @@ async function vuelta() {
     if (!gente.length) return;
 
     let mandados = 0;
+    // El freno del 15/09. Hoy este cron no lo arranca nadie --no esta en
+    // `app.js`-- pero el dia que se enchufe tiene que nacer callado: es el
+    // unico camino al tutor que no necesita que alguien pulse un boton.
+    if (NO_ESCRIBIR_A_TUTORES) {
+      logger.warn({ tutores: gente.length }, 'Aviso de venta a tutores: PARADO, no se manda nada');
+      return;
+    }
+
     for (const tutor of gente) {
       try {
         // Las mismas funciones que el panel. Ver la cabecera del fichero.

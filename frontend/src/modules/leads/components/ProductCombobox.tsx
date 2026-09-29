@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+
+import { inputClass } from '@/shared/lib/ui';import { useState, useRef, useEffect } from 'react';
 import { MagnifyingGlass, Plus, X, CaretDown } from '@phosphor-icons/react';
 import Portal from '@/shared/components/ui/portal';
-import Select from '@/shared/components/ui/Select';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
+import CascadaDeCategorias from '@/modules/product-categories/components/CascadaDeCategorias';
 
-const inputClass = 'w-full h-9 px-3 rounded-md border border-border bg-muted/50 text-sm outline-none focus:border-primary';
 
 interface ProductOption {
   id: number;
@@ -153,8 +153,6 @@ function NewProductDialog({ projectId, projectLabel, initialName = '', onClose, 
     })();
   }, [projectId]);
 
-  const parentCategories = categories.filter(c => !c.parent_id);
-  const subcategories = categories.filter(c => String(c.parent_id) === String(data.categoria_id));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -192,27 +190,22 @@ function NewProductDialog({ projectId, projectLabel, initialName = '', onClose, 
               value={data.nombre} onChange={e => setData({ ...data, nombre: e.target.value })}
               className={inputClass}
             />
-            <div className="grid grid-cols-2 gap-2">
-              <Select<string>
-                value={data.categoria_id}
-                onChange={(v) => setData({ ...data, categoria_id: v, subcategoria_id: '' })}
-                options={[
-                  { value: '', label: 'Sin categoria' },
-                  ...parentCategories.map(c => ({ value: String(c.id), label: c.nombre })),
-                ]}
-                ariaLabel="Categoría"
-              />
-              <Select<string>
-                value={data.subcategoria_id}
-                onChange={(v) => setData({ ...data, subcategoria_id: v })}
-                options={[
-                  { value: '', label: subcategories.length ? 'Sin subcategoria' : '—' },
-                  ...subcategories.map(c => ({ value: String(c.id), label: c.nombre })),
-                ]}
-                ariaLabel="Subcategoría"
-                disabled={!subcategories.length}
-              />
-            </div>
+            {/* El mismo selector que la ficha del producto (#2). Aqui habia dos
+                desplegables: uno con las de primer nivel y otro con sus hijas
+                directas. El arbol tiene cinco niveles, asi que crear un curso
+                desde la ficha de un prospecto no podia dejarlo mas hondo del
+                segundo — y ahi es donde estan casi todos. */}
+            <CascadaDeCategorias
+              categorias={categories}
+              valor={data.categoria_id ? Number(data.categoria_id) : null}
+              onCambiar={(id) => setData({
+                ...data,
+                categoria_id: id ? String(id) : '',
+                // Producto nuevo: no hay nada anterior que conservar y la ruta
+                // entera va en `categoria_id`.
+                subcategoria_id: '',
+              })}
+            />
             <textarea
               placeholder="Descripción (opcional)"
               value={data.descripcion} onChange={e => setData({ ...data, descripcion: e.target.value })}

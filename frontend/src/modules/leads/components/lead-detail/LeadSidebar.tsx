@@ -73,7 +73,7 @@ export default function LeadSidebar({
           {isAdmin && onOpenMerge && (
             <button
               onClick={onOpenMerge}
-              title="Fusionar este lead con un duplicado (combina interacciones, recordatorios, ventas, etc)"
+              title="Fusionar este prospecto con un duplicado (combina interacciones, recordatorios, ventas, etc)"
               className="w-full h-9 rounded-md border border-border bg-card text-[13px] font-semibold hover:bg-muted transition-colors flex items-center justify-center gap-2"
             >
               <GitMerge size={14} weight="bold" /> Fusionar duplicado

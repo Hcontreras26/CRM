@@ -49,7 +49,7 @@ export default function ExternalPanelPage() {
         <div className="w-14 h-14 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center">
           <Globe size={26} weight="regular" />
         </div>
-        <h1 className="text-lg font-semibold">{panel.label}</h1>
+        <h2 className="text-lg font-semibold">{panel.label}</h2>
         <p className="text-sm text-muted-foreground">
           Este panel está configurado para abrirse en una pestaña nueva.
         </p>
@@ -70,7 +70,7 @@ export default function ExternalPanelPage() {
       <header className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2 border-b border-border bg-card flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Globe size={16} className="text-muted-foreground flex-shrink-0" weight="regular" />
-          <h1 className="text-sm font-semibold truncate">{panel.label}</h1>
+          <h2 className="text-sm font-semibold truncate">{panel.label}</h2>
           <span className="text-[11px] text-muted-foreground truncate hidden sm:inline">{panel.url}</span>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">

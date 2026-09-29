@@ -28,8 +28,13 @@ router.post('/comisiones/calcular', ctrl.calcular);
 router.get('/comisiones/resumen', ctrl.resumenComisiones);
 router.get('/comisiones', ctrl.listarComisiones);
 router.post('/comisiones/liquidar', ctrl.liquidar);
-router.patch('/comisiones/:id/estado', ctrl.cambiarEstadoComision);
 router.post('/comisiones/:id/revertir', ctrl.revertirComision);
+router.patch('/comisiones/:id/estado', ctrl.cambiarEstadoComision);
+
+// «Avisar tutor» (Diego, 14/09). La vista previa y el envio van separados a
+// proposito: nadie deberia mandar un correo sin haber visto antes lo que sale.
+router.get('/comisiones/aviso', ctrl.previoDelAviso);
+router.post('/comisiones/avisar', ctrl.avisarTutor);
 router.get('/formaciones-sin-tutor', ctrl.formacionesSinTutor);
 router.get('/pagos-sin-formacion', ctrl.pagosSinFormacion);
 router.put('/formaciones/:productId/busqueda', ctrl.marcarBusqueda);

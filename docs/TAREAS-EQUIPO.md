@@ -409,6 +409,29 @@ publicidad van aparte.
 
 Ninguna migración se aplica sola. Se escribe, se sube y la ejecutas tú.
 
+## D4 · El tope de gasto en IA, antes que la clave (#22)
+
+Está escrito y probado, falta lo tuyo. **El orden importa**: si la clave entra
+antes que el tope, hay una ventana con dos endpoints llamando a Anthropic sin
+que nadie cuente nada — que es exactamente lo que el issue dice que no puede
+pasar.
+
+1. **Aplicar `145_gasto_de_ia.sql`.** Crea la tabla donde se apunta cada
+   llamada. Mientras no esté, el código no falla: avisa una vez en el log y deja
+   pasar, o sea el CRM se queda como está hoy, sin tope.
+2. **Poner en el `.env` del servidor:** `IA_TOPE_MENSUAL_USD=20` (o lo que
+   decidas). Va en **dólares**, que es como factura Anthropic; convertir a euros
+   aquí sería inventarse un cambio que además se mueve solo. Con `=0` no hay
+   tope pero se sigue apuntando el gasto.
+3. **Comprobar antes de meter la clave:** `GET /api/ia/gasto` tiene que
+   contestar `instalado: true`. Si dice `false`, es que falta el paso 1 — y
+   entonces no hay tope, aunque el `.env` esté puesto.
+4. **Ya con eso**, la clave de #22.
+
+Cuando se agota, el chat contesta diciendo que se agotó y el reporte mensual
+sale igual pero con los datos del CRM, sin IA. Ninguno de los dos se queda en
+blanco ni da un error raro.
+
 ---
 
 # Yo
@@ -516,3 +539,115 @@ detrás se hace dos veces**.
 - `ESTADO-Y-PENDIENTES.md` — qué está montado y qué no
 - `PARIDAD-ENTRE-CRMS.md` — en qué se diferencian los dos repositorios
 - `README.md` — arquitectura y cómo se despliega
+
+---
+
+# Repaso de Diego en /testeo · 15 de septiembre, noche
+
+Probó pantalla por pantalla lo de Ángel y Fabián recién subido. Esto es lo que
+salió, con sus palabras donde importan. **Nada de aquí está hecho.**
+
+## Correos — «muy bien, pero»
+
+Falta la parte de administrarlo desde el propio CRM:
+
+- **El correo de facturación**, administrable.
+- Una **sección de correos con las llaves de Brevo**, para usarlo con una sola
+  llave.
+- Y **los de Hostinger**, como el que ya se hizo — que se puedan ir añadiendo
+  según el caso, no uno fijo.
+- Encontrarle **sitio dentro de Configuración**.
+
+Va con lo de las plantillas de abajo: es el mismo asunto visto desde dos sitios.
+
+## Registro — «está perfecto, falta»
+
+- Que se llame **«Logs de sistema»**, no «Registro».
+- **Filtros por usuario** y lo demás.
+
+## Árbol de categorías — hecho
+
+«Perfecto.» Nada que tocar.
+
+## Proceso comercial — bien, pero no termina el trabajo
+
+Está bien y es mejorable, pero lo que falta es que **empiece a funcionar con
+personas de verdad**:
+
+- Que ponga **recordatorios automáticos** al llegar al paso 2, al paso 3…
+- Que las **fechas** queden en la sección de recordatorios e interacciones, para
+  ir guardando el rastro.
+- Y que todo eso sea **editable**.
+
+**Fabián (pantalla) y Diego (servidor).**
+
+## La cola del día — «necesita mejor entendimiento»
+
+Hoy no se entiende de un vistazo:
+
+- No se distingue **de qué proyecto** es cada fila.
+- No se distingue **qué paso** es.
+- No hay **gráficas de cómo va**, ni la salud.
+- Faltan **los pasos de hoy**: qué hay que hacer hoy.
+- Y **los de hoy y mañana tienen que verse desde el Dashboard**, no solo aquí.
+
+## Informes — el de producción es mejor
+
+«Está mejor el de producción, más entendible.» Lo de testeo ha empeorado
+respecto a lo que hay publicado. Hay que mirar qué se perdió por el camino.
+
+## Prospectos
+
+- El **«Resumen del día» tiene que nacer cerrado**, no desplegado.
+- Faltan **atajos rápidos** para ver las acciones: abrir la ficha rápida del
+  lead o la completa.
+- **Hay dos filtros donde debería haber uno.** El que ya existía está completo;
+  lo que se pedía era mejorar su interfaz, no añadir otro al lado.
+
+## Clientes
+
+- **El mismo duplicado de filtros** que en Prospectos.
+- **«Próximos cobros» no sirve como está**: dice «venció hace 285 días», que es
+  mirar atrás. Tiene que decir **cuándo va a vencer**.
+- Y faltan filtros de **qué vence en X días** y **qué vence mañana**.
+- El resto, bien.
+
+## Plantillas de email — bien, a completar
+
+Mejorarlas según **el tipo de correo que se usa**: el remitente, las claves…
+Que **esos datos se puedan añadir desde el propio CRM**. Mismo asunto que la
+sección de Correos de arriba.
+
+## La configuración está por proyecto, no por empresa
+
+Dicho tal cual. Queda anotado como lo que es: una decisión pendiente, no un
+arreglo evidente — hay configuración que sí es de un proyecto y no puede subir a
+la empresa.
+
+## Conectores — no es lo que se pidió
+
+«No hay sentido completo.» Lo que se pedía era **hacer los formularios para los
+de Make**, sin tocar su backend ni su frontend. Lo que hay es solo un conector
+para WordPress.
+
+Mientras tanto, esa parte pasa a llamarse **«WordPress / WooCommerce»**, que es
+lo que de verdad hace.
+
+
+## Para mañana · main de los dos CRM
+
+**PR #147 (MultiCRM) y #72 (ISEIE).** Los dos hacen lo mismo: que `main` vuelva a
+describir lo que corre en producción. `main` de MultiCRM lleva parado desde el
+20/08 y el de ISEIE desde el 06/08, mientras producción recibía despliegues
+sueltos por SSH. Es la tarea #24.
+
+**No tocan ningún servidor.** Solo mueven la rama: el árbol de `main` pasa a ser
+el de `prod/solo-hoy`, que es exactamente lo que ya está desplegado. Comprobado
+antes de abrirlos — `git diff main prod/solo-hoy` daba cero ficheros.
+
+Lo único que cambia es qué ves al abrir `main` en GitHub. Diego los mira mañana
+y los fusiona.
+
+**Ojo con una cosa:** se abrieron antes de subir WhatsApp a producción. Ese
+despliegue ya está en `prod/solo-hoy`, así que al fusionarlos entra también
+WhatsApp — que es lo correcto, pero conviene saberlo.

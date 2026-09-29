@@ -71,7 +71,7 @@ function HeroTooltip({ active, payload, label, formatea, color, prevValue }) {
   const v = payload[0]?.value ?? 0;
   const delta = prevValue > 0 ? Math.round(((v - prevValue) / prevValue) * 100) : null;
   return (
-    <div className="rounded-lg border border-border bg-card/95 backdrop-blur shadow-lg px-3 py-2 min-w-[140px]">
+    <div className="rounded-lg border border-border bg-card/95 backdrop-blur shadow-popover px-3 py-2 min-w-[140px]">
       <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">{label}</div>
       <div className="flex items-baseline gap-2">
         <span className="text-base font-semibold tabular-nums tracking-tight" style={{ color }}>{formatea(v)}</span>

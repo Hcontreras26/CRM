@@ -206,7 +206,7 @@ export default function ManualPage() {
   ];
 
   return (
-    <div className="flex gap-10 max-w-[1240px] pb-24">
+    <div className="flex gap-10 max-w-[1240px] pb-24 mx-auto">
 
       {/* ── Sidebar ── */}
       <aside className="hidden lg:block w-56 flex-shrink-0">
@@ -260,9 +260,9 @@ export default function ManualPage() {
             <span className="h-px flex-1 bg-border" />
             <span className="text-[11px] font-mono text-muted-foreground/70 tabular-nums">v0.1 · Beta</span>
           </div>
-          <h1 className="text-[44px] sm:text-[52px] font-bold tracking-tight leading-[1.05] text-foreground">
+          <h2 className="text-[44px] sm:text-[52px] font-bold tracking-tight leading-[1.05] text-foreground">
             Manual de usuario.
-          </h1>
+          </h2>
           <p className="text-lg text-muted-foreground mt-4 max-w-2xl leading-relaxed">
             Guía completa de MultiCRM. Todos los módulos, flujos y atajos en un único sitio,
             organizados para que encuentres lo que buscas en menos de 30 segundos.
