@@ -1927,6 +1927,64 @@ merge habría arrastrado 34 commits de `deploy/16sep` que /testeo no tiene.
 
 *Asignada a **Diana**; el paso a staging lo hizo Diego (Claude).*
 
+## Ramas desde el 29/09: `main` = producción, `staging` = pruebas
+
+Diego, 29/09: «unifica ramas ya aprobadas y en producción claramente; testeo y
+staging siguen siendo independientes».
+
+- **`main` es lo que corre en producción**, con la etiqueta `v2.0.0`. Se llegó
+  con un pull request (#175) cuyo árbol es idéntico al de producción.
+- **`staging` es el entorno de pruebas (https://360crm.tech/testeo/)**, independiente de `main`.
+  Lo nuevo entra por `staging`; pasa a `main` con un pull request cuando Diego lo
+  aprueba, y se despliega a producción desde `main`.
+- `main` está protegida en GitHub y el gancho `pre-push` no deja empujar a ella:
+  siempre por pull request.
+- Las ramas personales de Ángel, Fabián y Diana, y `feat/diego`, NO se han
+  borrado aunque estén fusionadas: el gancho las protege («sus ramas son
+  suyas»). Que las borre cada uno, o Diego.
+
+### Ramas con trabajo que NO está en producción (se quedan)
+
+- `feat/angel-filtro-categorias-2` (f855d83d) · 27 cambio(s) propios
+- `feat/certifex-consultas` (2d2e7f73) · 2 cambio(s) propios
+- `feat/diana-mcp-claude` (0e2c1a69) · 3 cambio(s) propios
+- `feat/fabian-atajos-prospectos` (c618a9d7) · 1 cambio(s) propios
+- `feat/fabian-convocatorias-86` (f8ebe1b4) · 1 cambio(s) propios
+- `feat/fabian-ficha-proceso-89` (28a096e6) · 2 cambio(s) propios
+- `feat/fabian-proyectos-ia-44` (236ae17b) · 12 cambio(s) propios
+- `feat/suitedash-menu` (f982cec9) · 13 cambio(s) propios
+- `fix/fabian-cola-del-dia` (b9d2202d) · 1 cambio(s) propios
+- `fix/fabian-filtros-una-sola-barra` (86510105) · 2 cambio(s) propios
+- `fix/fabian-proximos-cobros` (09c7be6b) · 1 cambio(s) propios
+- `fix/solo-frontend-compara-con-staging` (a57ea5df) · 1 cambio(s) propios
+- `prueba-ui-testeo` (2727cd35) · 2 cambio(s) propios
+
+`feat/diana-mcp-claude` está en producción por cherry-pick (su migración 180 pasó a ser la 182); los 3 «propios» son esos mismos cambios con otro hash.
+
+### Ramas borradas (su trabajo ya estaba entero en producción)
+
+Para recuperar una: `git push origin <commit>:refs/heads/<nombre>`.
+
+- `actualizar-main-15sep` · `697d2252`
+- `deploy/16sep` · `5490347a`
+- `feat/facturacion-v2` · `ccffe57d`
+- `feat/finanzas-sprint1` · `d4d53a96`
+- `feat/make-webhook` · `2a028278`
+- `feat/stripe-ia` · `b7131192`
+- `feat/ui-prospectos-v2` · `668c9130`
+- `feat/user-views-modular` · `04107cf5`
+- `integra/15sep-equipo` · `58376f2a`
+- `integra/semana` · `9df14a48`
+- `integracion/angel` · `d85dc886`
+- `integracion/fabian` · `6e2ce230`
+- `integracion/todo` · `46d529ce`
+- `integracion/whatsapp` · `50deb96f`
+- `prod/solo-hoy` · `bf82ffa1`
+- `prod/whatsapp-15sep` · `9988457b`
+- `produccion/2.0.0` · `74e1e313`
+- `release/2.0.0` · `5490347a`
+- `release/reportes-empresa` · `46d529ce`
+
 ## 29 de septiembre · la 2.0.0, en producción en los dos CRMs
 
 Diego, 29/09: «todo aprobado, a producción en ambos». Subida la versión entera:
