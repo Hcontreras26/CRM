@@ -1,5 +1,6 @@
 import { query, getClient } from '../config/db.js';
 import { logger } from '../utils/logger.js';
+import { PASO_CERRADO } from '../utils/pasoCerrado.js';
 
 /**
  * EL ESTADO DEL PROSPECTO, DEDUCIDO DEL TRABAJO DE VERDAD.
@@ -120,8 +121,7 @@ export async function devolverLosVencidos({ tope = 500 } = {}) {
           -- El paso ya dado no vence: se deduce de los contactos apuntados,
           -- igual que en la cola del dia, para que los dos sitios cuenten lo
           -- mismo y no se contradigan en la misma pantalla.
-          AND (SELECT count(*) FROM lead_interactions li
-                WHERE li.lead_id = l.id AND li.tipo <> 'nota') < ls.orden
+          AND NOT ${PASO_CERRADO('ls')}
         LIMIT $1`,
       [tope]
     );
