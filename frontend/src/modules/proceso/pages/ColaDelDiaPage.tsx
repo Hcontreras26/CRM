@@ -324,7 +324,9 @@ export default function ColaDelDiaPage() {
             ? `Los ${campus.length} campus de ${activeIssuer.nombre}. A quién le toca hoy, y quién viene arrastrado.`
             : 'A quién le toca hoy, y quién viene arrastrado. Una fila por persona.'
         }
-        actions={(
+        // Solo los dos desplegables que dependen del ambito y del rol: el resto
+        // de filtros va debajo, pegado a la lista.
+        actions={filtroCampus || (esAdmin && gestoras.length > 0) ? (
           <div className="flex flex-wrap items-center gap-2">
             {filtroCampus && (
               <select
@@ -349,7 +351,7 @@ export default function ColaDelDiaPage() {
               </select>
             )}
           </div>
-        )}
+        ) : null}
       />
 
       {resumen && (

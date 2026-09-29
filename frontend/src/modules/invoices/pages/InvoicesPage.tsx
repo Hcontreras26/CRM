@@ -8,6 +8,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import FacturacionAlDiaCard from '../components/FacturacionAlDiaCard';
+import AvisoHuecosFacturas from '../components/AvisoHuecosFacturas';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import client from '@/shared/api/client';
 import { formatDateNumeric } from '@/shared/lib/format';
@@ -92,6 +93,8 @@ export default function InvoicesPage() {
   // CEDIA y la tabla enseñando ICTESS— es peor que tener solo una.
   const [filterIssuer, setFilterIssuer] = useState<string>(() => (activeIssuer ? String(activeIssuer.id) : ''));
 
+  // Y si se cambia de empresa SIN salir de la pantalla, que se entere: sin
+  // esto la cabecera diria CEDIA y la tabla seguiria en la anterior.
   useEffect(() => {
     if (activeIssuer) setFilterIssuer(String(activeIssuer.id));
   }, [activeIssuer?.id]);
@@ -312,6 +315,9 @@ export default function InvoicesPage() {
         )}
       />
 
+      {/* Si la serie tiene agujeros, se dice aqui: es donde se factura. */}
+      <AvisoHuecosFacturas projectId={activeProject?.id} />
+
       {/* Solo sale en el listado normal: es el estado de la facturacion, no de las proformas. */}
       {!esProformas && !esAbonos && <FacturacionAlDiaCard projectId={activeProject?.id} />}
 
@@ -397,6 +403,17 @@ export default function InvoicesPage() {
             <span className="font-semibold text-sm">Ventas sin factura</span>
             <span className="text-[11px] text-muted-foreground">· {ventasSinFactura.length} venta{ventasSinFactura.length !== 1 ? 's' : ''} registrada{ventasSinFactura.length !== 1 ? 's' : ''} sin factura emitida</span>
           </div>
+          {/* Diego: «las ventas sin factura y la cola de facturación son como
+              lo mismo». Se solapan y la pantalla no lo decia. No son iguales:
+              arriba van los COBROS pendientes de facturar, en orden; aqui las
+              VENTAS sin ninguna factura, incluidas las que todavia no han
+              cobrado nada. Una venta con cobro sale en las dos. */}
+          <p className="px-4 py-2 text-[11px] leading-snug text-muted-foreground border-b border-amber-200 dark:border-amber-900/40">
+            Esto son <b>ventas</b>; arriba, en la cola, van los <b>cobros</b> pendientes de facturar.
+            {' '}Una venta que ya tiene algún cobro sale en las dos:
+            {' '}<b>emítela desde la cola</b>, que es la que respeta el orden de la numeración.
+            {' '}Aquí quedan sobre todo las que aún no han cobrado nada, y por eso todavía no se pueden facturar.
+          </p>
           <div className="overflow-x-auto">
             <table className="tabla-cifras w-full text-[13px]">
               <thead className="bg-amber-100/40 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-900/40">
@@ -432,9 +449,16 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {/* LOS FILTROS, AQUI Y NO ARRIBA. Diego: «hay dos buscadores, hay que
-          dejar uno». Se mueve el bloque entero a donde se usa, pegado a la
-          lista que filtra, en vez de duplicar el cuadro de buscar. */}
+      {/* LOS FILTROS, AQUI Y NO ARRIBA.
+
+          Estaban encima de las tarjetas y de la tabla de ventas sin factura,
+          asi que al bajar a la lista --donde se trabaja-- quedaban fuera de
+          pantalla. Lo resolvi duplicando el buscador, y Diego: «hay dos
+          buscadores, hay que dejar uno». Tenia razon: dos cuadros que hacen lo
+          mismo es peor que uno lejos.
+
+          Se mueve el bloque entero --buscador, sociedad, proyecto, estado,
+          fechas y atajos-- a donde se usa: pegado a la lista que filtra. */}
       <div className="bg-card border border-border rounded-md p-3 flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <MagnifyingGlass size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />

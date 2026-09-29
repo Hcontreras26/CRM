@@ -78,6 +78,10 @@ const CON_SOCIEDAD_OK = [
   /^\/novedades$/,
   /^\/ventas$/,
   /^\/finanzas\/ventas$/,
+  // Prospectos, su kanban y Clientes. La pantalla y el servidor YA saben sumar
+  // varios campus --mandan `projectIds` y el modelo los recibe--: lo unico que
+  // faltaba era que el muro les dejara pasar. Diego, 15/09: «en prospectos si
+  // elijo empresas deben de salir».
   /^\/prospectos$/,
   /^\/prospectos\/pipeline$/,
   /^\/prospectos\/\d+$/,
@@ -87,6 +91,15 @@ const CON_SOCIEDAD_OK = [
   // sociedad antes que nadie. Dejarla fuera era mandarle el aviso de «elige un
   // campus» justo a la unica que no lo necesitaba.
   /^\/finanzas\/facturas$/,
+  // Y EMITIR UNA, tambien. Diego, 25/09: «como voy a registrar una venta de una
+  // empresa y me sale esto, no puede pasar».
+  //
+  // La pantalla YA sabe: tiene su propio selector de proyecto --y solo ofrece
+  // los de la misma sociedad, que no se factura cruzado--. Lo que pasaba es que
+  // el muro se levantaba antes de que llegara a pintarlo, asi que ese selector
+  // no lo veia nadie. Con el listado ya abierto y la emision cerrada, se podia
+  // mirar una factura de CEDIA pero no hacerla.
+  /^\/finanzas\/facturas\/nueva$/,
   // Análisis de ventas (#136). Su servidor es el mismo módulo `sales` que ya
   // sabe de sociedades; lo único que le faltaba era que la pantalla mandara
   // `issuerId` y que la ruta no chocara con el muro de aquí.
@@ -106,6 +119,8 @@ const CON_SOCIEDAD_OK = [
   // campus-- y el servidor ya lo traducia con `proyectosDelAmbito`. Lo unico
   // que faltaba era esta lista: el muro se levantaba ANTES de que la pantalla
   // llegara a pintarse, asi que el trabajo de por-empresa no se veia nunca.
+  // «Sin tutor» era la unica que no mandaba la empresa; ya la manda, asi que
+  // entra con las otras.
   /^\/tutores$/,
   /^\/tutores\/comisiones$/,
   /^\/tutores\/sin-tutor$/,
@@ -114,19 +129,24 @@ const CON_SOCIEDAD_OK = [
   /^\/mis-cursos$/,
   // La bandeja del CRM (#146). Tampoco mira el proyecto: el servidor acota sola.
   /^\/correos$/,
-  // El Dashboard. Diego, 15/09: «es por empresa, eso lo sabes».
+  // El Dashboard. Diego, 15/09: «es por empresa, eso lo sabes» — y el 17 otra
+  // vez, viendo el muro con CEDIA puesta: «aqui debo de tener la opcion de
+  // verlos todos».
   //
-  // Por dentro ya lo era: `useDashboard` reparte por los campus del ambito y
-  // los suma, y elegir una empresa deja el proyecto en «Todos» justo para eso.
-  // Lo unico que pasaba es que el muro se levantaba antes de que la pantalla
-  // llegara a pedir nada.
+  // Por dentro ya lo era: `useDashboard` llama a `useIdsDelAmbito`, que con una
+  // empresa elegida devuelve SUS campus y ninguno mas, y despues suma las
+  // estadisticas de cada uno; elegir una empresa deja el proyecto en «Todos»
+  // justo para eso. Lo unico que pasaba es que el muro se levantaba antes de
+  // que la pantalla llegara a pedir nada.
   /^\/$/,
 
   // ─────────────────────────────────────────────────────────────────────────
-  // WhatsApp. El chat es de la GESTORA, no del proyecto: sus conversaciones son
-  // las mismas con CEDIA puesta o con uno de sus campus. Lo unico que miraba el
-  // proyecto era buscar un prospecto para empezar una conversacion y la lista
-  // de plantillas, y las dos aceptan ya los campus de la empresa.
+  // WhatsApp (#128, #138). El chat es de la GESTORA, no del proyecto: sus
+  // conversaciones son las mismas con CEDIA puesta o con uno de sus campus. Lo
+  // unico que miraba el proyecto era buscar un prospecto para empezar una
+  // conversacion y la lista de plantillas, y las dos aceptan ya los campus de
+  // la empresa. Sin esto, WhatsApp quedaba tapado por el muro justo para quien
+  // tiene una sociedad elegida, que es como trabaja Diego.
   /^\/whatsapp$/,
   /^\/whatsapp\/chat$/,
   /^\/whatsapp\/plantillas$/,
@@ -138,6 +158,8 @@ const CON_SOCIEDAD_OK = [
   // Las que NO MIRAN el proyecto para nada. Estaban detras del muro por no
   // estar en la lista, no porque el muro dijera algo de ellas: pedirle a
   // alguien que elija un campus para ver su propio perfil no significa nada.
+  // El muro esta para que una pantalla no ensene cifras de un ambito que no
+  // sabe sumar; estas no ensenan cifras de nada.
   /^\/perfil$/,
   /^\/preferencias$/,
   /^\/notificaciones$/,
@@ -195,6 +217,8 @@ function AllProjectsGuard({ pathname, children }) {
   const { isAllProjects, activeIssuer } = useProjectContext();
   if (activeIssuer) {
     if (rutaAceptaSociedad(pathname)) return children;
+    // El aviso decia «tienes activa la vista Todos los proyectos» con CEDIA
+    // puesta. No era verdad, y mandaba a tocar el selector equivocado.
     return (
       <div className="p-6 max-w-2xl mx-auto">
         <NeedsProjectBanner sociedad={activeIssuer.nombre} />

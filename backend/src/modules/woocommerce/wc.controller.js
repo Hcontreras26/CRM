@@ -618,6 +618,21 @@ export async function runFullImport(creds, projectId, runId) {
         //   - wc_plus_cpt: WC normal + CPTs como suplemento (auth Basic)
         //   - cpt_only:    solo CPTs, sin WC (auth Basic O token-query)
         let cptCreated = 0, cptUpdated = 0, cptSkipped = 0;
+        let cptScrapedOk = 0, cptScrapedFail = 0;
+        // El mismo destino de secciones que usa el bucle de WooCommerce. Va
+        // aparte porque aquel vive dentro de su propio bucle y desde aqui no se ve.
+        const CPT_SECTION_TO_COLUMN = {
+          presentacion:        'presentacion_texto',
+          objetivos:           'objetivos_texto',
+          beneficios:          'beneficios_texto',
+          dirigido_a:          'dirigido_a_texto',
+          para_que_te_prepara: 'para_que_te_prepara_texto',
+          por_que_estudiar:    'por_que_estudiar_texto',
+          modulos:             'modulos_texto',
+          metodologia:         'metodologia_texto',
+          faqs:                'faqs_texto',
+          profesores:          'profesores_texto',
+        };
         const cptEnabled = (creds.source_strategy === 'wc_plus_cpt' || creds.source_strategy === 'cpt_only')
                         && Array.isArray(creds.cpt_endpoints) && creds.cpt_endpoints.length > 0;
         if (cptEnabled) {
@@ -653,6 +668,60 @@ export async function runFullImport(creds, projectId, runId) {
                   // queremos; por ahora le anexamos explícitamente para idempotencia.
                   mapped.source_type = cptSlug;
                   mapped.source_id = item.id;
+
+                  // El extractor de pagina tambien vale para los CPT.
+                  //
+                  // Diego, 18/09: «ningun producto de la pagina extrajo precio,
+                  // nada, tiene que hacerlo para que se sincronicen en automatico».
+                  //
+                  // En un sitio montado con Elementor el precio, las horas, los
+                  // modulos y el temario NO viajan por la API: el content llega
+                  // vacio y el ACF tambien. Estan solo en el HTML que se pinta.
+                  // El bucle de WooCommerce ya los sacaba de ahi; esta fase no,
+                  // y por eso ISECD entro con 617 formaciones y todo a cero.
+                  //
+                  // Lo que ya venga del ACF manda: esto solo rellena huecos.
+                  if (scraperOn && item.link) {
+                    try {
+                      const sc = await scrapeProductPage(item.link, sectionKeywords, {
+                        strategy: scrapeStrategy, timeoutMs: 20000,
+                      });
+                      if (!sc.error) {
+                        cptScrapedOk++;
+                        const mb = sc.meta_box || {};
+                        if (mb.precio && mb.precio.value && !(mapped.precio > 0)) mapped.precio = mb.precio.value;
+                        if (mb.duracion && mb.duracion.text)         mapped.duracion = mapped.duracion || mb.duracion.text;
+                        if (mb.horas && mb.horas.text)               mapped.horas = mapped.horas || mb.horas.text;
+                        if (mb.fecha_inicio && mb.fecha_inicio.text) mapped.fecha_inicio_texto = mapped.fecha_inicio_texto || mb.fecha_inicio.text;
+                        if (mb.num_modulos && mb.num_modulos.value)  mapped.num_modulos = mapped.num_modulos || mb.num_modulos.value;
+                        if (mb.modalidad && mb.modalidad.text)       mapped.modalidad = mapped.modalidad || mb.modalidad.text;
+
+                        const otrasCpt = {};
+                        for (const [clave, valor] of Object.entries(sc.sections || {})) {
+                          if (!valor) continue;
+                          const col = CPT_SECTION_TO_COLUMN[clave];
+                          if (col) mapped[col] = valor;
+                          else otrasCpt[clave] = valor;
+                        }
+                        if (Object.keys(otrasCpt).length > 0) mapped.otras_secciones = otrasCpt;
+
+                        // Si el contador no sale como dato suelto pero el temario
+                        // si, se cuentan los «Modulo N» distintos. Igual que en WC.
+                        if (!mapped.num_modulos && mapped.modulos_texto) {
+                          const ms = mapped.modulos_texto.match(/\bM[oó]dulo\s+\d+\b/gi);
+                          if (ms && ms.length > 0) {
+                            mapped.num_modulos = new Set(ms.map((s) => s.match(/\d+/)[0])).size;
+                          }
+                        }
+                        if (sc.imagen_og && !mapped.image_url) mapped.image_url = sc.imagen_og;
+                      } else {
+                        cptScrapedFail++;
+                      }
+                    } catch (sErr) {
+                      cptScrapedFail++;
+                      logger.warn({ err: sErr.message, url: item.link }, 'WP CPT: scrape fallo (no bloqueante)');
+                    }
+                  }
                   if (hasUserMapping) {
                     const userMapped = applyWcFieldMapping(item, userMapping);
                     Object.assign(mapped, userMapped);
@@ -673,7 +742,7 @@ export async function runFullImport(creds, projectId, runId) {
                 logger.warn({ err: cptErr.message, cptSlug }, 'WP CPT: fetch falló (no bloquea el resto)');
               }
             }
-            logger.info({ projectId, cptCreated, cptUpdated, cptSkipped }, 'WP CPT: import completado');
+            logger.info({ projectId, cptCreated, cptUpdated, cptSkipped, cptScrapedOk, cptScrapedFail }, 'WP CPT: import completado');
           }
         }
         // Sumar al total

@@ -46,6 +46,9 @@ export default function SalesPage() {
   // header está listo todavía.
   const hasActiveCtx = !!activeProject?.id;
   const allProjects = activeProject?.id === -1;
+  // Con una EMPRESA puesta si se puede registrar: el dialogo pregunta el campus.
+  // Sin empresa y en «todos los proyectos» no, que ahi no hay de donde elegir.
+  const puedeRegistrar = !!activeProject?.id && (!allProjects || !!activeIssuerId);
   const projectIdParam = hasActiveCtx && !allProjects ? activeProject!.id : null;
   // Con una sociedad elegida, Ventas enseña sus campus sumados —igual que
   // Reportes—, en vez del muro de «elige un proyecto». El servidor traduce el
@@ -100,10 +103,10 @@ export default function SalesPage() {
               <button
                 type="button"
                 onClick={() => setMenuAbierto((v) => !v)}
-                disabled={!hasActiveCtx || allProjects}
+                disabled={!puedeRegistrar}
                 aria-haspopup="menu"
                 aria-expanded={menuAbierto}
-                title={allProjects ? 'Selecciona un proyecto concreto para registrar una venta' : ''}
+                title={!puedeRegistrar ? 'Elige un proyecto o una empresa para registrar una venta' : ''}
                 className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
               >
                 <Plus size={14} weight="bold" />
@@ -146,7 +149,7 @@ export default function SalesPage() {
                         <Robot size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
                         <span>
                           <span className="block text-sm font-semibold">Venta automática (sin gestora)</span>
-                          <span className="block text-[11px] text-muted-foreground">De cero y sin dueño: no cuenta para nadie.</span>
+                          <span className="block text-[11px] text-muted-foreground">La registra la plataforma, de cero: no cuenta para ninguna gestora.</span>
                         </span>
                       </button>
                     )}
@@ -158,8 +161,8 @@ export default function SalesPage() {
             <button
               type="button"
               onClick={() => abrirVenta('existing')}
-              disabled={!hasActiveCtx || allProjects}
-              title={allProjects ? 'Selecciona un proyecto concreto para registrar una venta' : ''}
+              disabled={!puedeRegistrar}
+              title={!puedeRegistrar ? 'Elige un proyecto o una empresa para registrar una venta' : ''}
               className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
             >
               <Plus size={14} weight="bold" />

@@ -86,7 +86,9 @@ export interface ComisionReal {
   id: number;
   periodo: string;
   /** Los tres primeros significan que SIGUE SIN COBRAR: dicen por donde va el
-   *  tramite, no donde esta el dinero. */
+   *  tramite, no donde esta el dinero. `notificada` = ya se le pidio la
+   *  factura. `falta_factura` = se le pidio y no la ha mandado, que es distinto
+   *  de que nadie le haya dicho nada. */
   estado: 'pendiente' | 'notificada' | 'falta_factura' | 'pagada' | 'revertida';
   base_calculo: string;
   pct: string;

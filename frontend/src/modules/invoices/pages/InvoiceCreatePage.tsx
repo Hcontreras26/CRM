@@ -456,7 +456,39 @@ export default function InvoiceCreatePage() {
     } finally { setSaving(false); }
   }
 
-  if (!pid) return <div className="p-8 text-muted-foreground">Selecciona un proyecto.</div>;
+  // Sin campus elegido --se entra con una EMPRESA puesta-- se pregunta cual, y
+  // se pregunta aqui. Antes salia un «Selecciona un proyecto.» suelto sin nada
+  // que pulsar: el selector existe, pero vive mas abajo en esta misma pantalla
+  // y no se llegaba nunca.
+  if (!pid) {
+    return (
+      <div className="mx-auto max-w-lg p-8">
+        <div className="rounded-lg border border-border bg-card p-5">
+          <h2 className="text-base font-semibold">¿De qué campus es la factura?</h2>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            {activeProject?.nombre
+              ? <>Tienes puesta <strong>{activeProject.nombre}</strong>. Una factura sale de un campus concreto, porque la serie y el número son suyos.</>
+              : <>Una factura sale de un campus concreto, porque la serie y el número son suyos.</>}
+          </p>
+          {projectOptions.length > 0 ? (
+            <select
+              autoFocus
+              value=""
+              onChange={(e) => setProjectId(Number(e.target.value))}
+              className="mt-3 h-10 w-full rounded-md border border-border bg-background px-2 text-sm"
+            >
+              <option value="" disabled>Elige el campus…</option>
+              {projectOptions.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          ) : (
+            <p className="mt-3 text-[13px] text-muted-foreground">
+              No hay campus disponibles para facturar con esta empresa.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const TIPOS: { key: Tipo; label: string; desc: string; icon: any }[] = [
     { key: 'persona', label: 'Persona física', desc: 'Cliente individual con DNI', icon: User },

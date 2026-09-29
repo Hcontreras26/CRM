@@ -7,7 +7,8 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
-import { CurrencyEur, ArrowRight, Receipt, CheckCircle, Plus, GraduationCap } from '@phosphor-icons/react';
+import { CurrencyEur, ArrowRight, Receipt, CheckCircle, Plus, GraduationCap, CaretDown, User, Users, Robot } from '@phosphor-icons/react';
+import usePermission from '@/shared/hooks/usePermission';
 import { formatDate } from '@/shared/lib/format';
 // Las metas son mensuales: el mes que toque segun el filtro de fechas. Misma
 // funcion que usa SalesPage, para que las dos pantallas digan el mismo mes.
@@ -73,7 +74,7 @@ function Tipo({ tipo, compartida }: { tipo: string; compartida?: boolean }) {
         className={`${base} bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300`}
         title="Venta repartida entre dos gestoras. Cada una suma su parte."
       >
-        A MEDIAS
+        COMPARTIDO
       </span>
     </span>
   );
@@ -95,6 +96,21 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registerOpen, setRegisterOpen] = useState(false);
+  // LOS TRES TIPOS DE VENTA, en el boton.
+  //
+  // Van AQUI y no solo en /ventas: esta es la pantalla que se usa --Finanzas >
+  // Ventas--, y son dos componentes distintos con el mismo nombre. Ponerlo solo
+  // en el otro fue como no ponerlo.
+  const { can } = usePermission();
+  const puedeSinGestora = can('conversions.sin_gestora');
+  const puedeDeOtra = can('leads.assign') || can('leads.reassign');
+  const [modoVenta, setModoVenta] = useState<'existing' | 'otra_gestora' | 'sin_gestora'>('existing');
+  const [menuVenta, setMenuVenta] = useState(false);
+  function abrirVenta(modo: 'existing' | 'otra_gestora' | 'sin_gestora') {
+    setModoVenta(modo);
+    setMenuVenta(false);
+    setRegisterOpen(true);
+  }
   const [tutorialesOpen, setTutorialesOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [viewUserId, setViewUserId] = useState('all');
@@ -223,7 +239,10 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         clave: `venta-${r.id}`, tipo: 'venta', fecha: r.fecha_conversion || r.fecha_compra, fecha_de_la_venta: r.fecha_conversion,
         lead_id: r.lead_id, venta_id: r.id, cliente: r.lead_nombre, producto: r.producto_contratado,
         total: r.importe_total, pagado: r.importe_pagado, factura: null, factura_no_requerida: false,
-        compartida: false,
+        // Estaba a false a mano: sin fechas puestas, una venta repartida entre
+        // dos gestoras salia como cualquier otra y parecia que el reparto no se
+        // habia guardado. Con fechas si se veia, porque /filas si lo trae.
+        compartida: Boolean(r.compartida),
         estado: estadoDe(r.importe_total, r.importe_pagado),
       }));
   const totalLista = conFechas ? totalFilas : total;
@@ -260,16 +279,72 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         >
           Análisis
         </button>
-        {activeProject?.id && (
+        {activeProject?.id && ((puedeSinGestora || puedeDeOtra) ? (
+          <div className="relative self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setMenuVenta((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menuVenta}
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90"
+            >
+              <Plus size={14} weight="bold" />
+              Nueva venta
+              <CaretDown size={12} weight="bold" className={menuVenta ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            </button>
+            {menuVenta && (
+              <>
+                {/* Pulsar fuera lo cierra. */}
+                <div className="fixed inset-0 z-10" onClick={() => setMenuVenta(false)} aria-hidden="true" />
+                <div role="menu" className="absolute right-0 z-20 mt-1 w-72 overflow-hidden rounded-md border border-border bg-card shadow-lg">
+                  <button
+                    type="button" role="menuitem" onClick={() => abrirVenta('existing')}
+                    className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted"
+                  >
+                    <User size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                    <span>
+                      <span className="block text-sm font-semibold">Venta propia</span>
+                      <span className="block text-[11px] text-muted-foreground">La registras tú y cuenta para ti.</span>
+                    </span>
+                  </button>
+                  {puedeDeOtra && (
+                    <button
+                      type="button" role="menuitem" onClick={() => abrirVenta('otra_gestora')}
+                      className="flex w-full items-start gap-2.5 border-t border-border px-3 py-2.5 text-left hover:bg-muted"
+                    >
+                      <Users size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        <span className="block text-sm font-semibold">Venta de otra gestora</span>
+                        <span className="block text-[11px] text-muted-foreground">Eliges el prospecto y la venta queda de quien lo lleva.</span>
+                      </span>
+                    </button>
+                  )}
+                  {puedeSinGestora && (
+                    <button
+                      type="button" role="menuitem" onClick={() => abrirVenta('sin_gestora')}
+                      className="flex w-full items-start gap-2.5 border-t border-border px-3 py-2.5 text-left hover:bg-muted"
+                    >
+                      <Robot size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        <span className="block text-sm font-semibold">Venta automática (sin gestora)</span>
+                        <span className="block text-[11px] text-muted-foreground">La registra la plataforma, de cero: no cuenta para ninguna gestora.</span>
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
           <button
             type="button"
-            onClick={() => setRegisterOpen(true)}
+            onClick={() => abrirVenta('existing')}
             className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 self-start sm:self-auto"
           >
             <Plus size={14} weight="bold" />
             Nueva venta
           </button>
-        )}
+        ))}
         </div>
       </div>
 
@@ -280,6 +355,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       <Suspense fallback={null}>
         <RegisterSaleDialog
           open={registerOpen}
+          modoInicial={modoVenta}
           project={activeProject}
           onClose={() => setRegisterOpen(false)}
           onSaved={() => setReloadKey((k) => k + 1)}

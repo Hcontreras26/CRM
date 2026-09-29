@@ -334,7 +334,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
       }
       if (inv) {
         if (inv.estado === 'borrador' || invoiceFaltantes(inv).length > 0) { setEmitInv(inv); return; }
-        toast({ title: `✓ Factura ${inv.codigo}`, description: 'Emitida automáticamente al registrar el pago.' });
+        toast({ title: `✓ Factura ${inv.codigo}`, description: 'Esta venta ya tenía factura emitida.' });
         invoicesApi.openPdf(inv.id).catch((e: unknown) => toast({ title: 'No se pudo abrir el PDF', description: (e as { message?: string })?.message, variant: 'destructive' }));
         finishAndClose();
         return;
@@ -489,6 +489,12 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
           El interruptor se queda para lo otro que gatea --el borrador de
           `InvoiceButton`--, que eso si sigue siendo distinto entre entornos.
         */
+        toast({
+          title: '✓ Conversión creada',
+          description: pagoMode !== 'none'
+            ? 'El cobro está en la cola de facturación. Entra en Facturación para emitir la factura y ponerle número.'
+            : 'Sin cobro registrado, así que no hay nada que facturar todavía.',
+        });
         setCreated(res.data);
         setDocPhase('choose');
       }
@@ -526,10 +532,30 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
               </div>
               <div>
                 <h3 className="font-semibold text-base">Venta registrada</h3>
-                <p className="text-sm text-muted-foreground mt-1">
+                {/* EL AVISO DE LA COLA, AQUI Y EN GRANDE.
+
+                    Iba en un toast que se va solo y Diego no lo vio: «le di a
+                    convertir y no me salio en grande». Con el freno del 14/09 la
+                    factura ya NO sale sola, asi que si esto no se lee, la gestora
+                    se queda esperando una factura que nadie va a emitir.
+
+                    No sale para quien numera aqui mismo --CEDIA e ICTESS--:
+                    esos no dependen de la cola, le ponen el numero y emiten. */}
+                {pagoMode !== 'none' && !numeraAqui && (
+                  <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left dark:border-amber-900/50 dark:bg-amber-950/30">
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                      La factura no se emite sola
+                    </p>
+                    <p className="mt-0.5 text-[13px] leading-snug text-amber-800 dark:text-amber-300">
+                      El cobro está en la <b>cola de facturación</b>. Para emitir la factura y
+                      {' '}ponerle número, entra en <b>Finanzas → Facturación</b>.
+                    </p>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground mt-3">
                   {numeraAqui
-                    ? '¿Le pones ya el número de factura, o la mandas a la cola de facturación?'
-                    : 'Ya está en la cola de facturación. La factura se emite desde allí, a mano.'}
+                    ? '¿Le pones ya el número de factura, o la dejas en la cola de facturación?'
+                    : '¿Generar un documento para el cliente y descargar el PDF?'}
                 </p>
               </div>
 
@@ -553,14 +579,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                     contacta con soporte; y si hace falta, genera la factura manualmente y avisa.
                   </p>
                 </div>
-              ) : (
-                <div className="text-left rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20 p-3">
-                  <p className="text-xs text-amber-800 dark:text-amber-300">
-                    <b>La factura no se emite sola.</b> El cobro entra en la <b>cola de facturación</b> y
-                    alguien la emite desde <b>Finanzas › Facturación</b>, poniendo el número a mano.
-                  </p>
-                </div>
-              )}
+              ) : null}
 
               {/* EL TIPO LO DECIDE COMO SE REGISTRO LA VENTA, no quien pulsa.
 
@@ -852,8 +871,9 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 />
               </div>
               <div>
-                {/* Diego: «la fecha de conversion seria fecha de pago». Es cuando entro el
-                    dinero, que es la fecha que usan los informes. */}
+                {/* Diego, 14/09: «en conversion la fecha de conversion seria fecha de
+                    pago». Es la fecha en la que entro el dinero, que es la que
+                    usan los informes y la que decide de que mes es la venta. */}
                 <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha de pago</label>
                 <input type="date" value={form.fecha_conversion} onChange={e => update('fecha_conversion', e.target.value)} className={inputClass} />
               </div>

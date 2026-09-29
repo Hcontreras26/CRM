@@ -93,7 +93,7 @@ export const SYSTEM_ROLE_DEFAULTS = {
 
 export const ALL_RESOURCES = {
   leads:            ['view', 'create', 'edit', 'delete', 'export', 'assign', 'bulk_action'],
-  conversions:      ['view', 'create', 'edit', 'delete'],
+  conversions:      ['view', 'create', 'edit', 'delete', 'sin_gestora'],
   products:         ['view', 'create', 'edit', 'delete'],
   clients:          ['view', 'create', 'edit', 'delete', 'export'],
   dossiers:         ['view', 'upload', 'delete'],

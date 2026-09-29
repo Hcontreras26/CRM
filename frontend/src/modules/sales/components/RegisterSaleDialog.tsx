@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Receipt, X, MagnifyingGlass, UserCheck, UserPlus, UserMinus } from '@phosphor-icons/react';
 import usePermission from '@/shared/hooks/usePermission';
+import { lazy, Suspense, useRef } from 'react';
+import { invoicesApi } from '@/modules/invoices/api/invoices.api';
+const FiscalDataDialog = lazy(() => import('@/modules/invoices/components/FiscalDataDialog'));
+import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 import Portal from '@/shared/components/ui/portal';
@@ -48,6 +52,11 @@ const PAYMENT_METHODS = [
  */
 type Mode = 'existing' | 'new' | 'sin_gestora' | 'otra_gestora';
 
+/** Para comparar lo que se escribe con lo que hay: sin tildes y en minusculas. */
+function sinTildes(s: string) {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
 export default function RegisterSaleDialog({ open, onClose, project, onSaved, modoInicial }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const { can } = usePermission();
@@ -56,6 +65,40 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
   // el panel de permisos, que es lo que permite quitarlas o anadir a otra sin
   // un despliegue de por medio.
   const puedeSinGestora = can('conversions.sin_gestora');
+  // EL CAMPUS, CUANDO SE ENTRA CON UNA EMPRESA PUESTA.
+  //
+  // Diego, 25/09: «como voy a registrar una venta de una empresa y me sale
+  // esto, no puede pasar». Con CEDIA elegida `activeProject.id` es -1, y antes
+  // el boton salia apagado con un «selecciona un proyecto concreto»: te
+  // mandaba a cambiar el selector de la barra lateral y volver.
+  //
+  // Una venta ES de un campus --la matricula, la factura y la serie son suyas--
+  // asi que hay que saber cual. Pero eso se pregunta AQUI, en una linea, no
+  // cerrando la puerta.
+  const campusDelAmbito = useProyectosDelAmbito<{ id: number; nombre: string }>();
+  const [campus, setCampus] = useState<number | null>(null);
+  const pid = project?.id && project.id !== -1 ? project.id : campus;
+  const hayQueElegirCampus = !(project?.id && project.id !== -1);
+
+  // EL NUMERO DE FACTURA, AQUI MISMO.
+  //
+  // Diego, 25/09: «falta anadir que se puedan poner el numero de factura como
+  // en los demas». «Los demas» es el dialogo de convertir un prospecto, que
+  // desde el 15/09 pregunta el numero y emite. Registrar la venta desde
+  // Finanzas te dejaba sin esa opcion: la venta caia en la cola y habia que ir
+  // a Facturacion a buscarla.
+  //
+  // Se reusa la MISMA cadena --el siguiente numero del servidor y
+  // FiscalDataDialog para emitir-- y no se escribe otra numeracion. Una segunda
+  // via de numerar es una segunda via de dejar huecos en la serie.
+  const [numeraAqui, setNumeraAqui] = useState(false);
+  const numeraAquiRef = useRef(false);
+  const [numero, setNumero] = useState('');
+  const [sugerido, setSugerido] = useState('');
+  // La venta recien creada, mientras se decide si se le pone documento.
+  const [creada, setCreada] = useState<{ sale_id: number; lead_id: number } | null>(null);
+  const [emitir, setEmitir] = useState<'factura' | 'proforma' | null>(null);
+
   const [mode, setMode] = useState<Mode>(modoInicial || 'existing');
 
   // Cliente nuevo
@@ -105,23 +148,65 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
     setFecha(today); setNotas('');
   }, [open, today]);
 
+  // Si esta empresa numera al registrar, y cual seria el siguiente libre. Se
+  // pregunta con el campus ya sabido: sin campus no hay serie.
+  useEffect(() => {
+    if (!open || !pid) { setNumeraAqui(false); return; }
+    let vivo = true;
+    invoicesApi.getConfig(pid)
+      .then((r: any) => {
+        if (!vivo) return;
+        const numera = Boolean(r?.success && r.data?.numera_al_convertir);
+        setNumeraAqui(numera);
+        numeraAquiRef.current = numera;
+        // Solo se rellena solo a quien numera al registrar. A los demas se les
+        // deja vacio: vacio = a la cola, que es como funcionan hoy.
+        if (numera) {
+          setNumero((n) => n || '');
+        }
+      })
+      .catch(() => { if (vivo) setNumeraAqui(false); });
+    client.get<{ siguiente: number }>('/invoices/siguiente-numero?projectId=' + pid)
+      .then((r: any) => {
+        if (!vivo || !r?.success) return;
+        setSugerido(String(r.data.siguiente));
+        // Con numeracion al registrar se deja puesto el siguiente libre; si no,
+        // solo se ensena como pista.
+        setNumero((n) => (n ? n : (numeraAquiRef.current ? String(r.data.siguiente) : '')));
+      })
+      .catch(() => { /* se escribe a mano */ });
+    return () => { vivo = false; };
+  }, [open, pid]);
+
+  // SI LA BUSQUEDA DEJA UNA SOLA, SE ELIGE SOLA.
+  //
+  // Es lo que la gente espera al escribir el nombre entero: Ana escribio
+  // «Curso de Escritura Terapéutica y Narrativa», que solo casa con una, y aun
+  // asi el desplegable seguia en «— Selecciona —» y la venta no se dejaba
+  // registrar.
+  useEffect(() => {
+    if (!productSearch.trim()) return;
+    const hay = products.filter((p) => sinTildes(p.nombre).includes(sinTildes(productSearch)));
+    if (hay.length === 1 && productoId !== hay[0].id) setProductoId(hay[0].id);
+  }, [productSearch, products]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   // Productos del proyecto
   useEffect(() => {
-    if (!open || !project?.id) return;
-    client.get<Product[]>('/products', { params: { projectId: project.id, limit: 500 } })
+    if (!open || !pid) return;
+    client.get<Product[]>('/products', { params: { projectId: pid, limit: 500 } })
       .then((r) => setProducts(Array.isArray(r?.data) ? r.data : []))
       .catch(() => setProducts([]));
-  }, [open, project?.id]);
+  }, [open, pid]);
 
   // Búsqueda debounced de clientes existentes (leads convertidos del proyecto)
   useEffect(() => {
-    if ((mode !== 'existing' && mode !== 'otra_gestora') || !open || !project?.id) return;
+    if ((mode !== 'existing' && mode !== 'otra_gestora') || !open || !pid) return;
     if (clientSearch.trim().length < 2) { setClientResults([]); return; }
     const handle = setTimeout(() => {
       setSearching(true);
       client.get<LeadLite[]>('/leads', {
         params: {
-          projectId: project.id,
+          projectId: pid,
           // En «de otra gestora» se busca entre TODOS: es un prospecto al que
           // se le registra la venta, no un cliente que ya compro.
           ...(mode === 'existing' ? { status: 'convertido' } : {}),
@@ -133,7 +218,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
         .finally(() => setSearching(false));
     }, 250);
     return () => clearTimeout(handle);
-  }, [mode, open, project?.id, clientSearch]);
+  }, [mode, open, pid, clientSearch]);
 
   const productoSel = products.find((p) => p.id === productoId);
   useEffect(() => {
@@ -181,8 +266,10 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
 
   if (!open) return null;
 
+  // Sin tildes y sin mayusculas: «terapeutica» tiene que encontrar
+  // «Terapéutica». Nadie escribe las tildes en un buscador.
   const productosFiltrados = productSearch.trim()
-    ? products.filter((p) => p.nombre.toLowerCase().includes(productSearch.toLowerCase()))
+    ? products.filter((p) => sinTildes(p.nombre).includes(sinTildes(productSearch)))
     : products;
   const isRetroactiva = fecha < today;
 
@@ -200,7 +287,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
   }
 
   async function handleSave() {
-    if (!project?.id) { toast({ title: 'Selecciona un proyecto', variant: 'destructive' }); return; }
+    if (!pid) { toast({ title: 'Elige el campus', description: 'Una venta es de un campus concreto.', variant: 'destructive' }); return; }
     if ((mode === 'existing' || mode === 'otra_gestora') && !selectedClient) {
       toast({ title: 'Selecciona un cliente', description: 'Búscalo por nombre, email o teléfono.', variant: 'destructive' }); return;
     }
@@ -248,7 +335,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
-        project_id: project.id,
+        project_id: pid,
         producto_interes_id: productoId,
         importe_total: totalNum,
         importe_pagado: pagadoNum,
@@ -290,13 +377,50 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
         : (data.retroactiva ? `Venta histórica registrada (${fecha})${data.duplicado ? ' — sobre cliente existente' : ''}` : `Venta registrada${data.duplicado ? ' — sobre cliente existente' : ''}`);
       toast({ title: 'Venta creada', description: desc });
       onSaved?.(data);
-      onClose();
+      // Con numeracion al registrar, la venta no se cierra todavia: se ofrece
+      // ponerle el numero y emitir. Sin ella, como siempre — el cobro se queda
+      // en la cola de facturacion, que es el freno del 14/09.
+      // Con numero escrito se emite ya, sin preguntar otra vez: el numero se
+      // puso arriba a proposito. Vacio = se deja en la cola de facturacion.
+      if (numero.trim()) {
+        const sinCobro = Number(pagadoNum) <= 0;
+        setCreada({ sale_id: data.sale_id, lead_id: data.lead_id });
+        setEmitir(sinCobro ? 'proforma' : 'factura');
+      } else {
+        onClose();
+      }
     } catch (err: unknown) {
       const e = err as { data?: { error?: string }; message?: string };
       toast({ title: 'Error', description: e?.data?.error || e?.message || 'No se pudo registrar', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
+  }
+
+  // Emitiendo: el mismo dialogo fiscal que usa la conversion, con su numero.
+  if (emitir && creada && pid) {
+    return (
+      <Suspense fallback={null}>
+        <FiscalDataDialog
+          projectId={pid}
+          leadId={creada.lead_id}
+          conversionId={creada.sale_id}
+          docTipo={emitir}
+          numero={numero ? Number(numero) : null}
+          defaultItems={[{
+            descripcion: products.find((p) => p.id === productoId)?.nombre || 'Servicio',
+            cantidad: 1,
+            precio_unitario: Number(importeTotal) || 0,
+          }]}
+          defaultNotas={notas.trim() || undefined}
+          onClose={() => { setEmitir(null); setCreada(null); onClose(); }}
+          onCreated={(id: number) => {
+            invoicesApi.openPdf(id).catch(() => {});
+            setEmitir(null); setCreada(null); onClose();
+          }}
+        />
+      </Suspense>
+    );
   }
 
   return (
@@ -318,6 +442,27 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
           </div>
 
           <div className="p-5 space-y-4 overflow-y-auto">
+            {/* DE QUE CAMPUS. Solo sale cuando hace falta: con un campus ya
+                elegido en la barra lateral, preguntarlo otra vez sobra. */}
+            {hayQueElegirCampus && (
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
+                  Campus de la venta *
+                </label>
+                <select
+                  value={campus ?? ''}
+                  onChange={(e) => setCampus(e.target.value ? Number(e.target.value) : null)}
+                  className="h-10 w-full rounded-md border border-border bg-card px-2 text-sm"
+                >
+                  <option value="">Elige el campus…</option>
+                  {campusDelAmbito.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  La venta es de un campus: de ahí salen su matrícula y su factura.
+                </p>
+              </div>
+            )}
+
             {/* Cliente existente o nuevo. Solo en la venta propia: en los
                 otros modos ya lo dijo el desplegable del boton. */}
             {(mode === 'existing' || mode === 'new') && (
@@ -548,6 +693,44 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                 />
               </div>
               <p className="text-[11px] text-muted-foreground">Para emitir factura. Si no los tienes, déjalos vacíos.</p>
+
+              {/* EL NUMERO DE FACTURA, AQUI.
+                  Diego, 25/09: «no veo donde poner la factura aqui la
+                  enumeracion al registrar la venta». Solo sale si la empresa
+                  numera al registrar --CEDIA e ICTESS lo tienen puesto--; el
+                  resto sigue con el cobro en la cola, que es el freno del
+                  14/09. */}
+              {(
+                <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+                  {/* Etiqueta y campo por separado, como el resto de formularios (#106). */}
+                  <label htmlFor="venta-numero-factura" className="mb-1.5 block px-1 text-secundario text-muted-foreground">Número de factura</label>
+                  <input
+                    id="venta-numero-factura"
+                    type="number" min="1" value={numero}
+                    disabled={!pid}
+                    onChange={(e) => setNumero(e.target.value)}
+                    placeholder={pid ? (sugerido || 'automático') : 'elige antes el campus'}
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm tabular-nums disabled:opacity-60"
+                  />
+                  {!pid ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      La serie y el número son del campus, así que hace falta elegirlo antes.
+                    </p>
+                  ) : sugerido ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      El siguiente libre es el <b className="tabular-nums">{sugerido}</b>. Puedes poner ese u otro.
+                      Si lo dejas vacío, la venta se queda en la cola de facturación.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Si lo dejas vacío, la venta se queda en la cola de facturación.
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+                    Comprueba la numeración en el Excel de facturación antes de emitir.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Producto + importes (común a ambos modos) */}
@@ -564,6 +747,21 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                     <option key={p.id} value={p.id}>{p.nombre}{p.precio ? ` (${p.precio} ${p.moneda || ''})` : ''}</option>
                   ))}
                 </select>
+                {/* Que se sepa siempre en que punto esta: la caja de arriba
+                    solo filtra, y sin esto un desplegable vacio no dice si no
+                    hay formaciones, si no casa la busqueda, o si falta elegir
+                    el campus. */}
+                <p className="mt-1 px-1 text-[11px] text-muted-foreground">
+                  {!pid
+                    ? 'Elige antes el campus: las formaciones son suyas.'
+                    : products.length === 0
+                      ? 'Cargando las formaciones…'
+                      : productosFiltrados.length === 0
+                        ? <span className="text-amber-700 dark:text-amber-300">No hay ninguna formación con ese texto. Prueba con menos palabras.</span>
+                        : productoId
+                          ? 'Formación elegida.'
+                          : `${productosFiltrados.length} formación${productosFiltrados.length === 1 ? '' : 'es'} — elige una en la lista de arriba.`}
+                </p>
               </div>
 
               <FilaCampos>

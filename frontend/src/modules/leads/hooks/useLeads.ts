@@ -461,7 +461,7 @@ export function useLeadDetail(id: number | string | null | undefined): UseLeadDe
     if (!id) { setPasosDelProceso([]); return; }
     let vivo = true;
     client.get(`/proceso/lead/${id}`)
-      .then((r: any) => { if (vivo) setPasosDelProceso(r?.success ? (r.data || []) : []); })
+      .then((r: any) => { if (vivo) setPasosDelProceso(r?.success && Array.isArray(r.data) ? r.data : []); })
       // Sin proceso montado no hay pasos que contar, y eso no es un error.
       .catch(() => { if (vivo) setPasosDelProceso([]); });
     return () => { vivo = false; };

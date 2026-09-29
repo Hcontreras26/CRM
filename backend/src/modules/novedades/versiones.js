@@ -115,7 +115,7 @@ export const VERSIONES = [
         "items": [
           {
             "titulo": "El correo y la encuesta",
-            "texto": "Cuando alguien pasa a «No interesado» le llega un correo con la marca de su campus y un enlace a una encuesta corta de seis preguntas. Solo llega una vez por persona. Lo que conteste queda en su ficha, pregunta a pregunta, y su gestora recibe un aviso.",
+            "texto": "Cuando alguien pasa a «No interesado» le llega un correo con la marca de su campus y un enlace a una encuesta corta de seis preguntas. También a quien, 7 días después de su primer contacto, no ha comprado (cuenta desde el 29/09). Solo llega una vez por persona. Si pone Regular, Mal o Muy mal a la atención se le pide un comentario, y al final puede dejar los suyos. Lo que conteste queda en su ficha, pregunta a pregunta, y su gestora recibe un aviso.",
             "roles": [
               "gestor",
               "admin",
@@ -146,7 +146,7 @@ export const VERSIONES = [
           },
           {
             "titulo": "Panel de Feedback",
-            "texto": "En Análisis → Feedback: cuántos correos salieron, cuántos contestaron, los motivos que más se repiten, la nota media de atención de cada gestora y lo que escribieron en «Otro». En «Mes a mes», cada cifra abre la lista de personas.",
+            "texto": "En Análisis → Feedback: cuántos correos salieron, cuántos contestaron, los motivos que más se repiten, la nota media de atención de cada gestora y todo lo que escribieron: en «Otro», el porqué de una nota baja y sus comentarios. En «Mes a mes», cada cifra abre la lista de personas.",
             "roles": [
               "admin",
               "superadmin"
@@ -357,7 +357,7 @@ export const VERSIONES = [
           },
           {
             "titulo": "«Avisar tutor»",
-            "texto": "En Comisiones de tutores, un botón manda al tutor el correo del mes con sus formaciones y la cuenta hecha (comisión, IVA, retención y total), con forma de factura. Se puede retocar antes de mandarlo. Sale del buzón de facturación, queda en «Enviados» y la respuesta del tutor se ve en el CRM.",
+            "texto": "En Comisiones de tutores, un botón prepara el correo del mes para el tutor con sus formaciones y la cuenta hecha (comisión, IVA, retención y total), con forma de factura, y se puede retocar. De momento solo la vista previa: el envío a los tutores sigue en pausa hasta que se active.",
             "roles": [
               "admin",
               "superadmin"
@@ -402,7 +402,7 @@ export const VERSIONES = [
           },
           {
             "titulo": "Conectores",
-            "texto": "Pantalla nueva en Captación: el CRM va a buscar datos que ya están en otra web, por ejemplo los cursos de la tienda. Se prueba la conexión, se ve qué dato va a cada campo y se importa.",
+            "texto": "Pantalla nueva en Captación. «Nuevo conector» pregunta primero cuál: Claude (MCP) da una URL para pegar en Claude y preguntarle por prospectos, ventas, facturas o informes, solo consulta; los demás traen datos de otra web, por ejemplo los cursos de una tienda. Cada conector puede ser de un campus, de una empresa entera o, para super admin, de todo el sistema.",
             "roles": [
               "admin",
               "superadmin"

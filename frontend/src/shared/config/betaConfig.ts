@@ -40,6 +40,9 @@ export const BETA_ROUTES: readonly string[] = [
   '/perfil',                // Perfil
   '/configuracion',               // Ajustes (gestión de usuarios, proyectos, etc.)
   '/conexion',               // Conexión: MCP de Claude (solo consulta)
+  '/novedades',              // Lo nuevo de cada versión (2.0.0): su aviso y su correo llevan aquí
+  '/correos',                // La bandeja del CRM (#146), anunciada en la 2.0.0
+  '/registro',               // El registro de tareas, anunciado en la 2.0.0
   '/set-password',           // Flujo de bienvenida
 ];
 

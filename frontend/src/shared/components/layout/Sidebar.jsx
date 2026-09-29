@@ -275,6 +275,7 @@ const NAV_SECTIONS = [
   // puede. Es la misma regla que el servidor (`puedeUsarMcp` en mcp.acceso.js).
   {
     label: 'Conexión',
+    icon: PlugsConnected,
     items: [
       { label: 'MCP', to: '/conexion/mcp', icon: Robot, accesoMcp: true },
     ],

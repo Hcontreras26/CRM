@@ -68,6 +68,33 @@ export async function createSale(data, requestUser) {
       throw err;
     }
     leadId = leadResult.lead_id;
+
+    // UNA VENTA DEL PASADO CON CLIENTE NUEVO: la ficha entra el dia de la venta.
+    //
+    // Ana, 28/09: registrar la venta del 22/09 de una clienta nueva daba «la
+    // fecha de la venta es anterior a la fecha de entrada del prospecto». Y no
+    // habia forma de pasar: la ficha la crea ESTE MISMO alta, asi que nace hoy,
+    // y una venta de antes de hoy siempre quedaba antes. Pasaba con «cliente
+    // nuevo» y con «sin gestora», es decir, con toda venta historica de alguien
+    // que no estaba ya en el CRM.
+    //
+    // Si alguien compro el dia 22, existia el dia 22: la entrada se lleva a la
+    // fecha de la venta. SOLO para la ficha que acaba de crear este alta --los
+    // ultimos minutos--, y solo hacia atras. A una ficha que ya estaba no se le
+    // toca la fecha: ahi el control sigue en pie, porque si la venta cae antes
+    // de su entrada puede ser la fecha de la venta la que esta mal.
+    //
+    // A mediodia y no a medianoche, para que ningun cambio de zona horaria la
+    // empuje al dia de antes.
+    if (isRetroactive) {
+      await query(
+        `UPDATE leads SET fecha_solicitud = ($2::date + interval '12 hours'), updated_at = NOW()
+          WHERE id = $1
+            AND created_at > NOW() - interval '10 minutes'
+            AND COALESCE(fecha_solicitud, created_at)::date > $2::date`,
+        [leadId, data.fecha_pago],
+      );
+    }
   }
 
   // 2) Cambiar status a convertido (si ya estaba convertido, no falla)
@@ -319,7 +346,11 @@ function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, 
   else cond.push(SIN_PRUEBAS('cv.project_id'));
   if (from) { cond.push(`cv.fecha_conversion >= $${idx++}`); params.push(from); }
   if (to) { cond.push(`cv.fecha_conversion <= $${idx++}`); params.push(to); }
-  if (responsableId) { cond.push(`${VENDEDORA} = $${idx++}`); params.push(responsableId); }
+  if (responsableId) {
+    cond.push(`EXISTS (SELECT 1 FROM conversion_reparto r
+                        WHERE r.conversion_id = cv.id AND r.vendedora_id = $${idx++})`);
+    params.push(responsableId);
+  }
   // Recortado, igual que en leads: un espacio pegado al nombre vaciaba la lista.
   const termino = typeof search === 'string' ? search.trim() : '';
   if (termino) {
@@ -341,6 +372,21 @@ function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, 
 // Lo cobrado de una venta, sumando sus apuntes. NO se usa cv.importe_pagado:
 // ese campo declara 213.680 EUR de mas en ISEIE y hacia que la pantalla
 // enseñara un cobrado que los cobros no respaldan.
+// La parte que le toca a UNA gestora.
+//
+// Mirando lo de una sola, la venta atendida entre dos no es suya entera: es
+// mitad y mitad. Sin esto su lista enseñaba el importe completo mientras su
+// contador contaba media venta, y los numeros no cuadraban entre si.
+function pesoDe(responsableId, params, idx) {
+  if (!responsableId) return { PESO: '1', idx };
+  params.push(Number(responsableId));
+  return {
+    PESO: `COALESCE((SELECT r.peso FROM conversion_reparto r
+                      WHERE r.conversion_id = cv.id AND r.vendedora_id = $${idx}), 1)`,
+    idx: idx + 1,
+  };
+}
+
 const COBRADO_REAL = `(SELECT COALESCE(SUM(cp.importe), 0)
                          FROM conversion_payments cp WHERE cp.conversion_id = cv.id)`;
 
@@ -365,20 +411,21 @@ const COBRADO_CUOTAS = `(SELECT COALESCE(SUM(cp.importe), 0)
 
 // Resumen consolidado que acompana a la vista general de Ventas.
 export async function getResumenVentas(filtros = {}) {
-  const { where, params } = filtrosVentas(filtros);
+  const { where, params, idx } = filtrosVentas(filtros);
+  const { PESO } = pesoDe(filtros.responsableId, params, idx);
   const { rows } = await query(
     `SELECT COUNT(*)::int AS ventas,
             COUNT(DISTINCT cv.lead_id)::int AS clientes,
             COUNT(DISTINCT ${VENDEDORA})::int AS asesoras,
-            COALESCE(SUM(cv.importe_total), 0) AS importe,
-            COALESCE(SUM(${COBRADO_REAL}), 0) AS cobrado,
-            COALESCE(SUM(${COBRADO_MATRICULA}), 0) AS cobrado_matricula,
-            COALESCE(SUM(${COBRADO_CUOTAS}), 0) AS cobrado_cuotas,
+            COALESCE(SUM(cv.importe_total * ${PESO}), 0) AS importe,
+            COALESCE(SUM(${COBRADO_REAL} * ${PESO}), 0) AS cobrado,
+            COALESCE(SUM(${COBRADO_MATRICULA} * ${PESO}), 0) AS cobrado_matricula,
+            COALESCE(SUM(${COBRADO_CUOTAS} * ${PESO}), 0) AS cobrado_cuotas,
             COUNT(*) FILTER (WHERE ${COBRADO_CUOTAS} > 0)::int AS ventas_con_cuotas,
-            COALESCE(SUM(cv.importe_total - ${COBRADO_REAL}), 0) AS pendiente,
+            COALESCE(SUM((cv.importe_total - ${COBRADO_REAL}) * ${PESO}), 0) AS pendiente,
             COUNT(*) FILTER (WHERE ${COBRADO_REAL} >= cv.importe_total)::int AS liquidadas,
             COUNT(*) FILTER (WHERE ${COBRADO_REAL} <  cv.importe_total)::int AS con_saldo,
-            COALESCE(AVG(cv.importe_total), 0) AS ticket_medio
+            COALESCE(AVG(cv.importe_total * ${PESO}), 0) AS ticket_medio
        FROM conversions cv
        LEFT JOIN leads l ON l.id = cv.lead_id
        ${where}`,
@@ -463,15 +510,23 @@ export async function getVentasPorAsesora(filtros = {}) {
 export async function getVentasPorCliente(filtros = {}) {
   const page = Math.max(1, parseInt(filtros.page) || 1);
   const limit = Math.min(200, Math.max(1, parseInt(filtros.limit) || 50));
-  const { where, params, idx } = filtrosVentas(filtros);
+  const { where, params, idx: idx0 } = filtrosVentas(filtros);
+  const { PESO, idx } = pesoDe(filtros.responsableId, params, idx0);
 
   // Las ventas del filtro se aislan en una CTE para poder contar sus cuotas
   // por cliente sin meter agregados dentro de subconsultas.
   const CTE = `WITH v AS (
-      SELECT cv.id, cv.lead_id, cv.importe_total, cv.fecha_conversion,
-             ${COBRADO_REAL} AS importe_pagado,
+      SELECT cv.id, cv.lead_id, ROUND(cv.importe_total * ${PESO}, 2) AS importe_total,
+             cv.fecha_conversion,
+             ROUND(${COBRADO_REAL} * ${PESO}, 2) AS importe_pagado,
              l.nombre AS cliente, l.email, l.telefono,
-             u.nombre AS asesora
+             EXISTS (SELECT 1 FROM conversion_vendedoras xv
+                      WHERE xv.conversion_id = cv.id) AS compartida,
+             COALESCE(
+               (SELECT string_agg(u2.nombre, ' + ' ORDER BY u2.nombre)
+                  FROM conversion_vendedoras xv JOIN users u2 ON u2.id = xv.user_id
+                 WHERE xv.conversion_id = cv.id),
+               u.nombre) AS asesora
         FROM conversions cv
         LEFT JOIN leads l ON l.id = cv.lead_id
         LEFT JOIN users u ON u.id = COALESCE(cv.vendedora_id, l.responsable_id)
@@ -506,6 +561,7 @@ export async function getVentasPorCliente(filtros = {}) {
             COALESCE(MAX(cu.cuotas_pendientes), 0) AS cuotas_pendientes,
             COALESCE(MAX(cu.cuotas_vencidas), 0) AS cuotas_vencidas,
             COALESCE(MAX(cu.cuotas_importe_pendiente), 0) AS cuotas_importe_pendiente,
+            BOOL_OR(v.compartida) AS compartida,
             STRING_AGG(DISTINCT v.asesora, ', ') AS asesoras
        FROM v
        LEFT JOIN cu ON cu.lead_id = v.lead_id

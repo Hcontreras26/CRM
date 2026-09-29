@@ -279,9 +279,9 @@ export async function colaDelDia({
     ? `AND ls.project_id = ANY($${i++}::int[])`
     : 'AND ls.project_id NOT IN (SELECT id FROM projects WHERE es_prueba)';
   // `if (pProj)` era SIEMPRE cierto —es una cadena no vacia en las dos ramas—
-  // asi que con la lista vacia se empujaba un parametro de mas y la consulta
-  // reventaba con «bind message supplies 2 parameters, but requires 1». No
-  // salto antes porque el controlador siempre manda una lista con algo.
+  // asi que sin proyecto («Todos») se empujaba `null.map` y la cola reventaba
+  // con un 500; y con la lista vacia se empujaba un parametro de mas y la
+  // consulta reventaba con «bind message supplies 2 parameters, but requires 1».
   if (Array.isArray(projectIds) && projectIds.length) par.push(projectIds.map(Number));
   const pAses = asesoraId ? `AND l.responsable_id = $${i++}` : '';
   if (asesoraId) par.push(asesoraId);
@@ -411,9 +411,9 @@ export async function resumenDeLaCola({ projectIds, asesoraId }) {
     ? `AND ls.project_id = ANY($${i++}::int[])`
     : 'AND ls.project_id NOT IN (SELECT id FROM projects WHERE es_prueba)';
   // `if (pProj)` era SIEMPRE cierto —es una cadena no vacia en las dos ramas—
-  // asi que con la lista vacia se empujaba un parametro de mas y la consulta
-  // reventaba con «bind message supplies 2 parameters, but requires 1». No
-  // salto antes porque el controlador siempre manda una lista con algo.
+  // asi que sin proyecto («Todos») se empujaba `null.map` y la cola reventaba
+  // con un 500; y con la lista vacia se empujaba un parametro de mas y la
+  // consulta reventaba con «bind message supplies 2 parameters, but requires 1».
   if (Array.isArray(projectIds) && projectIds.length) par.push(projectIds.map(Number));
   const pAses = asesoraId ? `AND l.responsable_id = $${i++}` : '';
   if (asesoraId) par.push(asesoraId);

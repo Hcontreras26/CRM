@@ -421,10 +421,16 @@ export default function TutoresPage() {
         hasta: edicion.hasta || null,
       });
       if (!r.success) throw new Error(r.error || 'no se pudo');
+      toast({ title: 'Formación actualizada' });
       setEditando(null);
       if (elegido) cargarColabs(elegido);
     } catch (err) {
-      toast({ title: 'No se ha podido guardar', description: err instanceof Error ? err.message : '', variant: 'destructive' });
+      toast({
+        title: 'No se ha podido guardar',
+        // Lo que mas falla aqui es que el tramo pise otro del mismo curso.
+        description: (err instanceof Error && err.message) || 'Revisa las fechas: no pueden solaparse con otra del mismo curso.',
+        variant: 'destructive',
+      });
     } finally { setGuardando(false); }
   }
 
@@ -1124,7 +1130,6 @@ export default function TutoresPage() {
         </div>
       )}
 
-
       {/* Añadir formación */}
       {popupColab && elegido && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setPopupColab(false)}>
@@ -1152,6 +1157,7 @@ export default function TutoresPage() {
               valor={cursoColab}
               onElegir={setCursoColab}
               excluir={lasQueYaRigen(colabs)}
+              yaEstaFuera="«{nombre}» ya la tiene asignada y activa. Para cambiar el porcentaje o las fechas, edítala desde su tabla."
               autoFocus
             />
             <input type="hidden" name="productId" value={cursoColab ?? ''} />

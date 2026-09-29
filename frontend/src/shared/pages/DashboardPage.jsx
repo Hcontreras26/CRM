@@ -8,6 +8,7 @@ import ParaHoyYManana from '@/shared/components/dashboard/ParaHoyYManana';
 import { useStripeMonitor } from '@/modules/ia-dashboard/hooks/useStripeMonitor';
 
 const LeadDrawer = lazy(() => import('@/modules/leads/components/LeadDrawer'));
+import AvisoHuecosFacturas from '@/modules/invoices/components/AvisoHuecosFacturas';
 import {
   Users,
   Sparkle,
@@ -141,8 +142,15 @@ export default function DashboardPage() {
   const { stats, leadsRecientes, today, loading, error, refetch } = useDashboard();
   // Los mismos proyectos que mira el resto del dashboard (#130).
   const idsDelAmbito = useIdsDelAmbito();
-  // El proyecto de verdad, o nada. `-1` es el pseudo-proyecto «Todos» y
-  // mandarlo como identificador devolvia cero en todas las tarjetas.
+  /*
+    El proyecto de verdad, o nada. Con «Todos» o con una EMPRESA elegida
+    `activeProject.id` vale -1, el pseudo-proyecto de «todos», y mandarlo como
+    identificador devolvia cero en todas las tarjetas. Aqui se traduce: o un
+    campus de verdad, o ninguno y que la tarjeta pregunte por la sociedad entera.
+
+    Los numeros de arriba no necesitan esto: `useDashboard` ya suma los campus
+    del ambito por su cuenta.
+  */
   const proyectoReal = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
   const campusCsv = !proyectoReal && idsDelAmbito.length ? idsDelAmbito.join(',') : null;
   const [drawerLeadId, setDrawerLeadId] = useState(null);
@@ -208,10 +216,15 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        subtitle={`${todayDate} - ${activeIssuer
-          ? `${activeIssuer.nombre} (${activeIssuer.campus.length} campus)`
+        subtitle={`${todayDate} — ${activeIssuer
+          ? `${activeIssuer.nombre} · ${activeIssuer.campus.length} campus`
           : (activeProject?.nombre || 'Sin proyecto')}`}
       />
+
+      {/* Si falta algun numero en la serie de facturas, se avisa arriba del
+          todo: es lo que mira Hacienda y no puede quedarse escondido dentro
+          del formulario de crear una factura. */}
+      <AvisoHuecosFacturas projectId={proyectoReal} />
 
       {/* Como voy este mes: el puesto en ventas y la tasa de conversion.
           Diego, 22/09: «eres la gestora numero X de ventas». */}

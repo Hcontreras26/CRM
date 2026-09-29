@@ -1761,3 +1761,207 @@ round-robin del CRM: si se elige repartir, hay que decidir cuál de los dos mand
 entró. Un fallo aquí no se ve: se ve semanas después, en un informe que no
 cuadra. Va a `/testeo` y `/staging` primero, con los cargos reales de Stripe ya
 existentes como prueba, y no pasa a producción hasta que Diego lo mire.
+## Admisión: un apartado propio para sus correos · TAREA PARA DIEGO
+
+Diego, 28/09: «los correos de admisión irán en un nuevo apartado que diga
+**Admisión** y se guarde todo; luego se darán detalles».
+
+**Anotada, no empezada.** Faltan los detalles, que llegan después.
+
+### Lo que se sabe hoy
+
+- Un apartado nuevo en el menú: **«Admisión»**.
+- Ahí van los **correos de admisión**, y **se guarda todo**.
+
+### Lo que ya existe y roza esto (para no duplicarlo)
+
+- **Matrículas → «Webhooks de admisión»**: formularios externos que crean una
+  matrícula en estado «Solicitud admisión», con deduplicado por DNI o correo.
+  Son solicitudes, no correos.
+- **Las plazas las lleva admisiones fuera del CRM** (decidido el 11/09). El CRM
+  solo recuerda comprobarlas.
+
+### Qué preguntar cuando lleguen los detalles
+
+1. **Qué correos son**: los que manda admisiones, los que recibe o los dos. Y
+   de qué buzón salen o entran.
+2. **«Se guarde todo»**: el correo entero con sus adjuntos, o un registro de que
+   se envió.
+3. **A qué se enlazan**: la ficha del prospecto, la matrícula o nada.
+4. **Quién lo ve**: hoy no hay un rol de admisiones. Si lo lleva otra persona,
+   hace falta su permiso.
+5. **Paridad**: va en los dos CRMs, como todo.
+
+*Asignada a **Diego**.*
+
+## Feedback: cuántos enviados y cuántos respondidos · #170 (y #169)
+
+Diego, 28/09: «me gustaría poner las estadísticas de cuántos enviados y cuántos
+respondidos de ese feedback».
+
+**Hecha el 28/09 en los dos staging** (/testeo y crm.iseie.com/staging; no en
+producción). Está en el panel de feedback (#170), arriba, antes de los motivos:
+
+- **Enviados · Respondidos · % de respuesta**, con el rango de fechas del panel
+  y el ámbito de siempre (campus, empresa o todo).
+- Desglose por **marca o campus**, por **gestora** y por **disparador**: al
+  descartar o al 7.º día sin conversión.
+- Cada número abre la **lista de personas** que tiene detrás.
+
+Para poder contarlo, **el envío (#169) tiene que guardar** por cada correo a
+quién, cuándo, por qué disparador y, si contesta, cuándo. Anotado también en la
+#169.
+
+*Panel: Diego. Envío: Ángel. En los dos CRMs.*
+
+## Feedback: la pregunta 6, un futuro contacto para el asesor · #169
+
+Diego, 28/09: «la 8 debe de quedar como un futuro contacto a la gestora, luego
+lo veremos». (Era la 8 de la encuesta de nueve; en la de seis es la 6.)
+
+**Hecha el 28/09 en los dos staging** (no en producción). Diego: «si pone sí,
+que aparezcan esos rangos de fechas y se sincronice».
+
+- Al contestar *Sí, que me contacte* aparece **«¿Cuándo te viene bien?»**: en 2
+  semanas, en 1 mes, en 2 o 3 meses, en 6 meses o el año que viene.
+- Al enviar, se le pone un **recordatorio** (`lead_reminders`) para el principio
+  de ese rango (14, 30, 60, 180 o 365 días; sin elegir, al mes), a nombre de la
+  gestora que **lleva ahora** al prospecto (`responsable_id`; si no tiene, la del
+  envío). Le sale en «Hoy» y en la ficha, y ese día le llega el aviso del
+  recordatorio aunque el prospecto esté descartado.
+- Queda en su historial («📅 … recordatorio puesto para el dd/mm/aaaa»), en el
+  aviso a la gestora y en el panel («¿Cuándo te viene bien?», contado).
+- Sin gestora: no se agenda y el historial lo dice.
+
+Dónde: `backend/src/modules/feedback/preguntas.js` (clave `avisar` y su `sub`),
+`feedback.service.js` → `responder()` y `feedback.model.js` → `agendarVuelta()`.
+
+**Queda abierto:** si su gestora ya no está (is_available = false), el
+recordatorio va igual a ella; habría que reasignar el prospecto.
+
+*Asignada a **Diego**.*
+
+## Feedback: pedir un comentario si la nota es mala, y uno libre al final · #169
+
+Petición del equipo que Diego pasa el 29/09 (captura de WhatsApp de la encuesta):
+
+1. «Cuando te ponga regular, mal y muy mal, tiene que salir lo de: deja tu
+   comentario».
+2. «Y un texto al final de: deja tus comentarios».
+
+**Hecha el 29/09 en los dos staging** (/testeo y crm.iseie.com/staging; no en
+producción). Probada de punta a punta en los dos: se guarda, sale en el
+historial, en el aviso a la gestora y en el panel. Antes solo se podía escribir
+al elegir «Otro motivo» en la 1 y «Otra cosa» en la 5.
+
+- **La 2 («¿Cómo te atendió el asesor?»)**: con **3 · Regular, 2 · Mal o
+  1 · Muy mal** aparece debajo un recuadro **«Deja tu comentario»**, el mismo
+  que abre «Otro motivo». Con 4 o 5 no sale. No es obligatorio: exigirlo
+  justo cuando alguien está molesto hace que no envíe nada.
+- **Al final, después de la 6**: un recuadro libre **«Deja tus comentarios»**,
+  para todos y opcional.
+- Los dos textos van al **historial del prospecto**, al **aviso a la gestora**
+  (el de la nota baja es el que más le interesa leer), a la **ficha** y al
+  **panel de feedback**, que los lista con el nombre de la persona. En el
+  panel, el de la nota baja sale junto a la nota de atención de su gestora.
+- Y en lo que se descarga: «Respuestas (CSV)» en Reportes y, en ISEIE, la
+  hoja «Feedback».
+
+Dónde: `backend/src/modules/feedback/preguntas.js`, donde hoy solo hay
+`escribir` con una opción. Hace falta que la escala abra el recuadro con varias
+notas (3, 2 y 1) y una pregunta nueva de solo texto al final.
+`limpiarRespuestas()` las guarda (máx. 1000 caracteres, como «Otro»).
+`FeedbackEncuestaPage.tsx` pinta el recuadro al elegir la nota. La encuesta la
+pinta el servidor, así que el cambio de preguntas no toca el resto del frontal.
+
+*Asignada a **Diego**. En los dos CRMs, primero en staging.*
+
+## Conexión de Claude por MCP · #173 (Diana)
+
+Diego, 29/09: «Diana subió algo sobre Claude MCP, podemos vincularlo a staging
+y todo para probarlo».
+
+**En /testeo desde el 29/09. Ni en producción ni en ISEIE.** Es la rama de Diana
+`feat/diana-mcp-claude` (3 commits), llevada a `staging` con cherry-pick: con
+merge habría arrastrado 34 commits de `deploy/16sep` que /testeo no tiene.
+
+- Menú **Conexión → MCP**: cada persona crea su token y copia su URL personal
+  para «Agregar conector personalizado» en Claude Desktop o claude.ai.
+  Superadmin y admin entran por su rol; al resto se le pone la casilla desde esa
+  misma pantalla. Un tutor, nunca.
+- **Solo consulta**: 10 herramientas (prospectos, ventas, facturas, cobros e
+  informes de Reportes) y ninguna escribe. Cada una se limita a los campus de
+  la persona, y la gestora ve solo lo suyo. Cada consulta queda en
+  `mcp_auditoria`.
+- **Migración 182** (Diana la subió como 180, que en staging ya era la de la
+  cabecera de marca). Se le añadieron los GRANT para `crm_user`. Aplicada en
+  `crm_test_db`. En el servidor de /testeo se instaló `@modelcontextprotocol/sdk@1.31.0`.
+- **Probado el 29/09 por HTTPS** con tokens de prueba, ya borrados. Con el
+  token de un superadmin: los 9 campus, ventas, informes y la URL personal. Con
+  el de una gestora: sin casilla da 403; con ella solo lo suyo, y rechaza el
+  informe de todo el campus, un prospecto de otra gestora y un campus ajeno.
+  Un token inventado da 401 y no hay ninguna herramienta que borre.
+
+### Qué falta
+
+1. **Que Diego lo conecte en su Claude** y dé el visto bueno.
+2. **El token queda en el registro de nginx** cuando se usa la URL personal
+   (`/api/mcp/u/crm_mcp_…`). En los registros de la API no (Diana lo tapa), pero
+   nginx apunta la URL entera. Arreglo: `access_log off` (o un formato que la
+   tape) para esa ruta en el bloque de 360crm.tech. Afecta al nginx compartido
+   con producción: pendiente de que Diego diga.
+3. **ISEIE**: por la paridad hay que portarlo (tabla de campus, rutas `/leads`,
+   su numeración de migraciones). Después de validarlo aquí.
+4. **Producción**: migración 182 con GRANT, `npm install` del SDK, y renumerar la
+   180 también en la rama de Diana antes de que llegue a `deploy/16sep`.
+5. **Conectores (29/09, en /testeo)**: además del campus, un conector puede ser
+   de **una empresa** o de **todo el sistema** (este, solo super admin). Es UNO
+   para todos sus campus: cada dato va al campus que diga su campo «Campus» y,
+   si no, al campus por defecto. Y el tipo **Servidor MCP · para Claude**: no
+   trae datos, da una URL personal para pegar en Claude (el MCP de Diana), que
+   solo consulta lo de la persona dentro del «Para quién» del conector. URL
+   nueva revoca la anterior; apagar o borrar el conector la corta. El «Para
+   quién» lo exige también el servidor: un admin, solo sus campus, y de toda la
+   empresa solo si está en todos sus campus. Para producción: migraciones
+   **183 y 184**. En ISEIE no hay pantalla de Conectores.
+
+*Asignada a **Diana**; el paso a staging lo hizo Diego (Claude).*
+
+## Correos automáticos: ponerles el mismo formato · TAREA PARA ÁNGEL Y DIEGO
+
+Diego, 28/09: «acomodar los formatos de los correos de los resúmenes y eso,
+avisos».
+
+**Anotada, no empezada.** Los correos que el CRM manda solo tienen cada uno su
+aspecto. El de feedback (28/09) ya tiene el que se quiere: la banda con el logo y
+el color del campus, el texto al grano, un botón, y abajo el aviso de «no
+contestar» con el enlace completo. La idea es llevar los demás a ese formato.
+
+### Los que hay (backend)
+
+| Correo | Dónde se arma | En qué CRM |
+|---|---|---|
+| Resumen del día (gestora y admin) y plan de mañana | `jobs/resumenDiarioScheduler.js` | MultiCRM /testeo |
+| Reporte semanal | `jobs/reporteSemanalScheduler.js` | los dos |
+| «[CRM] Sin contactar: …» (SLA del lead) | `jobs/leadSinTocarScheduler.js` | los dos |
+| «Recordatorio vencido: …» | `jobs/reminderScheduler.js` | los dos |
+| «[CRM] Has vendido hoy» (aviso al tutor) | `jobs/avisoTutorScheduler.js` | MultiCRM |
+| Avisar al tutor (desde Comisiones) | `modules/tutores/avisarTutor.js` | MultiCRM /testeo |
+| Google Ads desconectado / reactivado | `jobs/googleAdsTokenScheduler.js` | los dos |
+| Bienvenida de usuario y lead asignado | `shared/services/brevo.service.js` | los dos |
+| Pasos de las secuencias | `jobs/emailSequenceScheduler.js` (el asunto y el cuerpo los pone quien las escribe) | los dos |
+
+### Qué revisar en cada uno
+
+- La cabecera con la marca: la del **campus** si va a un prospecto o a un
+  tutor; la del **CRM** si es un aviso interno (resumen, reporte, SLA).
+- Que se lea en el móvil: una columna, letra que no haya que ampliar, botones
+  grandes.
+- El remitente: «no contestar» cuando nadie va a leer la respuesta, y el aviso
+  abajo. Los de un campus salen por Brevo, que solo envía desde dominios
+  autenticados (hoy iseie.com, 360crm.tech, certifex.tech y cediaidsl.com).
+- Que los enlaces vayan a la dirección del CRM que toca (/crm, /testeo,
+  crm.iseie.com), no a localhost ni a la de otro entorno.
+- Una plantilla común en el código, para no arreglar diez veces lo mismo.
+
+*Asignada a **Ángel y Diego**. En los dos CRMs.*

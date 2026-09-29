@@ -52,6 +52,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
   gestor: {
     'leads.view': true,          'leads.create': true,        'leads.edit': true,          'leads.delete': false,       'leads.export': false,       'leads.assign': false,       'leads.bulk_action': false,
     'conversions.view': true,     'conversions.create': true,   'conversions.edit': true,     'conversions.delete': false,
+    'conversions.sin_gestora': false,
     'products.view': true,     'products.create': false,  'products.edit': false,    'products.delete': false,
     'clients.view': true,     'clients.create': true,   'clients.edit': true,     'clients.delete': false,  'clients.export': false,
     'dossiers.view': true,     'dossiers.upload': false,  'dossiers.delete': false,
@@ -165,8 +166,16 @@ export default function usePermission(): UsePermissionResult {
     // LADO del usuario, no dentro. O sea que esta rama no se cumplia nunca y
     // todo el mundo caia en los defaults — los roles a medida no pintaban nada
     // aunque el backend llevara tiempo calculandolos.
-    if (permissions && Object.keys(permissions).length > 0) {
-      return permissions[permission] === true || permissions['*'] === true;
+    //
+    // Solo en lo que el backend DEFINE: lo que no esta en su mapa sigue saliendo
+    // de la tabla de abajo, como hasta ahora. Y no para el tutor: el backend no
+    // tiene tabla de tutor y le calcula la de gestora, que le pintaria botones
+    // que no son suyos.
+    if (permissions && user.role !== 'tutor') {
+      if (permissions['*'] === true) return true;
+      if (Object.prototype.hasOwnProperty.call(permissions, permission)) {
+        return permissions[permission] === true;
+      }
     }
     // Respaldo: los de cada uno de sus roles, sumados. Basta con que UNO lo
     // permita —si se cruzaran al reves, añadir un rol quitaria permisos—.
