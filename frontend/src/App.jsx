@@ -282,10 +282,13 @@ function App() {
           <Route path="/configuracion/claves" element={<ClavesPage />} />
           {/* Conexión → MCP. Quién puede usarlo lo decide el servidor; la página lo dice. */}
           <Route path="/conexion/mcp" element={<McpPage />} />
+          {/* Conexión → Conectores (WordPress, tiendas, APIs). Estaba en Captación
+              hasta el 29/09; la dirección vieja lleva a la nueva. */}
+          <Route path="/conexion/conectores" element={<ConnectorsPage />} />
           <Route path="/configuracion/roles" element={<RolesPage />} />
           <Route path="/configuracion/canales" element={<ChannelsConfigPage />} />
           <Route path="/configuracion/proceso" element={<Navigate to="/prospectos/proceso" replace />} />
-          <Route path="/captacion/conectores" element={<ConnectorsPage />} />
+          <Route path="/captacion/conectores" element={<Navigate to="/conexion/conectores" replace />} />
           <Route path="/configuracion/atajos" element={<ShortcutsConfigPage />} />
           <Route path="/configuracion/documentos" element={<DocumentsConfigPage />} />
           <Route path="/configuracion/plantillas-email" element={<EmailTemplatesPage />} />

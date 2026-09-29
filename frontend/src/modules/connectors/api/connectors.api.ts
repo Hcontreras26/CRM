@@ -80,6 +80,33 @@ export const CAMPOS_POR_TIPO: Record<TipoConector, Array<{
 /** De quién es un conector (migración 183). */
 export type AlcanceConector = 'campus' | 'empresa' | 'sistema';
 
+/** Un campus tal como llega del contexto: con su empresa. */
+export type Campus = { id: number; nombre: string; sociedad_emisora_id?: number | null; sociedad_nombre?: string | null };
+
+/**
+ * Las opciones de «Para quién» (Diego, 29/09: «también poder elegir empresas y,
+ * si soy super admin, todo el sistema»). Un conector de empresa o de sistema es
+ * UNO solo para todos sus campus, no una copia en cada uno. Las usan los dos
+ * formularios de la sección Conexión: el de Claude y el de traer datos.
+ */
+export function opcionesDeAlcance(proyectos: Campus[], esSuperadmin: boolean) {
+  const empresas = new Map<number, { nombre: string; n: number }>();
+  for (const p of proyectos) {
+    if (!p.sociedad_emisora_id) continue;
+    const e = empresas.get(Number(p.sociedad_emisora_id));
+    empresas.set(Number(p.sociedad_emisora_id), { nombre: p.sociedad_nombre || 'Empresa', n: (e?.n || 0) + 1 });
+  }
+  return [
+    ...(esSuperadmin ? [{ value: 'sistema', label: `Todo el sistema · ${proyectos.length} campus` }] : []),
+    ...[...empresas.entries()]
+      .sort((a, b) => a[1].nombre.localeCompare(b[1].nombre))
+      .map(([id, e]) => ({ value: `e:${id}`, label: `Toda la empresa · ${e.nombre} (${e.n} campus)` })),
+    ...[...proyectos]
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .map((p) => ({ value: `c:${p.id}`, label: `Campus · ${p.nombre}` })),
+  ];
+}
+
 /**
  * La URL para pegar en Claude («Agregar conector personalizado»). La URL
  * personal del MCP de Diana, con el token de este conector.
@@ -109,6 +136,16 @@ export interface Conector {
   last_sync_status: 'success' | 'error' | 'partial' | null;
   last_sync_count: number | null;
   sample_received_at: string | null;
+  created_at?: string;
+  /** Quién lo creó (migración 185). Los de antes de esa fecha pueden no tenerlo. */
+  created_by?: number | null;
+  creado_por?: string | null;
+  /** Si esta persona puede cambiarlo y borrarlo (lo decide el servidor). */
+  puede_tocar?: boolean;
+  /** En los de Claude: cuánta gente tiene URL, quién, y cuándo la usó Claude. */
+  personas_con_url?: number;
+  con_url?: string[] | null;
+  ultimo_uso_claude?: string | null;
 }
 
 /** Un campo del JSON externo, tal y como lo describe el servidor. */
@@ -133,8 +170,15 @@ export interface VistaPrevia {
 }
 
 export const conectoresApi = {
-  /** `projectId` o `issuerId` (una empresa: los de todos sus campus), de `ponerAmbito`. */
-  listar: (ambito: URLSearchParams) => client.get(`/connectors?${ambito.toString()}`),
+  /**
+   * `projectId`, `issuerId` (una empresa: los de todos sus campus) o nada
+   * («Todos los proyectos»: todo lo que la persona puede ver), de `ponerAmbito`.
+   * `tipo`: 'mcp' las conexiones de Claude, 'datos' los que traen datos.
+   */
+  listar: (ambito: URLSearchParams, tipo?: 'mcp' | 'datos') => {
+    if (tipo) ambito.set('tipo', tipo);
+    return client.get(`/connectors?${ambito.toString()}`);
+  },
   uno: (id: number) => client.get(`/connectors/${id}`),
   crear: (datos: Partial<Conector>) => client.post('/connectors', datos),
   cambiar: (id: number, datos: Partial<Conector>) => client.patch(`/connectors/${id}`, datos),

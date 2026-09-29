@@ -6,6 +6,7 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { toast } from '@/shared/hooks/useToast';
 import { mcpApi, urlDelMcp, type McpEstado, type McpPersona, type McpToken } from '../api/mcp.api';
+import ConexionesClaude from '../components/ConexionesClaude';
 
 /**
  * Conexión → MCP.
@@ -14,6 +15,12 @@ import { mcpApi, urlDelMcp, type McpEstado, type McpPersona, type McpToken } fro
  * consulta el MCP». Aquí cada persona con acceso crea su token personal y ve
  * cómo pegarlo en Claude. Super admin y admin, además, deciden quién más tiene
  * acceso.
+ *
+ * Y desde el 29/09 las CONEXIONES de Claude viven aquí, no en Conectores:
+ * «lo de Claude MCP, ese formulario pasa a esa parte de MCP en conexión». Una
+ * conexión acota lo que ve Claude a un campus, una empresa o todo el sistema,
+ * y dice quién la creó y quién tiene URL (`ConexionesClaude`). La URL personal
+ * de abajo es lo de siempre: todo lo que ve esa persona.
  *
  * El token se enseña UNA vez, justo al crearlo. No se guarda en ningún estado
  * que sobreviva a cerrar el aviso: el servidor tampoco lo tiene, solo su huella.
@@ -156,6 +163,9 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
         subtitle="Conecta Claude al CRM para consultar prospectos, ventas y facturas · solo consulta"
       />
 
+      {/* Las conexiones por campus, empresa o todo el sistema: quien administra. */}
+      {estado?.tieneAcceso && estado.puedeAdministrar && <ConexionesClaude />}
+
       {!estado?.tieneAcceso ? (
         <div className="bg-card border border-border rounded-lg">
           <EmptyState
@@ -170,7 +180,7 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
           <div className="bg-card border border-border rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2">
               <ShieldCheck size={18} weight="bold" className="text-emerald-600" />
-              <h2 className="font-semibold text-sm">Lo que Claude podrá consultar con tu URL</h2>
+              <h2 className="font-semibold text-sm">Lo que Claude podrá consultar con tu URL personal</h2>
             </div>
             <p className="text-sm text-muted-foreground">
               {estado.soloLoSuyo
@@ -228,7 +238,10 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
           <div className="bg-card border border-border rounded-lg overflow-hidden">
             <div className="p-4 border-b border-border flex flex-wrap items-center gap-2">
               <Key size={18} weight="bold" className="text-primary" />
-              <h2 className="font-semibold text-sm flex-1">Mis URLs de Claude</h2>
+              <div className="flex-1 min-w-[200px]">
+                <h2 className="font-semibold text-sm">Tu URL personal</h2>
+                <p className="text-xs text-muted-foreground">Todo lo que ves tú, en todos tus campus.{estado.puedeAdministrar ? ' Para acotarla a una empresa o un campus, usa una conexión de arriba.' : ''}</p>
+              </div>
               <input
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
@@ -241,10 +254,10 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
                 onClick={crear}
                 disabled={creando || !nombre.trim()}
                 className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
-              ><Plus size={14} weight="bold" /> Crear mi URL para Claude</button>
+              ><Plus size={14} weight="bold" /> Crear mi URL personal</button>
             </div>
             {!estado.tokens.length ? (
-              <EmptyState icon={Key} title="Aún no tienes ninguna URL"
+              <EmptyState icon={Key} title="Aún no tienes URL personal"
                 description={estado.diasDeVida
                   ? `Crea una para conectar tu Claude. Caduca a los ${estado.diasDeVida} días.`
                   : 'Crea una para conectar tu Claude. No caduca: funciona hasta que la revoques.'} />
@@ -290,7 +303,7 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
           <div className="bg-card border border-border rounded-lg p-4 space-y-3">
             <h2 className="font-semibold text-sm">Cómo conectar Claude</h2>
             <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
-              <li>Pulsa <strong>Crear mi URL para Claude</strong> y cópiala.</li>
+              <li>Pulsa <strong>Sacar mi URL</strong> en una conexión, o <strong>Crear mi URL personal</strong>, y cópiala.</li>
               <li>Claude Desktop o claude.ai: <em>Configuración → Conectores → Agregar → Agregar conector personalizado</em>, ponle un nombre y pega la URL.</li>
               <li>Claude Code: usa el comando de «Otras formas de conectar».</li>
               <li>Pregúntale a Claude, por ejemplo: «¿cuántos prospectos nuevos entraron este mes en mis campus?».</li>
