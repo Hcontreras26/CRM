@@ -20,6 +20,8 @@ Arquitectura por modulos: cada dominio (products, dossiers, leads, auth...) cont
 backend/
   src/
     modules/              # Un directorio por dominio de negocio
+                          # Hay 46. Los cinco de abajo son un EJEMPLO de la
+                          # forma, no la lista: `ls backend/src/modules`.
       auth/               # Diego: login, logout, refresh, set-password
         index.js          # Exporta { prefix, router }
       users/              # Diego: CRUD usuarios, bienvenida Brevo
@@ -192,10 +194,26 @@ pm2 restart crm-api
 ```
 
 ## Documentacion de referencia
-- `docs/01-esquema-base-datos.md` — Schema completo PostgreSQL
-- `docs/02-estructura-proyecto.md` — Arquitectura detallada
-- `docs/03-api-endpoints.md` — Todos los endpoints REST
-- `docs/04-variables-entorno.md` — Template .env
-- `docs/05-arquitectura-frontend.md` — Rutas, layouts, componentes
-- `docs/06-despliegue-devops.md` — Deploy, Nginx, PM2, backups
-- `docs/07-tareas-jira.md` — Epics, stories y asignaciones
+
+**Los ocho documentos que se listaban aqui (`docs/01-esquema-base-datos.md` …
+`docs/09-deploy-y-ramas.md`) NUNCA existieron.** Era el indice planeado al
+arrancar el proyecto; solo llego a escribirse el `10-whatsapp.md`. Cada sesion
+que empezaba recibia una lista de lecturas falsa, y quien la seguia se
+encontraba con ocho 404 o —peor— se creia informado.
+
+Esto es lo que hay de verdad en `docs/`:
+
+- `README.md` — indice del directorio
+- `10-whatsapp.md` — el modulo de WhatsApp, que es el mas grande
+- `TAREAS-EQUIPO.md` — reparto de trabajo y estado
+- `ESTADO-Y-PENDIENTES.md` — lo que queda abierto
+- `PARIDAD-ENTRE-CRMS.md` — que hay en MultiCRM y no en ISEIE, y al reves
+- `AUDITORIA-FINANZAS-CRM.md` — de donde sale cada cifra de dinero
+- `INFORME-AGOSTO-2026.md`, `COMPARATIVA-SUITEDASH.md`, `PLAN-FABIAN.md`
+- `proceso-comercial.pdf` / `.txt` — el proceso de ventas, tal como lo pidio Carlos
+- `tarea-stripe-proyectos-ia.md`, `tutores-pendiente.md`
+
+Para el esquema de la base, la fuente es `backend/migrations/` en orden. Para
+los endpoints, los `*.routes.js` de cada modulo. Para las variables,
+`backend/.env.example`. No hay documento intermedio, y es mejor eso que uno que
+mienta.

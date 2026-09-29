@@ -1,72 +1,8 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Suspense, lazy, useEffect } from 'react';
 import { useProjectContext } from './contexts/ProjectContext';
+import { tituloDeRuta } from './shared/lib/rutasTitulos';
 
-const ROUTE_TITLES = {
-  '/': 'Dashboard',
-  '/prospectos': 'Prospectos',
-  '/whatsapp': 'Chat de WhatsApp',
-  '/whatsapp/chat': 'Chat de WhatsApp',
-  '/whatsapp/conexion': 'Conexion de WhatsApp',
-  '/whatsapp/ayuda': 'Como se usa WhatsApp',
-  '/prospectos/pipeline': 'Pipeline',
-  '/prospectos/audiencias': 'Audiencias',
-  '/clientes': 'Clientes',
-  '/clientes/matriculas': 'Matrículas',
-  '/captacion': 'Captación',
-  '/captacion/webhooks': 'Webhooks',
-  '/captacion/make': 'Make',
-  '/campanas': 'Campañas',
-  '/campanas/meta': 'Meta Ads',
-  '/campanas/google': 'Google Ads',
-  '/campanas/seo': 'Tráfico orgánico',
-  '/productos': 'Productos',
-  '/productos/arbol': 'Árbol de categorías',
-  '/productos/pendientes': 'Cursos pendientes',
-  '/productos/woocommerce': 'WooCommerce',
-  '/finanzas': 'Contabilidad',
-  '/finanzas/ventas': 'Ventas',
-  '/finanzas/ingresos': 'Ingresos',
-  '/finanzas/conversiones': 'Conversiones',
-  '/finanzas/egresos': 'Egresos',
-  '/finanzas/ventas-analisis': 'Análisis de ventas',
-  '/finanzas/por-cobrar': 'Cuentas por cobrar',
-  '/finanzas/por-pagar': 'Cuentas por pagar',
-  '/finanzas/comisiones': 'Comisiones',
-  '/finanzas/nominas': 'Nóminas',
-  '/finanzas/integraciones': 'Integraciones',
-  '/finanzas/pendiente-facturar': 'Pendientes de facturar',
-  '/finanzas/pagos-stripe': 'Pagos Stripe',
-  '/finanzas/facturas': 'Facturas',
-  '/finanzas/facturas/configuracion': 'Configuración de facturación',
-  '/stripe': 'Stripe',
-  '/soporte': 'Soporte',
-  '/status': 'Estado del sistema',
-  '/notificaciones': 'Notificaciones',
-  '/secuencias-email': 'Email seguimiento',
-  '/configuracion/campos': 'Campos personalizados',
-  '/configuracion/claves': 'Claves y variables',
-  '/configuracion/roles': 'Roles y Permisos',
-  '/configuracion/canales': 'Canales del proyecto',
-  '/configuracion/atajos': 'Atajos rápidos',
-  '/configuracion/documentos': 'Numeración de documentos',
-  '/configuracion/plantillas-email': 'Plantillas de email',
-  '/informes': 'Reportes',
-  '/mensajes': 'Mensajes',
-  '/manual': 'Manual',
-  '/configuracion': 'Configuración',
-  '/perfil': 'Mi perfil',
-  '/dev/components': 'Catálogo UI',
-  '/prueba_ui': 'Laboratorio UI',
-  '/prueba_ui_leads': 'Prueba UI Prospectos',
-  '/prueba_ui_clientes': 'Prueba UI Clientes',
-  '/prueba_ui_finanzas': 'Prueba UI Finanzas',
-  '/prueba_ui_productos': 'Prueba UI Productos',
-  '/prueba_ui_reportes': 'Prueba UI Reportes',
-  '/prueba_ui_configuracion': 'Prueba UI Configuracion',
-  '/testeo2': 'Prospectos',
-  '/suite-dash': 'Maqueta SuiteDash',
-};
 
 const APP_BASE_URL = import.meta.env.BASE_URL || '';
 const IS_TESTEO_PREVIEW_BASE = APP_BASE_URL.startsWith('/testeo/');
@@ -84,10 +20,9 @@ function DocumentTitle() {
   const { activeProject: project } = useProjectContext();
   useEffect(() => {
     const base = 'MultiCRM';
-    const match = Object.keys(ROUTE_TITLES)
-      .sort((a, b) => b.length - a.length)
-      .find(k => pathname === k || pathname.startsWith(k + '/'));
-    const route = match ? ROUTE_TITLES[match] : null;
+    // El nombre sale del mismo sitio que usa la cabecera: una pantalla no
+    // puede llamarse de una forma en la pestaña y de otra encima del contenido.
+    const route = tituloDeRuta(pathname);
     const proj = project?.nombre;
     // Formato: "Prospectos · Psiko Aprende — MultiCRM"
     if (route && proj) document.title = `${route} · ${proj} — ${base}`;
@@ -136,9 +71,15 @@ const IADashboardPage = lazy(() => import('./modules/ia-dashboard/pages/IADashbo
 const RevenuePage = lazy(() => import('./modules/revenue/pages/RevenuePage'));
 const SoportePage = lazy(() => import('./modules/soporte/pages/SoportePage'));
 const StatusPage = lazy(() => import('./modules/status/pages/StatusPage'));
+const RegistroPage = lazy(() => import('./modules/registro/pages/RegistroPage'));
+const NovedadesPage = lazy(() => import('./modules/novedades/pages/NovedadesPage'));
+const CorreosPage = lazy(() => import('./modules/correos/pages/CorreosPage'));
 const NotificacionesPage = lazy(() => import('./modules/notificaciones/pages/NotificacionesPage'));
 const ReportsPage = lazy(() => import('./modules/reports/pages/ReportsPage'));
 const ReportsIAPage = lazy(() => import('./modules/reports-ia/pages/ReportsIAPage'));
+// El feedback de «¿por que has desistido?» (#169, #170): la encuesta es PUBLICA.
+const FeedbackEncuestaPage = lazy(() => import('./modules/feedback/pages/FeedbackEncuestaPage'));
+const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPanelPage'));
 const AIChatPage = lazy(() => import('./modules/ai-chat/pages/AIChatPage'));
 const SettingsPage = lazy(() => import('./modules/settings/pages/SettingsPage'));
 const AccountingDashboardPage = lazy(() => import('./modules/accounting/pages/AccountingDashboardPage'));
@@ -181,6 +122,8 @@ const ChangeRequestDetailPage = lazy(() => import('./modules/change-requests/pag
 const DupReviewQueuePage = lazy(() => import('./modules/leads/pages/DupReviewQueuePage'));
 const DuplicatesPage = lazy(() => import('./modules/leads/pages/DuplicatesPage'));
 const ColaDelDiaPage = lazy(() => import('./modules/proceso/pages/ColaDelDiaPage'));
+// El repaso de fin de mes: toda la base que no compro. No es la cola del dia.
+const SeguimientoPage = lazy(() => import('./modules/proceso/pages/SeguimientoPage'));
 const ProcesoPage = lazy(() => import('./modules/proceso/pages/ProcesoPage'));
 const EmailSequencesPage = lazy(() => import('./modules/email-sequences/pages/EmailSequencesPage'));
 const FormsPage = lazy(() => import('./modules/forms/pages/FormsPage'));
@@ -190,9 +133,11 @@ const MakeWebhooksPage = lazy(() => import('./modules/make-webhooks/pages/MakeWe
 const MakeWebhookDetailPage = lazy(() => import('./modules/make-webhooks/pages/MakeWebhookDetailPage'));
 const FieldDefinitionsPage = lazy(() => import('./modules/field-definitions/pages/FieldDefinitionsPage'));
 const ClavesPage = lazy(() => import('./modules/settings/pages/ClavesPage'));
+const McpPage = lazy(() => import('./modules/mcp/pages/McpPage'));
 const RolesPage = lazy(() => import('./modules/permissions/pages/RolesPage'));
 const CategoriesTreePage = lazy(() => import('./modules/product-categories/pages/CategoriesTreePage'));
 const ChannelsConfigPage = lazy(() => import('./modules/settings/pages/ChannelsConfigPage'));
+const ConnectorsPage = lazy(() => import('./modules/connectors/pages/ConnectorsPage'));
 const ShortcutsConfigPage = lazy(() => import('./modules/settings/pages/ShortcutsConfigPage'));
 const EmailTemplatesPage = lazy(() => import('./modules/email-templates/pages/EmailTemplatesPage'));
 const PayrollPage = lazy(() => import('./modules/payroll/pages/PayrollPage'));
@@ -209,9 +154,14 @@ const LeadsUiPreviewPage = UI_PREVIEW_ENABLED ? lazy(() => import('./modules/ui-
 const GenericUiPreviewPage = UI_PREVIEW_ENABLED ? lazy(() => import('./modules/ui-preview/pages/GenericUiPreviewPage')) : null;
 const SuiteDashCrmPreviewPage = IS_TESTEO2_BASE ? lazy(() => import('./modules/suitedash-preview/pages/SuiteDashCrmPreviewPage')) : null;
 
-// Dev-only: catalogo de componentes UI (CRM-205). Solo se monta en development;
-// en build de produccion Vite elimina la rama por dead-code elimination.
-const DevComponentsPage = import.meta.env.DEV
+// El muestrario de primitivas (#32): todas juntas, para verlas de una vez.
+//
+// Estaba detras de `import.meta.env.DEV`, asi que existia solo en el equipo de
+// quien lo escribio: en /testeo no se montaba y por eso «no existia». Pasa a la
+// misma puerta que las demas pantallas de previsualizacion —desarrollo y
+// /testeo—, que es donde hay que poder mirarlo. En produccion sigue fuera, y
+// Vite elimina la rama entera al construir.
+const DevComponentsPage = UI_PREVIEW_ENABLED
   ? lazy(() => import('./modules/dev/pages/DevComponentsPage'))
   : null;
 
@@ -222,6 +172,8 @@ function App() {
       <DocumentTitle />
       <Routes>
         <Route path="/embed/form/:embedId" element={<EmbedFormPage />} />
+        {/* Sin sesion: la abre desde el correo quien no compro. */}
+        <Route path="/feedback/:token" element={<FeedbackEncuestaPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
         {IS_TESTEO2_BASE && SuiteDashCrmPreviewPage && (
@@ -238,8 +190,10 @@ function App() {
             <Route path="audiencias" element={<AudienceExportPage />} />
           </Route>
           {/* Antes que `:id`: React Router prioriza el tramo fijo, pero
-              tenerlos juntos evita que alguien meta otra ruta en medio. */}
+              tenerlos juntos evita que alguien meta otra ruta en medio y
+              «cola» o «proceso» acaben leyendose como el id de un prospecto. */}
           <Route path="/prospectos/cola" element={<ColaDelDiaPage />} />
+          <Route path="/prospectos/seguimiento" element={<SeguimientoPage />} />
           <Route path="/prospectos/proceso" element={<ProcesoPage />} />
           <Route path="/prospectos/:id" element={<LeadDetailPage />} />
 
@@ -287,6 +241,12 @@ function App() {
           <Route path="/productos" element={<ProductosLayout />}>
             <Route index element={<ProductsPage />} />
             <Route path="arbol" element={<ProductsTreePage />} />
+            {/* El árbol de categorías vivía en `/configuracion/categorias-arbol`
+                y no tenía entrada en ningún menú: existía y no se podía llegar.
+                Pasa aquí, con lo demás del catálogo, y con el nombre que lleva
+                la propia pantalla. Mover la ruta no rompe enlaces guardados
+                porque no había forma de llegar para guardarlos. */}
+            <Route path="categorias" element={<CategoriesTreePage />} />
             <Route path="pendientes" element={<CoursesPendingPage />} />
             <Route path="woocommerce" element={<WooCommercePage />} />
           </Route>
@@ -320,16 +280,23 @@ function App() {
           {/* Claves y variables (#80). El recorte de rol lo hace el servidor con
               `soloRoles`; aqui solo se sirve la pantalla. */}
           <Route path="/configuracion/claves" element={<ClavesPage />} />
+          {/* Conexión → MCP. Quién puede usarlo lo decide el servidor; la página lo dice. */}
+          <Route path="/conexion/mcp" element={<McpPage />} />
           <Route path="/configuracion/roles" element={<RolesPage />} />
           <Route path="/configuracion/canales" element={<ChannelsConfigPage />} />
+          <Route path="/configuracion/proceso" element={<Navigate to="/prospectos/proceso" replace />} />
+          <Route path="/captacion/conectores" element={<ConnectorsPage />} />
           <Route path="/configuracion/atajos" element={<ShortcutsConfigPage />} />
-          <Route path="/configuracion/categorias-arbol" element={<CategoriesTreePage />} />
           <Route path="/configuracion/documentos" element={<DocumentsConfigPage />} />
           <Route path="/configuracion/plantillas-email" element={<EmailTemplatesPage />} />
           <Route path="/informes" element={<ReportsPage />} />
           <Route path="/informes/ia" element={<ReportsIAPage />} />
+          <Route path="/informes/feedback" element={<FeedbackPanelPage />} />
           <Route path="/chat-ia" element={<AIChatPage />} />
           <Route path="/soporte" element={<SoportePage />} />
+          <Route path="/registro" element={<RegistroPage />} />
+          <Route path="/novedades" element={<NovedadesPage />} />
+          <Route path="/correos" element={<CorreosPage />} />
           <Route path="/status" element={<StatusPage />} />
           <Route path="/notificaciones" element={<NotificacionesPage />} />
           <Route path="/mensajes" element={<MessagesPage />} />

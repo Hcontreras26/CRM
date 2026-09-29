@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { DownloadSimple, FileXls, FileCsv, CalendarBlank, ChartBar, UsersThree, Receipt, ListChecks, Invoice, Trophy, Eye, X } from '@phosphor-icons/react';
 import client from '@/shared/api/client';
-import { toast } from '@/shared/hooks/useToast';
+import { toast } from '@/shared/hooks/useToast';
 import { ponerAmbito } from '@/shared/lib/ambitoInforme';
 
 type ColType = 'string' | 'number' | 'date' | 'estado';

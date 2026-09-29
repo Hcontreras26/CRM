@@ -39,7 +39,7 @@ export default function OfflineBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[55] flex items-center gap-2 px-3 py-2 rounded-full bg-red-600 text-white text-xs font-semibold shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[55] flex items-center gap-2 px-3 py-2 rounded-full bg-destructive text-destructive-foreground text-xs font-semibold shadow-popover animate-in fade-in slide-in-from-bottom-2 duration-200"
     >
       <WifiSlash size={14} weight="bold" />
       Sin conexión

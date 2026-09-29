@@ -1,5 +1,9 @@
 /*
-  De qué va un informe: un campus, una sociedad entera, o todo.
+  De qué va lo que estás mirando: un campus, una sociedad entera, o todo.
+
+  Empezó siendo solo para informes (#120) y ahora vale para cualquier pantalla
+  que sepa trabajar con varios proyectos a la vez (#103), que es lo que pedía
+  Diego: «como Todos, pero acotado a una sociedad».
 
   Los informes se piden desde ocho sitios distintos, y cada uno se montaba sus
   parámetros a mano con un `if (activeProject?.id) p.set('projectId', …)`. Con
@@ -8,6 +12,12 @@
   ámbito.
 
   Aquí se decide una vez.
+
+  EL NOMBRE SE QUEDA CORTO A PROPÓSITO. Esto ya no es solo de informes, así que
+  «ambitoInforme» no lo describe bien. Pero lo importan nueve pantallas y
+  renombrarlo convierte un cambio de nueve líneas en nueve conflictos con quien
+  esté tocando esas pantallas — que es exactamente el #127. Un nombre regular
+  cuesta menos que una fusión perdida.
 
   LA REGLA
   --------
@@ -56,4 +66,27 @@ export function ambitoComoObjeto({ activeIssuerId = null, activeProject = null }
  */
 export function sociedadSinCampus(activeIssuer) {
   return !!activeIssuer && (activeIssuer.campus?.length ?? 0) === 0;
+}
+
+/**
+ * Los proyectos que entran en lo que estás mirando.
+ *
+ * Es la misma pregunta que `ponerAmbito`, para las pantallas que no filtran
+ * con un `issuerId` sino con una lista de proyectos: `/leads` acepta
+ * `projectIds=1,2,3` y filtra con un IN, así que una sociedad es exactamente
+ * eso con una lista más corta. Sin tocar el servidor.
+ *
+ *   una sociedad  →  sus campus
+ *   todos         →  todos los proyectos del usuario
+ *   un campus     →  vacío, que quiere decir «usa el projectId de siempre»
+ */
+export function proyectosDelAmbito({ activeIssuer = null, isAllProjects = false, projects = [] } = {}) {
+  if (activeIssuer) return activeIssuer.campus || [];
+  if (isAllProjects) return projects || [];
+  return [];
+}
+
+/** Los ids de esos proyectos, que es lo que viaja en la consulta. */
+export function idsDelAmbito(ambito) {
+  return proyectosDelAmbito(ambito).map((p) => p.id);
 }

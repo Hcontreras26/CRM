@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import client from '@/shared/api/client';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { GlobeHemisphereWest, ListChecks, FileCsv } from '@phosphor-icons/react';
-import DetalleMetricaDialog from '@/shared/components/DetalleMetricaDialog';
+import DetalleMetricaDialog from '@/shared/components/DetalleMetricaDialog';
 import { ponerAmbito } from '@/shared/lib/ambitoInforme';
 
 const fmtMoney = (n) => new Intl.NumberFormat('es-ES', {

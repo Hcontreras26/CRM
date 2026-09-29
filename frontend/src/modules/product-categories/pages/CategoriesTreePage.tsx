@@ -1,3 +1,4 @@
+import PageHeader from '@/shared/components/ui/PageHeader';
 import { useEffect, useState, useMemo } from 'react';
 import { useProject } from '@/shared/hooks/useProject';
 import {
@@ -13,7 +14,6 @@ import {
 import {
   CaretDown,
   CaretRight,
-  Tree,
   Plus,
   Pencil,
   Trash,
@@ -358,16 +358,11 @@ export default function CategoriesTreePage() {
 
   return (
     <div className="container mx-auto py-6 max-w-5xl">
-      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Tree size={28} className="text-primary" />
-          <div>
-            <h1 className="text-2xl font-semibold">Árbol de categorías</h1>
-            <p className="text-sm text-muted-foreground">
-              Jerarquía N niveles · pasa el ratón sobre un nodo para ver acciones
-            </p>
-          </div>
-        </div>
+      <PageHeader
+        title="Árbol de categorías"
+        subtitle="Jerarquía N niveles · pasa el ratón sobre un nodo para ver acciones"
+      />
+      <div className="flex items-start justify-end gap-4 mb-6 flex-wrap">
         <div className="flex items-center gap-2">
           <button
             onClick={handleStartSync}

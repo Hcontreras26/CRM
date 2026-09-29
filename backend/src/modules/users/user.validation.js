@@ -9,11 +9,54 @@ export const createUserSchema = z.object({
   nombre: z.string().min(2, 'Nombre minimo 2 caracteres').max(200),
   email: z.string().email('Email invalido').transform((v) => v.toLowerCase().trim()),
   role: z.enum(['admin', 'gestor', 'soporte', 'tutor'], { message: 'Rol debe ser admin, gestor, soporte o tutor' }),
+  // Roles de MAS. Quien lleva prospectos y ademas da clase no tiene que elegir.
+  // Superadmin no cabe aqui a proposito: un rol añadido no puede dar acceso
+  // total --eso se pone como rol principal o no se pone--.
+  roles_extra: z.array(z.enum(['admin', 'gestor', 'soporte', 'tutor'])).optional(),
   // Legacy: lista de ids (recibe_leads queda en false).
   projectIds: z.array(z.number().int().positive()).optional().default([]),
   // Nuevo: lista con flag recibe_leads por proyecto.
   projects: z.array(projectAssignmentSchema).optional(),
-});
+}).refine(
+  (d) => !['admin', 'gestor'].includes(d.role)
+    || (d.projectIds?.length > 0 || d.projects?.length > 0),
+  {
+    message: 'Un admin o un gestor sin proyectos no ve nada: asigna al menos uno',
+    path: ['projectIds'],
+  }
+);
+
+/*
+ * POR QUE VUELVE A HABER UN MINIMO, Y POR QUE NO ES PARA TODOS
+ *
+ * Hasta el 25 de abril esto era `.min(1, 'Debe asignar al menos un proyecto')`.
+ * Desaparecio dentro de 2e936e7 —un commit de cinco features que no lo
+ * menciona— y la prueba que lo cazaba lleva roja desde entonces, enterrada
+ * entre otras seis.
+ *
+ * Pero devolver el `.min(1)` tal cual tampoco era correcto, porque no todos los
+ * roles lo necesitan. Lo decide `projectAccess`:
+ *
+ *     if (req.user.role === 'superadmin' || req.user.role === 'soporte') {
+ *       req.projectId = Number(projectId);
+ *       return next();
+ *     }
+ *     ... SELECT 1 FROM user_projects ... -> 403 si no hay fila
+ *
+ * O sea:
+ *
+ *   admin    sin proyectos -> 403 en cada endpoint con projectId. Es un alta
+ *                             que parece buena y no sirve para nada.
+ *   gestor   sin proyectos -> ademas no ve ningun prospecto y nunca entra en
+ *                             el reparto: las dos cosas van por `user_projects`.
+ *   soporte  sin proyectos -> funciona. Pasa por encima del filtro.
+ *   tutor                  -> no usa endpoints con projectId, y ademas se da de
+ *                             alta por `tutor.controller.js`, que llama al
+ *                             service sin pasar por este esquema.
+ *
+ * Asi que el minimo va solo donde el alta quedaria rota. Y vale igual si los
+ * proyectos vienen en `projectIds` (lo viejo) o en `projects` (lo nuevo).
+ */
 
 // Los permisos acotados de facturacion y colaboraciones.
 //
@@ -27,9 +70,13 @@ export const createUserSchema = z.object({
 export const updateUserSchema = z.object({
   nombre: z.string().min(2).max(200).optional(),
   role: z.enum(['admin', 'gestor', 'soporte', 'tutor']).optional(),
+  roles_extra: z.array(z.enum(['admin', 'gestor', 'soporte', 'tutor'])).optional(),
   factura_manager: z.boolean().optional(),
   editar_fechas_factura: z.boolean().optional(),
   gestor_colaboraciones: z.boolean().optional(),
+  // Si usa el WhatsApp del CRM (#128). No es lo mismo que poder tenerlo: eso lo
+  // decide el rol. Esto dice si sale en el panel de sesiones y si puede enlazar.
+  usa_whatsapp: z.boolean().optional(),
   projectIds: z.array(z.number().int().positive()).optional(),
   projects: z.array(projectAssignmentSchema).optional(),
   // Teléfono del gestor (WhatsApp): usado por el widget y para contacto.
@@ -45,6 +92,7 @@ export const adminSetPasswordSchema = z.object({
 export const listUsersSchema = z.object({
   active: z.enum(['true', 'false']).optional(),
   role: z.enum(['superadmin', 'admin', 'gestor', 'soporte', 'tutor']).optional(),
+  roles_extra: z.array(z.enum(['admin', 'gestor', 'soporte', 'tutor'])).optional(),
   projectId: z.coerce.number().int().positive().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),

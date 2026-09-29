@@ -4,6 +4,7 @@ import client from '@/shared/api/client';
 import Select from '@/shared/components/ui/Select';
 import { toast } from '@/shared/hooks/useToast';
 import { SectionTitle, useConfirm, FIELD_TYPES, BASE_FIELDS } from './shared';
+import { lista } from '@/shared/lib/lista';
 
 export default function FieldsTab({ project, onSaved }) {
   const { ask, dialog: confirmDialog } = useConfirm();
@@ -58,7 +59,7 @@ export default function FieldsTab({ project, onSaved }) {
     setLoading(true);
     try {
       const res = await client.get(`/field-definitions/project/${project.id}`);
-      if (res.success) setFields(res.data);
+      if (res.success) setFields(lista(res.data));
     } finally { setLoading(false); }
   }, [project.id]);
 

@@ -43,10 +43,10 @@ export default function SpamReportDialog({ open, onClose, leadId, leadNombre, on
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !submitting && onClose()}>
-      <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-card border border-border rounded-2xl shadow-dialog w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between px-5 py-4 border-b border-border">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-destructive-soft text-destructive flex items-center justify-center flex-shrink-0">
               <WarningOctagon size={20} weight="duotone" />
             </div>
             <div>
@@ -63,13 +63,13 @@ export default function SpamReportDialog({ open, onClose, leadId, leadNombre, on
 
         <div className="px-5 py-4 space-y-3">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Levanta un reporte si el lead parece fraudulento o automatizado (mismo nombre repetido, email descartable, contenido obviamente bot).
+            Levanta un reporte si el prospecto parece fraudulento o automatizado (mismo nombre repetido, email descartable, contenido obviamente bot).
             Un <strong className="text-foreground">superadmin</strong> revisa los reportes y decide si confirma (soft-delete) o descarta.
           </p>
 
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-              Motivo <span className="text-red-600 normal-case font-semibold">(obligatorio)</span>
+              Motivo <span className="text-destructive normal-case font-semibold">(obligatorio)</span>
             </label>
             <textarea
               rows={3}
@@ -93,7 +93,7 @@ export default function SpamReportDialog({ open, onClose, leadId, leadNombre, on
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="h-9 px-4 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            className="h-9 px-4 rounded-md bg-destructive hover:bg-destructive text-destructive-foreground text-sm font-semibold transition-colors disabled:opacity-50"
           >
             {submitting ? 'Enviando…' : 'Reportar spam'}
           </button>

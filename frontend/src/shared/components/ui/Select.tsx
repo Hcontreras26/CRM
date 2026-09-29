@@ -149,7 +149,7 @@ export default function Select<T>({
           role="listbox"
           tabIndex={-1}
           onKeyDown={onListKey}
-          className="absolute left-0 right-0 top-[calc(100%+4px)] z-[60] overflow-y-auto max-h-60 rounded-lg border border-border bg-card shadow-2xl py-1 outline-none animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-150"
+          className="absolute left-0 right-0 top-[calc(100%+4px)] z-[60] overflow-y-auto max-h-60 rounded-lg border border-border bg-card shadow-dialog py-1 outline-none animate-in fade-in zoom-in-95 slide-in-from-top-1 duration-150"
         >
           {options.map((opt, idx) => {
             const isSelected = Object.is(opt.value, value);

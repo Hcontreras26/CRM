@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+
+import { inputClass } from '@/shared/lib/ui';import { lazy, Suspense, useEffect, useState } from 'react';
 import { commissionsApi, type CommissionStats } from '../api/commissions.api';
 import { useAuth } from '@/contexts/AuthContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
@@ -16,6 +17,8 @@ import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import { monthLabel, isInMonth, getCommissionExportColumns, type CommissionRow } from '../lib/period';
 import type { User } from '@/shared/types';
 import { formatCurrencyShort as fmt, formatDate } from '@/shared/lib/format';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 
 const RulesDialog = lazy(() => import('../components/RulesDialog'));
 const ExportDialog = lazy(() => import('@/shared/components/export/ExportDialog'));
@@ -26,7 +29,6 @@ const ESTADOS = [
   { v: 'pagado', label: 'Pagadas' },
 ];
 
-const inputClass = 'h-9 px-3 rounded-lg border border-border bg-card text-sm';
 
 type PeriodMode = 'all' | 'month';
 
@@ -53,15 +55,23 @@ export default function CommissionsPage() {
   // Selección múltiple para "marcar pagadas en lote" (CRM-138).
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [exportOpen, setExportOpen] = useState(false);
+  const { activeProject, activeIssuerId } = useProjectContext() as {
+    activeProject: { id?: number | null } | null; activeIssuerId: number | null;
+  };
 
   async function load(): Promise<void> {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = filterEstado ? { estado: filterEstado } : {};
+      // Sin esto la pantalla enseñaba las comisiones de TODOS los proyectos con
+      // la empresa puesta arriba: cifras de una cosa con el nombre de otra.
+      const ambito = ambitoComoObjeto({ activeIssuerId, activeProject });
+      const params: Record<string, string | number> = {
+        ...ambito, ...(filterEstado ? { estado: filterEstado } : {}),
+      };
       if (filterUser) params.userId = filterUser;
       const fn = isAdmin ? commissionsApi.list : commissionsApi.listMine;
       const fnStats = isAdmin ? commissionsApi.stats : commissionsApi.statsMine;
-      const [listRes, statsRes] = await Promise.all([fn(params), fnStats(filterUser && isAdmin ? { userId: filterUser } : {})]);
+      const [listRes, statsRes] = await Promise.all([fn(params), fnStats({ ...ambito, ...(filterUser && isAdmin ? { userId: filterUser } : {}) })]);
       if (listRes.success) setItems(listRes.data || []);
       if (statsRes.success && statsRes.data) setStats(statsRes.data);
     } catch (err: any) {
@@ -69,7 +79,7 @@ export default function CommissionsPage() {
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { load();   }, [filterEstado, filterUser]);
+  useEffect(() => { load();   }, [filterEstado, filterUser, activeProject?.id, activeIssuerId]);
   useEffect(() => { setSelected(new Set()); }, [periodMode, year, month, filterEstado, filterUser]);
 
   // Aplicar filtro de mes en cliente (el backend aún no acepta el parámetro segun ticket).

@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+
+import { inputClass } from '@/shared/lib/ui';import { useState, useEffect } from 'react';
 import { X } from '@phosphor-icons/react';
 import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 
-const inputClass = 'w-full h-9 px-3 rounded-lg border border-border bg-muted/50 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
 interface ProjectForm {
   nombre: string;

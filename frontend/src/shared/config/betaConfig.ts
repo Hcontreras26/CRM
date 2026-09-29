@@ -11,7 +11,7 @@
 // Se activa con VITE_BETA_MODE=true (lo pone el build de producción).
 // ============================================================
 
-export const BETA_VERSION = '1.0.1';
+export const BETA_VERSION = '2.0.0';
 
 export const BETA_MODE: boolean = String(import.meta.env.VITE_BETA_MODE || '').toLowerCase() === 'true';
 
@@ -39,6 +39,10 @@ export const BETA_ROUTES: readonly string[] = [
   '/preferencias',            // Mis preferencias
   '/perfil',                // Perfil
   '/configuracion',               // Ajustes (gestión de usuarios, proyectos, etc.)
+  '/conexion',               // Conexión: MCP de Claude (solo consulta)
+  '/novedades',              // Lo nuevo de cada versión (2.0.0): su aviso y su correo llevan aquí
+  '/correos',                // La bandeja del CRM (#146), anunciada en la 2.0.0
+  '/registro',               // El registro de tareas, anunciado en la 2.0.0
   '/set-password',           // Flujo de bienvenida
 ];
 

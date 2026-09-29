@@ -79,7 +79,7 @@ export default function SearchableSelect({
         <CaretDown size={11} weight="bold" className="text-muted-foreground" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-40 max-h-80 overflow-hidden flex flex-col" style={{ minWidth: maxWidth }}>
+        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-popover z-40 max-h-80 overflow-hidden flex flex-col" style={{ minWidth: maxWidth }}>
           <div className="p-2 border-b border-border">
             <div className="relative">
               <MagnifyingGlass size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />

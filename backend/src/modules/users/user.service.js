@@ -15,13 +15,13 @@ import { sendWelcomeUserEmail } from '../../shared/services/brevo.service.js';
 // poner contraseña, y a ella le salia «required» y no podia entrar. O sea que el
 // correo sale solo, llega a una persona de fuera, y encima el enlace no funciona.
 //
-// El aviso se corta AQUI y no en la pantalla del alta a proposito: hay dos
-// caminos que llegan a este envio --crear el tutor y cambiarle el correo con la
-// casilla de reenviar-- y taparlos de uno en uno es como se escapa el tercero.
+// El aviso se corta antes del envio y no en la pantalla del alta a proposito:
+// hay tres caminos que llegan al buzon de un tutor, y taparlos de uno en uno es
+// como se escapa el tercero. La razon y como levantarlo, en el fichero.
 //
 // Para que un tutor entre mientras tanto: darle contraseña al crearlo, o desde
 // «Cambiar contraseña» en su ficha. Eso no manda ningun correo.
-const NO_ESCRIBIR_A_TUTORES = true;
+import { NO_ESCRIBIR_A_TUTORES } from '../../shared/config/frenoTutores.js';
 import { logger } from '../../shared/utils/logger.js';
 import { query } from '../../shared/config/db.js';
 
@@ -98,7 +98,7 @@ export async function getById(id) {
   return { ...user, projects };
 }
 
-export async function create({ nombre, email, role, projectIds, projects }) {
+export async function create({ nombre, email, role, roles_extra, projectIds, projects }) {
   const existing = await userModel.findByEmail(email);
   if (existing) throw new AppError('Ya existe un usuario con ese email', 409, 'EMAIL_EXISTS');
 
@@ -118,6 +118,7 @@ export async function create({ nombre, email, role, projectIds, projects }) {
     email,
     passwordHash,
     role,
+    roles_extra,
     projectIds,
     projects,
     setPasswordToken: tokenHash,

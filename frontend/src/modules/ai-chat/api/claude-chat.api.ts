@@ -1,11 +1,29 @@
-// Claude AI Chat API (CRM-119)
-// Backend SSE POST /api/claude/chat — fallback si falta ANTHROPIC_API_KEY
+import client, { getAccessToken } from '@/shared/api/client';
 
-import { getAccessToken } from '@/shared/api/client';
-
-const USE_MOCKS = false;  // Backend listo (con fallback si falta ANTHROPIC_API_KEY)
+/**
+ * Hablar con Claude sobre los datos del CRM (#30).
+ *
+ * El envío NO pasa por el cliente de axios: la respuesta llega en trocitos
+ * (SSE) y hay que leerla según entra, no cuando termina. Por eso este fichero
+ * usa `fetch` a pelo para esa llamada, y el cliente normal para el resto.
+ */
 
 export type ChatEventType = 'start' | 'delta' | 'done' | 'error';
+
+/** Lo que el servidor sabe del gasto en IA de este mes. */
+export interface GastoIA {
+  instalado: boolean;
+  tope: number;
+  gastado: number | null;
+  queda: number | null;
+  porcentaje: number;
+  cerca: boolean;
+  agotado: boolean;
+  llamadas: number;
+  inciertas?: number;
+  fallosAlApuntar: number;
+  aviso: string | null;
+}
 
 export interface ChatEvent {
   type: ChatEventType;
@@ -13,140 +31,124 @@ export interface ChatEvent {
   messageId?: string;
   error?: string;
   code?: string;
+  /** 'NO_API_KEY' | 'TOPE_AGOTADO' | un aviso de que queda poco. */
+  warning?: string;
+  gasto?: GastoIA;
   usage?: { promptTokens: number; completionTokens: number };
+}
+
+export interface EstadoDelChat {
+  api_configured: boolean;
+  rate_limit_per_hour: number;
+  used_last_hour: number;
+  gasto: GastoIA;
+  warning: string | null;
+}
+
+export interface Conversacion {
+  id: string;
+  title: string | null;
+  project_id: number | null;
+  updated_at: string;
+}
+
+export interface MensajeGuardado {
+  id: number;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  created_at: string;
 }
 
 export interface StreamChatPayload {
   message: string;
   projectId: number;
+  /** Para seguir una conversación que ya existe en vez de empezar otra. */
+  conversationId?: string | null;
   signal?: AbortSignal;
 }
 
 export type ChatEventHandler = (event: ChatEvent) => void;
 
+/** ¿Se puede escribir ahora? Clave, tope y cuántas van esta hora. */
+export const estadoDelChat = (projectId: number) =>
+  client.get(`/claude/status?projectId=${projectId}`);
+
+/** Las conversaciones de quien pregunta, de la más reciente a la más vieja. */
+export const listarConversaciones = () => client.get('/claude/conversations');
+
+/** Los mensajes de una conversación, para poder retomarla. */
+export const mensajesDe = (conversationId: string) =>
+  client.get(`/claude/conversations/${conversationId}`);
+
 /**
- * Inicia un chat streaming con Claude.
+ * Manda un mensaje y va soltando la respuesta según llega.
+ *
+ * Los errores NO se lanzan: se avisan por `onEvent` con `type: 'error'`. Quien
+ * llama está pintando una conversación, y ahí un `throw` deja la burbuja a
+ * medias sin decir por qué.
  */
-export async function streamChatMessage({ message, projectId, signal }: StreamChatPayload, onEvent: ChatEventHandler): Promise<void> {
-  if (USE_MOCKS) {
-    return mockStream({ message, projectId, signal }, onEvent);
-  }
+export async function streamChatMessage(
+  { message, projectId, conversationId, signal }: StreamChatPayload,
+  onEvent: ChatEventHandler,
+): Promise<void> {
   const baseUrl = (import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '');
-  const res = await fetch(`${baseUrl}/api/claude/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${getToken()}`,
-    },
-    body: JSON.stringify({ message, projectId }),
-    signal,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Network error' }));
-    onEvent({ type: 'error', error: err.error || 'Error', code: err.code });
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/api/claude/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getAccessToken() || ''}`,
+      },
+      body: JSON.stringify({ message, projectId, conversationId: conversationId || undefined }),
+      signal,
+    });
+  } catch (e: any) {
+    // Cancelar es una decisión de quien escribe, no una avería: se avisa
+    // distinto para que la pantalla no pinte un error rojo al pulsar «parar».
+    if (e?.name === 'AbortError') return;
+    onEvent({ type: 'error', error: 'No se pudo conectar con el servidor.' });
     return;
   }
-  if (!res.body) return;
+
+  if (!res.ok) {
+    // El servidor contesta JSON normal en los errores —falta proyecto, tope,
+    // límite por hora—, no SSE. Se lee y se pasa tal cual: el mensaje que
+    // escribió el servidor es mejor que uno genérico de aquí.
+    const err = await res.json().catch(() => null);
+    onEvent({
+      type: 'error',
+      error: err?.error || `El servidor contestó ${res.status}.`,
+      code: err?.code,
+    });
+    return;
+  }
+  if (!res.body) {
+    onEvent({ type: 'error', error: 'La respuesta llegó vacía.' });
+    return;
+  }
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n\n');
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (!line.startsWith('data:')) continue;
-      try {
-        const ev = JSON.parse(line.slice(5).trim()) as ChatEvent;
-        onEvent(ev);
-      } catch {}
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const trozos = buffer.split('\n\n');
+      buffer = trozos.pop() || '';
+      for (const linea of trozos) {
+        if (!linea.startsWith('data:')) continue;
+        try {
+          onEvent(JSON.parse(linea.slice(5).trim()) as ChatEvent);
+        } catch {
+          // Un trozo suelto que no es JSON no puede tumbar la conversación.
+        }
+      }
     }
+  } catch (e: any) {
+    if (e?.name === 'AbortError') return;
+    onEvent({ type: 'error', error: 'Se cortó la conexión mientras respondía.' });
   }
-}
-
-function getToken(): string {
-  return getAccessToken() || '';
-}
-
-// =============== MOCK ===============
-
-const SAMPLE_RESPONSES: Record<string, string> = {
-  resumen: `Aqui tienes el **resumen del mes en curso**:
-
-- **Leads nuevos:** 68 (+12% vs mes anterior)
-- **Conversiones:** 12 (tasa 17.6%)
-- **Facturacion:** 30.000 €
-- **Canal lider:** Meta Ads (28 leads, CPA 88€)
-
-Los leads provenientes de Meta tienen el doble de tasa de conversion que los de Google Ads este mes. Recomiendo desplazar 15% del presupuesto hacia Meta.`,
-
-  inactivos: `Tienes **8 leads sin actividad** en los ultimos 14 dias:
-
-| Nombre | Estado | Dias inactivo | Producto |
-|--------|--------|--------------:|----------|
-| Maria Lopez | Contactado | 18 | Master Forensia |
-| Juan Martinez | En seguimiento | 16 | Curso Clinica |
-| Ana Fernandez | Por contactar | 15 | Master Distancia |
-| Carlos Diaz | Contactado | 14 | Master Forensia |
-
-**Recomendacion:** prioriza los que estan en "En seguimiento" (mayor probabilidad de cierre). Sandra puede gestionar Maria y Juan, son sus leads asignados.`,
-
-  campanas: `**Rendimiento de campanas (ultimos 30 dias):**
-
-- **Meta Ads** — 28 leads, 6 conversiones, **CPA 88€** ✅ optimo
-- **Google Ads** — 18 leads, 3 conversiones, **CPA 132€** ⚠️ alto
-- **Organico (SEO)** — 14 leads, 2 conversiones (sin coste directo)
-
-La campana **"Master Forensia 2026"** en Meta tiene el mejor ROAS del mes (4.2x). En Google, **"Search - Consultoria"** subio el CPA un 48% por la entrada de un competidor nuevo en Madrid.
-
-**Accion recomendada:** pausar grupo de anuncios "Display Branding" en Google (CPA 280€) y reasignar el presupuesto a la campana de Meta de mejor rendimiento.`,
-
-  default: `Voy a analizar los datos del proyecto en este momento.
-
-Pregunta detectada: "${'%MSG%'}"
-
-Para darte una respuesta precisa, necesito acceder a los datos del CRM, las campanas activas y las metricas de los ultimos 30 dias. En el sistema real, este flujo orquestaria una llamada a Claude AI con el contexto del proyecto.
-
-**Sugerencias para empezar:**
-- Pulsa **Resumen del mes** para ver KPIs clave
-- Pulsa **Leads sin actividad** para identificar prioridades
-- Pulsa **Rendimiento campanas** para analizar Meta + Google`,
-};
-
-function getMockResponse(message: string): string {
-  const m = message.toLowerCase();
-  if (/resumen|mes|kpi/i.test(m)) return SAMPLE_RESPONSES.resumen;
-  if (/inactiv|sin actividad|seguimiento/i.test(m)) return SAMPLE_RESPONSES.inactivos;
-  if (/campan|meta|google|ads|ROAS/i.test(m)) return SAMPLE_RESPONSES.campanas;
-  return SAMPLE_RESPONSES.default.replace('%MSG%', message);
-}
-
-function mockStream({ message, signal }: StreamChatPayload, onEvent: ChatEventHandler): Promise<void> {
-  return new Promise((resolve) => {
-    const text = getMockResponse(message);
-    const messageId = 'msg_' + Math.random().toString(36).slice(2, 9);
-    onEvent({ type: 'start', messageId });
-
-    const tokens = text.match(/\S+\s*/g) || [];
-    let i = 0;
-
-    function emit(): void {
-      if (signal?.aborted) {
-        onEvent({ type: 'error', error: 'Cancelado' });
-        return resolve();
-      }
-      if (i >= tokens.length) {
-        onEvent({ type: 'done', messageId, usage: { promptTokens: 1200, completionTokens: tokens.length } });
-        return resolve();
-      }
-      const chunkSize = 1 + Math.floor(Math.random() * 2);
-      const chunk = tokens.slice(i, i + chunkSize).join('');
-      i += chunkSize;
-      onEvent({ type: 'delta', content: chunk });
-      setTimeout(emit, 25 + Math.random() * 35);
-    }
-    emit();
-  });
 }

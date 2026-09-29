@@ -177,7 +177,7 @@ export default function MetaAdsPage() {
                 <CaretUpDown size={12} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
               </div>
             ) : (
-              <h1 className="text-lg font-bold tracking-tight truncate">{account.ad_account_nombre || account.ad_account_id}</h1>
+              <h2 className="text-lg font-bold tracking-tight truncate">{account.ad_account_nombre || account.ad_account_id}</h2>
             )}
             <p className="text-xs text-muted-foreground">
               {filterAccountId == null && accounts.length > 1 ? (

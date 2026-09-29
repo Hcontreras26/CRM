@@ -24,6 +24,9 @@ export const crearPasoSchema = z.object({
   dia_hasta: diaOpcional,
   canales: z.array(z.enum(CANALES)).max(6).optional(),
   es_seguimiento: z.coerce.boolean().optional(),
+  // Su mensaje dice cuantas plazas quedan: el CRM avisa de ir a mirarlas
+  // fuera, no las calcula. Se puede apagar en un proyecto sin convocatorias.
+  avisa_plazas: z.coerce.boolean().optional(),
   nota: z.string().max(2000).nullable().optional().or(z.literal('')),
 }).refine(
   (d) => d.dia_desde == null || d.dia_hasta == null || d.dia_hasta >= d.dia_desde,
@@ -38,6 +41,9 @@ export const editarPasoSchema = z.object({
   dia_hasta: diaOpcional,
   canales: z.array(z.enum(CANALES)).max(6).optional(),
   es_seguimiento: z.coerce.boolean().optional(),
+  // Su mensaje dice cuantas plazas quedan: el CRM avisa de ir a mirarlas
+  // fuera, no las calcula. Se puede apagar en un proyecto sin convocatorias.
+  avisa_plazas: z.coerce.boolean().optional(),
   nota: z.string().max(2000).nullable().optional().or(z.literal('')),
   activo: z.coerce.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, {
@@ -48,9 +54,14 @@ export const reordenarSchema = z.object({
   ids: z.array(z.coerce.number().int().positive()).min(1).max(50),
 });
 
-// Mover de fecha o saltarse un paso de la agenda de alguien (#89).
+// Marcar, saltarse o mover de fecha un paso de la agenda de alguien (#89).
+//
+// `hecho` lo pone la gestora desde la checklist de la ficha. `pendiente` es
+// desmarcarlo: se permite porque marcar el paso de otra persona por error pasa,
+// y sin vuelta atras el proceso de ese prospecto se queda mintiendo para
+// siempre.
 export const ajustarPasoSchema = z.object({
-  estado: z.enum(['pendiente', 'saltado']).optional(),
+  estado: z.enum(['pendiente', 'saltado', 'hecho']).optional(),
   fecha_prevista: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha va como AAAA-MM-DD').optional(),
   nota: z.string().trim().max(500).optional(),
 }).refine((d) => d.estado || d.fecha_prevista || d.nota, {

@@ -1,161 +1,125 @@
 # Dónde nos quedamos · rama `feat/angel`
 
-> 26/08/2026 · Para retomar sin releer el hilo.
+> 08/09/2026 · Para retomar sin releer el hilo.
 
 ---
 
 ## Lo primero al volver
 
-**Todo subido.** Los siete commits están en `feat/angel` y por tanto en el
-PR #51, a la espera de que Diego los revise.
+**Todo subido.** 18 commits en `feat/angel` (`aed0303..0431845`).
+Backend 864/864, frontend 625/625, tipos limpios. **Ninguna prueba en rojo.**
 
-Lo que hace falta para que funcione en un servidor está más abajo: dos
-migraciones y una variable de entorno.
+Comentado a Diego en el **#126**, **#111** y **#132**.
 
 ---
 
 ## Lo que está a medio hacer ahora mismo
 
-**Nada.** #27, #28, #29 y la parte hecha de #70 están terminados, probados y
-subidos. Lo siguiente sin empezar es #26.
+**Nada.** Lo de esta tanda está terminado, probado y subido.
+
+---
 
 ## Lo que hay que decirle a Diego
 
 ### 1 · El panel de Informes declara ingresos de más
 
-Esto es lo más importante de todo el documento.
+**Sigue igual que el 26 de agosto.** Es lo que más pesa de este documento.
 
-El ticket #29 dice: *«lo cobrado sale de `conversion_payments`, **nunca** de
-`conversions.importe_pagado` — ese campo declara de más: 209.930 € en ISEIE»*.
-
-**Pero el panel usa justo ese campo.** `overview()` en `report.model.js` hace
-`SUM(importe_pagado) AS cobrado`. Medido en la base de desarrollo:
+El #29 dice que lo cobrado sale de `conversion_payments` y **nunca** de
+`conversions.importe_pagado`. `report.model.js` usa ese campo en **cinco**
+sitios. Medido hoy en la base de desarrollo:
 
 | | |
 |---|---|
-| Lo que dice el panel | 11.440 € |
-| Lo que hay de verdad en `conversion_payments` | 4.200 € |
-| **De más** | **7.240 € (63 %)** |
+| Lo que dice el panel | 10.940 € |
+| Lo que hay en `conversion_payments` | 3.700 € |
+| **De más** | **7.240 € (66 %)** |
 
-O sea que las dos reglas del ticket se contradicen: no se puede cuadrar con el
-panel Y respetar la regla del dinero, porque **el panel la incumple**.
-
-En el reporte semanal ganó la regla del dinero: manda el número real y lo dice al
-pie. Pero **el panel sigue mal**, y eso es una decisión de Diego, no nuestra.
+El reporte semanal ya manda el número real y lo dice al pie. El panel sigue
+mal, y es decisión de Diego. Está dicho en el comentario del #126.
 
 ### 2 · Dos migraciones sin aplicar
 
 | | | Sin ella |
 |---|---|---|
-| **127** | `registro_de_correos` | El correo sale pero no queda registro, la pantalla de Estado sale vacía, y **la idempotencia no frena**: la clave vive en esa tabla, así que una tarea repetida vuelve a mandar |
-| **132** | `avisos_por_correo` | Los avisos ni se mandan: la consulta usa esa tabla, falla, y el trabajo lo registra sin tumbar nada |
+| **144** | `registro_tareas` | El registro funciona igual: «Tareas» sale tachada en los filtros y la pantalla lo dice |
+| **145** | `gasto_de_ia` | No hay tope de gasto, y el aviso lo nombra para que se sepa cuál falta |
 
-Ojo con el número, que ha chocado **dos veces**. Primero la 128, ya cogida por
-WhatsApp. Luego la 131, que se la quedó `131_lead_whatsapp_usuario.sql` en
-`integracion/todo` — la misma que tumbó producción el 25/08 (ver #71). La de los
-avisos es la **132**.
+Las de antes —**127** (`registro_de_correos`) y **132** (`avisos_por_correo`)—
+**ya están aplicadas**. Ojo con los números: la 142 y la 143 se las quedó Diego
+(#86 y #87, ya en producción), y por eso las mías se movieron a 144 y 145.
 
-### 3 · Ocho issues terminados y todavía abiertos
+**La 146 ya no existe.** Escribí una tabla para apagar avisos sin ver que
+`avisos_apagados` ya hacía eso desde la 132. Al usar la que hay, esa parte
+funciona sin migración.
 
-**#62, #63, #64, #67, #68** (WhatsApp), **#27** (tubería de correo), **#28**
-(recordatorios) y **#29** (reporte semanal). Todo subido. Falta que Diego los
-revise y los cierre — los issues no los cerramos nosotros.
+### 3 · Una pregunta abierta
 
-### 4 · Choque con `integracion/todo`
-
-La rama de integración solo lleva **el primero** de los seis commits de WhatsApp.
-Al probar la fusión, choca en cinco ficheros:
-
-```
-backend/src/modules/whatsapp/chat.model.js
-backend/src/modules/whatsapp/chat.service.js
-frontend/src/modules/whatsapp/api/whatsapp.api.ts
-frontend/src/modules/whatsapp/pages/ChatPage.tsx
-frontend/src/modules/whatsapp/pages/chat.css
-```
-
-Cuanto más espere, peor.
+Ninguna. La de `projectIds` se resolvió mirando `projectAccess`: superadmin y
+soporte pasan sin proyectos, admin y gestor no. El mínimo va donde el alta
+quedaría rota.
 
 ---
 
-## Lo siguiente, por orden
+## Lo que se hizo en esta tanda
 
-1. **#26 · Página de estado del sistema.** Ya tiene una subfase hecha sin
-   pretenderlo: el bloque de correos. Quedan Meta, Stripe, WooCommerce y las
-   tareas programadas — el mismo patrón repetido.
-   > Ojo: #26 pide *«sin datos sensibles, por si algún día se enseña fuera»*, y el
-   > bloque de correos enseña direcciones de clientes. Hoy está tras
-   > `roleGuard('admin','superadmin')`, pero si esa pantalla llega a ser pública,
-   > ese bloque no puede ir. Conviene decidirlo antes de añadir más.
-2. **#30 · Análisis de datos con IA** y **#44 · Sincronizar proyectos de IA**
-   (compartido con Fabián — hablarlo antes de empezar).
+**#111 · Notificaciones** — agrupadas («×98» contado en SQL, no en la
+pantalla), «para hacer» separado de «para saber», apagado por tipo y por
+persona, y los enlaces arreglados.
 
----
+**#132 · El correo con enlaces** — el filtro rápido subió al servidor (se
+aplicaba sobre la página de 20) y el «plan de mañana» ya lleva enlaces que
+abren el CRM filtrado y en el proyecto correcto.
 
-## Lo que quedó abierto y no es un issue
+**#126 · Proceso de ventas** — los tres avisos verificados de punta a punta
+contra la base y la API, no leyendo el código.
 
-**Los 9 tests rojos que faltan.** De 20 se arreglaron 11. Quedan:
+### Cuatro fallos reales que aparecieron por el camino
 
-- `ExportDialog` (6) — cambió el texto de la interfaz
-- `ConversionDialog` (3) — el objeto que se manda tiene 18 campos y la prueba
-  espera 6
+1. **El webhook devolvía 500 al reenviar el mismo formulario.**
+   `canalDetectado` se usaba en la línea 216 y se declaraba en la 234. Zona
+   muerta temporal, desde el 9 de junio. No se veía porque la nota sí se
+   guardaba: solo fallaba la respuesta HTTP.
 
-No son mecánicos: hay que leer qué hace hoy cada componente y decidir si el
-cambio fue intencionado **o si hay un fallo escondido que la prueba vigilaba**.
-Lo de `ConversionDialog` huele mal: pasar de 6 campos a 18 al convertir un
-prospecto es mucho cambio para que nadie lo mirara en meses. Está en **#70**.
+2. **Dos sistemas para apagar avisos.** El mío borraba las preferencias de
+   correo de la gente al guardar, sin decirlo.
 
-**Duplicados por teléfono.** El issue #65 menciona un caso real de esta semana:
-dos fichas del mismo número, `+56945521666` y `+945521666`, que no se detectaron
-como duplicadas porque no coincidían como texto. **Eso pasa hoy**, sin usuarios
-de WhatsApp de por medio, y es independiente del resto de ese ticket.
+3. **Enlaces muertos.** `/prospectos/papelera` no existe y abría una ficha con
+   ese id; y «nuevos prospectos» buscaba `status: 'nuevo'` cuando desde la
+   migración 076 nacen `'por_contactar'`.
 
-**`backend/env.production` y `env.staging`** siguen sin seguimiento y **sin
-ignorar**. Un `git add -A` de cualquiera los sube.
-
-**El número personal de Ángel en el historial de git**, en `5d091f8` y `89ad9ca`.
-Quitarlo exige reescribir tres ramas y coordinarlo con todo el equipo. **No está
-en `main`.**
+4. **`CLAUDE.md` mandaba leer ocho documentos que nunca existieron.**
+   Corregido: ahora lista los trece que hay de verdad.
 
 ---
 
-## Cosas que no se pueden hacer, ya comprobadas
+## Lo que queda abierto
 
-Para que nadie las vuelva a intentar. Las tres están documentadas en sus issues
-con el código delante.
+**#132** — la validación mensual: «toda tu base por correo, para que la
+validen». Mismo aparato, otra cadencia, **ya sin bloqueo**. Con la salvedad del
+ticket: tiene que poder responderse, o sea una pantalla donde ir marcando.
 
-| | |
-|---|---|
-| **Hablar por WhatsApp desde el CRM** | Solo pagando: Wavoip (con sus servidores en medio) o la API oficial de Meta (que obliga a un número que deja de funcionar en la app normal). Gratis no hay. |
-| **Hacer sonar el teléfono del otro** | `baileys@7.0.0-rc14` solo expone `rejectCall`. No hay `offerCall` — por eso el de Evolution está comentado y devuelve un `id: '123'` inventado. |
-| **Abrir un chat con `@usuario`** | Evolution hace `number.replace(/\D/g,'')` al armar el destinatario: borra todo lo que no sea cifra. Se puede *leer* el usuario de quien escribe y guardarlo, pero no escribirle. |
+**#111 y #132** — falta verlos en `/testeo` y portarlos a ISEIE. **Eso lo lleva
+Diego**, no nosotros.
+
+**16 issues sin empezar** — WhatsApp (#128, #129, #112, #101, #99, #67, #63),
+paneles (#130), IA (#44, #30), manual (#66), y #2 y #11.
 
 ---
 
-## Entorno local, para levantarlo
-
-Tres procesos, y un detalle que cuesta una hora si se olvida:
+## Cómo se levanta esto
 
 ```bash
-# 1 · Puente de Baileys (solo si se toca WhatsApp)
-cd <scratchpad>/puente-wa && node puente.mjs        # :8099
-
-# 2 · Backend
-cd backend && PORT=3056 EMAIL_LISTA_BLANCA=@empresa.com node src/app.js
-
-# 3 · Frontal
-cd frontend && VITE_API_TARGET=http://localhost:3056 \
-  node node_modules/vite/bin/vite.js --port 5173 --strictPort
+docker compose -f docker-compose.dev.yml up -d
+cd backend  && npm run dev     # :3001
+cd frontend && npm run dev     # :5173/crm
 ```
 
-Se entra por **`http://localhost:5173/crm/`** — por `127.0.0.1` no responde.
+Entrar con `manuel@empresa.com`. La base local es desechable; si le faltan
+migraciones, se aplican con `psql` desde `backend/migrations/` en orden.
 
-`backend/.env` dice `PORT=3001` pero el backend corre en **3056**, porque es a
-donde el puente manda los webhooks. Sin `VITE_API_TARGET` apuntando ahí, **todo
-el CRM da error 500 empezando por el login**, y parece que se cayó la base.
-
-**Y sin `EMAIL_LISTA_BLANCA` no sale ningún correo en desarrollo.** Es el
-comportamiento correcto —el freno de #27— pero conviene saberlo.
-
-El número de WhatsApp de Ángel **está desvinculado** desde el 25/08. Para probar
-el chat, las plantillas o las llamadas hace falta volver a enlazar uno.
+**Aviso:** el `.env` local tiene `BREVO_API_KEY=test`, que no es una clave. Los
+correos no salen de esta máquina: quedan en `email_envios` con estado
+`bloqueado`, que es lo que hace el freno de pruebas. Para que salgan de verdad
+hace falta una clave real y `EMAIL_LISTA_BLANCA` con las direcciones
+autorizadas.

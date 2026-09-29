@@ -108,7 +108,18 @@ export default function EmailTemplatesPage() {
             <article key={t.id} className={`bg-card border border-border rounded-xl p-4 ${!t.active ? 'opacity-60' : ''}`}>
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-sm truncate">{t.name}</h3>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h3 className="font-semibold text-sm truncate">{t.name}</h3>
+                    {/* Una plantilla comun sale en TODOS los proyectos. Sin
+                        decirlo, alguien cambia aqui un texto de toda la casa
+                        creyendo que toca solo el suyo. */}
+                    {t.project_id === null && (
+                      <span title="Común a todos los proyectos"
+                        className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        De la casa
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[12px] text-muted-foreground truncate">{t.subject}</p>
                 </div>
                 {!t.active && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Inactiva</span>}
@@ -214,16 +225,16 @@ function TemplateEditorDialog({ template, variables, onClose, onSave }: {
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Nombre interno *</label>
+            <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Nombre interno *</label>
             <input value={name} onChange={e => setName(e.target.value)} className={inp} placeholder="ej: Bienvenida tras conversión" maxLength={120} />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Asunto *</label>
+            <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Asunto *</label>
             <input value={subject} onChange={e => setSubject(e.target.value)} className={inp} placeholder="Hola {{lead.nombre}}, ..." maxLength={500} />
             <VariablePicker variables={variables} onPick={tok => insertVar(tok, 'subject')} />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Cuerpo HTML *</label>
+            <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Cuerpo HTML *</label>
             <textarea
               value={body}
               onChange={e => setBody(e.target.value)}
@@ -235,7 +246,7 @@ function TemplateEditorDialog({ template, variables, onClose, onSave }: {
             <VariablePicker variables={variables} onPick={tok => insertVar(tok, 'body')} />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Descripción interna (opcional)</label>
+            <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Descripción interna (opcional)</label>
             <input value={description || ''} onChange={e => setDescription(e.target.value)} className={inp} placeholder="Cuándo usar esta plantilla" maxLength={1000} />
           </div>
         </div>

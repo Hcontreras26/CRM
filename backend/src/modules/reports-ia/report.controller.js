@@ -3,6 +3,9 @@ import { query } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { getDecryptedValue } from '../credentials/credentials.model.js';
 import { logger } from '../../shared/utils/logger.js';
+import * as gasto from '../../shared/services/gastoIA.service.js';
+
+const MODELO = () => process.env.CLAUDE_MODEL || 'claude-sonnet-4-5';
 
 async function getAnthropicKey(projectId = null) {
   try {
@@ -25,7 +28,7 @@ async function callClaude(apiKey, prompt) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5',
+      model: MODELO(),
       max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -35,7 +38,9 @@ async function callClaude(apiKey, prompt) {
     throw new Error(`Anthropic ${res.status}: ${body.slice(0, 300)}`);
   }
   const j = await res.json();
-  return j.content?.[0]?.text || '';
+  // Devuelve tambien lo que costo. Antes solo salia el texto y por eso el gasto
+  // del reporte no se podia contar aunque la API lo estuviera diciendo.
+  return { texto: j.content?.[0]?.text || '', usage: j.usage || {} };
 }
 
 async function gatherData(projectId, periodo) {
@@ -148,13 +153,45 @@ export async function generate(req, res, next) {
     const data = await gatherData(projectId, periodo);
     const apiKey = await getAnthropicKey(projectId);
     let content; let warning = null;
-    if (apiKey) {
-      try { content = await callClaude(apiKey, buildPrompt(data)); }
-      catch (err) {
+    // El tope se mira antes de gastar (#22). Cuando salta, el reporte sale
+    // igual con los datos del CRM: quedarse sin reporte no es lo que se pide,
+    // lo que se pide es no gastar. Pero el aviso tiene que decir que fue el
+    // tope y no la clave — son dos arreglos distintos, y el de la clave no
+    // sirve para nada si el problema es el otro.
+    const permiso = apiKey ? await gasto.compruebaAntesDeGastar() : { permitido: true };
+    if (apiKey && permiso.permitido) {
+      try {
+        const r = await callClaude(apiKey, buildPrompt(data));
+        content = r.texto;
+        await gasto.registrar({
+          projectId,
+          userId: req.user.userId,
+          origen: 'reporte',
+          modelo: MODELO(),
+          entrada: r.usage.input_tokens || 0,
+          salida: r.usage.output_tokens || 0,
+          cacheLectura: r.usage.cache_read_input_tokens || 0,
+          cacheEscritura: r.usage.cache_creation_input_tokens || 0,
+        });
+      } catch (err) {
         logger.warn({ err: err.message }, 'Claude failed, fallback');
+        // Un 4xx/5xx de Anthropic puede haber consumido entrada igual. No hay
+        // `usage` que leer, asi que se apunta la llamada fallida sin tokens:
+        // sirve para ver «se intento y no salio», que es la mitad de la
+        // pregunta cuando la factura no cuadra.
+        await gasto.registrar({
+          projectId,
+          userId: req.user.userId,
+          origen: 'reporte',
+          modelo: MODELO(),
+          fallo: String(err.message).slice(0, 300),
+        });
         content = fallbackReport(data);
         warning = `Claude no respondio: ${err.message?.slice(0, 200)}. Reporte basico.`;
       }
+    } else if (apiKey) {
+      content = fallbackReport(data);
+      warning = `${permiso.motivo} El reporte de abajo sale de los datos del CRM, sin IA.`;
     } else {
       content = fallbackReport(data);
       warning = 'ANTHROPIC_API_KEY no configurada. Configura en Settings > APIs para reportes con IA.';

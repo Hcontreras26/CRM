@@ -2,6 +2,7 @@ import * as model from './ia.model.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { getDecryptedValue } from '../credentials/credentials.model.js';
 import { logger } from '../../shared/utils/logger.js';
+import * as gastoIA from '../../shared/services/gastoIA.service.js';
 
 async function getStripeKey(projectId) {
   try {
@@ -106,5 +107,19 @@ export async function getMetrics(req, res, next) {
         api_configured: !!key,
       },
     });
+  } catch (err) { next(err); }
+}
+
+/**
+ * Cuanto lleva gastado la IA este mes y cuanto queda (#22).
+ *
+ * Existe para que «¿esta puesto el tope?» se pueda contestar mirando, no
+ * leyendo el codigo ni el .env del servidor. `instalado: false` quiere decir
+ * que falta la migracion 145 y que por tanto NO hay tope — no que el gasto sea
+ * cero.
+ */
+export async function getGasto(req, res, next) {
+  try {
+    res.json({ success: true, data: await gastoIA.estado() });
   } catch (err) { next(err); }
 }

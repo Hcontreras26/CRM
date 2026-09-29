@@ -40,10 +40,10 @@ export default function BetaDisclaimer({
   return (
     <>
       {/* Banner permanente arriba */}
-      <div className="bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-900 px-4 py-2 flex items-center gap-2 text-xs">
-        <WarningCircle size={14} weight="fill" className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
-        <span className="font-semibold text-amber-900 dark:text-amber-300">EN PRUEBAS</span>
-        <span className="text-amber-800 dark:text-amber-400 truncate">
+      <div className="bg-warning-soft text-warning-soft-foreground border-b border-border px-4 py-2 flex items-center gap-2 text-xs">
+        <WarningCircle size={14} weight="fill" className="flex-shrink-0" />
+        <span className="font-semibold">EN PRUEBAS</span>
+        <span className="truncate opacity-90">
           · {description}
         </span>
       </div>
@@ -51,9 +51,9 @@ export default function BetaDisclaimer({
       {/* Popup modal — primera vez */}
       {showModal && (
         <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4" onClick={close}>
-          <div className="bg-card rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card rounded-lg shadow-dialog w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-border flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-md bg-warning-soft text-warning-soft-foreground flex items-center justify-center flex-shrink-0">
                 <WarningCircle size={22} weight="duotone" />
               </div>
               <div className="flex-1">

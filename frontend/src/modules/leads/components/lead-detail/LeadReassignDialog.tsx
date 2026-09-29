@@ -45,8 +45,8 @@ export default function LeadReassignDialog({ open, gestores, onClose, onSubmit }
         <div className="relative bg-card rounded-lg border border-border shadow-[0_20px_25px_-5px_rgb(0_0_0/0.1)] w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-lg font-semibold">Reasignar lead</h2>
-              <p className="text-muted-foreground text-sm mt-0.5">Selecciona un nuevo responsable para este lead</p>
+              <h2 className="text-lg font-semibold">Reasignar prospecto</h2>
+              <p className="text-muted-foreground text-sm mt-0.5">Selecciona un nuevo responsable para este prospecto</p>
             </div>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted">
               <X size={18} weight="bold" />

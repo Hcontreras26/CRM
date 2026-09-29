@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { mensajeDeError } from '@/modules/proceso/api/proceso.api';
 import { nombreDeCanal, iconoDeCanal, CANALES } from '@/modules/proceso/lib/canales';
-import { textoDeDias, puedeEditar } from '@/modules/proceso/pages/ProcesoPage';
+import { puedeEditar } from '@/modules/proceso/pages/ProcesoPage';
+import { textoDeDias } from '@/modules/proceso/lib/cuando';
 
 /*
   El proceso comercial (#115).

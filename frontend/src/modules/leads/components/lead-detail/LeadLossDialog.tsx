@@ -41,7 +41,7 @@ export default function LeadLossDialog({ open, onClose, onConfirm, loading }: Le
           <h2 className="text-lg font-semibold mb-1">Motivo de pérdida</h2>
           <p className="text-muted-foreground text-sm mb-5">
             Obligatorio al marcar como no interesado. El motivo se guarda en el historial
-            y aparece como nota en el feed del lead.
+            y aparece como nota en el feed del prospecto.
           </p>
           <Select<string>
             value={reason}
@@ -61,7 +61,7 @@ export default function LeadLossDialog({ open, onClose, onConfirm, loading }: Le
           {reason && (
             <div className="mt-3">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-                Detalle {needsDetail ? <span className="text-red-600 normal-case font-semibold">(obligatorio)</span> : <span className="text-muted-foreground normal-case font-normal">(opcional)</span>}
+                Detalle {needsDetail ? <span className="text-destructive normal-case font-semibold">(obligatorio)</span> : <span className="text-muted-foreground normal-case font-normal">(opcional)</span>}
               </label>
               <textarea
                 rows={3}
@@ -82,7 +82,7 @@ export default function LeadLossDialog({ open, onClose, onConfirm, loading }: Le
             <button
               onClick={() => onConfirm(buildMotivo())}
               disabled={!canConfirm || loading}
-              className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-40"
+              className="px-4 py-2 rounded-md bg-destructive text-destructive-foreground text-sm font-semibold hover:bg-destructive/90 transition-colors disabled:opacity-40"
             >
               {loading ? 'Guardando…' : 'Confirmar'}
             </button>

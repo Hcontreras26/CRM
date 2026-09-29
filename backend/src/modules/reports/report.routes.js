@@ -22,6 +22,8 @@ router.get('/cobros-mensuales', ctrl.cobrosMensuales);
 router.get('/ventas-vendedora', ctrl.ventasVendedora);
 router.get('/ventas-asesora', ctrl.ventasAsesora);
 router.get('/asesoras-mes', ctrl.asesorasMes);
+// Como voy yo: puesto en ventas y tasa de conversion de quien pregunta.
+router.get('/mi-puesto', ctrl.miPuesto);
 router.get('/panel', ctrl.panel);
 router.get('/seguimiento', ctrl.seguimiento);
 router.get('/paises', ctrl.paises);
@@ -32,5 +34,9 @@ router.get('/detalle', ctrl.detalle);
 router.get('/aviso-sin-factura', ctrl.avisoSinFactura);
 router.get('/tasa-cierre', ctrl.tasaCierre);
 router.get('/tasa-cierre/detalle', ctrl.tasaCierreDetalle);
+
+// «Ayer y hoy» del dashboard (#130). Sin roleGuard a proposito: una gestora
+// entra y ve lo suyo, que es el caso principal de esta pantalla.
+router.get('/resumen-del-dia', ctrl.resumenDia);
 
 export default router;

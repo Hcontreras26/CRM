@@ -152,6 +152,27 @@ async function findProductByExactName(projectId, nombre) {
   return rows[0] || null;
 }
 
+/**
+ * Un numero de verdad, o nada.
+ *
+ * WooCommerce manda los campos vacios como cadena vacia, no como nulo, y una
+ * cadena vacia en una columna numerica revienta con «invalid input syntax for
+ * type numeric». Eso dejaba fuera del CRM, en cada sincronizacion, a los
+ * programas cuyo precio esta en blanco en la web: en ACADEMIA IA eran tres
+ * --un master, un diplomado y un curso-- y llevaban meses sin aparecer, con
+ * el fallo escondido en un aviso del registro porque el import los SALTA y
+ * sigue.
+ *
+ * Sin precio se guarda 0 --que es lo que ya hacia el mapeo automatico-- en vez
+ * de dejar el producto fuera: es mejor verlo con precio a cero y corregirlo
+ * que no verlo.
+ */
+function numeroOSiNo(v, siFalta = null) {
+  if (v === null || v === undefined || v === '') return siFalta;
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
+  return Number.isFinite(n) ? n : siFalta;
+}
+
 export async function upsertProductFromWc({ projectId, wcId, data }) {
   // 1) Por wc_product_id. 2) Fallback por nombre exacto (caso CPT que choca con WC).
   let existing = await findProductByWcId(projectId, wcId);
@@ -160,12 +181,14 @@ export async function upsertProductFromWc({ projectId, wcId, data }) {
     if (byName) existing = byName;
   }
   const meta = data.meta || {};
+  // El precio, siempre un numero: puede llegar vacio desde la web.
+  const precio = numeroOSiNo(data.precio, 0);
   // Campos de scraping (todos opcionales). Si vienen, se guardan; si no, queda NULL.
   const sc = {
     duracion:           data.duracion ?? null,
     horas:              data.horas ?? null,
     fecha_inicio_texto: data.fecha_inicio_texto ?? null,
-    num_modulos:        Number.isFinite(data.num_modulos) ? data.num_modulos : null,
+    num_modulos:        numeroOSiNo(data.num_modulos),
     modalidad:          data.modalidad ?? null,
     image_url:          data.image_url ?? null,
     url_info:           data.url_info ?? null,
@@ -181,7 +204,7 @@ export async function upsertProductFromWc({ projectId, wcId, data }) {
     profesores_texto:         data.profesores_texto ?? null,
     otras_secciones:          data.otras_secciones ? JSON.stringify(data.otras_secciones) : null,
     source_type:        data.source_type ?? null,
-    source_id:          Number.isFinite(data.source_id) ? data.source_id : null,
+    source_id:          numeroOSiNo(data.source_id),
   };
 
   if (existing) {
@@ -211,7 +234,7 @@ export async function upsertProductFromWc({ projectId, wcId, data }) {
            source_id                = COALESCE($28, source_id),
            updated_at=NOW()
        WHERE id = $8 RETURNING id`,
-      [data.nombre, data.precio, data.descripcion || null, data.sku || null,
+      [data.nombre, precio, data.descripcion || null, data.sku || null,
        data.categoria_id || null, data.subcategoria_id || null,
        JSON.stringify(meta), existing.id,
        sc.duracion, sc.horas, sc.fecha_inicio_texto, sc.num_modulos, sc.modalidad,
@@ -236,7 +259,7 @@ export async function upsertProductFromWc({ projectId, wcId, data }) {
              $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb,
              $28, $29)
      RETURNING id`,
-    [projectId, data.nombre, data.precio, data.descripcion || null, data.sku || null,
+    [projectId, data.nombre, precio, data.descripcion || null, data.sku || null,
      data.categoria_id || null, data.subcategoria_id || null,
      wcId, JSON.stringify(meta),
      sc.duracion, sc.horas, sc.fecha_inicio_texto, sc.num_modulos, sc.modalidad,

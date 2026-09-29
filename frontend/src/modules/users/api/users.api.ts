@@ -11,7 +11,10 @@ export interface CrmUser {
   id: number;
   nombre: string;
   email: string;
+  /** El rol PRINCIPAL. Es el que sale en las listas y el que mira medio CRM. */
   role: UserRole;
+  /** Roles de MAS: solo suman permisos. Vacio en casi todo el mundo. */
+  roles_extra?: UserRole[];
   active: boolean;
   last_login_at: string | null;
   created_at: string | null;
@@ -31,6 +34,14 @@ export interface CrmUser {
   factura_manager?: boolean;
   editar_fechas_factura?: boolean;
   gestor_colaboraciones?: boolean;
+  /**
+   * Si usa el WhatsApp del CRM (#128).
+   *
+   * `null` significa que la migracion 156 todavia no esta aplicada — no que
+   * este apagado. La pantalla lo distingue: con null la casilla no se puede
+   * tocar y dice por que, en vez de dejar apagar algo que no se va a guardar.
+   */
+  usa_whatsapp?: boolean | null;
 }
 
 export interface ListUsersParams {
@@ -66,6 +77,8 @@ function normalizeUser(raw: any): CrmUser {
     nombre: raw.nombre || raw.name || '',
     email: raw.email || '',
     role: raw.role,
+    // Los roles de mas, si los tiene. Vacio en casi todo el mundo.
+    roles_extra: Array.isArray(raw.roles_extra) ? raw.roles_extra : [],
     active: raw.active !== false,
     last_login_at: raw.last_login_at ?? null,
     created_at: raw.created_at ?? null,
@@ -76,6 +89,8 @@ function normalizeUser(raw: any): CrmUser {
     factura_manager: !!raw.factura_manager,
     editar_fechas_factura: !!raw.editar_fechas_factura,
     gestor_colaboraciones: !!raw.gestor_colaboraciones,
+    // Sin `!!`: hace falta distinguir «apagado» de «todavia no hay columna».
+    usa_whatsapp: raw.usa_whatsapp ?? null,
   };
 }
 
@@ -102,6 +117,8 @@ export interface CreateUserPayload {
   nombre: string;
   email: string;
   role: UserRole;
+  /** Roles de MAS. Solo suman permisos; el principal sigue siendo `role`. */
+  roles_extra?: UserRole[];
   projects: ProjectAssignment[];
 }
 
@@ -121,6 +138,8 @@ export async function createUser(payload: CreateUserPayload): Promise<CreateUser
 export interface UpdateUserPayload {
   nombre?: string;
   role?: UserRole;
+  /** Roles de MAS. Una lista vacia los quita todos, que es lo que se espera. */
+  roles_extra?: UserRole[];
   projects?: ProjectAssignment[];
   /**
    * Formato viejo, que aqui sirve para una cosa que el nuevo no puede: dejar a
@@ -130,6 +149,15 @@ export interface UpdateUserPayload {
    */
   projectIds?: number[];
   whatsapp_phone?: string;
+  /**
+   * Las casillas del formulario. Faltaban aqui, y por eso no se mandaban: el
+   * dialogo las pintaba, se marcaban y al volver seguian como estaban. El
+   * backend si las acepta desde el principio (`updateUserSchema`).
+   */
+  factura_manager?: boolean;
+  editar_fechas_factura?: boolean;
+  /** WhatsApp del CRM (#128). */
+  usa_whatsapp?: boolean;
 }
 
 export async function updateUser(id: number, payload: UpdateUserPayload): Promise<CrmUser> {

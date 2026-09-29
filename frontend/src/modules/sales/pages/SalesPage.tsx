@@ -1,5 +1,7 @@
+import PageHeader from '@/shared/components/ui/PageHeader';
 import { lazy, Suspense, useState, useEffect } from 'react';
-import { Plus, Receipt, UsersThree } from '@phosphor-icons/react';
+import { Plus, Receipt, UsersThree, CaretDown, User, Users, Robot } from '@phosphor-icons/react';
+import usePermission from '@/shared/hooks/usePermission';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import client from '@/shared/api/client';
@@ -23,11 +25,30 @@ export default function SalesPage() {
   const { user } = useAuth() as { user: { role?: string } | null };
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const [open, setOpen] = useState(false);
+  // CON QUE TIPO SE ABRE. Diego, 25/09: «registrar venta automatica (sin
+  // gestora) y venta propia como un desplegable dentro de ese boton», y luego
+  // «para el caso del admin tambien: registrar venta de otra gestora».
+  const [modoVenta, setModoVenta] = useState<'existing' | 'otra_gestora' | 'sin_gestora'>('existing');
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const { can } = usePermission();
+  const puedeSinGestora = can('conversions.sin_gestora');
+  // Registrar una venta a nombre de otra persona es reasignar dinero: lo mismo
+  // que hace falta para reasignar prospectos.
+  const puedeDeOtra = can('leads.assign') || can('leads.reassign');
+
+  function abrirVenta(modo: 'existing' | 'otra_gestora' | 'sin_gestora') {
+    setModoVenta(modo);
+    setMenuAbierto(false);
+    setOpen(true);
+  }
   // -1 = "Todos los proyectos" del header. En ese caso pasamos null al backend
   // para que agregue cross-proyecto. Si NO hay proyecto activo, ni siquiera el
   // header está listo todavía.
   const hasActiveCtx = !!activeProject?.id;
   const allProjects = activeProject?.id === -1;
+  // Con una EMPRESA puesta si se puede registrar: el dialogo pregunta el campus.
+  // Sin empresa y en «todos los proyectos» no, que ahi no hay de donde elegir.
+  const puedeRegistrar = !!activeProject?.id && (!allProjects || !!activeIssuerId);
   const projectIdParam = hasActiveCtx && !allProjects ? activeProject!.id : null;
   // Con una sociedad elegida, Ventas enseña sus campus sumados —igual que
   // Reportes—, en vez del muro de «elige un proyecto». El servidor traduce el
@@ -53,18 +74,13 @@ export default function SalesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Ventas {allProjects && <span className="text-sm font-normal text-muted-foreground">· Todos los proyectos</span>}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {allProjects
-              ? 'Vista agregada de todos los proyectos. Para registrar una venta entra en un proyecto concreto.'
-              : 'Registra ventas — del día o históricas. Crea cliente + conversión + pago en un solo paso.'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title={allProjects ? 'Ventas · Todos los proyectos' : 'Ventas'}
+        subtitle={allProjects
+          ? 'Vista agregada de todos los proyectos. Para registrar una venta entra en un proyecto concreto.'
+          : 'Registra ventas — del día o históricas. Crea cliente + conversión + pago en un solo paso.'}
+        actions={(
+          <>
           {isAdmin && !allProjects && (
             <div className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-border bg-card text-sm">
               <UsersThree size={14} className="text-muted-foreground" />
@@ -79,18 +95,83 @@ export default function SalesPage() {
               </select>
             </div>
           )}
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            disabled={!hasActiveCtx || allProjects}
-            title={allProjects ? 'Selecciona un proyecto concreto para registrar una venta' : ''}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
-          >
-            <Plus size={14} weight="bold" />
-            Nueva venta
-          </button>
-        </div>
-      </header>
+          {/* NUEVA VENTA, con sus tipos dentro.
+              Quien no tiene mas que uno ve el boton de siempre: un desplegable
+              de una sola opcion es un clic de mas por nada. */}
+          {(puedeSinGestora || puedeDeOtra) ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuAbierto((v) => !v)}
+                disabled={!puedeRegistrar}
+                aria-haspopup="menu"
+                aria-expanded={menuAbierto}
+                title={!puedeRegistrar ? 'Elige un proyecto o una empresa para registrar una venta' : ''}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+              >
+                <Plus size={14} weight="bold" />
+                Nueva venta
+                <CaretDown size={12} weight="bold" className={menuAbierto ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              </button>
+              {menuAbierto && (
+                <>
+                  {/* Pulsar fuera lo cierra. Sin esto el menu se queda abierto
+                      encima de la tabla y hay que volver al boton. */}
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuAbierto(false)} aria-hidden="true" />
+                  <div role="menu" className="absolute right-0 z-20 mt-1 w-72 overflow-hidden rounded-md border border-border bg-card shadow-lg">
+                    <button
+                      type="button" role="menuitem" onClick={() => abrirVenta('existing')}
+                      className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted"
+                    >
+                      <User size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        <span className="block text-sm font-semibold">Venta propia</span>
+                        <span className="block text-[11px] text-muted-foreground">La registras tú y cuenta para ti.</span>
+                      </span>
+                    </button>
+                    {puedeDeOtra && (
+                      <button
+                        type="button" role="menuitem" onClick={() => abrirVenta('otra_gestora')}
+                        className="flex w-full items-start gap-2.5 border-t border-border px-3 py-2.5 text-left hover:bg-muted"
+                      >
+                        <Users size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                        <span>
+                          <span className="block text-sm font-semibold">Venta de otra gestora</span>
+                          <span className="block text-[11px] text-muted-foreground">Eliges el prospecto y la venta queda de quien lo lleva.</span>
+                        </span>
+                      </button>
+                    )}
+                    {puedeSinGestora && (
+                      <button
+                        type="button" role="menuitem" onClick={() => abrirVenta('sin_gestora')}
+                        className="flex w-full items-start gap-2.5 border-t border-border px-3 py-2.5 text-left hover:bg-muted"
+                      >
+                        <Robot size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                        <span>
+                          <span className="block text-sm font-semibold">Venta automática (sin gestora)</span>
+                          <span className="block text-[11px] text-muted-foreground">La registra la plataforma, de cero: no cuenta para ninguna gestora.</span>
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => abrirVenta('existing')}
+              disabled={!puedeRegistrar}
+              title={!puedeRegistrar ? 'Elige un proyecto o una empresa para registrar una venta' : ''}
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+            >
+              <Plus size={14} weight="bold" />
+              Nueva venta
+            </button>
+          )}
+          </>
+        )}
+      />
 
       {hasActiveCtx && !allProjects && (
         <FiltroPeriodo
@@ -172,6 +253,7 @@ export default function SalesPage() {
       <Suspense fallback={null}>
         <RegisterSaleDialog
           open={open}
+          modoInicial={modoVenta}
           project={activeProject}
           onClose={() => setOpen(false)}
           onSaved={() => setOpen(false)}

@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserRole } from '@/shared/types';
+import { rolesDe, tieneRol as tieneRolDe } from '@/shared/lib/roles';
 
 export type PermissionKey = string;
 export type PermissionMap = Record<PermissionKey, boolean>;
@@ -27,6 +28,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
   admin: {
     'leads.view': true,         'leads.create': true,       'leads.edit': true,         'leads.delete': true,       'leads.export': true,       'leads.assign': true,       'leads.bulk_action': true,
     'conversions.view': true,    'conversions.create': true,  'conversions.edit': true,    'conversions.delete': true,
+    'conversions.sin_gestora': true,
     'products.view': true,    'products.create': true,  'products.edit': true,    'products.delete': true,
     'clients.view': true,    'clients.create': true,  'clients.edit': true,    'clients.delete': true,  'clients.export': true,
     'dossiers.view': true,    'dossiers.upload': true,  'dossiers.delete': true,
@@ -50,6 +52,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
   gestor: {
     'leads.view': true,          'leads.create': true,        'leads.edit': true,          'leads.delete': false,       'leads.export': false,       'leads.assign': false,       'leads.bulk_action': false,
     'conversions.view': true,     'conversions.create': true,   'conversions.edit': true,     'conversions.delete': false,
+    'conversions.sin_gestora': false,
     'products.view': true,     'products.create': false,  'products.edit': false,    'products.delete': false,
     'clients.view': true,     'clients.create': true,   'clients.edit': true,     'clients.delete': false,  'clients.export': false,
     'dossiers.view': true,     'dossiers.upload': false,  'dossiers.delete': false,
@@ -107,7 +110,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
 // guardia mira. `permisosEspejo.test.js` compara las dos listas.
 export const PERMISSION_RESOURCES: ReadonlyArray<PermissionResource> = [
   { key: 'leads',            label: 'Prospectos',           actions: ['view', 'create', 'edit', 'delete', 'export', 'assign', 'bulk_action'] },
-  { key: 'conversions',      label: 'Conversiones',         actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'conversions',      label: 'Conversiones',         actions: ['view', 'create', 'edit', 'delete', 'sin_gestora'] },
   { key: 'products',         label: 'Productos',            actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'clients',          label: 'Clientes',             actions: ['view', 'create', 'edit', 'delete', 'export'] },
   { key: 'dossiers',         label: 'Dosieres',             actions: ['view', 'upload', 'delete'] },
@@ -140,7 +143,12 @@ export const FIXED_ROLES: ReadonlyArray<FixedRole> = [
 
 export interface UsePermissionResult {
   can: (permission: PermissionKey) => boolean;
+  /** El rol PRINCIPAL. Para preguntar por uno cualquiera, `tieneRol`. */
   role: UserRole | undefined;
+  /** Todos sus roles: el principal y los añadidos. */
+  roles: UserRole[];
+  /** Si lo tiene, da igual que sea el principal o uno de mas. */
+  tieneRol: (...roles: UserRole[]) => boolean;
   isAdmin: boolean;
 }
 
@@ -151,20 +159,37 @@ export default function usePermission(): UsePermissionResult {
     if (!user) return false;
     // Solo el superadmin lo puede todo. Soporte NO: el backend le da un mapa
     // restrictivo y saltarselo aqui le pintaba botones que su rol no permite.
-    if (user.role === 'superadmin') return true;
+    if (tieneRolDe(user, 'superadmin')) return true;
     // Los del backend, que mandan sobre la tabla de abajo.
     //
     // Se leian de `user.permissions` y ahi no estan: `/auth/me` los devuelve AL
     // LADO del usuario, no dentro. O sea que esta rama no se cumplia nunca y
     // todo el mundo caia en los defaults — los roles a medida no pintaban nada
     // aunque el backend llevara tiempo calculandolos.
-    if (permissions && Object.keys(permissions).length > 0) {
-      return permissions[permission] === true || permissions['*'] === true;
+    //
+    // Solo en lo que el backend DEFINE: lo que no esta en su mapa sigue saliendo
+    // de la tabla de abajo, como hasta ahora. Y no para el tutor: el backend no
+    // tiene tabla de tutor y le calcula la de gestora, que le pintaria botones
+    // que no son suyos.
+    if (permissions && user.role !== 'tutor') {
+      if (permissions['*'] === true) return true;
+      if (Object.prototype.hasOwnProperty.call(permissions, permission)) {
+        return permissions[permission] === true;
+      }
     }
-    // fallback: defaults por rol
-    const defaults = ROLE_DEFAULT_PERMISSIONS[user.role as UserRole] || {};
-    return defaults[permission] === true || defaults['*'] === true;
+    // Respaldo: los de cada uno de sus roles, sumados. Basta con que UNO lo
+    // permita —si se cruzaran al reves, añadir un rol quitaria permisos—.
+    return rolesDe(user).some((r) => {
+      const defaults = ROLE_DEFAULT_PERMISSIONS[r] || {};
+      return defaults[permission] === true || defaults['*'] === true;
+    });
   }
 
-  return { can, role: user?.role, isAdmin: user?.role === 'admin' || user?.role === 'superadmin' };
+  return {
+    can,
+    role: user?.role,
+    roles: rolesDe(user),
+    tieneRol: (...roles: UserRole[]) => tieneRolDe(user, ...roles),
+    isAdmin: tieneRolDe(user, 'admin', 'superadmin'),
+  };
 }

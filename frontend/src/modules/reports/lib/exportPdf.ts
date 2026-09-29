@@ -161,6 +161,13 @@ export async function exportReportPDF(data: OverviewData, projectName: string | 
       ['Mediana hasta el 1er contacto', seg(co.mediana_primer_contacto_seg)],
       ['Mediana hasta la venta', co.mediana_dias_venta == null ? '—' : `${co.mediana_dias_venta} días`],
       ['Contactos en el periodo', `${ac.toques} a ${ac.personas} personas`],
+      // Escrito contra voz (#128): el documento comercial dice que la nota de
+      // voz sube la tasa de respuesta, y esto es lo que permite comprobarlo.
+      ...(ac.whatsapp_saliente ? [[
+        'WhatsApp enviado',
+        `${ac.whatsapp_saliente.escrito} escrito · ${ac.whatsapp_saliente.voz} de voz`
+          + ` (${ac.whatsapp_saliente.pct_voz}%)`,
+      ]] : []),
     ], MARGIN, CONTENT_W, () => y, (newY) => { y = newY; }, ensureSpace, 'Seguimiento y tiempos');
 
     if ((co.embudo || []).length) {

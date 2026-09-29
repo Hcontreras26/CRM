@@ -8,6 +8,7 @@ import Select from '@/shared/components/ui/Select';
 import { Envelope, Plus, Trash, X, Play, Pause, FloppyDisk, FileText } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import { emailTemplatesApi, type EmailTemplate } from '@/modules/email-templates/api/templates.api';
+import { lista } from '@/shared/lib/lista';
 
 const ConfirmDialog = lazy(() => import('@/shared/components/ui/ConfirmDialog'));
 
@@ -171,7 +172,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
     if (!activeProject?.id) return;
     let cancelled = false;
     emailTemplatesApi.list(activeProject.id, false)
-      .then(res => { if (!cancelled && res.success && res.data) setTemplates(res.data); })
+      .then(res => { if (!cancelled && res.success && res.data) setTemplates(lista(res.data)); })
       .catch(() => { /* silencioso, plantillas son opcionales */ });
     return () => { cancelled = true; };
   }, [activeProject?.id]);

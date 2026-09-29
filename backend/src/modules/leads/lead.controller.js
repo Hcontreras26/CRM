@@ -1,7 +1,7 @@
 import * as leadService from './lead.service.js';
 import { query } from '../../shared/config/db.js';
 import * as leadModel from './lead.model.js';
-import { webhookLeadSchema, listLeadsSchema, updateStatusSchema, createInteractionSchema, updateInteractionSchema, createReminderSchema, reassignSchema, updateLeadSchema, createLeadManualSchema } from './lead.validation.js';
+import { webhookLeadSchema, listLeadsSchema, quickCountsSchema, revisarLeadSchema, updateStatusSchema, createInteractionSchema, updateInteractionSchema, createReminderSchema, reassignSchema, updateLeadSchema, createLeadManualSchema } from './lead.validation.js';
 import * as dupQueue from './dup-queue.service.js';
 import * as leadProducts from './lead-products.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
@@ -85,6 +85,93 @@ export async function list(req, res, next) {
   } catch (err) { next(err); }
 }
 
+/**
+ * GET /api/leads/quick-counts — cuantos hay en cada filtro rapido (#132).
+ *
+ * Las pestañas del listado los contaban en el navegador sobre la pagina de 20,
+ * asi que decian «3» cuando en la base habia doce.
+ *
+ * Y es el mismo numero que va a llevar el correo del resumen de mañana. Sale de
+ * aqui para los dos, con las mismas cadenas de `FILTROS_RAPIDOS`: es la unica
+ * forma de que el correo diga «7 personas» y la lista enseñe siete.
+ *
+ * Misma regla de rol que el listado: una gestora cuenta lo suyo, y el
+ * `responsableId` que venga del cliente se ignora.
+ */
+export async function quickCounts(req, res, next) {
+  try {
+    const parsed = quickCountsSchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    }
+    const filtros = { ...parsed.data };
+    if (req.user.role === 'gestor') filtros.responsableId = req.user.userId;
+
+    res.json({ success: true, data: await leadModel.contarFiltrosRapidos(filtros) });
+  } catch (err) { next(err); }
+}
+
+/**
+ * POST /api/leads/:id/revisar — el repaso de fin de mes (#132).
+ *
+ * Diego: «tiene que poder responderse; si el correo solo enseña, nadie valida
+ * nada». Esto es el "responder".
+ *
+ * Una gestora solo puede revisar lo suyo. Sin esto, el enlace del correo seria
+ * una puerta para marcar fichas de otra.
+ */
+export async function revisar(req, res, next) {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
+
+    if (!(await leadModel.sePuedeRevisar())) {
+      throw new AppError(
+        'Todavia no se puede validar la base: falta aplicar la migracion 155.',
+        503, 'MIGRATION_PENDING');
+    }
+    const parsed = revisarLeadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    }
+    const lead = await leadModel.findById(id);
+    if (!lead) throw new AppError('Prospecto no encontrado', 404, 'NOT_FOUND');
+    if (req.user.role === 'gestor' && lead.responsable_id !== req.user.userId) {
+      throw new AppError('Ese prospecto no es tuyo', 403, 'FORBIDDEN');
+    }
+
+    const hecho = await leadModel.apuntarRevision({
+      leadId: id, userId: req.user.userId, ...parsed.data,
+    });
+    // Se devuelve el progreso con la respuesta: la pantalla necesita decir
+    // cuanto queda sin tener que pedirlo aparte en cada clic.
+    const progreso = await leadModel.comoVaLaRevision({
+      projectId: lead.project_id,
+      responsableId: req.user.role === 'gestor' ? req.user.userId : null,
+    });
+    res.status(201).json({ success: true, data: { revision: hecho, progreso } });
+  } catch (err) { next(err); }
+}
+
+/** GET /api/leads/revision — cuanto lleva y cuanto le queda del repaso (#132). */
+export async function progresoRevision(req, res, next) {
+  try {
+    const projectId = req.query.projectId ? parseInt(req.query.projectId) : null;
+    const progreso = await leadModel.comoVaLaRevision({
+      projectId,
+      responsableId: req.user.role === 'gestor' ? req.user.userId : null,
+    });
+    res.json({
+      success: true,
+      data: {
+        ...progreso,
+        aviso: progreso.disponible ? null
+          : 'Falta aplicar la migracion 155 (lead_revisiones): todavia no se puede validar la base.',
+      },
+    });
+  } catch (err) { next(err); }
+}
+
 // GET /api/leads/export/wasapi?projectId=X&...filtros
 // Descarga CSV con formato Wasapi (plantilla bulk WhatsApp). Sin integración con
 // API de Wasapi — solo genera el archivo para subir manualmente a la plataforma.
@@ -135,6 +222,11 @@ export async function exportWasapi(req, res, next) {
 
     if (req.query.onlyWithPhone === 'true') {
       leads = leads.filter((l) => l.telefono && String(l.telefono).replace(/[^\d]/g, '').length >= 7);
+    }
+    // Las MISMAS condiciones en los dos sitios: un fichero que sale distinto
+    // segun desde donde se pida acaba mandando la difusion a quien no tocaba.
+    if (req.query.onlyWithProduct === 'true') {
+      leads = leads.filter((l) => String(l.producto_nombre || '').trim());
     }
     if (req.query.pais) {
       const paisFilter = String(req.query.pais).toLowerCase();
@@ -188,7 +280,28 @@ export async function getById(req, res, next) {
     if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
     await exigirQueSeaSuyo(req, id);
     const lead = await leadService.getById(id);
-    res.json({ success: true, data: lead });
+
+    // Las etiquetas de WhatsApp de esta persona (#138).
+    //
+    // «Quien mira la ficha del prospecto no ve lo que la gestora ya sabe» — es
+    // literal del ticket. Las etiquetas viven en la conversacion y aqui se
+    // traen cruzadas por el lead.
+    //
+    // Quien manda las ve todas; el resto, solo las de SU sesion: una misma
+    // persona puede hablar con dos gestoras, y lo que una piense de ella no es
+    // de la otra. Va suelto — que WhatsApp no este instalado, o que falte la
+    // migracion 157, no puede dejar sin ficha a nadie.
+    let etiquetasWa = [];
+    try {
+      const wa = await import('../whatsapp/chat.model.js');
+      const evolution = await import('../whatsapp/evolution.client.js');
+      const mandaEl = ['admin', 'superadmin', 'soporte'].includes(req.user.role);
+      etiquetasWa = await wa.etiquetasDeLead(id, {
+        instancias: mandaEl ? null : [evolution.instanciaDe(req.user.userId)],
+      });
+    } catch { etiquetasWa = []; }
+
+    res.json({ success: true, data: { ...lead, etiquetas_wa: etiquetasWa } });
   } catch (err) { next(err); }
 }
 
@@ -245,7 +358,8 @@ export async function changeStatus(req, res, next) {
     if (!parsed.success) {
       throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
     }
-    const result = await leadService.changeStatus(id, parsed.data.status, parsed.data.motivo, req.user.userId);
+    const result = await leadService.changeStatus(id, parsed.data.status, parsed.data.motivo, req.user.userId,
+      { feedback: parsed.data.feedback });
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 }

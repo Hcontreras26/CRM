@@ -35,7 +35,7 @@ export default function LeadUtmsCard({ utms, leadOrigen }: { utms?: Utms | null;
       ) : (
         <div className="flex items-center gap-3 py-3 px-4 rounded-md bg-muted/40 border border-dashed border-border">
           <Compass size={18} weight="regular" className="text-muted-foreground flex-shrink-0" />
-          <p className="text-xs text-muted-foreground">Sin datos UTM — el lead llegó por canal directo.</p>
+          <p className="text-xs text-muted-foreground">Sin datos UTM — el prospecto llegó por canal directo.</p>
         </div>
       )}
     </div>

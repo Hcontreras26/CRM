@@ -7,6 +7,7 @@ import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import { CurrencyEur, TrendUp, Receipt, CheckCircle } from '@phosphor-icons/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatNumber } from '@/shared/lib/format';
+import { ponerAmbito } from '@/shared/lib/ambitoInforme';
 
 type TipoPago = 'pago_completo' | 'abono_parcial' | string;
 
@@ -55,18 +56,20 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 }
 
 export default function RevenuePage() {
-  const { activeProject } = useProjectContext();
+  const { activeProject, activeIssuerId } = useProjectContext();
   const [conversions, setConversions] = useState<Conversion[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!activeProject?.id) return;
+    if (!activeProject?.id && !activeIssuerId) return;
     setLoading(true);
-    client.get(`/conversions?projectId=${activeProject.id}&limit=100`)
+    // Con una EMPRESA puesta van sus campus; `/conversions` ya sabia recibirlos.
+    const p = ponerAmbito(new URLSearchParams({ limit: '100' }), { activeIssuerId, activeProject });
+    client.get(`/conversions?${p.toString()}`)
       .then(res => { if (res.success) setConversions((res.data as Conversion[]) || []); })
       .catch(() => toast({ title: 'Error al cargar conversiones', variant: 'destructive' }))
       .finally(() => setLoading(false));
-  }, [activeProject?.id]);
+  }, [activeProject?.id, activeIssuerId]);
 
   const stats = useMemo(() => {
     const now = new Date();

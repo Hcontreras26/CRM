@@ -20,6 +20,9 @@ router.use(verifyToken);
 router.get('/', leadController.list);
 router.get('/export/wasapi', leadController.exportWasapi);
 router.get('/stats', leadController.stats);
+// Antes de `/:id`, que si no se la come el comodin.
+router.get('/quick-counts', leadController.quickCounts);
+router.get('/revision', leadController.progresoRevision);
 router.get('/today', leadController.today);
 // Lookup público para gestores: devuelve metadata mínima de leads con el
 // email indicado, ignorando el RBAC de listado normal. Para que un gestor
@@ -49,6 +52,9 @@ router.delete('/:id/products/:lpId',     leadController.removeLeadProduct);
 
 router.get('/:id', leadController.getById);
 router.post('/:id/merge', leadController.mergeLeads);
+// El repaso de fin de mes (#132). Sin roleGuard: cada quien revisa lo suyo, y
+// eso lo comprueba el controller contra el responsable de la ficha.
+router.post('/:id/revisar', leadController.revisar);
 
 // Creacion manual (formulario interno)
 router.post('/', leadController.createManual);

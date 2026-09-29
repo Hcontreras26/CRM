@@ -6,6 +6,7 @@ import { PlugsConnected, Plus, Copy, Trash, X } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import PromptDialog from '@/shared/components/ui/PromptDialog';
 import { copyToClipboard } from '@/shared/lib/clipboard';
+import { lista } from '@/shared/lib/lista';
 
 const ConfirmDialog = lazy(() => import('@/shared/components/ui/ConfirmDialog'));
 
@@ -43,7 +44,7 @@ export default function WebhooksTab({ project }: { project: Project | null | und
     setLoading(true);
     try {
       const res = await client.get(`/webhook-tokens?projectId=${project.id}&kind=matriculas`);
-      if (res.success) setTokens(res.data);
+      if (res.success) setTokens(lista(res.data));
     } catch (err: any) {
       toast({ title: 'Error cargando webhooks de admisión', description: err?.data?.error || err.message, variant: 'destructive' });
     } finally { setLoading(false); }

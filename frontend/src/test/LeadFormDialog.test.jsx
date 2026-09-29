@@ -64,16 +64,19 @@ describe('LeadFormDialog', () => {
     expect(screen.queryByText(/Nuevo Prospecto/i)).not.toBeInTheDocument();
   });
 
-  it('renderiza titulo "Nuevo Prospecto" cuando no hay lead', async () => {
+  // Los dos titulos van en minuscula y sin la palabra «Lead»: la pantalla se
+  // llama Prospectos desde el repaso de vocabulario, y el dialogo tiene que
+  // decir lo mismo que la pantalla desde la que se abre.
+  it('renderiza titulo "Nuevo prospecto" cuando no hay lead', async () => {
     render(<LeadFormDialog open onClose={vi.fn()} onSubmit={vi.fn()} />);
-    expect(await screen.findByText('Nuevo Prospecto')).toBeInTheDocument();
+    expect(await screen.findByText('Nuevo prospecto')).toBeInTheDocument();
     // Espera el useEffect de carga de custom_fields para evitar warning de act()
     await act(async () => { await Promise.resolve(); });
   });
 
-  it('renderiza titulo "Editar Lead" cuando hay un lead', async () => {
+  it('renderiza titulo "Editar prospecto" cuando hay un lead', async () => {
     render(<LeadFormDialog open onClose={vi.fn()} onSubmit={vi.fn()} lead={{ id: 1, nombre: 'X', email: 'x@y.com' }} />);
-    expect(await screen.findByText('Editar Lead')).toBeInTheDocument();
+    expect(await screen.findByText('Editar prospecto')).toBeInTheDocument();
     await act(async () => { await Promise.resolve(); });
   });
 

@@ -64,6 +64,39 @@ describe('ConversionDialog — render base', () => {
   });
 });
 
+/**
+ * Rellenar el dialogo como lo hace una persona, no por posicion.
+ *
+ * Estas pruebas cogian los campos con `querySelectorAll('input[type=number]')[0]`
+ * y `[1]`, dando por hecho que eran el total y el pagado «segun el grid del
+ * JSX». Cuando el dialogo crecio —multi-item, IVA, descuentos— esos indices
+ * pasaron a apuntar a otros campos, y la prueba mandaba 300 como total y 0 como
+ * pagado sin que nadie lo viera. Meses en rojo.
+ *
+ * Y hay un cambio de verdad detras: el importe pagado YA NO SE ESCRIBE
+ * directamente. Primero se elige «Sin pago», «Parcial» o «Pagó TODO», y solo
+ * «Parcial» abre la casilla. Es como funciona la pantalla hoy, asi que es como
+ * tiene que probarse.
+ */
+
+/** El precio base: el unico number obligatorio mientras no haya multi-item. */
+const precioBase = (container) => container.querySelector('input[type="number"][required]');
+
+/** Marca «Pagó TODO»: el pagado pasa a ser el total, sin tocar el metodo. */
+const pagoTotal = () => fireEvent.click(screen.getByRole('button', { name: /Pagó TODO/i }));
+
+/**
+ * Marca «Parcial» y escribe cuanto.
+ *
+ * Ojo: «Parcial» pone el metodo en `fraccionado` a proposito —el resto se cobra
+ * a plazos—, asi que un envio valido por esta via necesita ademas las cuotas.
+ * Aqui se usa solo para los casos que se caen ANTES de esa comprobacion.
+ */
+const pagoParcial = (container, cuanto) => {
+  fireEvent.click(screen.getByRole('button', { name: /^Parcial$/i }));
+  fireEvent.change(container.querySelector('input[placeholder*="pagó"]'), { target: { value: cuanto } });
+};
+
 describe('ConversionDialog — validaciones', () => {
   it('rechaza producto vacío con toast destructive', async () => {
     const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
@@ -96,12 +129,9 @@ describe('ConversionDialog — validaciones', () => {
 
   it('rechaza importe_pagado > importe_total con toast destructive', async () => {
     const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
-    const productoInput = container.querySelector('input[placeholder*="producto"]');
-    const numbers = container.querySelectorAll('input[type="number"]');
-    // El primer number es importe_total, el segundo es importe_pagado (según el grid del JSX)
-    fireEvent.change(productoInput, { target: { value: 'Curso X' } });
-    fireEvent.change(numbers[0], { target: { value: '500' } });
-    fireEvent.change(numbers[1], { target: { value: '600' } });
+    fireEvent.change(container.querySelector('input[placeholder*="producto"]'), { target: { value: 'Curso X' } });
+    fireEvent.change(precioBase(container), { target: { value: '500' } });
+    pagoParcial(container, '600');
     fireEvent.submit(container.querySelector('form'));
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
@@ -111,14 +141,23 @@ describe('ConversionDialog — validaciones', () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
+  // Esta pasaba en VERDE, y era la peor de las tres.
+  //
+  // Decia probar «pagado = total», pero `numbers[1]` hacia rato que no era el
+  // pagado: mandaba 500 de total y 0 de pagado, y como lo unico que comprobaba
+  // era que la API se llamase, pasaba. Una prueba verde que no prueba lo que
+  // dice es peor que una roja: la roja al menos se ve.
+  //
+  // Ahora se pulsa «Pagó TODO» —que es como se marca eso en la pantalla— y se
+  // comprueban los dos importes, que es lo que el nombre promete.
   it('importe_pagado = importe_total se acepta (caso borde)', async () => {
     const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} onCreated={vi.fn()} />);
     fireEvent.change(container.querySelector('input[placeholder*="producto"]'), { target: { value: 'X' } });
-    const numbers = container.querySelectorAll('input[type="number"]');
-    fireEvent.change(numbers[0], { target: { value: '500' } });
-    fireEvent.change(numbers[1], { target: { value: '500' } });
+    fireEvent.change(precioBase(container), { target: { value: '500' } });
+    pagoTotal();
     fireEvent.submit(container.querySelector('form'));
     await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
+    expect(createMock.mock.calls[0][0]).toMatchObject({ importe_total: 500, importe_pagado: 500 });
   });
 });
 
@@ -131,9 +170,8 @@ describe('ConversionDialog — submit', () => {
     );
 
     fireEvent.change(container.querySelector('input[placeholder*="producto"]'), { target: { value: 'Master IA' } });
-    const numbers = container.querySelectorAll('input[type="number"]');
-    fireEvent.change(numbers[0], { target: { value: '1200' } });
-    fireEvent.change(numbers[1], { target: { value: '300' } });
+    fireEvent.change(precioBase(container), { target: { value: '1200' } });
+    pagoTotal();
 
     fireEvent.submit(container.querySelector('form'));
 
@@ -144,10 +182,26 @@ describe('ConversionDialog — submit', () => {
       lead_id: 99,
       project_id: 7,
       producto_contratado: 'Master IA',
+      // El IVA viene incluido por defecto —el precio del curso ya es el final—
+      // asi que el total es el precio base tal cual, no 1200 + 21%.
       importe_total: 1200,
-      importe_pagado: 300,
+      importe_pagado: 1200,
       metodo_pago: 'tarjeta',
     });
+
+    // Desde el 15/09 el cuadro NO se cierra al registrar: se queda en el paso
+    // del documento --proforma o factura-- porque esa ventana estaba detras de
+    // `VITE_FACTURACION_V2` y en produccion no se habia visto nunca.
+    //
+    // Asi que avisar al padre y cerrar ya no pasa en el submit: pasa cuando se
+    // sale de ese paso, por «Cerrar», por la X, por el fondo o con Esc.
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    const cerrar = [...container.querySelectorAll('button')]
+      .find((b) => /Cerrar|Ahora no/.test(b.textContent || ''));
+    expect(cerrar, 'el paso del documento tiene que ofrecer una salida').toBeTruthy();
+    fireEvent.click(cerrar);
 
     expect(onCreated).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
@@ -160,7 +214,7 @@ describe('ConversionDialog — submit', () => {
       <ConversionDialog open onClose={onClose} lead={baseLead} projectId={1} onCreated={vi.fn()} />,
     );
     fireEvent.change(container.querySelector('input[placeholder*="producto"]'), { target: { value: 'X' } });
-    fireEvent.change(container.querySelector('input[type="number"]'), { target: { value: '100' } });
+    fireEvent.change(precioBase(container), { target: { value: '100' } });
     fireEvent.submit(container.querySelector('form'));
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(

@@ -7,12 +7,25 @@ export const createSchema = z.object({
   // Por defecto compartida: una plantilla que solo ve quien la escribe no
   // arregla el problema que veniamos a resolver.
   ambito: z.enum(['compartida', 'personal']).default('compartida'),
+  // Sobre que WhatsApp se esta trabajando. Sin esto la personal se guarda a
+  // nombre de quien la escribe, y no del numero desde el que se manda.
+  //
+  // `null` es «el mio», no un cero: con `coerce` a secas un null llegaba como 0
+  // y rompia con «Number must be greater than 0» (28/09).
+  usuarioId: z.preprocess((v) => (v === null || v === '' ? undefined : v),
+    z.coerce.number().int().positive().optional()),
+  // De que paso del proceso comercial es (migracion 172). Sin esto, una
+  // plantilla propia nacia suelta: existia, pero no salia nunca en la ficha ni
+  // en la cola, que es donde se trabaja. Solo se veia en el chat.
+  paso_clave: z.string().trim().max(60).nullable().optional(),
 });
 
 export const updateSchema = z.object({
   label: z.string().trim().min(1).max(120).optional(),
   body: z.string().trim().min(1).max(4000).optional(),
   orden: z.coerce.number().int().min(0).optional(),
+  // Se puede cambiar de paso, o soltarla con null.
+  paso_clave: z.string().trim().max(60).nullable().optional(),
 });
 
 /**

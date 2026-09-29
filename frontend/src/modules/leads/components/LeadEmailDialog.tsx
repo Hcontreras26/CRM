@@ -5,18 +5,27 @@ import Select from '@/shared/components/ui/Select';
 import { toast } from '@/shared/hooks/useToast';
 import { emailTemplatesApi, type EmailTemplate } from '@/modules/email-templates/api/templates.api';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { lista } from '@/shared/lib/lista';
 
 interface LeadEmailDialogProps {
   open: boolean;
   leadId: number;
   leadName?: string | null;
   leadEmail?: string | null;
+  /**
+   * Con que plantilla se abre, si se abre con una (#88).
+   *
+   * Lo usa el paso del proceso: «escribir el correo de este paso» abre esta
+   * misma ventana con la suya ya puesta, en vez de dejar a la gestora
+   * buscando cual de las tres de la lista era la del dia 3.
+   */
+  plantillaId?: number | null;
   onClose: () => void;
   onSent?: () => void;
 }
 
 export default function LeadEmailDialog({
-  open, leadId, leadName, leadEmail, onClose, onSent,
+  open, leadId, leadName, leadEmail, plantillaId = null, onClose, onSent,
 }: LeadEmailDialogProps) {
   const { activeProject } = useProjectContext();
   const [subject, setSubject] = useState('');
@@ -33,15 +42,19 @@ export default function LeadEmailDialog({
       setSubject('');
       setBody('');
       setSending(false);
-      setSelectedTemplateId('');
+      // Si se abre desde un paso del proceso, con la suya; si no, en blanco.
+      setSelectedTemplateId(plantillaId ?? '');
+      // Elegirla no basta: el asunto y el cuerpo los escribe el servidor con
+      // los datos de esta persona, igual que cuando se elige a mano.
+      if (plantillaId) applyTemplate(plantillaId);
     }
-  }, [open]);
+  }, [open, plantillaId]);
 
   useEffect(() => {
     if (!open || !activeProject?.id) return;
     let cancelled = false;
     emailTemplatesApi.list(activeProject.id, false)
-      .then(res => { if (!cancelled && res.success && res.data) setTemplates(res.data); })
+      .then(res => { if (!cancelled && res.success && res.data) setTemplates(lista(res.data)); })
       .catch(() => { /* silencioso, seccion opcional */ });
     return () => { cancelled = true; };
   }, [open, activeProject?.id]);
@@ -106,7 +119,7 @@ export default function LeadEmailDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="lead-email-title"
-        className="bg-card rounded-xl border border-border shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh]"
+        className="bg-card rounded-xl border border-border shadow-dialog w-full max-w-2xl flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
@@ -131,8 +144,8 @@ export default function LeadEmailDialog({
 
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {!leadEmail && (
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-md p-3 text-xs text-amber-700 dark:text-amber-400">
-              Este lead no tiene email. Edita la ficha y añade uno antes de enviar.
+            <div className="bg-warning-soft border border-warning/30/50 rounded-md p-3 text-xs text-warning">
+              Este prospecto no tiene email. Edita la ficha y añade uno antes de enviar.
             </div>
           )}
           {templates.length > 0 && (

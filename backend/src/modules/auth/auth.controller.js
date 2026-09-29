@@ -123,7 +123,7 @@ export async function me(req, res, next) {
 
     const [projects, permissions, view] = await Promise.all([
       authModel.getUserProjects(user.id, user.role),
-      buildPermissionsMap(user.id, user.role, user.custom_role_id),
+      buildPermissionsMap(user.id, user.role, user.custom_role_id, user.roles_extra),
       resolveUserView(user.id, user.role, user.custom_role_id),
     ]);
 
@@ -135,12 +135,15 @@ export async function me(req, res, next) {
           nombre: user.nombre,
           email: user.email,
           role: user.role,
+          // Los roles de mas, para que la pantalla pueda enseñar lo de cada uno.
+          roles_extra: user.roles_extra || [],
           avatar_url: user.avatar_url,
           custom_role_id: user.custom_role_id,
           custom_role_label: user.custom_role_label,
           factura_manager: !!user.factura_manager,
           gestor_colaboraciones: !!user.gestor_colaboraciones,
           editar_fechas_factura: !!user.editar_fechas_factura,
+          usa_mcp: !!user.usa_mcp,
         },
         permissions,
         view,

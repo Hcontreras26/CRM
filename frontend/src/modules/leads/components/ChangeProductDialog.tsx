@@ -138,11 +138,11 @@ export default function ChangeProductDialog({ open, lead, onClose, onSaved }: Pr
         <div className="p-5 space-y-3 overflow-y-auto">
           {/* Banner explicando el aprendizaje */}
           {slug && (
-            <div className="flex items-start gap-2 p-3 rounded-md bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
-              <Info size={16} className="text-violet-600 flex-shrink-0 mt-0.5" weight="duotone" />
-              <div className="text-[11px] text-violet-800 dark:text-violet-300">
+            <div className="flex items-start gap-2 p-3 rounded-md bg-info-soft border border-info/30">
+              <Info size={16} className="text-info flex-shrink-0 mt-0.5" weight="duotone" />
+              <div className="text-[11px] text-info">
                 <p className="font-semibold mb-0.5">El CRM va a aprender este mapeo</p>
-                <p>Landing URL del lead: <code className="bg-violet-100 dark:bg-violet-900/40 px-1 rounded">{slug}</code>. Tras guardar, futuros leads desde esta URL se vincularán automáticamente al producto que elijas.</p>
+                <p>Landing URL del prospecto: <code className="bg-info-soft px-1 rounded">{slug}</code>. Tras guardar, futuros prospectos desde esta URL se vincularán automáticamente al producto que elijas.</p>
               </div>
             </div>
           )}
@@ -210,7 +210,7 @@ export default function ChangeProductDialog({ open, lead, onClose, onSaved }: Pr
         <div className="flex justify-between items-center gap-2 p-4 border-t border-border bg-muted/20">
           {lead.producto_interes_id ? (
             <button onClick={handleClear} disabled={saving}
-              className="text-xs text-muted-foreground hover:text-red-600 underline">
+              className="text-xs text-muted-foreground hover:text-destructive underline">
               Desvincular producto actual
             </button>
           ) : <span />}

@@ -103,8 +103,10 @@ export async function preview(req, res, next) {
     res.json({
       success: true,
       data: {
-        subject:   Service.renderTemplate(tpl.subject, ctx),
-        body_html: Service.renderTemplate(tpl.body_html, ctx),
+        // El asunto va sin escapar: es texto plano, no HTML.
+        subject:   Service.renderTemplate(tpl.subject, ctx, { escapar: false }),
+        // Se previsualiza lo MISMO que se manda, saltos convertidos incluidos.
+        body_html: Service.comoHtml(Service.renderTemplate(tpl.body_html, ctx)),
       },
     });
   } catch (err) { next(err); }

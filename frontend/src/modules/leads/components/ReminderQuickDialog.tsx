@@ -74,7 +74,7 @@ export default function ReminderQuickDialog({ open, lead, onClose, onSaved }: Pr
       <div className="fixed inset-0 !m-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div role="dialog" className="relative bg-card sm:rounded-lg border border-border w-full max-w-md flex flex-col">
         <div className="px-5 py-4 border-b border-border flex items-start gap-3">
-          <div className="w-9 h-9 rounded-md bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-md bg-info-soft text-info flex items-center justify-center flex-shrink-0">
             <CalendarPlus size={18} weight="regular" />
           </div>
           <div className="min-w-0 flex-1">

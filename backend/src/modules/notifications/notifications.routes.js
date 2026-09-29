@@ -10,6 +10,14 @@ router.use(verifyToken);
 
 router.get('/', ctrl.list);
 router.get('/unread-count', ctrl.unreadCount);
+
+// Que avisos quiere cada quien (#111). Antes de `/:id/read` no hace falta
+// —son metodos y numeros de segmento distintos— pero van juntas para que se
+// lean juntas.
+router.get('/preferences', ctrl.getPreferences);
+router.put('/preferences', ctrl.putPreferences);
+
+router.patch('/read-group', ctrl.markReadGroup);
 router.patch('/:id/read', ctrl.markRead);
 router.patch('/mark-all-read', ctrl.markAllRead);
 

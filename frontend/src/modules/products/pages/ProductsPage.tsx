@@ -7,7 +7,7 @@ import ProductFormDialog from '../components/ProductFormDialog';
 import { toast } from '@/shared/hooks/useToast';
 import {
   Plus, PencilSimple, Trash, FileText, Package,
-  CaretDown, CaretRight, Tree, MagnifyingGlass, X, Funnel, ArrowsClockwise,
+  Tree, MagnifyingGlass, X, Funnel, ArrowsClockwise,
 } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
@@ -19,6 +19,8 @@ import {
   type CategoryNode,
   type WcRunStatus,
 } from '@/modules/product-categories/api/categories.api';
+
+import ArbolDeCategorias from '@/modules/product-categories/components/ArbolDeCategorias';
 
 const ConfirmDialog = lazy(() => import('@/shared/components/ui/ConfirmDialog'));
 
@@ -33,64 +35,6 @@ function collectDescendantIds(node: CategoryNode): Set<number> {
   }
   walk(node);
   return ids;
-}
-
-function nodeMatches(node: CategoryNode, search: string): boolean {
-  if (!search) return true;
-  if (node.nombre.toLowerCase().includes(search.toLowerCase())) return true;
-  return node.children.some((c) => nodeMatches(c, search));
-}
-
-function TreeNode({
-  node,
-  depth,
-  selectedId,
-  onSelect,
-  search,
-}: {
-  node: CategoryNode;
-  depth: number;
-  selectedId: number | null;
-  onSelect: (n: CategoryNode | null) => void;
-  search: string;
-}) {
-  const [open, setOpen] = useState(depth < 1);
-  const hasChildren = node.children.length > 0;
-  if (!nodeMatches(node, search)) return null;
-  const isSelected = selectedId === node.id;
-
-  return (
-    <div>
-      <div
-        className={`flex items-center gap-1 py-1.5 px-2 rounded text-[13px] cursor-pointer transition-colors ${
-          isSelected ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/50'
-        }`}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        onClick={() => onSelect(isSelected ? null : node)}
-      >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); if (hasChildren) setOpen((o) => !o); }}
-          className="flex-shrink-0 w-4 flex items-center justify-center"
-        >
-          {hasChildren ? (open ? <CaretDown size={11} /> : <CaretRight size={11} />) : null}
-        </button>
-        <span className="truncate flex-1">{node.nombre}</span>
-        {node.productos_count > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-            {node.productos_count}
-          </span>
-        )}
-      </div>
-      {hasChildren && open && (
-        <div>
-          {node.children.map((c) => (
-            <TreeNode key={c.id} node={c} depth={depth + 1} selectedId={selectedId} onSelect={onSelect} search={search} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function ProductsPage() {
@@ -353,16 +297,12 @@ export default function ProductsPage() {
                 <span className="flex-1">Todos</span>
                 <span className="text-[10px] text-muted-foreground font-mono">{products.length}</span>
               </div>
-              {tree.map((node) => (
-                <TreeNode
-                  key={node.id}
-                  node={node}
-                  depth={0}
-                  selectedId={selectedCat?.id ?? null}
-                  onSelect={setSelectedCat}
-                  search={catSearch}
-                />
-              ))}
+              <ArbolDeCategorias
+                nodos={tree}
+                selectedId={selectedCat?.id ?? null}
+                onSelect={setSelectedCat}
+                search={catSearch}
+              />
               {tree.length === 0 && (
                 <div className="text-xs text-muted-foreground p-4 text-center">
                   Sin categorías.<br />

@@ -40,9 +40,9 @@ export default class ErrorBoundary extends Component {
 
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="bg-card border border-border rounded-xl shadow-lg max-w-md w-full p-6 text-center">
-          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/30 flex items-center justify-center mx-auto mb-4">
-            <WarningCircle size={24} weight="regular" className="text-red-600 dark:text-red-400" />
+        <div className="bg-card border border-border rounded-xl shadow-popover max-w-md w-full p-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-destructive-soft flex items-center justify-center mx-auto mb-4">
+            <WarningCircle size={24} weight="regular" className="text-destructive" />
           </div>
           <h1 className="text-lg font-semibold mb-1.5">Algo se ha roto</h1>
           <p className="text-sm text-muted-foreground mb-4 leading-relaxed">

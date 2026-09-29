@@ -7,18 +7,25 @@ import { cn } from '@/shared/lib/utils';
 import EditorDeCanales from './EditorDeCanales';
 import type { Canal } from '../lib/canales';
 import type { Paso } from '../api/proceso.api';
+import { textoDeDiasEscritos, tieneVentanaDeDias } from '../lib/cuando';
 
 /**
  * Crear o editar un paso.
  *
- * Dos reglas del issue que se ven aquí:
+ * Tres reglas del issue que se ven aquí:
  *
  * - La `clave` solo se teclea al crear. Editando se enseña apagada y sin
  *   campo: es el nombre con el que el código encuentra el paso, y cambiarla
  *   rompería lo que apunte a ella.
  * - Los días son DÍAS DESDE QUE ENTRA EL PROSPECTO, no días de la semana.
- *   «Cuándo» guarda la etiqueta del papel y no manda nada. Está dicho en la
- *   pantalla, no solo en el issue, porque quien la abre no ha leído el issue.
+ *   Está dicho en la pantalla, no solo en el issue, porque quien la abre no ha
+ *   leído el issue.
+ * - LA FRASE SALE DE LOS NÚMEROS (#87). Con días puestos, «cuándo» deja de ser
+ *   un campo y pasa a ser lo que la pantalla va a leer, escrito en vivo; el
+ *   hueco de teclearlo solo aparece cuando no hay días, que es el caso del
+ *   seguimiento de fin de mes. Antes se podían escribir los dos y por eso un
+ *   paso llegó a decir «Lunes o martes» encima de unos días que decían otra
+ *   cosa.
  */
 
 const CLAVE_VALIDA = /^[a-z0-9_]+$/;
@@ -83,6 +90,19 @@ export default function DialogoPaso({
   const set = <K extends keyof DatosPaso>(campo: K, valor: DatosPaso[K]) =>
     setDatos((d) => ({ ...d, [campo]: valor }));
 
+  const conVentana = tieneVentanaDeDias(datos.dia_desde, datos.dia_hasta);
+  const frase = textoDeDiasEscritos(datos.dia_desde, datos.dia_hasta);
+
+  /**
+   * Lo que se manda a guardar.
+   *
+   * CON DÍAS, `cuando` VA VACÍO, y no es cosmética: si un paso tenía una frase
+   * escrita a mano y luego se le ponen días, el texto viejo se quedaría en la
+   * base contradiciendo a los números — que es exactamente el «Lunes o martes»
+   * del #87, esperando a que alguien lo lea. Los dos no pueden convivir.
+   */
+  const paraGuardar = (): DatosPaso => (conVentana ? { ...datos, cuando: '' } : datos);
+
   function comprobar(): boolean {
     const fallos: Partial<Record<keyof DatosPaso, string>> = {};
     if (!datos.nombre.trim()) fallos.nombre = 'Ponle un nombre: es lo que se lee en la lista.';
@@ -132,7 +152,7 @@ export default function DialogoPaso({
         </div>
 
         <form
-          onSubmit={(e) => { e.preventDefault(); if (comprobar()) onGuardar(datos); }}
+          onSubmit={(e) => { e.preventDefault(); if (comprobar()) onGuardar(paraGuardar()); }}
           className="flex-1 space-y-tarjeta overflow-y-auto p-tarjeta"
         >
           {errorServidor && (
@@ -169,25 +189,11 @@ export default function DialogoPaso({
             </Field>
           )}
 
-          {/* Este campo es para lo que NO se puede contar en días.
-              Con una ventana puesta abajo, la frase —«a los 2 o 3 días»— la
-              dice sola la pantalla, así que escribir aquí algo la duplica y
-              acaba contradiciéndola: es lo que pasó con «Lunes o martes».
-              Por eso el hueco sugiere «Final de mes» y no un día de la semana. */}
-          <Field
-            label="Cuándo, dicho a mano"
-            htmlFor="paso-cuando"
-            hint="Solo para lo que no se cuenta en días, como «Final de mes». Si el paso tiene ventana de días, déjalo vacío: la frase se escribe sola."
-          >
-            <input
-              id="paso-cuando"
-              value={datos.cuando}
-              onChange={(e) => set('cuando', e.target.value)}
-              placeholder="Final de mes"
-              className={inputClass}
-            />
-          </Field>
-
+          {/* LOS DÍAS VAN PRIMERO, y el texto a mano después.
+              Estaba al revés, y el orden enseña: lo primero que se leía era el
+              hueco de escribir la frase, así que se escribía —«Lunes o
+              martes»— y los números quedaban de acompañamiento. Es al contrario:
+              los números son el dato y la frase sale de ellos. */}
           <FilaCampos>
             <Field
               label="Día desde"
@@ -219,6 +225,43 @@ export default function DialogoPaso({
               />
             </Field>
           </FilaCampos>
+
+          {conVentana ? (
+            /* Con días puestos, la frase la escribe la pantalla y aquí solo se
+               enseña. Antes este campo seguía abierto con una nota pidiendo que
+               se dejara vacío — y una nota que pide no hacer algo es más débil
+               que no poder hacerlo. Esto es lo que cierra el #87: «un texto que
+               repite lo que dice otro campo acaba contradiciéndolo». */
+            <Field
+              label="Cuándo se leerá"
+              hint="Lo escribe la pantalla a partir de los días. Para cambiarlo, cambia los días."
+            >
+              {/* NO se pinta como un campo. Con el borde y el fondo de un
+                  `input` invita a escribir en algo que no se puede, y esa es
+                  media confusión del #87 otra vez. Es una frase, y se lee como
+                  una frase. */}
+              <p aria-live="polite" className="px-1 py-1.5 text-normal font-semibold">
+                {frase ?? <span className="font-normal text-muted-foreground">—</span>}
+              </p>
+            </Field>
+          ) : (
+            /* Sin días, el paso no se cuenta en días y hace falta decirlo a
+               mano: el quinto es «Final de mes», que es de calendario y no de
+               lo que lleva esperando la persona. */
+            <Field
+              label="Cuándo, dicho a mano"
+              htmlFor="paso-cuando"
+              hint="Solo para lo que no se cuenta en días, como «Final de mes»."
+            >
+              <input
+                id="paso-cuando"
+                value={datos.cuando}
+                onChange={(e) => set('cuando', e.target.value)}
+                placeholder="Final de mes"
+                className={inputClass}
+              />
+            </Field>
+          )}
 
           <Field
             label="Canales"
@@ -263,7 +306,7 @@ export default function DialogoPaso({
           </button>
           <button
             type="button"
-            onClick={() => { if (comprobar()) onGuardar(datos); }}
+            onClick={() => { if (comprobar()) onGuardar(paraGuardar()); }}
             disabled={guardando}
             className="h-9 rounded-md bg-primary px-4 text-normal font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
           >

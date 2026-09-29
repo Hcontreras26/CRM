@@ -56,7 +56,13 @@ export interface User {
   id: number;
   nombre: string;
   email: string;
+  /** El rol PRINCIPAL. Es el que mira medio CRM y el que sale en las listas. */
   role: UserRole;
+  /**
+   * Roles de MAS (#roles multiples). Solo SUMAN permisos: quien lleva
+   * prospectos y ademas da clase puede lo de las dos cosas.
+   */
+  roles_extra?: UserRole[];
   custom_role_id?: number | null;
   active?: boolean;
   project_ids?: number[];
@@ -84,6 +90,14 @@ export interface Lead {
   producto_nombre?: string | null;
   producto_precio?: number | string | null;
   producto_moneda?: string | null;
+  /**
+   * Cuándo empieza su formación y cuándo cierra la convocatoria.
+   *
+   * Son huecos de las plantillas del proceso (#88) y salen del catálogo, que
+   * es donde se mantienen. Solo llegan en la ficha, no en el listado.
+   */
+  fecha_inicio_texto?: string | null;
+  fecha_cierre_convocatoria?: string | null;
   valor_oportunidad?: 'alto' | 'medio' | 'bajo' | null;
   deleted_at?: string | null;
   deleted_reason?: 'spam' | 'test' | 'duplicado_manual' | 'otro' | null;
@@ -91,6 +105,16 @@ export interface Lead {
   deleted_by?: number | null;
   responsable_id?: number | null;
   responsable_nombre?: string | null;
+  /**
+   * Las etiquetas que la gestora tiene puestas en SU WhatsApp (#138).
+   *
+   * No confundir con `status`, que es el estado del prospecto en el CRM: esas
+   * son de otro sitio y las decide otra persona. Se enseñan las dos.
+   *
+   * Solo llegan en la ficha (`GET /leads/:id`), no en el listado, y solo las de
+   * las sesiones que quien pregunta puede mirar.
+   */
+  etiquetas_wa?: { waId: string; nombre: string; color: string | null; instancia: string }[];
   pais?: string | null;
   // Datos fiscales (globales del cliente; se rellenan al completar una factura).
   identificacion_fiscal?: string | null;

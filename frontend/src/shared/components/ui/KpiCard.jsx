@@ -29,7 +29,9 @@ export default function KpiCard({
   numericValue = undefined,
   format = null,
   badge = null,
-  badgeColor = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400',
+  // Por defecto, el tono de «va bien». Con tokens: una sola definicion que
+  // ya vale para claro y para oscuro, en vez de dos listas de colores.
+  badgeColor = 'bg-success-soft text-success-soft-foreground',
   trend = 'up',
   className = '',
   // tone: prop legacy ignorada (no afecta render). Mantenida para compat

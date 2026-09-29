@@ -4,6 +4,14 @@ import { invoicesApi } from '../api/invoices.api';
 import type { LeadFiscalData, InvoiceItem } from '../api/invoices.api';
 import { toast } from '@/shared/hooks/useToast';
 
+import Field from '@/shared/components/ui/Field';
+import { inputClass } from '@/shared/lib/ui';
+import { cn } from '@/shared/lib/utils';
+import FilaCampos from '@/shared/components/ui/FilaCampos';
+// Si el servidor no manda una lista, la pantalla no se cae: se queda
+// vacia y se dice. (#113, el arreglo de las once pantallas en blanco.)
+import { lista } from '@/shared/lib/lista';
+
 interface Props {
   projectId: number;
   leadId: number;
@@ -65,7 +73,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
     // Cargar empresas emisoras
     invoicesApi.listIssuers(projectId).then((res) => {
       if (res.success && res.data) {
-        setIssuers(res.data);
+        setIssuers(lista(res.data));
         const def = res.data.find(i => i.es_default) || res.data[0];
         if (def) setIssuerId(def.id);
       }
@@ -180,19 +188,19 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
               </Section>
             )}
             <Section title="Cliente">
-              <Field label="Nombre" value={nombre} onChange={setNombre} required />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="NIF / DNI / CIF" value={nif} onChange={setNif} required={!isProforma} />
-                <Field label="Código postal" value={cp} onChange={setCp} required={!isProforma} />
-              </div>
-              <Field label="Dirección fiscal" value={direccion} onChange={setDireccion} required={!isProforma} />
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Ciudad" value={ciudad} onChange={setCiudad} required={!isProforma} />
-                <Field label="País" value={pais} onChange={(v) => { setPais(v); setLlevaIva(!!v.toLowerCase().match(/españa|espana|spain|^es$/)); }} required={!isProforma} />
-              </div>
+              <CampoTexto label="Nombre" value={nombre} onChange={setNombre} required />
+              <FilaCampos>
+                <CampoTexto label="NIF / DNI / CIF" value={nif} onChange={setNif} required={!isProforma} />
+                <CampoTexto label="Código postal" value={cp} onChange={setCp} required={!isProforma} />
+              </FilaCampos>
+              <CampoTexto label="Dirección fiscal" value={direccion} onChange={setDireccion} required={!isProforma} />
+              <FilaCampos>
+                <CampoTexto label="Ciudad" value={ciudad} onChange={setCiudad} required={!isProforma} />
+                <CampoTexto label="País" value={pais} onChange={(v) => { setPais(v); setLlevaIva(!!v.toLowerCase().match(/españa|espana|spain|^es$/)); }} required={!isProforma} />
+              </FilaCampos>
               {/* Email y teléfono SOLO si el lead los tiene */}
-              {lead?.email && <Field label="Email (opcional)" value={email} onChange={setEmail} />}
-              {lead?.telefono && <Field label="Teléfono (opcional)" value={telefono} onChange={setTelefono} />}
+              {lead?.email && <CampoTexto label="Email (opcional)" value={email} onChange={setEmail} />}
+              {lead?.telefono && <CampoTexto label="Teléfono (opcional)" value={telefono} onChange={setTelefono} />}
             </Section>
 
             <Section title="IVA">
@@ -231,7 +239,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
 
             <Section title="Pago">
               <div>
-                <label className="text-[11px] text-muted-foreground">Método de pago <span className="text-red-500">*</span></label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Método de pago <span className="text-red-500">*</span></label>
                 <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value as 'transferencia')}
                   className="w-full h-9 px-2 rounded border border-border bg-background text-sm">
                   <option value="transferencia">Transferencia bancaria</option>
@@ -245,7 +253,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
                 </select>
               </div>
               <div>
-                <label className="text-[11px] text-muted-foreground">Pie de pago (instrucciones / IBAN / etc)</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Pie de pago (instrucciones / IBAN / etc)</label>
                 <textarea value={piePago} onChange={(e) => setPiePago(e.target.value)} rows={3}
                   placeholder="Ej: IBAN ES12 3456 …  /  Pago a 30 días"
                   className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm" />
@@ -285,12 +293,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({ label, value, onChange, required }: { label: string; value: string; onChange: (v: string) => void; required?: boolean }) {
+function CampoTexto({ label, value, onChange, required }: { label: string; value: string; onChange: (v: string) => void; required?: boolean }) {
   return (
-    <div>
-      <label className="text-[11px] text-muted-foreground">{label}{required && <span className="text-red-500"> *</span>}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)}
-        className={`w-full h-9 px-2 rounded border bg-background text-sm ${required && !value ? 'border-red-300' : 'border-border'}`} />
-    </div>
+    <Field label={label} required={required}>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={required && !value ? true : undefined}
+        className={cn(inputClass, required && !value && 'border-destructive/50')}
+      />
+    </Field>
   );
 }

@@ -6,23 +6,38 @@ import client from '@/shared/api/client';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 import useUrlFilters from '@/shared/hooks/useUrlFilters';
+// Estas dos vivían aquí dentro, copiadas de las de prospectos pero sin la
+// lectura de fechas sin hora: `new Date('2026-12-01')` se interpreta en UTC y
+// en España cae en el día anterior, así que las compras de más de un mes se
+// anunciaban un día antes («01 dic» salía «30 nov»). El servidor manda las
+// columnas DATE en crudo, así que le pasaba a toda la columna «Última compra».
+import { formatRelative, formatFecha as fmtFecha } from '@/shared/lib/fechas';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import ComoVoy from '@/modules/reports/components/ComoVoy';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
-import ClientsFiltersBar from '../components/ClientsFiltersBar';
+import ClientsFiltersBar, { ESTADO_PAGO_LABELS, SORT_LABELS } from '../components/ClientsFiltersBar';
+import BarraFiltros from '@/shared/components/ui/BarraFiltros';
+import CifrasClientes from '../components/CifrasClientes';
+import SaludDeCobro from '../components/SaludDeCobro';
+import ProximosCobros from '../components/ProximosCobros';
+import AccesosClave from '@/shared/components/ui/AccesosClave';
+import useCobrosClientes from '../hooks/useCobrosClientes';
 import {
   UserCheck, EnvelopeSimple, WhatsappLogo, ShoppingCart, DownloadSimple, Trash, Plus,
+  GraduationCap, Wallet, Receipt, ChartLineUp,
 } from '@phosphor-icons/react';
 
 const RegisterSaleDialog = lazy(() => import('@/modules/sales/components/RegisterSaleDialog'));
 import type { Client } from '@/shared/types';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
+import { etiquetaProducto, ofreceMatriculas } from '@/shared/lib/etiquetas';
 
-function exportCSV(clients: Client[], filename: string): void {
+function exportCSV(clients: Client[], filename: string, etiquetaPlural: string): void {
   const fmtNum = (n: number | string) => Number(n || 0).toFixed(2);
   const rows = [
-    ['Nombre', 'Email', 'Teléfono', 'Gestora', 'Curso / Programa', 'Cuotas totales', 'Cuotas pagadas', 'Cuotas pendientes', 'Próximo vencimiento', 'Compras', 'Facturado (€)', 'Cobrado (€)', 'Pendiente (€)', 'Última compra', 'Último contacto'],
+    ['Nombre', 'Email', 'Teléfono', 'Gestora', etiquetaPlural, 'Cuotas totales', 'Cuotas pagadas', 'Cuotas pendientes', 'Próximo vencimiento', 'Compras', 'Facturado (€)', 'Cobrado (€)', 'Pendiente (€)', 'Última compra', 'Último contacto'],
     ...clients.map(c => [
       c.nombre || '',
       c.email || '',
@@ -49,26 +64,17 @@ function exportCSV(clients: Client[], filename: string): void {
   URL.revokeObjectURL(url);
 }
 import { toast } from '@/shared/hooks/useToast';
+import { idsDelAmbito } from '@/shared/lib/ambitoInforme';
 
 const ConversionDialog = lazy(() => import('@/modules/conversions/components/ConversionDialog'));
 const SoftDeleteDialog = lazy(() => import('@/modules/leads/components/SoftDeleteDialog'));
 
 function fmt(n: number | string): string {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(n || 0));
-}
-
-function formatRelative(dateStr: string | null | undefined, { future = false }: { future?: boolean } = {}): string | null {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = future ? d.getTime() - now.getTime() : now.getTime() - d.getTime();
-  const diffDays = Math.round(diffMs / 86400000);
-  if (diffDays < 0) return future ? `hace ${-diffDays}d` : null;
-  if (diffDays === 0) return 'hoy';
-  if (diffDays === 1) return future ? 'mañana' : 'ayer';
-  if (diffDays < 7) return future ? `en ${diffDays}d` : `hace ${diffDays}d`;
-  if (diffDays < 30) return future ? `en ${Math.round(diffDays / 7)} sem` : `hace ${Math.round(diffDays / 7)} sem`;
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+  // Con centimos: es lo facturado y lo pendiente de cada cliente.
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency', currency: 'EUR',
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }).format(Number(n || 0));
 }
 
 // El plan de cuotas de un vistazo: cuántas hay, cuántas se han cobrado y
@@ -92,13 +98,6 @@ function CeldaCuotas({ client: c }: { client: Client }) {
       </div>
     </div>
   );
-}
-
-// Fecha REAL (no relativa). En "Último contacto" el equipo necesita ver el día
-// exacto en que se registró el contacto, no "hoy"/"hace 3d".
-function fmtFecha(dateStr: string | null | undefined): string | null {
-  if (!dateStr) return null;
-  return new Date(dateStr).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' });
 }
 
 interface QuickActionsProps {
@@ -161,10 +160,11 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { can } = usePermission();
-  const { activeProject, projects, isAllProjects } = useProjectContext() as {
+  const { activeProject, projects, isAllProjects, activeIssuer } = useProjectContext() as {
     activeProject: { id?: number | null; nombre?: string; isAll?: boolean };
     projects: Array<{ id: number }>;
     isAllProjects: boolean;
+    activeIssuer: { id: number; nombre: string; campus: Array<{ id: number }> } | null;
   };
   const idsDelAmbito = useIdsDelAmbito();
   // Filtros persistidos en URL para deep-linking + refresh-safe.
@@ -250,7 +250,9 @@ export default function ClientsPage() {
       params.set('conConversion', 'true');
       params.set('page', String(page));
       params.set('limit', String(PAGE_SIZE));
-      if (debouncedSearch) params.set('search', debouncedSearch);
+      // Recortado antes de mandarlo: el nombre pegado desde WhatsApp trae
+      // espacios y el backend buscaba "% Javier%", que no casa con nadie.
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (filterResp === 'unassigned') params.set('unassigned', 'true');
       else if (filterResp) params.set('responsableId', filterResp);
       if (filterProducto) params.set('productId', filterProducto);
@@ -302,9 +304,22 @@ export default function ClientsPage() {
   }, [setUrlFilters]);
   const totalPages = Math.max(1, Math.ceil(totalBackend / PAGE_SIZE));
 
+  // Lo que está pendiente de cobrar. Va aparte de la lista porque el endpoint
+  // que lo sabe es el de contabilidad, y trae todo sin paginar: así las
+  // columnas de abajo hablan de todo el proyecto y no de la página.
+  const { items: cobros, tramos } = useCobrosClientes({
+    projectId: isAllProjects ? null : (activeProject?.id ?? null),
+    responsableId: filterResp,
+  });
+
   const totalFacturado = filtered.reduce((s, c) => s + Number(c.total_compras), 0);
   const totalCobrado = filtered.reduce((s, c) => s + Number(c.total_pagado), 0);
   const totalPendiente = filtered.reduce((s, c) => s + Number(c.pendiente), 0);
+
+  // Como llama ESTE proyecto a lo que vende: «Formaciones» en Psiko,
+  // «Planes» en una plataforma de IA. Con varios proyectos a la vez no hay uno
+  // que valga, y entonces dice «Productos».
+  const etiqueta = etiquetaProducto(activeProject);
 
   const [upsellLead, setUpsellLead] = useState<Client | null>(null);
   const [deleteClient, setDeleteClient] = useState<Client | null>(null);
@@ -325,22 +340,29 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-5 pb-8">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <PageHeader
-          title="Clientes"
-          subtitle={`Prospectos convertidos en ${activeProject?.nombre || 'todos los proyectos'} — ${hasActiveFilters ? `${filtered.length} de ${totalBackend} (filtrados)` : `${totalBackend} clientes`}`}
-        />
-        {activeProject?.id && !isAllProjects && can('clients.create') && (
+      {/* La accion principal va DENTRO de la cabecera, como «Nuevo prospecto» en
+          Prospectos. Estaba al lado y por fuera: desde el marco del #33 la
+          cabecera sube a la barra de arriba y el boton se quedaba solo en medio
+          del contenido, sin el titulo al que acompanaba. */}
+      <PageHeader
+        title="Clientes"
+        subtitle={`Prospectos convertidos en ${activeIssuer ? `${activeIssuer.nombre} (${activeIssuer.campus.length} campus)` : (activeProject?.nombre || 'todos los proyectos')} — ${hasActiveFilters ? `${filtered.length} de ${totalBackend} (filtrados)` : `${totalBackend} ${totalBackend === 1 ? 'cliente' : 'clientes'}`}`}
+        actions={activeProject?.id && !isAllProjects && can('clients.create') ? (
           <button
             type="button"
             onClick={() => setSaleOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 self-start sm:self-auto"
+            className="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-primary text-primary-foreground text-xs sm:text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
           >
             <Plus size={14} weight="bold" />
-            Registrar venta
+            <span className="hidden sm:inline">Registrar venta</span>
+            <span className="sm:hidden">Vender</span>
           </button>
-        )}
-      </div>
+        ) : null}
+      />
+
+      {/* La misma tarjeta que en Prospectos: aquí se mira lo que ya se cerró,
+          y el porcentaje de cierre es justo lo que explica esta lista. */}
+      <ComoVoy compacto />
 
       <Suspense fallback={null}>
         <RegisterSaleDialog
@@ -353,24 +375,91 @@ export default function ClientsPage() {
         />
       </Suspense>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs font-medium text-muted-foreground mb-1">Total facturado</p>
-          <p className="text-xl font-semibold tabular-nums">{fmt(totalFacturado)}</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs font-medium text-muted-foreground mb-1">Total cobrado</p>
-          <p className="text-xl font-semibold tabular-nums text-green-600">{fmt(totalCobrado)}</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs font-medium text-muted-foreground mb-1">Pendiente de cobro</p>
-          <p className="text-xl font-semibold tabular-nums text-orange-600">{fmt(totalPendiente)}</p>
-        </div>
-      </div>
+      <CifrasClientes
+        totalClientes={totalBackend}
+        facturado={totalFacturado}
+        cobrado={totalCobrado}
+        pendiente={totalPendiente}
+      />
+
+      {/* Las tres columnas, con las proporciones de Prospectos: el reparto del
+          cobro manda porque es lo que más se mira, y los accesos son la columna
+          estrecha. Antes aquí se pasaba de las cifras a la tabla directamente:
+          no había forma de saber qué tocaba cobrar sin irse a Contabilidad. */}
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)_minmax(260px,0.7fr)]">
+        <SaludDeCobro
+          tramos={tramos}
+          onVerPorCobrar={() => navigate('/finanzas/por-cobrar')}
+        />
+        <ProximosCobros
+          cobros={cobros}
+          onAbrir={(leadId) => navigate(`/clientes/${leadId}`)}
+          onVerTodos={() => navigate('/finanzas/por-cobrar')}
+        />
+        <AccesosClave
+          accesos={[
+            // Matrículas no se ofrece si el proyecto no las tiene. Dos señales:
+            // que alguien haya apagado el módulo —lo que ya mira el menú— o que
+            // sea una plataforma de suscripción, donde no existen. Ver
+            // `ofreceMatriculas`.
+            ...(ofreceMatriculas(activeProject) ? [
+              { label: 'Matrículas', detail: `Altas en cada ${etiqueta.singular.toLowerCase()}`, icon: GraduationCap, to: '/clientes/matriculas' },
+            ] : []),
+            { label: 'Por cobrar', detail: 'Cuotas pendientes', icon: Wallet, to: '/finanzas/por-cobrar' },
+            { label: 'Ventas', detail: 'Registrar y consultar', icon: Receipt, to: '/finanzas/ventas' },
+            { label: 'Reportes', detail: 'Numeros descargables', icon: ChartLineUp, to: '/informes' },
+          ]}
+        />
+      </section>
 
       {/* Barra de filtros FUERA del card de la tabla: el card lleva overflow-hidden
           (para recortar las esquinas de la tabla) y eso recortaba el popover de
           "Filtros". Va como fila propia encima del card, igual que en Prospectos. */}
+      {/* Los filtros que mas se usan, a la vista y en una fila, como en
+          Prospectos. Estaban TODOS detras del boton «Filtros»: para saber si
+          habia algo puesto habia que abrirlo, y un filtro que no se ve es un
+          filtro que se queda puesto sin querer — y entonces la pantalla ensena
+          menos de lo que hay sin decirlo.
+
+          Programa y fechas siguen detras del boton: no caben en una fila y no
+          se tocan a diario. */}
+      <BarraFiltros
+        busqueda={search}
+        onBusqueda={setSearch}
+        placeholder="Buscar por nombre, email o teléfono"
+        desplegables={[
+          ...(user?.role === 'gestor' ? [] : [{
+            nombre: 'Gestora',
+            valor: filterResp,
+            onChange: setFilterResp,
+            opciones: [
+              { value: '', label: 'Todas las gestoras' },
+              { value: 'unassigned', label: 'Sin asignar' },
+              ...gestores.map((g) => ({ value: String(g.id), label: g.nombre })),
+            ],
+          }]),
+          {
+            nombre: 'Estado de pago',
+            valor: filterEstadoPago,
+            onChange: setFilterEstadoPago,
+            opciones: [
+              { value: '', label: 'Todos los pagos' },
+              ...Object.entries(ESTADO_PAGO_LABELS).map(([value, label]) => ({ value, label })),
+            ],
+          },
+          {
+            nombre: 'Orden',
+            valor: sortBy,
+            onChange: setSortBy,
+            opciones: Object.entries(SORT_LABELS).map(([value, label]) => ({ value, label })),
+          },
+        ]}
+        hayFiltros={hasActiveFilters}
+        onLimpiar={clearAllFilters}
+        onActualizar={() => setReloadKey((k) => k + 1)}
+        actualizando={loading}
+      />
+
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <ClientsFiltersBar
           user={user}
@@ -388,7 +477,7 @@ export default function ClientsPage() {
         />
         {filtered.length > 0 && can('clients.export') && (
           <button
-            onClick={() => exportCSV(filtered, `clientes-${activeProject?.nombre || 'crm'}-${new Date().toISOString().slice(0,10)}.csv`)}
+            onClick={() => exportCSV(filtered, `clientes-${activeProject?.nombre || 'crm'}-${new Date().toISOString().slice(0,10)}.csv`, etiqueta.plural)}
             title="Exportar CSV"
             className="h-9 px-3 rounded-md border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs font-medium"
           >
@@ -416,7 +505,7 @@ export default function ClientsPage() {
                     <th className="text-left px-4 py-2.5 font-bold">Cliente</th>
                     <th className="text-left px-4 py-2.5 font-bold">Email</th>
                     <th className="text-left px-4 py-2.5 font-bold">Teléfono</th>
-                    <th className="text-left px-4 py-2.5 font-bold">Curso / Programa</th>
+                    <th className="text-left px-4 py-2.5 font-bold">{etiqueta.plural}</th>
                     <th className="text-left px-4 py-2.5 font-bold">Gestora</th>
                     <th className="text-left px-4 py-2.5 font-bold">Cuotas</th>
                     <th className="text-center px-4 py-2.5 font-bold">Compras</th>
@@ -492,7 +581,7 @@ export default function ClientsPage() {
                   </div>
                   {c.cursos && c.cursos.length > 0 && (
                     <div className="text-xs text-foreground">
-                      <span className="text-muted-foreground">Curso: </span>
+                      <span className="text-muted-foreground">{etiqueta.singular}: </span>
                       {c.cursos[0]}{c.cursos.length > 1 ? ` +${c.cursos.length - 1}` : ''}
                     </div>
                   )}
@@ -523,7 +612,7 @@ export default function ClientsPage() {
         {totalBackend > PAGE_SIZE && (
           <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border text-xs">
             <span className="text-muted-foreground">
-              Página <strong className="text-foreground">{page}</strong> de <strong className="text-foreground">{totalPages}</strong> · {totalBackend} clientes en total
+              Página <strong className="text-foreground">{page}</strong> de <strong className="text-foreground">{totalPages}</strong> · {totalBackend} {totalBackend === 1 ? 'cliente' : 'clientes'} en total
             </span>
             <div className="flex items-center gap-1">
               <button

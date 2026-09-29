@@ -1,4 +1,5 @@
 import { query, getClient } from '../../shared/config/db.js';
+import { gestoresDelReparto } from './reparto.js';
 
 // ============================================================
 // WEBHOOK + ROUND-ROBIN
@@ -458,28 +459,13 @@ export async function createLeadWithRoundRobin({ projectId, nombre, email, telef
       }
     }
 
-    // Obtener gestores activos del proyecto.
-    // Filtros: usuario activo + rol admin/gestor + disponible (is_available)
-    //          + sin bloque de ausencia activo para hoy.
-    const { rows: gestorRows } = await client.query(
-      `SELECT up.user_id FROM user_projects up
-       JOIN users u ON u.id = up.user_id
-        AND u.active = true
-        AND u.is_available = true
-        AND (u.role = 'gestor' OR (u.role IN ('admin','superadmin') AND up.recibe_leads = TRUE))
-        -- Quien lleva las colaboraciones de los profesores NO vende: da de alta
-        -- tutores y les toca el porcentaje. Estaba entrando en el reparto solo
-        -- por tener rol de gestora, y un lead que le cae a ella es un lead que
-        -- nadie llama — no es su trabajo ni mira esa bandeja.
-        AND NOT COALESCE(u.gestor_colaboraciones, false)
-       WHERE up.project_id = $1 AND up.active = true
-         AND NOT EXISTS (
-           SELECT 1 FROM user_availability_blocks ab
-           WHERE ab.user_id = u.id
-             AND CURRENT_DATE BETWEEN ab.fecha_inicio AND ab.fecha_fin
-         )
-       ORDER BY up.orden_cola`,
-      [projectId]
+    // Quien entra en el reparto. La consulta vive en `reparto.js` porque la
+    // pantalla de «a quien le toca» (#11) tiene que contestar exactamente esto
+    // mismo, y cuando estaba escrita dos veces no lo hacia: le faltaban las
+    // ausencias, `is_available` y lo de las colaboraciones.
+    const gestorRows = await gestoresDelReparto(
+      (sql, params) => client.query(sql, params),
+      projectId
     );
 
     let responsableId = null;
@@ -505,7 +491,7 @@ export async function createLeadWithRoundRobin({ projectId, nombre, email, telef
     }
 
     if (!responsableId && !skipRoundRobin && gestorRows.length > 0) {
-      const gestores = gestorRows.map(r => r.user_id);
+      const gestores = gestorRows.map(r => r.id);
       const lastIndex = queueRows[0].last_assigned_index;
       const nextIndex = (lastIndex + 1) % gestores.length;
       responsableId = gestores[nextIndex];
@@ -517,7 +503,7 @@ export async function createLeadWithRoundRobin({ projectId, nombre, email, telef
     } else if (advanceRoundRobinAnyway && gestorRows.length > 0) {
       // Lead manual creado por gestor: se queda con quien lo creó (forcedResponsableId)
       // pero avanzamos la cola igual para que el siguiente lead automatico no le toque otra vez.
-      const gestores = gestorRows.map(r => r.user_id);
+      const gestores = gestorRows.map(r => r.id);
       const lastIndex = queueRows[0].last_assigned_index;
       const nextIndex = (lastIndex + 1) % gestores.length;
       await client.query(
@@ -647,10 +633,105 @@ function buildOrderBy(sort, dir = 'desc') {
   return `${FECHA} ${D} NULLS LAST, l.id ${D}`;
 }
 
-export async function findAll({ projectId, projectIds, status, seguimiento, responsableId, unassigned, canal, productId, search, page, limit, includeConverted, dateFrom, dateTo, sort, dir, duplicated, reincidente, conConversion }) {
+/**
+ * Los filtros rapidos, en SQL (#132).
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * POR QUE SUBEN AL SERVIDOR
+ *
+ * Estaban en `LeadsPage.tsx`, aplicados sobre `leads` — que es UNA PAGINA de 20
+ * de `total`. Asi que `?qf=tomorrow` no enseñaba los de mañana: enseñaba los de
+ * mañana QUE CAYERAN EN LA PAGINA QUE ESTUVIERAS MIRANDO.
+ *
+ * Con 300 prospectos y doce para mañana, podian salir dos. O ninguno.
+ *
+ * Diego lo dijo dos veces en el #132, y es la condicion para poder mandar el
+ * correo: «un aviso que dice "7 personas" y abre una lista con 2 es peor que no
+ * mandar nada». Un correo que miente se deja de abrir a la semana, y entonces
+ * tampoco se lee el que importa.
+ *
+ * LAS FECHAS NO DERIVAN, Y ESTA COMPROBADO
+ *
+ * `lead_reminders.fecha_recordatorio` es `date` pelado, no `timestamptz`, y la
+ * API lo devuelve como texto plano («2026-09-07»). El frontend hacia
+ * `String(x).slice(0, 10)`. Asi que `CURRENT_DATE` de aqui y la fecha de alli
+ * son el mismo dia — sin conversion de zona por medio, que es lo que habria
+ * hecho que el numero del correo y el de la lista se separasen por un dia.
+ *
+ * UNA SOLA DEFINICION
+ *
+ * La misma cadena la usan la lista, los contadores de las pestañas y el correo.
+ * El ticket lo pide asi —«es el mismo dato, contado en tres sitios; que salga de
+ * una sola consulta»— y es lo unico que garantiza que digan lo mismo.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+const PROXIMO = `(SELECT MIN(r.fecha_recordatorio) FROM lead_reminders r
+                   WHERE r.lead_id = l.id AND r.completado = false)`;
+const ULTIMO_CONTACTO = `(SELECT MAX(i.fecha) FROM lead_interactions i WHERE i.lead_id = l.id)`;
+// «Sin tocar» = ni una interaccion Y todavia en la entrada del embudo.
+const SIN_TOCAR = `(${ULTIMO_CONTACTO} IS NULL AND l.status IN ('nuevo', 'por_contactar'))`;
+
+/**
+ * «Sin revisar este mes» (#132, el repaso de fin de mes).
+ *
+ * Va aparte de `FILTROS_RAPIDOS` porque es el unico que depende de una tabla
+ * que puede no estar —`lead_revisiones`, migracion 155—. Metido con los demas,
+ * la falta de esa tabla tumbaria el listado ENTERO con un 42P01, y el listado
+ * es la pantalla principal del CRM.
+ *
+ * El mes se corta con `date_trunc`: el repaso es «de este mes», no «de los
+ * ultimos 30 dias». Si fuera lo segundo, una ficha revisada el 31 de agosto
+ * seguiria contando como hecha el 15 de septiembre y nunca se repasaria.
+ */
+export const FILTRO_SIN_REVISAR = `NOT EXISTS (
+  SELECT 1 FROM lead_revisiones rv
+   WHERE rv.lead_id = l.id
+     AND rv.revisado_at >= date_trunc('month', CURRENT_DATE))`;
+
+let hayTablaDeRevisiones = null;
+
+/** Para las pruebas: vuelve a mirar si la tabla existe. */
+export function _olvidarRevisiones() { hayTablaDeRevisiones = null; }
+
+/** `true` si la migracion 155 esta aplicada. Se mira una vez. */
+export async function sePuedeRevisar() {
+  if (hayTablaDeRevisiones !== null) return hayTablaDeRevisiones;
+  try {
+    const { rows } = await query(
+      `SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'lead_revisiones'`);
+    hayTablaDeRevisiones = rows.length > 0;
+  } catch {
+    hayTablaDeRevisiones = false;
+  }
+  return hayTablaDeRevisiones;
+}
+
+export const FILTROS_RAPIDOS = {
+  // Ojo: `NULL < CURRENT_DATE` es NULL, o sea que no pasa el filtro. Es lo que
+  // se quiere —«sin recordatorio» no es «atrasado»— y coincide con el `next &&`
+  // que hacia el frontend.
+  overdue: `${PROXIMO} < CURRENT_DATE`,
+  today: `${PROXIMO} = CURRENT_DATE`,
+  tomorrow: `${PROXIMO} = CURRENT_DATE + 1`,
+  week: `${PROXIMO} BETWEEN CURRENT_DATE AND CURRENT_DATE + 7`,
+  'no-reminder': `${PROXIMO} IS NULL`,
+  'no-contact': SIN_TOCAR,
+  urgent: `(${PROXIMO} <= CURRENT_DATE OR ${SIN_TOCAR})`,
+};
+
+export async function findAll({ projectId, projectIds, status, seguimiento, pasoProceso, responsableId, unassigned, canal, productId, search, page, limit, includeConverted, dateFrom, dateTo, sort, dir, duplicated, reincidente, conConversion, qf }) {
   const conditions = [];
   const params = [];
   let paramIdx = 1;
+
+  // El filtro rapido. Va sin parametros: son fragmentos fijos de este fichero,
+  // elegidos por clave de un objeto cerrado — no llega nada del usuario al SQL.
+  if (qf && FILTROS_RAPIDOS[qf]) conditions.push(FILTROS_RAPIDOS[qf]);
+  // El de revisiones solo si su tabla existe. Quien pregunta por el sin
+  // migracion recibe un aviso del controller, no una lista silenciosamente
+  // equivocada.
+  if (qf === 'sin-revisar' && await sePuedeRevisar()) conditions.push(FILTRO_SIN_REVISAR);
 
   // Vista multi-proyecto: si llega projectIds (array) filtra por IN, sino por projectId único
   if (Array.isArray(projectIds) && projectIds.length > 0) {
@@ -710,6 +791,26 @@ export async function findAll({ projectId, projectIds, status, seguimiento, resp
       params.push(n);
     }
   }
+  /*
+    EN QUE PASO DEL PROCESO VA.
+
+    El paso «en el que va» es el PRIMERO que tiene pendiente y todavia no ha
+    cerrado, que es exactamente lo que enseña la cola del dia: el contacto n.º N
+    cierra el paso n.º N. Se calcula igual aqui para que la lista y la cola no
+    puedan decir cosas distintas de la misma persona.
+
+    Quien no tiene agenda --los de antes del proceso-- no sale con ningun paso
+    elegido, y es lo correcto: no estan en el proceso.
+  */
+  if (pasoProceso) {
+    const CONTACTOS = `(SELECT count(*) FROM lead_interactions li
+                         WHERE li.lead_id = l.id AND li.tipo <> 'nota')`;
+    conditions.push(`(SELECT ls.clave FROM lead_steps ls
+                       WHERE ls.lead_id = l.id AND ls.estado = 'pendiente'
+                         AND ${CONTACTOS} < ls.orden
+                       ORDER BY ls.orden LIMIT 1) = $${paramIdx++}`);
+    params.push(pasoProceso);
+  }
   if (unassigned) {
     conditions.push(`l.responsable_id IS NULL`);
   } else if (responsableId) {
@@ -734,9 +835,15 @@ export async function findAll({ projectId, projectIds, status, seguimiento, resp
     paramIdx++;
     params.push(productId);
   }
-  if (search) {
+  // El termino se recorta SIEMPRE. Los nombres se pegan desde WhatsApp y vienen
+  // con un espacio delante o detras; sin recortarlo el patron queda
+  // "% Javier Alfonso%", que no casa con un nombre que empieza en "Javier", y la
+  // pantalla sale vacia como si el cliente no existiera. Paso el 16/09 en ISEIE
+  // con la ficha de Javier Cifuentes.
+  const termino = typeof search === 'string' ? search.trim() : '';
+  if (termino) {
     conditions.push(`(l.nombre ILIKE $${paramIdx} OR l.email ILIKE $${paramIdx} OR l.telefono ILIKE $${paramIdx} OR l.whatsapp_usuario ILIKE $${paramIdx})`);
-    params.push(`%${search}%`);
+    params.push(`%${termino}%`);
     paramIdx++;
   }
 
@@ -881,6 +988,99 @@ export async function findAll({ projectId, projectIds, status, seguimiento, resp
   return { leads: rows, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
+/**
+ * Cuantos hay en cada filtro rapido, de UNA consulta (#132).
+ *
+ * Los contadores de las pestañas tambien se calculaban en el navegador sobre la
+ * pagina, asi que la pestaña decia «3» y en la base habia doce.
+ *
+ * Y este es el numero que va a llevar el correo del resumen. El ticket lo pide
+ * literal: «el numero del correo y el numero de la lista tienen que ser el
+ * mismo». La unica forma de garantizarlo es que salgan de aqui los dos, con las
+ * mismas cadenas de `FILTROS_RAPIDOS`.
+ *
+ * `responsableId` es lo que hace que el correo de una gestora lleve lo suyo y
+ * no lo de otra.
+ */
+export async function contarFiltrosRapidos({ projectId, projectIds, responsableId, includeConverted = false }) {
+  const cond = ['l.deleted_at IS NULL'];
+  const params = [];
+  let i = 1;
+
+  if (Array.isArray(projectIds) && projectIds.length > 0) {
+    cond.push(`l.project_id = ANY($${i++}::int[])`);
+    params.push(projectIds);
+  } else if (projectId) {
+    cond.push(`l.project_id = $${i++}`);
+    params.push(projectId);
+  }
+  if (responsableId) {
+    cond.push(`l.responsable_id = $${i++}`);
+    params.push(responsableId);
+  }
+  // Igual que el listado: los convertidos no cuentan salvo que se pidan.
+  if (!includeConverted) cond.push(`l.status <> 'convertido'`);
+
+  const cuenta = (clave) => `COUNT(*) FILTER (WHERE ${FILTROS_RAPIDOS[clave]})::int`;
+  const { rows } = await query(
+    `SELECT ${cuenta('overdue')}     AS overdue,
+            ${cuenta('today')}       AS today,
+            ${cuenta('tomorrow')}    AS tomorrow,
+            ${cuenta('week')}        AS week,
+            ${cuenta('no-reminder')} AS no_reminder,
+            ${cuenta('no-contact')}  AS no_contact,
+            ${cuenta('urgent')}      AS urgent,
+            COUNT(*)::int            AS total
+       FROM leads l
+      WHERE ${cond.join(' AND ')}`,
+    params
+  );
+  return rows[0];
+}
+
+/**
+ * Como va el repaso de fin de mes (#132).
+ *
+ * «Que se note cuanto le queda» — sin eso, la gestora abre la lista, marca
+ * tres, cierra, y no sabe si va por el 5 % o por el 90 %. Un repaso sin
+ * progreso visible no se termina.
+ */
+export async function comoVaLaRevision({ projectId, responsableId }) {
+  if (!(await sePuedeRevisar())) {
+    return { disponible: false, total: 0, revisadas: 0, pendientes: 0 };
+  }
+  const cond = ['l.deleted_at IS NULL', `l.status <> 'convertido'`];
+  const params = [];
+  let i = 1;
+  if (projectId) { cond.push(`l.project_id = $${i++}`); params.push(projectId); }
+  if (responsableId) { cond.push(`l.responsable_id = $${i++}`); params.push(responsableId); }
+
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE NOT (${FILTRO_SIN_REVISAR}))::int AS revisadas,
+            COUNT(*) FILTER (WHERE ${FILTRO_SIN_REVISAR})::int      AS pendientes
+       FROM leads l
+      WHERE ${cond.join(' AND ')}`, params);
+  return { disponible: true, ...rows[0] };
+}
+
+/**
+ * Apunta que alguien miro esta ficha y que dijo.
+ *
+ * No cambia el `status`: son dos cosas. «La revise y sigue viva» no es lo
+ * mismo que «esta en seguimiento», y machacar el estado desde aqui borraria el
+ * trabajo de la gestora con un clic pensado para otra cosa. Si al revisarla
+ * decide cambiarlo, lo cambia por su sitio de siempre.
+ */
+export async function apuntarRevision({ leadId, userId, resultado, nota = null }) {
+  const { rows } = await query(
+    `INSERT INTO lead_revisiones (lead_id, revisado_por, resultado, nota)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, lead_id, resultado, revisado_at`,
+    [leadId, userId, resultado, nota]);
+  return rows[0];
+}
+
 export async function findById(id) {
   const { rows } = await query(
     `SELECT l.*,
@@ -889,7 +1089,13 @@ export async function findById(id) {
             pr.nombre as producto_nombre,
             pr.nombre as producto_interes,
             pr.precio as producto_precio,
-            pr.moneda as producto_moneda
+            pr.moneda as producto_moneda,
+            -- Huecos de las plantillas del proceso (#88): la ficha ofrece el
+            -- mensaje del paso ya escrito y estos dos salen del catalogo.
+            -- fecha_inicio_texto llego de WordPress como «marzo 2026» y se
+            -- manda tal cual: es lo que dice la web.
+            pr.fecha_inicio_texto,
+            pr.fecha_cierre_convocatoria
      FROM leads l
      LEFT JOIN users u ON u.id = l.responsable_id
      LEFT JOIN projects p ON p.id = l.project_id
@@ -1050,36 +1256,28 @@ export async function reassignPendingRoundRobin(projectId) {
   try {
     await client.query('BEGIN');
 
-    const { rows: gestores } = await client.query(
-      `SELECT up.user_id FROM user_projects up
-       JOIN users u ON u.id = up.user_id
-        AND u.active = true
-        AND u.is_available = true
-        AND (u.role = 'gestor' OR (u.role IN ('admin','superadmin') AND up.recibe_leads = TRUE))
-        -- Quien lleva las colaboraciones de los profesores NO vende: da de alta
-        -- tutores y les toca el porcentaje. Estaba entrando en el reparto solo
-        -- por tener rol de gestora, y un lead que le cae a ella es un lead que
-        -- nadie llama — no es su trabajo ni mira esa bandeja.
-        AND NOT COALESCE(u.gestor_colaboraciones, false)
-       WHERE up.project_id = $1 AND up.active = true
-         AND NOT EXISTS (
-           SELECT 1 FROM user_availability_blocks ab
-           WHERE ab.user_id = u.id
-             AND CURRENT_DATE BETWEEN ab.fecha_inicio AND ab.fecha_fin
-         )
-       ORDER BY up.orden_cola`,
-      [projectId]
+    // La tercera copia de la misma lista. Ahora sale de `reparto.js` como las
+    // otras dos: reasignar los pendientes tiene que repartir entre exactamente
+    // la misma gente que reparte el alta, o se le asignan leads a quien el alta
+    // habria saltado.
+    const gestores = await gestoresDelReparto(
+      (sql, params) => client.query(sql, params),
+      projectId
     );
 
     if (gestores.length === 0) {
       await client.query('ROLLBACK');
       return { reassigned: 0, total_pending: 0, reason: 'NO_ACTIVE_GESTORES' };
     }
-    const gestorIds = gestores.map((g) => g.user_id);
+    const gestorIds = gestores.map((g) => g.id);
 
     const { rows: pending } = await client.query(
+      // `deleted_at IS NULL` faltaba: sin el, esto repartia tambien las fichas
+      // borradas y las marcadas como spam, y aparecian en la bandeja de una
+      // gestora como trabajo por hacer. Pasaba de verdad, porque hasta ahora
+      // esto lo llamaba la baja de un usuario sin que nadie lo mirara.
       `SELECT id FROM leads
-       WHERE project_id = $1 AND responsable_id IS NULL
+       WHERE project_id = $1 AND responsable_id IS NULL AND deleted_at IS NULL
        ORDER BY created_at ASC`,
       [projectId]
     );
@@ -1266,9 +1464,10 @@ export async function getStats(projectId, { responsableId = null, dateFrom = nul
     extra.push(`EXISTS (SELECT 1 FROM lead_utms lu WHERE lu.lead_id = leads.id AND lu.canal_detectado = $${idx++})`);
     params.push(canal);
   }
-  if (search) {
+  const termino = typeof search === 'string' ? search.trim() : '';
+  if (termino) {
     extra.push(`(nombre ILIKE $${idx} OR email ILIKE $${idx} OR telefono ILIKE $${idx})`);
-    params.push(`%${search}%`);
+    params.push(`%${termino}%`);
     idx++;
   }
   const where = extra.length ? ` AND ${extra.join(' AND ')}` : '';

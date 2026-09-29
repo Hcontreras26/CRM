@@ -106,7 +106,7 @@ export default function DateRangeFilter({ from, to, onChange, className = '' }: 
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-md shadow-lg z-40 w-64 p-2">
+        <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-md shadow-popover z-40 w-64 p-2">
           <div className="grid grid-cols-2 gap-1 mb-2">
             <button type="button" onClick={() => pick('hoy')} className="h-8 rounded text-xs font-medium border border-border bg-card hover:bg-muted">Hoy</button>
             <button type="button" onClick={() => pick('ayer')} className="h-8 rounded text-xs font-medium border border-border bg-card hover:bg-muted">Ayer</button>

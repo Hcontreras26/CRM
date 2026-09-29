@@ -1,5 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/AppError.js';
+// Una persona puede tener mas de un rol: el principal y los añadidos. Quien
+// decide cuales son vive en un solo sitio.
+import { rolesDe, tieneRol } from '../utils/roles.js';
 
 export function verifyToken(req, _res, next) {
   const authHeader = req.headers.authorization;
@@ -37,7 +40,7 @@ export function soloRoles(...rolesPermitidos) {
     if (!req.user) {
       return next(new AppError('No autenticado', 401, 'AUTH_REQUIRED'));
     }
-    if (!rolesPermitidos.includes(req.user.role)) {
+    if (!tieneRol(req.user, ...rolesPermitidos)) {
       return next(new AppError('No tienes permisos para esta accion', 403, 'FORBIDDEN'));
     }
     next();
@@ -49,8 +52,8 @@ export function roleGuard(...allowedRoles) {
     if (!req.user) {
       return next(new AppError('No autenticado', 401, 'AUTH_REQUIRED'));
     }
-    if (req.user.role === 'superadmin' || req.user.role === 'soporte') return next();
-    if (!allowedRoles.includes(req.user.role)) {
+    if (tieneRol(req.user, 'superadmin', 'soporte')) return next();
+    if (!tieneRol(req.user, ...allowedRoles)) {
       return next(new AppError('No tienes permisos para esta accion', 403, 'FORBIDDEN'));
     }
     next();

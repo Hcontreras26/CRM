@@ -60,7 +60,7 @@ export default function KeyboardShortcutsModal({ open, onClose }) {
     <Portal>
       <div role="dialog" aria-label="Atajos de teclado" className="fixed inset-0 !m-0 z-[70] flex items-start justify-center pt-[10vh] sm:pt-[15vh]">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-lg mx-4 overflow-hidden flex flex-col max-h-[80vh]">
+        <div className="relative bg-card rounded-lg border border-border shadow-dialog w-full max-w-lg mx-4 overflow-hidden flex flex-col max-h-[80vh]">
           <header className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
               <Keyboard size={18} weight="regular" className="text-muted-foreground" />

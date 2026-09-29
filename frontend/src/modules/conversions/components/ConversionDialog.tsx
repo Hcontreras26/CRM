@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef, lazy, Suspense, type FormEvent } from 'react';
+
+import { inputClass } from '@/shared/lib/ui';import { useState, useEffect, useMemo, useRef, lazy, Suspense, type FormEvent } from 'react';
 import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
 import { X, Link as LinkIcon, Copy, CheckCircle, Receipt, FileText } from '@phosphor-icons/react';
@@ -476,14 +477,14 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
           EL PASO DEL DOCUMENTO SALE SIEMPRE.
 
           Estaba detras de `VITE_FACTURACION_V2`, que solo se enciende en
-          staging. O sea que en PRODUCCION esta ventana no se ha visto nunca: se
-          registraba la venta y se cerraba con un aviso que se va solo.
+          staging. O sea que en PRODUCCION esta ventana no se ha visto nunca:
+          se registraba la venta y se cerraba, con un aviso que se va solo.
 
-          Eso dejaba invisibles aqui dos cosas pedidas para aqui: el aviso grande
-          de que la factura NO se emite sola y va a la cola (Diego, 14/09: «le di
-          a convertir y no me salio en grande») y el numero de factura al
-          convertir (15/09). Diego, probando con «Sin pago»: «no me salio nada,
-          solo lo de abajo».
+          Eso dejaba invisibles en produccion dos cosas que si se pidieron para
+          alli: el aviso grande de que la factura NO se emite sola y va a la
+          cola (Diego, 14/09: «le di a convertir y no me salio en grande»), y el
+          numero de factura al convertir (15/09). Diego, probando en produccion
+          con «Sin pago»: «no me salio nada, solo lo de abajo».
 
           El interruptor se queda para lo otro que gatea --el borrador de
           `InvoiceButton`--, que eso si sigue siendo distinto entre entornos.
@@ -508,7 +509,6 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
     }
   }
 
-  const inputClass = 'w-full h-9 px-3 rounded-lg border border-border bg-muted/50 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
   return (
     <Portal>
@@ -563,7 +563,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   aviso de la cola y nada mas: ese es el freno del 14/09. */}
               {numeraAqui ? (
                 <div className="text-left rounded-lg border border-border bg-muted/30 p-3">
-                  <label className="block text-sm">
+                  <label className="mb-1.5 block px-1 text-secundario">
                     <span className="font-medium">Número de {queSeEmite}</span>
                     <input type="number" min="1" value={numero}
                       onChange={(e) => setNumero(e.target.value)}
@@ -633,7 +633,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
             {!useMultiItem && (
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-medium text-muted-foreground">Producto contratado *</label>
+                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Producto contratado *</label>
                   <button type="button"
                     onClick={() => setItems([{ product_id: null, descripcion: form.producto_contratado || '', cantidad: 1, precio_unitario: form.importe_total || '0' }])}
                     className="text-[10px] text-primary hover:underline">
@@ -675,7 +675,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
             {useMultiItem && (
               <div className="border border-border rounded-md p-3 space-y-2 bg-muted/20">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold uppercase text-muted-foreground">Productos contratados ({items.length})</label>
+                  <p className="mb-1.5 px-1 text-tabla uppercase text-muted-foreground">Productos contratados ({items.length})</p>
                   <button type="button"
                     onClick={() => { setItems([]); }}
                     className="text-[10px] text-muted-foreground hover:text-foreground">Volver a producto único</button>
@@ -716,7 +716,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
 
             {/* DESCUENTO */}
             <div className="border border-border rounded-md p-3 space-y-2 bg-muted/10">
-              <label className="text-[11px] font-bold uppercase text-muted-foreground">Descuento</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Descuento</label>
               <div className="flex flex-wrap items-center gap-3 text-xs">
                 <select value={form.descuento_tipo} onChange={e => update('descuento_tipo', e.target.value as any)}
                   className="h-7 px-2 rounded border border-border bg-background text-sm">
@@ -739,7 +739,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
 
             {/* IVA */}
             <div className="border border-border rounded-md p-3 space-y-2 bg-muted/10">
-              <label className="text-[11px] font-bold uppercase text-muted-foreground">IVA</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">IVA</label>
               <div className="flex flex-wrap items-center gap-3 text-xs">
                 <label className="inline-flex items-center gap-1.5">
                   <input type="checkbox" checked={form.iva_exento} onChange={e => update('iva_exento', e.target.checked as any)} />
@@ -765,7 +765,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
                   {useMultiItem ? 'Subtotal items (auto)' : 'Precio base (EUR) *'}
                 </label>
                 <input
@@ -778,7 +778,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 />
               </div>
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Pago recibido hoy</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Pago recibido hoy</label>
                 <div className="flex rounded-lg border border-border overflow-hidden text-xs font-semibold">
                   <button type="button" onClick={() => setPagoMode('none')}
                     className={`flex-1 h-9 ${pagoMode === 'none' ? 'bg-muted text-foreground' : 'bg-card text-muted-foreground hover:bg-muted/50'}`}>Sin pago</button>
@@ -814,7 +814,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                     (la factura de ese pago lo usará; 'fraccionado' es el plan). */}
                 {pagoMode !== 'none' && form.metodo_pago === 'fraccionado' && (
                   <div className="mt-1.5">
-                    <label className="text-[10px] text-muted-foreground">Método del pago inicial</label>
+                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Método del pago inicial</label>
                     <select value={metodoInicial} onChange={(e) => setMetodoInicial(e.target.value as MetodoPago)}
                       className={inputClass}>
                       <option value="tarjeta">Tarjeta</option>
@@ -857,7 +857,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Metodo de pago</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Metodo de pago</label>
                 <Select<MetodoPago>
                   value={form.metodo_pago}
                   onChange={(v) => update('metodo_pago', v)}
@@ -874,7 +874,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 {/* Diego, 14/09: «en conversion la fecha de conversion seria fecha de
                     pago». Es la fecha en la que entro el dinero, que es la que
                     usan los informes y la que decide de que mes es la venta. */}
-                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Fecha de pago</label>
+                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha de pago</label>
                 <input type="date" value={form.fecha_conversion} onChange={e => update('fecha_conversion', e.target.value)} className={inputClass} />
               </div>
             </div>
@@ -898,7 +898,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Número de cuotas</label>
+                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Número de cuotas</label>
                     <input
                       type="number" min="1" max="60"
                       value={numCuotas}
@@ -907,7 +907,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Fecha primera cuota</label>
+                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha primera cuota</label>
                     <input
                       type="date"
                       value={fechaPrimeraCuota}
@@ -967,7 +967,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 )}
 
                 <div>
-                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Fecha compromiso de pago pendiente (opcional)</label>
+                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha compromiso de pago pendiente (opcional)</label>
                   <input type="date" value={form.fecha_compromiso_pago} onChange={e => update('fecha_compromiso_pago', e.target.value)} className={inputClass} />
                 </div>
               </div>
@@ -1025,7 +1025,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
             )}
 
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Notas</label>
+              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Notas</label>
               <textarea value={form.notas_pago} onChange={e => update('notas_pago', e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-border bg-muted/50 text-sm outline-none resize-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Notas sobre el acuerdo..." />
             </div>
 

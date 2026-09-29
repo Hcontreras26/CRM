@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { inputClass } from '@/shared/lib/ui';import { useState } from 'react';
 import { payableApi } from '../api/payable.api';
 import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
@@ -49,7 +50,6 @@ export default function PaymentDialog({ payable, onClose, onSaved }: Props) {
     } finally { setSaving(false); }
   }
 
-  const inputClass = 'w-full h-9 px-3 rounded-lg border border-border bg-muted/50 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
   return (
     <Portal>

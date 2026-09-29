@@ -30,7 +30,7 @@ export default function PWAInstallPrompt() {
   return (
     <div
       role="alert"
-      className="fixed bottom-24 left-4 right-4 sm:left-auto sm:right-5 sm:w-80 z-50 bg-card border border-border rounded-xl shadow-xl p-4 flex items-start gap-3 animate-in slide-in-from-bottom-4 duration-300"
+      className="fixed bottom-24 left-4 right-4 sm:left-auto sm:right-5 sm:w-80 z-50 bg-card border border-border rounded-xl shadow-popover p-4 flex items-start gap-3 animate-in slide-in-from-bottom-4 duration-300"
     >
       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
         <DeviceMobile size={20} weight="duotone" className="text-primary" />

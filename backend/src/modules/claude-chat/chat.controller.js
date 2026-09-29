@@ -3,8 +3,10 @@ import { query } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { getDecryptedValue } from '../credentials/credentials.model.js';
 import { logger } from '../../shared/utils/logger.js';
+import * as gasto from '../../shared/services/gastoIA.service.js';
 
 const RATE_LIMIT = parseInt(process.env.CHAT_MAX_MESSAGES_PER_HOUR || '20');
+const MODELO = () => process.env.CLAUDE_MODEL || 'claude-sonnet-4-5';
 
 async function getAnthropicKey(projectId = null) {
   try {
@@ -52,6 +54,20 @@ export async function chat(req, res, next) {
   try {
     const { message, projectId, conversationId } = req.body || {};
     if (!message) throw new AppError('message requerido', 400, 'VALIDATION_ERROR');
+    // `ai_conversations.project_id` es NOT NULL, y aqui abajo se creaba la
+    // conversacion con `projectId || null`: sin proyecto, el chat contestaba el
+    // error de Postgres en crudo —«null value in column project_id violates
+    // not-null constraint»— con un 500. Se dice antes y en castellano.
+    //
+    // Ademas el contexto que se le da al modelo sale ENTERO de un proyecto
+    // (sus leads, sus conversiones): sin proyecto no habria nada que
+    // consultar, asi que pedirlo no es una limitacion tecnica, es la pregunta.
+    if (!projectId) {
+      throw new AppError(
+        'Elige un proyecto antes de preguntar: el chat responde sobre los datos de uno concreto.',
+        400, 'PROJECT_REQUIRED'
+      );
+    }
 
     // Rate limit
     const used = await model.countUserMessagesLastHour(req.user.userId);
@@ -78,6 +94,21 @@ export async function chat(req, res, next) {
       return;
     }
 
+    // El tope (#22) se mira ANTES de llamar, nunca despues: la llamada que se
+    // pasa ya esta pagada cuando vuelve. Y se para diciendo por que — «avisar y
+    // parar, no fallar en silencio», que es lo que pide el issue.
+    const permiso = await gasto.compruebaAntesDeGastar();
+    if (!permiso.permitido) {
+      const aviso = `⚠️ ${permiso.motivo}`;
+      sseSend(res, 'delta', { content: aviso });
+      await model.addMessage({ conversation_id: conv.id, role: 'assistant', content: aviso });
+      sseSend(res, 'done', {
+        messageId: conv.id, warning: 'TOPE_AGOTADO', gasto: permiso.estado,
+      });
+      res.end();
+      return;
+    }
+
     // Llamar Anthropic con stream
     const system = await buildSystemContext(projectId);
     const history = await model.listMessages(conv.id);
@@ -85,6 +116,10 @@ export async function chat(req, res, next) {
 
     let fullContent = '';
     let inputTokens = 0; let outputTokens = 0;
+    // La cache se cobra distinto (leer ~0.1x, escribir ~1.25x). Vienen en el
+    // mismo `usage` que ya se estaba leyendo, asi que contarlas es gratis y sin
+    // ellas la cuenta del mes se aleja de la factura.
+    let cacheLectura = 0; let cacheEscritura = 0;
 
     try {
       const upstream = await fetch('https://api.anthropic.com/v1/messages', {
@@ -129,12 +164,28 @@ export async function chat(req, res, next) {
               outputTokens = evt.usage.output_tokens || 0;
             } else if (evt.type === 'message_start' && evt.message?.usage) {
               inputTokens = evt.message.usage.input_tokens || 0;
+              cacheLectura = evt.message.usage.cache_read_input_tokens || 0;
+              cacheEscritura = evt.message.usage.cache_creation_input_tokens || 0;
             }
           } catch {}
         }
       }
     } catch (err) {
       logger.error({ err: err.message }, 'Claude SSE error');
+      // Se apunta igual. Una respuesta que se corta a medias ya gasto los
+      // tokens de entrada y Anthropic los cobra; si solo se apuntaran las que
+      // salen bien, el contador iria por debajo de la factura.
+      await gasto.registrar({
+        projectId: projectId || null,
+        userId: req.user.userId,
+        origen: 'chat',
+        modelo: MODELO(),
+        entrada: inputTokens,
+        salida: outputTokens,
+        cacheLectura,
+        cacheEscritura,
+        fallo: String(err.message).slice(0, 300),
+      });
       sseSend(res, 'delta', { content: `\n\n[Error consultando Claude: ${err.message}]` });
       sseSend(res, 'done', { messageId: conv.id, error: true });
       res.end();
@@ -148,9 +199,28 @@ export async function chat(req, res, next) {
       prompt_tokens: inputTokens,
       completion_tokens: outputTokens,
     });
+
+    await gasto.registrar({
+      projectId: projectId || null,
+      userId: req.user.userId,
+      origen: 'chat',
+      modelo: MODELO(),
+      entrada: inputTokens,
+      salida: outputTokens,
+      cacheLectura,
+      cacheEscritura,
+    });
+    // Se relee despues de apuntar: asi el aviso de «queda poco» cuenta ya la
+    // respuesta que el usuario acaba de recibir, y no va siempre una tarde.
+    const despues = await gasto.estado();
+
     sseSend(res, 'done', {
       messageId: conv.id,
       usage: { promptTokens: inputTokens, completionTokens: outputTokens },
+      gasto: despues,
+      warning: despues.cerca
+        ? `Queda poco del tope de IA de este mes: ${despues.gastado} de ${despues.tope} USD.`
+        : undefined,
     });
     res.end();
   } catch (err) { next(err); }
@@ -178,12 +248,17 @@ export async function status(req, res, next) {
   try {
     const projectId = req.query.projectId ? parseInt(req.query.projectId) : null;
     const apiKey = await getAnthropicKey(projectId);
+    // El gasto va aqui y no en otra llamada: la pantalla pregunta «¿puedo
+    // escribir ahora?», y la clave sin el tope no contesta esa pregunta —
+    // se puede tener clave y estar agotado, y son avisos distintos.
+    const gastoAhora = await gasto.estado();
     res.json({
       success: true,
       data: {
         api_configured: !!apiKey,
         rate_limit_per_hour: RATE_LIMIT,
         used_last_hour: await model.countUserMessagesLastHour(req.user.userId),
+        gasto: gastoAhora,
         warning: apiKey ? null : 'ANTHROPIC_API_KEY no configurada. Configura en Settings > APIs.',
       },
     });

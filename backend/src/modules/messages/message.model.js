@@ -153,9 +153,10 @@ export async function isParticipant(conversationId, userId) {
 export async function getActiveUsers(search) {
   const params = [];
   let where = 'WHERE u.active = true';
-  if (search) {
+  const termino = typeof search === 'string' ? search.trim() : '';
+  if (termino) {
     where += ` AND (u.nombre ILIKE $1 OR u.email ILIKE $1)`;
-    params.push(`%${search}%`);
+    params.push(`%${termino}%`);
   }
   const { rows } = await query(
     `SELECT u.id, u.nombre, u.email, u.role, u.avatar_url FROM users u ${where} ORDER BY u.nombre`,

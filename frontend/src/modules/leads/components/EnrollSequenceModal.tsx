@@ -93,7 +93,7 @@ export default function EnrollSequenceModal({ leadId, open, onClose, onEnrolled 
     <Portal>
       <div role="dialog" aria-label="Enrolar en secuencia" aria-modal="true" className="fixed inset-0 z-[80] flex items-center justify-center sm:p-4">
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
+        <div className="relative bg-card rounded-lg border border-border shadow-dialog w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
           <header className="flex items-start justify-between p-5 border-b border-border">
             <div>
               <h2 className="font-semibold text-base">Enrolar en secuencia</h2>

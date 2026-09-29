@@ -39,12 +39,12 @@ export default function LeadRemindersCard({ reminders, onOpen, onComplete }: Lea
               key={rem.id}
               className={`p-4 rounded-md border ${
                 rem.completado
-                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
-                  : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+                  ? 'bg-success-soft border-success/30'
+                  : 'bg-warning-soft border-warning/30'
               }`}
             >
               <div className="flex items-center justify-between mb-1.5">
-                <span className={`text-[11px] font-medium ${rem.completado ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                <span className={`text-[11px] font-medium ${rem.completado ? 'text-success' : 'text-warning'}`}>
                   {rem.completado ? 'Completado' : 'Pendiente'}
                 </span>
                 <span className="text-[11px] text-muted-foreground font-semibold">
@@ -56,7 +56,7 @@ export default function LeadRemindersCard({ reminders, onOpen, onComplete }: Lea
               {!rem.completado && (
                 <button
                   onClick={() => handleComplete(rem.id)}
-                  className="mt-2 text-xs font-semibold text-emerald-600 hover:underline flex items-center gap-1"
+                  className="mt-2 text-xs font-semibold text-success hover:underline flex items-center gap-1"
                 >
                   <Check size={12} weight="bold" /> Marcar como completado
                 </button>

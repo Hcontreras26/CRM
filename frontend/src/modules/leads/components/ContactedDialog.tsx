@@ -77,7 +77,7 @@ export default function ContactedDialog({ open, lead, onClose, onSaved }: Props)
       <div className="fixed inset-0 !m-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div role="dialog" className="relative bg-card sm:rounded-lg border border-border w-full max-w-md flex flex-col">
         <div className="px-5 py-4 border-b border-border flex items-start gap-3">
-          <div className="w-9 h-9 rounded-md bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-md bg-success-soft text-success flex items-center justify-center flex-shrink-0">
             <CheckCircle size={18} weight="regular" />
           </div>
           <div className="min-w-0 flex-1">
@@ -131,7 +131,7 @@ export default function ContactedDialog({ open, lead, onClose, onSaved }: Props)
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving}
-            className="inline-flex items-center h-9 px-4 rounded-md bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">
+            className="inline-flex items-center h-9 px-4 rounded-md bg-success text-success-foreground text-sm font-semibold hover:bg-success/90 disabled:opacity-50">
             {saving ? 'Guardando...' : 'Marcar contactado'}
           </button>
         </div>

@@ -71,3 +71,28 @@ Se guardan en `sesiones/<instancia>/` y **no van al repo**: son las credenciales
 del WhatsApp de una persona. Borrar esa carpeta desvincula el numero.
 
 `node desvincular.mjs <instancia>` para cerrar una sesion en condiciones.
+
+## Las etiquetas (#128, #138)
+
+Sirve `/label/findLabels/<instancia>` y `/label/handleLabel/<instancia>`, y emite
+`labels.edit` y `labels.association` — lo mismo que Evolution y con la misma
+forma, que es la regla de arriba.
+
+Dos cosas que conviene saber antes de perseguir un fallo aquí:
+
+- **Las etiquetas son de WhatsApp Business.** Con una cuenta personal no hay
+  ninguna, `findLabels` devuelve `[]` y el CRM no pinta el botón. Eso no es una
+  avería: es lo mismo que pasa en producción.
+- **Se guardan en memoria**, no en disco. Al reconectar, WhatsApp las vuelve a
+  mandar en la sincronización del estado y se repueblan solas.
+
+## El historial va como `messages.set`
+
+Al enlazar eligiendo «el último mes» o «todo», las tandas se mandan al CRM como
+**`messages.set`** con un array, igual que hace Evolution — no como mensajes
+sueltos.
+
+Iba mensaje a mensaje, y esa diferencia escondió el fallo del **#73** durante
+semanas: en local el historial entraba y en producción no, porque el CRM ni
+pedía ni atendía ese evento. Si esto se vuelve a cambiar, se vuelve a probar una
+cosa y a desplegar otra.
