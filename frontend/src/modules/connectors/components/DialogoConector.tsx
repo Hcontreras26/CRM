@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { X, Warning } from '@phosphor-icons/react';
+import {
+  X, Warning, Robot, ShoppingBag, Receipt, Article, Code, BracketsCurly, ArrowLeft,
+  type Icon,
+} from '@phosphor-icons/react';
 import Portal from '@/shared/components/ui/portal';
 import Field from '@/shared/components/ui/Field';
 import Select from '@/shared/components/ui/Select';
@@ -10,6 +13,33 @@ import {
   conectoresApi, TIPOS, DESTINOS, CAMPOS_POR_TIPO,
   type Conector, type TipoConector, type DestinoConector, type AlcanceConector,
 } from '../api/connectors.api';
+
+/**
+ * El primer paso de «Nuevo conector»: cuál. Diego, 29/09: «es mejor que
+ * separemos: nuevo conector, y antes salga su formulario preguntando cuál es,
+ * y cuando lo selecciones sea personalizado». Dos cosas distintas que antes
+ * compartían un formulario: dejar a Claude consultar el CRM, y traer datos de
+ * fuera al CRM.
+ */
+const GRUPOS: Array<{ titulo: string; tipos: Array<{ id: TipoConector; icono: Icon; que: string }> }> = [
+  {
+    titulo: 'Consultar el CRM desde Claude',
+    tipos: [
+      { id: 'mcp', icono: Robot, que: 'Una URL para pegar en Claude y preguntarle por prospectos, ventas, facturas o informes. Solo consulta.' },
+    ],
+  },
+  {
+    titulo: 'Traer datos de fuera al CRM',
+    tipos: [
+      { id: 'woocommerce_products', icono: ShoppingBag, que: 'Los cursos de una tienda WooCommerce, al catálogo.' },
+      { id: 'woocommerce_orders', icono: Receipt, que: 'Los pedidos de una tienda WooCommerce.' },
+      { id: 'wp_rest', icono: Article, que: 'Entradas o páginas de un WordPress, por su API.' },
+      { id: 'acf', icono: BracketsCurly, que: 'Lo mismo, con los campos personalizados de ACF.' },
+      { id: 'custom_api', icono: Code, que: 'Cualquier dirección que devuelva una lista en JSON.' },
+    ],
+  },
+];
+const nombreDelTipo = (t: TipoConector) => TIPOS.find((x) => x.id === t)?.label || t;
 
 /** Un campus tal como llega del contexto: con su empresa. */
 type Campus = { id: number; nombre: string; sociedad_emisora_id?: number | null; sociedad_nombre?: string | null };
@@ -113,23 +143,25 @@ export default function DialogoConector({
   const proyecto = alcance === 'campus' ? (para ? Number(para.slice(2)) : null) : defectoValido;
 
 
-  const [tipo, setTipo] = useState<TipoConector>(conector?.type || 'woocommerce_products');
+  // Sin tipo todavía = el primer paso, elegir cuál. Al editar ya viene y no se cambia.
+  const [tipo, setTipo] = useState<TipoConector | null>(conector?.type ?? null);
+  const esClaude = tipo === 'mcp';
   const [destino, setDestino] = useState<DestinoConector>(conector?.destination || 'product');
   const [etiqueta, setEtiqueta] = useState(conector?.label || '');
   // Solo lo que NO es secreto viene relleno: es lo unico que el servidor manda.
   const [campos, setCampos] = useState<Record<string, string>>({ ...(conector?.config || {}) });
   const [guardando, setGuardando] = useState(false);
 
-  const definicion = CAMPOS_POR_TIPO[tipo] || [];
+  const definicion = tipo ? CAMPOS_POR_TIPO[tipo] || [] : [];
   const yaGuardado = conector?.secretos_guardados || {};
 
   // Al cambiar de tipo en un alta, los campos del anterior no valen.
-  const cambiarTipo = (t: TipoConector) => {
+  const elegirTipo = (t: TipoConector | null) => {
     setTipo(t);
     if (esAlta) setCampos({});
   };
 
-  const falta = !proyecto || definicion.some((c) => {
+  const falta = !tipo || !proyecto || definicion.some((c) => {
     if (!c.requerido) return false;
     if (c.secreto) return esAlta ? !campos[c.clave] : !(campos[c.clave] || yaGuardado[c.clave]);
     return !campos[c.clave];
@@ -150,13 +182,13 @@ export default function DialogoConector({
 
       const deQuien = { project_id: proyecto!, alcance, issuer_id: empresaId };
       const r = esAlta
-        ? await conectoresApi.crear({ ...deQuien, type: tipo, label: etiqueta.trim(), destination: destino, config })
+        ? await conectoresApi.crear({ ...deQuien, type: tipo!, label: etiqueta.trim(), destination: destino, config })
         : await conectoresApi.cambiar(conector!.id, { ...deQuien, label: etiqueta.trim(), destination: destino, config });
 
       if (!r.success) throw new Error((r as { error?: string }).error || 'no se pudo guardar');
       toast({
         title: esAlta ? 'Conector creado' : 'Conector guardado',
-        description: esAlta ? 'Ahora puedes probar la conexión y ver qué trae.' : undefined,
+        description: esAlta && !esClaude ? 'Ahora puedes probar la conexión y ver qué trae.' : undefined,
       });
       onGuardado(r.data);
     } catch (e: any) {
@@ -173,7 +205,15 @@ export default function DialogoConector({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-            <h2 className="font-semibold">{esAlta ? 'Nuevo conector' : 'Editar conector'}</h2>
+            <h2 className="flex items-center gap-2 font-semibold">
+              {esAlta && tipo && (
+                <button type="button" onClick={() => elegirTipo(null)} aria-label="Elegir otro tipo" title="Elegir otro tipo"
+                  className="p-1 -ml-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted">
+                  <ArrowLeft size={15} />
+                </button>
+              )}
+              {!tipo ? 'Nuevo conector · ¿cuál quieres crear?' : `${esAlta ? 'Nuevo' : 'Editar'} · ${nombreDelTipo(tipo)}`}
+            </h2>
             <button type="button" onClick={onCerrar} aria-label="Cerrar"
               className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted">
               <X size={16} />
@@ -183,11 +223,42 @@ export default function DialogoConector({
           {/* `space-y-3`, que es lo que usan los demas dialogos ya convertidos
               —FiscalDataDialog, LeadFormDialog—. La gracia del #106 es que se
               parezcan, asi que el espaciado se copia en vez de elegirse. */}
+          {/* PASO 1 · cuál. Dos grupos: Claude, y traer datos. */}
+          {!tipo && (
+            <div className="p-5 space-y-4">
+              {GRUPOS.map((g) => (
+                <div key={g.titulo} className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{g.titulo}</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {g.tipos.map(({ id, icono: Icono, que }) => (
+                      <button key={id} type="button" onClick={() => elegirTipo(id)}
+                        className={cn('flex items-start gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary hover:bg-muted',
+                          id === 'mcp' && 'sm:col-span-2')}>
+                        <Icono size={20} weight="duotone" className="mt-0.5 shrink-0 text-primary" />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold">{nombreDelTipo(id)}</span>
+                          <span className="block text-xs text-muted-foreground">{que}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* PASO 2 · el formulario de ese tipo, y solo lo suyo. */}
+          {tipo && (
           <div className="p-5 space-y-3">
-            <Field label="Para quién" required
-              hint={alcance === 'campus'
-                ? 'Trae los datos a este campus.'
-                : 'Un solo conector para todos sus campus: cada dato va al campus que diga (campo «Campus» al mapear).'}>
+            {tipo && avisoDelTipo(tipo) && !esClaude && esAlta && (
+              <p className="text-xs text-muted-foreground">{avisoDelTipo(tipo)}</p>
+            )}
+            <Field label={esClaude ? 'Qué podrá consultar Claude' : 'Para quién'} required
+              hint={esClaude
+                ? 'Solo lo tuyo dentro de esto: un campus, una empresa entera o, si eres super admin, todo el sistema.'
+                : alcance === 'campus'
+                  ? 'Trae los datos a este campus.'
+                  : 'Un solo conector para todos sus campus: cada dato va al campus que diga (campo «Campus» al mapear).'}>
               <Select
                 value={para}
                 onChange={setPara}
@@ -195,7 +266,8 @@ export default function DialogoConector({
                 ariaLabel="Para quién"
               />
             </Field>
-            {alcance !== 'campus' && (
+            {/* Claude no trae nada: no hay campus por defecto. */}
+            {alcance !== 'campus' && !esClaude && (
               <Field label="Campus por defecto" required hint="Adónde va lo que no diga de qué campus es.">
                 <Select
                   value={proyecto ? String(proyecto) : ''}
@@ -210,32 +282,15 @@ export default function DialogoConector({
                 id="conector-nombre"
                 value={etiqueta}
                 onChange={(e) => setEtiqueta(e.target.value)}
-                placeholder="Tienda de Psiko Aprende"
+                placeholder={esClaude ? 'Claude de CEDIA' : 'Tienda de Psiko Aprende'}
                 className={inputClass}
               />
             </Field>
 
-            {/* Estos dos NO van en una FilaCampos, aunque emparejen bien.
-                «WooCommerce · productos» no cabe en media anchura de este
-                diálogo y sale «WooCommerce · product…», que es justo donde está
-                la diferencia con «· pedidos». Una fila que corta la palabra que
-                distingue las opciones no ayuda: mejor a lo ancho. */}
-            <Field
-              label="De dónde trae"
-              disabled={!esAlta}
-              hint={esAlta ? avisoDelTipo(tipo) : 'El tipo no se cambia: si necesitas otro, crea otro conector.'}
-            >
-              <Select
-                value={tipo}
-                onChange={cambiarTipo}
-                options={TIPOS.map((t) => ({ value: t.id as TipoConector, label: t.label }))}
-                disabled={!esAlta}
-                ariaLabel="De dónde trae"
-              />
-            </Field>
-            {/* Un «Servidor MCP» no trae nada a ninguna parte (Diego, 29/09:
-                «el dónde acaba no tiene sentido»). */}
-            {tipo !== 'mcp' && (
+            {/* El tipo ya se eligió en el primer paso (y al editar no se cambia). */}
+            {/* Claude no trae nada a ninguna parte (Diego, 29/09: «el dónde
+                acaba no tiene sentido»). */}
+            {!esClaude && (
               <Field label="Dónde acaba" hint="A qué parte del CRM van los datos.">
                 <Select
                   value={destino}
@@ -283,10 +338,10 @@ export default function DialogoConector({
                 pasa a ser OTRO hijo del flex y se va a una columna aparte. */}
             <p className="flex items-start gap-2 text-[11px] text-muted-foreground bg-muted rounded-md p-2.5">
               <Warning size={13} className="mt-0.5 shrink-0" />
-              {tipo === 'mcp' ? (
+              {esClaude ? (
                 <span>
                   Claude solo <strong>consulta</strong> —prospectos, ventas, facturas, cobros e informes— y solo lo
-                  que tú ya ves dentro de «Para quién»; una gestora con URL, solo lo suyo. Cada consulta queda
+                  que tú ya ves dentro de lo que elijas arriba; una gestora con URL, solo lo suyo. Cada consulta queda
                   registrada. La URL se enseña una vez; si la pierdes, pides otra y la anterior deja de valer.
                 </span>
               ) : (
@@ -297,17 +352,20 @@ export default function DialogoConector({
               )}
             </p>
           </div>
+          )}
 
           <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
             <button type="button" onClick={onCerrar}
               className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-bold hover:bg-muted">
               Cancelar
             </button>
-            <button type="button" onClick={guardar} disabled={guardando || falta || !etiqueta.trim()}
-              title={falta ? 'Faltan campos obligatorios' : undefined}
-              className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50">
-              {guardando ? 'Guardando…' : esAlta ? 'Crear' : 'Guardar'}
-            </button>
+            {tipo && (
+              <button type="button" onClick={guardar} disabled={guardando || falta || !etiqueta.trim()}
+                title={falta ? 'Faltan campos obligatorios' : undefined}
+                className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50">
+                {guardando ? 'Guardando…' : esAlta ? (esClaude ? 'Crear y ver mi URL' : 'Crear') : 'Guardar'}
+              </button>
+            )}
           </div>
         </div>
       </div>

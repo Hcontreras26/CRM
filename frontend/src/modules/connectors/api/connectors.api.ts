@@ -16,7 +16,7 @@ export const TIPOS = [
   { id: 'wp_rest', label: 'WordPress (REST)' },
   { id: 'acf', label: 'WordPress + ACF' },
   { id: 'custom_api', label: 'API propia' },
-  { id: 'mcp', label: 'Servidor MCP · para Claude' },
+  { id: 'mcp', label: 'Claude (MCP)' },
 ] as const;
 
 /** Donde acaba lo que trae. Espejo de VALID_DESTINATIONS. */
