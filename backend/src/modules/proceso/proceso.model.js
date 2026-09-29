@@ -1,4 +1,5 @@
 import { query } from '../../shared/config/db.js';
+import { PASO_CERRADO } from '../../shared/utils/pasoCerrado.js';
 import { comoLista } from '../../shared/utils/ambito.js';
 /*
   LAS PLAZAS NO SE CUENTAN AQUI, y antes si.
@@ -222,7 +223,7 @@ export async function pasosDeLead(leadId) {
             -- de los contactos apuntados. Ni una sola: quien apunta sus
             -- llamadas no tiene ademas que ir tachando, y quien cierra un paso
             -- sin escribir puede decirlo.
-            (ls.estado = 'hecho' OR (${CONTACTOS}) >= ls.orden) AS hecho,
+            (ls.estado = 'hecho' OR ${PASO_CERRADO('ls')}) AS hecho,
             ls.estado = 'hecho' AS a_mano,
             (CURRENT_DATE - ls.fecha_prevista) AS dias_de_retraso
        FROM lead_steps ls
@@ -350,7 +351,7 @@ export async function colaDelDia({
           AND ls.fecha_prevista <= ${pHasta}
           AND l.status NOT IN ('convertido', 'no_interesado')
           ${pEstado}
-          AND ${CONTACTOS} < ls.orden
+          AND NOT ${PASO_CERRADO('ls')}
           ${pProj} ${pAses} ${pBusca} ${pProd}
      )`;
 
@@ -446,7 +447,7 @@ export async function resumenDeLaCola({ projectIds, asesoraId }) {
          JOIN leads l ON l.id = ls.lead_id
         WHERE l.deleted_at IS NULL AND ls.estado = 'pendiente'
           AND l.status NOT IN ('convertido', 'no_interesado')
-          AND ${CONTACTOS} < ls.orden
+          AND NOT ${PASO_CERRADO('ls')}
           ${pProj} ${pAses}
      )
      SELECT count(*) FILTER (WHERE fecha_prevista < CURRENT_DATE)::int      AS atrasados,

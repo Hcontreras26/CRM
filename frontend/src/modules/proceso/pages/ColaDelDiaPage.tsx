@@ -524,7 +524,7 @@ export default function ColaDelDiaPage() {
           title={tramo === 'atrasados' ? 'Nada atrasado' : 'Nada pendiente'}
           description={
             resumen && resumen.atrasados + resumen.hoy === 0
-              ? 'Todo el proceso al día. Los pasos se cierran solos al registrar un contacto.'
+              ? 'Todo el proceso al día. Un contacto cierra el paso que toca, en su día o después.'
               : 'No hay nada en este tramo. Prueba con otro de los de arriba.'
           }
         />
@@ -661,8 +661,9 @@ export default function ColaDelDiaPage() {
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        Los pasos <strong className="text-foreground">se cierran solos</strong> al registrar un contacto con la
-        persona: no hay que marcarlos. Para mover una fecha o saltarse un paso, entra en su ficha.
+        Un contacto con la persona <strong className="text-foreground">cierra el paso que toca</strong> si ya ha
+        llegado su día, y solo uno por día: apuntar varios no adelanta los siguientes. Para mover una fecha o
+        saltarse un paso, entra en su ficha.
       </p>
       {/* LA PAGINACIÓN. Antes la cola cortaba en 300 sin decirlo mientras los
           contadores de arriba contaban todas: con CEDIA el contador decía 900 y
