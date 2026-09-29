@@ -158,18 +158,10 @@ export default function ColaDelDiaPage() {
   // decir de cual es.
   const mezcla = !proyecto;
 
-  // Mañana y la semana piden un `hasta` más largo; lo demás se filtra encima.
-  const hasta = useMemo(() => {
-    if (tramo !== 'manana' && tramo !== 'semana') return null;
-    const d = new Date();
-    d.setDate(d.getDate() + (tramo === 'manana' ? 1 : 7));
-    const mes = String(d.getMonth() + 1).padStart(2, '0');
-    return `${d.getFullYear()}-${mes}-${String(d.getDate()).padStart(2, '0')}`;
-  }, [tramo]);
 
   // Cualquier cambio de filtro vuelve al principio: quedarse en la pagina siete
   // despues de filtrar enseña una lista vacia que parece que no hay nada.
-  useEffect(() => { setPagina(1); }, [proyecto, projectIds, gestoraId, hasta, estado, buscaLenta, producto, desdeFecha, hastaFecha]);
+  useEffect(() => { setPagina(1); }, [proyecto, projectIds, gestoraId, tramo, estado, buscaLenta, producto, desdeFecha, hastaFecha]);
 
   useEffect(() => {
     let vivo = true;
@@ -177,7 +169,9 @@ export default function ColaDelDiaPage() {
     Promise.all([
       traerCola({
         projectId: proyecto, projectIds,
-        gestoraId, hasta: hastaFecha || hasta,
+        // El tramo va al SERVIDOR: filtrar aquí la página que llega dejaba «Para hoy»
+        // vacío en cuanto había más de 100 en la cola. Y con su «hoy», no el del navegador.
+        gestoraId, hasta: hastaFecha || null, tramo: tramo === 'pendiente' ? null : tramo,
         limite: 100,
         pagina,
         estado: estado || null,
@@ -198,7 +192,7 @@ export default function ColaDelDiaPage() {
       setResumen(r);
     }).finally(() => { if (vivo) setCargando(false); });
     return () => { vivo = false; };
-  }, [proyecto, projectIds, gestoraId, hasta, pagina, estado, buscaLenta, producto, desdeFecha, hastaFecha]);
+  }, [proyecto, projectIds, gestoraId, tramo, pagina, estado, buscaLenta, producto, desdeFecha, hastaFecha]);
 
   // La lista de gestoras, solo para quien puede filtrar por ellas.
   useEffect(() => {
