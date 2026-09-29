@@ -7,6 +7,8 @@ router.use(verifyToken);
 router.use(roleGuard('admin', 'superadmin'));
 
 router.get('/', ctrl.list);
+// Un servidor MCP: sus herramientas, para elegir la que trae los datos.
+router.post('/mcp/herramientas', ctrl.herramientasMcp);
 router.get('/:id', ctrl.getById);
 router.post('/', ctrl.create);
 router.patch('/:id', ctrl.update);

@@ -1,10 +1,13 @@
 import { z } from 'zod';
 import * as model from './connectors.model.js';
 import * as service from './connectors.service.js';
+import { listarHerramientas, LIMITES } from './connectors.mcp.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { proyectosDelAmbito, comoLista } from '../../shared/utils/ambito.js';
 
-const VALID_TYPES = ['woocommerce_products', 'woocommerce_orders', 'wp_rest', 'acf', 'custom_api'];
+// `mcp`: un servidor MCP de fuera (ver connectors.mcp.js). Diego, 29/09.
+const VALID_TYPES = ['woocommerce_products', 'woocommerce_orders', 'wp_rest', 'acf', 'custom_api', 'mcp'];
+const ALCANCES = ['campus', 'empresa', 'sistema'];
 const VALID_DESTINATIONS = ['product', 'lead', 'matricula', 'category'];
 
 const createSchema = z.object({
@@ -14,6 +17,8 @@ const createSchema = z.object({
   destination:  z.enum(VALID_DESTINATIONS).default('product'),
   config:       z.record(z.any()).optional(),
   field_mapping: z.record(z.any()).optional(),
+  alcance:      z.enum(ALCANCES).default('campus'),
+  issuer_id:    z.number().int().positive().nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -22,7 +27,35 @@ const updateSchema = z.object({
   config:        z.record(z.any()).optional(),
   field_mapping: z.record(z.any()).optional(),
   active:        z.boolean().optional(),
+  alcance:       z.enum(ALCANCES).optional(),
+  issuer_id:     z.number().int().positive().nullable().optional(),
+  project_id:    z.number().int().positive().optional(),
 });
+
+/**
+ * De quién es el conector: un campus, una empresa o todo el sistema (Diego,
+ * 29/09). «Todo el sistema» solo lo pone un super admin. En uno de empresa, el
+ * campus por defecto tiene que ser de esa empresa: si no, lo importado podría
+ * acabar en un campus de otra sociedad.
+ */
+async function alcanceValido(req, { alcance = 'campus', issuer_id = null, project_id }) {
+  if (alcance === 'sistema' && req.user?.role !== 'superadmin') {
+    throw new AppError('Solo un super admin puede hacer un conector de todo el sistema', 403, 'FORBIDDEN');
+  }
+  if (alcance !== 'empresa') return { alcance, issuer_id: null };
+  if (!issuer_id) throw new AppError('Elige la empresa del conector', 400, 'VALIDATION_ERROR');
+  if (!(await model.campusEsDeLaEmpresa(project_id, issuer_id))) {
+    throw new AppError('El campus por defecto tiene que ser de esa empresa', 400, 'VALIDATION_ERROR');
+  }
+  return { alcance, issuer_id };
+}
+
+/** Un conector de todo el sistema solo lo toca un super admin. */
+function puedeTocar(req, c) {
+  if (c?.alcance === 'sistema' && req.user?.role !== 'superadmin') {
+    throw new AppError('Este conector es de todo el sistema: solo lo cambia un super admin', 403, 'FORBIDDEN');
+  }
+}
 
 /**
  * Las credenciales del conector NO salen de aqui.
@@ -75,7 +108,7 @@ export async function list(req, res, next) {
     if (!ids || ids.some((id) => !Number.isInteger(id))) {
       throw new AppError('Elige un campus o una empresa', 400, 'PROJECT_REQUIRED');
     }
-    const conectores = await model.listByProjects(ids);
+    const conectores = await model.listByAmbito(ids);
     res.json({ success: true, data: conectores.map(sinSecretos) });
   } catch (err) { next(err); }
 }
@@ -92,7 +125,8 @@ export async function create(req, res, next) {
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
-    const c = await model.create(parsed.data);
+    const alcance = await alcanceValido(req, parsed.data);
+    const c = await model.create({ ...parsed.data, ...alcance });
     res.status(201).json({ success: true, data: sinSecretos(c) });
   } catch (err) { next(err); }
 }
@@ -113,10 +147,18 @@ export async function update(req, res, next) {
     // clave la cambia; no mandarla la deja como estaba. Para borrarla de verdad
     // se manda vacia, que es explicito.
     const datos = { ...parsed.data };
+    const actual = await model.findById(cid(req));
+    if (!actual) throw new AppError('No encontrado', 404, 'NOT_FOUND');
+    puedeTocar(req, actual);
     if (datos.config) {
-      const actual = await model.findById(cid(req));
-      if (!actual) throw new AppError('No encontrado', 404, 'NOT_FOUND');
       datos.config = { ...(actual.config || {}), ...datos.config };
+    }
+    if (datos.alcance !== undefined || datos.issuer_id !== undefined || datos.project_id !== undefined) {
+      Object.assign(datos, await alcanceValido(req, {
+        alcance: datos.alcance ?? actual.alcance,
+        issuer_id: datos.issuer_id !== undefined ? datos.issuer_id : actual.issuer_id,
+        project_id: datos.project_id ?? actual.project_id,
+      }));
     }
 
     const c = await model.update(cid(req), datos);
@@ -127,15 +169,47 @@ export async function update(req, res, next) {
 
 export async function remove(req, res, next) {
   try {
+    puedeTocar(req, await model.findById(cid(req)));
     await model.remove(cid(req));
     res.json({ success: true });
+  } catch (err) { next(err); }
+}
+
+const herramientasSchema = z.object({
+  url:          z.string().trim().min(1, 'Falta la dirección del servidor MCP').max(500),
+  bearer_token: z.string().max(4000).optional(),
+  connector_id: z.number().int().positive().optional(),
+});
+
+/**
+ * POST /api/connectors/mcp/herramientas — lo que ofrece un servidor MCP, para
+ * elegir en el diálogo la herramienta que trae los datos. Dice cuáles se pueden
+ * usar (las de solo lectura) y cuáles no.
+ *
+ * Al editar, el token NO vuelve al navegador: con `connector_id` y sin token se
+ * usa el guardado.
+ */
+export async function herramientasMcp(req, res, next) {
+  try {
+    const parsed = herramientasSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    const { url, connector_id: connectorId } = parsed.data;
+    let token = parsed.data.bearer_token?.trim() || '';
+    if (!token && connectorId) {
+      const c = await model.findById(connectorId);
+      if (!c) throw new AppError('No encontrado', 404, 'NOT_FOUND');
+      puedeTocar(req, c);
+      if (c.type === 'mcp') token = c.config?.bearer_token || '';
+    }
+    const herramientas = await listarHerramientas({ url, bearer_token: token }, { userId: req.user?.userId ?? null, connectorId: connectorId ?? null });
+    res.json({ success: true, data: { herramientas, limites: LIMITES } });
   } catch (err) { next(err); }
 }
 
 // Trae 1-3 items de muestra del API externo + sugerencias de mapping
 export async function preview(req, res, next) {
   try {
-    const data = await service.previewConnector(cid(req));
+    const data = await service.previewConnector(cid(req), { userId: req.user?.userId ?? null });
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }
@@ -144,11 +218,13 @@ export async function preview(req, res, next) {
 export async function runImport(req, res, next) {
   try {
     const id = cid(req);
+    puedeTocar(req, await model.findById(id));
+    const userId = req.user?.userId ?? null;
     res.status(202).json({ success: true, data: { connector_id: id, status: 'running' } });
     // Background
     setImmediate(async () => {
       try {
-        const result = await service.importFromConnector(id);
+        const result = await service.importFromConnector(id, { userId });
         // El log ya queda en service. El frontend hace polling de last_sync_at + last_sync_status
       } catch (err) {
         // ya se registra en recordSync 'error'

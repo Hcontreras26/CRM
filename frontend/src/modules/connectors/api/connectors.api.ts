@@ -16,6 +16,7 @@ export const TIPOS = [
   { id: 'wp_rest', label: 'WordPress (REST)' },
   { id: 'acf', label: 'WordPress + ACF' },
   { id: 'custom_api', label: 'API propia' },
+  { id: 'mcp', label: 'Servidor MCP' },
 ] as const;
 
 /** Donde acaba lo que trae. Espejo de VALID_DESTINATIONS. */
@@ -71,13 +72,36 @@ export const CAMPOS_POR_TIPO: Record<TipoConector, Array<{
     { clave: 'items_path', label: 'Dónde está la lista', ayuda: 'Por ejemplo data — vacío si el JSON ya es la lista' },
     { clave: 'bearer_token', label: 'Token', ayuda: 'Se manda como Authorization: Bearer', secreto: true },
   ],
+  // Un servidor MCP de fuera, como los que usa Claude (Diego, 29/09). Solo se
+  // llama a herramientas de consulta: ver connectors.mcp.js en el servidor.
+  mcp: [
+    { clave: 'url', label: 'Dirección del servidor MCP', ayuda: 'https://… — la misma que se pondría en Claude', requerido: true },
+    { clave: 'bearer_token', label: 'Token', ayuda: 'Si el servidor lo pide. Se manda como Authorization: Bearer', secreto: true },
+    { clave: 'herramienta', label: 'Herramienta', ayuda: 'La que trae los datos. Búscala con «Ver herramientas»', requerido: true },
+    { clave: 'argumentos', label: 'Argumentos (JSON)', ayuda: 'Lo que se le pasa a la herramienta, por ejemplo {"limite": 100}' },
+    { clave: 'items_path', label: 'Dónde está la lista', ayuda: 'Por ejemplo prospectos — vacío si ya es la lista' },
+  ],
 };
+
+/** De quién es un conector (migración 183). */
+export type AlcanceConector = 'campus' | 'empresa' | 'sistema';
+
+/** Una herramienta de un servidor MCP, dicha por el propio servidor. */
+export interface HerramientaMcp {
+  nombre: string; titulo: string | null; descripcion: string;
+  /** Solo estas se pueden usar: el CRM solo consulta. */
+  soloLectura: boolean;
+}
 
 export interface Conector {
   id: number;
   project_id: number;
-  /** El nombre de su campus: con una empresa puesta salen los de varios. */
+  /** El nombre de su campus (en uno de empresa o de sistema, el campus por defecto). */
   proyecto?: string | null;
+  alcance?: AlcanceConector;
+  issuer_id?: number | null;
+  /** Nombre de su empresa, si es de empresa. */
+  empresa?: string | null;
   type: TipoConector;
   label: string;
   destination: DestinoConector;
@@ -124,4 +148,7 @@ export const conectoresApi = {
   vistaPrevia: (id: number) => client.post(`/connectors/${id}/preview`, {}),
   /** Lanza la importación. Contesta en seguida; el estado se mira releyendo. */
   importar: (id: number) => client.post(`/connectors/${id}/import`, {}),
+  /** Las herramientas de un servidor MCP. Al editar, sin token usa el guardado. */
+  herramientasMcp: (datos: { url: string; bearer_token?: string; connector_id?: number }) =>
+    client.post('/connectors/mcp/herramientas', datos),
 };

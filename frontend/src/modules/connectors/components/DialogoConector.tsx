@@ -8,8 +8,34 @@ import { cn } from '@/shared/lib/utils';
 import { toast } from '@/shared/hooks/useToast';
 import {
   conectoresApi, TIPOS, DESTINOS, CAMPOS_POR_TIPO,
-  type Conector, type TipoConector, type DestinoConector,
+  type Conector, type TipoConector, type DestinoConector, type AlcanceConector, type HerramientaMcp,
 } from '../api/connectors.api';
+
+/** Un campus tal como llega del contexto: con su empresa. */
+type Campus = { id: number; nombre: string; sociedad_emisora_id?: number | null; sociedad_nombre?: string | null };
+
+/**
+ * Las opciones de «Para quién» (Diego, 29/09: «también poder elegir empresas y,
+ * si soy super admin, todo el sistema»). Un conector de empresa o de sistema es
+ * UNO solo para todos sus campus, no una copia en cada uno.
+ */
+function opcionesDeAlcance(proyectos: Campus[], esSuperadmin: boolean) {
+  const empresas = new Map<number, { nombre: string; n: number }>();
+  for (const p of proyectos) {
+    if (!p.sociedad_emisora_id) continue;
+    const e = empresas.get(Number(p.sociedad_emisora_id));
+    empresas.set(Number(p.sociedad_emisora_id), { nombre: p.sociedad_nombre || 'Empresa', n: (e?.n || 0) + 1 });
+  }
+  return [
+    ...(esSuperadmin ? [{ value: 'sistema', label: `Todo el sistema · ${proyectos.length} campus` }] : []),
+    ...[...empresas.entries()]
+      .sort((a, b) => a[1].nombre.localeCompare(b[1].nombre))
+      .map(([id, e]) => ({ value: `e:${id}`, label: `Toda la empresa · ${e.nombre} (${e.n} campus)` })),
+    ...[...proyectos]
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .map((p) => ({ value: `c:${p.id}`, label: `Campus · ${p.nombre}` })),
+  ];
+}
 
 /**
  * Alta y cambio de un conector (#6).
@@ -45,18 +71,46 @@ function avisoDelTipo(tipo: TipoConector): string | undefined {
 interface Props {
   /** `null` = alta. Un conector = cambio. */
   conector: Conector | null;
-  /** El campus del alta. Sin él (empresa puesta), se elige entre `campus`. */
+  /** El campus puesto arriba (si hay uno). */
   projectId: number | null;
-  campus?: Array<{ id: number; nombre: string }>;
+  /** La empresa puesta arriba (si hay una). */
+  issuerId?: number | null;
+  /** Todos los campus de la persona, con su empresa. */
+  proyectos?: Campus[];
+  esSuperadmin?: boolean;
   onCerrar: () => void;
   onGuardado: () => void;
 }
 
-export default function DialogoConector({ conector, projectId, campus = [], onCerrar, onGuardado }: Props) {
+export default function DialogoConector({
+  conector, projectId, issuerId = null, proyectos = [], esSuperadmin = false, onCerrar, onGuardado,
+}: Props) {
   const esAlta = conector === null;
-  // Un conector es SIEMPRE de un campus: con la empresa puesta se elige aquí
-  // (si la empresa tiene uno solo, ya va puesto).
-  const [proyecto, setProyecto] = useState<number | null>(projectId ?? (campus.length === 1 ? campus[0].id : null));
+
+  // «Para quién»: `sistema`, `e:<empresa>` o `c:<campus>`. Al abrir, lo que
+  // está puesto arriba —o lo que ya tenía el conector—.
+  const [para, setPara] = useState<string>(() => {
+    if (conector?.alcance === 'sistema') return 'sistema';
+    if (conector?.alcance === 'empresa' && conector.issuer_id) return `e:${conector.issuer_id}`;
+    if (conector) return `c:${conector.project_id}`;
+    if (issuerId) return `e:${issuerId}`;
+    return projectId ? `c:${projectId}` : '';
+  });
+  const alcance: AlcanceConector = para === 'sistema' ? 'sistema' : para.startsWith('e:') ? 'empresa' : 'campus';
+  const empresaId = alcance === 'empresa' ? Number(para.slice(2)) : null;
+  // Los campus donde puede caer lo importado. El «por defecto» recibe lo que no
+  // diga su campus; si el conector es de un campus, es ese.
+  const campusDelAlcance = alcance === 'sistema' ? proyectos
+    : alcance === 'empresa' ? proyectos.filter((p) => Number(p.sociedad_emisora_id) === empresaId) : [];
+  const [porDefecto, setPorDefecto] = useState<number | null>(conector && conector.alcance !== 'campus' ? conector.project_id : null);
+  const defectoValido = porDefecto && campusDelAlcance.some((p) => p.id === porDefecto)
+    ? porDefecto
+    : (campusDelAlcance.find((p) => p.id === projectId)?.id ?? campusDelAlcance[0]?.id ?? null);
+  const proyecto = alcance === 'campus' ? (para ? Number(para.slice(2)) : null) : defectoValido;
+
+  // Servidor MCP: sus herramientas, para elegir la que trae los datos.
+  const [herramientas, setHerramientas] = useState<HerramientaMcp[] | null>(null);
+  const [buscando, setBuscando] = useState(false);
 
   const [tipo, setTipo] = useState<TipoConector>(conector?.type || 'woocommerce_products');
   const [destino, setDestino] = useState<DestinoConector>(conector?.destination || 'product');
@@ -74,7 +128,7 @@ export default function DialogoConector({ conector, projectId, campus = [], onCe
     if (esAlta) setCampos({});
   };
 
-  const falta = (esAlta && !proyecto) || definicion.some((c) => {
+  const falta = !proyecto || definicion.some((c) => {
     if (!c.requerido) return false;
     if (c.secreto) return esAlta ? !campos[c.clave] : !(campos[c.clave] || yaGuardado[c.clave]);
     return !campos[c.clave];
@@ -93,9 +147,10 @@ export default function DialogoConector({ conector, projectId, campus = [], onCe
         if (v) config[c.clave] = v;
       }
 
+      const deQuien = { project_id: proyecto!, alcance, issuer_id: empresaId };
       const r = esAlta
-        ? await conectoresApi.crear({ project_id: proyecto!, type: tipo, label: etiqueta.trim(), destination: destino, config })
-        : await conectoresApi.cambiar(conector!.id, { label: etiqueta.trim(), destination: destino, config });
+        ? await conectoresApi.crear({ ...deQuien, type: tipo, label: etiqueta.trim(), destination: destino, config })
+        : await conectoresApi.cambiar(conector!.id, { ...deQuien, label: etiqueta.trim(), destination: destino, config });
 
       if (!r.success) throw new Error((r as { error?: string }).error || 'no se pudo guardar');
       toast({
@@ -106,6 +161,24 @@ export default function DialogoConector({ conector, projectId, campus = [], onCe
     } catch (e: any) {
       toast({ title: 'No se pudo guardar', description: e?.message, variant: 'destructive' });
     } finally { setGuardando(false); }
+  }
+
+  async function verHerramientas() {
+    const url = (campos.url || '').trim();
+    if (!url) { toast({ title: 'Pon antes la dirección del servidor', variant: 'destructive' }); return; }
+    setBuscando(true);
+    try {
+      const r = await conectoresApi.herramientasMcp({
+        url,
+        ...(campos.bearer_token?.trim() ? { bearer_token: campos.bearer_token.trim() } : {}),
+        ...(conector ? { connector_id: conector.id } : {}),
+      });
+      if (!r.success) throw new Error((r as { error?: string }).error || 'no contestó');
+      setHerramientas((r.data?.herramientas || []) as HerramientaMcp[]);
+    } catch (e: any) {
+      setHerramientas(null);
+      toast({ title: 'No se pudo hablar con el servidor MCP', description: e?.message, variant: 'destructive' });
+    } finally { setBuscando(false); }
   }
 
   return (
@@ -128,18 +201,26 @@ export default function DialogoConector({ conector, projectId, campus = [], onCe
               —FiscalDataDialog, LeadFormDialog—. La gracia del #106 es que se
               parezcan, asi que el espaciado se copia en vez de elegirse. */}
           <div className="p-5 space-y-3">
-            {esAlta && !projectId && (
-              <Field label="Campus" required hint="El conector trae los datos a este campus.">
+            <Field label="Para quién" required
+              hint={alcance === 'campus'
+                ? 'Trae los datos a este campus.'
+                : 'Un solo conector para todos sus campus: cada dato va al campus que diga (campo «Campus» al mapear).'}>
+              <Select
+                value={para}
+                onChange={setPara}
+                options={[{ value: '', label: 'Elige campus, empresa o todo el sistema' }, ...opcionesDeAlcance(proyectos, esSuperadmin)]}
+                ariaLabel="Para quién"
+              />
+            </Field>
+            {alcance !== 'campus' && (
+              <Field label="Campus por defecto" required hint="Adónde va lo que no diga de qué campus es.">
                 <Select
                   value={proyecto ? String(proyecto) : ''}
-                  onChange={(v: string) => setProyecto(v ? Number(v) : null)}
-                  options={[{ value: '', label: 'Elige el campus' }, ...campus.map((p) => ({ value: String(p.id), label: p.nombre }))]}
-                  ariaLabel="Campus"
+                  onChange={(v: string) => setPorDefecto(v ? Number(v) : null)}
+                  options={campusDelAlcance.map((p) => ({ value: String(p.id), label: p.nombre }))}
+                  ariaLabel="Campus por defecto"
                 />
               </Field>
-            )}
-            {!esAlta && conector?.proyecto && (
-              <p className="text-xs text-muted-foreground">Campus: <strong className="text-foreground">{conector.proyecto}</strong></p>
             )}
             <Field label="Nombre" required hint="Para reconocerlo en la lista." htmlFor="conector-nombre">
               <input
@@ -211,14 +292,53 @@ export default function DialogoConector({ conector, projectId, campus = [], onCe
               ))}
             </div>
 
+            {/* Servidor MCP: elegir la herramienta de entre las que ofrece. */}
+            {tipo === 'mcp' && (
+              <div className="space-y-2">
+                <button type="button" onClick={verHerramientas} disabled={buscando}
+                  className="inline-flex h-8 items-center rounded-md border border-border bg-card px-3 text-xs font-bold hover:bg-muted disabled:opacity-50">
+                  {buscando ? 'Preguntando al servidor…' : 'Ver herramientas del servidor'}
+                </button>
+                {herramientas && (
+                  herramientas.length === 0
+                    ? <p className="text-xs text-muted-foreground">El servidor no ofrece ninguna herramienta.</p>
+                    : (
+                      <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border p-1.5">
+                        {herramientas.map((h) => (
+                          <li key={h.nombre}>
+                            <button type="button" disabled={!h.soloLectura}
+                              onClick={() => setCampos((p) => ({ ...p, herramienta: h.nombre }))}
+                              title={h.soloLectura ? undefined : 'El servidor no dice que sea de solo lectura: el CRM solo usa herramientas de consulta'}
+                              className={cn('w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
+                                campos.herramienta === h.nombre && 'bg-primary/10')}>
+                              <span className="font-mono font-semibold">{h.nombre}</span>
+                              {!h.soloLectura && <span className="ml-1.5 text-[10px] text-amber-600">no es de solo lectura</span>}
+                              {h.descripcion && <span className="block text-muted-foreground line-clamp-2">{h.descripcion}</span>}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                )}
+              </div>
+            )}
+
             {/* El texto va en su propio <span>: si se deja suelto, el <strong>
                 pasa a ser OTRO hijo del flex y se va a una columna aparte. */}
             <p className="flex items-start gap-2 text-[11px] text-muted-foreground bg-muted rounded-md p-2.5">
               <Warning size={13} className="mt-0.5 shrink-0" />
-              <span>
-                Las claves se guardan en el servidor y no se vuelven a mostrar. Este conector
-                solo <strong>lee</strong>: el CRM nunca escribe en el sitio de origen.
-              </span>
+              {tipo === 'mcp' ? (
+                <span>
+                  Solo <strong>consulta</strong>: el CRM solo llama a las herramientas que el servidor marca como de
+                  solo lectura, por https y en servidores públicos. Cada llamada queda registrada. Tope: 20 s por
+                  llamada, 5 MB y 5000 elementos por importación. El token no se vuelve a mostrar.
+                </span>
+              ) : (
+                <span>
+                  Las claves se guardan en el servidor y no se vuelven a mostrar. Este conector
+                  solo <strong>lee</strong>: el CRM nunca escribe en el sitio de origen.
+                </span>
+              )}
             </p>
           </div>
 

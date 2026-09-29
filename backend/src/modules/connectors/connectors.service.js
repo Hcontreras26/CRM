@@ -140,10 +140,25 @@ async function upsertModules(productId, mappedModules) {
   return mappedModules.length;
 }
 
-export async function previewConnector(connectorId) {
+/**
+ * El campo «Campus» del mapeo: solo en los conectores de empresa o de todo el
+ * sistema, que traen datos de varios campus. Lo que diga ahí —el nombre del
+ * campus— decide adónde va cada elemento; lo que no lo diga, o diga uno que no
+ * está en su alcance, va al campus por defecto (`project_id`).
+ */
+const CAMPO_CAMPUS = {
+  key: 'campus', label: 'Campus (por su nombre; sin él, al campus por defecto)', type: 'string', group: 'Campus',
+};
+function targetsDe(c) {
+  const base = TARGETS_CATALOG[c.destination] || TARGETS_CATALOG.product;
+  return c.alcance && c.alcance !== 'campus' ? [...base, CAMPO_CAMPUS] : base;
+}
+const normal = (s) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+export async function previewConnector(connectorId, ctx = {}) {
   const c = await model.findById(connectorId);
   if (!c) throw new AppError('Conector no encontrado', 404, 'NOT_FOUND');
-  const { items, total } = await adapters.fetchSample(c);
+  const { items, total } = await adapters.fetchSample(c, ctx);
   await model.saveSample(connectorId, items[0] || {});
 
   // Schema completo del item (todas las keys con tipos) para que el frontend
@@ -151,7 +166,7 @@ export async function previewConnector(connectorId) {
   const schema = items[0] ? adapters.inspectSchema(items[0]) : [];
 
   // Catálogo de campos destino del CRM según destination
-  const targets = TARGETS_CATALOG[c.destination] || TARGETS_CATALOG.product;
+  const targets = targetsDe(c);
 
   // Test de mapping: aplicar el field_mapping actual al primer sample
   let mapped_preview = null;
@@ -192,7 +207,7 @@ function detectFieldsFromSample(item) {
   return sug;
 }
 
-export async function importFromConnector(connectorId) {
+export async function importFromConnector(connectorId, ctx = {}) {
   const c = await model.findById(connectorId);
   if (!c) throw new AppError('Conector no encontrado', 404, 'NOT_FOUND');
   if (!c.field_mapping || Object.keys(c.field_mapping).length === 0) {
@@ -204,13 +219,30 @@ export async function importFromConnector(connectorId) {
 
   let created = 0, updated = 0, skipped = 0, errors = 0;
   try {
-    const items = await adapters.fetchAll(c);
+    const items = await adapters.fetchAll(c, ctx);
     logger.info({ connectorId, items: items.length }, 'Connector: items descargados');
+
+    // Un conector de empresa o de todo el sistema es UNO para todos sus campus
+    // (Diego, 29/09: «tiene que ser único»). Cada elemento va al campus que
+    // diga su campo «Campus», siempre dentro del alcance; si no dice o no casa,
+    // al campus por defecto. Nunca a un campus de fuera del alcance.
+    const campus = c.alcance && c.alcance !== 'campus' ? await model.campusDelAlcance(c) : [];
+    const porNombre = new Map(campus.map((p) => [normal(p.nombre), p.id]));
+    const porId = new Set(campus.map((p) => Number(p.id)));
+    const campusDe = (mapped) => {
+      if (!campus.length || mapped.campus === undefined) return c.project_id;
+      const dicho = mapped.campus;
+      if (porNombre.has(normal(dicho))) return porNombre.get(normal(dicho));
+      if (porId.has(Number(dicho))) return Number(dicho);
+      return c.project_id;
+    };
 
     for (const item of items) {
       try {
         const mapped = applyMapping(item, c.field_mapping);
-        const result = await upsertProduct(c.project_id, mapped, item);
+        const destino = campusDe(mapped);
+        delete mapped.campus;
+        const result = await upsertProduct(destino, mapped, item);
         if (result.action === 'created') created++;
         else if (result.action === 'updated') updated++;
         else if (result.skipped) skipped++;

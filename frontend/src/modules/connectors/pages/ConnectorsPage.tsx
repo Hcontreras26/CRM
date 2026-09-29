@@ -9,6 +9,7 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { toast } from '@/shared/hooks/useToast';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import { ponerAmbito, TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 import {
@@ -166,6 +167,10 @@ export default function ConnectorsPage() {
   // los conectores de todos sus campus, cada uno con el suyo al lado. Un
   // conector sigue siendo de UN campus: al crearlo se elige cuál.
   const conEmpresa = Boolean(activeIssuerId);
+  const { user, projects } = useAuth() as {
+    user: { role?: string } | null;
+    projects: Array<{ id: number; nombre: string; sociedad_emisora_id?: number | null; sociedad_nombre?: string | null }>;
+  };
   const campus = useProyectosDelAmbito<{ id: number; nombre: string; sociedad_emisora_id?: number | null }>();
   const projectId = !conEmpresa && activeProject?.id && activeProject.id !== TODOS_LOS_PROYECTOS ? activeProject.id : null;
   const hayAmbito = conEmpresa || Boolean(projectId);
@@ -314,7 +319,16 @@ export default function ConnectorsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold truncate">{c.label}</h3>
-                    {conEmpresa && c.proyecto && (
+                    {/* De quién es: todo el sistema, una empresa entera o un campus. */}
+                    {c.alcance === 'sistema' ? (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-700 dark:text-violet-300">
+                        Todo el sistema
+                      </span>
+                    ) : c.alcance === 'empresa' ? (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-700 dark:text-sky-300">
+                        Toda {c.empresa || 'la empresa'}
+                      </span>
+                    ) : conEmpresa && c.proyecto && (
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                         {c.proyecto}
                       </span>
@@ -327,6 +341,7 @@ export default function ConnectorsPage() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {nombreTipo(c.type)} → {nombreDestino(c.destination)}
+                    {c.alcance && c.alcance !== 'campus' && c.proyecto && ` · por defecto a ${c.proyecto}`}
                   </p>
                   {c.config?.base_url && (
                     <p className="text-[11px] text-muted-foreground/80 mt-0.5 truncate">{c.config.base_url}</p>
@@ -373,7 +388,9 @@ export default function ConnectorsPage() {
         <DialogoConector
           conector={editando}
           projectId={projectId}
-          campus={campus.map((p) => ({ id: p.id, nombre: p.nombre }))}
+          issuerId={activeIssuerId}
+          proyectos={projects || []}
+          esSuperadmin={user?.role === 'superadmin'}
           onCerrar={() => setEditando(undefined)}
           onGuardado={() => { setEditando(undefined); cargar(); }}
         />

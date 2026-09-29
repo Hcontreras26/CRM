@@ -4,6 +4,8 @@
 // El mapping field_mapping y la importación al CRM se hace en el service.
 
 import { logger } from '../../shared/utils/logger.js';
+import { AppError } from '../../shared/utils/AppError.js';
+import { traerDatos, LIMITES } from './connectors.mcp.js';
 
 // Helper: resuelve "a.b.c" sobre obj. Soporta:
 //   - Notación bracket: a.b[2].c
@@ -155,6 +157,17 @@ async function customRequest(config, params = {}) {
 const PER_PAGE = 100;
 const MAX_PAGES = 50;
 
+/** Lo que trae un servidor MCP, como lista: `items_path` dice dónde está. */
+async function mcpItems(connector, ctx) {
+  const datos = await traerDatos(connector.config || {}, { ...ctx, connectorId: connector.id });
+  const items = connector.config?.items_path ? resolvePath(datos, connector.config.items_path) : datos;
+  const lista = Array.isArray(items) ? items : (items === undefined || items === null ? [] : [items]);
+  if (lista.length > LIMITES.MAX_ELEMENTOS) {
+    throw new AppError(`El servidor MCP trae ${lista.length} elementos y el máximo es ${LIMITES.MAX_ELEMENTOS}. Acota con los argumentos.`, 413, 'MCP_GRANDE');
+  }
+  return lista;
+}
+
 async function fetchAllPagesWc(config, endpoint, extraParams = {}) {
   const all = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
@@ -166,7 +179,8 @@ async function fetchAllPagesWc(config, endpoint, extraParams = {}) {
   return all;
 }
 
-export async function fetchSample(connector) {
+// `ctx` = { userId }: quién lo pide, para la auditoría de los conectores MCP.
+export async function fetchSample(connector, ctx = {}) {
   const { type, config } = connector;
   switch (type) {
     case 'woocommerce_products': {
@@ -192,12 +206,16 @@ export async function fetchSample(connector) {
       const { items, total } = await customRequest(config);
       return { items: items.slice(0, 3), total };
     }
+    case 'mcp': {
+      const items = await mcpItems(connector, ctx);
+      return { items: items.slice(0, 3), total: items.length };
+    }
     default:
       throw new Error(`Tipo de conector desconocido: ${type}`);
   }
 }
 
-export async function fetchAll(connector) {
+export async function fetchAll(connector, ctx = {}) {
   const { type, config } = connector;
   switch (type) {
     case 'woocommerce_products':
@@ -220,6 +238,8 @@ export async function fetchAll(connector) {
       const { items } = await customRequest(config);
       return items;
     }
+    case 'mcp':
+      return mcpItems(connector, ctx);
     default:
       throw new Error(`Tipo de conector desconocido: ${type}`);
   }
