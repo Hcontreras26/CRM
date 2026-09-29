@@ -402,12 +402,12 @@ export const VERSIONES = [
           },
           {
             "titulo": "Conectores",
-            "texto": "Pantalla nueva en Captación. «Nuevo conector» pregunta primero cuál: Claude (MCP) da una URL para pegar en Claude y preguntarle por prospectos, ventas, facturas o informes, solo consulta; los demás traen datos de otra web, por ejemplo los cursos de una tienda. Cada conector puede ser de un campus, de una empresa entera o, para super admin, de todo el sistema.",
+            "texto": "Pantalla nueva en la sección Conexión. Los conectores traen datos de otra web, por ejemplo los cursos de una tienda; las conexiones de Claude, que dan una URL para preguntarle por prospectos, ventas, facturas o informes (solo consulta), están en Conexión → MCP. Cada uno puede ser de un campus, de una empresa entera o, para super admin, de todo el sistema.",
             "roles": [
               "admin",
               "superadmin"
             ],
-            "ruta": "/captacion/conectores",
+            "ruta": "/conexion/conectores",
             "boton": "Abrir Conectores"
           },
           {

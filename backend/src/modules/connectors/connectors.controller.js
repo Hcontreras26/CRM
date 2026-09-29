@@ -83,17 +83,17 @@ async function alcanceValido(req, { alcance = 'campus', issuer_id = null, projec
 
 /**
  * Si la persona puede VER un conector (listarlo, abrirlo, probarlo) o
- * TOCARLO (cambiarlo, borrarlo, importar). Ver: el de su campus, el de una
- * empresa en la que tiene algún campus y los de todo el sistema. Tocar: el de
- * su campus, el de una empresa en la que está entera, y los de todo el sistema
- * solo el super admin.
+ * TOCARLO (cambiarlo, borrarlo, importar). Ver: el de su campus y el de una
+ * empresa en la que tiene algún campus. Tocar: el de su campus y el de una
+ * empresa en la que está entera. Los de TODO EL SISTEMA, ni verlos: solo el
+ * super admin (Diego, 29/09: «Antonio solo puede consultar y ver los de su
+ * empresa; en cambio Manuel Casas puede ver TODO en todos lados»).
  */
 async function acceso(req, c, que) {
   if (!c) throw new AppError('No encontrado', 404, 'NOT_FOUND');
   if (esSuperadmin(req)) return c;
   if (c.alcance === 'sistema') {
-    if (que === 'tocar') throw new AppError('Este conector es de todo el sistema: solo lo cambia un super admin', 403, 'FORBIDDEN');
-    return c;
+    throw new AppError('Este conector es de todo el sistema: solo lo ve y lo cambia un super admin', 403, 'FORBIDDEN');
   }
   const mios = await misCampus(req);
   if (c.alcance === 'empresa') {
@@ -145,26 +145,43 @@ function cid(req) {
   return id;
 }
 
+/** Si puede cambiar y borrar este conector: la misma regla que `acceso(…, 'tocar')`. */
+async function puedeTocar(req, c, mios) {
+  if (esSuperadmin(req)) return true;
+  if (c.alcance === 'sistema') return false;
+  if (c.alcance === 'empresa') {
+    const suyos = await model.campusDeLaEmpresa(c.issuer_id);
+    return suyos.length > 0 && suyos.every((id) => mios.includes(id));
+  }
+  return mios.includes(Number(c.project_id));
+}
+
 /**
  * Con un campus, los suyos. Con una EMPRESA (`issuerId`), los de todos sus
- * campus —Diego, 29/09: «no puedo estar con la empresa»—: cada conector sigue
- * siendo de un campus y sale con su nombre, y al crearlo se elige cuál.
+ * campus —Diego, 29/09: «no puedo estar con la empresa»—. Y SIN NINGUNO, con
+ * «Todos los proyectos» arriba, todo lo que la persona puede ver: el super
+ * admin, todo; un admin, lo de sus campus y sus empresas (Diego, 29/09: «que
+ * funcione por empresa y todos los proyectos»).
+ *
+ * `?tipo=mcp` son las conexiones de Claude (Conexión → MCP) y `?tipo=datos` los
+ * que traen datos (Conexión → Conectores).
  */
 export async function list(req, res, next) {
   try {
     const { projectId, projectIds } = await proyectosDelAmbito(req);
     let ids = comoLista(projectId, projectIds);
-    if (!ids || ids.some((id) => !Number.isInteger(id))) {
-      throw new AppError('Elige un campus o una empresa', 400, 'PROJECT_REQUIRED');
+    if (ids && ids.some((id) => !Number.isInteger(id))) {
+      throw new AppError('Campus o empresa no válidos', 400, 'VALIDATION_ERROR');
     }
+    const tipo = ['mcp', 'datos'].includes(req.query.tipo) ? req.query.tipo : null;
     // Un admin, solo sus campus: el de otro no se le enseña aunque lo pida.
     const mios = await misCampus(req);
     if (mios) {
       if (projectId && !mios.includes(Number(projectId))) throw noEsTuyo('Ese campus');
-      ids = ids.filter((id) => mios.includes(id));
+      ids = (ids || mios).filter((id) => mios.includes(id));
       if (!ids.length) return res.json({ success: true, data: [] });
     }
-    const conectores = await model.listByAmbito(ids);
+    const conectores = await model.listByAmbito(ids, { tipo, incluirSistema: esSuperadmin(req) });
     // En los «Servidor MCP», si esta persona ya tiene su URL (solo el inicio del
     // token y cuándo la usó Claude por última vez: la URL entera no se guarda).
     const deMcp = conectores.filter((c) => c.type === 'mcp').map((c) => c.id);
@@ -172,10 +189,11 @@ export async function list(req, res, next) {
     const porConector = new Map(suyas.map((t) => [t.connector_id, t]));
     res.json({
       success: true,
-      data: conectores.map((c) => ({
+      data: await Promise.all(conectores.map(async (c) => ({
         ...sinSecretos(c),
+        puede_tocar: await puedeTocar(req, c, mios),
         ...(c.type === 'mcp' ? { mcp_mio: porConector.get(c.id) || null } : {}),
-      })),
+      }))),
     });
   } catch (err) { next(err); }
 }
@@ -192,7 +210,7 @@ export async function create(req, res, next) {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
     const alcance = await alcanceValido(req, parsed.data);
-    const c = await model.create({ ...parsed.data, ...alcance });
+    const c = await model.create({ ...parsed.data, ...alcance, created_by: req.user?.userId ?? null });
     // «Servidor MCP»: la URL para Claude sale ya, y es la única vez que se ve entera.
     const mcp = c.type === 'mcp' ? await urlNueva(req, c) : undefined;
     res.status(201).json({ success: true, data: { ...sinSecretos(c), ...(mcp ? { mcp } : {}) } });

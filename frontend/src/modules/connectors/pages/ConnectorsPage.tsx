@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Plus, PlugsConnected, ArrowClockwise, Trash, PencilSimple,
   CheckCircle, XCircle, WarningCircle, Clock, MagicWand, DownloadSimple,
-  Question, ArrowSquareOut, ShoppingBag, Copy, Robot, X,
+  Question, ArrowSquareOut, ShoppingBag, Robot,
 } from '@phosphor-icons/react';
-import Portal from '@/shared/components/ui/portal';
 import { Link } from 'react-router-dom';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
@@ -14,14 +13,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import { ponerAmbito, TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 import {
-  conectoresApi, TIPOS, DESTINOS, urlParaClaude, type Conector,
+  conectoresApi, TIPOS, DESTINOS, type Conector,
 } from '../api/connectors.api';
 import DialogoConector from '../components/DialogoConector';
+import ParaQuien from '../components/ParaQuien';
 import { lista } from '@/shared/lib/lista';
 import PanelMapeo from '../components/PanelMapeo';
 
 /**
- * Conectores de un proyecto (#6).
+ * Conectores (#6). Desde el 29/09 en Conexión → Conectores, no en Captación:
+ * «todo lo que sea conexión con WordPress y eso pase allí, a la sección de
+ * conexión del menú». Las conexiones de Claude, en Conexión → MCP.
+ *
+ * Funciona con un campus, con una empresa y con «Todos los proyectos» arriba:
+ * el super admin ve todo; un admin, lo de sus campus y sus empresas.
  *
  * Traer al CRM lo que ya existe fuera —los productos de una tienda WooCommerce,
  * las entradas de un WordPress— sin copiarlo a mano.
@@ -141,6 +146,19 @@ function QueNoEsEsto() {
       </Link>
 
       <Link
+        to="/conexion/mcp"
+        className="flex items-start gap-3 rounded-md border border-border bg-card p-3 transition-colors hover:bg-muted"
+      >
+        <Robot size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 text-xs">
+          <span className="block font-semibold">Consultar el CRM desde Claude → Conexión → MCP</span>
+          <span className="block text-muted-foreground">
+            Las conexiones de Claude, con su URL, para quién son y quién las creó, están allí.
+          </span>
+        </span>
+      </Link>
+
+      <Link
         to="/productos/woocommerce"
         className="flex items-start gap-3 rounded-md border border-border bg-card p-3 transition-colors hover:bg-muted"
       >
@@ -158,66 +176,25 @@ function QueNoEsEsto() {
   );
 }
 
-/**
- * La URL de un «Servidor MCP», la única vez que se ve entera: para pegarla en
- * Claude («Agregar conector personalizado»). No se guarda en ninguna parte.
- */
-function UrlParaClaude({ token, nombre, onCerrar }: { token: string; nombre: string; onCerrar: () => void }) {
-  const url = urlParaClaude(token);
-  const copiar = () => navigator.clipboard?.writeText(url).then(
-    () => toast({ title: 'URL copiada' }),
-    () => toast({ title: 'No se pudo copiar: selecciónala y cópiala a mano', variant: 'destructive' }),
-  );
-  return (
-    <Portal>
-      <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/60" onClick={onCerrar}>
-        <div role="dialog" aria-modal="true" aria-label="Tu URL para Claude" onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-lg rounded-md border border-border bg-card shadow-sm">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-            <h2 className="flex items-center gap-2 font-semibold"><Robot size={16} /> Tu URL para Claude · {nombre}</h2>
-            <button type="button" onClick={onCerrar} aria-label="Cerrar" className="p-1 rounded-md text-muted-foreground hover:bg-muted"><X size={16} /></button>
-          </div>
-          <div className="p-5 space-y-3 text-sm">
-            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 p-2">
-              <code className="min-w-0 flex-1 break-all text-xs">{url}</code>
-              <button type="button" onClick={copiar}
-                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-primary-foreground hover:opacity-90">
-                <Copy size={14} /> Copiar
-              </button>
-            </div>
-            <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-              <li>En Claude (escritorio o claude.ai): <strong className="text-foreground">Configuración → Conectores → Agregar conector personalizado</strong>.</li>
-              <li>Ponle un nombre y pega esta URL. No pide nada más.</li>
-              <li>Pregúntale como a una persona: «¿cuántas ventas llevamos este mes por campus?».</li>
-            </ol>
-            <p className="rounded-md bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
-              Solo se enseña ahora. Es tuya: quien la tenga consulta como tú. Si la pierdes o se filtra, pide una nueva
-              en el conector y esta deja de funcionar.
-            </p>
-          </div>
-        </div>
-      </div>
-    </Portal>
-  );
-}
-
 export default function ConnectorsPage() {
-  const { activeProject, activeIssuerId, activeIssuer } = useProjectContext() as {
+  const { activeProject, activeIssuerId, activeIssuer, isAllProjects } = useProjectContext() as {
     activeProject: { id: number; nombre?: string } | null;
     activeIssuerId: number | null;
     activeIssuer: { nombre?: string } | null;
+    isAllProjects: boolean;
   };
   // Con una EMPRESA puesta (Diego, 29/09: «no puedo estar con la empresa»),
-  // los conectores de todos sus campus, cada uno con el suyo al lado. Un
-  // conector sigue siendo de UN campus: al crearlo se elige cuál.
+  // los conectores de todos sus campus, cada uno con el suyo al lado. Con
+  // «Todos los proyectos», todo lo que la persona puede ver.
   const conEmpresa = Boolean(activeIssuerId);
   const { user, projects } = useAuth() as {
     user: { role?: string } | null;
     projects: Array<{ id: number; nombre: string; sociedad_emisora_id?: number | null; sociedad_nombre?: string | null }>;
   };
   const campus = useProyectosDelAmbito<{ id: number; nombre: string; sociedad_emisora_id?: number | null }>();
-  const projectId = !conEmpresa && activeProject?.id && activeProject.id !== TODOS_LOS_PROYECTOS ? activeProject.id : null;
-  const hayAmbito = conEmpresa || Boolean(projectId);
+  const projectId = !conEmpresa && !isAllProjects && activeProject?.id && activeProject.id !== TODOS_LOS_PROYECTOS ? activeProject.id : null;
+  // Con más de un campus a la vista, cada conector dice de cuál es.
+  const variosCampus = !projectId;
 
   const [conectores, setConectores] = useState<Conector[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -226,36 +203,23 @@ export default function ConnectorsPage() {
   const [editando, setEditando] = useState<Conector | null | undefined>(undefined);
   const [mapeando, setMapeando] = useState<Conector | null>(null);
   const [importando, setImportando] = useState<number | null>(null);
-  // La URL para Claude recién sacada (la única vez que se ve entera).
-  const [urlClaude, setUrlClaude] = useState<{ token: string; nombre: string } | null>(null);
 
   const cargar = useCallback(async () => {
-    if (!hayAmbito) { setCargando(false); return; }
     setCargando(true);
     setError(null);
     try {
-      const r = await conectoresApi.listar(ponerAmbito(new URLSearchParams(), { activeIssuerId, activeProject: projectId ? { id: projectId } : null }));
+      const r = await conectoresApi.listar(
+        ponerAmbito(new URLSearchParams(), { activeIssuerId, activeProject: projectId ? { id: projectId } : null }),
+        'datos',
+      );
       if (r.success) setConectores(lista<Conector>(r.data));
       else setError(r.error || 'No se pudieron cargar los conectores');
     } catch (e: any) {
       setError(e?.message || 'No se pudieron cargar los conectores');
     } finally { setCargando(false); }
-  }, [hayAmbito, activeIssuerId, projectId]);
+  }, [activeIssuerId, projectId]);
 
   useEffect(() => { cargar(); }, [cargar]);
-
-  /** «Servidor MCP»: una URL nueva. Si ya había una, esa deja de valer. */
-  async function urlNueva(c: Conector) {
-    if (c.mcp_mio && !window.confirm('Se va a crear una URL nueva y la que tienes ahora en Claude dejará de funcionar. ¿Seguir?')) return;
-    try {
-      const r = await conectoresApi.mcpUrl(c.id);
-      if (!r.success) throw new Error((r as { error?: string }).error || 'no se pudo');
-      setUrlClaude({ token: r.data.token, nombre: c.label });
-      cargar();
-    } catch (e: any) {
-      toast({ title: 'No se pudo sacar la URL', description: e?.message, variant: 'destructive' });
-    }
-  }
 
   async function borrar(c: Conector) {
     // Se pregunta con el nombre delante. Borrar un conector no borra lo ya
@@ -308,28 +272,15 @@ export default function ConnectorsPage() {
     }
   }
 
-  if (!hayAmbito) {
-    return (
-      <div className="space-y-4">
-        <PageHeader title="Conectores" subtitle="El CRM va a buscar fuera lo que ya está escrito allí." />
-        <EmptyState
-          icon={PlugsConnected}
-          title="Elige un campus o una empresa"
-          description="Cada conector es de un campus. Elige uno arriba, o una empresa para ver los de todos sus campus."
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <PageHeader
         title="Conectores"
         // «Traer datos de fuera» era la misma frase que dice Webhooks («entradas
         // de fuera») en el menú. Lo que las separa es quién da el primer paso.
-        subtitle={`El CRM va a buscar fuera lo que ya está escrito allí · ${conEmpresa
+        subtitle={`WordPress, tiendas y APIs: el CRM va a buscar fuera lo que ya está escrito allí · ${conEmpresa
           ? `${activeIssuer?.nombre || 'Empresa'} · ${campus.length} campus`
-          : activeProject?.nombre || ''}`}
+          : projectId ? activeProject?.nombre || '' : 'Todos los proyectos'}`}
         actions={
           <div className="flex items-center gap-2">
             <button type="button" onClick={cargar} disabled={cargando}
@@ -379,19 +330,7 @@ export default function ConnectorsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold truncate">{c.label}</h3>
                     {/* De quién es: todo el sistema, una empresa entera o un campus. */}
-                    {c.alcance === 'sistema' ? (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-700 dark:text-violet-300">
-                        Todo el sistema
-                      </span>
-                    ) : c.alcance === 'empresa' ? (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-700 dark:text-sky-300">
-                        Toda {c.empresa || 'la empresa'}
-                      </span>
-                    ) : conEmpresa && c.proyecto && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                        {c.proyecto}
-                      </span>
-                    )}
+                    {(c.alcance !== 'campus' || variosCampus) && <ParaQuien c={c} />}
                     {!c.active && (
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                         Apagado
@@ -405,33 +344,23 @@ export default function ConnectorsPage() {
                   {c.config?.base_url && (
                     <p className="text-[11px] text-muted-foreground/80 mt-0.5 truncate">{c.config.base_url}</p>
                   )}
+                  {c.creado_por && (
+                    <p className="text-[11px] text-muted-foreground/80 mt-0.5">Creado por {c.creado_por}</p>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button type="button" title="Editar" onClick={() => setEditando(c)}
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted">
-                    <PencilSimple size={15} />
-                  </button>
-                  <button type="button" title="Borrar" onClick={() => borrar(c)}
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-muted">
-                    <Trash size={15} />
-                  </button>
-                </div>
+                {c.puede_tocar !== false && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button type="button" title="Editar" onClick={() => setEditando(c)}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted">
+                      <PencilSimple size={15} />
+                    </button>
+                    <button type="button" title="Borrar" onClick={() => borrar(c)}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-muted">
+                      <Trash size={15} />
+                    </button>
+                  </div>
+                )}
               </div>
-              {c.type === 'mcp' ? (
-                // «Servidor MCP»: no importa nada; lo que importa es tu URL para Claude.
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Robot size={13} />
-                    {c.mcp_mio
-                      ? <>Tu URL ({c.mcp_mio.prefijo}…) · {c.mcp_mio.last_used_at ? `Claude la usó ${hace(c.mcp_mio.last_used_at)}` : 'Claude aún no la ha usado'}</>
-                      : 'Todavía no tienes tu URL para Claude'}
-                  </span>
-                  <button type="button" onClick={() => urlNueva(c)}
-                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-2 text-[11px] font-bold text-primary-foreground hover:opacity-90">
-                    <Robot size={12} /> {c.mcp_mio ? 'URL nueva' : 'Sacar mi URL'}
-                  </button>
-                </div>
-              ) : (
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
                 <Estado c={c} />
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -445,7 +374,6 @@ export default function ConnectorsPage() {
                   </button>
                 </div>
               </div>
-              )}
             </div>
           ))}
         </div>
@@ -467,15 +395,12 @@ export default function ConnectorsPage() {
           proyectos={projects || []}
           esSuperadmin={user?.role === 'superadmin'}
           onCerrar={() => setEditando(undefined)}
-          onGuardado={(d) => {
+          onGuardado={() => {
             setEditando(undefined);
             cargar();
-            if (d?.mcp?.token) setUrlClaude({ token: d.mcp.token, nombre: d.label });
           }}
         />
       )}
-
-      {urlClaude && <UrlParaClaude token={urlClaude.token} nombre={urlClaude.nombre} onCerrar={() => setUrlClaude(null)} />}
     </div>
   );
 }
