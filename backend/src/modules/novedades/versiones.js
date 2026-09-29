@@ -279,6 +279,27 @@ export const VERSIONES = [
         "titulo": "Reportes y avisos",
         "items": [
           {
+            "titulo": "Tus correos del CRM, con datos y con la marca",
+            "texto": "Cada noche te llega «Tu día y lo de mañana»: lo que hiciste hoy, lo que te toca mañana en la cola, tus recordatorios con enlace y cómo va tu mes. Los lunes, «Tu semana»: tus números contra la semana anterior y la media del equipo, y tu puesto. Se apagan en «Mis preferencias».",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/preferencias",
+            "boton": "Ver mis avisos"
+          },
+          {
+            "titulo": "Resumen del día y reporte semanal, por empresa",
+            "texto": "Dirección recibe cada tarde el resumen del día y los lunes el reporte de la semana, con una sección por empresa —su logo, sus cifras, cada gestora y cada campus—. Quien lleva varias empresas recibe un solo correo con todas.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/informes",
+            "boton": "Abrir Reportes"
+          },
+          {
             "titulo": "Escrito o nota de voz",
             "texto": "En Reportes, el bloque «Trabajo hecho en el periodo» separa cuántos mensajes de WhatsApp manda cada gestora por escrito, cuántos en nota de voz y cuántos adjuntos. Va también en la descarga y en el PDF.",
             "roles": [
