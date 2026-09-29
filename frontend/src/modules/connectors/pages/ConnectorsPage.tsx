@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Plus, PlugsConnected, ArrowClockwise, Trash, PencilSimple,
   CheckCircle, XCircle, WarningCircle, Clock, MagicWand, DownloadSimple,
-  Question, ArrowSquareOut, ShoppingBag,
+  Question, ArrowSquareOut, ShoppingBag, Copy, Robot, X,
 } from '@phosphor-icons/react';
+import Portal from '@/shared/components/ui/portal';
 import { Link } from 'react-router-dom';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
@@ -13,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import { ponerAmbito, TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 import {
-  conectoresApi, TIPOS, DESTINOS, type Conector,
+  conectoresApi, TIPOS, DESTINOS, urlParaClaude, type Conector,
 } from '../api/connectors.api';
 import DialogoConector from '../components/DialogoConector';
 import { lista } from '@/shared/lib/lista';
@@ -157,6 +158,49 @@ function QueNoEsEsto() {
   );
 }
 
+/**
+ * La URL de un «Servidor MCP», la única vez que se ve entera: para pegarla en
+ * Claude («Agregar conector personalizado»). No se guarda en ninguna parte.
+ */
+function UrlParaClaude({ token, nombre, onCerrar }: { token: string; nombre: string; onCerrar: () => void }) {
+  const url = urlParaClaude(token);
+  const copiar = () => navigator.clipboard?.writeText(url).then(
+    () => toast({ title: 'URL copiada' }),
+    () => toast({ title: 'No se pudo copiar: selecciónala y cópiala a mano', variant: 'destructive' }),
+  );
+  return (
+    <Portal>
+      <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/60" onClick={onCerrar}>
+        <div role="dialog" aria-modal="true" aria-label="Tu URL para Claude" onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-lg rounded-md border border-border bg-card shadow-sm">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+            <h2 className="flex items-center gap-2 font-semibold"><Robot size={16} /> Tu URL para Claude · {nombre}</h2>
+            <button type="button" onClick={onCerrar} aria-label="Cerrar" className="p-1 rounded-md text-muted-foreground hover:bg-muted"><X size={16} /></button>
+          </div>
+          <div className="p-5 space-y-3 text-sm">
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 p-2">
+              <code className="min-w-0 flex-1 break-all text-xs">{url}</code>
+              <button type="button" onClick={copiar}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-primary-foreground hover:opacity-90">
+                <Copy size={14} /> Copiar
+              </button>
+            </div>
+            <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+              <li>En Claude (escritorio o claude.ai): <strong className="text-foreground">Configuración → Conectores → Agregar conector personalizado</strong>.</li>
+              <li>Ponle un nombre y pega esta URL. No pide nada más.</li>
+              <li>Pregúntale como a una persona: «¿cuántas ventas llevamos este mes por campus?».</li>
+            </ol>
+            <p className="rounded-md bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+              Solo se enseña ahora. Es tuya: quien la tenga consulta como tú. Si la pierdes o se filtra, pide una nueva
+              en el conector y esta deja de funcionar.
+            </p>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  );
+}
+
 export default function ConnectorsPage() {
   const { activeProject, activeIssuerId, activeIssuer } = useProjectContext() as {
     activeProject: { id: number; nombre?: string } | null;
@@ -182,6 +226,8 @@ export default function ConnectorsPage() {
   const [editando, setEditando] = useState<Conector | null | undefined>(undefined);
   const [mapeando, setMapeando] = useState<Conector | null>(null);
   const [importando, setImportando] = useState<number | null>(null);
+  // La URL para Claude recién sacada (la única vez que se ve entera).
+  const [urlClaude, setUrlClaude] = useState<{ token: string; nombre: string } | null>(null);
 
   const cargar = useCallback(async () => {
     if (!hayAmbito) { setCargando(false); return; }
@@ -197,6 +243,19 @@ export default function ConnectorsPage() {
   }, [hayAmbito, activeIssuerId, projectId]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  /** «Servidor MCP»: una URL nueva. Si ya había una, esa deja de valer. */
+  async function urlNueva(c: Conector) {
+    if (c.mcp_mio && !window.confirm('Se va a crear una URL nueva y la que tienes ahora en Claude dejará de funcionar. ¿Seguir?')) return;
+    try {
+      const r = await conectoresApi.mcpUrl(c.id);
+      if (!r.success) throw new Error((r as { error?: string }).error || 'no se pudo');
+      setUrlClaude({ token: r.data.token, nombre: c.label });
+      cargar();
+    } catch (e: any) {
+      toast({ title: 'No se pudo sacar la URL', description: e?.message, variant: 'destructive' });
+    }
+  }
 
   async function borrar(c: Conector) {
     // Se pregunta con el nombre delante. Borrar un conector no borra lo ya
@@ -358,6 +417,21 @@ export default function ConnectorsPage() {
                   </button>
                 </div>
               </div>
+              {c.type === 'mcp' ? (
+                // «Servidor MCP»: no importa nada; lo que importa es tu URL para Claude.
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Robot size={13} />
+                    {c.mcp_mio
+                      ? <>Tu URL ({c.mcp_mio.prefijo}…) · {c.mcp_mio.last_used_at ? `Claude la usó ${hace(c.mcp_mio.last_used_at)}` : 'Claude aún no la ha usado'}</>
+                      : 'Todavía no tienes tu URL para Claude'}
+                  </span>
+                  <button type="button" onClick={() => urlNueva(c)}
+                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-2 text-[11px] font-bold text-primary-foreground hover:opacity-90">
+                    <Robot size={12} /> {c.mcp_mio ? 'URL nueva' : 'Sacar mi URL'}
+                  </button>
+                </div>
+              ) : (
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
                 <Estado c={c} />
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -371,6 +445,7 @@ export default function ConnectorsPage() {
                   </button>
                 </div>
               </div>
+              )}
             </div>
           ))}
         </div>
@@ -392,9 +467,15 @@ export default function ConnectorsPage() {
           proyectos={projects || []}
           esSuperadmin={user?.role === 'superadmin'}
           onCerrar={() => setEditando(undefined)}
-          onGuardado={() => { setEditando(undefined); cargar(); }}
+          onGuardado={(d) => {
+            setEditando(undefined);
+            cargar();
+            if (d?.mcp?.token) setUrlClaude({ token: d.mcp.token, nombre: d.label });
+          }}
         />
       )}
+
+      {urlClaude && <UrlParaClaude token={urlClaude.token} nombre={urlClaude.nombre} onCerrar={() => setUrlClaude(null)} />}
     </div>
   );
 }

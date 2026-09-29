@@ -66,7 +66,7 @@ export async function proyectosDeLaPersona(user) {
 /** El token vivo con su dueño. Caducado o revocado = no existe. */
 export async function findTokenVivo(hash) {
   const { rows } = await query(
-    `SELECT t.id AS token_id, t.user_id
+    `SELECT t.id AS token_id, t.user_id, t.connector_id
        FROM mcp_tokens t
       WHERE t.token_hash = $1 AND t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > NOW())`,
     [hash]
@@ -88,6 +88,8 @@ export async function listarTokens(userId) {
     `SELECT id, nombre, prefijo, created_at, expires_at, last_used_at, revoked_at,
             (revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())) AS vivo
        FROM mcp_tokens WHERE user_id = $1
+        -- Los de un conector se ven y se renuevan en Conectores (migración 184).
+        AND connector_id IS NULL
       ORDER BY (revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())) DESC, created_at DESC
       LIMIT 50`,
     [userId]
@@ -98,20 +100,60 @@ export async function listarTokens(userId) {
 export async function contarTokensVivos(userId) {
   const { rows } = await query(
     `SELECT COUNT(*)::int AS n FROM mcp_tokens
-      WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())`,
+      WHERE user_id = $1 AND connector_id IS NULL AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())`,
     [userId]
   );
   return rows[0].n;
 }
 
-export async function crearToken({ userId, nombre, hash, prefijo, dias }) {
+export async function crearToken({ userId, nombre, hash, prefijo, dias, connectorId = null }) {
   const { rows } = await query(
-    `INSERT INTO mcp_tokens (user_id, nombre, token_hash, prefijo, expires_at)
-     VALUES ($1, $2, $3, $4, CASE WHEN $5::int IS NULL THEN NULL ELSE NOW() + make_interval(days => $5::int) END)
+    `INSERT INTO mcp_tokens (user_id, nombre, token_hash, prefijo, expires_at, connector_id)
+     VALUES ($1, $2, $3, $4, CASE WHEN $5::int IS NULL THEN NULL ELSE NOW() + make_interval(days => $5::int) END, $6)
      RETURNING id, nombre, prefijo, created_at, expires_at`,
-    [userId, nombre, hash, prefijo, dias]
+    [userId, nombre, hash, prefijo, dias, connectorId]
   );
   return rows[0];
+}
+
+// ─── Tokens que nacen de un conector «Servidor MCP» (migración 184) ────────
+
+/**
+ * Lo que deja ver un conector: `null` si ya no existe o está apagado (la URL
+ * deja de valer), `{ ids: null }` si es de todo el sistema, y si no sus campus.
+ * Se lee en CADA consulta: cambiar su «Para quién» vale desde la siguiente.
+ */
+export async function campusDelConector(connectorId) {
+  const { rows: [c] } = await query(
+    'SELECT alcance, issuer_id, project_id, active FROM project_connectors WHERE id = $1', [connectorId]);
+  if (!c || !c.active) return null;
+  if (c.alcance === 'sistema') return { ids: null };
+  if (c.alcance === 'empresa') {
+    const { rows } = await query('SELECT id FROM projects WHERE sociedad_emisora_id = $1', [c.issuer_id]);
+    return { ids: rows.map((r) => Number(r.id)) };
+  }
+  return { ids: [Number(c.project_id)] };
+}
+
+/** La URL viva de una persona en cada conector (sin el token: solo su inicio). */
+export async function tokensDeConectores(userId, connectorIds) {
+  const { rows } = await query(
+    `SELECT DISTINCT ON (connector_id) connector_id, prefijo, created_at, last_used_at
+       FROM mcp_tokens
+      WHERE user_id = $1 AND connector_id = ANY($2::int[]) AND revoked_at IS NULL
+      ORDER BY connector_id, created_at DESC`,
+    [userId, connectorIds]
+  );
+  return rows;
+}
+
+/** Una URL por persona y conector: pedir otra revoca la anterior. */
+export async function revocarTokensDelConector(userId, connectorId) {
+  await query(
+    `UPDATE mcp_tokens SET revoked_at = NOW()
+      WHERE user_id = $1 AND connector_id = $2 AND revoked_at IS NULL`,
+    [userId, connectorId]
+  );
 }
 
 /** Revoca un token SUYO. Devuelve false si no existe o es de otra persona. */

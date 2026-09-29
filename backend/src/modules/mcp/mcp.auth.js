@@ -63,7 +63,15 @@ export async function verificarTokenMcp(req, res, next) {
       return rechazar(res, 403, 'Tu usuario no tiene acceso al MCP del CRM.');
     }
 
-    const proyectos = await model.proyectosDeLaPersona(user);
+    let proyectos = await model.proyectosDeLaPersona(user);
+    // Una URL sacada de un conector «Servidor MCP» (Conectores, migración 184):
+    // lo de la persona DENTRO del «Para quién» del conector. Nunca más de lo
+    // que ya ve la persona; si el conector se borra o se apaga, deja de valer.
+    if (vivo.connector_id) {
+      const limite = await model.campusDelConector(vivo.connector_id);
+      if (!limite) return rechazar(res, 401, 'El conector de esta URL ya no existe o está apagado.');
+      if (limite.ids) proyectos = proyectos.filter((p) => limite.ids.includes(Number(p.id)));
+    }
     req.mcp = { ambito: construirAmbito(user, proyectos), tokenId: vivo.token_id };
     model.marcarUso(vivo.token_id).catch(() => {});
     next();

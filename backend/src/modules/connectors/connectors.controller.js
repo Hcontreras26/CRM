@@ -1,11 +1,15 @@
 import { z } from 'zod';
 import * as model from './connectors.model.js';
 import * as service from './connectors.service.js';
-import { listarHerramientas, LIMITES } from './connectors.mcp.js';
+import { generarToken } from '../mcp/mcp.acceso.js';
+import * as mcpModel from '../mcp/mcp.model.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { proyectosDelAmbito, comoLista } from '../../shared/utils/ambito.js';
 
-// `mcp`: un servidor MCP de fuera (ver connectors.mcp.js). Diego, 29/09.
+// `mcp`: «Servidor MCP» — no trae datos: da una URL para Claude, como la de
+// Diana (modules/mcp), acotada al «Para quién» del conector. Diego, 29/09: «es
+// para que dé la API y yo meterla en Claude y hacer mis consultas allí».
+// Solo consulta, con todos los límites de aquel MCP.
 const VALID_TYPES = ['woocommerce_products', 'woocommerce_orders', 'wp_rest', 'acf', 'custom_api', 'mcp'];
 const ALCANCES = ['campus', 'empresa', 'sistema'];
 const VALID_DESTINATIONS = ['product', 'lead', 'matricula', 'category'];
@@ -33,28 +37,73 @@ const updateSchema = z.object({
 });
 
 /**
- * De quién es el conector: un campus, una empresa o todo el sistema (Diego,
- * 29/09). «Todo el sistema» solo lo pone un super admin. En uno de empresa, el
- * campus por defecto tiene que ser de esa empresa: si no, lo importado podría
- * acabar en un campus de otra sociedad.
+ * «PARA QUIÉN» LO DECIDE CÓMO ESTÁ LA PERSONA EN LAS EMPRESAS (Diego, 29/09).
+ *
+ *   · Super admin: todo, y es el único que hace o toca uno de todo el sistema.
+ *   · Admin: solo los campus que tiene asignados (`user_projects`). Uno de
+ *     TODA una empresa solo si está en TODOS sus campus: el conector lleva
+ *     datos a cualquiera de ellos, y no puede llevarlos a uno que él no ve.
+ *
+ * Antes esto solo lo hacía la pantalla, que ofrece lo suyo; por la API se
+ * podía pedir cualquier campus.
+ */
+const esSuperadmin = (req) => req.user?.role === 'superadmin';
+const misCampus = (req) => (esSuperadmin(req) ? null : model.campusDeLaPersona(req.user?.userId));
+const noEsTuyo = (que) => new AppError(`${que} no es tuyo: solo puedes usar los campus y empresas en los que estás.`, 403, 'FORBIDDEN');
+
+async function estaEnTodaLaEmpresa(mios, issuerId) {
+  const suyos = await model.campusDeLaEmpresa(issuerId);
+  return suyos.length > 0 && suyos.every((id) => mios.includes(id));
+}
+
+/**
+ * De quién es el conector: un campus, una empresa o todo el sistema. En uno de
+ * empresa, el campus por defecto tiene que ser de esa empresa: si no, lo
+ * importado podría acabar en un campus de otra sociedad.
  */
 async function alcanceValido(req, { alcance = 'campus', issuer_id = null, project_id }) {
-  if (alcance === 'sistema' && req.user?.role !== 'superadmin') {
+  if (alcance === 'sistema' && !esSuperadmin(req)) {
     throw new AppError('Solo un super admin puede hacer un conector de todo el sistema', 403, 'FORBIDDEN');
   }
-  if (alcance !== 'empresa') return { alcance, issuer_id: null };
+  const mios = await misCampus(req);
+  if (alcance === 'campus') {
+    if (mios && !mios.includes(Number(project_id))) throw noEsTuyo('Ese campus');
+    return { alcance, issuer_id: null };
+  }
+  if (alcance === 'sistema') return { alcance, issuer_id: null };
   if (!issuer_id) throw new AppError('Elige la empresa del conector', 400, 'VALIDATION_ERROR');
+  if (mios && !(await estaEnTodaLaEmpresa(mios, issuer_id))) {
+    throw new AppError('Para un conector de toda la empresa tienes que estar en todos sus campus.', 403, 'FORBIDDEN');
+  }
   if (!(await model.campusEsDeLaEmpresa(project_id, issuer_id))) {
     throw new AppError('El campus por defecto tiene que ser de esa empresa', 400, 'VALIDATION_ERROR');
   }
   return { alcance, issuer_id };
 }
 
-/** Un conector de todo el sistema solo lo toca un super admin. */
-function puedeTocar(req, c) {
-  if (c?.alcance === 'sistema' && req.user?.role !== 'superadmin') {
-    throw new AppError('Este conector es de todo el sistema: solo lo cambia un super admin', 403, 'FORBIDDEN');
+/**
+ * Si la persona puede VER un conector (listarlo, abrirlo, probarlo) o
+ * TOCARLO (cambiarlo, borrarlo, importar). Ver: el de su campus, el de una
+ * empresa en la que tiene algún campus y los de todo el sistema. Tocar: el de
+ * su campus, el de una empresa en la que está entera, y los de todo el sistema
+ * solo el super admin.
+ */
+async function acceso(req, c, que) {
+  if (!c) throw new AppError('No encontrado', 404, 'NOT_FOUND');
+  if (esSuperadmin(req)) return c;
+  if (c.alcance === 'sistema') {
+    if (que === 'tocar') throw new AppError('Este conector es de todo el sistema: solo lo cambia un super admin', 403, 'FORBIDDEN');
+    return c;
   }
+  const mios = await misCampus(req);
+  if (c.alcance === 'empresa') {
+    const suyos = await model.campusDeLaEmpresa(c.issuer_id);
+    const ok = que === 'tocar' ? suyos.every((id) => mios.includes(id)) : suyos.some((id) => mios.includes(id));
+    if (!ok) throw noEsTuyo('Ese conector');
+    return c;
+  }
+  if (!mios.includes(Number(c.project_id))) throw noEsTuyo('Ese conector');
+  return c;
 }
 
 /**
@@ -104,19 +153,36 @@ function cid(req) {
 export async function list(req, res, next) {
   try {
     const { projectId, projectIds } = await proyectosDelAmbito(req);
-    const ids = comoLista(projectId, projectIds);
+    let ids = comoLista(projectId, projectIds);
     if (!ids || ids.some((id) => !Number.isInteger(id))) {
       throw new AppError('Elige un campus o una empresa', 400, 'PROJECT_REQUIRED');
     }
+    // Un admin, solo sus campus: el de otro no se le enseña aunque lo pida.
+    const mios = await misCampus(req);
+    if (mios) {
+      if (projectId && !mios.includes(Number(projectId))) throw noEsTuyo('Ese campus');
+      ids = ids.filter((id) => mios.includes(id));
+      if (!ids.length) return res.json({ success: true, data: [] });
+    }
     const conectores = await model.listByAmbito(ids);
-    res.json({ success: true, data: conectores.map(sinSecretos) });
+    // En los «Servidor MCP», si esta persona ya tiene su URL (solo el inicio del
+    // token y cuándo la usó Claude por última vez: la URL entera no se guarda).
+    const deMcp = conectores.filter((c) => c.type === 'mcp').map((c) => c.id);
+    const suyas = deMcp.length ? await mcpModel.tokensDeConectores(req.user?.userId, deMcp) : [];
+    const porConector = new Map(suyas.map((t) => [t.connector_id, t]));
+    res.json({
+      success: true,
+      data: conectores.map((c) => ({
+        ...sinSecretos(c),
+        ...(c.type === 'mcp' ? { mcp_mio: porConector.get(c.id) || null } : {}),
+      })),
+    });
   } catch (err) { next(err); }
 }
 
 export async function getById(req, res, next) {
   try {
-    const c = await model.findById(cid(req));
-    if (!c) throw new AppError('No encontrado', 404, 'NOT_FOUND');
+    const c = await acceso(req, await model.findById(cid(req)), 'ver');
     res.json({ success: true, data: sinSecretos(c) });
   } catch (err) { next(err); }
 }
@@ -127,7 +193,9 @@ export async function create(req, res, next) {
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
     const alcance = await alcanceValido(req, parsed.data);
     const c = await model.create({ ...parsed.data, ...alcance });
-    res.status(201).json({ success: true, data: sinSecretos(c) });
+    // «Servidor MCP»: la URL para Claude sale ya, y es la única vez que se ve entera.
+    const mcp = c.type === 'mcp' ? await urlNueva(req, c) : undefined;
+    res.status(201).json({ success: true, data: { ...sinSecretos(c), ...(mcp ? { mcp } : {}) } });
   } catch (err) { next(err); }
 }
 
@@ -147,9 +215,7 @@ export async function update(req, res, next) {
     // clave la cambia; no mandarla la deja como estaba. Para borrarla de verdad
     // se manda vacia, que es explicito.
     const datos = { ...parsed.data };
-    const actual = await model.findById(cid(req));
-    if (!actual) throw new AppError('No encontrado', 404, 'NOT_FOUND');
-    puedeTocar(req, actual);
+    const actual = await acceso(req, await model.findById(cid(req)), 'tocar');
     if (datos.config) {
       datos.config = { ...(actual.config || {}), ...datos.config };
     }
@@ -169,47 +235,46 @@ export async function update(req, res, next) {
 
 export async function remove(req, res, next) {
   try {
-    puedeTocar(req, await model.findById(cid(req)));
+    await acceso(req, await model.findById(cid(req)), 'tocar');
     await model.remove(cid(req));
     res.json({ success: true });
   } catch (err) { next(err); }
 }
 
-const herramientasSchema = z.object({
-  url:          z.string().trim().min(1, 'Falta la dirección del servidor MCP').max(500),
-  bearer_token: z.string().max(4000).optional(),
-  connector_id: z.number().int().positive().optional(),
-});
-
 /**
- * POST /api/connectors/mcp/herramientas — lo que ofrece un servidor MCP, para
- * elegir en el diálogo la herramienta que trae los datos. Dice cuáles se pueden
- * usar (las de solo lectura) y cuáles no.
+ * La URL de ESTA persona para Claude en un conector «Servidor MCP».
  *
- * Al editar, el token NO vuelve al navegador: con `connector_id` y sin token se
- * usa el guardado.
+ * Es un token del MCP de Diana (`mcp_tokens`, se guarda solo su huella) atado
+ * al conector: Claude ve lo de la persona DENTRO del «Para quién» del conector
+ * (lo comprueba `verificarTokenMcp` en cada consulta). Una por persona y
+ * conector: pedir otra revoca la anterior. Cada admin que pueda ver el conector
+ * saca la suya, y con ella ve solo sus campus.
  */
-export async function herramientasMcp(req, res, next) {
+async function urlNueva(req, c) {
+  const userId = req.user?.userId;
+  await mcpModel.revocarTokensDelConector(userId, c.id);
+  const { token, hash, prefijo } = generarToken();
+  await mcpModel.crearToken({ userId, nombre: `Conector: ${c.label}`.slice(0, 100), hash, prefijo, dias: null, connectorId: c.id });
+  return { token, prefijo };
+}
+
+/** POST /api/connectors/:id/mcp-url — una URL nueva para Claude (la anterior deja de valer). */
+export async function mcpUrl(req, res, next) {
   try {
-    const parsed = herramientasSchema.safeParse(req.body);
-    if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
-    const { url, connector_id: connectorId } = parsed.data;
-    let token = parsed.data.bearer_token?.trim() || '';
-    if (!token && connectorId) {
-      const c = await model.findById(connectorId);
-      if (!c) throw new AppError('No encontrado', 404, 'NOT_FOUND');
-      puedeTocar(req, c);
-      if (c.type === 'mcp') token = c.config?.bearer_token || '';
-    }
-    const herramientas = await listarHerramientas({ url, bearer_token: token }, { userId: req.user?.userId ?? null, connectorId: connectorId ?? null });
-    res.json({ success: true, data: { herramientas, limites: LIMITES } });
+    const c = await acceso(req, await model.findById(cid(req)), 'ver');
+    if (c.type !== 'mcp') throw new AppError('Este conector no es un Servidor MCP', 400, 'VALIDATION_ERROR');
+    res.status(201).json({ success: true, data: await urlNueva(req, c) });
   } catch (err) { next(err); }
 }
+
+const NO_IMPORTA = new AppError('Un Servidor MCP no trae datos: es la URL para consultar desde Claude.', 400, 'MCP_NO_IMPORTA');
 
 // Trae 1-3 items de muestra del API externo + sugerencias de mapping
 export async function preview(req, res, next) {
   try {
-    const data = await service.previewConnector(cid(req), { userId: req.user?.userId ?? null });
+    const c = await acceso(req, await model.findById(cid(req)), 'ver');
+    if (c.type === 'mcp') throw NO_IMPORTA;
+    const data = await service.previewConnector(cid(req));
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }
@@ -218,13 +283,13 @@ export async function preview(req, res, next) {
 export async function runImport(req, res, next) {
   try {
     const id = cid(req);
-    puedeTocar(req, await model.findById(id));
-    const userId = req.user?.userId ?? null;
+    const c = await acceso(req, await model.findById(id), 'tocar');
+    if (c.type === 'mcp') throw NO_IMPORTA;
     res.status(202).json({ success: true, data: { connector_id: id, status: 'running' } });
     // Background
     setImmediate(async () => {
       try {
-        const result = await service.importFromConnector(id, { userId });
+        const result = await service.importFromConnector(id);
         // El log ya queda en service. El frontend hace polling de last_sync_at + last_sync_status
       } catch (err) {
         // ya se registra en recordSync 'error'

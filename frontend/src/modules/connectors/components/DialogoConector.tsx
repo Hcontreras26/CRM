@@ -8,7 +8,7 @@ import { cn } from '@/shared/lib/utils';
 import { toast } from '@/shared/hooks/useToast';
 import {
   conectoresApi, TIPOS, DESTINOS, CAMPOS_POR_TIPO,
-  type Conector, type TipoConector, type DestinoConector, type AlcanceConector, type HerramientaMcp,
+  type Conector, type TipoConector, type DestinoConector, type AlcanceConector,
 } from '../api/connectors.api';
 
 /** Un campus tal como llega del contexto: con su empresa. */
@@ -62,6 +62,9 @@ function opcionesDeAlcance(proyectos: Campus[], esSuperadmin: boolean) {
  * una tienda que no es la del proyecto. Pero se dice.
  */
 function avisoDelTipo(tipo: TipoConector): string | undefined {
+  if (tipo === 'mcp') {
+    return 'No trae datos: al crearlo te da una URL para pegar en Claude y consultar desde allí lo de «Para quién».';
+  }
   if (tipo === 'woocommerce_products' || tipo === 'woocommerce_orders') {
     return 'La tienda del proyecto ya tiene su pantalla en Catálogo → WooCommerce, y esa además sincroniza sola. Esto es para una tienda distinta.';
   }
@@ -79,7 +82,8 @@ interface Props {
   proyectos?: Campus[];
   esSuperadmin?: boolean;
   onCerrar: () => void;
-  onGuardado: () => void;
+  /** Con lo que devolvió el servidor: en un «Servidor MCP» nuevo trae la URL. */
+  onGuardado: (datos?: Conector & { mcp?: { token: string } }) => void;
 }
 
 export default function DialogoConector({
@@ -108,9 +112,6 @@ export default function DialogoConector({
     : (campusDelAlcance.find((p) => p.id === projectId)?.id ?? campusDelAlcance[0]?.id ?? null);
   const proyecto = alcance === 'campus' ? (para ? Number(para.slice(2)) : null) : defectoValido;
 
-  // Servidor MCP: sus herramientas, para elegir la que trae los datos.
-  const [herramientas, setHerramientas] = useState<HerramientaMcp[] | null>(null);
-  const [buscando, setBuscando] = useState(false);
 
   const [tipo, setTipo] = useState<TipoConector>(conector?.type || 'woocommerce_products');
   const [destino, setDestino] = useState<DestinoConector>(conector?.destination || 'product');
@@ -157,28 +158,10 @@ export default function DialogoConector({
         title: esAlta ? 'Conector creado' : 'Conector guardado',
         description: esAlta ? 'Ahora puedes probar la conexión y ver qué trae.' : undefined,
       });
-      onGuardado();
+      onGuardado(r.data);
     } catch (e: any) {
       toast({ title: 'No se pudo guardar', description: e?.message, variant: 'destructive' });
     } finally { setGuardando(false); }
-  }
-
-  async function verHerramientas() {
-    const url = (campos.url || '').trim();
-    if (!url) { toast({ title: 'Pon antes la dirección del servidor', variant: 'destructive' }); return; }
-    setBuscando(true);
-    try {
-      const r = await conectoresApi.herramientasMcp({
-        url,
-        ...(campos.bearer_token?.trim() ? { bearer_token: campos.bearer_token.trim() } : {}),
-        ...(conector ? { connector_id: conector.id } : {}),
-      });
-      if (!r.success) throw new Error((r as { error?: string }).error || 'no contestó');
-      setHerramientas((r.data?.herramientas || []) as HerramientaMcp[]);
-    } catch (e: any) {
-      setHerramientas(null);
-      toast({ title: 'No se pudo hablar con el servidor MCP', description: e?.message, variant: 'destructive' });
-    } finally { setBuscando(false); }
   }
 
   return (
@@ -250,14 +233,18 @@ export default function DialogoConector({
                 ariaLabel="De dónde trae"
               />
             </Field>
-            <Field label="Dónde acaba" hint="A qué parte del CRM van los datos.">
-              <Select
-                value={destino}
-                onChange={setDestino}
-                options={DESTINOS.map((d) => ({ value: d.id as DestinoConector, label: d.label }))}
-                ariaLabel="Dónde acaba"
-              />
-            </Field>
+            {/* Un «Servidor MCP» no trae nada a ninguna parte (Diego, 29/09:
+                «el dónde acaba no tiene sentido»). */}
+            {tipo !== 'mcp' && (
+              <Field label="Dónde acaba" hint="A qué parte del CRM van los datos.">
+                <Select
+                  value={destino}
+                  onChange={setDestino}
+                  options={DESTINOS.map((d) => ({ value: d.id as DestinoConector, label: d.label }))}
+                  ariaLabel="Dónde acaba"
+                />
+              </Field>
+            )}
 
             <div className="space-y-3">
               {definicion.map((c) => (
@@ -292,46 +279,15 @@ export default function DialogoConector({
               ))}
             </div>
 
-            {/* Servidor MCP: elegir la herramienta de entre las que ofrece. */}
-            {tipo === 'mcp' && (
-              <div className="space-y-2">
-                <button type="button" onClick={verHerramientas} disabled={buscando}
-                  className="inline-flex h-8 items-center rounded-md border border-border bg-card px-3 text-xs font-bold hover:bg-muted disabled:opacity-50">
-                  {buscando ? 'Preguntando al servidor…' : 'Ver herramientas del servidor'}
-                </button>
-                {herramientas && (
-                  herramientas.length === 0
-                    ? <p className="text-xs text-muted-foreground">El servidor no ofrece ninguna herramienta.</p>
-                    : (
-                      <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border p-1.5">
-                        {herramientas.map((h) => (
-                          <li key={h.nombre}>
-                            <button type="button" disabled={!h.soloLectura}
-                              onClick={() => setCampos((p) => ({ ...p, herramienta: h.nombre }))}
-                              title={h.soloLectura ? undefined : 'El servidor no dice que sea de solo lectura: el CRM solo usa herramientas de consulta'}
-                              className={cn('w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
-                                campos.herramienta === h.nombre && 'bg-primary/10')}>
-                              <span className="font-mono font-semibold">{h.nombre}</span>
-                              {!h.soloLectura && <span className="ml-1.5 text-[10px] text-amber-600">no es de solo lectura</span>}
-                              {h.descripcion && <span className="block text-muted-foreground line-clamp-2">{h.descripcion}</span>}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )
-                )}
-              </div>
-            )}
-
             {/* El texto va en su propio <span>: si se deja suelto, el <strong>
                 pasa a ser OTRO hijo del flex y se va a una columna aparte. */}
             <p className="flex items-start gap-2 text-[11px] text-muted-foreground bg-muted rounded-md p-2.5">
               <Warning size={13} className="mt-0.5 shrink-0" />
               {tipo === 'mcp' ? (
                 <span>
-                  Solo <strong>consulta</strong>: el CRM solo llama a las herramientas que el servidor marca como de
-                  solo lectura, por https y en servidores públicos. Cada llamada queda registrada. Tope: 20 s por
-                  llamada, 5 MB y 5000 elementos por importación. El token no se vuelve a mostrar.
+                  Claude solo <strong>consulta</strong> —prospectos, ventas, facturas, cobros e informes— y solo lo
+                  que tú ya ves dentro de «Para quién»; una gestora con URL, solo lo suyo. Cada consulta queda
+                  registrada. La URL se enseña una vez; si la pierdes, pides otra y la anterior deja de valer.
                 </span>
               ) : (
                 <span>

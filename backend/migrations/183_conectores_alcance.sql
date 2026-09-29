@@ -14,8 +14,8 @@
 -- Lo que sí lo dice (el campo «Campus» al mapear) va al suyo, siempre dentro
 -- del alcance del conector.
 --
--- El tipo nuevo `mcp` (un servidor MCP de fuera) no necesita nada aquí:
--- `type` es texto libre, sin CHECK ni ENUM (comprobado en el catálogo).
+-- El tipo `mcp` («Servidor MCP»: la URL para Claude, ver la 184) no necesita
+-- nada aquí: `type` es texto libre, sin CHECK ni ENUM (comprobado en el catálogo).
 
 BEGIN;
 

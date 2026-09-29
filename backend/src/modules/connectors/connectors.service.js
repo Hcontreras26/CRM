@@ -155,10 +155,10 @@ function targetsDe(c) {
 }
 const normal = (s) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-export async function previewConnector(connectorId, ctx = {}) {
+export async function previewConnector(connectorId) {
   const c = await model.findById(connectorId);
   if (!c) throw new AppError('Conector no encontrado', 404, 'NOT_FOUND');
-  const { items, total } = await adapters.fetchSample(c, ctx);
+  const { items, total } = await adapters.fetchSample(c);
   await model.saveSample(connectorId, items[0] || {});
 
   // Schema completo del item (todas las keys con tipos) para que el frontend
@@ -207,7 +207,7 @@ function detectFieldsFromSample(item) {
   return sug;
 }
 
-export async function importFromConnector(connectorId, ctx = {}) {
+export async function importFromConnector(connectorId) {
   const c = await model.findById(connectorId);
   if (!c) throw new AppError('Conector no encontrado', 404, 'NOT_FOUND');
   if (!c.field_mapping || Object.keys(c.field_mapping).length === 0) {
@@ -219,7 +219,7 @@ export async function importFromConnector(connectorId, ctx = {}) {
 
   let created = 0, updated = 0, skipped = 0, errors = 0;
   try {
-    const items = await adapters.fetchAll(c, ctx);
+    const items = await adapters.fetchAll(c);
     logger.info({ connectorId, items: items.length }, 'Connector: items descargados');
 
     // Un conector de empresa o de todo el sistema es UNO para todos sus campus

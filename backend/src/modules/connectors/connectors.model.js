@@ -38,6 +38,18 @@ export async function campusDelAlcance(c) {
   return rows;
 }
 
+/** Los campus de una persona (`user_projects`). */
+export async function campusDeLaPersona(userId) {
+  const { rows } = await query('SELECT project_id FROM user_projects WHERE user_id = $1 AND active = true', [userId]);
+  return rows.map((r) => Number(r.project_id));
+}
+
+/** Todos los campus de una empresa. */
+export async function campusDeLaEmpresa(issuerId) {
+  const { rows } = await query('SELECT id FROM projects WHERE sociedad_emisora_id = $1', [issuerId]);
+  return rows.map((r) => Number(r.id));
+}
+
 /** Si el campus es de esa empresa. */
 export async function campusEsDeLaEmpresa(projectId, issuerId) {
   const { rows } = await query('SELECT 1 FROM projects WHERE id = $1 AND sociedad_emisora_id = $2', [projectId, issuerId]);
