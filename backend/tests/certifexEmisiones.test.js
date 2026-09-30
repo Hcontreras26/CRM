@@ -46,6 +46,22 @@ beforeEach(() => {
 
 const conSesion = (req) => req.set('Authorization', `Bearer ${saToken}`);
 
+describe('quien puede', () => {
+  // `roleGuard` deja pasar a soporte antes de mirar la lista; emitir es SOLO administracion.
+  it('soporte no aprueba ni emite: 403 y no se llama a Certifex', async () => {
+    const { default: jwt } = await import('jsonwebtoken');
+    const soporte = jwt.sign({ userId: 999999, email: 'soporte@prueba.test', role: 'soporte', roles_extra: [] },
+      process.env.JWT_SECRET, { expiresIn: '5m' });
+    const con = (req) => req.set('Authorization', `Bearer ${soporte}`);
+    expect((await con(request.get('/api/certifex/emisiones'))).status).toBe(403);
+    expect((await con(request.post('/api/certifex/emisiones/decisiones')).send({ items: [{ matriculaId: 7, decision: 'aprobada' }] })).status).toBe(403);
+    expect((await con(request.post('/api/certifex/emisiones/emitir')).send({ matriculaIds: [7] })).status).toBe(403);
+    expect(pedidas).toHaveLength(0);
+    // Las consultas de la web si las ve.
+    expect((await con(request.get('/api/certifex/consultas'))).status).toBe(200);
+  });
+});
+
 describe('conexion', () => {
   it('conectado: dice que CRM es y sus centros, sin ensenar la clave', async () => {
     respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE', 'ISEIH'] } });

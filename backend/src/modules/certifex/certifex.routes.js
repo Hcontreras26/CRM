@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { verifyToken, roleGuard } from '../../shared/middleware/auth.js';
+import { verifyToken, roleGuard, soloRoles } from '../../shared/middleware/auth.js';
 import * as ctrl from './certifex.controller.js';
 import * as emisiones from './certifex.emisiones.js';
 
@@ -19,7 +19,9 @@ router.patch('/consultas/:id', ctrl.actualizar);
 
 // Emisiones: aprobar, rechazar y emitir titulos en Certifex. Solo administracion: es
 // decidir quien recibe un titulo que no se puede borrar. Soporte ve las consultas, no esto.
-const soloAdmin = roleGuard('admin', 'superadmin');
+// `soloRoles` y no `roleGuard`: roleGuard deja pasar a soporte antes de mirar la lista,
+// y con el soporte habria podido aprobar y emitir titulos.
+const soloAdmin = soloRoles('admin', 'superadmin');
 router.get('/emisiones/estado', soloAdmin, emisiones.estado);
 router.get('/emisiones/centros', soloAdmin, emisiones.centros);
 router.get('/emisiones/cursos', soloAdmin, emisiones.cursos);
