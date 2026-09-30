@@ -1,4 +1,5 @@
 import { AppError } from '../../shared/utils/AppError.js';
+import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
 import { listarEmisionesSchema, decisionesSchema, emitirSchema, cursosSchema } from './certifex.validation.js';
 
@@ -87,8 +88,59 @@ export async function listar(req, res, next) {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries(f)) if (v !== undefined) p.set(k, String(v));
     const data = await certifex('GET', `/candidatos?${p.toString()}`);
+    if (Array.isArray(data?.filas)) await conLoDelCrm(data.filas, req.user);
     res.json({ success: true, data });
   } catch (err) { next(err); }
+}
+
+/**
+ * LO QUE EL CRM SABE DE CADA ALUMNO, al lado de lo que dice Moodle.
+ *
+ * Es la razon de aprobar desde aqui (Diego, 30/09: «cuando alguien termina la
+ * formacion, en el CRM aprobamos y Certifex emite»): Moodle sabe si termino, el CRM
+ * si pago. Se cruza por el CORREO, que es lo que el contrato de Certifex da como
+ * clave para encontrar al alumno (el DNI viene vacio en casi todos los campus).
+ *
+ * Cada fila gana `crm`: null si ese correo no esta en el CRM; si esta, cuantas
+ * fichas y ventas tiene, lo vendido, lo cobrado y lo que falta. Solo se miran los
+ * campus que la persona ve (super admin: todos menos los de prueba), la misma regla
+ * que Conexion. Si la consulta falla, el listado sale igual, sin la columna: decidir
+ * no puede quedarse bloqueado por esto.
+ */
+async function conLoDelCrm(filas, user) {
+  const correos = [...new Set(filas.map((f) => String(f?.titular?.email || '').trim().toLowerCase()).filter(Boolean))];
+  for (const f of filas) f.crm = null;
+  if (!correos.length) return;
+  try {
+    const { rows } = await query(
+      `SELECT lower(l.email) AS email,
+              count(DISTINCT l.id)::int AS fichas,
+              max(l.id)::int AS lead_id,
+              count(c.id)::int AS ventas,
+              COALESCE(sum(c.importe_total), 0)::float AS vendido,
+              COALESCE(sum(c.importe_pagado), 0)::float AS cobrado
+         FROM leads l
+         LEFT JOIN conversions c ON c.lead_id = l.id
+        WHERE l.deleted_at IS NULL
+          AND lower(l.email) = ANY($1::text[])
+          AND l.project_id NOT IN (SELECT id FROM projects WHERE es_prueba)
+          AND ($2::int IS NULL OR EXISTS (
+                SELECT 1 FROM user_projects up
+                 WHERE up.user_id = $2 AND up.active AND up.project_id = l.project_id))
+        GROUP BY lower(l.email)`,
+      [correos, user?.role === 'superadmin' ? null : user?.userId ?? -1],
+    );
+    const porCorreo = new Map(rows.map((r) => [r.email, r]));
+    for (const f of filas) {
+      const r = porCorreo.get(String(f?.titular?.email || '').trim().toLowerCase());
+      if (!r) continue;
+      const pendiente = Math.round((r.vendido - r.cobrado) * 100) / 100;
+      f.crm = { leadId: r.lead_id, fichas: r.fichas, ventas: r.ventas, vendido: r.vendido, cobrado: r.cobrado, pendiente };
+    }
+  } catch (e) {
+    logger.warn({ err: e.message }, 'Certifex: no se pudo cruzar con el CRM');
+    for (const f of filas) delete f.crm;
+  }
 }
 
 /** Los campus de este CRM: nombre, Moodle, logo y lo que hay que hacer en cada uno. */
@@ -122,7 +174,8 @@ export async function decidir(req, res, next) {
 
 /**
  * Emitir lo aprobado. Timeout largo: en un centro con Moodle, Certifex baja el
- * expediente de cada alumno del campus, en serie (hasta 50 por llamada).
+ * expediente de cada alumno del campus, en serie (hasta 10 por llamada; ver
+ * `emitirSchema`).
  */
 export async function emitir(req, res, next) {
   try {

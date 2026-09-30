@@ -55,5 +55,7 @@ export const decisionesSchema = z.object({
 });
 
 export const emitirSchema = z.object({
-  matriculaIds: z.array(z.number().int().positive()).min(1, 'Elige al menos una matricula').max(50, 'Maximo 50 por vez: dividelo en tandas'),
+  // 10 y no 50, lo mismo que la pantalla: cada matricula de un campus con Moodle baja su
+  // expediente en serie, y 50 pasan del minuto que nginx espera (504 con la emision a medias).
+  matriculaIds: z.array(z.number().int().positive()).min(1, 'Elige al menos una matricula').max(10, 'Maximo 10 por vez: dividelo en tandas'),
 });

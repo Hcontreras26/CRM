@@ -85,10 +85,35 @@ describe('listar', () => {
     respuesta = () => ({ status: 200, body: { filas: [{ matriculaId: 7 }], total: 1, pagina: 1, tam: 50 } });
     const r = await conSesion(request.get('/api/certifex/emisiones?estado=aprobada&centro=ISEIE&pagina=2'));
     expect(r.status).toBe(200);
-    expect(r.body.data.filas).toEqual([{ matriculaId: 7 }]);
+    // Sin correo no hay con que cruzar: `crm` va a null.
+    expect(r.body.data.filas).toEqual([{ matriculaId: 7, crm: null }]);
     const u = new URL(pedidas[0].url);
     expect(u.pathname).toBe('/api/crm/v1/candidatos');
     expect(Object.fromEntries(u.searchParams)).toEqual({ estado: 'aprobada', centro: 'ISEIE', pagina: '2' });
+  });
+
+  it('cada alumno trae lo que sabe el CRM: si compró, lo cobrado y lo que debe', async () => {
+    const correo = `certifex.cruce.${Date.now()}@prueba.test`;
+    const { rows: [lead] } = await pool.query(
+      `INSERT INTO leads (project_id, nombre, email) VALUES (1, 'Alumna Certifex', $1) RETURNING id`, [correo.toUpperCase()]);
+    await pool.query(
+      `INSERT INTO conversions (lead_id, project_id, producto_contratado, importe_total, importe_pagado)
+       VALUES ($1, 1, 'Máster de prueba', 1200, 900)`, [lead.id]);
+    try {
+      respuesta = () => ({ status: 200, body: { total: 2, pagina: 1, tam: 50, filas: [
+        { matriculaId: 1, titular: { nombre: 'Alumna Certifex', email: correo, dni: null } },
+        { matriculaId: 2, titular: { nombre: 'Otra', email: 'no-esta-en-el-crm@prueba.test', dni: null } },
+      ] } });
+      const r = await conSesion(request.get('/api/certifex/emisiones?centro=PSIKO'));
+      expect(r.status).toBe(200);
+      const [ella, otra] = r.body.data.filas;
+      // El correo se compara sin mayúsculas: en la ficha está en MAYÚSCULAS.
+      expect(ella.crm).toEqual({ leadId: lead.id, fichas: 1, ventas: 1, vendido: 1200, cobrado: 900, pendiente: 300 });
+      expect(otra.crm).toBeNull();
+    } finally {
+      await pool.query('DELETE FROM conversions WHERE lead_id = $1', [lead.id]);
+      await pool.query('DELETE FROM leads WHERE id = $1', [lead.id]);
+    }
   });
 
   it('curso y busqueda tambien viajan', async () => {
@@ -135,8 +160,8 @@ describe('decidir y emitir', () => {
     expect(pedidas[0].cuerpo).toEqual({ matriculaIds: [7], emitidaPor: 'manuel@empresa.com' });
   });
 
-  it('mas de 50 por vez no sale: se divide en tandas', async () => {
-    const r = await conSesion(request.post('/api/certifex/emisiones/emitir')).send({ matriculaIds: Array.from({ length: 51 }, (_, i) => i + 1) });
+  it('mas de 10 por vez no sale: se divide en tandas (50 pasaban del minuto de nginx)', async () => {
+    const r = await conSesion(request.post('/api/certifex/emisiones/emitir')).send({ matriculaIds: Array.from({ length: 11 }, (_, i) => i + 1) });
     expect(r.status).toBe(400);
     expect(pedidas).toHaveLength(0);
   });

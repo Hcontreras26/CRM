@@ -72,7 +72,7 @@ describe('POST /api/certifex/consultas (desde el servidor de Certifex)', () => {
     expect(r.status).toBe(201);
     expect(r.body.data.duplicada).toBe(false);
     expect(avisos).toHaveLength(1);
-    expect(avisos[0]).toMatchObject({ type: 'certifex_consulta', link_path: '/certifex/consultas' });
+    expect(avisos[0]).toMatchObject({ type: 'certifex_consulta', link_path: '/clientes/matriculas/certificaciones?vista=consultas' });
     expect(avisos[0].title).toContain('Instituto de Prueba');
   });
 

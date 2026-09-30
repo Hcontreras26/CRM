@@ -53,7 +53,7 @@ export async function recibir(req, res, next) {
         type: 'certifex_consulta',
         title: consulta.tipo === 'centro' ? `Certifex: ${quien} quiere inscribir su campus` : `Certifex: consulta de ${quien}`,
         message: consulta.mensaje.slice(0, 180),
-        link_path: '/certifex/consultas',
+        link_path: '/clientes/matriculas/certificaciones?vista=consultas',
         metadata: { consultaId: consulta.id, certifexId: consulta.certifexId, tipo: consulta.tipo },
       }).catch((e) => logger.error({ err: e.message, consultaId: consulta.id }, 'Aviso de consulta Certifex: error'));
     }
