@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
+  SealCheck,
+  Certificate,
   CalendarCheck,
   ArrowCounterClockwise,
   SquaresFour,
@@ -281,6 +283,19 @@ const NAV_SECTIONS = [
     items: [
       { label: 'MCP', to: '/conexion/mcp', detail: 'Consultar desde Claude', icon: Robot, accesoMcp: true },
       { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors' },
+    ],
+  },
+  {
+    // Certifex: lo que llega desde la web del registro de titulaciones. Un centro que
+    // quiere inscribir su campus, o cualquier otra consulta. Va aparte de Prospectos
+    // porque no es de ninguna marca, y el aviso sale por la campana. Los mismos roles
+    // que la API (`roleGuard('admin', 'superadmin', 'soporte')`).
+    label: 'Certifex',
+    icon: SealCheck,
+    items: [
+      // Emisiones: el visto bueno y la emisión de títulos. Solo administración, como la API.
+      { label: 'Emisiones', to: '/certifex/emisiones', detail: 'Visto bueno y emisión', icon: Certificate, roles: ['superadmin', 'admin'] },
+      { label: 'Consultas', to: '/certifex/consultas', detail: 'Desde la web de Certifex', icon: ChatText, roles: ['superadmin', 'admin', 'soporte'] },
     ],
   },
   {

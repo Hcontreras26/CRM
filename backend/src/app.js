@@ -55,6 +55,7 @@ import messagesModule from './modules/messages/index.js';
 import statusModule from './modules/status/index.js';
 import registroModule from './modules/registro/index.js';
 import correosModule from './modules/correos/index.js';
+import certifexModule from './modules/certifex/index.js';
 import changeRequestsModule from './modules/change-requests/index.js';
 import mcpModule from './modules/mcp/index.js';
 import { resolveActiveModules } from './bundles/manifest.js';
@@ -185,6 +186,7 @@ const ALL_MODULES = [
   { name: 'correos', mod: correosModule },
   // Conexion de Claude por MCP: solo consulta, con token personal.
   { name: 'mcp', mod: mcpModule },
+  { name: 'certifex', mod: certifexModule },
 ];
 
 // Módulos siempre activos (fuera del sistema de bundles)

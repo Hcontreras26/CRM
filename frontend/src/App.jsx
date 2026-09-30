@@ -70,6 +70,8 @@ const SeoPage = lazy(() => import('./modules/seo/pages/SeoPage'));
 const IADashboardPage = lazy(() => import('./modules/ia-dashboard/pages/IADashboardPage'));
 const RevenuePage = lazy(() => import('./modules/revenue/pages/RevenuePage'));
 const SoportePage = lazy(() => import('./modules/soporte/pages/SoportePage'));
+const CertifexConsultasPage = lazy(() => import('./modules/certifex/pages/CertifexConsultasPage'));
+const CertifexEmisionesPage = lazy(() => import('./modules/certifex/pages/CertifexEmisionesPage'));
 const StatusPage = lazy(() => import('./modules/status/pages/StatusPage'));
 const RegistroPage = lazy(() => import('./modules/registro/pages/RegistroPage'));
 const NovedadesPage = lazy(() => import('./modules/novedades/pages/NovedadesPage'));
@@ -297,6 +299,8 @@ function App() {
           <Route path="/informes/feedback" element={<FeedbackPanelPage />} />
           <Route path="/chat-ia" element={<AIChatPage />} />
           <Route path="/soporte" element={<SoportePage />} />
+          <Route path="/certifex/consultas" element={<CertifexConsultasPage />} />
+          <Route path="/certifex/emisiones" element={<CertifexEmisionesPage />} />
           <Route path="/registro" element={<RegistroPage />} />
           <Route path="/novedades" element={<NovedadesPage />} />
           <Route path="/correos" element={<CorreosPage />} />
