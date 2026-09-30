@@ -201,6 +201,8 @@ function App() {
           <Route path="/clientes" element={<ClientesLayout />}>
             <Route index element={<ClientsPage />} />
             <Route path="matriculas" element={<MatriculasPage />} />
+            {/* Certifex vive dentro de Matrículas (Diego, 30/09). */}
+            <Route path="matriculas/certificaciones" element={<MatriculasPage />} />
           </Route>
           <Route path="/ventas" element={<SalesPage />} />
           <Route path="/meta-ads" element={<MetaAdsPage />} />
@@ -297,6 +299,9 @@ function App() {
           <Route path="/informes/feedback" element={<FeedbackPanelPage />} />
           <Route path="/chat-ia" element={<AIChatPage />} />
           <Route path="/soporte" element={<SoportePage />} />
+          {/* Las direcciones de antes (avisos ya enviados, marcadores): a Certificaciones. */}
+          <Route path="/certifex/consultas" element={<Navigate to="/clientes/matriculas/certificaciones?vista=consultas" replace />} />
+          <Route path="/certifex/emisiones" element={<Navigate to="/clientes/matriculas/certificaciones" replace />} />
           <Route path="/registro" element={<RegistroPage />} />
           <Route path="/novedades" element={<NovedadesPage />} />
           <Route path="/correos" element={<CorreosPage />} />

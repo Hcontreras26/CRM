@@ -5,6 +5,8 @@ interface Tab {
   label: string;
   to: string;
   icon?: any;
+  /** false: sigue marcada en sus subrutas (Matrículas → Certificaciones). */
+  end?: boolean;
 }
 
 interface Props {
@@ -35,7 +37,7 @@ export default function SubNav({ tabs, sectionLabel, sectionIcon: Icon }: Props)
         <NavLink
           key={tab.to}
           to={tab.to}
-          end
+          end={tab.end !== false}
           className={({ isActive }) =>
             cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors',

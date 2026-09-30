@@ -78,6 +78,12 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Novedades del CRM', agrupa: false,
     descripcion: 'Cuando sale una versión nueva, con todo lo que trae',
   },
+  // Una consulta desde la web de Certifex: un centro que quiere inscribir su campus,
+  // o cualquier otra. Alguien tiene que contestar (modulo certifex).
+  certifex_consulta: {
+    clase: ACCION, etiqueta: 'Consulta desde Certifex', agrupa: false,
+    descripcion: 'Un centro quiere inscribir su campus, o alguien escribe desde la web de Certifex',
+  },
   rfc_created: {
     clase: ACCION, etiqueta: 'Solicitud de cambio', agrupa: false,
     descripcion: 'Alguien pide un cambio y hace falta aprobarlo',

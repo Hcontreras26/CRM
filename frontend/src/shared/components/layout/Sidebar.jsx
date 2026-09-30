@@ -206,7 +206,8 @@ const NAV_SECTIONS = [
       // árbol de verdad no tenía entrada en ningún sitio.
       { label: 'Productos por categoría', to: '/productos/arbol', detail: 'Productos agrupados', icon: ListBullets, roles: ['superadmin', 'admin'], module: 'products' },
       { label: 'Árbol de categorías', to: '/productos/categorias', detail: 'Jerarquía de categorías', icon: Tree, roles: ['superadmin', 'admin'], module: 'products' },
-      { label: 'Certificados', to: '/documentos', detail: 'Certificados', icon: FilePdf, roles: ['superadmin', 'admin'], module: 'documents' },
+      // «Certificados» (/documentos) fuera del menú: estaba vacío, y los títulos
+      // ahora los emite Certifex desde Matrículas → Certificaciones (Diego, 30/09).
     ],
   },
   {
