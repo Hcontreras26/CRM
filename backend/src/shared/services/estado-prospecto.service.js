@@ -55,7 +55,14 @@ async function mover(leadId, desde, hasta, userId) {
  *
  * Se llama al apuntar un contacto real y al marcar un paso de la agenda. Cuenta
  * los contactos de verdad --una nota interna no es hablar con nadie-- y decide:
- * el primero deja «contactado», del segundo en adelante «en seguimiento».
+ * el primero deja «contactado»; «en seguimiento» es cuando se le ha vuelto a
+ * contactar OTRO DIA.
+ *
+ * Por dias y no por contactos. Diego, 30/09: «no a todos les han hecho
+ * seguimiento». Contando contactos, un WhatsApp y una llamada el mismo dia de
+ * la entrada ya lo ponian «en seguimiento» (#3965, dos contactos el 30/09).
+ * Seguir a alguien es volver otro dia, que es tambien lo que pide la regla de
+ * los pasos: uno por dia (pasoCerrado.js).
  *
  * Devuelve el cambio si lo hubo, o null si no habia nada que mover, que es el
  * caso normal.
@@ -67,6 +74,17 @@ export async function avanzarPorContacto(leadId, userId = null) {
               WHERE li.lead_id = l.id AND li.tipo <> 'nota')::int AS contactos,
             (SELECT count(*) FROM lead_steps ls
               WHERE ls.lead_id = l.id AND ls.estado = 'hecho')::int AS pasos_marcados,
+            -- En cuantos DIAS distintos (de Madrid) se le ha contactado: los
+            -- contactos apuntados y los pasos marcados a mano, juntos.
+            (SELECT count(DISTINCT d) FROM (
+               SELECT (li.fecha AT TIME ZONE 'Europe/Madrid')::date AS d
+                 FROM lead_interactions li
+                WHERE li.lead_id = l.id AND li.tipo <> 'nota'
+               UNION
+               SELECT (ls.hecho_at AT TIME ZONE 'Europe/Madrid')::date
+                 FROM lead_steps ls
+                WHERE ls.lead_id = l.id AND ls.estado = 'hecho' AND ls.hecho_at IS NOT NULL
+             ) x)::int AS dias,
             ${EN_EL_PROCESO('l')} AS en_el_proceso
        FROM leads l
       WHERE l.id = $1 AND l.deleted_at IS NULL`,
@@ -74,18 +92,18 @@ export async function avanzarPorContacto(leadId, userId = null) {
   );
   if (!rows.length) return null;
 
-  const { status, contactos, pasos_marcados, en_el_proceso } = rows[0];
+  const { status, contactos, pasos_marcados, dias, en_el_proceso } = rows[0];
   if (INTOCABLES.includes(status)) return null;
   // Los de antes del 01/09 no estan en el proceso: su estado lo mueve una
   // persona, como siempre (ver enElProceso.js).
   if (!en_el_proceso) return null;
 
   // Los pasos marcados a mano cuentan igual que los contactos apuntados: quien
-  // cierra el paso 2 ya hablo dos veces, lo haya escrito o no.
-  const veces = Math.max(Number(contactos), Number(pasos_marcados));
-  if (veces === 0) return null;
+  // cierra el paso 2 ya hablo con ella dos veces, lo haya escrito o no.
+  if (Math.max(Number(contactos), Number(pasos_marcados)) === 0) return null;
 
-  const destino = veces >= 2 ? 'en_seguimiento' : 'contactado';
+  const seguimiento = (Number(dias) || 0) >= 2 || Number(pasos_marcados) >= 2;
+  const destino = seguimiento ? 'en_seguimiento' : 'contactado';
   if (ESCALON[destino] <= (ESCALON[status] ?? 0)) return null;
 
   await mover(leadId, status, destino, userId);
