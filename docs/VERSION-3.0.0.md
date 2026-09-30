@@ -31,9 +31,13 @@ Diego, 29/09: «lo de Claude MCP, ese formulario pasa a esa parte de MCP en cone
 - **«Cobrada» en las proformas.** Apunta el cobro en la venta y la proforma pasa a ser la factura, con el mismo número y conservando su fecha. Nació de que Yolanda no podía pasar una proforma a pagada. PR #181.
 - **Resúmenes del equipo.** La fila de cada empresa lleva el logo de su marca, no el sello de facturación. El resumen del día dice qué horas cuenta «hoy», en hora de España, y que «vs. ayer» compara con el día entero. PR #182.
 
+## También el 30/09
+
+- **Ranking de gestoras por lo facturado.** «Cómo voy», el podio, los correos y Claude miden a las gestoras por el total de las facturas emitidas en el periodo, IVA incluido. Los abonos restan y las ventas compartidas se reparten. Antes se medía por número de ventas. PR #201.
+
 ## El día que se saque
 
-1. **Fusionar en `main`, por este orden:** #181, #182 y #183. Hasta entonces producción va por delante de `main`: **no subir producción desde `main`**, o se pierden estos cambios.
+1. **Fusionar en `main`, por este orden:** #181, #182, #183 y #201. Hasta entonces producción va por delante de `main`: **no subir producción desde `main`**, o se pierden estos cambios.
 2. **Novedades.** Añadir la entrada `3.0.0` al principio de `VERSIONES`, en `backend/src/modules/novedades/versiones.js`, con un botón a cada pantalla:
    - Conexión → MCP y Conexión → Conectores;
    - Facturación → Proformas;
