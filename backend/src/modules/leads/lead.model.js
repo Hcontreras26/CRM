@@ -709,17 +709,25 @@ export async function sePuedeRevisar() {
   return hayTablaDeRevisiones;
 }
 
+// LA BARRA DE VENCIDOS CUENTA DESDE EL 29/09, como la cola. Diego, 30/09:
+// «los atrasados y eso también que sean a partir de esa fecha». Los prospectos
+// de antes siguen en el listado y se pueden buscar y filtrar por todo lo demas;
+// lo que no hacen es inflar «Vencidos», «Sin contacto» o «Urgente» con fichas
+// de meses atras (ver enElProceso.js). Getters y no cadenas fijas: la fecha se
+// lee en cada consulta, como en el resto del proceso.
+const desdeElInicio = (cond) => `(${EN_EL_PROCESO('l')} AND ${cond})`;
+
 export const FILTROS_RAPIDOS = {
   // Ojo: `NULL < CURRENT_DATE` es NULL, o sea que no pasa el filtro. Es lo que
   // se quiere —«sin recordatorio» no es «atrasado»— y coincide con el `next &&`
   // que hacia el frontend.
-  overdue: `${PROXIMO} < CURRENT_DATE`,
-  today: `${PROXIMO} = CURRENT_DATE`,
-  tomorrow: `${PROXIMO} = CURRENT_DATE + 1`,
-  week: `${PROXIMO} BETWEEN CURRENT_DATE AND CURRENT_DATE + 7`,
-  'no-reminder': `${PROXIMO} IS NULL`,
-  'no-contact': SIN_TOCAR,
-  urgent: `(${PROXIMO} <= CURRENT_DATE OR ${SIN_TOCAR})`,
+  get overdue() { return desdeElInicio(`${PROXIMO} < CURRENT_DATE`); },
+  get today() { return desdeElInicio(`${PROXIMO} = CURRENT_DATE`); },
+  get tomorrow() { return desdeElInicio(`${PROXIMO} = CURRENT_DATE + 1`); },
+  get week() { return desdeElInicio(`${PROXIMO} BETWEEN CURRENT_DATE AND CURRENT_DATE + 7`); },
+  get 'no-reminder'() { return desdeElInicio(`${PROXIMO} IS NULL`); },
+  get 'no-contact'() { return desdeElInicio(SIN_TOCAR); },
+  get urgent() { return desdeElInicio(`(${PROXIMO} <= CURRENT_DATE OR ${SIN_TOCAR})`); },
 };
 
 export async function findAll({ projectId, projectIds, status, seguimiento, pasoProceso, responsableId, unassigned, canal, productId, search, page, limit, includeConverted, dateFrom, dateTo, sort, dir, duplicated, reincidente, conConversion, qf }) {

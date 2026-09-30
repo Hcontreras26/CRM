@@ -16,6 +16,7 @@ vi.mock('../src/shared/config/db.js', () => ({
 const { EN_EL_PROCESO, inicioDelProceso } = await import('../src/shared/utils/enElProceso.js');
 const Proceso = await import('../src/modules/proceso/proceso.model.js');
 const { avanzarPorContacto, devolverLosVencidos } = await import('../src/shared/services/estado-prospecto.service.js');
+const { FILTROS_RAPIDOS, contarFiltrosRapidos } = await import('../src/modules/leads/lead.model.js');
 
 const REGLA = "COALESCE(l.fecha_solicitud, l.created_at) >= TIMESTAMPTZ '2026-09-29 00:00 Europe/Madrid'";
 const sql = () => consultas.map((c) => c.sql).join('\n');
@@ -85,5 +86,29 @@ describe('el estado al apuntar un contacto', () => {
   it('a uno que entró desde el 29/09 sí, como hasta ahora', async () => {
     filas = [{ status: 'por_contactar', contactos: 1, pasos_marcados: 0, en_el_proceso: true }];
     expect(await avanzarPorContacto(7, 1)).toEqual({ anterior: 'por_contactar', nuevo: 'contactado' });
+  });
+});
+
+describe('la barra de vencidos de Prospectos también cuenta desde el 29/09', () => {
+  // Diego, 30/09: «los atrasados y eso también que sean a partir de esa fecha».
+  const CLAVES = ['overdue', 'today', 'tomorrow', 'week', 'no-reminder', 'no-contact', 'urgent'];
+
+  it.each(CLAVES)('el filtro «%s» deja fuera a los de antes', (clave) => {
+    expect(FILTROS_RAPIDOS[clave]).toContain(REGLA);
+  });
+
+  it('y los números de arriba (y el «recordatorio vencido» del resumen diario) igual', async () => {
+    filas = [{ overdue: 0 }];
+    await contarFiltrosRapidos({ projectIds: [1] });
+    const q = sql();
+    for (const campo of ['AS overdue', 'AS today', 'AS no_contact', 'AS urgent']) {
+      const antes = q.slice(0, q.indexOf(campo));
+      expect(antes.slice(antes.lastIndexOf('COUNT(*) FILTER'))).toContain(REGLA);
+    }
+  });
+
+  it('si se mueve la fecha, la barra se mueve con ella', () => {
+    process.env.PROCESO_INICIO = '2026-10-01';
+    expect(FILTROS_RAPIDOS.overdue).toContain("TIMESTAMPTZ '2026-10-01 00:00 Europe/Madrid'");
   });
 });
