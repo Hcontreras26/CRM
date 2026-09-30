@@ -186,14 +186,30 @@ function Decision({ c }: { c: Candidato }) {
 }
 
 /** Etiqueta suave con los tokens de estado del CRM. */
-function Etiqueta({ tono, children }: { tono: 'info' | 'success' | 'destructive' | 'neutral'; children: React.ReactNode }) {
+function Etiqueta({ tono, children }: { tono: 'info' | 'success' | 'warning' | 'destructive' | 'neutral'; children: React.ReactNode }) {
   const c = {
     info: 'bg-info-soft text-info-soft-foreground',
+    warning: 'bg-warning-soft text-warning-soft-foreground',
     success: 'bg-success-soft text-success-soft-foreground',
     destructive: 'bg-destructive-soft text-destructive-soft-foreground',
     neutral: 'bg-muted text-muted-foreground',
   }[tono];
   return <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap', c)}>{children}</span>;
+}
+
+const euros = (n: number) => n.toLocaleString('es', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 });
+
+/**
+ * Lo que dice el CRM de este alumno: si compró y si lo tiene pagado. Es lo que
+ * Moodle no sabe y la razón de aprobar desde aquí.
+ */
+function EnElCrmEtiqueta({ crm }: { crm: Candidato['crm'] }) {
+  if (crm === undefined) return <span className="text-xs text-muted-foreground">—</span>;
+  if (crm === null) return <Etiqueta tono="neutral">No está en el CRM</Etiqueta>;
+  if (crm.ventas === 0) return <Etiqueta tono="warning">Sin venta</Etiqueta>;
+  if (crm.pendiente > 0.05) return <Etiqueta tono="warning">Debe {euros(crm.pendiente)}</Etiqueta>;
+  if (crm.pendiente < -0.05) return <Etiqueta tono="info">Cobrado de más</Etiqueta>;
+  return <Etiqueta tono="success">Pagado</Etiqueta>;
 }
 
 function Pestana({ activa, onClick, children, cuenta }: { activa: boolean; onClick: () => void; children: React.ReactNode; cuenta?: number }) {
@@ -349,7 +365,16 @@ function OpcionCurso({ activa, icono: Icono, titulo, r, onClick }: {
 
 // ─────────────────────────────────────────────────────────────── página
 
-export default function CertifexEmisionesPage() {
+/**
+ * `embebida`: dentro de Matrículas → Certificaciones. Sin el título grande de página
+ * (ya lo pone Matrículas), pero con el estado de la conexión y los botones.
+ */
+export default function CertifexEmisionesPage({ embebida = false }: { embebida?: boolean } = {}) {
+  const Cabecera = ({ title, subtitle, actions }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode }) => (
+    embebida
+      ? <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"><div>{subtitle}</div>{actions && <div className="flex flex-wrap gap-2">{actions}</div>}</div>
+      : <PageHeader title={title} subtitle={subtitle} actions={actions} />
+  );
   const [conexion, setConexion] = useState<ConexionCertifex | null>(null);
   const [campus, setCampus] = useState<CampusCertifex[] | null>(null);
   const [centro, setCentro] = useState<string | null>(null);
@@ -561,7 +586,7 @@ export default function CertifexEmisionesPage() {
   if (conexion && !conexion.conectado) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Certifex · Emisiones" subtitle="El visto bueno y la emisión de títulos en Certifex" />
+        <Cabecera title="Certifex · Emisiones" subtitle="El visto bueno y la emisión de títulos en Certifex" />
         <Card padding="none">
           <EmptyState
             icon={PlugsConnected}
@@ -575,7 +600,7 @@ export default function CertifexEmisionesPage() {
 
   return (
     <div className="space-y-5 pb-24">
-      <PageHeader
+      <Cabecera
         title="Certifex · Emisiones"
         subtitle={conexion?.conectado
           ? <span className="inline-flex flex-wrap items-center gap-2">
@@ -719,7 +744,7 @@ export default function CertifexEmisionesPage() {
               />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-sm">
+                <table className="w-full min-w-[820px] text-sm">
                   <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                     <tr className="border-b border-border">
                       <th className="w-10 px-4 py-2 text-left">
@@ -729,6 +754,7 @@ export default function CertifexEmisionesPage() {
                       <th className="px-2 py-2 text-left font-medium">Alumno</th>
                       {curso === null && <th className="px-2 py-2 text-left font-medium">Curso</th>}
                       <th className="px-2 py-2 text-right font-medium">Nota · avance</th>
+                      <th className="px-2 py-2 text-left font-medium" title="Lo que dice el CRM de ese correo: si compró y si lo tiene pagado">En el CRM</th>
                       <th className="px-2 py-2 text-left font-medium">Visto bueno</th>
                       <th className="px-2 py-2 pr-4 text-left font-medium">Título</th>
                     </tr>
@@ -757,6 +783,7 @@ export default function CertifexEmisionesPage() {
                           </div>
                           <div className="mt-1"><Avance hechas={c.actividades.calificadas} total={c.actividades.total} /></div>
                         </td>
+                        <td className="px-2 py-2.5 align-top"><EnElCrmEtiqueta crm={c.crm} /></td>
                         <td className="px-2 py-2.5 align-top">
                           <Decision c={c} />
                           {c.decision && <div className="mt-0.5 max-w-[180px] truncate text-[11px] text-muted-foreground">{c.decision.decididoPor}</div>}
@@ -951,6 +978,19 @@ function Ficha({ c, campus, base, ocupado, alCerrar, alAprobar, alRechazar, alEm
                 </span>
               ))}
               {dato('Avance', <Avance hechas={c.actividades.calificadas} total={c.actividades.total} />)}
+              {c.crm !== undefined && dato('En el CRM', c.crm === null ? 'Ese correo no está en el CRM' : (
+                <span className="inline-flex flex-col gap-1">
+                  <EnElCrmEtiqueta crm={c.crm} />
+                  {c.crm.ventas > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {c.crm.ventas} {c.crm.ventas === 1 ? 'venta' : 'ventas'} · vendido {euros(c.crm.vendido)} · cobrado {euros(c.crm.cobrado)}
+                    </span>
+                  )}
+                  <a href={`${import.meta.env.BASE_URL}prospectos/${c.crm.leadId}`} target="_blank" rel="noreferrer noopener" className="text-xs text-primary hover:underline">
+                    Abrir su ficha en el CRM
+                  </a>
+                </span>
+              ))}
               {dato('En Moodle', c.completado === true ? 'Curso completado' : c.completado === false ? 'Sin completar' : 'Finalización desconocida')}
               {dato('Certifex', c.propuesto ? 'Propuesto para título' : 'No propuesto')}
             </div>

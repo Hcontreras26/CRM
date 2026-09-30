@@ -70,8 +70,6 @@ const SeoPage = lazy(() => import('./modules/seo/pages/SeoPage'));
 const IADashboardPage = lazy(() => import('./modules/ia-dashboard/pages/IADashboardPage'));
 const RevenuePage = lazy(() => import('./modules/revenue/pages/RevenuePage'));
 const SoportePage = lazy(() => import('./modules/soporte/pages/SoportePage'));
-const CertifexConsultasPage = lazy(() => import('./modules/certifex/pages/CertifexConsultasPage'));
-const CertifexEmisionesPage = lazy(() => import('./modules/certifex/pages/CertifexEmisionesPage'));
 const StatusPage = lazy(() => import('./modules/status/pages/StatusPage'));
 const RegistroPage = lazy(() => import('./modules/registro/pages/RegistroPage'));
 const NovedadesPage = lazy(() => import('./modules/novedades/pages/NovedadesPage'));
@@ -203,6 +201,8 @@ function App() {
           <Route path="/clientes" element={<ClientesLayout />}>
             <Route index element={<ClientsPage />} />
             <Route path="matriculas" element={<MatriculasPage />} />
+            {/* Certifex vive dentro de Matrículas (Diego, 30/09). */}
+            <Route path="matriculas/certificaciones" element={<MatriculasPage />} />
           </Route>
           <Route path="/ventas" element={<SalesPage />} />
           <Route path="/meta-ads" element={<MetaAdsPage />} />
@@ -299,8 +299,9 @@ function App() {
           <Route path="/informes/feedback" element={<FeedbackPanelPage />} />
           <Route path="/chat-ia" element={<AIChatPage />} />
           <Route path="/soporte" element={<SoportePage />} />
-          <Route path="/certifex/consultas" element={<CertifexConsultasPage />} />
-          <Route path="/certifex/emisiones" element={<CertifexEmisionesPage />} />
+          {/* Las direcciones de antes (avisos ya enviados, marcadores): a Certificaciones. */}
+          <Route path="/certifex/consultas" element={<Navigate to="/clientes/matriculas/certificaciones?vista=consultas" replace />} />
+          <Route path="/certifex/emisiones" element={<Navigate to="/clientes/matriculas/certificaciones" replace />} />
           <Route path="/registro" element={<RegistroPage />} />
           <Route path="/novedades" element={<NovedadesPage />} />
           <Route path="/correos" element={<CorreosPage />} />

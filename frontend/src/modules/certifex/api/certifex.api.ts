@@ -66,6 +66,11 @@ export interface Candidato {
   actividades: { total: number; calificadas: number };
   propuesto: boolean;
   nexpediente: string | null;
+  /**
+   * Lo que el CRM sabe de ese correo, en los campus que ve quien mira: `null` si no
+   * está en el CRM; sin el campo si el cruce falló (el listado sale igual).
+   */
+  crm?: EnElCrm | null;
   decision: {
     decision: 'aprobada' | 'rechazada';
     motivo: string | null;
@@ -73,6 +78,16 @@ export interface Candidato {
     decididoEn: string;
     refExterna: string | null;
   } | null;
+}
+
+/** Un alumno de Certifex visto desde el CRM: sus fichas y lo que compró y pagó. */
+export interface EnElCrm {
+  leadId: number;
+  fichas: number;
+  ventas: number;
+  vendido: number;
+  cobrado: number;
+  pendiente: number;
 }
 
 /** Recuentos de lo que hay que hacer: por decidir, listo para emitir, rechazado, emitido. */

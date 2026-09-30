@@ -38,7 +38,8 @@ const cuando = (iso: string) => {
     + `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-export default function CertifexConsultasPage() {
+/** `embebida`: dentro de Matrículas → Certificaciones, sin el título de página. */
+export default function CertifexConsultasPage({ embebida = false }: { embebida?: boolean } = {}) {
   const [pestana, setPestana] = useState<'todas' | EstadoConsulta>('nueva');
   const [filas, setFilas] = useState<ConsultaCertifex[]>([]);
   const [total, setTotal] = useState(0);
@@ -62,10 +63,10 @@ export default function CertifexConsultasPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
+      {!embebida && <PageHeader
         title="Certifex · Consultas"
         subtitle="Centros que quieren inscribir su campus y otras consultas desde la web de Certifex"
-      />
+      />}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1">

@@ -19,7 +19,7 @@ export default function ClientesLayout() {
   const tabs = [
     { label: 'Listado', to: '/clientes', icon: ListBullets },
     ...(ofreceMatriculas(activeProject)
-      ? [{ label: 'Matrículas', to: '/clientes/matriculas', icon: GraduationCap }]
+      ? [{ label: 'Matrículas', to: '/clientes/matriculas', icon: GraduationCap, end: false }]
       : []),
   ];
 

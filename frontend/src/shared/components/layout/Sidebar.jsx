@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
-  SealCheck,
-  Certificate,
   CalendarCheck,
   ArrowCounterClockwise,
   SquaresFour,
@@ -208,7 +206,8 @@ const NAV_SECTIONS = [
       // árbol de verdad no tenía entrada en ningún sitio.
       { label: 'Productos por categoría', to: '/productos/arbol', detail: 'Productos agrupados', icon: ListBullets, roles: ['superadmin', 'admin'], module: 'products' },
       { label: 'Árbol de categorías', to: '/productos/categorias', detail: 'Jerarquía de categorías', icon: Tree, roles: ['superadmin', 'admin'], module: 'products' },
-      { label: 'Certificados', to: '/documentos', detail: 'Certificados', icon: FilePdf, roles: ['superadmin', 'admin'], module: 'documents' },
+      // «Certificados» (/documentos) fuera del menú: estaba vacío, y los títulos
+      // ahora los emite Certifex desde Matrículas → Certificaciones (Diego, 30/09).
     ],
   },
   {
@@ -283,19 +282,6 @@ const NAV_SECTIONS = [
     items: [
       { label: 'MCP', to: '/conexion/mcp', detail: 'Consultar desde Claude', icon: Robot, accesoMcp: true },
       { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors' },
-    ],
-  },
-  {
-    // Certifex: lo que llega desde la web del registro de titulaciones. Un centro que
-    // quiere inscribir su campus, o cualquier otra consulta. Va aparte de Prospectos
-    // porque no es de ninguna marca, y el aviso sale por la campana. Los mismos roles
-    // que la API (`roleGuard('admin', 'superadmin', 'soporte')`).
-    label: 'Certifex',
-    icon: SealCheck,
-    items: [
-      // Emisiones: el visto bueno y la emisión de títulos. Solo administración, como la API.
-      { label: 'Emisiones', to: '/certifex/emisiones', detail: 'Visto bueno y emisión', icon: Certificate, roles: ['superadmin', 'admin'] },
-      { label: 'Consultas', to: '/certifex/consultas', detail: 'Desde la web de Certifex', icon: ChatText, roles: ['superadmin', 'admin', 'soporte'] },
     ],
   },
   {
