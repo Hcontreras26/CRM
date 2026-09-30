@@ -1,6 +1,7 @@
 import { query, getClient } from '../config/db.js';
 import { logger } from '../utils/logger.js';
 import { PASO_CERRADO } from '../utils/pasoCerrado.js';
+import { EN_EL_PROCESO } from '../utils/enElProceso.js';
 
 /**
  * EL ESTADO DEL PROSPECTO, DEDUCIDO DEL TRABAJO DE VERDAD.
@@ -65,15 +66,19 @@ export async function avanzarPorContacto(leadId, userId = null) {
             (SELECT count(*) FROM lead_interactions li
               WHERE li.lead_id = l.id AND li.tipo <> 'nota')::int AS contactos,
             (SELECT count(*) FROM lead_steps ls
-              WHERE ls.lead_id = l.id AND ls.estado = 'hecho')::int AS pasos_marcados
+              WHERE ls.lead_id = l.id AND ls.estado = 'hecho')::int AS pasos_marcados,
+            ${EN_EL_PROCESO('l')} AS en_el_proceso
        FROM leads l
       WHERE l.id = $1 AND l.deleted_at IS NULL`,
     [leadId]
   );
   if (!rows.length) return null;
 
-  const { status, contactos, pasos_marcados } = rows[0];
+  const { status, contactos, pasos_marcados, en_el_proceso } = rows[0];
   if (INTOCABLES.includes(status)) return null;
+  // Los de antes del 29/09 no estan en el proceso: su estado lo mueve una
+  // persona, como siempre (ver enElProceso.js).
+  if (!en_el_proceso) return null;
 
   // Los pasos marcados a mano cuentan igual que los contactos apuntados: quien
   // cierra el paso 2 ya hablo dos veces, lo haya escrito o no.
@@ -118,6 +123,8 @@ export async function devolverLosVencidos({ tope = 500 } = {}) {
           AND l.status IN ('nuevo', 'contactado', 'en_seguimiento')
           AND ls.estado = 'pendiente'
           AND ls.fecha_prevista < CURRENT_DATE
+          -- A quien entro antes del proceso no le vence nada (enElProceso.js).
+          AND ${EN_EL_PROCESO('l')}
           -- El paso ya dado no vence: se deduce de los contactos apuntados,
           -- igual que en la cola del dia, para que los dos sitios cuenten lo
           -- mismo y no se contradigan en la misma pantalla.
