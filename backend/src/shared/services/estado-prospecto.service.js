@@ -76,7 +76,7 @@ export async function avanzarPorContacto(leadId, userId = null) {
 
   const { status, contactos, pasos_marcados, en_el_proceso } = rows[0];
   if (INTOCABLES.includes(status)) return null;
-  // Los de antes del 29/09 no estan en el proceso: su estado lo mueve una
+  // Los de antes del 01/09 no estan en el proceso: su estado lo mueve una
   // persona, como siempre (ver enElProceso.js).
   if (!en_el_proceso) return null;
 

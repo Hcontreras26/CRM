@@ -709,7 +709,7 @@ export async function sePuedeRevisar() {
   return hayTablaDeRevisiones;
 }
 
-// LA BARRA DE VENCIDOS CUENTA DESDE EL 29/09, como la cola. Diego, 30/09:
+// LA BARRA DE VENCIDOS CUENTA DESDE EL 01/09, como la cola. Diego, 30/09:
 // «los atrasados y eso también que sean a partir de esa fecha». Los prospectos
 // de antes siguen en el listado y se pueden buscar y filtrar por todo lo demas;
 // lo que no hacen es inflar «Vencidos», «Sin contacto» o «Urgente» con fichas
@@ -811,7 +811,7 @@ export async function findAll({ projectId, projectIds, status, seguimiento, paso
 
     Quien no tiene agenda --los de antes del proceso-- no sale con ningun paso
     elegido, y es lo correcto: no estan en el proceso. Tampoco quien entro antes
-    del 29/09 aunque le quede agenda escrita de antes (ver enElProceso.js).
+    del 01/09 aunque le quede agenda escrita de antes (ver enElProceso.js).
   */
   if (pasoProceso) {
     conditions.push(`${EN_EL_PROCESO('l')} AND (SELECT ls.clave FROM lead_steps ls
