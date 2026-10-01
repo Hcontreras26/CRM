@@ -63,7 +63,9 @@ const ALL_PROJECTS_OK = [
   /^\/prueba_ui(?:_[a-z]+)?$/,
 ];
 
-function pathAllowsAll(pathname) {
+// Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
+// detras de «selecciona un proyecto» con ningun ambito.
+export function pathAllowsAll(pathname) {
   return ALL_PROJECTS_OK.some((rx) => rx.test(pathname));
 }
 
@@ -232,7 +234,7 @@ const CON_SOCIEDAD_OK = [
   /^\/finanzas\/ventas\/\d+$/,
 ];
 
-function rutaAceptaSociedad(pathname) {
+export function rutaAceptaSociedad(pathname) {
   return CON_SOCIEDAD_OK.some((rx) => rx.test(pathname));
 }
 
