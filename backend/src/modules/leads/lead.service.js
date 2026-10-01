@@ -910,19 +910,12 @@ export async function createManualLead({ project_id, nombre, email, telefono, wh
   // `advanceRoundRobin` ya es `false` siempre, y es `const` desde el 18/09:
   // reasignarlo aqui tiraba «Assignment to constant variable» y rompia TODA
   // venta sin gestora con cliente nuevo. Ana, 28/09, refs 6TY103 y CDC8R9.
-  if (opts.sinResponsable) {
-    forcedResponsableId = null;
-  }
-
-  // SIN DUENO, A PROPOSITO (venta sin gestora).
   //
-  // No es lo mismo que no pasarle creador: sin creador el round-robin le
-  // encaja el lead a la gestora que toque, y esa persona no ha vendido nada.
-  // Aqui se pide expresamente que no sea de nadie, asi que tampoco se avanza
-  // la cola: el siguiente lead de verdad le toca a quien le tocaba.
+  // Y volvio el 29/09: la fusion de la 2.0.0 con produccion trajo de vuelta el
+  // bloque viejo junto al bueno. Ana, 01/10, refs T0JQXT y 27M1G9. La prueba
+  // `ventaSinGestoraClienteNuevo.test.js` lo para si vuelve a pasar.
   if (opts.sinResponsable) {
     forcedResponsableId = null;
-    advanceRoundRobin = false;
   }
 
   const lead = await leadModel.createLeadWithRoundRobin({
