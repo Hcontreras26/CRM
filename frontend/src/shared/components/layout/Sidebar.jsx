@@ -1358,9 +1358,12 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                   onClick={() => { setUserMenuOpen(false); navigate('/perfil'); onNavigate?.(); }}
                 />
                 {(user?.role === 'admin' || user?.role === 'superadmin') && (
+                  // «del CRM»: desde el menú personal se esperaba llegar a lo
+                  // suyo, y esto son los proyectos, usuarios y APIs de todo el
+                  // CRM (#208). Lo personal es «Mi perfil», justo encima.
                   <UserMenuItem
                     icon={Gear}
-                    label="Configuración"
+                    label="Configuración del CRM"
                     onClick={() => { setUserMenuOpen(false); navigate('/configuracion'); onNavigate?.(); }}
                   />
                 )}
