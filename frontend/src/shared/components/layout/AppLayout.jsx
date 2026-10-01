@@ -44,6 +44,13 @@ const ALL_PROJECTS_OK = [
   /^\/conexion\/conectores$/,
   /^\/profile$/,
   /^\/preferences$/,
+  // Las de verdad. Solo estaban las rutas viejas en ingles (/profile,
+  // /settings), que ya solo redirigen: con «Todos los proyectos» puesto, «Mi
+  // perfil» y «Configuración» enseñaban «selecciona un proyecto» en vez del
+  // perfil y la contraseña. Carlos, 01/10.
+  /^\/perfil$/,
+  /^\/preferencias$/,
+  /^\/configuracion$/,
   /^\/notificaciones$/,
   /^\/manual$/,
   /^\/settings$/,
@@ -172,6 +179,9 @@ const CON_SOCIEDAD_OK = [
   // sabe sumar; estas no ensenan cifras de nada.
   /^\/perfil$/,
   /^\/preferencias$/,
+  // Configuración: proyectos, usuarios y disponibilidad son de todo el CRM, y
+  // la pestaña de APIs elige su proyecto dentro del dialogo.
+  /^\/configuracion$/,
   /^\/notificaciones$/,
   /^\/manual$/,
   /^\/soporte$/,

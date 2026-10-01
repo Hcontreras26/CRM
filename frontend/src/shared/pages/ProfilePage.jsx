@@ -25,16 +25,23 @@ import Field from '@/shared/components/ui/Field';
 const ConfirmDialog = lazy(() => import('@/shared/components/ui/ConfirmDialog'));
 // Proyectos ahora vienen del AuthContext via ProjectContext
 
+// El correo no se cambia desde aqui: es con lo que se entra, y el servidor
+// solo acepta el nombre.
 const profileSchema = z.object({
-  nombre: z.string().min(2, 'Mínimo 2 caracteres'),
-  email: z.string().email('Email no válido'),
+  nombre: z.string().trim().min(2, 'Mínimo 2 caracteres'),
+  email: z.string().optional(),
 });
 
+// Las mismas reglas que aplica el servidor, para avisar antes de enviar.
 const passwordSchema = z.object({
   current: z.string().min(1, 'Requerido'),
-  nueva: z.string().min(8, 'Mínimo 8 caracteres'),
+  nueva: z.string()
+    .min(8, 'Mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Al menos una mayúscula')
+    .regex(/[0-9]/, 'Al menos un número'),
   confirmar: z.string().min(1, 'Requerido'),
-}).refine((d) => d.nueva === d.confirmar, { message: 'Las contraseñas no coinciden', path: ['confirmar'] });
+}).refine((d) => d.nueva === d.confirmar, { message: 'Las contraseñas no coinciden', path: ['confirmar'] })
+  .refine((d) => d.nueva !== d.current, { message: 'Tiene que ser distinta de la actual', path: ['nueva'] });
 
 
 const primaryBtn = 'inline-flex items-center justify-center h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/40';
@@ -115,15 +122,30 @@ export default function ProfilePage() {
     defaultValues: { current: '', nueva: '', confirmar: '' },
   });
 
-  async function onSaveProfile(_data) {
-    await new Promise((r) => setTimeout(r, 500));
-    toast({ title: 'Perfil actualizado', description: 'Los cambios se han guardado' });
+  // Hasta el 01/10 estos dos esperaban medio segundo y decian «guardado» sin
+  // llamar a nada: la contraseña no cambiaba aunque la pantalla dijera que si.
+  async function onSaveProfile(data) {
+    try {
+      await client.patch('/auth/me', { nombre: data.nombre.trim() });
+      toast({ title: 'Perfil actualizado', description: 'Tu nombre se ha guardado.' });
+      refreshUser?.();
+    } catch (err) {
+      toast({ title: 'No se pudo guardar', description: err?.data?.error || err?.message, variant: 'destructive' });
+    }
   }
 
-  async function onChangePassword(_data) {
-    await new Promise((r) => setTimeout(r, 500));
-    resetPass();
-    toast({ title: 'Contraseña actualizada', description: 'Tu contraseña se ha cambiado correctamente' });
+  async function onChangePassword(data) {
+    try {
+      await client.post('/auth/change-password', {
+        currentPassword: data.current,
+        newPassword: data.nueva,
+        confirmPassword: data.confirmar,
+      });
+      resetPass();
+      toast({ title: 'Contraseña actualizada', description: 'La próxima vez entra con la nueva.' });
+    } catch (err) {
+      toast({ title: 'No se pudo cambiar', description: err?.data?.error || err?.message || 'Revisa la contraseña actual.', variant: 'destructive' });
+    }
   }
 
   return (
@@ -214,8 +236,10 @@ export default function ProfilePage() {
             <Field label="Nombre *" error={errProfile.nombre?.message}>
               <input {...regProfile('nombre')} className={inputClass} />
             </Field>
-            <Field label="Email *" error={errProfile.email?.message}>
-              <input {...regProfile('email')} type="email" className={inputClass} />
+            <Field label="Email" error={errProfile.email?.message}>
+              <input {...regProfile('email')} type="email" readOnly aria-readonly="true"
+                title="Es con lo que entras. Para cambiarlo, pídeselo a un administrador."
+                className={inputClass + ' bg-muted/40 text-muted-foreground cursor-not-allowed'} />
             </Field>
           </div>
           <div className="flex justify-end">
@@ -239,7 +263,7 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Nueva contraseña *" error={errPass.nueva?.message}>
               <div className="relative">
-                <input {...regPass('nueva')} type={showPassword ? 'text' : 'password'} placeholder="Mínimo 8 caracteres" className={inputClass + ' pr-10'} />
+                <input {...regPass('nueva')} type={showPassword ? 'text' : 'password'} placeholder="8 caracteres, una mayúscula y un número" className={inputClass + ' pr-10'} />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}

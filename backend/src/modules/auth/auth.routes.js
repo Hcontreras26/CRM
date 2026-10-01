@@ -29,4 +29,21 @@ router.post('/set-password', authController.setPassword);
 // GET /api/auth/me — datos del usuario autenticado + proyectos
 router.get('/me', verifyToken, authController.me);
 
+// «Mi perfil». La pantalla tenia los dos formularios pero no llamaban a nada:
+// esperaban medio segundo y decian «Contraseña actualizada» sin cambiarla.
+// Carlos, 01/10. Son las mismas dos rutas que tiene ISEIE.
+const changePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Demasiados intentos. Intenta de nuevo en 15 minutos.', code: 'RATE_LIMITED' },
+});
+
+// POST /api/auth/change-password — la propia, sabiendo la actual
+router.post('/change-password', changePasswordLimiter, verifyToken, authController.changePassword);
+
+// PATCH /api/auth/me — el propio nombre (el correo no: es con lo que se entra)
+router.patch('/me', verifyToken, authController.updateMyProfile);
+
 export default router;
