@@ -1,7 +1,9 @@
 import * as authService from './auth.service.js';
 import { sanitizeProjects } from './auth.service.js';
 import * as authModel from './auth.model.js';
-import { loginSchema, setPasswordSchema } from './auth.validation.js';
+import bcrypt from 'bcrypt';
+import { query } from '../../shared/config/db.js';
+import { loginSchema, setPasswordSchema, changePasswordSchema, updateMyProfileSchema } from './auth.validation.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { buildPermissionsMap, resolveUserView } from '../permissions/permissions.service.js';
 
@@ -153,4 +155,44 @@ export async function me(req, res, next) {
   } catch (err) {
     next(err);
   }
+}
+
+// POST /api/auth/change-password — { currentPassword, newPassword, confirmPassword }
+export async function changePassword(req, res, next) {
+  try {
+    const parsed = changePasswordSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(parsed.error.issues[0].message, 400, 'VALIDATION_ERROR');
+    const { currentPassword, newPassword } = parsed.data;
+    const userId = req.user.userId;
+
+    const { rows } = await query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+    if (!rows[0]) throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+    const ok = rows[0].password_hash ? await bcrypt.compare(currentPassword, rows[0].password_hash) : false;
+    // 400 y no 401: un 401 hace que la pantalla intente renovar la sesion,
+    // cuando lo unico que ha pasado es que la contraseña actual no es esa.
+    if (!ok) throw new AppError('La contraseña actual no es correcta', 400, 'INVALID_CURRENT_PASSWORD');
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newHash, userId]);
+    await authModel.logActivity(userId, 'change_password', null, getClientIp(req));
+
+    res.json({ success: true, data: { message: 'Contraseña actualizada' } });
+  } catch (err) { next(err); }
+}
+
+// PATCH /api/auth/me — { nombre }
+export async function updateMyProfile(req, res, next) {
+  try {
+    const parsed = updateMyProfileSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(parsed.error.issues[0].message, 400, 'VALIDATION_ERROR');
+    const userId = req.user.userId;
+
+    await query('UPDATE users SET nombre = $1, updated_at = NOW() WHERE id = $2', [parsed.data.nombre, userId]);
+    const { rows } = await query(
+      'SELECT id, nombre, email, role, active, avatar_url FROM users WHERE id = $1',
+      [userId]
+    );
+    await authModel.logActivity(userId, 'update_profile', null, getClientIp(req));
+    res.json({ success: true, data: { user: rows[0] } });
+  } catch (err) { next(err); }
 }
