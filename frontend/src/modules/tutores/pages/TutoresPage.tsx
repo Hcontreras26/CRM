@@ -97,6 +97,9 @@ export default function TutoresPage() {
   const [nuevoPct, setNuevoPct] = useState('10');
   const [nuevaFecha, setNuevaFecha] = useState(hoy());
   const [ajustes, setAjustes] = useState<AjustesTutores | null>(null);
+  // Si el CRM NO escribe a los tutores (freno del 15/09). Mientras no se sepa,
+  // se da por parado: prometer un correo que no sale es peor que no ofrecerlo.
+  const sinCorreos = ajustes?.correos_a_tutores !== true;
   const [contrasena, setContrasena] = useState('');
   const [copiada, setCopiada] = useState(false);
   // En que marcas da clase. Un profesor puede estar en varias —Filtracion en
@@ -188,7 +191,9 @@ export default function TutoresPage() {
     setCursosAlta([]);
     setNuevoCurso('');
     setNuevoPct(String(ajustes?.pct_por_defecto ?? 10));
-    setContrasena('');
+    // Con los correos a tutores parados la contraseña es la UNICA forma de
+    // entrar: va ya generada, y el alta no se deja sin ella.
+    setContrasena(sinCorreos ? generarContrasena() : '');
     setCopiada(false);
     setMarcas(projectId ? [projectId] : []);
     setPopupAlta(true);
@@ -887,10 +892,12 @@ export default function TutoresPage() {
                 <p className="text-[11px] text-muted-foreground mt-1">
                   Es con lo que entra al CRM: al cambiarlo, deja de poder entrar con el anterior.
                 </p>
-                <label className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <input type="checkbox" name="reenviarEnlace" className="h-3.5 w-3.5 rounded border-border" />
-                  Mandarle el enlace para poner contraseña en la dirección nueva
-                </label>
+                {!sinCorreos && (
+                  <label className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <input type="checkbox" name="reenviarEnlace" className="h-3.5 w-3.5 rounded border-border" />
+                    Mandarle el enlace para poner contraseña en la dirección nueva
+                  </label>
+                )}
               </div>
 
               <div>
@@ -988,7 +995,7 @@ export default function TutoresPage() {
                 <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Cómo entra</h3>
                 <div className="flex gap-2">
                   <input value={contrasena} onChange={(e) => { setContrasena(e.target.value); setCopiada(false); }}
-                    type="text" minLength={8} autoComplete="new-password" placeholder="Contraseña (mínimo 8)"
+                    type="text" minLength={8} required={sinCorreos} autoComplete="new-password" placeholder="Contraseña (mínimo 8)"
                     className="flex-1 h-9 px-3 rounded-md border border-border bg-background text-sm" />
                   <Button type="button" variant="outline" size="sm"
                     onClick={() => { setContrasena(generarContrasena()); setCopiada(false); }}>
@@ -1000,9 +1007,11 @@ export default function TutoresPage() {
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {contrasena
-                    ? 'Entra ya con esa contraseña. Cópiala antes de dar de alta — después no se puede volver a ver.'
-                    : 'Si la dejas vacía se le manda un correo para que la ponga él, y eso necesita que Brevo esté configurado. Con contraseña entra al momento.'}
+                  {sinCorreos
+                    ? 'No se le manda ningún correo: entra con esta contraseña. Cópiala y pásasela tú antes de dar de alta, porque después no se puede volver a ver.'
+                    : contrasena
+                      ? 'Entra ya con esa contraseña. Cópiala antes de dar de alta — después no se puede volver a ver.'
+                      : 'Si la dejas vacía se le manda un correo para que la ponga él. Con contraseña entra al momento.'}
                 </p>
               </section>
 
