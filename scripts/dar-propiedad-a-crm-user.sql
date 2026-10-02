@@ -14,11 +14,18 @@
 --   psql -U postgres -h 127.0.0.1 -d crm_test_db -f scripts/dar-propiedad-a-crm-user.sql
 --
 --   En el VPS, lo mismo cambiando la base: crm_prod_db o crm_test_db.
+--   En ISEIE: crm_iseie (el destino sale solo: el dueño de la base).
+--
+-- ES IDEMPOTENTE. Las migraciones se aplican como postgres, así que cada tabla
+-- nueva nace suya: pasar este script DESPUÉS de cada tanda de migraciones (02/10:
+-- 94 de 141 tablas ajenas en MultiCRM, 167 de 212 en ISEIE, 13 en /testeo).
 --
 -- NO BORRA NI MODIFICA DATOS: solo cambia quien figura como dueño.
 DO $$
 DECLARE
-  destino CONSTANT TEXT := 'crm_user';
+  -- El dueño de la base es el usuario de la aplicación en los dos CRM (crm_user en
+  -- MultiCRM, crm_iseie_user en ISEIE): así el mismo script vale para las dos.
+  destino TEXT := (SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database());
   r RECORD;
   n INT := 0;
 BEGIN
@@ -61,6 +68,19 @@ BEGIN
     n := n + 1;
   END LOOP;
   RAISE NOTICE 'Vistas cambiadas: %', n;
+
+  -- Las funciones del CRM (en ISEIE, `set_updated_at`), para que una migración
+  -- pueda hacer CREATE OR REPLACE. Las de una extensión (pgcrypto, unaccent) NO:
+  -- son de la extensión y deben seguir siendo de postgres.
+  n := 0;
+  FOR r IN SELECT p.oid::regprocedure AS firma FROM pg_proc p
+             JOIN pg_namespace ns ON ns.oid = p.pronamespace
+            WHERE ns.nspname = 'public' AND pg_get_userbyid(p.proowner) <> destino
+              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e') LOOP
+    EXECUTE format('ALTER FUNCTION %s OWNER TO %I', r.firma, destino);
+    n := n + 1;
+  END LOOP;
+  RAISE NOTICE 'Funciones cambiadas: %', n;
 END $$;
 
 -- Comprobacion: despues de esto no debe quedar ninguna fila con otro dueño.
