@@ -15,6 +15,8 @@ import LeadInfoCard from '../components/lead-detail/LeadInfoCard';
 import LeadProductsCard from '../components/lead-detail/LeadProductsCard';
 // El proceso comercial de esta persona: que paso le toca y por donde va.
 import AgendaDelProspecto from '@/modules/proceso/components/AgendaDelProspecto';
+// Las becas de esta persona: a cual se le ofrecio y en que quedo.
+import ConvocatoriasDelProspecto from '@/modules/convocatorias/components/ConvocatoriasDelProspecto';
 import LeadUtmsCard from '../components/lead-detail/LeadUtmsCard';
 import LeadInteractionsCard, { InteractionDialog } from '../components/lead-detail/LeadInteractionsCard';
 import LeadRemindersCard, { ReminderDialog } from '../components/lead-detail/LeadRemindersCard';
@@ -261,6 +263,7 @@ export default function LeadDetailPage() {
             alCorreo={(plantilla) => { setPlantillaCorreo(plantilla.id); setEmailOpen(true); }}
           />
           <LeadProductsCard leadId={lead.id} projectId={lead.project_id} isAdmin={isAdmin} />
+          <ConvocatoriasDelProspecto leadId={lead.id} projectId={lead.project_id} />
           <LeadUtmsCard utms={utms} leadOrigen={lead.origen} />
           <LeadInteractionsCard
             interacciones={interacciones}

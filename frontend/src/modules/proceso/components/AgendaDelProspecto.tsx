@@ -7,6 +7,7 @@ import { iconoDeCanal, nombreDeCanal } from '../lib/canales';
 import PlantillaDelPaso from './PlantillaDelPaso';
 import type { DatosParaRellenar } from '@/modules/whatsapp/lib/plantilla';
 import type { EmailTemplate } from '@/modules/email-templates/api/templates.api';
+import { fechaCorta, fechaAplazada, APLAZAMIENTOS } from '../lib/fechasDelPaso';
 
 /**
  * El proceso comercial de ESTA persona, en su ficha.
@@ -32,9 +33,9 @@ import type { EmailTemplate } from '@/modules/email-templates/api/templates.api'
  * hay nada que desmarcar, esta hecho porque las llamadas estan ahi.
  */
 
-function fecha(d: string) {
-  return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-}
+// La fecha como día del calendario: con `new Date(d)` a secas, al oeste de
+// Greenwich el paso de hoy salía fechado ayer (rescatado de la PR #150).
+const fecha = fechaCorta;
 
 export default function AgendaDelProspecto({
   leadId,
@@ -95,6 +96,28 @@ export default function AgendaDelProspecto({
       // coincidir.
       setPasos(await traerPasosDeLead(leadId));
       alCambiar?.();
+    } catch {
+      toast({ title: 'No se pudo guardar', description: 'Vuelve a intentarlo.', variant: 'destructive' });
+    } finally {
+      setGuardando(null);
+    }
+  }
+
+  /**
+   * Aplazar o saltar el paso que toca. Rescatado de la PR #150 de Fabián: son
+   * decisiones de la gestora —«con esta persona, dentro de tres días», «este
+   * paso con ella no aplica»— y el servidor ya las aceptaba, pero no había
+   * dónde pulsarlas. «Planificar el proceso», que traía también, no: metería
+   * en el proceso a gente de antes del 01/09.
+   */
+  async function cambiarPaso(p: PasoDeLead, datos: Parameters<typeof ajustarPaso>[1], aviso: string) {
+    if (guardando) return;
+    setGuardando(p.id);
+    try {
+      await ajustarPaso(p.id, datos);
+      setPasos(await traerPasosDeLead(leadId));
+      alCambiar?.();
+      toast({ title: aviso });
     } catch {
       toast({ title: 'No se pudo guardar', description: 'Vuelve a intentarlo.', variant: 'destructive' });
     } finally {
@@ -170,6 +193,32 @@ export default function AgendaDelProspecto({
           {siguiente.nota_del_paso && (
             <p className="mt-1.5 text-[11px] text-muted-foreground">{siguiente.nota_del_paso}</p>
           )}
+
+          {/* Aplazar o saltar ESTE paso. La fecha se cuenta desde hoy, no desde
+              la que tenía: un paso atrasado aplazado «a mañana» cae mañana. */}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="Aplazar o saltar este paso">
+            <span className="text-[11px] text-muted-foreground">Aplazar:</span>
+            {APLAZAMIENTOS.map(({ dias, texto }) => (
+              <button
+                key={dias}
+                type="button"
+                disabled={guardando === siguiente.id}
+                onClick={() => cambiarPaso(siguiente, { fecha_prevista: fechaAplazada(dias) }, `Paso aplazado: ${texto.toLowerCase()}`)}
+                className="rounded border border-border bg-card px-2 py-0.5 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+              >
+                {texto}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={guardando === siguiente.id}
+              onClick={() => cambiarPaso(siguiente, { estado: 'saltado' }, 'Paso saltado: pasa al siguiente')}
+              title="Este paso no aplica con esta persona: se salta y le toca el siguiente"
+              className="rounded border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+            >
+              Saltar este paso
+            </button>
+          </div>
 
           {/* Y su mensaje, ya escrito (#89: «qué paso toca, por qué, y su
               plantilla»). Hasta ahora decía cuál toca y había que ir al chat a

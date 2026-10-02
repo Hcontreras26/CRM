@@ -866,6 +866,10 @@ export default function LeadsPage() {
           organizarse el dia le hace falta. */}
       <BloquePlegable
         clave="prospectos-resumen"
+        // Diego, repaso del 15/09: «tiene que nacer cerrado, no desplegado»
+        // (rescatado de la PR #153). Quien ya lo dejó abierto lo sigue viendo
+        // abierto: lo guardado manda sobre el arranque.
+        abiertoPorDefecto={false}
         titulo="Resumen del dia"
         resumen={
           quickCounts.urgent > 0
