@@ -100,7 +100,7 @@ Te dejo por aquí el link para que puedas revisarlas todas:
 [enlace de opiniones]
 ```
 
-En ISEIE el enlace ya viene escrito: `https://web.opynio.com/es/empresa/iseie`.
+En ISEIE el enlace ya viene escrito: `https://web.opynio.com/es/empresa/iseie_innovation_school` (corregido el 02/10, #209: el de antes, sin «_innovation_school», daba 404).
 En los demás proyectos se queda el hueco, porque poner el enlace de otra
 institución sería peor que no poner ninguno.
 
