@@ -29,6 +29,12 @@ ALTER TABLE mcp_tokens ADD COLUMN IF NOT EXISTS revocado_motivo   VARCHAR(30);
 -- Cuándo se avisó de que iba a caducar: un solo correo por URL.
 ALTER TABLE mcp_tokens ADD COLUMN IF NOT EXISTS aviso_caducidad_at TIMESTAMPTZ;
 
+-- Desde cuándo cuentan los «N días sin usarse». Las URLs que ya existen
+-- empiezan a contar HOY: si no, la primera vuelta tras desplegar revocaría sin
+-- aviso todas las que llevan un mes sin usarse, justo lo que este despliegue
+-- quiere evitar. Las nuevas empiezan al crearse.
+ALTER TABLE mcp_tokens ADD COLUMN IF NOT EXISTS rotacion_desde TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 -- Las URLs que ya existen no caducaban. Se les da el plazo entero desde HOY y
 -- no desde que se crearon: si no, las de finales de septiembre caducarían a
 -- finales de diciembre sin aviso suficiente, y alguna ya vieja moriría al
