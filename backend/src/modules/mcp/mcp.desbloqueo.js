@@ -15,8 +15,8 @@ import { enteroEnv, siNoEnv } from './mcp.config.js';
  * A QUÉ SE ATA. Investigado el 03/10 (comentario en la #192): en Claude Desktop
  * y claude.ai el conector comparte UNA sesión MCP entre todos los chats, así
  * que el CRM no ve cuándo empieza una conversación. El desbloqueo se ata a la
- * CONEXIÓN (el token) y caduca por inactividad, con un máximo absoluto. Los
- * tiempos están en el .env, pendientes de que Diego los apruebe.
+ * CONEXIÓN (el token) y caduca por inactividad, con un máximo absoluto. Una
+ * sola regla para todos los clientes: 2 h sin uso y máximo 9 h.
  *
  * Las horas se comparan siempre con NOW() de Postgres, no con el reloj de Node:
  * así no hay dos relojes que puedan no coincidir.
@@ -30,7 +30,7 @@ export function config() {
     obligatorio: siNoEnv('MCP_CODIGO_OBLIGATORIO', false),
     minutosCodigo: enteroEnv('MCP_CODIGO_MINUTOS', 10),
     inactividadMin: enteroEnv('MCP_DESBLOQUEO_INACTIVIDAD_MIN', 120),
-    maximoMin: enteroEnv('MCP_DESBLOQUEO_MAX_MIN', 480),
+    maximoMin: enteroEnv('MCP_DESBLOQUEO_MAX_MIN', 540),
     maxFallos: enteroEnv('MCP_CODIGO_MAX_FALLOS', 5),
     bloqueoMin: enteroEnv('MCP_CODIGO_BLOQUEO_MIN', 15),
   };
