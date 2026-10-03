@@ -5,6 +5,7 @@ import { HERRAMIENTAS } from './mcp.tools.js';
 import * as model from './mcp.model.js';
 import { z } from 'zod';
 import * as desbloqueo from './mcp.desbloqueo.js';
+import { protegerDatos, recortarFilas } from './mcp.privacidad.js';
 
 /**
  * El servidor MCP del CRM.
@@ -32,7 +33,9 @@ export function crearServidor({ ambito, tokenId, origen = {} }) {
       instructions:
         'CRM del ecosistema ISEIE/ISEIH. Solo consulta: no se puede crear, cambiar ni borrar nada. '
         + 'Empieza por «mis_proyectos» para saber a qué campus y empresas tienes acceso. '
-        + 'Importes en euros salvo que se indique moneda. Fechas en formato AAAA-MM-DD.',
+        + 'Importes en euros salvo que se indique moneda. Fechas en formato AAAA-MM-DD. '
+        + 'Los correos y teléfonos salen enmascarados y, en los listados, los clientes con nombre abreviado: '
+        + 'pide datos_completos: true solo si la persona necesita contactar a alguien (queda registrado).',
     }
   );
 
@@ -59,7 +62,18 @@ export function crearServidor({ ambito, tokenId, origen = {} }) {
             return { isError: true, content: [{ type: 'text', text: barrera }] };
           }
           const datos = await h.ejecutar(ambito, args || {});
-          return { content: [{ type: 'text', text: comoTexto(datos) }] };
+          // Menos datos personales y un máximo de filas por respuesta (#196).
+          const protegidos = protegerDatos(datos, {
+            completos: args?.datos_completos === true,
+            nombresDeLista: h.listasDeClientes || [],
+          });
+          const { datos: recortados, recortes } = recortarFilas(protegidos);
+          const aviso = recortes.length
+            ? `\n[Solo se muestran las primeras ${recortes[0].quedan} filas de ${recortes.map((r) => `«${r.lista}» (había ${r.tenia})`).join(', ')}. `
+              + 'Acota con filtros o fechas (o pide la página siguiente, en las consultas que tienen páginas). '
+              + 'Dile a la persona que la lista está incompleta.]'
+            : '';
+          return { content: [{ type: 'text', text: comoTexto(recortados) + aviso }] };
         } catch (err) {
           ok = false;
           // Los errores de ambito y de validacion se le cuentan a Claude tal
