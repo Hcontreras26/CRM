@@ -58,7 +58,11 @@ const MENSAJE = 'El MCP del CRM está apagado, active para poder acceder a los d
 async function esperarApagado(r) {
   expect(r.status).toBe(200);
   expect(r.body.result.isError).toBe(true);
-  expect(r.body.result.content).toEqual([{ type: 'text', text: MENSAJE }]);
+  expect(r.body.result.content).toHaveLength(1);
+  const texto = r.body.result.content[0].text;
+  expect(texto.startsWith(MENSAJE)).toBe(true);
+  // El dato que evita que Claude pida un código que no hace falta.
+  expect(texto).toMatch(/No tiene que ver con el código de desbloqueo/);
 }
 const pulsar = (id, apagado, motivo) => request(app).post('/api/mcp/panel/interruptor')
   .set('Authorization', `Bearer ${jwtDe(id)}`).send({ apagado, motivo });
@@ -128,6 +132,22 @@ describe('el botón del super admin', () => {
     expect((await pulsar(1, false)).status).toBe(200);
     const despues = await usarHerramienta('mis_proyectos');
     expect(despues.body.result.content[0].text).not.toBe(MENSAJE);
+  });
+
+  it('apagado no se ofrece «desbloquear»: Claude no pide un código que no hace falta', async () => {
+    const antes = process.env.MCP_CODIGO_OBLIGATORIO;
+    process.env.MCP_CODIGO_OBLIGATORIO = '1';
+    try {
+      const nombres = async () => (await llamarMcp()).body.result.tools.map((t) => t.name);
+      expect(await nombres()).toContain('desbloquear');
+      await pulsar(1, true);
+      expect(await nombres()).not.toContain('desbloquear');
+      await pulsar(1, false);
+      expect(await nombres()).toContain('desbloquear');
+    } finally {
+      if (antes === undefined) delete process.env.MCP_CODIGO_OBLIGATORIO;
+      else process.env.MCP_CODIGO_OBLIGATORIO = antes;
+    }
   });
 
   it('apagado queda en la auditoría cada intento de consulta', async () => {
