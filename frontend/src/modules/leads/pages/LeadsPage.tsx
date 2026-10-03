@@ -902,11 +902,20 @@ export default function LeadsPage() {
           }}
         />
         <AccesosClave
+          // Cada acceso, solo a quien puede entrar: la gestora veía Duplicados,
+          // Reportes y Audiencias y al pulsarlos acababa en «sin permiso». Los
+          // mismos roles que el menú y el servidor (y que ISEIE, 02/10).
           accesos={[
             { label: 'Pipeline', detail: 'Arrastrar por estados', icon: Kanban, to: '/prospectos/pipeline' },
-            { label: 'Audiencias', detail: 'Exportar a Meta y Google', icon: Export, to: '/prospectos/audiencias' },
-            { label: 'Duplicados', detail: 'Repetidos por webhook', icon: GitMerge, to: '/prospectos/revision-duplicados' },
-            { label: 'Reportes', detail: 'Numeros descargables', icon: ChartLineUp, to: '/informes' },
+            ...(['admin', 'superadmin', 'soporte'].includes(user?.role || '')
+              ? [{ label: 'Audiencias', detail: 'Exportar a Meta y Google', icon: Export, to: '/prospectos/audiencias' }]
+              : []),
+            ...(['admin', 'superadmin'].includes(user?.role || '')
+              ? [
+                { label: 'Duplicados', detail: 'Repetidos por webhook', icon: GitMerge, to: '/prospectos/revision-duplicados' },
+                { label: 'Reportes', detail: 'Números descargables', icon: ChartLineUp, to: '/informes' },
+              ]
+              : []),
           ]}
         />
       </section>
