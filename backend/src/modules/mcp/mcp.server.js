@@ -6,6 +6,7 @@ import * as model from './mcp.model.js';
 import { z } from 'zod';
 import * as desbloqueo from './mcp.desbloqueo.js';
 import { protegerDatos, recortarFilas } from './mcp.privacidad.js';
+import { MENSAJE_APAGADO } from './mcp.interruptor.js';
 
 /**
  * El servidor MCP del CRM.
@@ -26,11 +27,14 @@ function comoTexto(datos) {
     + '\n…[respuesta recortada: usa filtros, fechas o un límite menor para ver el resto]';
 }
 
-export function crearServidor({ ambito, tokenId, origen = {} }) {
+/** Lo que contesta cualquier herramienta con el interruptor apagado (#196). */
+const RESPUESTA_APAGADO = { isError: true, content: [{ type: 'text', text: MENSAJE_APAGADO }] };
+
+export function crearServidor({ ambito, tokenId, origen = {}, apagado = false }) {
   const server = new McpServer(
     { name: 'crm-iseih', version: '1.0.0' },
     {
-      instructions:
+      instructions: apagado ? `${MENSAJE_APAGADO}. Díselo a la persona tal cual: no es un fallo ni hace falta ningún código.` :
         'CRM del ecosistema ISEIE/ISEIH. Solo consulta: no se puede crear, cambiar ni borrar nada. '
         + 'Empieza por «mis_proyectos» para saber a qué campus y empresas tienes acceso. '
         + 'Importes en euros salvo que se indique moneda. Fechas en formato AAAA-MM-DD. '
@@ -53,6 +57,12 @@ export function crearServidor({ ambito, tokenId, origen = {} }) {
         let ok = true;
         let error = null;
         try {
+          // Interruptor apagado (#196): ningún dato, solo el aviso.
+          if (apagado) {
+            ok = false;
+            error = 'MCP_APAGADO';
+            return RESPUESTA_APAGADO;
+          }
           // Segundo factor (#192): con el interruptor encendido, sin desbloquear
           // no sale ningún dato. Se mira en cada llamada contra la base.
           const barrera = await barreraDeDesbloqueo(tokenId);
@@ -98,7 +108,7 @@ export function crearServidor({ ambito, tokenId, origen = {} }) {
 
   // Solo con el interruptor encendido: apagado, Claude ve las mismas
   // herramientas que antes y no se le ofrece una que no sirve.
-  if (desbloqueo.config().obligatorio) registrarDesbloquear(server, { ambito, tokenId, origen });
+  if (desbloqueo.config().obligatorio) registrarDesbloquear(server, { ambito, tokenId, origen, apagado });
   return server;
 }
 
@@ -128,7 +138,7 @@ const horaLocal = (fecha) => new Date(fecha).toLocaleTimeString('es-ES', {
  * con MCP_CODIGO_OBLIGATORIO encendido). NUNCA se guarda el código en la
  * auditoría, ni siquiera el que falla.
  */
-function registrarDesbloquear(server, { ambito, tokenId, origen }) {
+function registrarDesbloquear(server, { ambito, tokenId, origen, apagado }) {
   server.registerTool(
     'desbloquear',
     {
@@ -143,6 +153,11 @@ function registrarDesbloquear(server, { ambito, tokenId, origen }) {
       let ok = false;
       let error = null;
       try {
+        // Apagado no se mira el código: ni desbloquea ni suma un fallo.
+        if (apagado) {
+          error = 'MCP_APAGADO';
+          return RESPUESTA_APAGADO;
+        }
         const r = await desbloqueo.intentarDesbloqueo({ userId: ambito.userId, tokenId, codigo });
         const { inactividadMin } = desbloqueo.config();
         if (r.resultado === 'ok') {
@@ -182,7 +197,7 @@ function registrarDesbloquear(server, { ambito, tokenId, origen }) {
 
 /** POST /api/mcp — una peticion MCP (JSON-RPC) de Claude. */
 export async function atenderPeticion(req, res) {
-  const server = crearServidor(req.mcp);
+  const server = crearServidor({ ...req.mcp, apagado: req.mcpApagado === true });
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

@@ -4,9 +4,12 @@ import { logger } from '../../shared/utils/logger.js';
 /**
  * Interruptor de emergencia del MCP (#196).
  *
- * Apagado, NINGUNA URL del MCP responde (ni la personal, ni la de cabecera, ni
- * el inicio de sesión OAuth). El panel del CRM sí: es desde donde se vuelve a
- * encender.
+ * Apagado, NINGUNA URL del MCP da datos. El inicio de sesión OAuth no responde
+ * (503). La URL personal y la de cabecera sí contestan, pero cada herramienta
+ * devuelve solo MENSAJE_APAGADO: con un 503, Claude Desktop no le pasaba el
+ * texto a Claude, que decía «error de servidor, reintenta o pásame un código».
+ * Diego lo autorizó el 03/10. El panel del CRM responde siempre: es desde
+ * donde se vuelve a encender.
  *
  *   · MCP_DISABLED=1 en el .env: apagado desde el servidor. El botón no lo
  *     enciende; hay que quitarlo del .env y reiniciar.
@@ -18,7 +21,9 @@ import { logger } from '../../shared/utils/logger.js';
  * que hace que el botón corte «al momento» y no al cabo de un rato.
  */
 
-export const apagadoPorEnv = () => ['1', 'true', 'si', 'sí'].includes(String(process.env.MCP_DISABLED || '').toLowerCase());
+export const MENSAJE_APAGADO = 'El MCP del CRM está apagado, active para poder acceder a los datos';
+
+export const apagadoPorEnv =() => ['1', 'true', 'si', 'sí'].includes(String(process.env.MCP_DISABLED || '').toLowerCase());
 
 export async function estado() {
   const { rows: [f] } = await query(
@@ -48,19 +53,30 @@ export async function cambiar({ userId, apagado, motivo = null }) {
   return estado();
 }
 
+/** POST al MCP (la URL de cabecera o la personal), no OAuth. */
+const esPeticionMcp = (req) => req.method === 'POST' && (req.path === '/' || req.path.startsWith('/u/'));
+
 /**
- * Middleware para todo lo del MCP salvo el panel. Si la base no responde, se
- * deja pasar: el MCP ya fallaría igual sin base, y un fallo aquí no debe
- * convertirse en «apagado» cuando nadie lo ha apagado.
+ * Middleware para todo lo del MCP salvo el panel. Apagado, a las peticiones
+ * del MCP las marca (`req.mcpApagado`) y las deja seguir: el token se sigue
+ * comprobando y las herramientas contestan MENSAJE_APAGADO. El resto (OAuth),
+ * 503.
+ *
+ * Si la base no responde, se deja pasar: el MCP ya fallaría igual sin base, y
+ * un fallo aquí no debe convertirse en «apagado» cuando nadie lo ha apagado.
  */
 export async function comprobarInterruptor(req, res, next) {
   try {
     const e = apagadoPorEnv() ? { apagado: true } : await estado();
     if (!e.apagado) return next();
+    if (esPeticionMcp(req)) {
+      req.mcpApagado = true;
+      return next();
+    }
     res.set('Retry-After', '3600');
     return res.status(503).json({
       jsonrpc: '2.0',
-      error: { code: -32003, message: 'El MCP del CRM está apagado por un administrador. Vuelve a intentarlo más tarde.' },
+      error: { code: -32003, message: MENSAJE_APAGADO },
       id: null,
     });
   } catch (err) {

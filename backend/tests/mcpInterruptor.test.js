@@ -49,6 +49,17 @@ const jwtDe = (id) => jwt.sign({ userId: id, role: PERSONAS[id].role }, process.
 const llamarMcp = () => request(app).post(`/api/mcp/u/${TOKEN}`)
   .set('Accept', 'application/json, text/event-stream')
   .send({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+const usarHerramienta = (name, args = {}, ruta = `/api/mcp/u/${TOKEN}`) => request(app).post(ruta)
+  .set('Authorization', `Bearer ${TOKEN}`)
+  .set('Accept', 'application/json, text/event-stream')
+  .send({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name, arguments: args } });
+const MENSAJE = 'El MCP del CRM está apagado, active para poder acceder a los datos';
+/** Apagado: la herramienta contesta, pero solo el aviso y ningún dato. */
+async function esperarApagado(r) {
+  expect(r.status).toBe(200);
+  expect(r.body.result.isError).toBe(true);
+  expect(r.body.result.content).toEqual([{ type: 'text', text: MENSAJE }]);
+}
 const pulsar = (id, apagado, motivo) => request(app).post('/api/mcp/panel/interruptor')
   .set('Authorization', `Bearer ${jwtDe(id)}`).send({ apagado, motivo });
 
@@ -69,13 +80,22 @@ beforeEach(() => {
 });
 
 describe('MCP_DISABLED=1 en el .env', () => {
-  it('ninguna URL del MCP responde: ni la personal, ni la de cabecera, ni OAuth', async () => {
+  it('ninguna URL da datos: la personal y la de cabecera solo dan el aviso, OAuth no responde', async () => {
     process.env.MCP_DISABLED = '1';
-    const r = await llamarMcp();
-    expect(r.status).toBe(503);
-    expect(r.body.error.message).toMatch(/apagado/);
-    expect((await request(app).post('/api/mcp').set('Authorization', `Bearer ${TOKEN}`).send({})).status).toBe(503);
-    expect((await request(app).get('/api/mcp/oauth/metadatos')).status).toBe(503);
+    await esperarApagado(await usarHerramienta('mis_proyectos'));
+    await esperarApagado(await usarHerramienta('resumen_ventas', {}, '/api/mcp'));
+    expect(modelo.proyectosDeLaPersona).toHaveBeenCalled(); // el token se sigue comprobando
+    const oauth = await request(app).get('/api/mcp/oauth/metadatos');
+    expect(oauth.status).toBe(503);
+    expect(oauth.body.error.message).toBe(MENSAJE);
+  });
+
+  it('una URL con token falso sigue rechazada: ni siquiera se entera de que está apagado', async () => {
+    process.env.MCP_DISABLED = '1';
+    modelo.findTokenVivo.mockResolvedValueOnce(null);
+    const r = await usarHerramienta('mis_proyectos');
+    expect(r.status).toBe(401);
+    expect(JSON.stringify(r.body)).not.toMatch(/apagado/);
   });
 
   it('el panel sí responde: desde ahí se ve que está apagado', async () => {
@@ -92,17 +112,30 @@ describe('MCP_DISABLED=1 en el .env', () => {
 });
 
 describe('el botón del super admin', () => {
-  it('apagar corta todas las URLs al momento, y encender las devuelve', async () => {
+  it('apagar corta los datos al momento, y encender los devuelve', async () => {
     expect((await llamarMcp()).status).toBe(200);
+    const antes = await usarHerramienta('mis_proyectos');
+    expect(antes.body.result.content[0].text).not.toBe(MENSAJE);
 
     const apagar = await pulsar(1, true, 'URL filtrada');
     expect(apagar.status).toBe(200);
     expect(apagar.body.data).toMatchObject({ apagado: true, porBoton: true, cambiadoPor: 'Super', motivo: 'URL filtrada' });
-    expect((await llamarMcp()).status).toBe(503);
+    // Claude puede conectar y ver las herramientas, pero no saca nada.
+    expect((await llamarMcp()).status).toBe(200);
+    await esperarApagado(await usarHerramienta('mis_proyectos'));
     expect((await request(app).get('/api/mcp/oauth/metadatos')).status).toBe(503);
 
     expect((await pulsar(1, false)).status).toBe(200);
-    expect((await llamarMcp()).status).toBe(200);
+    const despues = await usarHerramienta('mis_proyectos');
+    expect(despues.body.result.content[0].text).not.toBe(MENSAJE);
+  });
+
+  it('apagado queda en la auditoría cada intento de consulta', async () => {
+    await pulsar(1, true);
+    await usarHerramienta('mis_proyectos');
+    expect(modelo.registrarAuditoria).toHaveBeenCalledWith(expect.objectContaining({
+      herramienta: 'mis_proyectos', ok: false, error: 'MCP_APAGADO',
+    }));
   });
 
   it('queda en la Actividad: quién, qué y por qué', async () => {
