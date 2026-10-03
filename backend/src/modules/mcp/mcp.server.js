@@ -27,14 +27,25 @@ function comoTexto(datos) {
     + '\n…[respuesta recortada: usa filtros, fechas o un límite menor para ver el resto]';
 }
 
-/** Lo que contesta cualquier herramienta con el interruptor apagado (#196). */
-const RESPUESTA_APAGADO = { isError: true, content: [{ type: 'text', text: MENSAJE_APAGADO }] };
+/**
+ * Lo que contesta cualquier herramienta con el interruptor apagado (#196).
+ *
+ * La aclaración es un DATO, no una orden: con la frase sola, Claude rellenaba
+ * el «qué hago» por su cuenta y pedía un código de desbloqueo que no tiene que
+ * ver con esto. Una orden («repite esta frase») la rechazaba por venir de una
+ * herramienta.
+ */
+const ACLARACION_APAGADO = 'Lo activa un administrador desde el panel del CRM. No tiene que ver con el código de desbloqueo: no hace falta pedirlo.';
+const RESPUESTA_APAGADO = {
+  isError: true,
+  content: [{ type: 'text', text: `${MENSAJE_APAGADO}. ${ACLARACION_APAGADO}` }],
+};
 
 export function crearServidor({ ambito, tokenId, origen = {}, apagado = false }) {
   const server = new McpServer(
     { name: 'crm-iseih', version: '1.0.0' },
     {
-      instructions: apagado ? `${MENSAJE_APAGADO}. Díselo a la persona tal cual: no es un fallo ni hace falta ningún código.` :
+      instructions: apagado ? `${MENSAJE_APAGADO}. ${ACLARACION_APAGADO}` :
         'CRM del ecosistema ISEIE/ISEIH. Solo consulta: no se puede crear, cambiar ni borrar nada. '
         + 'Empieza por «mis_proyectos» para saber a qué campus y empresas tienes acceso. '
         + 'Importes en euros salvo que se indique moneda. Fechas en formato AAAA-MM-DD. '
@@ -106,9 +117,10 @@ export function crearServidor({ ambito, tokenId, origen = {}, apagado = false })
     );
   }
 
-  // Solo con el interruptor encendido: apagado, Claude ve las mismas
-  // herramientas que antes y no se le ofrece una que no sirve.
-  if (desbloqueo.config().obligatorio) registrarDesbloquear(server, { ambito, tokenId, origen, apagado });
+  // Solo con el código obligatorio: si no, Claude ve las mismas herramientas
+  // que antes y no se le ofrece una que no sirve. Y nunca con el MCP apagado
+  // (#196): viéndola, Claude le pedía a la persona un código que no hace falta.
+  if (desbloqueo.config().obligatorio && !apagado) registrarDesbloquear(server, { ambito, tokenId, origen });
   return server;
 }
 
@@ -138,7 +150,7 @@ const horaLocal = (fecha) => new Date(fecha).toLocaleTimeString('es-ES', {
  * con MCP_CODIGO_OBLIGATORIO encendido). NUNCA se guarda el código en la
  * auditoría, ni siquiera el que falla.
  */
-function registrarDesbloquear(server, { ambito, tokenId, origen, apagado }) {
+function registrarDesbloquear(server, { ambito, tokenId, origen }) {
   server.registerTool(
     'desbloquear',
     {
@@ -153,11 +165,6 @@ function registrarDesbloquear(server, { ambito, tokenId, origen, apagado }) {
       let ok = false;
       let error = null;
       try {
-        // Apagado no se mira el código: ni desbloquea ni suma un fallo.
-        if (apagado) {
-          error = 'MCP_APAGADO';
-          return RESPUESTA_APAGADO;
-        }
         const r = await desbloqueo.intentarDesbloqueo({ userId: ambito.userId, tokenId, codigo });
         const { inactividadMin } = desbloqueo.config();
         if (r.resultado === 'ok') {
