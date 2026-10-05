@@ -123,7 +123,7 @@ export default function QueAvisosQuiero() {
           <button
             onClick={guardar}
             disabled={guardando || !prefs.guardable}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-50"
           >
             <FloppyDisk size={13} weight="bold" /> {guardando ? 'Guardando…' : 'Guardar'}
           </button>

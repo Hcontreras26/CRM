@@ -54,7 +54,7 @@ export function PeriodSelector({ all }: { all: CampaignsHook }) {
           key={k}
           onClick={() => { all.setCustomRange(null); all.setPreset(k as Preset); }}
           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-            all.preset === k && !all.customRange ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            all.preset === k && !all.customRange ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
           }`}
         >
           {v.label}

@@ -112,7 +112,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
             {m.estado !== 'validada' && (
               <button
                 onClick={() => onEstado(m, 'validada')}
-                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-success hover:bg-success text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-success/40"
+                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-success hover:bg-success text-success-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-success/40"
               >
                 <CheckCircle size={14} weight="bold" /> Validar
               </button>
@@ -128,7 +128,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
             {m.estado !== 'pendiente' && (
               <button
                 onClick={() => onEstado(m, 'pendiente')}
-                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-warning hover:bg-warning text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-warning/40"
+                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-warning hover:bg-warning text-warning-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-warning/40"
               >
                 <Clock size={14} weight="bold" /> Pendiente
               </button>

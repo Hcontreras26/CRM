@@ -513,7 +513,7 @@ export default function WooCommercePage() {
         </div>
 
         <div className="flex gap-2 justify-end pt-3 border-t border-border">
-          <button onClick={saveCreds} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold"><FloppyDisk size={14} weight="bold" /> Guardar</button>
+          <button onClick={saveCreds} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold"><FloppyDisk size={14} weight="bold" /> Guardar</button>
         </div>
       </div>
 
@@ -523,7 +523,7 @@ export default function WooCommercePage() {
             <h3 className="font-bold">Importar productos</h3>
             <div className="flex gap-2">
               <button onClick={() => preview()} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-muted text-xs font-bold"><Eye size={14} /> Preview primer producto</button>
-              <button onClick={importNow} disabled={importing} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold disabled:opacity-50"><ArrowsClockwise size={14} weight="bold" /> {importing ? 'Iniciando...' : 'Importar ahora'}</button>
+              <button onClick={importNow} disabled={importing} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50"><ArrowsClockwise size={14} weight="bold" /> {importing ? 'Iniciando...' : 'Importar ahora'}</button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -562,7 +562,7 @@ export default function WooCommercePage() {
             <button
               onClick={saveMapping}
               disabled={savingMapping}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold disabled:opacity-50"
+              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50"
             >
               <FloppyDisk size={14} weight="bold" /> {savingMapping ? 'Guardando…' : 'Guardar mapeo'}
             </button>

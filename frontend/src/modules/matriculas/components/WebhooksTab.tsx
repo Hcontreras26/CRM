@@ -251,7 +251,7 @@ function WebhookEditor({ token, onSave, onClose }: EditorProps) {
                 {!listening ? (
                   <button onClick={startListening} className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary/40">Esperar payload</button>
                 ) : (
-                  <button onClick={stopListening} className="h-9 px-3 rounded-lg bg-warning text-white text-xs font-bold whitespace-nowrap animate-pulse focus:outline-none focus:ring-2 focus:ring-warning/40">Escuchando... (cancelar)</button>
+                  <button onClick={stopListening} className="h-9 px-3 rounded-lg bg-warning text-warning-foreground text-xs font-bold whitespace-nowrap animate-pulse focus:outline-none focus:ring-2 focus:ring-warning/40">Escuchando... (cancelar)</button>
                 )}
               </div>
               {listening && <p className="text-xs text-warning mt-2">→ Manda ahora un POST de prueba al URL de arriba con tu sistema externo o curl.</p>}

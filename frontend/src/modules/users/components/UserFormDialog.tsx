@@ -402,7 +402,7 @@ export default function UserFormDialog({
               <button
                 type="submit"
                 disabled={loading}
-                className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {loading ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Crear usuario'}
               </button>

@@ -71,7 +71,7 @@ export default function ApisTab({ project }) {
                     <button onClick={() => handleDelete(cred.id)} aria-label="Eliminar credencial" className="p-1 rounded hover:bg-destructive-soft text-destructive"><X size={14} /></button>
                   </>
                 ) : (
-                  <button onClick={() => setDialogSvc(svc)} className="text-secundario px-3 py-1.5 rounded-lg bg-primary text-white font-semibold">Configurar</button>
+                  <button onClick={() => setDialogSvc(svc)} className="text-secundario px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-semibold">Configurar</button>
                 )}
               </div>
             );
@@ -132,7 +132,7 @@ function CredentialQuickDialog({ project, service, existing, onClose, onSaved })
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">{saving ? 'Guardando...' : 'Guardar'}</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">{saving ? 'Guardando...' : 'Guardar'}</button>
           </div>
         </form>
       </div>

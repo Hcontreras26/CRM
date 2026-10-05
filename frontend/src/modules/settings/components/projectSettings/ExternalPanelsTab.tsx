@@ -169,7 +169,7 @@ export default function ExternalPanelsTab({ project, onSaved }: Props) {
           <button
             type="submit"
             disabled={saving || !draft.label || !draft.url}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-50"
           >
             <Plus size={14} weight="bold" /> Agregar panel
           </button>

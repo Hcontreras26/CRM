@@ -75,7 +75,7 @@ export default function SeoPage() {
             key={k}
             onClick={() => { seo.setCustomRange(null); seo.setPreset(k as Preset); }}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-              seo.preset === k && !seo.customRange ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              seo.preset === k && !seo.customRange ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
             }`}
           >
             {v.label}

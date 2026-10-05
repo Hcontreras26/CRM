@@ -141,7 +141,7 @@ export default function MyGoalCard({ projectId, issuerId = null, className = '',
             <button onClick={() => setEditing(false)} disabled={saving} className="h-8 px-3 rounded-md border border-border text-xs hover:bg-muted flex items-center gap-1">
               <X size={12} /> Cancelar
             </button>
-            <button onClick={save} disabled={saving} className="h-8 px-3 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90 flex items-center gap-1">
+            <button onClick={save} disabled={saving} className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 flex items-center gap-1">
               <Check size={12} /> {saving ? 'Guardando…' : 'Guardar'}
             </button>
           </div>

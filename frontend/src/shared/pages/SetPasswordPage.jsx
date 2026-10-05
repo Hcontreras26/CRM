@@ -62,7 +62,7 @@ export default function SetPasswordPage() {
       <div className="w-full max-w-[400px]">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-success text-white flex items-center justify-center shadow-sm mb-4">
+          <div className="w-12 h-12 rounded-xl bg-success text-success-foreground flex items-center justify-center shadow-sm mb-4">
             <ShieldCheck size={22} weight="bold" />
           </div>
           <h1 className="font-semibold text-base">MultiCRM</h1>
@@ -163,7 +163,7 @@ export default function SetPasswordPage() {
               <button
                 type="submit"
                 disabled={!allPassed || loading}
-                className="w-full h-12 bg-success text-white rounded-lg font-semibold text-sm hover:bg-success transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none shadow-sm hover:shadow-md focus:outline-none focus:ring-4 focus:ring-success/20"
+                className="w-full h-12 bg-success text-success-foreground rounded-lg font-semibold text-sm hover:bg-success transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none shadow-sm hover:shadow-md focus:outline-none focus:ring-4 focus:ring-success/20"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">

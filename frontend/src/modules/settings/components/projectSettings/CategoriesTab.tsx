@@ -117,7 +117,7 @@ export default function CategoriesTab({ project }) {
             ariaLabel="Categoría padre"
             className="flex-1"
           />
-          <button type="submit" className="px-4 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 flex items-center gap-1">
+          <button type="submit" className="px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 flex items-center gap-1">
             <Plus size={14} weight="bold" /> Añadir
           </button>
         </div>

@@ -126,7 +126,7 @@ function CredentialCard({ service, projectName, credential, onConfigure, onTest,
       ) : (
         <>
           <span className="px-2.5 py-1 rounded-full text-secundario font-medium bg-warning-soft text-warning-soft-foreground">sin configurar</span>
-          <button onClick={onConfigure} className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90">Configurar</button>
+          <button onClick={onConfigure} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90">Configurar</button>
         </>
       )}
     </div>
@@ -197,7 +197,7 @@ function CredentialDialog({ open, onClose, service, projectId, existing, onSaved
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
-              <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+              <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>

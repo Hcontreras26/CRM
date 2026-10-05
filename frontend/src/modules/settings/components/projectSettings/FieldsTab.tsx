@@ -197,7 +197,7 @@ export default function FieldsTab({ project, onSaved }) {
                   <input type="checkbox" checked={newField.required} onChange={e => setNewField({ ...newField, required: e.target.checked })} />
                   Campo requerido
                 </label>
-                <button type="submit" className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90">
+                <button type="submit" className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90">
                   <Plus size={14} weight="bold" /> Agregar
                 </button>
               </div>

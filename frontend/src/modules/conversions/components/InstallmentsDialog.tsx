@@ -341,7 +341,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                                 <button
                                   onClick={() => handleSaveInstallment(inst)}
                                   disabled={savingInst === inst.id}
-                                  className="h-8 px-2.5 rounded-md bg-primary text-white text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50">
+                                  className="h-8 px-2.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50">
                                   {savingInst === inst.id ? 'Guardando…' : 'Guardar'}
                                 </button>
                               )}
@@ -379,7 +379,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                       ) : (
                         <>
                           <button onClick={() => handlePayInstallment(inst)}
-                            className="px-2.5 py-1 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90">
+                            className="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90">
                             Marcar pagada
                           </button>
                           <button onClick={() => handleDeleteInstallment(inst)}
@@ -430,7 +430,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                   <button
                     onClick={handleSaveTotal}
                     disabled={savingTotal || Number(totalDraft) === Number(conversion.importe_total)}
-                    className="h-9 px-3 rounded-md bg-warning text-white text-xs font-semibold hover:bg-warning disabled:opacity-50"
+                    className="h-9 px-3 rounded-md bg-warning text-warning-foreground text-xs font-semibold hover:bg-warning disabled:opacity-50"
                   >
                     {savingTotal ? '...' : 'Actualizar total'}
                   </button>
@@ -523,7 +523,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
           </button>
           {mode === 'create' && (
             <button onClick={handleGenerate}
-              className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 inline-flex items-center gap-2">
+              className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 inline-flex items-center gap-2">
               <CalendarBlank size={14} weight="bold" /> Guardar cuotas
             </button>
           )}
@@ -585,7 +585,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                 Cancelar
               </button>
               <button onClick={confirmPayInstallment} disabled={payingNow}
-                className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+                className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
                 {payingNow ? 'Guardando…' : (payMode === 'edit' ? 'Guardar cambios' : 'Confirmar cobro')}
               </button>
             </div>

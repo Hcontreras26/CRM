@@ -871,7 +871,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               Cancelar
             </button>
             <button onClick={handleSave} disabled={saving}
-              className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+              className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
               {saving ? 'Guardando…' : 'Registrar venta'}
             </button>
           </div>

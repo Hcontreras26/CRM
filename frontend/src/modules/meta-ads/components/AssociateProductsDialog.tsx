@@ -139,7 +139,7 @@ export default function AssociateProductsDialog({ open, projectId, scope: scopeP
                     <li key={p.id}>
                       <button onClick={() => toggle(p.id)}
                         className={`w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-muted/40 ${isSel ? 'bg-primary/5' : ''}`}>
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSel ? 'border-primary bg-primary text-white' : 'border-border'}`}>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSel ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>
                           {isSel && <Check size={12} weight="bold" />}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -162,7 +162,7 @@ export default function AssociateProductsDialog({ open, projectId, scope: scopeP
               <button onClick={onClose} disabled={saving} className="h-9 px-4 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted disabled:opacity-50">
                 Cancelar
               </button>
-              <button onClick={handleSave} disabled={saving} className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+              <button onClick={handleSave} disabled={saving} className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
                 {saving ? 'Guardando…' : 'Guardar asociaciones'}
               </button>
             </div>

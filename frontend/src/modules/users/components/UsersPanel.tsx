@@ -211,7 +211,7 @@ export default function UsersPanel() {
         <button
           onClick={() => setDialogo({ modo: 'crear' })}
           aria-label="Crear usuario"
-          className="flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+          className="flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
         >
           <Plus size={14} weight="bold" /> <span className="hidden sm:inline">Crear usuario</span>
         </button>

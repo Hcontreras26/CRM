@@ -135,7 +135,7 @@ export default function PromptDialog({
             <button
               type="submit"
               disabled={!canConfirm}
-              className="inline-flex items-center h-9 px-4 rounded-md text-white text-sm font-semibold bg-primary hover:bg-primary/90 disabled:opacity-50"
+              className="inline-flex items-center h-9 px-4 rounded-md text-primary-foreground text-sm font-semibold bg-primary hover:bg-primary/90 disabled:opacity-50"
             >
               {loading ? 'Procesando…' : confirmLabel}
             </button>

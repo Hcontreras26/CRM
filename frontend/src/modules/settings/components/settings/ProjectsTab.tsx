@@ -37,7 +37,7 @@ export default function ProjectsTab() {
           <p className="text-normal text-muted-foreground mt-0.5">Psiko, ISEIH, Fono Aprende + plataformas IA</p>
         </div>
         {canCreate && (
-          <button onClick={() => { setEditing(null); setDialogOpen(true); }} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 whitespace-nowrap flex-shrink-0">
+          <button onClick={() => { setEditing(null); setDialogOpen(true); }} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 whitespace-nowrap flex-shrink-0">
             <Plus size={14} weight="bold" /> <span className="hidden sm:inline">Nuevo proyecto</span><span className="sm:hidden">Nuevo</span>
           </button>
         )}
@@ -72,7 +72,7 @@ export default function ProjectsTab() {
               {canCreate && (
                 <div className="border-t border-border bg-muted/20 px-5 py-2.5 flex items-center justify-between">
                   <span className="text-secundario text-muted-foreground">Gestión completa del proyecto</span>
-                  <button onClick={() => setConfigProject(p)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 shadow">
+                  <button onClick={() => setConfigProject(p)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow">
                     <Gear size={13} weight="bold" /> Configurar
                   </button>
                 </div>

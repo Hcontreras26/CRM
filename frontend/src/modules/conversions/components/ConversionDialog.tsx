@@ -1031,7 +1031,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
 
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onClose} className="h-9 px-4 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
-              <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+              <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
                 {saving ? 'Guardando...' : 'Registrar conversion'}
               </button>
             </div>

@@ -198,7 +198,7 @@ export default function CommissionsPage() {
               </button>
             )}
             {isAdmin && user?.role === 'superadmin' && (
-              <button onClick={() => setRulesOpen(true)} className="inline-flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90">
+              <button onClick={() => setRulesOpen(true)} className="inline-flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
                 <Gear size={14} weight="bold" /> <span className="hidden sm:inline">Reglas (% por gestor)</span><span className="sm:hidden">Reglas</span>
               </button>
             )}
@@ -211,13 +211,13 @@ export default function CommissionsPage() {
         <CalendarBlank size={16} className="text-muted-foreground flex-shrink-0" weight="regular" />
         <button
           onClick={() => setPeriodMode('month')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${periodMode === 'month' ? 'bg-primary text-white' : 'bg-muted hover:bg-muted/80'}`}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${periodMode === 'month' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}
         >
           Mes/año
         </button>
         <button
           onClick={() => setPeriodMode('all')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${periodMode === 'all' ? 'bg-primary text-white' : 'bg-muted hover:bg-muted/80'}`}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${periodMode === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}
         >
           Todo el histórico
         </button>
@@ -273,7 +273,7 @@ export default function CommissionsPage() {
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="p-4 border-b border-border flex items-center gap-2 flex-wrap">
           {ESTADOS.map(e => (
-            <button key={e.v} onClick={() => setFilterEstado(e.v)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterEstado === e.v ? 'bg-primary text-white' : 'bg-muted hover:bg-muted/80'}`}>
+            <button key={e.v} onClick={() => setFilterEstado(e.v)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterEstado === e.v ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}>
               {e.label}
             </button>
           ))}
@@ -306,7 +306,7 @@ export default function CommissionsPage() {
               </button>
               <button
                 onClick={() => setBulkPay(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-success text-white text-xs font-semibold hover:bg-success"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-success text-success-foreground text-xs font-semibold hover:bg-success"
               >
                 <CheckCircle size={12} weight="bold" /> Marcar todas como pagadas
               </button>

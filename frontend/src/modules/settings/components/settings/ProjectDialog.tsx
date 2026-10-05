@@ -237,7 +237,7 @@ export default function ProjectDialog({ open, onClose, existing, onSaved }: { op
 
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
-              <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+              <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
                 {saving ? 'Guardando...' : (existing ? 'Guardar' : 'Crear proyecto')}
               </button>
             </div>

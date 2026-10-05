@@ -83,6 +83,31 @@ describe('colores sueltos escritos a mano (#32)', () => {
     expect(copias, `la paleta está duplicada en:\n${copias.join('\n')}`).toEqual(['shared/lib/ui.ts']);
   });
 
+  it('ni letra blanca fija sobre un fondo que en oscuro se aclara', () => {
+    // «Comprobar el modo oscuro con los tokens nuevos» (#32). primary, success,
+    // info y warning se aclaran en oscuro y piden texto oscuro: `text-white`
+    // encima se lee mal, y sobre warning ni siquiera en claro. Su pareja es
+    // `text-<token>-foreground`, que cambia sola. Al traer el trabajo de Fabián
+    // había 75 así; destructive no entra porque su texto es blanco en los dos.
+    //
+    // Se mira cada cadena entre comillas por separado (también las de dentro
+    // de un `${cond ? '…' : '…'}`), para no juntar clases de dos elementos.
+    // WhatsApp (de Ángel, #79) y las maquetas de referencia quedan fuera.
+    const FONDO = /(?:^|\s)(?:[a-z-]+:)*bg-(primary|success|info|warning)(?:\/(\d+))?(?=\s|$)/;
+    const fuera = /^(test\/|modules\/(whatsapp|suitedash-preview|ui-preview)\/)|\.test\./;
+    const malas = [];
+    for (const f of ficheros('.').filter((x) => !fuera.test(x))) {
+      const texto = fs.readFileSync(path.join(RAIZ, f), 'utf8');
+      for (const q of ["'", '"', '`']) {
+        for (const [, cuerpo] of texto.matchAll(new RegExp(`${q}([^${q}\\n]*)${q}`, 'g'))) {
+          const m = cuerpo.match(FONDO);
+          if (m && !(m[2] && Number(m[2]) < 60) && /(^|\s)text-white(\s|$)/.test(cuerpo)) malas.push(`${f}: ${cuerpo.trim().slice(0, 90)}`);
+        }
+      }
+    }
+    expect(malas.join('\n'), 'usa text-<token>-foreground en vez de text-white').toBe('');
+  });
+
   it('deja escrito cuánta deuda queda por módulo, que es la tarea #34', () => {
     // ESTO SÍ FALLA, y es la mitad que faltaba del #32.
     //

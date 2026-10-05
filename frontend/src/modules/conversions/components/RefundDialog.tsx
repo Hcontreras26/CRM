@@ -122,7 +122,7 @@ export default function RefundDialog({ open, conversion, onClose, onSaved }: Pro
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving || !importe}
-            className="inline-flex items-center h-9 px-4 rounded-md bg-warning text-white text-sm font-semibold hover:bg-warning disabled:opacity-50">
+            className="inline-flex items-center h-9 px-4 rounded-md bg-warning text-warning-foreground text-sm font-semibold hover:bg-warning disabled:opacity-50">
             {saving ? 'Guardando...' : 'Registrar devolución'}
           </button>
         </div>

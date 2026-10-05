@@ -87,7 +87,7 @@ export default function EmitirBorradorDialog({ invoice, onClose, onEmitted }: { 
         <div className="p-3 border-t border-border flex justify-end gap-2 bg-muted/20">
           <button onClick={onClose} className="h-9 px-3 rounded-md border border-border bg-card text-sm">Cancelar</button>
           <button onClick={emitir} disabled={working || !completo}
-            className="h-9 px-3 rounded-md bg-warning text-white text-sm font-semibold hover:bg-warning disabled:opacity-50 inline-flex items-center gap-1.5">
+            className="h-9 px-3 rounded-md bg-warning text-warning-foreground text-sm font-semibold hover:bg-warning disabled:opacity-50 inline-flex items-center gap-1.5">
             <CheckCircle size={14} weight="bold" /> {working ? 'Guardando…' : (esBorrador ? 'Validar y emitir' : 'Guardar y desbloquear')}
           </button>
         </div>

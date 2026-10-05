@@ -148,7 +148,7 @@ export default function RulesDialog({ onClose, onSaved }: Props) {
                 />
                 <div className="flex gap-1">
                   <input type="number" min="0" max="100" step="0.01" placeholder="%" value={newRule.pct} onChange={e => setNewRule({ ...newRule, pct: e.target.value })} className={inputClass + ' flex-1'} required />
-                  <button type="submit" aria-label="Añadir regla" className="px-3 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-primary/40">
+                  <button type="submit" aria-label="Añadir regla" className="px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-primary/40">
                     <Plus size={12} weight="bold" />
                   </button>
                 </div>

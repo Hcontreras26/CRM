@@ -721,7 +721,7 @@ export default function InvoicesPage() {
                       {inv.estado === 'borrador' && (
                         <button onClick={() => setEmittingInv(inv)}
                           title="Validar los datos y emitir la factura (asigna número fiscal)"
-                          className="h-7 px-2 rounded bg-warning text-white text-[11px] font-semibold hover:bg-warning inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded bg-warning text-warning-foreground text-[11px] font-semibold hover:bg-warning inline-flex items-center gap-1">
                           <CheckCircle size={11} weight="bold" /> Validar y emitir
                         </button>
                       )}
@@ -737,7 +737,7 @@ export default function InvoicesPage() {
                       {inv.estado !== 'borrador' && inv.estado !== 'cancelada' && inv.tipo !== 'proforma' && invoiceFaltantes(inv).length > 0 && (
                         <button onClick={() => setEmittingInv(inv)}
                           title={`Para descargar/enviar debes rellenar: ${invoiceFaltantes(inv).join(', ')}`}
-                          className="h-7 px-2 rounded bg-warning text-white text-[11px] font-semibold hover:bg-warning inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded bg-warning text-warning-foreground text-[11px] font-semibold hover:bg-warning inline-flex items-center gap-1">
                           <CheckCircle size={11} weight="bold" /> Completar datos
                         </button>
                       )}
