@@ -22,6 +22,10 @@ export interface McpToken {
   /** 'manual' | 'sin_uso' | 'usuario_desactivado' | 'conector' */
   revocado_motivo?: string | null;
   vivo: boolean;
+  /** Solo en `todas`: de quién es la URL. */
+  user_id?: number;
+  persona?: string | null;
+  role?: string;
 }
 
 export interface McpProyecto {
@@ -48,6 +52,10 @@ export interface McpEstado {
   proyectos: McpProyecto[];
   herramientas: McpHerramienta[];
   tokens: McpToken[];
+  /** Quien administra: todas las URLs que alcanza, de todas las personas (05/10). */
+  todas?: McpToken[];
+  /** El super admin revoca la URL de cualquiera. */
+  puedeRevocarTodas?: boolean;
   /** Interruptor de emergencia (#196). */
   interruptor?: McpInterruptor;
   puedeApagar?: boolean;
@@ -95,8 +103,6 @@ export interface McpActividadFila {
   token_id: number | null;
   url_nombre: string | null;
   prefijo: string | null;
-  connector_id: number | null;
-  conexion: string | null;
   herramienta: string;
   parametros: Record<string, unknown> | null;
   ok: boolean;
@@ -113,13 +119,12 @@ export interface McpActividad {
   filas: McpActividadFila[];
   opciones: {
     personas: { id: number; nombre: string }[];
-    conexiones: { id: number; label: string }[];
     herramientas: string[];
   };
 }
 
 export interface McpFiltrosActividad {
-  persona?: string; conexion?: string; desde?: string; hasta?: string;
+  persona?: string; desde?: string; hasta?: string;
   herramienta?: string; resultado?: string; pagina?: number;
 }
 
