@@ -172,6 +172,7 @@ const NAV_SECTIONS = [
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions' },
+      { label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks },
     ],
   },
   {
