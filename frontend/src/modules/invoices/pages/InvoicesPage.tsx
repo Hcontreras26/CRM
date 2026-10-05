@@ -411,7 +411,7 @@ export default function InvoicesPage() {
               arriba van los COBROS pendientes de facturar, en orden; aqui las
               VENTAS sin ninguna factura, incluidas las que todavia no han
               cobrado nada. Una venta con cobro sale en las dos. */}
-          <p className="px-4 py-2 text-[11px] leading-snug text-muted-foreground border-b border-amber-200 dark:border-amber-900/40">
+          <p className="px-4 py-2 text-[11px] leading-snug text-muted-foreground border-b border-warning/30">
             Esto son <b>ventas</b>; arriba, en la cola, van los <b>cobros</b> pendientes de facturar.
             {' '}Una venta que ya tiene algún cobro sale en las dos:
             {' '}<b>emítela desde la cola</b>, que es la que respeta el orden de la numeración.
@@ -763,7 +763,7 @@ export default function InvoicesPage() {
                           title={inv.conversion_id
                             ? 'El cliente ya pagó: apunta el cobro en la venta y la proforma pasa a ser la factura'
                             : 'Asóciala antes a la venta del cliente (botón «Venta»): el cobro se apunta en la venta'}
-                          className="h-7 px-2 rounded border border-emerald-300 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-950/30 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                          className="h-7 px-2 rounded border border-success/30 text-success-soft-foreground text-[11px] font-semibold hover:bg-success-soft inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
                           <CheckCircle size={11} weight="bold" /> Cobrada
                         </button>
                       )}

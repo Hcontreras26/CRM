@@ -166,7 +166,7 @@ export default function ClientesVentas({ projectId = null, issuerId = null, from
                       {f.compartida && (
                         <span
                           title={f.asesoras ? `Compartida con ${f.asesoras}` : 'Venta compartida entre dos gestoras'}
-                          className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap shrink-0 bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+                          className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap shrink-0 bg-primary/10 text-primary"
                         >
                           COMPARTIDO
                         </span>

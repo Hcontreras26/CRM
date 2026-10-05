@@ -406,11 +406,11 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
               {/* Sin pendiente no hay nada que repartir: el borrador sale a 0 y
                   al guardar saltaba «cuota incompleta», que no dice por que. */}
               {pendiente <= 0 && (
-                <div className="border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-md p-3">
-                  <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                <div className="border border-warning/30 bg-warning-soft rounded-md p-3">
+                  <p className="text-xs font-semibold text-warning-soft-foreground">
                     Esta venta ya figura cobrada entera ({formatCurrency(Number(conversion.importe_pagado || 0))} de {formatCurrency(Number(conversion.importe_total))}), así que no queda nada que fraccionar.
                   </p>
-                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                  <p className="text-[11px] text-warning-soft-foreground mt-1">
                     Si el alumno va a pagar a plazos, deshaz primero el cobro desde la venta, o sube aquí arriba el importe total. Las cuotas se reparten sobre lo que queda pendiente, no sobre el total.
                   </p>
                 </div>
