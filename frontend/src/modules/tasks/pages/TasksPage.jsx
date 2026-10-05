@@ -67,7 +67,7 @@ export default function TasksPage() {
       const data = await tasksApi.getTasks(params);
       setTasks(data || []);
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Error al cargar las tareas');
+      toast({ title: err?.response?.data?.message || 'Error al cargar las tareas', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -93,11 +93,11 @@ export default function TasksPage() {
 
     // Regla: si no es admin, no puede pasar a "hecha" ni salir de "hecha"
     if (newStatus === 'hecha' && !isAdmin) {
-      toast.error('Solo los administradores pueden marcar una tarea como Hecha');
+      toast({ title: 'Solo los administradores pueden marcar una tarea como Hecha', variant: 'destructive' });
       return;
     }
     if (task.status === 'hecha' && newStatus !== 'hecha' && !isAdmin) {
-      toast.error('Solo los administradores pueden reabrir una tarea completada');
+      toast({ title: 'Solo los administradores pueden reabrir una tarea completada', variant: 'destructive' });
       return;
     }
 
@@ -109,28 +109,28 @@ export default function TasksPage() {
 
     try {
       await tasksApi.moveTask(taskId, { status: newStatus });
-      toast.success(`Tarea movida a "${COLUMNS.find((c) => c.key === newStatus)?.label}"`);
+      toast({ title: `Tarea movida a "${COLUMNS.find((c) => c.key === newStatus)?.label}"` });
     } catch (err) {
       // Revertir en caso de error
       setTasks(previousTasks);
-      toast.error(err?.response?.data?.message || 'No se pudo mover la tarea');
+      toast({ title: err?.response?.data?.message || 'No se pudo mover la tarea', variant: 'destructive' });
     }
   };
 
   const handleSaveTask = async (payload, taskId) => {
     if (taskId) {
       await tasksApi.updateTask(taskId, payload);
-      toast.success('Tarea actualizada');
+      toast({ title: 'Tarea actualizada con éxito' });
     } else {
       await tasksApi.createTask(payload);
-      toast.success('Tarea creada con éxito');
+      toast({ title: 'Tarea creada con éxito' });
     }
     fetchTasks();
   };
 
   const handleArchiveTask = async (taskId) => {
     await tasksApi.archiveTask(taskId);
-    toast.success('Tarea archivada');
+    toast({ title: 'Tarea archivada' });
     fetchTasks();
   };
 
