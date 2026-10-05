@@ -7,6 +7,7 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import { toast } from '@/shared/hooks/useToast';
 import { mcpApi, urlDelMcp, type McpEstado, type McpPersona, type McpToken } from '../api/mcp.api';
 import { nombreDelCliente } from '../lib/cliente';
+import ConexionesClaude from '../components/ConexionesClaude';
 import CodigoParaClaude from '../components/CodigoParaClaude';
 import ActividadMcp from '../components/ActividadMcp';
 import InterruptorMcp from '../components/InterruptorMcp';
@@ -19,11 +20,16 @@ import InterruptorMcp from '../components/InterruptorMcp';
  * cómo pegarlo en Claude. Super admin y admin, además, deciden quién más tiene
  * acceso.
  *
- * Una sola URL por persona. Del 29/09 al 05/10 hubo además «conexiones» que
- * acotaban la URL a un campus o una empresa; Diego las quitó el 05/10: «una
- * sola, no ambas… el superadmin decide quién tiene acceso y qué no según su
- * rol». Lo que ve Claude es lo que ve esa persona por su rol; quién tiene
- * acceso se decide abajo, en «Quién tiene acceso».
+ * Y desde el 29/09 las CONEXIONES de Claude viven aquí, no en Conectores:
+ * «lo de Claude MCP, ese formulario pasa a esa parte de MCP en conexión». Una
+ * conexión acota lo que ve Claude a un campus, una empresa o todo el sistema,
+ * y dice quién la creó y quién tiene URL (`ConexionesClaude`).
+ *
+ * Una sola sección para cada uno (Diego, 05/10: «una sola, no ambas»; y eligió
+ * «Conexiones como antes»). Quien administra trabaja SOLO con conexiones: la
+ * URL personal suelta ya no se le ofrece, y si le queda alguna viva se enseña
+ * como «URLs sin conexión», para poder revocarla. Las gestoras con acceso, que
+ * no ven conexiones, siguen con su URL personal (todo lo que ven por su rol).
  *
  * El token se enseña UNA vez, justo al crearlo. No se guarda en ningún estado
  * que sobreviva a cerrar el aviso: el servidor tampoco lo tiene, solo su huella.
@@ -128,8 +134,7 @@ export default function McpPage() {
   }
 
   async function revocar(t: McpToken) {
-    const deQuien = t.persona && !estado?.tokens.some((m) => m.id === t.id) ? ` de ${t.persona}` : '';
-    if (!window.confirm(`Se va a revocar la URL «${t.nombre}»${deQuien}.\n\nEl Claude que la use dejará de poder consultar el CRM al momento. Borra también el conector en Claude → Configuración → Conectores. ¿Seguir?`)) return;
+    if (!window.confirm(`Se va a revocar la URL «${t.nombre}».\n\nEl Claude que la use dejará de poder consultar el CRM al momento. Borra también el conector en Claude → Configuración → Conectores. ¿Seguir?`)) return;
     try {
       await mcpApi.revocarToken(t.id);
       toast({ title: 'URL revocada' });
@@ -169,12 +174,6 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
     return <p className="p-8 text-center text-sm text-muted-foreground">Cargando…</p>;
   }
 
-  // Quien administra ve todas las URLs que alcanza; los demás, las suyas (Diego, 05/10:
-  // «aquí deben de aparecer todas las conexiones hechas»).
-  const urls = estado?.todas ?? estado?.tokens ?? [];
-  const conPersona = !!estado?.todas;
-  const mias = new Set((estado?.tokens ?? []).map((t) => t.id));
-
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
@@ -186,6 +185,9 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
       {estado?.interruptor && (
         <InterruptorMcp estado={estado.interruptor} puedeApagar={!!estado.puedeApagar} onCambio={cargar} />
       )}
+
+      {/* Las conexiones por campus, empresa o todo el sistema: quien administra. */}
+      {estado?.tieneAcceso && estado.puedeAdministrar && <ConexionesClaude />}
 
       {!estado?.tieneAcceso ? (
         <div className="bg-card border border-border rounded-lg">
@@ -201,12 +203,14 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
           <div className="bg-card border border-border rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2">
               <ShieldCheck size={18} weight="bold" className="text-emerald-600" />
-              <h2 className="font-semibold text-sm">Lo que Claude podrá consultar con tu URL personal</h2>
+              <h2 className="font-semibold text-sm">Lo que Claude podrá consultar{estado.puedeAdministrar ? '' : ' con tu URL personal'}</h2>
             </div>
             <p className="text-sm text-muted-foreground">
               {estado.soloLoSuyo
                 ? 'Solo tus propios prospectos, ventas y facturas, dentro de tus campus.'
-                : 'Todos los datos de tus campus.'}
+                : estado.puedeAdministrar
+                  ? 'Como mucho, todos los datos de tus campus: cada conexión lo recorta a su «Para quién».'
+                  : 'Todos los datos de tus campus.'}
               {' '}Nunca datos de otros campus, ni DNI, IBAN, datos fiscales o contraseñas. No puede crear, cambiar ni borrar nada.
             </p>
             {porEmpresa.length === 0 ? (
@@ -258,20 +262,19 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
             </div>
           )}
 
-          {/* Mis URLs */}
+          {/* Mis URLs: las gestoras con acceso. Quien administra usa las conexiones de arriba y
+              solo ve aquí las URLs sueltas que le queden vivas, para revocarlas. */}
+          {(!estado.puedeAdministrar || estado.tokens.some((t) => t.vivo)) && (
           <div className="bg-card border border-border rounded-lg overflow-hidden">
             <div className="p-4 border-b border-border flex flex-wrap items-center gap-2">
               <Key size={18} weight="bold" className="text-primary" />
               <div className="flex-1 min-w-[200px]">
-                <h2 className="font-semibold text-sm">{conPersona ? 'Conexiones de Claude' : 'Tu URL personal'}</h2>
-                {conPersona && (
-                  <p className="text-xs text-muted-foreground">
-                    {estado.puedeRevocarTodas
-                      ? 'Todas las URLs creadas en el CRM, de todas las personas.'
-                      : 'Las tuyas y las de las personas de tus campus.'}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">Con la tuya, Claude ve lo mismo que tú, en todos tus campus: lo que permite tu rol.</p>
+                <h2 className="font-semibold text-sm">{estado.puedeAdministrar ? 'URLs sin conexión' : 'Tu URL personal'}</h2>
+                <p className="text-xs text-muted-foreground">
+                  {estado.puedeAdministrar
+                    ? 'URLs de antes, que ven todo lo tuyo. Ya no se crean: usa una conexión de arriba.'
+                    : 'Todo lo que ves tú, en todos tus campus.'}
+                </p>
                 {/* Caducidad y rotación (#194). */}
                 {(estado.diasDeVida || estado.diasSinUso) && (
                   <p className="text-xs text-muted-foreground">
@@ -280,6 +283,7 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
                   </p>
                 )}
               </div>
+              {!estado.puedeAdministrar && (<>
               <input
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
@@ -293,9 +297,10 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
                 disabled={creando || !nombre.trim()}
                 className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
               ><Plus size={14} weight="bold" /> Crear mi URL personal</button>
+              </>)}
             </div>
-            {!urls.length ? (
-              <EmptyState icon={Key} title={conPersona ? 'Aún no hay ninguna URL' : 'Aún no tienes URL personal'}
+            {!estado.tokens.length ? (
+              <EmptyState icon={Key} title="Aún no tienes URL personal"
                 description={estado.diasDeVida
                   ? `Crea una para conectar tu Claude. Caduca a los ${estado.diasDeVida} días.`
                   : 'Crea una para conectar tu Claude. No caduca: funciona hasta que la revoques.'} />
@@ -303,7 +308,6 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr className="text-[11px] uppercase text-muted-foreground">
-                    {conPersona && <th className="text-left font-bold px-4 py-2.5">Persona</th>}
                     <th className="text-left font-bold px-4 py-2.5">Nombre</th>
                     <th className="text-left font-bold px-4 py-2.5">URL</th>
                     <th className="text-left font-bold px-4 py-2.5">Creado</th>
@@ -313,14 +317,8 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
                   </tr>
                 </thead>
                 <tbody>
-                  {urls.map((t) => (
+                  {estado.tokens.map((t) => (
                     <tr key={t.id} className={`border-b border-border last:border-0 ${t.vivo ? '' : 'opacity-50'}`}>
-                      {conPersona && (
-                        <td className="px-4 py-3">
-                          <span className="font-semibold">{mias.has(t.id) ? 'Tú' : (t.persona || 'Usuario borrado')}</span>
-                          {t.role && !mias.has(t.id) && <span className="block text-[11px] text-muted-foreground">{ROL[t.role] || t.role}</span>}
-                        </td>
-                      )}
                       <td className="px-4 py-3 font-semibold">{t.nombre}</td>
                       <td className="px-4 py-3"><code className="text-[13px] text-muted-foreground">{t.prefijo}…</code></td>
                       <td className="px-4 py-3 text-muted-foreground">{fecha(t.created_at)}</td>
@@ -337,7 +335,7 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {t.vivo && (mias.has(t.id) || estado.puedeRevocarTodas) && (
+                        {t.vivo && (
                           <button
                             onClick={() => revocar(t)}
                             aria-label={`Revocar la URL ${t.nombre}`}
@@ -351,12 +349,17 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
               </table>
             )}
           </div>
+          )}
 
           {/* Como conectar */}
           <div className="bg-card border border-border rounded-lg p-4 space-y-3">
             <h2 className="font-semibold text-sm">Cómo conectar Claude</h2>
             <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
-              <li>Ponle un nombre, pulsa <strong>Crear mi URL personal</strong> y cópiala: solo se enseña una vez.</li>
+              <li>
+                {estado.puedeAdministrar
+                  ? <>Pulsa <strong>Sacar mi URL</strong> en una conexión (o crea una con <strong>Nueva conexión con Claude</strong>) y cópiala.</>
+                  : <>Ponle un nombre, pulsa <strong>Crear mi URL personal</strong> y cópiala.</>}
+              </li>
               <li>Claude Desktop o claude.ai: <em>Configuración → Conectores → Agregar → Agregar conector personalizado</em>, ponle un nombre y pega la URL.</li>
               <li>
                 <strong>Sin OAuth:</strong> deja vacíos «OAuth Client ID» y «OAuth Client Secret» (en «Configuración avanzada»).
