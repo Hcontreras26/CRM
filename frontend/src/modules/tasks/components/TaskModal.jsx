@@ -13,7 +13,7 @@ export function TaskModal({
   onSave,
   onArchive,
 }) {
-  const { user } = useAuthContext();
+  const { user } = useAuth();
   const isAdmin = user?.role === 'superadmin' || user?.role === 'admin';
 
   const [title, setTitle] = useState('');

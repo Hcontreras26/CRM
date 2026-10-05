@@ -16,7 +16,7 @@ const COLUMNS = [
 ];
 
 export default function TasksPage() {
-  const { user } = useAuthContext();
+  const { user } = useAuth();
   const { activeProject, projects } = useProjectContext();
   const isAdmin = user?.role === 'superadmin' || user?.role === 'admin';
 
