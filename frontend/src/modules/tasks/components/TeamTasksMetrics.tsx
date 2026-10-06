@@ -1,87 +1,62 @@
-import React from 'react';
-import { UsersThree, WarningCircle, CheckCircle, Clock } from '@phosphor-icons/react';
+import { avatarColorFor, getInitials } from '@/shared/lib/ui';
 import type { TeamMemberMetric } from '../types';
 
 interface TeamTasksMetricsProps {
   metrics: TeamMemberMetric[];
-  selectedUserId?: number | null;
-  onSelectUser?: (userId: number | null) => void;
+  loading: boolean;
+  onSelectUser: (userId: number) => void;
 }
 
-export const TeamTasksMetrics: React.FC<TeamTasksMetricsProps> = ({
-  metrics,
-  selectedUserId,
-  onSelectUser,
-}) => {
-  if (!metrics || metrics.length === 0) return null;
+/**
+ * «Todo el equipo» (#210, fase 4): por persona, cuantas tiene abiertas, cuantas
+ * vencidas y cuantas cerro esta semana y este mes. Pulsar una fila abre su
+ * tablero.
+ */
+export function TeamTasksMetrics({ metrics, loading, onSelectUser }: TeamTasksMetricsProps) {
+  if (loading) {
+    return <div className="bg-card border border-border rounded-lg p-6 text-sm text-muted-foreground">Cargando el equipo…</div>;
+  }
+  if (metrics.length === 0) {
+    return <div className="bg-card border border-border rounded-lg p-6 text-sm text-muted-foreground">Nadie del equipo tiene tablero todavía.</div>;
+  }
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm mb-6">
-      <div className="flex items-center gap-2 mb-3">
-        <UsersThree className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-        <h3 className="font-bold text-sm text-slate-800 dark:text-slate-100">
-          Rendimiento y Carga del Equipo
-        </h3>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {metrics.map((m) => {
-          const isSelected = selectedUserId === m.user_id;
-
-          return (
-            <div
+    <div className="bg-card border border-border rounded-lg overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+            <th className="px-4 py-2.5 font-semibold">Persona</th>
+            <th className="px-3 py-2.5 font-semibold text-right">Abiertas</th>
+            <th className="px-3 py-2.5 font-semibold text-right">Vencidas</th>
+            <th className="px-3 py-2.5 font-semibold text-right">Cerradas esta semana</th>
+            <th className="px-4 py-2.5 font-semibold text-right">Este mes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.map((m) => (
+            <tr
               key={m.user_id}
-              onClick={() => onSelectUser && onSelectUser(isSelected ? null : m.user_id)}
-              className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                isSelected
-                  ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 ring-2 ring-indigo-500/20'
-                  : 'border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700'
-              }`}
+              onClick={() => onSelectUser(m.user_id)}
+              className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate">
-                  {m.user_name}
-                </span>
-                <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 bg-slate-200/60 dark:bg-slate-700 px-1.5 py-0.5 rounded">
-                  {m.user_role}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
-                <div className="bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                  <div className="text-[10px] text-slate-400 flex items-center justify-center gap-0.5">
-                    <Clock className="w-3 h-3" />
-                    Activas
-                  </div>
-                  <div className="font-bold text-slate-700 dark:text-slate-200 mt-0.5">
-                    {m.open_tasks}
-                  </div>
+              <td className="px-4 py-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0 ${avatarColorFor(m.user_id)}`}>
+                    {getInitials(m.user_name)}
+                  </span>
+                  <span className="font-medium truncate">{m.user_name}</span>
                 </div>
-
-                <div className="bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                  <div className="text-[10px] text-rose-500 flex items-center justify-center gap-0.5">
-                    <WarningCircle className="w-3 h-3" />
-                    Vencidas
-                  </div>
-                  <div className="font-bold text-rose-600 dark:text-rose-400 mt-0.5">
-                    {m.overdue_tasks}
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                  <div className="text-[10px] text-emerald-500 flex items-center justify-center gap-0.5">
-                    <CheckCircle className="w-3 h-3" />
-                    Mes
-                  </div>
-                  <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    {m.completed_this_month}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              </td>
+              <td className="px-3 py-2.5 text-right tabular-nums">{m.open_tasks}</td>
+              <td className={`px-3 py-2.5 text-right tabular-nums ${m.overdue_tasks > 0 ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                {m.overdue_tasks}
+              </td>
+              <td className="px-3 py-2.5 text-right tabular-nums">{m.completed_this_week}</td>
+              <td className="px-4 py-2.5 text-right tabular-nums">{m.completed_this_month}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
-};
+}

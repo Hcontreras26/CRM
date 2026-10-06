@@ -1,121 +1,125 @@
-import React, { useState } from 'react';
-import { Plus } from '@phosphor-icons/react';
+import { useState, type DragEvent } from 'react';
+import { Plus, ListChecks } from '@phosphor-icons/react';
 import { TaskCard } from './TaskCard';
 import type { Task, TaskStatus } from '../types';
 
 interface TaskColumnProps {
   status: TaskStatus;
-  title: string;
+  label: string;
+  dot: string;
+  head: string;
   tasks: Task[];
-  onTaskClick: (task: Task) => void;
-  onAddTask: (status: TaskStatus) => void;
-  onMoveTask: (taskId: number, newStatus: TaskStatus, targetIndex?: number) => void;
+  /** La tarjeta que se esta arrastrando, si viene de este carril. */
+  dragging: Task | null;
   canCreate: boolean;
+  canDragTask: (task: Task) => boolean;
+  showAssignee: boolean;
+  onOpen: (task: Task) => void;
+  onAdd: (status: TaskStatus) => void;
+  onDragStart: (e: DragEvent<HTMLDivElement>, task: Task) => void;
+  onDragEnd: () => void;
+  /** Se suelta la tarjeta en la posicion `index` de esta columna. */
+  onDropAt: (status: TaskStatus, index: number) => void;
 }
 
-const COLUMN_CONFIG = {
-  por_hacer: {
-    badge: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-    dot: 'bg-slate-400',
-  },
-  en_curso: {
-    badge: 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300',
-    dot: 'bg-sky-500',
-  },
-  en_revision: {
-    badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-    dot: 'bg-amber-500',
-  },
-  hecha: {
-    badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
-    dot: 'bg-emerald-500',
-  },
-};
+/**
+ * Una columna del tablero. Arrastre nativo de HTML, como Prospectos → Pipeline:
+ * sin librerias. Mientras se arrastra, una linea marca donde caeria la tarjeta;
+ * se calcula por la mitad de la tarjeta que hay debajo del cursor.
+ */
+export function TaskColumn({
+  status, label, dot, head, tasks, dragging, canCreate, canDragTask, showAssignee,
+  onOpen, onAdd, onDragStart, onDragEnd, onDropAt,
+}: TaskColumnProps) {
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
-export const TaskColumn: React.FC<TaskColumnProps> = ({
-  status,
-  title,
-  tasks,
-  onTaskClick,
-  onAddTask,
-  onMoveTask,
-  canCreate,
-}) => {
-  const [isOver, setIsOver] = useState(false);
-  const cfg = COLUMN_CONFIG[status] || COLUMN_CONFIG.por_hacer;
-
-  const handleDragOver = (e: React.DragEvent) => {
+  function overCard(e: DragEvent<HTMLDivElement>, task: Task) {
+    if (!dragging) return;
     e.preventDefault();
-    setIsOver(true);
-  };
+    const rect = e.currentTarget.getBoundingClientRect();
+    const i = tasks.findIndex((t) => t.id === task.id);
+    const index = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
+    if (index !== dropIndex) setDropIndex(index);
+  }
 
-  const handleDragLeave = () => {
-    setIsOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
+  function overColumn(e: DragEvent<HTMLDivElement>) {
+    if (!dragging) return;
     e.preventDefault();
-    setIsOver(false);
-    const taskIdStr = e.dataTransfer.getData('text/plain');
-    if (taskIdStr) {
-      const taskId = Number(taskIdStr);
-      onMoveTask(taskId, status);
-    }
-  };
+    e.dataTransfer.dropEffect = 'move';
+    // Sobre el hueco de debajo de las tarjetas: al final.
+    if (e.target === e.currentTarget && dropIndex !== tasks.length) setDropIndex(tasks.length);
+  }
 
-  const handleDragStart = (e: React.DragEvent, task: Task) => {
-    e.dataTransfer.setData('text/plain', String(task.id));
-  };
+  function drop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const index = dropIndex ?? tasks.length;
+    setDropIndex(null);
+    onDropAt(status, index);
+  }
+
+  const linea = <div className="h-0.5 rounded-full bg-primary mx-1" aria-hidden />;
 
   return (
-    <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      className={`flex flex-col w-80 shrink-0 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border transition-colors duration-200 ${
-        isOver
-          ? 'border-indigo-400 bg-indigo-50/20 dark:border-indigo-500 dark:bg-indigo-950/20'
-          : 'border-slate-200 dark:border-slate-800'
-      } max-h-[calc(100vh-12rem)]`}
+    <section
+      aria-label={label}
+      className={`snap-start flex-shrink-0 w-[85vw] sm:w-[280px] flex flex-col rounded-lg transition-all ${
+        dropIndex !== null ? 'ring-2 ring-primary/40 bg-muted/30' : ''
+      }`}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropIndex(null);
+      }}
     >
-      {/* Cabecera de la columna */}
-      <div className="p-4 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800">
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
-          <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-100">{title}</h3>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.badge}`}>
-            {tasks.length}
-          </span>
+      <div className={`rounded-lg px-3 py-2 mb-2 ${head}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`w-2.5 h-2.5 rounded-full ${dot}`} />
+            <span className="text-[13px] font-semibold">{label}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[12px] font-semibold bg-card border border-border rounded-md px-2 py-0.5 tabular-nums">
+              {tasks.length}
+            </span>
+            {canCreate && status !== 'hecha' && (
+              <button
+                type="button"
+                onClick={() => onAdd(status)}
+                aria-label={`Nueva tarea en ${label}`}
+                className="p-1 rounded-md hover:bg-card text-muted-foreground hover:text-foreground"
+              >
+                <Plus size={14} weight="bold" />
+              </button>
+            )}
+          </div>
         </div>
-
-        {canCreate && (
-          <button
-            onClick={() => onAddTask(status)}
-            className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors"
-            title="Añadir tarea en esta columna"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        )}
       </div>
 
-      {/* Lista de tarjetas */}
-      <div className="p-3 flex-1 overflow-y-auto space-y-3 min-h-[150px]">
-        {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onClick={onTaskClick}
-            onDragStart={handleDragStart}
-          />
+      <div
+        className="space-y-2.5 flex-1 min-h-[160px] px-1 pb-2"
+        onDragOver={overColumn}
+        onDrop={drop}
+      >
+        {tasks.map((task, i) => (
+          <div key={task.id} className="space-y-2.5">
+            {dropIndex === i && linea}
+            <TaskCard
+              task={task}
+              draggable={canDragTask(task)}
+              showAssignee={showAssignee}
+              onOpen={onOpen}
+              onDragStart={onDragStart}
+              onDragEnd={() => { setDropIndex(null); onDragEnd(); }}
+              onDragOverCard={overCard}
+            />
+          </div>
         ))}
-
+        {dropIndex === tasks.length && tasks.length > 0 && linea}
         {tasks.length === 0 && (
-          <div className="h-28 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800/80 rounded-xl text-xs text-slate-400">
-            Sin tareas
+          <div className="border-2 border-dashed border-border rounded-lg p-6 text-center text-[13px] text-muted-foreground">
+            <ListChecks size={20} className="mx-auto mb-1 opacity-40" />
+            {dropIndex !== null ? 'Suelta aquí' : 'Sin tareas'}
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
-};
+}

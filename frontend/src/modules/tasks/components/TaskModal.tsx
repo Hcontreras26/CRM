@@ -1,694 +1,657 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
-  X,
-  Trash,
-  Calendar,
-  User,
-  Tag,
-  CheckSquare,
-  ChatTeardrop,
-  ClockCounterClockwise,
-  Plus,
-  PaperPlaneRight,
+  X, Trash, CheckSquare, ChatCircle, ClockCounterClockwise, Plus, PaperPlaneRight, Tag, LinkSimple, ArrowSquareOut,
 } from '@phosphor-icons/react';
-import type { Task, TaskChecklistItem, TaskComment, TaskTag, TaskEvent, TaskStatus, TaskPriority } from '../types';
-import * as tasksApi from '../api/tasks.api';
+import Portal from '@/shared/components/ui/portal';
+import Field from '@/shared/components/ui/Field';
+import Select from '@/shared/components/ui/Select';
+import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
+import { Button } from '@/shared/components/ui/button';
+import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { toast } from '@/shared/hooks/useToast';
+import { inputClass } from '@/shared/lib/ui';
+import * as tasksApi from '../api/tasks.api';
+import {
+  COLUMNS, PRIORITY, STATUS_LABEL, TAG_COLORS, fromDateInput, tagChip, toDateInput,
+} from '../lib/taskUi';
+import type {
+  Assignee, TagColor, TaskDetail, TaskEvent, TaskPriority, TaskStatus,
+} from '../types';
 
 interface TaskModalProps {
-  task: Task | null;
-  isOpen: boolean;
+  open: boolean;
+  /** La tarea que se abre; `null` para crear una nueva. */
+  taskId: number | null;
+  /** Para una nueva: en que columna y con que proyecto empieza. */
+  initialStatus?: TaskStatus;
+  initialProjectId?: number | null;
   onClose: () => void;
-  onTaskUpdated: () => void;
-  users: Array<{ id: number; nombre: string; email: string }>;
-  projects: Array<{ id: number; nombre: string }>;
+  /** Algo cambio: el tablero se vuelve a pedir. */
+  onChanged: () => void;
   currentUserId: number;
   isAdmin: boolean;
   canAssign: boolean;
-  canDelete: boolean;
+  canArchiveAny: boolean;
+  assignees: Assignee[];
+  projects: Array<{ id: number; nombre: string }>;
 }
 
-const TAG_COLOR_OPTIONS = ['sky', 'rose', 'emerald', 'amber', 'violet', 'indigo'];
+const errorDe = (err: unknown, porDefecto: string) =>
+  (err instanceof Error && err.message) ? err.message : porDefecto;
 
-export const TaskModal: React.FC<TaskModalProps> = ({
-  task,
-  isOpen,
-  onClose,
-  onTaskUpdated,
-  users,
-  projects,
-  currentUserId,
-  isAdmin,
-  canAssign,
-  canDelete,
-}) => {
-  const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
+const fallo = (titulo: string, err: unknown) =>
+  toast({ title: titulo, description: errorDe(err, 'Inténtalo de nuevo.'), variant: 'destructive' });
 
-  // Form state
+const textareaClass = inputClass.replace('h-9', 'min-h-[72px] py-2') + ' resize-y';
+
+/** Una linea del historial, en castellano. */
+function describir(ev: TaskEvent): string {
+  const d = ev.details || {};
+  const estado = (k: unknown) => STATUS_LABEL[k as TaskStatus] || String(k ?? '');
+  switch (ev.event_type) {
+    case 'created': return 'creó la tarea';
+    case 'status_changed': return `la movió de «${estado(d.old_status)}» a «${estado(d.new_status)}»`;
+    case 'reordered': return 'la cambió de sitio en la columna';
+    case 'assigned': return 'cambió el responsable';
+    case 'updated': return `editó ${Object.keys(d).join(', ') || 'la tarea'}`;
+    case 'archived': return 'la archivó';
+    case 'comment': return 'comentó';
+    case 'checklist': {
+      const que = { item_added: 'añadió', item_checked: 'marcó', item_unchecked: 'desmarcó', item_removed: 'quitó' }[String(d.action)] || 'cambió';
+      return `${que} «${String(d.title ?? '')}» en la lista`;
+    }
+    case 'tag': return `${d.action === 'removed' ? 'quitó' : 'añadió'} la etiqueta «${String(d.name ?? '')}»`;
+    case 'link': return `${d.action === 'removed' ? 'quitó' : 'añadió'} un enlace`;
+    default: return ev.event_type;
+  }
+}
+
+export function TaskModal({
+  open, taskId, initialStatus = 'por_hacer', initialProjectId = null, onClose, onChanged,
+  currentUserId, isAdmin, canAssign, canArchiveAny, assignees, projects,
+}: TaskModalProps) {
+  useEscapeKey(onClose, open);
+  const editando = taskId != null;
+
+  const [tab, setTab] = useState<'detalles' | 'historial'>('detalles');
+  const [task, setTask] = useState<TaskDetail | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [confirmarArchivo, setConfirmarArchivo] = useState(false);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>('por_hacer');
   const [priority, setPriority] = useState<TaskPriority>('media');
   const [dueDate, setDueDate] = useState('');
   const [projectId, setProjectId] = useState<number | ''>('');
-  const [assignedTo, setAssignedTo] = useState<number | ''>('');
+  const [assignedTo, setAssignedTo] = useState<number>(currentUserId);
 
-  // Sub-entities state
-  const [checklist, setChecklist] = useState<TaskChecklistItem[]>([]);
-  const [newChecklistTitle, setNewChecklistTitle] = useState('');
-  const [comments, setComments] = useState<TaskComment[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [tags, setTags] = useState<TaskTag[]>([]);
-  const [newTagName, setNewTagName] = useState('');
-  const [newTagColor, setNewTagColor] = useState('sky');
-  const [events, setEvents] = useState<TaskEvent[]>([]);
+  const [nuevoPaso, setNuevoPaso] = useState('');
+  const [nuevoComentario, setNuevoComentario] = useState('');
+  const [nuevaEtiqueta, setNuevaEtiqueta] = useState('');
+  const [colorEtiqueta, setColorEtiqueta] = useState<TagColor>('sky');
+  const [nuevoEnlace, setNuevoEnlace] = useState('');
+  const [tituloEnlace, setTituloEnlace] = useState('');
 
-  const [saving, setSaving] = useState(false);
-  const [loadingDetails, setLoadingDetails] = useState(false);
+  const rellenar = useCallback((t: TaskDetail) => {
+    setTask(t);
+    setTitle(t.title);
+    setDescription(t.description || '');
+    setStatus(t.status);
+    setPriority(t.priority);
+    setDueDate(toDateInput(t.due_date));
+    setProjectId(t.project_id ?? '');
+    setAssignedTo(t.assigned_to ?? currentUserId);
+  }, [currentUserId]);
 
-  const loadFullTask = useCallback(async (taskId: number) => {
+  const recargar = useCallback(async (id: number) => {
     try {
-      setLoadingDetails(true);
-      const fullTask = await tasksApi.getTaskById(taskId);
-      setTitle(fullTask.title || '');
-      setDescription(fullTask.description || '');
-      setStatus(fullTask.status || 'por_hacer');
-      setPriority(fullTask.priority || 'media');
-      setDueDate(fullTask.due_date ? fullTask.due_date.slice(0, 10) : '');
-      setProjectId(fullTask.project_id || '');
-      setAssignedTo(fullTask.assigned_to || '');
-      setChecklist(fullTask.checklist || []);
-      setComments(fullTask.comments || []);
-      setTags(fullTask.tags || []);
-      setEvents(fullTask.events || []);
-    } catch {
-      toast.error('Error al cargar los detalles de la tarea');
-    } finally {
-      setLoadingDetails(false);
+      rellenar(await tasksApi.getTaskById(id));
+    } catch (err) {
+      fallo('No se pudo abrir la tarea', err);
+      onClose();
     }
-  }, []);
+  }, [rellenar, onClose]);
 
   useEffect(() => {
-    if (task) {
-      loadFullTask(task.id);
+    if (!open) return;
+    setTab('detalles');
+    setConfirmarArchivo(false);
+    if (taskId != null) {
+      setCargando(true);
+      recargar(taskId).finally(() => setCargando(false));
     } else {
+      setTask(null);
       setTitle('');
       setDescription('');
-      setStatus('por_hacer');
+      setStatus(initialStatus);
       setPriority('media');
       setDueDate('');
-      setProjectId('');
+      setProjectId(initialProjectId ?? '');
       setAssignedTo(currentUserId);
-      setChecklist([]);
-      setComments([]);
-      setTags([]);
-      setEvents([]);
     }
-  }, [task, currentUserId, loadFullTask]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, taskId]);
 
-  if (!isOpen) return null;
+  if (!open) return null;
 
-  const isEditing = Boolean(task?.id);
+  // Decision 4: «Hecha» solo la ponen o la quitan admin y superadmin.
+  const opcionesEstado = COLUMNS
+    .filter((c) => isAdmin || (c.key !== 'hecha' && (!editando || task?.status !== 'hecha')))
+    .map((c) => ({ value: c.key, label: c.label }));
+  const estadoBloqueado = editando && task?.status === 'hecha' && !isAdmin;
 
-  const handleSave = async (e: React.FormEvent) => {
+  const opcionesProyecto = [
+    { value: '' as number | '', label: 'Sin proyecto' },
+    ...projects.map((p) => ({ value: p.id as number | '', label: p.nombre })),
+  ];
+  const opcionesResponsable = (assignees.length ? assignees : [{ id: currentUserId, nombre: 'Yo', email: '', role: '' }])
+    .map((a) => ({ value: a.id, label: a.id === currentUserId ? `${a.nombre} (yo)` : a.nombre }));
+
+  const puedeArchivar = editando && task != null && (canArchiveAny || task.created_by === currentUserId);
+
+  async function guardar(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
-      toast.error('El título es obligatorio');
+      toast({ title: 'El título es obligatorio', variant: 'destructive' });
       return;
     }
+    const payload: tasksApi.TaskPayload = {
+      title: title.trim(),
+      description: description.trim() || null,
+      priority,
+      due_date: fromDateInput(dueDate),
+      project_id: projectId === '' ? null : projectId,
+    };
+    // Solo quien puede asignar manda el responsable: al resto se lo pone el servidor.
+    if (canAssign) payload.assigned_to = assignedTo;
 
+    setGuardando(true);
     try {
-      setSaving(true);
-      const payload = {
-        title: title.trim(),
-        description: description.trim() || null,
-        status,
-        priority,
-        due_date: dueDate ? new Date(dueDate).toISOString() : null,
-        project_id: projectId ? Number(projectId) : null,
-        assigned_to: assignedTo ? Number(assignedTo) : null,
-      };
-
-      if (isEditing && task) {
-        // Si cambió el estado, usar moveTask para respetar las reglas de servidor
-        if (task.status !== status) {
-          await tasksApi.moveTask(task.id, { status });
-        }
+      if (editando && task) {
         await tasksApi.updateTask(task.id, payload);
-        toast.success('Tarea actualizada');
+        toast({ title: 'Tarea guardada' });
       } else {
-        await tasksApi.createTask(payload);
-        toast.success('Tarea creada');
+        await tasksApi.createTask({ ...payload, status });
+        toast({ title: 'Tarea creada' });
       }
-
-      onTaskUpdated();
+      onChanged();
       onClose();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al guardar la tarea';
-      toast.error(msg);
+    } catch (err) {
+      fallo('No se pudo guardar la tarea', err);
     } finally {
-      setSaving(false);
+      setGuardando(false);
     }
-  };
+  }
 
-  const handleArchive = async () => {
+  // «Mover a…»: en una tarea ya creada el estado se cambia al momento, con las
+  // reglas del servidor. Es tambien la forma de moverla en el movil.
+  async function moverA(nuevo: TaskStatus) {
+    if (!task || nuevo === task.status) return;
+    try {
+      await tasksApi.moveTask(task.id, { status: nuevo });
+      toast({ title: `Movida a «${STATUS_LABEL[nuevo]}»` });
+      await recargar(task.id);
+      onChanged();
+    } catch (err) {
+      fallo('No se pudo mover', err);
+    }
+  }
+
+  async function archivar() {
     if (!task) return;
-    if (!window.confirm('¿Deseas archivar esta tarea?')) return;
-
     try {
       await tasksApi.archiveTask(task.id);
-      toast.success('Tarea archivada');
-      onTaskUpdated();
+      toast({ title: 'Tarea archivada' });
+      onChanged();
       onClose();
-    } catch {
-      toast.error('Error al archivar la tarea');
+    } catch (err) {
+      fallo('No se pudo archivar', err);
+    } finally {
+      setConfirmarArchivo(false);
     }
-  };
+  }
 
-  /* --- Checklists --- */
-
-  const handleAddChecklistItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!task || !newChecklistTitle.trim()) return;
-
-    try {
-      const item = await tasksApi.addChecklistItem(task.id, { title: newChecklistTitle.trim() });
-      setChecklist([...checklist, item]);
-      setNewChecklistTitle('');
-    } catch {
-      toast.error('Error al añadir elemento');
-    }
-  };
-
-  const handleToggleChecklistItem = async (itemId: number, currentCompleted: boolean) => {
+  /** Para lo que cuelga de la tarjeta: hace la llamada, recarga y avisa si falla. */
+  async function cambio(fn: () => Promise<unknown>, siFalla: string, despues?: () => void) {
     if (!task) return;
     try {
-      const updated = await tasksApi.updateChecklistItem(task.id, itemId, { is_completed: !currentCompleted });
-      setChecklist(checklist.map((i) => (i.id === itemId ? updated : i)));
-    } catch {
-      toast.error('Error al actualizar elemento');
+      await fn();
+      despues?.();
+      await recargar(task.id);
+      onChanged();
+    } catch (err) {
+      fallo(siFalla, err);
     }
-  };
+  }
 
-  const handleDeleteChecklistItem = async (itemId: number) => {
-    if (!task) return;
-    try {
-      await tasksApi.deleteChecklistItem(task.id, itemId);
-      setChecklist(checklist.filter((i) => i.id !== itemId));
-    } catch {
-      toast.error('Error al eliminar elemento');
-    }
-  };
-
-  /* --- Comentarios --- */
-
-  const handleAddComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!task || !newComment.trim()) return;
-
-    try {
-      const created = await tasksApi.addComment(task.id, { content: newComment.trim() });
-      setComments([...comments, created]);
-      setNewComment('');
-    } catch {
-      toast.error('Error al publicar comentario');
-    }
-  };
-
-  const handleDeleteComment = async (commentId: number) => {
-    if (!task) return;
-    try {
-      await tasksApi.deleteComment(task.id, commentId);
-      setComments(comments.filter((c) => c.id !== commentId));
-      toast.success('Comentario eliminado');
-    } catch {
-      toast.error('Error al eliminar comentario');
-    }
-  };
-
-  /* --- Tags --- */
-
-  const handleAddTag = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!task || !newTagName.trim()) return;
-
-    try {
-      const created = await tasksApi.addTag(task.id, { name: newTagName.trim(), color: newTagColor });
-      setTags([...tags, created]);
-      setNewTagName('');
-    } catch {
-      toast.error('Error al añadir etiqueta');
-    }
-  };
-
-  const handleDeleteTag = async (tagId: number) => {
-    if (!task) return;
-    try {
-      await tasksApi.deleteTag(task.id, tagId);
-      setTags(tags.filter((t) => t.id !== tagId));
-    } catch {
-      toast.error('Error al eliminar etiqueta');
-    }
-  };
-
-  const completedCount = checklist.filter((c) => c.is_completed).length;
+  const hechos = task?.checklist.filter((c) => c.is_completed).length ?? 0;
+  const pasos = task?.checklist.length ?? 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-              {isEditing ? 'Detalle de la Tarea' : 'Nueva Tarea'}
-            </h2>
-            {isEditing && (
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('details')}
-                  className={`px-3 py-1 rounded-md font-medium transition-colors ${
-                    activeTab === 'details'
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'
-                  }`}
-                >
-                  Detalles
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('history')}
-                  className={`px-3 py-1 rounded-md font-medium flex items-center gap-1.5 transition-colors ${
-                    activeTab === 'history'
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'
-                  }`}
-                >
-                  <ClockCounterClockwise className="w-3.5 h-3.5" />
-                  Historial
-                </button>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          {loadingDetails ? (
-            <div className="py-12 flex justify-center text-slate-400 text-sm">Cargando detalles...</div>
-          ) : activeTab === 'history' ? (
-            /* Historial de eventos */
-            <div className="space-y-3">
-              <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">
-                Registro de actividad
-              </h3>
-              {events.length === 0 ? (
-                <p className="text-xs text-slate-400">No hay eventos registrados.</p>
-              ) : (
-                <div className="relative pl-4 border-l border-slate-200 dark:border-slate-800 space-y-4 text-xs">
-                  {events.map((ev) => (
-                    <div key={ev.id} className="relative">
-                      <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-white dark:ring-slate-900" />
-                      <p className="font-medium text-slate-700 dark:text-slate-200">
-                        {ev.user_name || 'Sistema'}:{' '}
-                        <span className="text-slate-500 dark:text-slate-400 font-normal">
-                          {ev.event_type === 'created' && 'creó la tarea.'}
-                          {ev.event_type === 'status_changed' &&
-                            `cambió el estado a ${String(ev.details?.new_status || '')}.`}
-                          {ev.event_type === 'updated' && 'actualizó los campos de la tarea.'}
-                          {ev.event_type === 'comment' && 'añadió un comentario.'}
-                          {ev.event_type === 'checklist' && 'modificó la lista de verificación.'}
-                          {ev.event_type === 'archived' && 'archivó la tarea.'}
-                        </span>
-                      </p>
-                      <span className="text-[10px] text-slate-400">
-                        {new Date(ev.created_at).toLocaleString('es-ES')}
-                      </span>
-                    </div>
+    <Portal>
+      <div className="fixed inset-0 !m-0 z-[70] flex items-center justify-center sm:p-4">
+        <div className="fixed inset-0 !m-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="task-modal-title"
+          className="relative bg-card sm:rounded-lg border border-border w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
+        >
+          {/* Cabecera */}
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
+            <div className="flex items-center gap-3 min-w-0">
+              <h2 id="task-modal-title" className="text-base font-semibold truncate">
+                {editando ? 'Tarea' : 'Nueva tarea'}
+              </h2>
+              {editando && (
+                <div className="flex bg-muted p-0.5 rounded-md text-xs" role="tablist">
+                  {(['detalles', 'historial'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      role="tab"
+                      aria-selected={tab === t}
+                      onClick={() => setTab(t)}
+                      className={`px-3 py-1 rounded font-medium inline-flex items-center gap-1.5 ${
+                        tab === t ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {t === 'historial' && <ClockCounterClockwise size={13} />}
+                      {t === 'detalles' ? 'Detalles' : 'Historial'}
+                    </button>
                   ))}
                 </div>
               )}
             </div>
-          ) : (
-            /* Formulario y subsecciones */
-            <form id="task-form" onSubmit={handleSave} className="space-y-6">
-              {/* Título */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                  Título de la tarea
-                </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ej: Revisar documentación del campus"
-                  required
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
-              </div>
-
-              {/* Descripción */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                  Descripción
-                </label>
-                <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Detalles adicionales, objetivos o notas..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
-                />
-              </div>
-
-              {/* Parámetros: Estado, Prioridad, Fecha, Proyecto, Asignado */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Estado */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                    Estado
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  >
-                    <option value="por_hacer">Por hacer</option>
-                    <option value="en_curso">En curso</option>
-                    <option value="en_revision">En revisión</option>
-                    {/* Regla del CRM: Solo admin/superadmin pueden seleccionar Hecha */}
-                    {(isAdmin || status === 'hecha') && <option value="hecha">Hecha</option>}
-                  </select>
-                </div>
-
-                {/* Prioridad */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                    Prioridad
-                  </label>
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  >
-                    <option value="baja">Baja</option>
-                    <option value="media">Media</option>
-                    <option value="alta">Alta</option>
-                  </select>
-                </div>
-
-                {/* Fecha Límite */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5" />
-                    Fecha Límite
-                  </label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  />
-                </div>
-
-                {/* Proyecto */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                    Proyecto / Campus
-                  </label>
-                  <select
-                    value={projectId}
-                    onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  >
-                    <option value="">General (Sin proyecto)</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Asignado a */}
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5" />
-                    Asignado a
-                  </label>
-                  <select
-                    value={assignedTo}
-                    onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : '')}
-                    disabled={!canAssign && !isAdmin}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    <option value="">Sin asignar</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.nombre} ({u.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Subsecciones (solo si la tarea ya está creada) */}
-              {isEditing && task && (
-                <>
-                  {/* Etiquetas / Tags */}
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <Tag className="w-3.5 h-3.5" />
-                        Etiquetas
-                      </label>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 items-center mb-3">
-                      {tags.map((t) => (
-                        <span
-                          key={t.id}
-                          className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
-                        >
-                          {t.name}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTag(t.id)}
-                            className="text-slate-400 hover:text-rose-500"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        value={newTagName}
-                        onChange={(e) => setNewTagName(e.target.value)}
-                        placeholder="Nueva etiqueta..."
-                        className="px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      <select
-                        value={newTagColor}
-                        onChange={(e) => setNewTagColor(e.target.value)}
-                        className="px-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
-                      >
-                        {TAG_COLOR_OPTIONS.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={handleAddTag}
-                        className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg transition-colors"
-                      >
-                        Añadir
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Checklist */}
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <CheckSquare className="w-3.5 h-3.5" />
-                        Lista de comprobación ({completedCount}/{checklist.length})
-                      </label>
-                    </div>
-
-                    {checklist.length > 0 && (
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mb-3">
-                        <div
-                          className="bg-indigo-600 h-full transition-all duration-300"
-                          style={{
-                            width: `${(completedCount / checklist.length) * 100}%`,
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    <div className="space-y-2 mb-3">
-                      {checklist.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 text-xs group"
-                        >
-                          <label className="flex items-center gap-2 cursor-pointer flex-1">
-                            <input
-                              type="checkbox"
-                              checked={item.is_completed}
-                              onChange={() => handleToggleChecklistItem(item.id, item.is_completed)}
-                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span
-                              className={`${
-                                item.is_completed
-                                  ? 'line-through text-slate-400 dark:text-slate-500'
-                                  : 'text-slate-700 dark:text-slate-200'
-                              }`}
-                            >
-                              {item.title}
-                            </span>
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteChecklistItem(item.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-500 transition-opacity"
-                          >
-                            <Trash className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newChecklistTitle}
-                        onChange={(e) => setNewChecklistTitle(e.target.value)}
-                        placeholder="Añadir elemento de checklist..."
-                        className="flex-1 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddChecklistItem}
-                        className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg flex items-center gap-1 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Añadir
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Comentarios */}
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <ChatTeardrop className="w-3.5 h-3.5" />
-                      Comentarios ({comments.length})
-                    </label>
-
-                    <div className="space-y-3 mb-4 max-h-48 overflow-y-auto">
-                      {comments.map((c) => (
-                        <div
-                          key={c.id}
-                          className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl text-xs space-y-1 group"
-                        >
-                          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">
-                              {c.user_name}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span>{new Date(c.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
-                              {(isAdmin || c.user_id === currentUserId) && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteComment(c.id)}
-                                  className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-opacity"
-                                >
-                                  <Trash className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                            {c.content}
-                          </p>
-                        </div>
-                      ))}
-                      {comments.length === 0 && (
-                        <p className="text-xs text-slate-400">Sin comentarios aún.</p>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <textarea
-                        rows={2}
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Escribe un comentario..."
-                        className="flex-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddComment}
-                        className="self-end px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
-                      >
-                        <PaperPlaneRight className="w-3.5 h-3.5" />
-                        Enviar
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </form>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-          <div>
-            {isEditing && (canDelete || isAdmin) && (
-              <button
-                type="button"
-                onClick={handleArchive}
-                className="px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors flex items-center gap-1.5"
-              >
-                <Trash className="w-4 h-4" />
-                Archivar
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              aria-label="Cerrar"
+              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
             >
-              Cancelar
+              <X size={18} weight="bold" />
             </button>
-            <button
-              type="submit"
-              form="task-form"
-              disabled={saving}
-              className="px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-xl shadow-sm transition-all disabled:opacity-50"
-            >
-              {saving ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Crear Tarea'}
-            </button>
+          </div>
+
+          {/* Contenido */}
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {cargando ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">Cargando la tarea…</p>
+            ) : tab === 'historial' && task ? (
+              <ol className="relative border-l border-border ml-1 space-y-4">
+                {task.events.map((ev) => (
+                  <li key={ev.id} className="ml-4">
+                    <span className="absolute -left-[5px] mt-1.5 w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-card" />
+                    <p className="text-sm">
+                      <span className="font-semibold">{ev.user_name || 'El sistema'}</span>{' '}
+                      <span className="text-muted-foreground">{describir(ev)}</span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
+                      {new Date(ev.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <form id="task-form" onSubmit={guardar} className="space-y-4">
+                <Field label="Título" required htmlFor="task-title">
+                  <input
+                    id="task-title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    maxLength={255}
+                    placeholder="Ej.: Revisar la ficha del máster en la web"
+                    className={inputClass}
+                    autoFocus={!editando}
+                    required
+                  />
+                </Field>
+
+                <Field label="Descripción" htmlFor="task-desc">
+                  <textarea
+                    id="task-desc"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    placeholder="Qué hay que hacer, para cuándo y cualquier detalle útil"
+                    className={textareaClass}
+                  />
+                </Field>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label={editando ? 'Mover a…' : 'Columna'} hint={estadoBloqueado ? 'Cerrada: solo administración la reabre.' : undefined}>
+                    <Select<TaskStatus>
+                      value={status}
+                      onChange={(v) => (editando ? moverA(v) : setStatus(v))}
+                      options={estadoBloqueado ? [{ value: 'hecha', label: 'Hecha' }] : opcionesEstado}
+                      disabled={estadoBloqueado}
+                      ariaLabel="Columna"
+                    />
+                  </Field>
+
+                  <Field label="Prioridad">
+                    <Select<TaskPriority>
+                      value={priority}
+                      onChange={setPriority}
+                      options={(['alta', 'media', 'baja'] as const).map((p) => ({ value: p, label: PRIORITY[p].label }))}
+                      ariaLabel="Prioridad"
+                    />
+                  </Field>
+
+                  <Field label="Fecha límite" htmlFor="task-due">
+                    <input
+                      id="task-due"
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field label="Proyecto o web">
+                    <Select<number | ''>
+                      value={projectId}
+                      onChange={setProjectId}
+                      options={opcionesProyecto}
+                      ariaLabel="Proyecto"
+                    />
+                  </Field>
+
+                  <Field
+                    label="Responsable"
+                    className="sm:col-span-2"
+                    hint={canAssign ? undefined : 'Tus tareas son para ti. Asignar a otra persona lo hace administración.'}
+                  >
+                    {canAssign ? (
+                      <Select<number>
+                        value={assignedTo}
+                        onChange={setAssignedTo}
+                        options={opcionesResponsable}
+                        ariaLabel="Responsable"
+                      />
+                    ) : (
+                      <p className={`${inputClass} flex items-center text-muted-foreground`}>
+                        {task?.assigned_to_name || 'Yo'}
+                      </p>
+                    )}
+                  </Field>
+                </div>
+
+                {editando && task && (
+                  <>
+                    {/* Lista de comprobación */}
+                    <section className="pt-4 border-t border-border space-y-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                        <CheckSquare size={14} /> Lista de comprobación
+                        {pasos > 0 && <span className="tabular-nums normal-case">· {hechos}/{pasos}</span>}
+                      </h3>
+                      {pasos > 0 && (
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary transition-all" style={{ width: `${(hechos / pasos) * 100}%` }} />
+                        </div>
+                      )}
+                      <ul className="space-y-1">
+                        {task.checklist.map((item) => (
+                          <li key={item.id} className="flex items-center gap-2 group rounded-md px-1 py-1 hover:bg-muted/50">
+                            <input
+                              type="checkbox"
+                              checked={item.is_completed}
+                              onChange={() => cambio(
+                                () => tasksApi.updateChecklistItem(task.id, item.id, { is_completed: !item.is_completed }),
+                                'No se pudo marcar'
+                              )}
+                              className="h-4 w-4 rounded border-border accent-primary"
+                              aria-label={item.title}
+                            />
+                            <span className={`flex-1 text-sm ${item.is_completed ? 'line-through text-muted-foreground' : ''}`}>
+                              {item.title}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => cambio(() => tasksApi.deleteChecklistItem(task.id, item.id), 'No se pudo quitar')}
+                              aria-label={`Quitar ${item.title}`}
+                              className="p-1 text-muted-foreground hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+                            >
+                              <Trash size={14} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex gap-2">
+                        <input
+                          value={nuevoPaso}
+                          onChange={(e) => setNuevoPaso(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (nuevoPaso.trim()) cambio(() => tasksApi.addChecklistItem(task.id, { title: nuevoPaso.trim() }), 'No se pudo añadir', () => setNuevoPaso(''));
+                            }
+                          }}
+                          placeholder="Añadir un paso…"
+                          maxLength={255}
+                          className={inputClass}
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-9"
+                          disabled={!nuevoPaso.trim()}
+                          onClick={() => cambio(() => tasksApi.addChecklistItem(task.id, { title: nuevoPaso.trim() }), 'No se pudo añadir', () => setNuevoPaso(''))}
+                        >
+                          <Plus size={14} className="mr-1" /> Añadir
+                        </Button>
+                      </div>
+                    </section>
+
+                    {/* Etiquetas */}
+                    <section className="pt-4 border-t border-border space-y-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                        <Tag size={14} /> Etiquetas
+                      </h3>
+                      {task.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {task.tags.map((t) => (
+                            <span key={t.id} className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded ${tagChip(t.color)}`}>
+                              {t.name}
+                              <button
+                                type="button"
+                                onClick={() => cambio(() => tasksApi.deleteTag(task.id, t.id), 'No se pudo quitar la etiqueta')}
+                                aria-label={`Quitar etiqueta ${t.name}`}
+                                className="opacity-70 hover:opacity-100"
+                              >
+                                <X size={11} weight="bold" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <input
+                          value={nuevaEtiqueta}
+                          onChange={(e) => setNuevaEtiqueta(e.target.value)}
+                          placeholder="Nueva etiqueta…"
+                          maxLength={50}
+                          className={inputClass}
+                        />
+                        <Select<TagColor>
+                          value={colorEtiqueta}
+                          onChange={setColorEtiqueta}
+                          options={(Object.keys(TAG_COLORS) as TagColor[]).map((c) => ({ value: c, label: TAG_COLORS[c].label }))}
+                          ariaLabel="Color de la etiqueta"
+                          className="w-32 flex-shrink-0"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-9"
+                          disabled={!nuevaEtiqueta.trim()}
+                          onClick={() => cambio(
+                            () => tasksApi.addTag(task.id, { name: nuevaEtiqueta.trim(), color: colorEtiqueta }),
+                            'No se pudo añadir la etiqueta',
+                            () => setNuevaEtiqueta('')
+                          )}
+                        >
+                          Añadir
+                        </Button>
+                      </div>
+                    </section>
+
+                    {/* Enlaces */}
+                    <section className="pt-4 border-t border-border space-y-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                        <LinkSimple size={14} /> Enlaces
+                      </h3>
+                      <ul className="space-y-1">
+                        {task.links.map((l) => (
+                          <li key={l.id} className="flex items-center gap-2 group rounded-md px-1 py-1 hover:bg-muted/50">
+                            <ArrowSquareOut size={14} className="text-muted-foreground flex-shrink-0" />
+                            <a
+                              href={l.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 min-w-0 text-sm text-primary hover:underline truncate"
+                            >
+                              {l.title || l.url}
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => cambio(() => tasksApi.deleteLink(task.id, l.id), 'No se pudo quitar el enlace')}
+                              aria-label={`Quitar enlace ${l.title || l.url}`}
+                              className="p-1 text-muted-foreground hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+                            >
+                              <Trash size={14} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_10rem_auto] gap-2">
+                        <input
+                          type="url"
+                          value={nuevoEnlace}
+                          onChange={(e) => setNuevoEnlace(e.target.value)}
+                          placeholder="https://… (web, Drive, issue de GitHub)"
+                          className={inputClass}
+                        />
+                        <input
+                          value={tituloEnlace}
+                          onChange={(e) => setTituloEnlace(e.target.value)}
+                          placeholder="Nombre (opcional)"
+                          maxLength={255}
+                          className={inputClass}
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-9"
+                          disabled={!nuevoEnlace.trim()}
+                          onClick={() => cambio(
+                            () => tasksApi.addLink(task.id, { url: nuevoEnlace.trim(), title: tituloEnlace.trim() || null }),
+                            'No se pudo añadir el enlace',
+                            () => { setNuevoEnlace(''); setTituloEnlace(''); }
+                          )}
+                        >
+                          Añadir
+                        </Button>
+                      </div>
+                    </section>
+
+                    {/* Comentarios */}
+                    <section className="pt-4 border-t border-border space-y-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                        <ChatCircle size={14} /> Comentarios
+                        {task.comments.length > 0 && <span className="tabular-nums normal-case">· {task.comments.length}</span>}
+                      </h3>
+                      {task.comments.length === 0 && <p className="text-sm text-muted-foreground">Todavía no hay comentarios.</p>}
+                      <ul className="space-y-2">
+                        {task.comments.map((c) => (
+                          <li key={c.id} className="rounded-md bg-muted/50 border border-border px-3 py-2 group">
+                            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">{c.user_name}</span>
+                              <span className="flex items-center gap-2 tabular-nums">
+                                {new Date(c.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                                {(isAdmin || c.user_id === currentUserId) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => cambio(() => tasksApi.deleteComment(task.id, c.id), 'No se pudo borrar el comentario')}
+                                    aria-label="Borrar comentario"
+                                    className="hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+                                  >
+                                    <Trash size={12} />
+                                  </button>
+                                )}
+                              </span>
+                            </div>
+                            <p className="text-sm whitespace-pre-wrap break-words mt-0.5">{c.content}</p>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex gap-2 items-end">
+                        <textarea
+                          value={nuevoComentario}
+                          onChange={(e) => setNuevoComentario(e.target.value)}
+                          rows={2}
+                          maxLength={5000}
+                          placeholder="Escribe un comentario…"
+                          className={textareaClass}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-9"
+                          disabled={!nuevoComentario.trim()}
+                          onClick={() => cambio(
+                            () => tasksApi.addComment(task.id, { content: nuevoComentario.trim() }),
+                            'No se pudo publicar el comentario',
+                            () => setNuevoComentario('')
+                          )}
+                        >
+                          <PaperPlaneRight size={14} className="mr-1" /> Enviar
+                        </Button>
+                      </div>
+                    </section>
+                  </>
+                )}
+              </form>
+            )}
+          </div>
+
+          {/* Pie */}
+          <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-border bg-muted/20">
+            <div>
+              {puedeArchivar && (
+                <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setConfirmarArchivo(true)}>
+                  <Trash size={15} className="mr-1.5" /> Archivar
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                {editando ? 'Cerrar' : 'Cancelar'}
+              </Button>
+              {tab === 'detalles' && !cargando && (
+                <Button type="submit" form="task-form" size="sm" disabled={guardando}>
+                  {guardando ? 'Guardando…' : editando ? 'Guardar' : 'Crear tarea'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <ConfirmDialog
+        open={confirmarArchivo}
+        title="¿Archivar esta tarea?"
+        message="Sale del tablero, pero no se borra: sigue contando en «Todo el equipo»."
+        confirmLabel="Archivar"
+        tone="destructive"
+        onConfirm={archivar}
+        onCancel={() => setConfirmarArchivo(false)}
+      />
+    </Portal>
   );
-};
+}

@@ -1,162 +1,97 @@
-import React from 'react';
-import { Calendar, ChatTeardrop, CheckSquare, WarningCircle, User } from '@phosphor-icons/react';
+import type { DragEvent } from 'react';
+import { CalendarBlank, ChatCircle, CheckSquare, DotsSixVertical, LinkSimple } from '@phosphor-icons/react';
+import { avatarColorFor, getInitials } from '@/shared/lib/ui';
+import { PRIORITY, dueInfo, tagChip } from '../lib/taskUi';
 import type { Task } from '../types';
 
 interface TaskCardProps {
   task: Task;
-  onClick: (task: Task) => void;
-  onDragStart: (e: React.DragEvent, task: Task) => void;
+  draggable: boolean;
+  showAssignee: boolean;
+  onOpen: (task: Task) => void;
+  onDragStart: (e: DragEvent<HTMLDivElement>, task: Task) => void;
+  onDragEnd: () => void;
+  onDragOverCard: (e: DragEvent<HTMLDivElement>, task: Task) => void;
 }
 
-const PRIORITY_STYLES = {
-  baja: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  media: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-  alta: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-};
-
-const PRIORITY_LABELS = {
-  baja: 'Baja',
-  media: 'Media',
-  alta: 'Alta',
-};
-
-const TAG_COLOR_MAP: Record<string, string> = {
-  sky: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
-  rose: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-  violet: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
-  indigo: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
-};
-
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onClick, onDragStart }) => {
-  const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'hecha';
-
-  const formattedDueDate = task.due_date
-    ? new Date(task.due_date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
-    : null;
+export function TaskCard({
+  task, draggable, showAssignee, onOpen, onDragStart, onDragEnd, onDragOverCard,
+}: TaskCardProps) {
+  const prioridad = PRIORITY[task.priority] || PRIORITY.media;
+  const vence = dueInfo(task);
+  const total = task.checklist_total || 0;
+  const hechos = task.checklist_completed || 0;
 
   return (
     <div
-      draggable
+      draggable={draggable}
       onDragStart={(e) => onDragStart(e, task)}
-      onClick={() => onClick(task)}
-      className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing hover:border-indigo-400 dark:hover:border-indigo-500"
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => onDragOverCard(e, task)}
+      onClick={() => onOpen(task)}
+      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(task); }}
+      tabIndex={0}
+      role="button"
+      aria-label={`Abrir tarea ${task.title}`}
+      className={`bg-card border border-border border-l-4 ${prioridad.border} rounded-lg p-3 space-y-2 ${
+        draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+      } hover:shadow-sm hover:border-primary/30 transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1`}
     >
-      {/* Etiquetas / Tags */}
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[13px] font-semibold leading-snug break-words min-w-0">{task.title}</p>
+        {draggable && (
+          <DotsSixVertical size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+        )}
+      </div>
+
       {task.tags && task.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2.5">
+        <div className="flex flex-wrap gap-1">
           {task.tags.map((t) => (
-            <span
-              key={t.id}
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                TAG_COLOR_MAP[t.color] || TAG_COLOR_MAP.sky
-              }`}
-            >
+            <span key={t.id} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${tagChip(t.color)}`}>
               {t.name}
             </span>
           ))}
         </div>
       )}
 
-      {/* Título */}
-      <h4 className="font-medium text-sm text-slate-800 dark:text-slate-100 leading-snug line-clamp-2">
-        {task.title}
-      </h4>
-
-      {/* Descripción corta */}
-      {task.description && (
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-          {task.description}
-        </p>
-      )}
-
-      {/* Proyecto */}
       {task.project_name && (
-        <div className="mt-2.5">
-          <span className="inline-block text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-            {task.project_name}
-          </span>
-        </div>
+        <p className="text-[11px] text-muted-foreground bg-muted rounded-md px-2 py-0.5 truncate">{task.project_name}</p>
       )}
 
-      {/* Badges de estado, checklist, comentarios y fecha */}
-      <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-        <div className="flex items-center gap-2">
-          {/* Prioridad */}
-          <span
-            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-              PRIORITY_STYLES[task.priority] || PRIORITY_STYLES.media
-            }`}
-          >
-            {PRIORITY_LABELS[task.priority] || 'Media'}
+      <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground">
+        {vence && (
+          <span className={`inline-flex items-center gap-1 font-semibold px-1.5 py-0.5 rounded ${vence.classes}`}>
+            <CalendarBlank size={10} weight="bold" />
+            {vence.label}
           </span>
-
-          {/* Fecha límite */}
-          {formattedDueDate && (
-            <span
-              className={`flex items-center gap-1 text-[11px] font-medium ${
-                isOverdue
-                  ? 'text-rose-600 dark:text-rose-400 font-semibold'
-                  : 'text-slate-500 dark:text-slate-400'
-              }`}
-              title={isOverdue ? 'Tarea vencida' : 'Fecha límite'}
-            >
-              {isOverdue ? (
-                <WarningCircle className="w-3.5 h-3.5 text-rose-500" weight="fill" />
-              ) : (
-                <Calendar className="w-3.5 h-3.5" />
-              )}
-              {formattedDueDate}
-            </span>
-          )}
-
-          {/* Checklist */}
-          {task.checklist_total !== undefined && task.checklist_total > 0 && (
-            <span
-              className={`flex items-center gap-1 text-[11px] ${
-                task.checklist_completed === task.checklist_total
-                  ? 'text-emerald-600 dark:text-emerald-400 font-medium'
-                  : ''
-              }`}
-              title="Elementos de checklist completados"
-            >
-              <CheckSquare className="w-3.5 h-3.5" weight={task.checklist_completed === task.checklist_total ? 'fill' : 'regular'} />
-              {task.checklist_completed}/{task.checklist_total}
-            </span>
-          )}
-
-          {/* Comentarios */}
-          {task.comments_count !== undefined && task.comments_count > 0 && (
-            <span className="flex items-center gap-1 text-[11px]" title="Comentarios">
-              <ChatTeardrop className="w-3.5 h-3.5" />
-              {task.comments_count}
-            </span>
-          )}
-        </div>
-
-        {/* Asignado */}
-        {task.assigned_to_name ? (
-          <div
-            className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-medium flex items-center justify-center text-[10px] ring-2 ring-white dark:ring-slate-900"
-            title={`Asignado a: ${task.assigned_to_name}`}
+        )}
+        {total > 0 && (
+          <span className={`inline-flex items-center gap-1 tabular-nums ${hechos === total ? 'text-success' : ''}`}>
+            <CheckSquare size={12} />
+            {hechos}/{total}
+          </span>
+        )}
+        {(task.comments_count || 0) > 0 && (
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            <ChatCircle size={12} />
+            {task.comments_count}
+          </span>
+        )}
+        {(task.links_count || 0) > 0 && (
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            <LinkSimple size={12} />
+            {task.links_count}
+          </span>
+        )}
+        {showAssignee && task.assigned_to && (
+          <span
+            className={`ml-auto w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-semibold ${avatarColorFor(task.assigned_to)}`}
+            title={task.assigned_to_name || ''}
           >
-            {task.assigned_to_name
-              .split(' ')
-              .map((n) => n[0])
-              .slice(0, 2)
-              .join('')
-              .toUpperCase()}
-          </div>
-        ) : (
-          <div
-            className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-[10px]"
-            title="Sin asignar"
-          >
-            <User className="w-3.5 h-3.5" />
-          </div>
+            {getInitials(task.assigned_to_name)}
+          </span>
         )}
       </div>
     </div>
   );
-};
+}

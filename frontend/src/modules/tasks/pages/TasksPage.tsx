@@ -1,328 +1,361 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  Plus,
-  MagnifyingGlass,
-  Kanban,
-  ArrowsClockwise,
-} from '@phosphor-icons/react';
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Plus, MagnifyingGlass, ArrowsClockwise, Warning, X } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import usePermission from '@/shared/hooks/usePermission';
 import { toast } from '@/shared/hooks/useToast';
-import client from '@/shared/api/client';
+import PageHeader from '@/shared/components/ui/PageHeader';
+import Select from '@/shared/components/ui/Select';
+import { Button } from '@/shared/components/ui/button';
+import { avatarColorFor, getInitials, inputClass } from '@/shared/lib/ui';
 import * as tasksApi from '../api/tasks.api';
 import { TaskColumn } from '../components/TaskColumn';
 import { TaskModal } from '../components/TaskModal';
 import { TeamTasksMetrics } from '../components/TeamTasksMetrics';
-import type { Task, TaskStatus, TeamMemberMetric } from '../types';
+import { COLUMNS, PRIORITY, STATUS_LABEL, neighboursAt } from '../lib/taskUi';
+import type { Assignee, TagName, Task, TaskPriority, TaskStatus, TeamMemberMetric } from '../types';
 
-export const TasksPage: React.FC = () => {
+// «Mi tablero» por defecto. Quien ve todo puede elegir a otra persona o
+// «Todo el equipo», que agrupa por persona (#210).
+type Vista = 'mio' | 'equipo' | number;
+
+type Filtros = {
+  search: string;
+  projectId: number | '';
+  priority: TaskPriority | '';
+  tag: string;
+  vencidas: boolean;
+  desde: string;
+  hasta: string;
+};
+
+const SIN_FILTROS: Filtros = { search: '', projectId: '', priority: '', tag: '', vencidas: false, desde: '', hasta: '' };
+
+type Carril = { userId: number | null; nombre: string; tasks: Task[] };
+
+export default function TasksPage() {
   const { user } = useAuth();
   const { projects } = useProjectContext();
   const { can, isAdmin } = usePermission();
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  const yo: number = user?.id ?? 0;
+  const canViewAll = isAdmin || can('tasks.view_all');
+  const canAssign = isAdmin || can('tasks.assign');
+  const canArchiveAny = isAdmin || can('tasks.delete');
+  const canCreate = isAdmin || can('tasks.create');
+
+  const [vista, setVista] = useState<Vista>('mio');
+  const [filtros, setFiltros] = useState<Filtros>(SIN_FILTROS);
+  const [busqueda, setBusqueda] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const [assignees, setAssignees] = useState<Assignee[]>([]);
+  const [etiquetas, setEtiquetas] = useState<TagName[]>([]);
+  const [metricas, setMetricas] = useState<TeamMemberMetric[]>([]);
+  const [cargandoMetricas, setCargandoMetricas] = useState(false);
+  const [arrastrando, setArrastrando] = useState<Task | null>(null);
+  const [nueva, setNueva] = useState<{ status: TaskStatus } | null>(null);
 
-  // Filtros
-  const [search, setSearch] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const misProyectos = useMemo(
+    () => (projects || []).filter((p: { id: number; isAll?: boolean }) => p.id > 0 && !p.isAll)
+      .map((p: { id: number; nombre: string }) => ({ id: p.id, nombre: p.nombre })),
+    [projects]
+  );
 
-  // Métricas de equipo (Fase 4)
-  const [metrics, setMetrics] = useState<TeamMemberMetric[]>([]);
-  const [showMetrics, setShowMetrics] = useState(false);
+  // La tarea abierta va en la URL (?id=): asi los avisos de la campana y del
+  // correo abren justo esa tarjeta.
+  const abiertaId = Number(searchParams.get('id')) || null;
+  const abrir = (id: number) => setSearchParams((p) => { p.set('id', String(id)); return p; });
+  const cerrar = useCallback(() => {
+    setNueva(null);
+    setSearchParams((p) => { p.delete('id'); return p; });
+  }, [setSearchParams]);
 
-  // Usuarios del sistema para el selector
-  const [users, setUsers] = useState<Array<{ id: number; nombre: string; email: string }>>([]);
+  // La busqueda espera a que se deje de teclear.
+  useEffect(() => {
+    const t = setTimeout(() => setFiltros((f) => (f.search === busqueda ? f : { ...f, search: busqueda })), 300);
+    return () => clearTimeout(t);
+  }, [busqueda]);
 
-  const canCreate = can('tasks.create') || isAdmin;
-  const canAssign = can('tasks.assign') || isAdmin;
-  const canDelete = can('tasks.delete') || isAdmin;
-  const canViewAll = can('tasks.view_all') || isAdmin;
-
-  const loadTasks = useCallback(async () => {
+  const cargarTareas = useCallback(async () => {
+    setCargando(true);
     try {
-      setLoading(true);
+      const assigned_to = vista === 'mio' ? yo : vista === 'equipo' ? undefined : vista;
       const data = await tasksApi.getTasks({
-        search: search.trim() || undefined,
-        priority: priorityFilter || undefined,
-        project_id: selectedProjectId ? Number(selectedProjectId) : undefined,
-        assigned_to: selectedUserId || undefined,
+        assigned_to: assigned_to || undefined,
+        search: filtros.search.trim() || undefined,
+        project_id: filtros.projectId || undefined,
+        priority: filtros.priority || undefined,
+        tag: filtros.tag || undefined,
+        vencidas: filtros.vencidas || undefined,
+        desde: filtros.desde || undefined,
+        hasta: filtros.hasta || undefined,
       });
       setTasks(data);
-    } catch {
-      toast.error('Error al cargar las tareas');
+    } catch (err) {
+      toast({ title: 'No se pudieron cargar las tareas', description: err instanceof Error ? err.message : undefined, variant: 'destructive' });
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
-  }, [search, priorityFilter, selectedProjectId, selectedUserId]);
+  }, [vista, yo, filtros]);
 
-  const loadUsersAndMetrics = useCallback(async () => {
+  const cargarExtras = useCallback(async () => {
+    tasksApi.getTagNames().then(setEtiquetas).catch(() => setEtiquetas([]));
+    if (canViewAll || canAssign) {
+      tasksApi.getAssignees().then(setAssignees).catch(() => setAssignees([]));
+    }
+  }, [canViewAll, canAssign]);
+
+  const cargarMetricas = useCallback(async () => {
+    if (vista !== 'equipo' || !canViewAll) return;
+    setCargandoMetricas(true);
     try {
-      const { data: usersRes } = await client.get('/users');
-      if (usersRes?.data) {
-        setUsers(usersRes.data);
-      }
-    } catch {
-      // ignore
+      setMetricas(await tasksApi.getTeamMetrics(filtros.projectId || undefined));
+    } catch (err) {
+      toast({ title: 'No se pudieron cargar las métricas del equipo', description: err instanceof Error ? err.message : undefined, variant: 'destructive' });
+    } finally {
+      setCargandoMetricas(false);
     }
+  }, [vista, canViewAll, filtros.projectId]);
 
-    if (canViewAll) {
-      try {
-        const metricsData = await tasksApi.getTeamMetrics(
-          selectedProjectId ? Number(selectedProjectId) : undefined
-        );
-        setMetrics(metricsData);
-      } catch {
-        // ignore
-      }
+  useEffect(() => { cargarTareas(); }, [cargarTareas]);
+  useEffect(() => { cargarExtras(); }, [cargarExtras]);
+  useEffect(() => { cargarMetricas(); }, [cargarMetricas]);
+
+  const refrescar = useCallback(() => {
+    cargarTareas();
+    cargarMetricas();
+    tasksApi.getTagNames().then(setEtiquetas).catch(() => undefined);
+  }, [cargarTareas, cargarMetricas]);
+
+  // Los carriles: uno solo, o uno por persona en «Todo el equipo».
+  const carriles: Carril[] = useMemo(() => {
+    if (vista !== 'equipo') {
+      const nombre = vista === 'mio' ? 'Mi tablero' : assignees.find((a) => a.id === vista)?.nombre || '';
+      return [{ userId: vista === 'mio' ? yo : vista, nombre, tasks }];
     }
-  }, [canViewAll, selectedProjectId]);
+    const porPersona = new Map<number | null, Carril>();
+    for (const t of tasks) {
+      const k = t.assigned_to;
+      if (!porPersona.has(k)) porPersona.set(k, { userId: k, nombre: t.assigned_to_name || 'Sin responsable', tasks: [] });
+      porPersona.get(k)!.tasks.push(t);
+    }
+    return [...porPersona.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [vista, tasks, assignees, yo]);
 
-  useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+  const puedeArrastrar = (t: Task) => isAdmin || t.status !== 'hecha';
 
-  useEffect(() => {
-    loadUsersAndMetrics();
-  }, [loadUsersAndMetrics]);
+  function empezarArrastre(e: DragEvent<HTMLDivElement>, t: Task) {
+    setArrastrando(t);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(t.id));
+  }
 
-  const handleCreateTask = (initialStatus: TaskStatus = 'por_hacer') => {
-    setSelectedTask({
-      id: 0,
-      title: '',
-      description: null,
-      status: initialStatus,
-      priority: 'media',
-      position: 1000,
-      due_date: null,
-      project_id: selectedProjectId ? Number(selectedProjectId) : null,
-      assigned_to: user?.id || null,
-      created_by: user?.id || 0,
-      completed_at: null,
-      archived_at: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    setIsModalOpen(true);
-  };
+  async function soltar(columna: Task[], status: TaskStatus, index: number) {
+    const t = arrastrando;
+    setArrastrando(null);
+    if (!t) return;
 
-  const handleEditTask = (task: Task) => {
-    setSelectedTask(task);
-    setIsModalOpen(true);
-  };
+    // Decision 4, tambien aqui para no hacer un viaje que el servidor rechazaria.
+    if (status === 'hecha' && t.status !== 'hecha' && !isAdmin) {
+      toast({ title: 'Solo administración cierra una tarea', description: 'Llévala a «En revisión» y la cerrarán.', variant: 'destructive' });
+      return;
+    }
+    const vecinas = neighboursAt(columna, index, t.id);
+    if (!vecinas && status === t.status) return; // se solto donde estaba
 
-  const handleMoveTask = async (taskId: number, newStatus: TaskStatus) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-    if (task.status === newStatus) return;
-
-    // Actualización optimista
-    const prevTasks = [...tasks];
-    setTasks(tasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
+    // Se pinta ya en su sitio y luego se confirma con el servidor.
+    const pos = (id: number | null | undefined) => tasks.find((x) => x.id === id)?.position;
+    const prev = pos(vecinas?.prev_id);
+    const next = pos(vecinas?.next_id);
+    const provisional = prev != null && next != null ? (prev + next) / 2
+      : prev != null ? prev + 1000 : next != null ? next / 2 : Number.MAX_SAFE_INTEGER;
+    const antes = tasks;
+    setTasks((ts) => ts
+      .map((x) => (x.id === t.id ? { ...x, status, position: provisional } : x))
+      .sort((a, b) => a.position - b.position));
 
     try {
-      await tasksApi.moveTask(taskId, { status: newStatus });
-      toast.success('Estado actualizado');
-      loadTasks();
-    } catch (err: unknown) {
-      setTasks(prevTasks);
-      const msg = err instanceof Error ? err.message : 'Error al mover la tarea';
-      toast.error(msg);
+      await tasksApi.moveTask(t.id, { status, prev_id: vecinas?.prev_id ?? null, next_id: vecinas?.next_id ?? null });
+      if (status !== t.status) toast({ title: `Movida a «${STATUS_LABEL[status]}»` });
+      refrescar();
+    } catch (err) {
+      setTasks(antes);
+      toast({ title: 'No se pudo mover la tarea', description: err instanceof Error ? err.message : undefined, variant: 'destructive' });
     }
-  };
+  }
 
-  const columnTasks = useMemo(() => {
-    return {
-      por_hacer: tasks.filter((t) => t.status === 'por_hacer'),
-      en_curso: tasks.filter((t) => t.status === 'en_curso'),
-      en_revision: tasks.filter((t) => t.status === 'en_revision'),
-      hecha: tasks.filter((t) => t.status === 'hecha'),
-    };
-  }, [tasks]);
+  const hayFiltros = JSON.stringify(filtros) !== JSON.stringify(SIN_FILTROS);
+  const opcionesVista = [
+    { value: 'mio' as Vista, label: 'Mi tablero' },
+    { value: 'equipo' as Vista, label: 'Todo el equipo' },
+    ...assignees.filter((a) => a.id !== yo).map((a) => ({ value: a.id as Vista, label: a.nombre })),
+  ];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-      {/* Cabecera */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl">
-              <Kanban className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
-                Tablero de Tareas
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                Gestión Kanban del equipo y proyectos
-              </p>
-            </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Tareas"
+        subtitle={vista === 'equipo' ? 'Todo el equipo, por persona' : 'Arrastra las tarjetas para avanzar o reordenarlas'}
+        actions={(
+          <div className="flex items-center gap-2">
+            {canViewAll && (
+              <Select<Vista>
+                value={vista}
+                onChange={setVista}
+                options={opcionesVista}
+                ariaLabel="Tablero de"
+                size="sm"
+                className="w-44"
+              />
+            )}
+            <Button variant="outline" size="icon" className="h-9 w-9" onClick={refrescar} aria-label="Recargar">
+              <ArrowsClockwise size={16} />
+            </Button>
+            {canCreate && (
+              <Button size="sm" className="h-9" onClick={() => setNueva({ status: 'por_hacer' })}>
+                <Plus size={15} weight="bold" className="mr-1.5" /> Nueva tarea
+              </Button>
+            )}
           </div>
-        </div>
+        )}
+      />
 
-        <div className="flex items-center gap-2.5">
-          {canViewAll && (
-            <button
-              onClick={() => setShowMetrics(!showMetrics)}
-              className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors ${
-                showMetrics
-                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/50 dark:border-indigo-800 dark:text-indigo-300'
-                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {showMetrics ? 'Ocultar Métricas' : 'Métricas del Equipo'}
-            </button>
-          )}
-
-          <button
-            onClick={() => loadTasks()}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl transition-colors"
-            title="Recargar tareas"
-          >
-            <ArrowsClockwise className="w-4 h-4" />
-          </button>
-
-          {canCreate && (
-            <button
-              onClick={() => handleCreateTask('por_hacer')}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold rounded-xl shadow-sm flex items-center gap-2 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              Nueva Tarea
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Métricas del Equipo (Fase 4) */}
-      {showMetrics && canViewAll && (
-        <TeamTasksMetrics
-          metrics={metrics}
-          selectedUserId={selectedUserId}
-          onSelectUser={setSelectedUserId}
-        />
-      )}
-
-      {/* Barra de Filtros */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center gap-3">
-        {/* Búsqueda */}
-        <div className="relative flex-1 w-full">
-          <MagnifyingGlass className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      {/* Filtros */}
+      <div className="bg-card border border-border rounded-lg p-3 flex flex-wrap items-end gap-2">
+        <div className="relative flex-1 min-w-[12rem]">
+          <MagnifyingGlass size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por título o contenido..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar en título o descripción…"
+            aria-label="Buscar"
+            className={`${inputClass} pl-9`}
           />
         </div>
-
-        {/* Proyecto */}
-        <select
-          value={selectedProjectId}
-          onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : '')}
-          className="w-full sm:w-48 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+        <Select<number | ''>
+          value={filtros.projectId}
+          onChange={(v) => setFiltros((f) => ({ ...f, projectId: v }))}
+          options={[{ value: '', label: 'Todos los proyectos' }, ...misProyectos.map((p) => ({ value: p.id as number | '', label: p.nombre }))]}
+          ariaLabel="Proyecto"
+          size="sm"
+          className="w-44"
+        />
+        <Select<TaskPriority | ''>
+          value={filtros.priority}
+          onChange={(v) => setFiltros((f) => ({ ...f, priority: v }))}
+          options={[{ value: '', label: 'Cualquier prioridad' }, ...(['alta', 'media', 'baja'] as const).map((p) => ({ value: p as TaskPriority | '', label: PRIORITY[p].label }))]}
+          ariaLabel="Prioridad"
+          size="sm"
+          className="w-40"
+        />
+        <Select<string>
+          value={filtros.tag}
+          onChange={(v) => setFiltros((f) => ({ ...f, tag: v }))}
+          options={[{ value: '', label: 'Cualquier etiqueta' }, ...etiquetas.map((t) => ({ value: t.name, label: `${t.name} (${t.total})` }))]}
+          ariaLabel="Etiqueta"
+          size="sm"
+          className="w-40"
+        />
+        <label className="flex flex-col text-[11px] text-muted-foreground">
+          Vence desde
+          <input type="date" value={filtros.desde} onChange={(e) => setFiltros((f) => ({ ...f, desde: e.target.value }))} className={`${inputClass} w-36`} />
+        </label>
+        <label className="flex flex-col text-[11px] text-muted-foreground">
+          hasta
+          <input type="date" value={filtros.hasta} min={filtros.desde || undefined} onChange={(e) => setFiltros((f) => ({ ...f, hasta: e.target.value }))} className={`${inputClass} w-36`} />
+        </label>
+        <Button
+          type="button"
+          variant={filtros.vencidas ? 'default' : 'outline'}
+          size="sm"
+          className="h-9"
+          aria-pressed={filtros.vencidas}
+          onClick={() => setFiltros((f) => ({ ...f, vencidas: !f.vencidas }))}
         >
-          <option value="">Todos los proyectos</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nombre}
-            </option>
-          ))}
-        </select>
-
-        {/* Prioridad */}
-        <select
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          className="w-full sm:w-40 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-        >
-          <option value="">Todas las prioridades</option>
-          <option value="alta">Alta</option>
-          <option value="media">Media</option>
-          <option value="baja">Baja</option>
-        </select>
-
-        {/* Asignado (solo para admins) */}
-        {canViewAll && (
-          <select
-            value={selectedUserId || ''}
-            onChange={(e) => setSelectedUserId(e.target.value ? Number(e.target.value) : null)}
-            className="w-full sm:w-48 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-          >
-            <option value="">Todos los miembros</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nombre}
-              </option>
-            ))}
-          </select>
+          <Warning size={14} className="mr-1.5" /> Solo vencidas
+        </Button>
+        {hayFiltros && (
+          <Button type="button" variant="ghost" size="sm" className="h-9" onClick={() => { setFiltros(SIN_FILTROS); setBusqueda(''); }}>
+            <X size={14} className="mr-1" /> Quitar filtros
+          </Button>
         )}
       </div>
 
-      {/* Tablero de Columnas */}
-      <div className="flex gap-4 overflow-x-auto pb-6 items-start">
-        <TaskColumn
-          status="por_hacer"
-          title="Por hacer"
-          tasks={columnTasks.por_hacer}
-          onTaskClick={handleEditTask}
-          onAddTask={handleCreateTask}
-          onMoveTask={handleMoveTask}
-          canCreate={canCreate}
-        />
+      {vista === 'equipo' && (
+        <TeamTasksMetrics metrics={metricas} loading={cargandoMetricas} onSelectUser={(id) => setVista(id === yo ? 'mio' : id)} />
+      )}
 
-        <TaskColumn
-          status="en_curso"
-          title="En curso"
-          tasks={columnTasks.en_curso}
-          onTaskClick={handleEditTask}
-          onAddTask={handleCreateTask}
-          onMoveTask={handleMoveTask}
-          canCreate={canCreate}
-        />
+      {cargando && tasks.length === 0 ? (
+        <p className="py-12 text-center text-sm text-muted-foreground">Cargando el tablero…</p>
+      ) : vista === 'equipo' && carriles.length === 0 ? (
+        <p className="py-12 text-center text-sm text-muted-foreground">
+          {hayFiltros ? 'Ninguna tarea cumple esos filtros.' : 'Nadie tiene tareas abiertas.'}
+        </p>
+      ) : (
+        carriles.map((carril) => {
+          // Se arrastra dentro de un mismo carril: mover una tarjeta no la cambia de persona.
+          const mismoCarril = arrastrando && (vista !== 'equipo' || arrastrando.assigned_to === carril.userId);
+          return (
+            <section key={String(carril.userId)} className="space-y-2">
+              {vista === 'equipo' && (
+                <button
+                  type="button"
+                  onClick={() => carril.userId && setVista(carril.userId === yo ? 'mio' : carril.userId)}
+                  className="flex items-center gap-2 text-sm font-semibold hover:underline"
+                >
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold ${avatarColorFor(carril.userId || 0)}`}>
+                    {getInitials(carril.nombre)}
+                  </span>
+                  {carril.nombre}
+                  <span className="text-xs font-normal text-muted-foreground tabular-nums">· {carril.tasks.length}</span>
+                </button>
+              )}
+              <div className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory sm:snap-none -mx-4 px-4 lg:mx-0 lg:px-0">
+                {COLUMNS.map((col) => {
+                  const columna = carril.tasks.filter((t) => t.status === col.key);
+                  return (
+                    <TaskColumn
+                      key={col.key}
+                      status={col.key}
+                      label={col.label}
+                      dot={col.dot}
+                      head={col.head}
+                      tasks={columna}
+                      dragging={mismoCarril ? arrastrando : null}
+                      canCreate={canCreate && vista !== 'equipo' && (vista === 'mio' || canAssign)}
+                      canDragTask={puedeArrastrar}
+                      showAssignee={vista === 'equipo'}
+                      onOpen={(t) => abrir(t.id)}
+                      onAdd={(status) => setNueva({ status })}
+                      onDragStart={empezarArrastre}
+                      onDragEnd={() => setArrastrando(null)}
+                      onDropAt={(status, index) => soltar(columna, status, index)}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })
+      )}
 
-        <TaskColumn
-          status="en_revision"
-          title="En revisión"
-          tasks={columnTasks.en_revision}
-          onTaskClick={handleEditTask}
-          onAddTask={handleCreateTask}
-          onMoveTask={handleMoveTask}
-          canCreate={canCreate}
-        />
-
-        <TaskColumn
-          status="hecha"
-          title="Hecha"
-          tasks={columnTasks.hecha}
-          onTaskClick={handleEditTask}
-          onAddTask={handleCreateTask}
-          onMoveTask={handleMoveTask}
-          canCreate={canCreate}
-        />
-      </div>
-
-      {/* Modal de Tarea */}
       <TaskModal
-        task={selectedTask}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onTaskUpdated={loadTasks}
-        users={users}
-        projects={projects}
-        currentUserId={user?.id || 0}
+        open={abiertaId != null || nueva != null}
+        taskId={abiertaId}
+        initialStatus={nueva?.status}
+        initialProjectId={filtros.projectId || null}
+        onClose={cerrar}
+        onChanged={refrescar}
+        currentUserId={yo}
         isAdmin={isAdmin}
         canAssign={canAssign}
-        canDelete={canDelete}
+        canArchiveAny={canArchiveAny}
+        assignees={assignees}
+        projects={misProyectos}
       />
     </div>
   );
-};
-
-export default TasksPage;
+}

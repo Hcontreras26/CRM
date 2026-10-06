@@ -1,10 +1,11 @@
 export type TaskStatus = 'por_hacer' | 'en_curso' | 'en_revision' | 'hecha';
 export type TaskPriority = 'baja' | 'media' | 'alta';
+export type TagColor = 'sky' | 'rose' | 'amber' | 'emerald' | 'violet' | 'slate';
 
 export interface TaskTag {
   id: number;
   name: string;
-  color: string;
+  color: TagColor | string;
 }
 
 export interface TaskChecklistItem {
@@ -26,6 +27,16 @@ export interface TaskComment {
   content: string;
   created_at: string;
   updated_at?: string;
+}
+
+export interface TaskLink {
+  id: number;
+  task_id: number;
+  url: string;
+  title: string | null;
+  created_by: number | null;
+  created_by_name?: string | null;
+  created_at: string;
 }
 
 export interface TaskEvent {
@@ -60,10 +71,29 @@ export interface Task {
   checklist_total?: number;
   checklist_completed?: number;
   comments_count?: number;
+  links_count?: number;
   tags?: TaskTag[];
-  checklist?: TaskChecklistItem[];
-  comments?: TaskComment[];
-  events?: TaskEvent[];
+}
+
+/** La tarjeta abierta: con todo lo que cuelga de ella. */
+export interface TaskDetail extends Task {
+  checklist: TaskChecklistItem[];
+  comments: TaskComment[];
+  tags: TaskTag[];
+  links: TaskLink[];
+  events: TaskEvent[];
+}
+
+export interface Assignee {
+  id: number;
+  nombre: string;
+  email: string;
+  role: string;
+}
+
+export interface TagName {
+  name: string;
+  total: number;
 }
 
 export interface TeamMemberMetric {
