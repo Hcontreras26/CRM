@@ -88,8 +88,20 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Solicitud de cambio', agrupa: false,
     descripcion: 'Alguien pide un cambio y hace falta aprobarlo',
   },
+  task_asignada: {
+    clase: ACCION, etiqueta: 'Tarea asignada', agrupa: false,
+    descripcion: 'Cuando te asignan una tarea del equipo',
+  },
 
   // ── Saber ──
+  task_estado_cambiado: {
+    clase: AVISO, etiqueta: 'Estado de tarea', agrupa: false,
+    descripcion: 'Cuando una tarea creada o seguida por ti cambia de estado',
+  },
+  task_comentario: {
+    clase: AVISO, etiqueta: 'Comentario en tarea', agrupa: false,
+    descripcion: 'Cuando alguien comenta en una tarea que tienes asignada o creaste',
+  },
   venta_automatica: {
     clase: AVISO, etiqueta: 'Venta automática', agrupa: false,
     descripcion: 'Un cobro de Stripe crea o cierra una venta solo',

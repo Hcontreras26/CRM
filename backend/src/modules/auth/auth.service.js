@@ -11,11 +11,11 @@ const BCRYPT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRY = '8h';
 const REFRESH_TOKEN_EXPIRY_DAYS = 30;
 
+// `roles_extra` viaja en el token para que cada guardia no tenga que ir a
+// la base a preguntar. Si a alguien le cambian los roles, los ve al
+// renovar --como el resto de lo que hay aqui dentro--.
 function generateAccessToken(user, activeProjectId = null) {
   return jwt.sign(
-    // `roles_extra` viaja en el token para que cada guardia no tenga que ir a
-    // la base a preguntar. Si a alguien le cambian los roles, los ve al
-    // renovar --como el resto de lo que hay aqui dentro--.
     { userId: user.id, email: user.email, role: user.role,
       roles_extra: Array.isArray(user.roles_extra) ? user.roles_extra : [],
       customRoleId: user.custom_role_id ?? null, activeProjectId },

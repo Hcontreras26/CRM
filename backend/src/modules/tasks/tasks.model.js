@@ -47,16 +47,23 @@ export async function findTasks({ assigned_to, project_id, status, priority, sea
       t.priority,
       t.due_date,
       t.project_id,
-      p.name AS project_name,
+      p.nombre AS project_name,
       t.assigned_to,
-      u_assign.name AS assigned_to_name,
+      u_assign.nombre AS assigned_to_name,
       u_assign.email AS assigned_to_email,
       t.created_by,
-      u_create.name AS created_by_name,
+      u_create.nombre AS created_by_name,
       t.completed_at,
       t.archived_at,
       t.created_at,
-      t.updated_at
+      t.updated_at,
+      (SELECT COUNT(*)::int FROM task_checklist_items ci WHERE ci.task_id = t.id) AS checklist_total,
+      (SELECT COUNT(*)::int FROM task_checklist_items ci WHERE ci.task_id = t.id AND ci.is_completed = true) AS checklist_completed,
+      (SELECT COUNT(*)::int FROM task_comments cm WHERE cm.task_id = t.id) AS comments_count,
+      COALESCE((
+        SELECT json_agg(json_build_object('id', tg.id, 'name', tg.name, 'color', tg.color))
+        FROM task_tags tg WHERE tg.task_id = t.id
+      ), '[]'::json) AS tags
     FROM tasks t
     LEFT JOIN projects p ON p.id = t.project_id
     LEFT JOIN users u_assign ON u_assign.id = t.assigned_to
@@ -80,12 +87,12 @@ export async function findTaskById(id) {
       t.priority,
       t.due_date,
       t.project_id,
-      p.name AS project_name,
+      p.nombre AS project_name,
       t.assigned_to,
-      u_assign.name AS assigned_to_name,
+      u_assign.nombre AS assigned_to_name,
       u_assign.email AS assigned_to_email,
       t.created_by,
-      u_create.name AS created_by_name,
+      u_create.nombre AS created_by_name,
       t.completed_at,
       t.archived_at,
       t.created_at,
@@ -223,7 +230,7 @@ export async function findTaskEvents(task_id) {
       te.id,
       te.task_id,
       te.user_id,
-      u.name AS user_name,
+      u.nombre AS user_name,
       te.event_type,
       te.details,
       te.created_at
@@ -233,5 +240,163 @@ export async function findTaskEvents(task_id) {
     ORDER BY te.created_at DESC
   `;
   const { rows } = await query(sql, [task_id]);
+  return rows;
+}
+
+/* --- Checklists (Fase 2) --- */
+
+export async function findChecklistItems(task_id) {
+  const sql = `
+    SELECT id, task_id, title, is_completed, position, created_at, updated_at
+    FROM task_checklist_items
+    WHERE task_id = $1
+    ORDER BY position ASC, id ASC
+  `;
+  const { rows } = await query(sql, [task_id]);
+  return rows;
+}
+
+export async function createChecklistItem({ task_id, title, position = 1000.0 }) {
+  const sql = `
+    INSERT INTO task_checklist_items (task_id, title, position)
+    VALUES ($1, $2, $3)
+    RETURNING *
+  `;
+  const { rows } = await query(sql, [task_id, title, position]);
+  return rows[0];
+}
+
+export async function updateChecklistItem(id, fields) {
+  const allowed = ['title', 'is_completed', 'position'];
+  const sets = [];
+  const params = [];
+  let pIdx = 1;
+
+  for (const key of allowed) {
+    if (fields[key] !== undefined) {
+      sets.push(`${key} = $${pIdx++}`);
+      params.push(fields[key]);
+    }
+  }
+
+  if (sets.length === 0) return null;
+
+  sets.push(`updated_at = NOW()`);
+  params.push(id);
+
+  const sql = `
+    UPDATE task_checklist_items
+    SET ${sets.join(', ')}
+    WHERE id = $${pIdx}
+    RETURNING *
+  `;
+  const { rows } = await query(sql, params);
+  return rows[0] || null;
+}
+
+export async function deleteChecklistItem(id) {
+  const sql = `DELETE FROM task_checklist_items WHERE id = $1 RETURNING *`;
+  const { rows } = await query(sql, [id]);
+  return rows[0] || null;
+}
+
+/* --- Comentarios (Fase 2) --- */
+
+export async function findComments(task_id) {
+  const sql = `
+    SELECT 
+      c.id,
+      c.task_id,
+      c.user_id,
+      u.nombre AS user_name,
+      u.avatar_url AS user_avatar,
+      c.content,
+      c.created_at,
+      c.updated_at
+    FROM task_comments c
+    JOIN users u ON u.id = c.user_id
+    WHERE c.task_id = $1
+    ORDER BY c.created_at ASC
+  `;
+  const { rows } = await query(sql, [task_id]);
+  return rows;
+}
+
+export async function createComment({ task_id, user_id, content }) {
+  const sql = `
+    INSERT INTO task_comments (task_id, user_id, content)
+    VALUES ($1, $2, $3)
+    RETURNING *
+  `;
+  const { rows } = await query(sql, [task_id, user_id, content]);
+  return rows[0];
+}
+
+export async function deleteComment(id) {
+  const sql = `DELETE FROM task_comments WHERE id = $1 RETURNING *`;
+  const { rows } = await query(sql, [id]);
+  return rows[0] || null;
+}
+
+/* --- Etiquetas (Fase 2) --- */
+
+export async function findTags(task_id) {
+  const sql = `
+    SELECT id, task_id, name, color, created_at
+    FROM task_tags
+    WHERE task_id = $1
+    ORDER BY id ASC
+  `;
+  const { rows } = await query(sql, [task_id]);
+  return rows;
+}
+
+export async function createTag({ task_id, name, color = 'sky' }) {
+  const sql = `
+    INSERT INTO task_tags (task_id, name, color)
+    VALUES ($1, $2, $3)
+    RETURNING *
+  `;
+  const { rows } = await query(sql, [task_id, name, color]);
+  return rows[0];
+}
+
+export async function deleteTag(id) {
+  const sql = `DELETE FROM task_tags WHERE id = $1 RETURNING *`;
+  const { rows } = await query(sql, [id]);
+  return rows[0] || null;
+}
+
+/* --- Métricas de Equipo (Fase 4) --- */
+
+export async function getTeamMetrics(projectId = null) {
+  const conditions = ['t.archived_at IS NULL'];
+  const params = [];
+
+  if (projectId) {
+    conditions.push(`t.project_id = $1`);
+    params.push(projectId);
+  }
+
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+  const sql = `
+    SELECT 
+      u.id AS user_id,
+      u.nombre AS user_name,
+      u.email AS user_email,
+      u.role AS user_role,
+      COUNT(t.id) FILTER (WHERE t.status != 'hecha')::int AS open_tasks,
+      COUNT(t.id) FILTER (WHERE t.status != 'hecha' AND t.due_date < NOW())::int AS overdue_tasks,
+      COUNT(t.id) FILTER (WHERE t.status = 'hecha' AND t.completed_at >= NOW() - INTERVAL '7 days')::int AS completed_this_week,
+      COUNT(t.id) FILTER (WHERE t.status = 'hecha' AND t.completed_at >= NOW() - INTERVAL '30 days')::int AS completed_this_month
+    FROM users u
+    LEFT JOIN tasks t ON t.assigned_to = u.id ${projectId ? `AND t.project_id = $1` : ''} AND t.archived_at IS NULL
+    WHERE u.active = true AND u.role IN ('superadmin', 'admin', 'gestor', 'soporte', 'colaborador')
+    GROUP BY u.id, u.nombre, u.email, u.role
+    ORDER BY open_tasks DESC, u.nombre ASC
+  `;
+
+  const { rows } = await query(sql, params);
   return rows;
 }

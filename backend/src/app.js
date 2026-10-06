@@ -79,6 +79,7 @@ import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js'
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
+import { startTasksDailySummaryScheduler } from './jobs/tasksDailySummaryJob.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -331,7 +332,8 @@ if (process.env.NODE_ENV !== 'test') {
     startReporteSemanalScheduler();
     startMcpRotacionScheduler();
     startMcpVigilanciaScheduler();
-  startCorreoEntranteScheduler();
+    startCorreoEntranteScheduler();
+    startTasksDailySummaryScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }
