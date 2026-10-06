@@ -14,6 +14,8 @@ export const createInvoiceSchema = z.object({
   // CRM avisa de que esa venta ya tiene una factura igual ese dia.
   numero: z.coerce.number().int().positive().optional().nullable(),
   permitirParecida: z.coerce.boolean().optional(),
+  // Y este, cuando avisa de que la factura pasa de lo cobrado de la venta.
+  permitirMasDeLoCobrado: z.coerce.boolean().optional(),
   leadId: z.number().int().positive().optional(),
   // 'proforma' = presupuesto no fiscal. 'normal' = factura. (rectificativa va por su ruta)
   tipo: z.enum(['normal', 'proforma']).optional(),
