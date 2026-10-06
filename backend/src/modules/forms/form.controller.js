@@ -7,6 +7,24 @@ import { autoMap } from './field-aliases.js';
 import { parseInboundEmail } from './mail-parser.js';
 import { query } from '../../shared/config/db.js';
 import { countryToPrefix, phoneToCountryName } from '../../shared/utils/countryPrefix.js';
+import { logger } from '../../shared/utils/logger.js';
+import { planificarPasosDeLead } from '../proceso/proceso.model.js';
+
+// LA AGENDA DEL PROCESO COMERCIAL (#89 · #90), como en los otros dos caminos de
+// entrada (lead.service: el webhook de Make y el alta a mano). Aqui faltaba, y
+// se notaba: todo lo que entra por un formulario del CRM (Elementor, correo o
+// el formulario incrustado) se quedaba fuera del proceso, sin cola del dia ni
+// pasos. ACADEMIA IA recibe todos sus prospectos por aqui (Diego, 06/10: «los
+// leads despues del 29 no estan en ese proceso y no entiendo por que»).
+//
+// Envuelta, igual que alli: que falle la agenda no puede tumbar el alta.
+async function planificarAgenda(leadId) {
+  try {
+    await planificarPasosDeLead(leadId);
+  } catch (err) {
+    logger.warn({ err: err.message, leadId }, 'No se pudo planificar la agenda del prospecto (formulario)');
+  }
+}
 
 // Normaliza URL para matching: quita protocol, www, query string, fragment, trailing slash
 function normalizeUrl(url) {
@@ -486,6 +504,7 @@ async function processInboundPayload(req, res, next, body, source, preloadedForm
       },
       customFields,
     });
+    await planificarAgenda(lead.id);
     await model.incrementSubmissions(f.id);
     await model.logEvent({
       form_template_id: f.id, source, payload: body, status: 'success',
@@ -553,6 +572,7 @@ export async function publicSubmit(req, res, next) {
       },
       customFields: body.custom_fields || {},
     });
+    await planificarAgenda(lead.id);
     await model.incrementSubmissions(f.id);
     res.json({ success: true, data: { lead_id: lead.id, redirect_url: f.config?.redirect_url || null } });
   } catch (err) { next(err); }
