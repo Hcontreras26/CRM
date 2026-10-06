@@ -361,3 +361,89 @@ export async function sendTestEmail(apiKey, toEmail) {
 }
 
 export { sendEmail };
+
+/**
+ * MCP de Claude (#192): una conexión se ha bloqueado por fallar el código de
+ * desbloqueo. Va al dueño de la conexión y a quien vigila (MCP_AVISO_EMAIL o
+ * los super admin). Puede ser un despiste o alguien probando códigos con una
+ * URL que no es suya: el correo lo dice para que lo mire quien sabe.
+ */
+export async function sendMcpBloqueoEmail({ para, persona, hasta, maxFallos }) {
+  const cuando = new Date(hasta).toLocaleString('es-ES', { timeZone: process.env.APP_TIMEZONE || 'Europe/Madrid' });
+  const conexion = `${persona.conexion} (${persona.prefijo}…)`;
+  const subject = `MCP de Claude bloqueado: ${persona.nombre}`;
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html><body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #1f2937; max-width: 560px; margin: 0 auto; padding: 24px;">
+      <h2 style="margin: 0 0 12px;">Conexión de Claude bloqueada</h2>
+      <p>La conexión <strong>${conexion}</strong> de <strong>${persona.nombre}</strong> ha fallado el código de desbloqueo ${maxFallos} veces seguidas.</p>
+      <p>Queda bloqueada hasta las <strong>${cuando}</strong>: hasta entonces no da datos ni acepta códigos.</p>
+      <p>Si no has sido tú, revoca esa URL en el CRM → Conexión → MCP: alguien podría tenerla.</p>
+    </body></html>`;
+  const textContent = `La conexión ${conexion} de ${persona.nombre} ha fallado el código de desbloqueo ${maxFallos} veces seguidas.\n`
+    + `Queda bloqueada hasta las ${cuando}.\nSi no has sido tú, revoca esa URL en el CRM → Conexión → MCP.`;
+  return await sendEmail({ to: para, subject, htmlContent, textContent, tags: ['mcp-bloqueo', 'crm'] });
+}
+
+/**
+ * MCP de Claude (#194): sus URLs van a caducar pronto. Un correo por persona,
+ * con todas las que le caducan, y el enlace al panel para crear otra.
+ */
+export async function sendMcpCaducidadEmail({ persona, urls, enlace }) {
+  const tz = process.env.APP_TIMEZONE || 'Europe/Madrid';
+  const fecha = (d) => new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: tz });
+  // La URL de una conexión (Conexiones de Claude) no se crea con «Crear mi URL
+  // personal»: se vuelve a sacar en esa conexión.
+  const como = (u) => (u.conexion ? ` — de la conexión «${u.conexion}»: pulsa «Sacar mi URL» en esa conexión` : '');
+  const lista = urls.map((u) => `<li><strong>${u.nombre}</strong> (${u.prefijo}…): caduca el ${fecha(u.expires_at)}${como(u)}</li>`).join('');
+  const listaTexto = urls.map((u) => `- ${u.nombre} (${u.prefijo}…): caduca el ${fecha(u.expires_at)}${como(u)}`).join('\n');
+  const una = urls.length === 1;
+  const subject = una ? 'Tu URL de Claude para el CRM caduca pronto' : `${urls.length} URLs de Claude para el CRM caducan pronto`;
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html><body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #1f2937; max-width: 560px; margin: 0 auto; padding: 24px;">
+      <p>Hola ${persona.nombre},</p>
+      <p>${una ? 'Esta URL con la que Claude consulta el CRM va a caducar' : 'Estas URLs con las que Claude consulta el CRM van a caducar'}:</p>
+      <ul>${lista}</ul>
+      <p>Cuando caduque, Claude dejará de poder consultar. Para seguir, en Conexión → MCP crea una URL nueva
+         (o sácala de nuevo en su conexión) y cámbiala en tu Claude (Configuración → Conectores):</p>
+      <p style="margin: 24px 0;"><a href="${enlace}" style="background: #3b82f6; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: bold;">Ir a Conexión → MCP</a></p>
+      <p style="font-size: 13px; color: #6b7280;">Si ya no la usas, no hace falta hacer nada: se apagará sola.</p>
+    </body></html>`;
+  const textContent = `Hola ${persona.nombre},\n\n${una ? 'Esta URL de Claude caduca' : 'Estas URLs de Claude caducan'} pronto:\n${listaTexto}\n\n`
+    + `Crea una nueva en ${enlace} y cámbiala en tu Claude (Configuración → Conectores).\nSi ya no la usas, no hace falta hacer nada.`;
+  return await sendEmail({ to: [{ email: persona.email, name: persona.nombre }], subject, htmlContent, textContent, tags: ['mcp-caducidad', 'crm'] });
+}
+
+/**
+ * MCP de Claude (#195): las alertas de una vuelta, todas en un correo, para
+ * quien vigila (MCP_AVISO_EMAIL o los super admin).
+ */
+export async function sendMcpAlertasEmail({ para, alertas, enlace }) {
+  const tz = process.env.APP_TIMEZONE || 'Europe/Madrid';
+  const hora = (d) => new Date(d).toLocaleString('es-ES', { timeZone: tz, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const texto = (a) => {
+    const quien = `${a.persona.nombre}${a.persona.email ? ` (${a.persona.email})` : ''}`;
+    const d = a.detalle;
+    switch (a.tipo) {
+      case 'rafaga': return `Ráfaga: ${quien} hizo ${d.consultas} consultas en ${d.minutos} minutos (hasta las ${hora(d.hasta)}).`;
+      case 'ip_nueva': return `Red nueva: ${quien} consultó desde ${d.red} (${d.ips.join(', ')}), desde donde no lo había hecho antes.`;
+      case 'cliente_nuevo': return `Cliente nuevo: ${quien} consultó con «${d.cliente}», que no había usado antes.`;
+      case 'fallos_desbloqueo': return `Fallos de desbloqueo: ${quien} falló el código ${d.fallos} veces en la última hora.`;
+      case 'madrugada': return `Madrugada: ${quien} hizo ${d.consultas} consultas entre las ${hora(d.primera)} y las ${hora(d.ultima)} (franja ${d.franja}).`;
+      default: return `${a.tipo}: ${quien}`;
+    }
+  };
+  const lineas = alertas.map(texto);
+  const subject = alertas.length === 1 ? 'Alerta del MCP de Claude' : `${alertas.length} alertas del MCP de Claude`;
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html><body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 24px;">
+      <h2 style="margin: 0 0 12px;">${subject}</h2>
+      <ul>${lineas.map((l) => `<li style="margin-bottom: 6px;">${l}</li>`).join('')}</ul>
+      <p>El detalle de cada consulta está en <a href="${enlace}">Conexión → MCP → Actividad</a>.
+         Si algo no es de quien dice ser, revoca su URL en esa misma pantalla.</p>
+    </body></html>`;
+  const textContent = `${subject}\n\n${lineas.map((l) => `- ${l}`).join('\n')}\n\nDetalle: ${enlace}`;
+  return await sendEmail({ to: para, subject, htmlContent, textContent, tags: ['mcp-alertas', 'crm'] });
+}

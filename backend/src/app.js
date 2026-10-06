@@ -73,6 +73,8 @@ import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoSchedul
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
 import { startReporteSemanalScheduler } from './jobs/reporteSemanalScheduler.js';
+import { startMcpRotacionScheduler } from './jobs/mcpRotacionScheduler.js';
+import { startMcpVigilanciaScheduler } from './jobs/mcpVigilanciaScheduler.js';
 import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js';
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
@@ -327,6 +329,8 @@ if (process.env.NODE_ENV !== 'test') {
     startNovedadesScheduler();
     startResumenDiarioScheduler();
     startReporteSemanalScheduler();
+    startMcpRotacionScheduler();
+    startMcpVigilanciaScheduler();
   startCorreoEntranteScheduler();
     recuperarAdjuntosDeWhatsapp();
   });

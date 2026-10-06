@@ -2,11 +2,14 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import * as model from './mcp.model.js';
 import {
-  DIAS_DE_VIDA_DEL_TOKEN, MAX_TOKENS_VIVOS, ROLES_CON_ACCESO, ROLES_QUE_ADMINISTRAN, ROLES_SIN_MCP,
+  diasDeVidaToken, configRotacion, MAX_TOKENS_VIVOS, ROLES_CON_ACCESO, ROLES_QUE_ADMINISTRAN, ROLES_SIN_MCP,
   generarToken, puedeUsarMcp,
 } from './mcp.acceso.js';
 import { HERRAMIENTAS } from './mcp.tools.js';
-import { accesoSchema, crearTokenSchema, idSchema } from './mcp.validation.js';
+import * as desbloqueo from './mcp.desbloqueo.js';
+import { accesoSchema, actividadSchema, crearTokenSchema, idSchema, interruptorSchema } from './mcp.validation.js';
+import * as interruptorModel from './mcp.interruptor.js';
+import * as actividadModel from './mcp.actividad.js';
 
 /**
  * El panel «Conexión → MCP» del CRM. Aqui se usa el JWT normal del CRM: es la
@@ -38,10 +41,17 @@ export async function estado(req, res, next) {
         tieneAcceso,
         puedeAdministrar: ROLES_QUE_ADMINISTRAN.includes(user.role),
         soloLoSuyo: !ROLES_CON_ACCESO.includes(user.role),
-        diasDeVida: DIAS_DE_VIDA_DEL_TOKEN,
+        diasDeVida: diasDeVidaToken(),
+        diasSinUso: configRotacion().diasSinUso,
         proyectos,
         herramientas: HERRAMIENTAS.map((h) => ({ nombre: h.nombre, titulo: h.titulo, descripcion: h.descripcion })),
         tokens: tieneAcceso ? await model.listarTokens(user.id) : [],
+        // Interruptor de emergencia (#196): si el MCP está apagado y por qué.
+        interruptor: await interruptorModel.estado(),
+        puedeApagar: user.role === 'superadmin',
+        // Código de desbloqueo (#192): si hace falta y cuánto dura cada cosa.
+        codigo: (({ obligatorio, minutosCodigo, inactividadMin, maximoMin }) =>
+          ({ obligatorio, minutosCodigo, inactividadMin, maximoMin }))(desbloqueo.config()),
       },
     });
   } catch (err) { next(err); }
@@ -54,10 +64,10 @@ export async function crearToken(req, res, next) {
     const user = await personaActual(req);
     if (!puedeUsarMcp(user)) throw new AppError('No tienes acceso al MCP del CRM', 403, 'FORBIDDEN');
     if (await model.contarTokensVivos(user.id) >= MAX_TOKENS_VIVOS) {
-      throw new AppError(`Ya tienes ${MAX_TOKENS_VIVOS} tokens activos. Revoca alguno antes de crear otro.`, 400, 'MCP_DEMASIADOS_TOKENS');
+      throw new AppError(`Ya tienes ${MAX_TOKENS_VIVOS} URLs activas. Revoca alguna antes de crear otra.`, 400, 'MCP_DEMASIADOS_TOKENS');
     }
     const { token, hash, prefijo } = generarToken();
-    const creado = await model.crearToken({ userId: user.id, nombre, hash, prefijo, dias: DIAS_DE_VIDA_DEL_TOKEN });
+    const creado = await model.crearToken({ userId: user.id, nombre, hash, prefijo, dias: diasDeVidaToken() });
     logger.info({ userId: user.id, tokenId: creado.id }, 'MCP: token creado');
     res.status(201).json({ success: true, data: { ...creado, token } });
   } catch (err) { next(err); }
@@ -118,5 +128,56 @@ export async function cambiarAcceso(req, res, next) {
     await model.setUsaMcp(persona.id, usa_mcp);
     logger.info({ por: quien.id, userId: persona.id, usa_mcp }, 'MCP: acceso cambiado');
     res.json({ success: true, data: { id: persona.id, usa_mcp } });
+  } catch (err) { next(err); }
+}
+
+/**
+ * POST /api/mcp/panel/codigo — el código para dárselo a Claude (#192).
+ *
+ * Solo quien tiene acceso al MCP. Se enseña UNA vez; se guarda su huella.
+ * Pedir otro anula el anterior.
+ */
+export async function crearCodigo(req, res, next) {
+  try {
+    const user = await personaActual(req);
+    if (!puedeUsarMcp(user)) throw new AppError('No tienes acceso al MCP del CRM', 403, 'FORBIDDEN');
+    const r = await desbloqueo.crearCodigo(user.id);
+    logger.info({ userId: user.id }, 'MCP: código de desbloqueo creado');
+    res.status(201).json({ success: true, data: { codigo: r.codigo, caducaAt: r.caducaAt, minutos: r.minutos } });
+  } catch (err) { next(err); }
+}
+
+/**
+ * GET /api/mcp/panel/actividad — quién consultó qué con Claude (#195).
+ * Solo super admin y admin; un admin, solo lo de sus empresas.
+ */
+export async function actividad(req, res, next) {
+  try {
+    const filtros = validar(actividadSchema, req.query);
+    const quien = await personaActual(req);
+    const [lista, opciones] = await Promise.all([
+      actividadModel.listarActividad(quien, filtros),
+      actividadModel.opcionesActividad(quien),
+    ]);
+    res.json({ success: true, data: { ...lista, opciones } });
+  } catch (err) { next(err); }
+}
+
+/**
+ * POST /api/mcp/panel/interruptor — apaga o enciende TODO el MCP al momento
+ * (#196). Solo super admin. Queda en la Actividad con quién y por qué.
+ */
+export async function interruptor(req, res, next) {
+  try {
+    const { apagado, motivo } = validar(interruptorSchema, req.body);
+    if (!apagado && interruptorModel.apagadoPorEnv()) {
+      throw new AppError('Está apagado desde el servidor (MCP_DISABLED=1 en el .env): el botón no puede encenderlo.', 409, 'MCP_APAGADO_POR_ENV');
+    }
+    const estado = await interruptorModel.cambiar({ userId: req.user.userId, apagado, motivo });
+    await model.registrarAuditoria({
+      userId: req.user.userId, tokenId: null, herramienta: apagado ? 'interruptor_apagar' : 'interruptor_encender',
+      parametros: motivo ? { motivo } : null, ok: true, duracionMs: 0,
+    });
+    res.json({ success: true, data: estado });
   } catch (err) { next(err); }
 }
