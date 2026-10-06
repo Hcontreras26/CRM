@@ -673,6 +673,22 @@ const ULTIMO_CONTACTO = `(SELECT MAX(i.fecha) FROM lead_interactions i WHERE i.l
 // «Sin tocar» = ni una interaccion Y todavia en la entrada del embudo.
 const SIN_TOCAR = `(${ULTIMO_CONTACTO} IS NULL AND l.status IN ('nuevo', 'por_contactar'))`;
 
+/*
+  QUE ES UN PROSPECTO Y NO UN CLIENTE (06/10).
+
+  Prospectos escondia todo lo que estuviera en «convertido», y Clientes solo
+  enseña lo que tiene al menos una venta. Una ficha en «convertido» SIN venta
+  no salia en ninguna de las dos. Le paso a Yolanda con Orlando Villalobos: se
+  le registro la venta, se borro como «Error al cargar», la ficha se quedo en
+  «convertido» y desaparecio; al dia siguiente intento darlo de alta otra vez.
+  En ICTESS habia dos mas (Eric Garcia, Tomas Franco).
+
+  Asi que un «convertido» sin ninguna venta sigue siendo prospecto: sale en la
+  lista, con su estado, para que alguien lo vea y lo arregle.
+*/
+const NO_ES_CLIENTE = `(l.status <> 'convertido'
+     OR NOT EXISTS (SELECT 1 FROM conversions cx WHERE cx.lead_id = l.id))`;
+
 /**
  * «Sin revisar este mes» (#132, el repaso de fin de mes).
  *
@@ -778,7 +794,7 @@ export async function findAll({ projectId, projectIds, status, seguimiento, paso
     conditions.push(`l.status = $${paramIdx++}`);
     params.push(status);
   } else if (!includeConverted && !conConversion) {
-    conditions.push(`l.status <> 'convertido'`);
+    conditions.push(NO_ES_CLIENTE);
   }
   // POR QUE SEGUIMIENTO VA (#100).
   //
@@ -1028,7 +1044,7 @@ export async function contarFiltrosRapidos({ projectId, projectIds, responsableI
     params.push(responsableId);
   }
   // Igual que el listado: los convertidos no cuentan salvo que se pidan.
-  if (!includeConverted) cond.push(`l.status <> 'convertido'`);
+  if (!includeConverted) cond.push(NO_ES_CLIENTE);
 
   const cuenta = (clave) => `COUNT(*) FILTER (WHERE ${FILTROS_RAPIDOS[clave]})::int`;
   const { rows } = await query(
@@ -1058,7 +1074,7 @@ export async function comoVaLaRevision({ projectId, responsableId }) {
   if (!(await sePuedeRevisar())) {
     return { disponible: false, total: 0, revisadas: 0, pendientes: 0 };
   }
-  const cond = ['l.deleted_at IS NULL', `l.status <> 'convertido'`];
+  const cond = ['l.deleted_at IS NULL', NO_ES_CLIENTE];
   const params = [];
   let i = 1;
   if (projectId) { cond.push(`l.project_id = $${i++}`); params.push(projectId); }
