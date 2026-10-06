@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/AppError.js';
 // Una persona puede tener mas de un rol: el principal y los añadidos. Quien
 // decide cuales son vive en un solo sitio.
-import { rolesDe, tieneRol, soloEsColaborador, colaboradorPuede } from '../utils/roles.js';
+import { tieneRol, soloEsColaborador, colaboradorPuede } from '../utils/roles.js';
 
 export function verifyToken(req, _res, next) {
   const authHeader = req.headers.authorization;
