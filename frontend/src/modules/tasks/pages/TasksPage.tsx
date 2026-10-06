@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, MagnifyingGlass, ArrowsClockwise, Warning, X } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, ArrowsClockwise, Warning, X, Eye } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import usePermission from '@/shared/hooks/usePermission';
@@ -57,6 +57,7 @@ export default function TasksPage() {
   const [cargandoMetricas, setCargandoMetricas] = useState(false);
   const [arrastrando, setArrastrando] = useState<Task | null>(null);
   const [nueva, setNueva] = useState<{ status: TaskStatus } | null>(null);
+  const [porRevisar, setPorRevisar] = useState(0);
 
   const misProyectos = useMemo(
     () => (projects || []).filter((p: { id: number; isAll?: boolean }) => p.id > 0 && !p.isAll)
@@ -124,11 +125,26 @@ export default function TasksPage() {
   useEffect(() => { cargarExtras(); }, [cargarExtras]);
   useEffect(() => { cargarMetricas(); }, [cargarMetricas]);
 
+  // Quien cierra tareas (decision 4) tiene que enterarse de lo que espera su
+  // revision aunque este en «Mi tablero»: esas tareas son de otras personas y
+  // en su tablero no salen.
+  const cargarPorRevisar = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const enRevision = await tasksApi.getTasks({ status: 'en_revision' });
+      setPorRevisar(enRevision.filter((t) => t.assigned_to !== yo).length);
+    } catch {
+      setPorRevisar(0);
+    }
+  }, [isAdmin, yo]);
+  useEffect(() => { cargarPorRevisar(); }, [cargarPorRevisar]);
+
   const refrescar = useCallback(() => {
     cargarTareas();
     cargarMetricas();
+    cargarPorRevisar();
     tasksApi.getTagNames().then(setEtiquetas).catch(() => undefined);
-  }, [cargarTareas, cargarMetricas]);
+  }, [cargarTareas, cargarMetricas, cargarPorRevisar]);
 
   // Los carriles: uno solo, o uno por persona en «Todo el equipo».
   const carriles: Carril[] = useMemo(() => {
@@ -283,6 +299,20 @@ export default function TasksPage() {
           </Button>
         )}
       </div>
+
+      {isAdmin && vista !== 'equipo' && porRevisar > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/30 bg-warning-soft text-warning-soft-foreground px-4 py-2.5 text-sm">
+          <span className="flex items-center gap-2">
+            <Eye size={16} />
+            {porRevisar === 1
+              ? '1 tarea del equipo espera tu revisión.'
+              : `${porRevisar} tareas del equipo esperan tu revisión.`}
+          </span>
+          <Button size="sm" variant="outline" className="h-8" onClick={() => setVista('equipo')}>
+            Ver en «Todo el equipo»
+          </Button>
+        </div>
+      )}
 
       {vista === 'equipo' && (
         <TeamTasksMetrics metrics={metricas} loading={cargandoMetricas} onSelectUser={(id) => setVista(id === yo ? 'mio' : id)} />
