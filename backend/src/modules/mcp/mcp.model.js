@@ -148,13 +148,31 @@ export async function campusDelConector(connectorId) {
 /** La URL viva de una persona en cada conector (sin el token: solo su inicio). */
 export async function tokensDeConectores(userId, connectorIds) {
   const { rows } = await query(
-    `SELECT DISTINCT ON (connector_id) connector_id, prefijo, created_at, last_used_at
+    `SELECT DISTINCT ON (connector_id) id, connector_id, prefijo, created_at, last_used_at, expires_at,
+            (expires_at IS NULL OR expires_at > NOW()) AS vivo
        FROM mcp_tokens
       WHERE user_id = $1 AND connector_id = ANY($2::int[]) AND revoked_at IS NULL
       ORDER BY connector_id, created_at DESC`,
     [userId, connectorIds]
   );
   return rows;
+}
+
+/**
+ * La URL viva de la persona que Claude usó por última vez (suelta o de una
+ * conexión), para la línea de estado de «Código para Claude» (#192).
+ */
+export async function ultimaUrlUsada(userId) {
+  const { rows } = await query(
+    `SELECT t.id, COALESCE(c.label, t.nombre) AS nombre
+       FROM mcp_tokens t
+       LEFT JOIN project_connectors c ON c.id = t.connector_id
+      WHERE t.user_id = $1 AND t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > NOW())
+      ORDER BY t.last_used_at DESC NULLS LAST, t.created_at DESC
+      LIMIT 1`,
+    [userId]
+  );
+  return rows[0] || null;
 }
 
 /** Una URL por persona y conector: pedir otra revoca la anterior. */
