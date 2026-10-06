@@ -59,12 +59,14 @@ export function huellaCodigo(codigo) {
 
 // claude.ai guarda la lista de herramientas del momento en que se conectó y no
 // la vuelve a pedir (#192, 05/10): quien conectó con el código apagado no tiene
-// «desbloquear». Para eso está el botón del panel, y el mensaje lo nombra.
+// «desbloquear». Para eso está el botón del panel, y el mensaje lo pone PRIMERO:
+// probado con claude.ai (06/10), con el botón al final Claude pedía antes el
+// código, que sin la herramienta no puede usar.
 export const MENSAJE_SIN_DESBLOQUEAR =
-  'Esta conexión con el CRM necesita un código para dar datos. Pide a la persona que entre en el CRM '
-  + '→ Conexión → MCP → «Código para Claude» y te lo diga; después llama a la herramienta «desbloquear» con ese código. '
-  + 'Si no ves la herramienta «desbloquear», pide a la persona que pulse «Desbloquear desde aquí» en el CRM '
-  + '→ Conexión → MCP, junto a su URL, y después vuelve a consultar.';
+  'Esta conexión con el CRM necesita desbloquearse para dar datos. '
+  + 'Si no tienes la herramienta «desbloquear», no pidas el código (no podrías usarlo): pide a la persona que pulse '
+  + '«Desbloquear desde aquí» en el CRM → Conexión → MCP, junto a su URL, y después vuelve a consultar. '
+  + 'Si la tienes, pide a la persona el código de CRM → Conexión → MCP → «Código para Claude» y llama a «desbloquear» con él.';
 
 const ZONA = () => process.env.APP_TIMEZONE || 'Europe/Madrid';
 
@@ -162,6 +164,39 @@ export async function estadoParaElPanel(tokenIds) {
     }
     return [r.id, { estado: 'sin_desbloquear', hasta: null, texto: 'Pedirá el código en la próxima consulta' }];
   }));
+}
+
+/**
+ * «El estado actual en una línea» para «Código para Claude» (#192, Diego 05/10).
+ *
+ * El estado es de cada URL, y un admin puede tener varias (una por conexión).
+ * Con una sola, la línea es la suya (`una`, con su botón). Con varias, un
+ * resumen de todas, sin elegir ninguna por la persona: «Tus 3 URLs: 1
+ * desbloqueada (pedirá el código a las 16:15), 2 cerradas». El detalle de cada
+ * una está en la tabla. null con el código apagado o sin URLs.
+ */
+export function resumenParaElPanel(urls, estados) {
+  const conEstado = (urls || []).filter((u) => estados.get(u.id)).map((u) => ({ ...u, ...estados.get(u.id) }));
+  if (!conEstado.length) return null;
+  if (conEstado.length === 1) return { total: 1, una: conEstado[0], texto: conEstado[0].texto };
+  const de = (estado) => conEstado.filter((u) => u.estado === estado);
+  const primera = (lista) => lista.map((u) => u.hasta).sort((a, b) => new Date(a) - new Date(b))[0];
+  const partes = [];
+  const desbloqueadas = de('desbloqueada');
+  if (desbloqueadas.length) {
+    partes.push(desbloqueadas.length === 1
+      ? `1 desbloqueada (pedirá el código ${cuando(desbloqueadas[0].hasta)})`
+      : `${desbloqueadas.length} desbloqueadas (la primera pedirá el código ${cuando(primera(desbloqueadas))})`);
+  }
+  const bloqueadas = de('bloqueada');
+  if (bloqueadas.length) {
+    partes.push(bloqueadas.length === 1
+      ? `1 bloqueada (hasta ${cuando(bloqueadas[0].hasta).replace(/^a /, '')})`
+      : `${bloqueadas.length} bloqueadas`);
+  }
+  const cerradas = de('sin_desbloquear');
+  if (cerradas.length) partes.push(`${cerradas.length} cerrada${cerradas.length === 1 ? '' : 's'} (pedirá${cerradas.length === 1 ? '' : 'n'} el código en la próxima consulta)`);
+  return { total: conEstado.length, una: null, texto: `Tus ${conEstado.length} URLs: ${partes.join(', ')}` };
 }
 
 /**

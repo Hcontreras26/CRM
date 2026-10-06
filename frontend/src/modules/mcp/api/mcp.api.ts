@@ -67,8 +67,15 @@ export interface McpEstado {
   /** Código de desbloqueo (#192): si hace falta y cuánto dura cada cosa. */
   codigo?: {
     obligatorio: boolean; minutosCodigo: number; inactividadMin: number; maximoMin: number;
-    /** La URL que Claude usó por última vez y su estado, para la línea del recuadro. */
-    ultima?: (McpEstadoCodigo & { id: number; nombre: string }) | null;
+    /**
+     * El estado actual en una línea, de todas sus URLs. Con una sola, `una`
+     * trae la suya (y su botón); con varias, `texto` las resume.
+     */
+    resumen?: {
+      total: number;
+      una: (McpEstadoCodigo & { id: number; nombre: string }) | null;
+      texto: string;
+    } | null;
   };
 }
 

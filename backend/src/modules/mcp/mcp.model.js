@@ -159,20 +159,19 @@ export async function tokensDeConectores(userId, connectorIds) {
 }
 
 /**
- * La URL viva de la persona que Claude usó por última vez (suelta o de una
- * conexión), para la línea de estado de «Código para Claude» (#192).
+ * Todas las URLs vivas de la persona (sueltas y de conexiones), para la línea
+ * de estado de «Código para Claude» (#192).
  */
-export async function ultimaUrlUsada(userId) {
+export async function urlsVivasDeLaPersona(userId) {
   const { rows } = await query(
     `SELECT t.id, COALESCE(c.label, t.nombre) AS nombre
        FROM mcp_tokens t
        LEFT JOIN project_connectors c ON c.id = t.connector_id
       WHERE t.user_id = $1 AND t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > NOW())
-      ORDER BY t.last_used_at DESC NULLS LAST, t.created_at DESC
-      LIMIT 1`,
+      ORDER BY t.created_at`,
     [userId]
   );
-  return rows[0] || null;
+  return rows;
 }
 
 /** Una URL por persona y conector: pedir otra revoca la anterior. */

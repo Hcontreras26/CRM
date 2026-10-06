@@ -68,11 +68,16 @@ export default function CodigoParaClaude({ config, onCambio }: {
         ><LockKey size={14} weight="bold" /> {codigo ? 'Sacar otro' : 'Sacar código para Claude'}</button>
       </div>
 
-      {/* El estado ahora, en una línea (#192, Diego 05/10): el de la URL que Claude usó por última vez. */}
-      {config.ultima && (
+      {/* El estado actual en una línea (#192, Diego 05/10): el de su URL o, si tiene varias,
+          un resumen de todas. El detalle y el botón de cada una, en su tabla. */}
+      {config.resumen && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-          <span>Tu última URL usada ({config.ultima.nombre}):</span>
-          <EstadoCodigoUrl codigo={config.ultima} tokenId={config.ultima.id} onCambio={onCambio} />
+          {config.resumen.una ? (<>
+            <span>Tu URL ({config.resumen.una.nombre}):</span>
+            <EstadoCodigoUrl codigo={config.resumen.una} tokenId={config.resumen.una.id} onCambio={onCambio} />
+          </>) : (
+            <span className="inline-flex items-start gap-1"><LockKey size={12} weight="bold" className="mt-0.5 shrink-0" /> {config.resumen.texto}</span>
+          )}
         </div>
       )}
 

@@ -134,7 +134,9 @@ describe('sin código no sale ningún dato', () => {
 
   it('y dice cómo seguir si Claude no ve «desbloquear»: el botón del panel (#192, 05/10)', async () => {
     const r = await llamar(TOKEN_ANA, 'mis_proyectos');
-    expect(r.texto).toMatch(/Si no ves la herramienta «desbloquear», pide a la persona que pulse «Desbloquear desde aquí»/);
+    expect(r.texto).toContain('Si no tienes la herramienta «desbloquear», no pidas el código (no podrías usarlo): pide a la persona que pulse «Desbloquear desde aquí»');
+    // El botón va primero: con él al final, claude.ai pedía antes el código (06/10).
+    expect(r.texto.indexOf('Desbloquear desde aquí')).toBeLessThan(r.texto.indexOf('Código para Claude'));
   });
 
   it('y queda en la auditoría como rechazada', async () => {
@@ -330,14 +332,42 @@ describe('cuándo volverá a pedir el código, por cada URL (los cuatro estados)
     process.env.MCP_CODIGO_OBLIGATORIO = 'false';
     const p = await panelDe(U);
     expect(p.tokens.find((t) => t.id === ID).codigo).toBeNull();
-    expect(p.codigo.ultima).toBeNull();
+    expect(p.codigo.resumen).toBeNull();
   });
 
-  it('«Código para Claude» trae el estado de la última URL usada', async () => {
+  it('«Código para Claude», con una sola URL: el estado actual de esa URL', async () => {
     expect((await llamar(TOK, 'desbloquear', { codigo: await pedirCodigo(U) })).ok).toBe(true);
-    const { ultima } = (await panelDe(U)).codigo;
-    expect(ultima).toMatchObject({ id: ID, nombre: 'Estados', estado: 'desbloqueada' });
-    expect(ultima.texto).toMatch(hhmm);
+    const { resumen } = (await panelDe(U)).codigo;
+    expect(resumen.total).toBe(1);
+    expect(resumen.una).toMatchObject({ id: ID, nombre: 'Estados', estado: 'desbloqueada' });
+    expect(resumen.texto).toMatch(hhmm);
+  });
+});
+
+describe('«Código para Claude» con varias URLs: el estado actual de todas, en una línea', () => {
+  it('resume cuántas hay desbloqueadas, bloqueadas y cerradas, sin elegir ninguna', async () => {
+    const V = await persona('VARIAS', 'admin');
+    const abierta = await token(V, 'Abierta');
+    const bloqueada = await token(V, 'Bloqueada');
+    await token(V, 'Cerrada');
+    expect((await desbloquearDesdeAqui(V, abierta.id)).status).toBe(200);
+    await q(`UPDATE mcp_tokens SET bloqueado_hasta = NOW() + INTERVAL '15 minutes' WHERE id = $1`, [bloqueada.id]);
+    const { resumen } = (await panelDe(V)).codigo;
+    expect(resumen.total).toBe(3);
+    expect(resumen.una).toBeNull();
+    expect(resumen.texto).toMatch(
+      /^Tus 3 URLs: 1 desbloqueada \(pedirá el código (mañana )?a las \d{2}:\d{2}\), 1 bloqueada \(hasta (mañana a )?las \d{2}:\d{2}\), 1 cerrada \(pedirá el código en la próxima consulta\)$/
+    );
+  });
+
+  it('cuenta también las URLs de las conexiones de Claude', async () => {
+    const W = await persona('MIXTA', 'admin');
+    await token(W, 'Suelta');
+    const cx = await request.post('/api/connectors').set('Authorization', `Bearer ${jwtDe(W)}`)
+      .send({ project_id: ids.projects[0], type: 'mcp', label: `${MARCA} Mixta`, alcance: 'campus' });
+    expect(cx.status).toBe(201);
+    const { resumen } = (await panelDe(W)).codigo;
+    expect(resumen.texto).toBe('Tus 2 URLs: 2 cerradas (pedirán el código en la próxima consulta)');
   });
 });
 

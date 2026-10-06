@@ -38,9 +38,9 @@ export async function estado(req, res, next) {
     const tokens = tieneAcceso ? await model.listarTokens(user.id) : [];
     // Cuándo volverá a pedir el código cada URL (#192, Diego 05/10). Vacío con
     // el código apagado: entonces no se enseña nada.
-    const ultima = tieneAcceso ? await model.ultimaUrlUsada(user.id) : null;
+    const urls = tieneAcceso ? await model.urlsVivasDeLaPersona(user.id) : [];
     const estados = await desbloqueo.estadoParaElPanel([
-      ...tokens.filter((t) => t.vivo).map((t) => t.id), ...(ultima ? [ultima.id] : []),
+      ...tokens.filter((t) => t.vivo).map((t) => t.id), ...urls.map((u) => u.id),
     ]);
     res.json({
       success: true,
@@ -57,12 +57,12 @@ export async function estado(req, res, next) {
         interruptor: await interruptorModel.estado(),
         puedeApagar: user.role === 'superadmin',
         // Código de desbloqueo (#192): si hace falta y cuánto dura cada cosa.
-        // `ultima`: la URL que Claude usó por última vez y su estado, para la
-        // línea del recuadro «Código para Claude».
+        // `resumen`: el estado actual en una línea, de todas sus URLs, para el
+        // recuadro «Código para Claude».
         codigo: {
           ...(({ obligatorio, minutosCodigo, inactividadMin, maximoMin }) =>
             ({ obligatorio, minutosCodigo, inactividadMin, maximoMin }))(desbloqueo.config()),
-          ultima: ultima && estados.get(ultima.id) ? { id: ultima.id, nombre: ultima.nombre, ...estados.get(ultima.id) } : null,
+          resumen: desbloqueo.resumenParaElPanel(urls, estados),
         },
       },
     });
