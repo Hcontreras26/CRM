@@ -116,6 +116,7 @@ export function getSystemDefaults() {
       admin: SYSTEM_ROLE_DEFAULTS.admin,
       gestor: SYSTEM_ROLE_DEFAULTS.gestor,
       soporte: SYSTEM_ROLE_DEFAULTS.soporte,
+      colaborador: SYSTEM_ROLE_DEFAULTS.colaborador,
     },
     views: SYSTEM_ROLE_VIEWS,
     catalogs: {

@@ -106,6 +106,10 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
   // y explicito: sin esta entrada el tipo no cuadraba y `can()` devolvia falso
   // para todo por accidente en vez de por decision.
   tutor: {},
+  // Colaborador (#210, fase 5): solo su tablero de tareas. Espejo del backend.
+  colaborador: {
+    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false,
+  },
 };
 
 // Espejo de ALL_RESOURCES del backend. La pantalla de Roles pinta las casillas

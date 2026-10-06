@@ -45,6 +45,36 @@ export function tieneRol(user, ...roles) {
 }
 
 /**
+ * Colaborador y NADA MAS (#210, fase 5).
+ *
+ * El recorte solo vale para quien es unicamente colaborador: a quien ademas es
+ * gestora, cerrarle Prospectos seria quitarle lo que ya tenia.
+ */
+export function soloEsColaborador(user) {
+  const suyos = rolesDe(user);
+  return suyos.length > 0 && suyos.every((r) => r === 'colaborador');
+}
+
+/**
+ * Lo unico que puede pedir un colaborador. Todo lo demas —prospectos, ventas,
+ * finanzas, WhatsApp— responde 403 aunque la ruta solo pida `verifyToken`.
+ * Lista cerrada a proposito: un modulo nuevo queda fuera hasta que alguien
+ * decida que el colaborador lo necesita.
+ */
+export const RUTAS_DEL_COLABORADOR = [
+  /^\/api\/auth(?:\/|$)/,
+  /^\/api\/tasks(?:\/|$)/,
+  /^\/api\/notifications(?:\/|$)/,
+  /^\/api\/users\/mis-avisos\/?$/,
+  /^\/api\/users\/\d+\/(?:avatar|views)\/?$/,
+];
+
+export function colaboradorPuede(ruta) {
+  const limpia = String(ruta || '').split('?')[0];
+  return RUTAS_DEL_COLABORADOR.some((re) => re.test(limpia));
+}
+
+/**
  * Deja la lista de añadidos como debe guardarse.
  *
  * Sin repetidos, sin el rol principal --estaria dos veces-- y SIN superadmin:

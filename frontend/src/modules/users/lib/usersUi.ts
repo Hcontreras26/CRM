@@ -15,6 +15,7 @@ export const ROLE_LABELS: Record<string, string> = {
   gestor: 'Gestor',
   soporte: 'Desarrollador / Soporte',
   tutor: 'Tutor / Profesor',
+  colaborador: 'Colaborador',
   colaboraciones: 'Colaboraciones',
 };
 
@@ -32,6 +33,7 @@ export const ROLE_LABELS_CORTOS: Record<string, string> = {
   gestor: 'Gestor',
   soporte: 'Soporte',
   tutor: 'Tutor',
+  colaborador: 'Colaborador',
   colaboraciones: 'Colaboraciones',
 };
 
@@ -41,6 +43,7 @@ export const ASSIGNABLE_ROLES: ReadonlyArray<{ value: UserRole; label: string; h
   { value: 'gestor', label: ROLE_LABELS.gestor, hint: 'Solo sus proyectos y sus prospectos. Entra en el reparto.' },
   { value: 'soporte', label: ROLE_LABELS.soporte, hint: 'Ve todos los proyectos. Para soporte tecnico.' },
   { value: 'tutor', label: ROLE_LABELS.tutor, hint: 'Colaborador externo: solo sus formaciones y sus comisiones.' },
+  { value: 'colaborador', label: ROLE_LABELS.colaborador, hint: 'Equipo interno o externo (web, SEO, contenido): solo ve su tablero de Tareas.' },
 ];
 
 /**

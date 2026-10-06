@@ -84,7 +84,7 @@ describe('el catalogo de permisos del frontal es espejo del backend', () => {
     expect(sospechosas).toEqual([]);
   });
 
-  for (const rol of ['admin', 'gestor', 'soporte']) {
+  for (const rol of ['admin', 'gestor', 'soporte', 'colaborador']) {
     it(`los defaults de ${rol} coinciden con los del backend`, () => {
       expect(clavesDelRol(rol)).toEqual(SYSTEM_ROLE_DEFAULTS[rol]);
     });
