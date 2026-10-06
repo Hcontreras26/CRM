@@ -349,9 +349,10 @@ export const tutoresApi = {
       url: string; filename: string; version: number;
     }>>,
   /** Le pone otra contraseña. Solo vale sobre TUTORES: el servidor rechaza
-   *  cualquier otro rol aunque se pruebe con su identificador. */
-  cambiarContrasena: (id: number, password: string) =>
-    client.post(`/tutores/${id}/contrasena`, { password }) as Promise<ApiResponse<{
+   *  cualquier otro rol aunque se pruebe con su identificador. Solo el super
+   *  admin, repetida y con las reglas de «Establece tu contraseña» (#248). */
+  cambiarContrasena: (id: number, password: string, confirmPassword: string) =>
+    client.post(`/tutores/${id}/contrasena`, { password, confirmPassword }) as Promise<ApiResponse<{
       id: number; nombre: string; email: string;
     }>>,
 
