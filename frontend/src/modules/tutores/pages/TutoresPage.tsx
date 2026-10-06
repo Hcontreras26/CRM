@@ -910,7 +910,7 @@ export default function TutoresPage() {
                 <p className="text-[11px] text-muted-foreground mt-1">
                   {esSuperadmin
                     ? 'Es con lo que entra al CRM: al cambiarlo, deja de poder entrar con el anterior y se cierran sus sesiones.'
-                    : 'Es con lo que entra al CRM: solo lo puede cambiar un superadministrador.'}
+                    : 'Solo un superadmin puede cambiar el correo.'}
                 </p>
                 {esSuperadmin && !sinCorreos && (
                   <label className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">

@@ -75,7 +75,7 @@ export default function UsersPanel() {
         const cambiaCorreo = esSuperadmin && correoNuevo !== dialogo.user.email.toLowerCase();
         await updateUser(dialogo.user.id, {
           nombre: values.nombre,
-          ...(cambiaCorreo ? { email: correoNuevo } : {}),
+          ...(cambiaCorreo ? { email: correoNuevo, reenviarEnlace: values.reenviarEnlace } : {}),
           role: values.role,
           // Se manda SIEMPRE, aunque venga vacia: una lista vacia significa
           // «quitale los de mas», y omitirla dejaria imposible volver atras.

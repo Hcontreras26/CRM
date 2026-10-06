@@ -137,8 +137,10 @@ export async function createUser(payload: CreateUserPayload): Promise<CreateUser
 /** Solo estos campos acepta el backend hoy. El email NO se puede cambiar. */
 export interface UpdateUserPayload {
   nombre?: string;
-  /** Solo lo acepta el servidor si quien lo manda es super admin (#248). */
+  /** Solo lo acepta el servidor si quien lo manda es super admin (#246). */
   email?: string;
+  /** Con el correo nuevo, mandarle el enlace para poner contraseña allí (#246). */
+  reenviarEnlace?: boolean;
   role?: UserRole;
   /** Roles de MAS. Una lista vacia los quita todos, que es lo que se espera. */
   roles_extra?: UserRole[];

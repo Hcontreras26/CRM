@@ -21,6 +21,8 @@ export interface UserFormValues {
   factura_manager: boolean;
   editar_fechas_factura: boolean;
   usa_whatsapp: boolean;
+  /** Con un correo nuevo: mandarle el enlace para poner contraseña allí (#246). */
+  reenviarEnlace: boolean;
 }
 
 interface Props {
@@ -48,6 +50,8 @@ export default function UserFormDialog({
 
   const [nombre, setNombre] = useState(user?.nombre ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
+  const [reenviarEnlace, setReenviarEnlace] = useState(false);
+  const cambiaCorreo = esEdicion && canChangeEmail && email.trim().toLowerCase() !== user!.email.toLowerCase();
   const [role, setRole] = useState<UserRole>((user?.role as UserRole) ?? 'gestor');
   // Los roles añadidos. Diego, 22/09: «necesitamos que se pueda colocar más de
   // un rol a un usuario». El principal sigue mandando —es el que se enseña en
@@ -125,6 +129,7 @@ export default function UserFormDialog({
       // fechas se abre desde la factura. Si se quita lo primero, cae lo segundo.
       editar_fechas_factura: facturaManager && editarFechas,
       usa_whatsapp: usaWhatsapp,
+      reenviarEnlace: cambiaCorreo && reenviarEnlace,
     });
   }
 
@@ -225,8 +230,32 @@ export default function UserFormDialog({
                 <p className="text-secundario text-muted-foreground mt-1 px-1 flex items-start gap-1">
                   <Info size={11} className="mt-px flex-shrink-0" />
                   Es con lo que entra: al cambiarlo, con el viejo ya no podrá, y se cierran sus sesiones.
-                  Si recibe prospectos por Make, cámbialo también allí.
+                  Se le avisa por correo en la dirección vieja. Si recibe prospectos por Make, cámbialo también allí.
                 </p>
+                {/* «Reenviar enlace de acceso» al correo nuevo (#246). A un tutor no le
+                    sale ningún correo mientras siga el freno: se dice en vez de esconderlo. */}
+                {cambiaCorreo && (
+                  role === 'tutor' ? (
+                    <p className="text-secundario text-muted-foreground mt-1.5 px-1">
+                      A los tutores no se les manda ningún correo por ahora: si lo necesita, ponle tú una contraseña abajo y pásasela.
+                    </p>
+                  ) : (
+                    <label className="mt-1.5 flex items-start gap-2 px-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={reenviarEnlace}
+                        onChange={(e) => setReenviarEnlace(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span className="text-sm">
+                        Reenviar enlace de acceso
+                        <span className="block text-secundario text-muted-foreground">
+                          Le llega a la dirección nueva para poner su contraseña.
+                        </span>
+                      </span>
+                    </label>
+                  )
+                )}
               </div>
             ) : (
               <div>
@@ -234,7 +263,7 @@ export default function UserFormDialog({
                 <input value={user!.email} readOnly disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
                 <p className="text-secundario text-muted-foreground mt-1 px-1 flex items-start gap-1">
                   <Info size={11} className="mt-px flex-shrink-0" />
-                  El email es la identidad de la cuenta: solo lo puede cambiar un superadministrador.
+                  Solo un superadmin puede cambiar el correo.
                 </p>
               </div>
             )}
