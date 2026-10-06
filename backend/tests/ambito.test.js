@@ -57,13 +57,17 @@ describe('SIN_PRUEBAS', () => {
 });
 
 describe('proyectosDelAmbito', () => {
+  // Estas cuatro piden como super admin, que ve el CRM entero. Lo que cambia
+  // para el resto (#245: siempre dentro de sus campus) va en ambitoPorPersona.test.js.
+  const SUPER = { role: 'superadmin', userId: 1 };
+
   it('sin issuerId, pasa el proyecto tal cual', async () => {
-    expect(await proyectosDelAmbito({ query: { projectId: '7' } }))
+    expect(await proyectosDelAmbito({ query: { projectId: '7' }, user: SUPER }))
       .toEqual({ projectId: 7, projectIds: null });
   });
 
   it('sin nada, es «todos»', async () => {
-    expect(await proyectosDelAmbito({ query: {} }))
+    expect(await proyectosDelAmbito({ query: {}, user: SUPER }))
       .toEqual({ projectId: null, projectIds: null });
   });
 
@@ -76,7 +80,7 @@ describe('proyectosDelAmbito', () => {
     if (!rows.length) return; // Sin sociedades configuradas no hay nada que probar.
     const { id, n } = rows[0];
 
-    const r = await proyectosDelAmbito({ query: { issuerId: String(id), projectId: '7' } });
+    const r = await proyectosDelAmbito({ query: { issuerId: String(id), projectId: '7' }, user: SUPER });
     expect(r.projectIds).toHaveLength(n);
     // El proyecto se descarta: lo que se pidió fue la sociedad entera.
     expect(r.projectId).toBeNull();
@@ -85,7 +89,7 @@ describe('proyectosDelAmbito', () => {
   it('una sociedad SIN campus no puede significar «todos»', async () => {
     // Es el fallo peligroso: devolver null aquí enseñaría el CRM entero justo
     // cuando se pidió acotar. Se devuelve una lista que no casa con nada.
-    const r = await proyectosDelAmbito({ query: { issuerId: '999999' } });
+    const r = await proyectosDelAmbito({ query: { issuerId: '999999' }, user: SUPER });
     expect(r.projectIds).toEqual([-1]);
     expect(r.projectIds).not.toBeNull();
   });
