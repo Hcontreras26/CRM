@@ -9,7 +9,7 @@ import {
   editarColaboracionSchema, ajustesSchema, calcularSchema, liquidarSchema,
   busquedaDeTutorSchema,
 } from './tutor.validation.js';
-import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
+import { proyectosDelAmbito, veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import { NO_ESCRIBIR_A_TUTORES } from '../../shared/config/frenoTutores.js';
 
 // Quien manda aqui.
@@ -33,6 +33,20 @@ async function puedeGestionar(req) {
 async function exigirGestion(req) {
   if (!(await puedeGestionar(req))) {
     throw new AppError('No puedes gestionar colaboraciones', 403, 'FORBIDDEN');
+  }
+}
+
+/**
+ * La ficha de un tutor, solo si comparte algún campus con quien la pide (#245).
+ * Gestionar colaboraciones no basta: Mireia (CEDIA) podía abrir la de un
+ * profesor de ICTESS cambiando el id. Se contesta «no encontrado», como si no
+ * existiera, para no confirmar que ese id es un tutor de otra empresa.
+ */
+async function exigirTutorDeMisCampus(req, tutorId) {
+  if (req.user.userId === tutorId || veTodoElCrm(req.user)) return;
+  const mios = await campusDeLaPersona(req.user.userId);
+  if (!(await model.tieneAlgunCampus(tutorId, mios))) {
+    throw new AppError('Tutor no encontrado', 404, 'NOT_FOUND');
   }
 }
 
@@ -61,6 +75,7 @@ export async function ficha(req, res, next) {
     // Un tutor puede ver SU ficha; el resto necesita permiso de gestion.
     const id = parseInt(req.params.id);
     if (req.user.userId !== id) await exigirGestion(req);
+    await exigirTutorDeMisCampus(req, id);
     const t = await model.ficha(id);
     if (!t) throw new AppError('Tutor no encontrado', 404, 'NOT_FOUND');
     res.json({ success: true, data: t });
@@ -109,6 +124,7 @@ export async function guardarPerfil(req, res, next) {
   try {
     const id = parseInt(req.params.id);
     if (req.user.userId !== id) await exigirGestion(req);
+    await exigirTutorDeMisCampus(req, id);
     const d = valida(perfilSchema, req.body);
 
     // El correo, si viene y es otro. Va antes que el perfil: si el correo choca

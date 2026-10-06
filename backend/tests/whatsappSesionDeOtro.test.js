@@ -197,22 +197,26 @@ describe('de quien es la sesion que se abre', () => {
 });
 
 describe('a quien se puede elegir en el panel', () => {
+  // La de las personas es la ULTIMA: antes va la de los campus de quien pide
+  // (ambito.js, #245), que no es lo que se prueba aqui.
+  const laDeLasPersonas = () => consultas[consultas.length - 1].sql;
+
   it('a una gestora solo se le ofrece ella misma', async () => {
     const { req, res, next } = pedir({ userId: 7, role: 'gestor' });
     await usuarios(req, res, next);
-    expect(consultas[0].sql).toContain('WHERE u.id = $1');
+    expect(laDeLasPersonas()).toContain('WHERE u.id = $1');
   });
 
   it('a un superadmin, todo el equipo', async () => {
     const { req, res, next } = pedir({ userId: 1, role: 'superadmin' });
     await usuarios(req, res, next);
-    expect(consultas[0].sql).toContain('gestor_colaboraciones');
-    expect(consultas[0].sql).not.toContain('WHERE u.id = $1');
+    expect(laDeLasPersonas()).toContain('gestor_colaboraciones');
+    expect(laDeLasPersonas()).not.toContain('WHERE u.id = $1');
   });
 
   it('a un admin, solo los de sus proyectos', async () => {
     const { req, res, next } = pedir({ userId: 9, role: 'admin' });
     await usuarios(req, res, next);
-    expect(consultas[0].sql).toContain('user_projects');
+    expect(laDeLasPersonas()).toContain('user_projects');
   });
 });
