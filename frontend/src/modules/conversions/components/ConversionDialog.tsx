@@ -764,7 +764,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
               {form.iva_exento && <p className="text-[10px] text-muted-foreground italic">Operación exenta — art. 20 LIVA (servicios educativos)</p>}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
                   {useMultiItem ? 'Subtotal items (auto)' : 'Precio base (EUR) *'}
@@ -857,7 +857,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Metodo de pago</label>
                 <Select<MetodoPago>
@@ -898,7 +898,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Número de cuotas</label>
                     <input

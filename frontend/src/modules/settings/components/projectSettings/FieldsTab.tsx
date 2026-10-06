@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, ArrowUp, ArrowDown, FloppyDisk, Gear, Notepad } from '@phosphor-icons/react';
 import client from '@/shared/api/client';
 import Select from '@/shared/components/ui/Select';
+import Field from '@/shared/components/ui/Field';
+import { inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
 import { SectionTitle, useConfirm, FIELD_TYPES, BASE_FIELDS } from './shared';
 import { lista } from '@/shared/lib/lista';
@@ -18,7 +20,7 @@ export default function FieldsTab({ project, onSaved }) {
       const res = await client.patch(`/projects/${project.id}`, { lead_base_fields_config: next });
       if (res.success && onSaved) onSaved(res.data);
     } catch (err) {
-      toast({ title: 'Error', description: err?.data?.error, variant: 'destructive' });
+      toast({ title: 'No se pudieron guardar los campos base', description: err?.data?.error, variant: 'destructive' });
     } finally { setSavingBase(false); }
   }
 
@@ -86,14 +88,14 @@ export default function FieldsTab({ project, onSaved }) {
       setNewField({ field_key: '', label: '', type: 'text', required: false, grupo: '', options: '' });
       await load();
     } catch (err) {
-      toast({ title: 'Error', description: err?.data?.error, variant: 'destructive' });
+      toast({ title: 'No se pudo agregar el campo', description: err?.data?.error, variant: 'destructive' });
     }
   }
 
   function handleDelete(id) {
     ask('Eliminar campo', '¿Eliminar este campo personalizado? Esta acción no se puede deshacer.', async () => {
       try { await client.delete(`/field-definitions/${id}`); await load(); }
-      catch (err) { toast({ title: 'Error', description: err?.data?.error, variant: 'destructive' }); }
+      catch (err) { toast({ title: 'No se pudo eliminar el campo', description: err?.data?.error, variant: 'destructive' }); }
     });
   }
 
@@ -125,10 +127,12 @@ export default function FieldsTab({ project, onSaved }) {
       await client.patch(`/field-definitions/${f.id}`, payload);
       setEditingId(null);
       await load();
-    } catch (err) { toast({ title: 'Error', description: err?.data?.error, variant: 'destructive' }); }
+    } catch (err) { toast({ title: 'No se pudo guardar el campo', description: err?.data?.error, variant: 'destructive' }); }
   }
 
-  const smallInput = 'w-full h-9 px-3 rounded-lg border border-border bg-muted/50 text-sm outline-none focus:border-primary';
+  // #106: la misma clase de campo que el resto del CRM (antes llevaba la suya,
+  // sin el anillo de foco y con otras esquinas).
+  const smallInput = inputClass;
   const groups = fields.reduce<Record<string, FieldDef[]>>((acc, f) => {
     const g = f.grupo || 'General';
     (acc[g] = acc[g] || []).push(f);
@@ -179,20 +183,34 @@ export default function FieldsTab({ project, onSaved }) {
         <>
           <form onSubmit={handleAdd} className="p-4 bg-muted/30 rounded-md border border-border">
             <p className="text-secundario font-medium text-muted-foreground mb-3">Nuevo campo</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <input value={newField.field_key} onChange={e => setNewField({ ...newField, field_key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} placeholder="clave_snake_case" className={smallInput + ' font-mono text-xs'} required />
-              <input value={newField.label} onChange={e => setNewField({ ...newField, label: e.target.value })} placeholder="Etiqueta visible" className={smallInput} required />
-              <Select
-                value={newField.type}
-                onChange={(v) => setNewField({ ...newField, type: v })}
-                options={FIELD_TYPES.map(t => ({ value: t.v, label: t.label }))}
-                ariaLabel="Tipo de campo"
-              />
-              <input value={newField.grupo} onChange={e => setNewField({ ...newField, grupo: e.target.value })} placeholder="Sección (opcional)" className={smallInput} />
+            {/* #106: cada campo con su etiqueta (antes solo el texto de ejemplo,
+                que desaparece al escribir). Y `sm:col-span-2`, no `col-span-2`:
+                en el móvil la rejilla tiene una columna, y un col-span-2 creaba
+                una segunda que sacaba los campos de la pantalla. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Clave interna" required htmlFor="nuevo-campo-clave">
+                <input id="nuevo-campo-clave" value={newField.field_key} onChange={e => setNewField({ ...newField, field_key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} placeholder="clave_snake_case" className={smallInput + ' font-mono text-xs'} required />
+              </Field>
+              <Field label="Etiqueta visible" required htmlFor="nuevo-campo-etiqueta">
+                <input id="nuevo-campo-etiqueta" value={newField.label} onChange={e => setNewField({ ...newField, label: e.target.value })} placeholder="Etiqueta visible" className={smallInput} required />
+              </Field>
+              <Field label="Tipo">
+                <Select
+                  value={newField.type}
+                  onChange={(v) => setNewField({ ...newField, type: v })}
+                  options={FIELD_TYPES.map(t => ({ value: t.v, label: t.label }))}
+                  ariaLabel="Tipo de campo"
+                />
+              </Field>
+              <Field label="Sección" hint="Opcional" htmlFor="nuevo-campo-seccion">
+                <input id="nuevo-campo-seccion" value={newField.grupo} onChange={e => setNewField({ ...newField, grupo: e.target.value })} placeholder="Sección (opcional)" className={smallInput} />
+              </Field>
               {newField.type === 'select' && (
-                <input value={newField.options} onChange={e => setNewField({ ...newField, options: e.target.value })} placeholder="Opciones separadas por coma" className={smallInput + ' col-span-2'} />
+                <Field label="Opciones" hint="Separadas por coma" htmlFor="nuevo-campo-opciones" className="sm:col-span-2">
+                  <input id="nuevo-campo-opciones" value={newField.options} onChange={e => setNewField({ ...newField, options: e.target.value })} placeholder="Opciones separadas por coma" className={smallInput} />
+                </Field>
               )}
-              <div className="col-span-2 flex items-center justify-between">
+              <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
                 <label className="flex items-center gap-2 text-xs font-medium">
                   <input type="checkbox" checked={newField.required} onChange={e => setNewField({ ...newField, required: e.target.checked })} />
                   Campo requerido
@@ -228,9 +246,9 @@ export default function FieldsTab({ project, onSaved }) {
                           <input value={editBuf.label} onChange={e => setEditBuf({ ...editBuf, label: e.target.value })} className={smallInput + ' h-8'} />
                           <input value={editBuf.grupo} onChange={e => setEditBuf({ ...editBuf, grupo: e.target.value })} className={smallInput + ' h-8'} placeholder="Sección" />
                           {f.type === 'select' && (
-                            <input value={editBuf.options} onChange={e => setEditBuf({ ...editBuf, options: e.target.value })} className={smallInput + ' h-8 col-span-2'} placeholder="opciones,separadas" />
+                            <input value={editBuf.options} onChange={e => setEditBuf({ ...editBuf, options: e.target.value })} className={smallInput + ' h-8 sm:col-span-2'} placeholder="opciones,separadas" />
                           )}
-                          <label className="flex items-center gap-1.5 text-xs col-span-2">
+                          <label className="flex items-center gap-1.5 text-xs sm:col-span-2">
                             <input type="checkbox" checked={editBuf.required} onChange={e => setEditBuf({ ...editBuf, required: e.target.checked })} />
                             Requerido
                           </label>
@@ -279,12 +297,10 @@ export default function FieldsTab({ project, onSaved }) {
               <p className="text-secundario font-medium text-muted-foreground mb-3">{grupo}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {items.map(f => (
-                  <div key={f.id} className={f.type === 'textarea' ? 'col-span-2' : ''}>
-                    <label className="text-xs font-semibold mb-1 block">
-                      {f.label}{f.required && <span className="text-destructive ml-0.5">*</span>}
-                    </label>
+                  // La vista previa, con la misma etiqueta que el formulario de verdad (#106).
+                  <Field key={f.id} label={f.label} required={f.required} className={f.type === 'textarea' ? 'sm:col-span-2' : ''}>
                     <input disabled type={f.type === 'number' ? 'number' : 'text'} className={smallInput} placeholder={`(${f.field_key})`} />
-                  </div>
+                  </Field>
                 ))}
               </div>
             </div>

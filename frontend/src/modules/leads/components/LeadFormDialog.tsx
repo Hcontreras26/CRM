@@ -412,9 +412,9 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
             {customFields.length > 0 && (
               <div className="border-t border-border pt-3 mt-3 space-y-3">
                 <p className="mb-1.5 px-1 text-tabla uppercase text-muted-foreground">Campos personalizados</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {customFields.map(f => (
-                    <div key={f.id} className={f.type === 'textarea' ? 'col-span-2' : ''}>
+                    <div key={f.id} className={f.type === 'textarea' ? 'sm:col-span-2' : ''}>
                       <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
                         {f.label} {f.required && <span className="text-destructive">*</span>}
                       </label>

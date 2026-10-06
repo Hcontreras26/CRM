@@ -172,7 +172,7 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
       setImageUrl(null);
       toast({ title: 'Imagen eliminada' });
     } catch (e: any) {
-      toast({ title: 'Error', description: e?.response?.data?.error || e.message, variant: 'destructive' });
+      toast({ title: 'No se pudo eliminar la imagen', description: e?.response?.data?.error || e.message, variant: 'destructive' });
     } finally {
       setImageUploading(false);
     }
@@ -512,7 +512,7 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
               <div className="space-y-2">
                 {paymentLinks.map((link, idx) => (
                   <div key={idx} className="p-3 rounded-md border border-border bg-card space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
                         value={link.label}
                         onChange={(e) => updatePaymentLink(idx, { label: e.target.value })}

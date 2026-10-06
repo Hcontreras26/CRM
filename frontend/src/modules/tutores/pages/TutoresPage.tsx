@@ -1242,7 +1242,7 @@ export default function TutoresPage() {
             />
             <input type="hidden" name="productId" value={cursoColab ?? ''} />
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
                 Porcentaje
                 <input name="pct" type="number" step="0.5" min="0" max="100" defaultValue="10" required

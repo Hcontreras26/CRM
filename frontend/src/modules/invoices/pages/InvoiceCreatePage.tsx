@@ -644,8 +644,8 @@ export default function InvoiceCreatePage() {
               Rectificando <strong>{rectOrig.codigo}</strong> — {rectOrig.cliente_nombre} · total {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(rectOrig.total))}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
               <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Motivo del abono <span className="text-destructive">*</span></label>
               <textarea value={rectMotivo} onChange={(e) => setRectMotivo(e.target.value)} rows={2}
                 placeholder="Ej: anulación por error, devolución, corrección de importe…"
@@ -664,7 +664,7 @@ export default function InvoiceCreatePage() {
 
       {/* Tipo */}
       {!esRect && (<>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {TIPOS.map((t) => {
           const Icon = t.icon;
           return (
@@ -802,7 +802,7 @@ export default function InvoiceCreatePage() {
       </div>
 
       {/* IVA + Pago */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-card border border-border rounded-lg p-4 space-y-2">
           <div className="flex items-center justify-between">
             <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">IVA / Régimen fiscal</label>
@@ -859,7 +859,7 @@ export default function InvoiceCreatePage() {
           )}
           {/* Fechas de la factura: se editan aquí, en el panel (antes había un botón aparte). */}
           {editId && puedeFechas && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha de emisión</label>
                 <input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)}

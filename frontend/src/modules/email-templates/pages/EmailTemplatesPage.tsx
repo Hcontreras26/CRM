@@ -49,7 +49,7 @@ export default function EmailTemplatesPage() {
       setEditing(null);
       refresh();
     } catch (e: unknown) {
-      toast({ title: 'Error', description: e instanceof Error ? e.message : 'No se pudo guardar', variant: 'destructive' });
+      toast({ title: 'No se pudo guardar la plantilla', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
     }
   }
 
@@ -61,7 +61,7 @@ export default function EmailTemplatesPage() {
       toast({ title: 'Plantilla eliminada' });
       refresh();
     } catch (e: unknown) {
-      toast({ title: 'Error', description: e instanceof Error ? e.message : 'No se pudo eliminar', variant: 'destructive' });
+      toast({ title: 'No se pudo eliminar la plantilla', description: e instanceof Error ? e.message : undefined, variant: 'destructive' });
     }
   }
 
@@ -71,7 +71,7 @@ export default function EmailTemplatesPage() {
       const res = await emailTemplatesApi.render(t.id, activeProject.id);
       if (res.success && res.data) setPreviewHtml(res.data);
     } catch {
-      toast({ title: 'Error generando preview', variant: 'destructive' });
+      toast({ title: 'No se pudo generar la vista previa', variant: 'destructive' });
     }
   }
 

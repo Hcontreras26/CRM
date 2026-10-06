@@ -391,7 +391,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
       }
     } catch (err: unknown) {
       const e = err as { data?: { error?: string }; message?: string };
-      toast({ title: 'Error', description: e?.data?.error || e?.message || 'No se pudo registrar', variant: 'destructive' });
+      toast({ title: 'No se pudo registrar la venta', description: e?.data?.error || e?.message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }

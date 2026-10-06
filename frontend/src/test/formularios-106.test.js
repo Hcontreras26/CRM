@@ -87,6 +87,68 @@ describe('formato de los formularios (#106)', () => {
     expect(sueltas).toEqual([]);
   });
 
+  // Lo que faltaba de la lista de Diego (revisado el 06/10): los dos formularios
+  // que no cubría la prueba de arriba (campos personalizados y secuencias), y dos
+  // de sus cuatro puntos en todos los de la lista: «que en móvil los campos se
+  // apilen» y «que el error diga qué falta… no "Error"».
+  const DE_LA_LISTA = [
+    'src/modules/leads/components/LeadFormDialog.tsx',
+    'src/modules/conversions/components/ConversionDialog.tsx',
+    'src/modules/sales/components/RegisterSaleDialog.tsx',
+    'src/modules/invoices/pages/InvoiceCreatePage.tsx',
+    'src/modules/users/components/UserFormDialog.tsx',
+    'src/modules/products/components/ProductFormDialog.tsx',
+    'src/modules/tutores/pages/TutoresPage.tsx',
+    'src/modules/field-definitions/pages/FieldDefinitionsPage.tsx',
+    'src/modules/settings/components/projectSettings/FieldsTab.tsx',
+    'src/modules/email-templates/pages/EmailTemplatesPage.tsx',
+    'src/modules/email-sequences/pages/EmailSequencesPage.tsx',
+  ];
+  const deLaLista = () => DE_LA_LISTA.map((ruta) => {
+    const f = TODOS.find((x) => x.ruta === ruta);
+    if (!f) throw new Error(`${ruta}: no existe`);
+    return f;
+  });
+  const lineas = (texto) => texto.split(/\r?\n/);
+
+  it('campos personalizados y secuencias, con Field e inputClass como los demás', () => {
+    for (const ruta of [
+      'src/modules/field-definitions/pages/FieldDefinitionsPage.tsx',
+      'src/modules/settings/components/projectSettings/FieldsTab.tsx',
+      'src/modules/email-sequences/pages/EmailSequencesPage.tsx',
+    ]) {
+      const f = TODOS.find((x) => x.ruta === ruta);
+      expect(f.texto, ruta).toMatch(/<Field\b/);
+      expect(f.texto, ruta).toMatch(/inputClass/);
+    }
+  });
+
+  it('en el móvil, las filas de campos se apilan: nada de grid-cols-2 sin sm:', () => {
+    // No cuentan el botón doble «Cliente existente / nuevo» de la venta, que no
+    // es una fila de campos, ni las tablas de conceptos (grid-cols-12).
+    const SIN_APILAR = /(^|[\s"'`])grid-cols-[2-6](?=[\s"'`])/;
+    const CON_PUNTO_DE_CORTE = /\b(sm|md|lg):grid-cols-/;
+    const malas = [];
+    for (const { ruta, texto } of deLaLista()) {
+      lineas(texto).forEach((l, i) => {
+        if (SIN_APILAR.test(l) && !CON_PUNTO_DE_CORTE.test(l) && !l.includes('rounded-lg grid grid-cols-2 gap-1')) {
+          malas.push(`${ruta}:${i + 1}`);
+        }
+      });
+    }
+    expect(malas).toEqual([]);
+  });
+
+  it('los avisos dicen qué ha fallado, no solo «Error»', () => {
+    const malas = [];
+    for (const { ruta, texto } of deLaLista()) {
+      lineas(texto).forEach((l, i) => {
+        if (/title:\s*['"]Error['"]/.test(l)) malas.push(`${ruta}:${i + 1}`);
+      });
+    }
+    expect(malas).toEqual([]);
+  });
+
   it('deja escrito cuántas etiquetas sueltas quedan en el resto del CRM', () => {
     const CANON = 'mb-1.5 block px-1 text-secundario text-muted-foreground';
     const estilos = new Map();
