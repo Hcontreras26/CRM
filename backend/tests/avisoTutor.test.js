@@ -30,10 +30,6 @@ vi.mock('../src/modules/tutores/tutor.model.js', () => ({
   resumenComisiones: vi.fn(async () => ([{ pendiente: '540.00', pagada: '120.00' }])),
 }));
 
-vi.mock('../src/shared/config/frenoTutores.js', () => ({
-  NO_ESCRIBIR_A_TUTORES: false,
-}));
-
 const { _internos } = await import('../src/jobs/avisoTutorScheduler.js');
 
 beforeEach(() => { consultas.length = 0; enviados.length = 0; });
