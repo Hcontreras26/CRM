@@ -267,7 +267,7 @@ export default function MakeWebhookDetailPage() {
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-muted-foreground">Mapeo de campos CRM ← Make</p>
-            <button onClick={save} className="h-7 px-3 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90">Guardar</button>
+            <button onClick={save} className="h-7 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90">Guardar</button>
           </div>
 
           <div className="space-y-2 max-h-96 overflow-auto">
@@ -319,7 +319,7 @@ export default function MakeWebhookDetailPage() {
                     setNewField('');
                   }
                 }}
-                className="h-8 px-3 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90"
+                className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90"
               >
                 <Plus size={12} weight="bold" />
               </button>

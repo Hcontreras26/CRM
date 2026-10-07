@@ -48,8 +48,8 @@ export default function AsociarVentaDialog({ invoice, onClose, onSaved }: { invo
         </div>
         <div className="p-4 space-y-2 text-sm">
           {loading ? <p className="text-muted-foreground text-xs">Cargando ventas…</p>
-            : !invoice.lead_id ? <p className="text-amber-600 text-xs">Esta factura no tiene cliente vinculado.</p>
-            : ventas.length === 0 ? <p className="text-amber-600 text-xs">El cliente no tiene ventas registradas.</p>
+            : !invoice.lead_id ? <p className="text-warning text-xs">Esta factura no tiene cliente vinculado.</p>
+            : ventas.length === 0 ? <p className="text-warning text-xs">El cliente no tiene ventas registradas.</p>
             : ventas.map((v) => (
               <label key={v.id} className={`flex items-start gap-2 p-2 rounded border cursor-pointer ${sel === v.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'}`}>
                 <input type="radio" name="venta" checked={sel === v.id} onChange={() => setSel(v.id)} className="mt-1" />

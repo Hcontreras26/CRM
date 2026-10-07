@@ -60,10 +60,10 @@ function estadoDe(total: unknown, pagado: unknown): 'pagado' | 'parcial' | 'pend
 function Tipo({ tipo, compartida }: { tipo: string; compartida?: boolean }) {
   const base = 'inline-block px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap';
   const etiqueta = tipo === 'cuota'
-    ? <span className={`${base} bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300`}>CUOTA</span>
+    ? <span className={`${base} bg-info-soft text-info-soft-foreground`}>CUOTA</span>
     : tipo === 'parte'
-      ? <span className={`${base} bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300`}>MISMA VENTA</span>
-      : <span className={`${base} bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300`}>VENTA</span>;
+      ? <span className={`${base} bg-muted text-muted-foreground`}>MISMA VENTA</span>
+      : <span className={`${base} bg-success-soft text-success-soft-foreground`}>VENTA</span>;
   if (!compartida) return etiqueta;
   // Atendida entre dos gestoras: cada una cuenta su parte. Se dice aqui para
   // que un 2,5 en el equipo no parezca un error de la pantalla.
@@ -71,7 +71,7 @@ function Tipo({ tipo, compartida }: { tipo: string; compartida?: boolean }) {
     <span className="inline-flex items-center gap-1">
       {etiqueta}
       <span
-        className={`${base} bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300`}
+        className={`${base} bg-primary/10 text-primary`}
         title="Venta repartida entre dos gestoras. Cada una suma su parte."
       >
         COMPARTIDO
@@ -269,7 +269,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           title="Cómo leer esta pantalla"
           className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm font-semibold hover:bg-muted"
         >
-          <GraduationCap size={16} weight="duotone" className="text-violet-600" />
+          <GraduationCap size={16} weight="duotone" className="text-primary" />
           Tutoriales
         </button>
         <button
@@ -499,7 +499,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <KpiCard
           icon={Receipt}
-          iconBg="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+          iconBg="bg-info-soft text-info-soft-foreground"
           label="Ventas"
           numericValue={total}
         />
@@ -514,14 +514,14 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           <div title={`Facturas con etiqueta CUOTA emitidas en estas fechas: las mismas que se ven en Facturación con este filtro`}>
             <KpiCard
               icon={Receipt}
-              iconBg="bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400"
+              iconBg="bg-info-soft text-info-soft-foreground"
               label="Cuotas facturadas"
               numericValue={totales.facturasPorClase.cuota.importe}
               format={fmt}
               badge={totales.facturasPorClase.cuota.n > 0
                 ? `${totales.facturasPorClase.cuota.n} ${totales.facturasPorClase.cuota.n === 1 ? 'cuota' : 'cuotas'}`
                 : null}
-              badgeColor="bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400"
+              badgeColor="bg-info-soft text-info-soft-foreground"
             />
           </div>
         )}
@@ -531,7 +531,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         <div title={`${totales.facturadas} ventas facturadas · ${totales.noRequiereFactura} no necesitan factura · ${totales.pendientesDeFacturar} pendientes de facturar`}>
           <KpiCard
             icon={Receipt}
-            iconBg="bg-teal-50 text-teal-600 dark:bg-teal-950/30 dark:text-teal-400"
+            iconBg="bg-success-soft text-success-soft-foreground"
             label="Ventas por facturas"
             value={`${totales.facturadas} / ${total}`}
             /* El aviso solo cuando hay algo que HACER. Antes contaba tambien las
@@ -539,7 +539,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
                tapaba la unica que importa: las 16 que si estan pendientes. */
             badge={totales.pendientesDeFacturar > 0
               ? `${totales.pendientesDeFacturar} por facturar` : null}
-            badgeColor="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+            badgeColor="bg-warning-soft text-warning-soft-foreground"
             trend="down"
           />
         </div>
@@ -550,7 +550,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         <div title="Suma del importe de las ventas de estas fechas. No es lo que se facturó: una venta a plazos se factura por cobros, mes a mes.">
           <KpiCard
             icon={CurrencyEur}
-            iconBg="bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400"
+            iconBg="bg-primary/10 text-primary"
             label="Importe vendido"
             numericValue={totales.importe}
             format={fmt}
@@ -559,7 +559,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         <div title="Lo pagado de esas ventas hasta hoy, no lo cobrado dentro de estas fechas. Una venta de julio que sigue pagando cuotas suma aquí entera.">
           <KpiCard
             icon={CheckCircle}
-            iconBg="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
+            iconBg="bg-success-soft text-success-soft-foreground"
             label="Cobrado de esas ventas"
             numericValue={totales.pagado}
             format={fmt}
@@ -567,7 +567,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         </div>
         <KpiCard
           icon={Receipt}
-          iconBg="bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400"
+          iconBg="bg-warning-soft text-warning-soft-foreground"
           label="IVA aprox."
           numericValue={totales.iva}
           format={fmt}
@@ -623,16 +623,16 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       {/* Lo unico que hay que HACER: las ventas que esperan factura. Lleva a la
           pantalla donde se emiten, que cuenta exactamente lo mismo. */}
       {totales.pendientesDeFacturar > 0 && (
-        <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="text-sm text-amber-900 dark:text-amber-200">
+        <div className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="text-sm text-warning-soft-foreground">
             <strong>{totales.pendientesDeFacturar}</strong>{' '}
             {totales.pendientesDeFacturar === 1 ? 'venta de estas fechas espera factura' : 'ventas de estas fechas esperan factura'}.
           </p>
-          <p className="text-xs text-amber-800 dark:text-amber-300">
+          <p className="text-xs text-warning-soft-foreground">
             Las {totales.noRequiereFactura > 0 ? `otras ${totales.noRequiereFactura} sin factura están marcadas «no requiere factura»` : 'demás están facturadas'}.
           </p>
           <button type="button" onClick={() => navigate('/finanzas/facturas')}
-            className="ml-auto text-xs font-semibold text-amber-900 dark:text-amber-200 underline hover:no-underline">
+            className="ml-auto text-xs font-semibold text-warning-soft-foreground underline hover:no-underline">
             Ir a facturarlas
           </button>
         </div>
@@ -650,13 +650,13 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         Solo sale cuando de verdad hay descuadre que explicar.
       */}
       {totales.facturasDeAntes?.n > 0 && (
-        <div className="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-950/30 px-3 py-2.5">
-          <p className="text-sm text-sky-900 dark:text-sky-200">
+        <div className="rounded-lg border border-info/30 bg-info-soft px-3 py-2.5">
+          <p className="text-sm text-info-soft-foreground">
             <strong>{totales.facturasDeAntes.n}</strong>{' '}
             {totales.facturasDeAntes.n === 1 ? 'factura de este periodo no es de una venta de este periodo' : 'facturas de este periodo no son de ventas de este periodo'}
             {' '}({fmt(totales.facturasDeAntes.importe)}).
           </p>
-          <p className="text-xs text-sky-800 dark:text-sky-300 mt-0.5 leading-relaxed">
+          <p className="text-xs text-info-soft-foreground mt-0.5 leading-relaxed">
             Son cuotas de ventas anteriores: una venta a plazos emite una factura por
             cada cobro, y esa factura cae en el mes en que se cobra. Por eso Facturación
             enseña más filas que Ventas en las mismas fechas — aquí se cuentan
@@ -665,7 +665,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           {/* El reparto de Facturacion, TAL CUAL: los mismos numeros que se ven
               alli con este filtro. Si no coinciden, es un fallo. */}
           {totales.facturadoEnPeriodo?.n > 0 && (
-            <p className="text-xs text-sky-900 dark:text-sky-200 mt-1.5 pt-1.5 border-t border-sky-200 dark:border-sky-900">
+            <p className="text-xs text-info-soft-foreground mt-1.5 pt-1.5 border-t border-info/30">
               En estas fechas se emitieron <strong>{totales.facturadoEnPeriodo.n}</strong>{' '}
               {totales.facturadoEnPeriodo.n === 1 ? 'factura' : 'facturas'} por{' '}
               <strong>{fmt(totales.facturadoEnPeriodo.importe)}</strong>:{' '}
@@ -687,7 +687,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
             </p>
           )}
           {verCuotas && (
-            <div className="mt-2 rounded-md border border-sky-200 dark:border-sky-900 bg-card overflow-x-auto">
+            <div className="mt-2 rounded-md border border-info/30 bg-card overflow-x-auto">
               {cargandoCuotas ? (
                 <p className="p-3 text-xs text-muted-foreground">cargando…</p>
               ) : cuotas.length === 0 ? (
@@ -725,7 +725,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
                             ? (String(q.cobro_fecha).slice(0, 10) === String(q.fecha).slice(0, 10)
                                 ? 'el mismo día'
                                 : formatDate(q.cobro_fecha))
-                            : <span className="text-amber-700 dark:text-amber-400 font-semibold">sin cobro apuntado</span>}
+                            : <span className="text-warning-soft-foreground font-semibold">sin cobro apuntado</span>}
                         </td>
                       </tr>
                     ))}
@@ -798,19 +798,19 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
                     <td className="px-4 py-3 font-semibold">{r.cliente || 'Sin nombre'}</td>
                     <td className="px-4 py-3">{r.producto || '—'}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{fmt(r.total)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-green-600 dark:text-green-400">{fmt(r.pagado)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-success">{fmt(r.pagado)}</td>
                     <td className="px-4 py-3 text-xs whitespace-nowrap">
                       {r.factura
                         ? <span className="font-mono">{r.factura}</span>
                         : r.factura_no_requerida
                           ? <span className="text-muted-foreground">no requiere</span>
-                          : <span className="text-amber-700 dark:text-amber-400 font-semibold">sin factura</span>}
+                          : <span className="text-warning-soft-foreground font-semibold">sin factura</span>}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                        r.estado === 'pagado' ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' :
-                        r.estado === 'parcial' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
-                        'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400'
+                        r.estado === 'pagado' ? 'bg-success-soft text-success-soft-foreground' :
+                        r.estado === 'parcial' ? 'bg-warning-soft text-warning-soft-foreground' :
+                        'bg-warning-soft text-warning-soft-foreground'
                       }`}>{r.estado}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -839,15 +839,15 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
                     <div className="text-xs text-muted-foreground truncate">{r.producto || '—'}</div>
                   </div>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${
-                    r.estado === 'pagado' ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' :
-                    r.estado === 'parcial' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
-                    'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400'
+                    r.estado === 'pagado' ? 'bg-success-soft text-success-soft-foreground' :
+                    r.estado === 'parcial' ? 'bg-warning-soft text-warning-soft-foreground' :
+                    'bg-warning-soft text-warning-soft-foreground'
                   }`}>{r.estado}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="text-xs text-muted-foreground">{formatDate(r.fecha)}{r.factura ? ` · ${r.factura}` : ''}</div>
                   <div className="flex items-center gap-3">
-                    <span className="tabular-nums text-green-600 dark:text-green-400">{fmt(r.pagado)}</span>
+                    <span className="tabular-nums text-success">{fmt(r.pagado)}</span>
                     <span className="text-muted-foreground">/</span>
                     <span className="tabular-nums">{fmt(r.total)}</span>
                   </div>

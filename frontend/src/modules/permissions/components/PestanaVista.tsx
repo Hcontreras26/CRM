@@ -149,7 +149,7 @@ export default function PestanaVista({ roleKey, esFijo, customId, defaults }: Pr
                 onClick={() => alterna('hidden_sidebar_items', it.id)}
                 className={`px-2.5 py-1 rounded-md border text-xs font-medium transition-colors disabled:cursor-not-allowed ${
                   oculto
-                    ? 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 line-through'
+                    ? 'border-destructive/30 bg-destructive-soft text-destructive-soft-foreground line-through'
                     : 'border-border bg-card text-muted-foreground hover:bg-muted'
                 } ${esFijo ? 'opacity-70' : ''}`}
               >

@@ -256,6 +256,9 @@ function enCristiano(action, details) {
     'credencial.cambiar': `Cambió la credencial de ${d.servicio || '—'}`,
     'credencial.borrar': `Borró la credencial de ${d.servicio || '—'}`,
     'credencial.probar': `Probó la credencial de ${d.servicio || '—'}`,
+    // #248: el super admin, sobre otro usuario. La contraseña nunca se guarda.
+    'usuario.cambiar_correo': `Cambió el correo de ${d.nombre || `usuario ${d.usuario_id}`}: ${d.de || '—'} → ${d.a || '—'}`,
+    'usuario.cambiar_contrasena': `Cambió la contraseña de ${d.nombre || `usuario ${d.usuario_id}`}`,
   };
   return M[action] || action;
 }

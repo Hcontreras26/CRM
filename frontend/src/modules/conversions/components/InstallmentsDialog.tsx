@@ -341,7 +341,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                                 <button
                                   onClick={() => handleSaveInstallment(inst)}
                                   disabled={savingInst === inst.id}
-                                  className="h-8 px-2.5 rounded-md bg-primary text-white text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50">
+                                  className="h-8 px-2.5 rounded-md bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50">
                                   {savingInst === inst.id ? 'Guardando…' : 'Guardar'}
                                 </button>
                               )}
@@ -362,29 +362,29 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                       </div>
                       {pagada ? (
                         <>
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700 dark:text-green-400">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success-soft-foreground">
                             <CheckCircle size={14} weight="fill" /> {inst.fecha_cobro ? formatDate(inst.fecha_cobro) : 'Pagada'} · {formatCurrency(Number(inst.importe_cobrado || 0))}
                           </span>
                           <button onClick={() => handleEditPaid(inst)}
                             title="Editar pago (fecha o importe)"
-                            className="px-2 py-1 rounded-md text-[11px] font-semibold text-sky-700 hover:bg-sky-100 dark:hover:bg-sky-950/40">
+                            className="px-2 py-1 rounded-md text-[11px] font-semibold text-info-soft-foreground hover:bg-info-soft">
                             Editar
                           </button>
                           <button onClick={() => handleUnpay(inst)}
                             title="Deshacer el pago (vuelve a pendiente)"
-                            className="px-2 py-1 rounded-md text-[11px] font-semibold text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-950/40">
+                            className="px-2 py-1 rounded-md text-[11px] font-semibold text-warning-soft-foreground hover:bg-warning-soft">
                             Deshacer
                           </button>
                         </>
                       ) : (
                         <>
                           <button onClick={() => handlePayInstallment(inst)}
-                            className="px-2.5 py-1 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90">
+                            className="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90">
                             Marcar pagada
                           </button>
                           <button onClick={() => handleDeleteInstallment(inst)}
                             title="Eliminar cuota"
-                            className="p-1 text-muted-foreground hover:text-red-600"><Trash size={14} /></button>
+                            className="p-1 text-muted-foreground hover:text-destructive"><Trash size={14} /></button>
                         </>
                       )}
                     </div>
@@ -406,19 +406,19 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
               {/* Sin pendiente no hay nada que repartir: el borrador sale a 0 y
                   al guardar saltaba «cuota incompleta», que no dice por que. */}
               {pendiente <= 0 && (
-                <div className="border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-md p-3">
-                  <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                <div className="border border-warning/30 bg-warning-soft rounded-md p-3">
+                  <p className="text-xs font-semibold text-warning-soft-foreground">
                     Esta venta ya figura cobrada entera ({formatCurrency(Number(conversion.importe_pagado || 0))} de {formatCurrency(Number(conversion.importe_total))}), así que no queda nada que fraccionar.
                   </p>
-                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                  <p className="text-[11px] text-warning-soft-foreground mt-1">
                     Si el alumno va a pagar a plazos, deshaz primero el cobro desde la venta, o sube aquí arriba el importe total. Las cuotas se reparten sobre lo que queda pendiente, no sobre el total.
                   </p>
                 </div>
               )}
 
               {/* Editor de importe total para aplicar descuentos/becas */}
-              <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-md p-3">
-                <label className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 mb-1 block">
+              <div className="border border-warning/30 bg-warning-soft rounded-md p-3">
+                <label className="text-[11px] font-semibold text-warning-soft-foreground mb-1 block">
                   ¿Aplicar descuento o beca? Modifica el importe total antes de fraccionar:
                 </label>
                 <div className="flex gap-2 items-center">
@@ -430,12 +430,12 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                   <button
                     onClick={handleSaveTotal}
                     disabled={savingTotal || Number(totalDraft) === Number(conversion.importe_total)}
-                    className="h-9 px-3 rounded-md bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-50"
+                    className="h-9 px-3 rounded-md bg-warning text-warning-foreground text-xs font-semibold hover:bg-warning disabled:opacity-50"
                   >
                     {savingTotal ? '...' : 'Actualizar total'}
                   </button>
                 </div>
-                <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
+                <p className="text-[10px] text-warning-soft-foreground mt-1">
                   Ejemplo: 30% de beca sobre 950€ → escribe <strong>665</strong>. Luego abajo las 6 cuotas sumarán ese nuevo total.
                 </p>
               </div>
@@ -497,7 +497,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                       className="h-8 px-2 rounded-md border border-border bg-muted/50 text-sm"
                     />
                     <button onClick={() => setDraftInstallments(draftInstallments.filter((_, j) => j !== i))}
-                      className="p-1 text-muted-foreground hover:text-red-600"><Trash size={12} /></button>
+                      className="p-1 text-muted-foreground hover:text-destructive"><Trash size={12} /></button>
                   </div>
                 ))}
                 <div className="p-2 flex items-center justify-between">
@@ -523,7 +523,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
           </button>
           {mode === 'create' && (
             <button onClick={handleGenerate}
-              className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 inline-flex items-center gap-2">
+              className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 inline-flex items-center gap-2">
               <CalendarBlank size={14} weight="bold" /> Guardar cuotas
             </button>
           )}
@@ -585,7 +585,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                 Cancelar
               </button>
               <button onClick={confirmPayInstallment} disabled={payingNow}
-                className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+                className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
                 {payingNow ? 'Guardando…' : (payMode === 'edit' ? 'Guardar cambios' : 'Confirmar cobro')}
               </button>
             </div>

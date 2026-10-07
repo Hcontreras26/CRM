@@ -125,7 +125,7 @@ export default function SidebarLabelsTab({ project, onSaved }: Props) {
                     <div key={`${section}-${label}-${type}`} className="px-4 py-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-sm">
                       <div className="flex items-center gap-2 sm:gap-3 sm:contents">
                         <span className={`text-secundario font-bold uppercase rounded px-1.5 py-0.5 flex-shrink-0 ${
-                          type === 'group' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' :
+                          type === 'group' ? 'bg-warning-soft text-warning-soft-foreground' :
                           type === 'child' ? 'bg-muted text-muted-foreground' :
                           'bg-primary/10 text-primary'
                         }`}>

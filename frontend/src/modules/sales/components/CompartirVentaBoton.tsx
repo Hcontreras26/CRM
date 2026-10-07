@@ -75,7 +75,7 @@ export default function CompartirVentaBoton({ leadId }: { leadId: number }) {
         title="Atendida entre dos: repartir la venta"
         className="h-9 px-3 rounded-lg border border-border bg-secondary text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 disabled:opacity-50"
       >
-        <UsersThree size={14} weight="bold" className="text-violet-600" />
+        <UsersThree size={14} weight="bold" className="text-primary" />
         <span className="hidden sm:inline">{cargando ? 'Abriendo…' : 'Compartir'}</span>
       </button>
 

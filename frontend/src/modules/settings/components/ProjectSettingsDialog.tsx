@@ -65,7 +65,7 @@ export default function ProjectSettingsDialog({ project, onClose, onSaved, initi
                     onClick={() => setTab(t.id)}
                     className={`lg:w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap ${
                       tab === t.id
-                        ? 'bg-primary text-white font-semibold'
+                        ? 'bg-primary text-primary-foreground font-semibold'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     }`}
                   >

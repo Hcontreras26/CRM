@@ -160,7 +160,7 @@ export default function FacturacionAlDiaCard({ projectId }: { projectId?: number
         {/* Diego, 14/09: que antes de emitir se recuerde mirar el Excel. El CRM
             sabe cual es el siguiente de SU serie, pero el orden bueno esta en la
             hoja --y cuando los dos no coinciden, manda la hoja--. */}
-        <p className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+        <p className="mt-2 flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning-soft px-2.5 py-2 text-[11px] font-medium text-warning-soft-foreground">
           <span aria-hidden="true">⚠</span>
           <span>
             Comprueba la numeración en el Excel de facturación primero.
@@ -238,7 +238,7 @@ export default function FacturacionAlDiaCard({ projectId }: { projectId?: number
       </div>
 
       {estado.pagos_sin_factura === 0 && (estado.proformas_pendientes?.length || 0) === 0 && (
-        <div className="mt-4 flex items-center gap-2 text-[12px] text-emerald-600 dark:text-emerald-400">
+        <div className="mt-4 flex items-center gap-2 text-[12px] text-success">
           <CheckCircle size={16} weight="fill" />
           Todo facturado: no queda ningún cobro por generar.
         </div>
@@ -254,7 +254,7 @@ export default function FacturacionAlDiaCard({ projectId }: { projectId?: number
                 title={`${d.cobros} cobro${d.cobros === 1 ? '' : 's'} · ${fmt(d.importe)}`}
                 className={`text-[11px] px-2 py-1 rounded font-semibold tabular-nums ${
                   i === 0
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                    ? 'bg-success-soft text-success-soft-foreground'
                     : 'bg-muted text-muted-foreground'
                 }`}
               >
@@ -287,7 +287,7 @@ export default function FacturacionAlDiaCard({ projectId }: { projectId?: number
                   <tr
                     key={c.payment_id}
                     className={`border-b border-border/50 last:border-0 ${
-                      c.es_el_siguiente ? 'bg-emerald-50/60 dark:bg-emerald-950/10' : ''
+                      c.es_el_siguiente ? 'bg-success-soft/60' : ''
                     }`}
                   >
                     <td className="px-2 py-1.5 text-muted-foreground whitespace-nowrap">{fecha(c.fecha)}</td>
@@ -334,12 +334,12 @@ export default function FacturacionAlDiaCard({ projectId }: { projectId?: number
 
       {(estado.proformas_pendientes?.length || 0) > 0 && (
         <div className="mt-4 border-t border-border pt-4">
-          <h4 className="text-[11px] font-bold text-amber-600 dark:text-amber-400 mb-2">
+          <h4 className="text-[11px] font-bold text-warning mb-2">
             Proformas esperando visto bueno ({estado.proformas_pendientes!.length})
           </h4>
           <div className="space-y-1.5">
             {estado.proformas_pendientes!.map((pf) => (
-              <div key={pf.id} className="flex items-center justify-between gap-3 bg-amber-50/60 dark:bg-amber-950/10 rounded-md px-3 py-2">
+              <div key={pf.id} className="flex items-center justify-between gap-3 bg-warning-soft/60 rounded-md px-3 py-2">
                 <div className="min-w-0">
                   <p className="text-[12px] font-semibold truncate">{pf.cliente_nombre || 'Sin nombre'}</p>
                   <p className="text-[10px] text-muted-foreground">

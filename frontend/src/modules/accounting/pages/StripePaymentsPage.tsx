@@ -144,23 +144,23 @@ export default function StripePaymentsPage() {
           {/* El importe global de la pasarela es informacion de direccion:
               la gestora ve sus cobros en la ficha de cada cliente, no el total. */}
           {puedeAsociar && (
-            <KpiCard icon={CheckCircle} iconBg="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
+            <KpiCard icon={CheckCircle} iconBg="bg-success-soft text-success-soft-foreground"
               label="Cobrado" numericValue={Number(stats.total_cobrado)} format={(n) => fmt(Number(n))} />
           )}
-          <KpiCard icon={XCircle} iconBg="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+          <KpiCard icon={XCircle} iconBg="bg-destructive-soft text-destructive-soft-foreground"
             label="Fallidos" numericValue={stats.failed} />
-          <KpiCard icon={WarningCircle} iconBg="bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400"
+          <KpiCard icon={WarningCircle} iconBg="bg-warning-soft text-warning-soft-foreground"
             label="Disputas activas" numericValue={stats.disputed} />
-          <KpiCard icon={LinkIcon} iconBg="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+          <KpiCard icon={LinkIcon} iconBg="bg-info-soft text-info-soft-foreground"
             label="Sin asociar" numericValue={stats.unlinked} badge={stats.unlinked > 0 ? 'Revisar' : 'OK'}
-            badgeColor={stats.unlinked > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'} />
+            badgeColor={stats.unlinked > 0 ? 'bg-warning-soft text-warning-soft-foreground' : 'bg-success-soft text-success-soft-foreground'} />
         </div>
       )}
 
       {stats?.sync && (
         <div className="text-xs text-muted-foreground bg-muted/30 rounded-md p-2 flex items-center justify-between flex-wrap gap-2">
           <span>Última sync: <strong>{fmtDate(stats.sync.last_sync_at)}</strong> · Total importados: <strong>{stats.sync.total_imported}</strong></span>
-          {stats.sync.last_error && <span className="text-red-600">Error último intento: {stats.sync.last_error}</span>}
+          {stats.sync.last_error && <span className="text-destructive">Error último intento: {stats.sync.last_error}</span>}
         </div>
       )}
 
@@ -229,7 +229,7 @@ export default function StripePaymentsPage() {
                 <tr key={p.id}
                   className={`border-b last:border-0 hover:bg-muted/30 ${
                     !p.conversion_id && p.status === 'succeeded'
-                      ? 'bg-red-50/70 dark:bg-red-950/20 border-l-2 border-l-red-500'
+                      ? 'bg-destructive-soft/70 border-l-2 border-l-destructive'
                       : ''}`}>
                   <td className="px-3 py-2 whitespace-nowrap">{fmtDate(p.stripe_created_at)}</td>
                   <td className="px-3 py-2">
@@ -238,12 +238,12 @@ export default function StripePaymentsPage() {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold">
                     {fmt(p.amount)}
-                    {p.refunded && <div className="text-[10px] text-red-600">Reembolsado {p.refunded_amount ? fmt(p.refunded_amount) : ''}</div>}
+                    {p.refunded && <div className="text-[10px] text-destructive">Reembolsado {p.refunded_amount ? fmt(p.refunded_amount) : ''}</div>}
                   </td>
                   <td className="px-3 py-2">
                     {p.disputed ? (
                       <button onClick={() => setDisputeDialog(p)}
-                        className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200"
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-warning-soft text-warning-soft-foreground hover:bg-warning-soft/70"
                         title="Ver detalle de disputa">
                         DISPUTA ↗
                       </button>
@@ -254,7 +254,7 @@ export default function StripePaymentsPage() {
                   <td className="px-3 py-2">
                     {p.conversion_id ? (
                       <div className="text-[11px] leading-tight">
-                        <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                        <span className="inline-flex items-center gap-1 text-success-soft-foreground font-medium">
                           <LinkIcon size={11} weight="bold" /> {p.lead_nombre || `Conv #${p.conversion_id}`}
                           <span className="text-muted-foreground">({p.link_method?.startsWith('auto') ? 'auto' : 'manual'})</span>
                         </span>
@@ -272,14 +272,14 @@ export default function StripePaymentsPage() {
                       puedeAsociar ? (
                       <button onClick={() => setLinkDialog(p)}
                         title="Este cobro no está asociado a ningún cliente: asócialo para que genere su factura"
-                        className="text-[11px] font-bold text-red-700 dark:text-red-400 hover:underline inline-flex items-center gap-1 text-left">
+                        className="text-[11px] font-bold text-destructive-soft-foreground hover:underline inline-flex items-center gap-1 text-left">
                         <LinkIcon size={11} weight="bold" />
                         NO ASOCIADO A UN CLIENTE · ASOCIAR
                       </button>
                       ) : (
                       <span
                         title={`Pon el correo ${p.customer_email || 'del cobro'} en la ficha del cliente y pulsa Sincronizar: se asocia solo`}
-                        className="text-[11px] font-bold text-red-700 dark:text-red-400 inline-flex items-center gap-1 text-left">
+                        className="text-[11px] font-bold text-destructive-soft-foreground inline-flex items-center gap-1 text-left">
                         <LinkIcon size={11} weight="bold" />
                         NO ASOCIADO · pon el correo en la ficha y sincroniza
                       </span>
@@ -337,12 +337,12 @@ const DISPUTE_STATUS_LABELS: Record<string, string> = {
 };
 
 const MY_DECISION_OPTIONS = [
-  { value: 'pending', label: 'Pendiente de revisión', color: 'bg-amber-100 text-amber-800' },
-  { value: 'contest', label: 'Vamos a impugnarla (es inválida)', color: 'bg-blue-100 text-blue-800' },
-  { value: 'accept_refund', label: 'Aceptamos / reembolsamos', color: 'bg-purple-100 text-purple-800' },
-  { value: 'won', label: 'Ganada', color: 'bg-emerald-100 text-emerald-800' },
-  { value: 'lost', label: 'Perdida', color: 'bg-red-100 text-red-800' },
-  { value: 'closed', label: 'Cerrada', color: 'bg-zinc-200 text-zinc-700' },
+  { value: 'pending', label: 'Pendiente de revisión', color: 'bg-warning-soft text-warning-soft-foreground' },
+  { value: 'contest', label: 'Vamos a impugnarla (es inválida)', color: 'bg-info-soft text-info-soft-foreground' },
+  { value: 'accept_refund', label: 'Aceptamos / reembolsamos', color: 'bg-primary/10 text-primary' },
+  { value: 'won', label: 'Ganada', color: 'bg-success-soft text-success-soft-foreground' },
+  { value: 'lost', label: 'Perdida', color: 'bg-destructive-soft text-destructive-soft-foreground' },
+  { value: 'closed', label: 'Cerrada', color: 'bg-muted text-muted-foreground' },
 ];
 
 function DisputeDialog({ payment, onClose, onUpdated }: { payment: Payment; onClose: () => void; onUpdated: () => void }) {
@@ -375,7 +375,7 @@ function DisputeDialog({ payment, onClose, onUpdated }: { payment: Payment; onCl
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
       <div className="bg-card rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-4 border-b border-border flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-warning-soft text-warning-soft-foreground flex items-center justify-center flex-shrink-0">
             <WarningCircle size={22} weight="duotone" />
           </div>
           <div className="flex-1">
@@ -389,7 +389,7 @@ function DisputeDialog({ payment, onClose, onUpdated }: { payment: Payment; onCl
         <div className="p-4 space-y-4 text-sm">
           {/* Banner deadline */}
           {dueBy && (
-            <div className={`p-3 rounded-lg border ${overdue ? 'bg-red-50 border-red-300 text-red-900' : daysLeft! <= 2 ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-blue-50 border-blue-200 text-blue-900'}`}>
+            <div className={`p-3 rounded-lg border ${overdue ? 'bg-destructive-soft border-destructive/30 text-destructive-soft-foreground' : daysLeft! <= 2 ? 'bg-warning-soft border-warning/30 text-warning-soft-foreground' : 'bg-info-soft border-info/30 text-info-soft-foreground'}`}>
               <p className="font-semibold text-xs">⏰ Fecha límite para responder a Stripe:</p>
               <p className="text-lg font-bold tabular-nums">{fmtDate(payment.dispute_evidence_due_by)}</p>
               <p className="text-xs">{overdue ? 'VENCIDO — Stripe ya decidió o pronto lo hará' : `Quedan ${daysLeft} días (${hoursLeft}h)`}</p>
@@ -412,7 +412,7 @@ function DisputeDialog({ payment, onClose, onUpdated }: { payment: Payment; onCl
             </div>
             <div>
               <p className="text-muted-foreground">Asociado a lead</p>
-              <p>{payment.lead_nombre || <span className="text-amber-600">Sin asociar</span>}</p>
+              <p>{payment.lead_nombre || <span className="text-warning">Sin asociar</span>}</p>
             </div>
           </div>
 
@@ -458,12 +458,12 @@ function DisputeDialog({ payment, onClose, onUpdated }: { payment: Payment; onCl
 }
 
 function StatusBadge({ status, disputed, refunded }: { status: string; disputed: boolean; refunded: boolean }) {
-  if (disputed) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">DISPUTA</span>;
-  if (refunded) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">REEMBOLSO</span>;
+  if (disputed) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-warning-soft text-warning-soft-foreground">DISPUTA</span>;
+  if (refunded) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">REEMBOLSO</span>;
   const map: Record<string, string> = {
-    succeeded: 'bg-emerald-100 text-emerald-800',
-    failed: 'bg-red-100 text-red-800',
-    pending: 'bg-blue-100 text-blue-800',
+    succeeded: 'bg-success-soft text-success-soft-foreground',
+    failed: 'bg-destructive-soft text-destructive-soft-foreground',
+    pending: 'bg-info-soft text-info-soft-foreground',
   };
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${map[status] || 'bg-muted text-muted-foreground'}`}>{status.toUpperCase()}</span>;
 }
@@ -550,7 +550,7 @@ function LinkDialog({ payment, projectId, onClose, onLinked }: { payment: Paymen
                     <div className="text-sm font-medium truncate">{l.nombre}</div>
                     <div className="text-xs text-muted-foreground truncate">{l.email || 'sin email'}</div>
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ml-2 ${l.status === 'convertido' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-muted text-muted-foreground'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ml-2 ${l.status === 'convertido' ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'}`}>
                     {l.status === 'convertido' ? 'CLIENTE' : 'PROSPECTO'}
                   </span>
                 </button>
@@ -566,7 +566,7 @@ function LinkDialog({ payment, projectId, onClose, onLinked }: { payment: Paymen
             {loadingVentas ? <p className="text-xs text-muted-foreground py-3">Cargando ventas…</p>
               : ventas.length === 0 ? (
                 <div className="space-y-2">
-                  <p className="text-xs text-amber-600">Este cliente no tiene ventas registradas. Se puede asociar solo al cliente (sin importe ni factura).</p>
+                  <p className="text-xs text-warning">Este cliente no tiene ventas registradas. Se puede asociar solo al cliente (sin importe ni factura).</p>
                   <button onClick={() => link(undefined)} disabled={linking !== null}
                     className="w-full h-9 rounded-md border border-border text-sm hover:bg-muted disabled:opacity-50">
                     {linking !== null ? 'Asociando…' : 'Asociar solo al cliente'}
@@ -582,7 +582,7 @@ function LinkDialog({ payment, projectId, onClose, onLinked }: { payment: Paymen
                         <div className="text-sm font-medium truncate">{v.producto_contratado || 'Venta'}</div>
                         <div className="text-[11px] text-muted-foreground">
                           {fmt(num(v.importe_total))} · cobrado {fmt(num(v.importe_pagado))} ·{' '}
-                          <span className={pend > 0.01 ? 'text-amber-600 font-semibold' : 'text-emerald-600'}>
+                          <span className={pend > 0.01 ? 'text-warning font-semibold' : 'text-success'}>
                             {pend > 0.01 ? `pendiente ${fmt(pend)}` : 'saldada'}
                           </span>
                           {v.fecha_conversion ? ` · ${String(v.fecha_conversion).slice(0, 10)}` : ''}

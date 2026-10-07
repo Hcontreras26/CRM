@@ -205,7 +205,7 @@ function AddForm({ products, gestores, onCancel, onAdded, leadId }: { products: 
       </div>
       <div className="flex justify-end gap-1">
         <button onClick={onCancel} disabled={saving} className="h-7 px-2 rounded text-[11px] text-muted-foreground hover:bg-muted">Cancelar</button>
-        <button onClick={save} disabled={saving} className="h-7 px-3 rounded bg-primary text-white text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1">
+        <button onClick={save} disabled={saving} className="h-7 px-3 rounded bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1">
           <Check size={11} weight="bold" /> {saving ? 'Guardando…' : 'Añadir'}
         </button>
       </div>
@@ -245,7 +245,7 @@ function EditForm({ item, gestores, leadId, onCancel, onSaved }: { item: Product
         className="w-full px-2 py-1 rounded border border-border bg-card text-xs resize-none" />
       <div className="flex justify-end gap-1">
         <button onClick={onCancel} disabled={saving} className="h-7 px-2 rounded text-[11px] text-muted-foreground hover:bg-muted">Cancelar</button>
-        <button onClick={save} disabled={saving} className="h-7 px-3 rounded bg-primary text-white text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50">
+        <button onClick={save} disabled={saving} className="h-7 px-3 rounded bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 disabled:opacity-50">
           {saving ? 'Guardando…' : 'Guardar'}
         </button>
       </div>

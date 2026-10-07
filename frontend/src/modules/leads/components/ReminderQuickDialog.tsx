@@ -121,7 +121,7 @@ export default function ReminderQuickDialog({ open, lead, onClose, onSaved }: Pr
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving || !fecha}
-            className="inline-flex items-center h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+            className="inline-flex items-center h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
             {saving ? 'Guardando...' : 'Crear recordatorio'}
           </button>
         </div>

@@ -189,8 +189,8 @@ export default function ProximoGestor({
 
   if (!gestores.length) {
     return (
-      <div className="flex items-start gap-2 rounded-md border border-amber-200/60 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs">
-        <WarningCircle size={15} weight="fill" className="text-amber-600 shrink-0 mt-px" />
+      <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-xs">
+        <WarningCircle size={15} weight="fill" className="text-warning shrink-0 mt-px" />
         <span>
           <strong>Sin gestores en el reparto.</strong> Los prospectos que entren se
           quedarán sin responsable hasta que haya alguien. Puede ser que nadie

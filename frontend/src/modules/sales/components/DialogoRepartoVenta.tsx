@@ -172,18 +172,18 @@ export default function DialogoRepartoVenta({
                 A partes iguales
               </button>
             </div>
-            <span className={`text-xs font-semibold tabular-nums ${sumaOk ? 'text-muted-foreground' : 'text-red-600 dark:text-red-400'}`}>
+            <span className={`text-xs font-semibold tabular-nums ${sumaOk ? 'text-muted-foreground' : 'text-destructive'}`}>
               suma {Math.round(suma * 100) / 100}%
             </span>
           </div>
 
           {!sumaOk && (
-            <p className="text-[11px] text-red-600 dark:text-red-400">
+            <p className="text-[11px] text-destructive">
               Los porcentajes tienen que sumar 100%.
             </p>
           )}
           {repetidas && (
-            <p className="text-[11px] text-red-600 dark:text-red-400">Hay una persona repetida.</p>
+            <p className="text-[11px] text-destructive">Hay una persona repetida.</p>
           )}
 
           <div>

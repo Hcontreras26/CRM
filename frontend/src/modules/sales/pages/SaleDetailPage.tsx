@@ -45,9 +45,9 @@ type Venta = {
 
 function Chip({ tone, children }: { tone: 'ok' | 'warn' | 'bad' | 'mute'; children: React.ReactNode }) {
   const tones = {
-    ok: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
-    warn: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400',
-    bad: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400',
+    ok: 'bg-success-soft text-success-soft-foreground',
+    warn: 'bg-warning-soft text-warning-soft-foreground',
+    bad: 'bg-destructive-soft text-destructive-soft-foreground',
     mute: 'bg-muted text-muted-foreground',
   };
   return <span className={`px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${tones[tone]}`}>{children}</span>;
@@ -119,20 +119,20 @@ export default function SaleDetailPage() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={CurrencyEur} iconBg="bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400"
+        <KpiCard icon={CurrencyEur} iconBg="bg-primary/10 text-primary"
           label="Importe de la venta" value={fmt(venta.importe_total)} />
-        <KpiCard icon={CheckCircle} iconBg="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
+        <KpiCard icon={CheckCircle} iconBg="bg-success-soft text-success-soft-foreground"
           label="Cobrado" value={fmt(venta.importe_pagado)}
           badge={pagos.length ? `${pagos.length} pago${pagos.length === 1 ? '' : 's'}` : null}
-          badgeColor="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400" />
+          badgeColor="bg-success-soft text-success-soft-foreground" />
         <KpiCard icon={Wallet} iconBg={pendiente > 0
-          ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400'
+          ? 'bg-warning-soft text-warning-soft-foreground'
           : 'bg-muted text-muted-foreground'}
           label="Pendiente" value={fmt(pendiente)}
           badge={cuotasPend.length ? `${cuotasPend.length} cuota${cuotasPend.length === 1 ? '' : 's'}` : null}
-          badgeColor="bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400" trend="down" />
+          badgeColor="bg-warning-soft text-warning-soft-foreground" trend="down" />
         <KpiCard icon={WarningCircle} iconBg={cuotasVenc.length
-          ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
+          ? 'bg-destructive-soft text-destructive-soft-foreground'
           : 'bg-muted text-muted-foreground'}
           label="Cuotas vencidas" value={String(cuotasVenc.length)} trend="down" />
       </div>
@@ -161,7 +161,7 @@ export default function SaleDetailPage() {
             </div>
           )}
           {deAnteriores.length > 0 && (
-            <p className="pt-2 text-[11px] text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+            <p className="pt-2 text-[11px] text-warning-soft-foreground flex items-start gap-1.5">
               <ClockCounterClockwise size={13} weight="bold" className="mt-0.5 flex-shrink-0" />
               {deAnteriores.length} cuota{deAnteriores.length === 1 ? '' : 's'} de esta venta se cobraron bajo la facturación anterior.
             </p>
@@ -248,7 +248,7 @@ export default function SaleDetailPage() {
                 {pagos.map((pg) => (
                   <tr key={pg.id} className="border-b border-border/50 last:border-0">
                     <td className="py-2 text-muted-foreground whitespace-nowrap">{fecha(pg.fecha)}</td>
-                    <td className="py-2 text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">{fmt(pg.importe)}</td>
+                    <td className="py-2 text-right tabular-nums font-semibold text-success">{fmt(pg.importe)}</td>
                     <td className="py-2 pl-4">{pg.cuota_numero ? <Chip tone="mute">Cuota {pg.cuota_numero}</Chip> : <span className="text-muted-foreground">—</span>}</td>
                     <td className="py-2">
                       {pg.pagado_por_stripe ? <Chip tone="mute">Stripe</Chip> : (pg.metodo || '—')}

@@ -196,18 +196,18 @@ export default function SalesAnalysisPage() {
         !resumen ? <EmptyState icon={Receipt} title="Sin datos" description="No hay ventas en este filtro." /> : (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <KpiCard icon={Receipt} iconBg="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+              <KpiCard icon={Receipt} iconBg="bg-info-soft text-info-soft-foreground"
                 label="Ventas" value={String(resumen.ventas)}
-                badge={`${resumen.clientes} clientes`} badgeColor="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400" />
-              <KpiCard icon={CurrencyEur} iconBg="bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400"
+                badge={`${resumen.clientes} clientes`} badgeColor="bg-info-soft text-info-soft-foreground" />
+              <KpiCard icon={CurrencyEur} iconBg="bg-primary/10 text-primary"
                 label="Importe vendido" value={fmt(resumen.importe)}
-                badge={`ticket ${fmt(resumen.ticket_medio)}`} badgeColor="bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400" />
-              <KpiCard icon={CheckCircle} iconBg="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
+                badge={`ticket ${fmt(resumen.ticket_medio)}`} badgeColor="bg-primary/10 text-primary" />
+              <KpiCard icon={CheckCircle} iconBg="bg-success-soft text-success-soft-foreground"
                 label="Cobrado" value={fmt(resumen.cobrado)}
-                badge={`${resumen.liquidadas} liquidadas`} badgeColor="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400" />
-              <KpiCard icon={Wallet} iconBg="bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400"
+                badge={`${resumen.liquidadas} liquidadas`} badgeColor="bg-success-soft text-success-soft-foreground" />
+              <KpiCard icon={Wallet} iconBg="bg-warning-soft text-warning-soft-foreground"
                 label="Pendiente de cobro" value={fmt(resumen.pendiente)}
-                badge={`${resumen.con_saldo} con saldo`} badgeColor="bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400"
+                badge={`${resumen.con_saldo} con saldo`} badgeColor="bg-warning-soft text-warning-soft-foreground"
                 trend="down" />
             </div>
 
@@ -219,10 +219,10 @@ export default function SalesAnalysisPage() {
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
                   {[
                     { l: 'Ventas a plazos', v: String(resumen.cuotas.ventas_con_plan), c: '' },
-                    { l: 'Cuotas cobradas', v: `${resumen.cuotas.cobradas} / ${resumen.cuotas.total}`, c: 'text-emerald-600 dark:text-emerald-400' },
-                    { l: 'Cuotas pendientes', v: String(resumen.cuotas.pendientes), c: 'text-orange-600 dark:text-orange-400' },
-                    { l: 'Importe por cobrar', v: fmt(resumen.cuotas.importe_pendiente), c: 'text-orange-600 dark:text-orange-400' },
-                    { l: 'Vencido', v: `${fmt(resumen.cuotas.importe_vencido)} · ${resumen.cuotas.vencidas} cuotas`, c: 'text-red-600 dark:text-red-400' },
+                    { l: 'Cuotas cobradas', v: `${resumen.cuotas.cobradas} / ${resumen.cuotas.total}`, c: 'text-success' },
+                    { l: 'Cuotas pendientes', v: String(resumen.cuotas.pendientes), c: 'text-warning' },
+                    { l: 'Importe por cobrar', v: fmt(resumen.cuotas.importe_pendiente), c: 'text-warning' },
+                    { l: 'Vencido', v: `${fmt(resumen.cuotas.importe_vencido)} · ${resumen.cuotas.vencidas} cuotas`, c: 'text-destructive' },
                   ].map((x) => (
                     <div key={x.l} className="bg-muted/40 rounded-md p-3">
                       <p className="text-[11px] text-muted-foreground">{x.l}</p>
@@ -261,8 +261,8 @@ export default function SalesAnalysisPage() {
                       <td className="px-4 py-3 text-right tabular-nums">{a.ventas}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{a.clientes}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmt(a.importe)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{fmt(a.cobrado)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-orange-600 dark:text-orange-400">{fmt(a.pendiente)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-success">{fmt(a.cobrado)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-warning">{fmt(a.pendiente)}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{fmt(a.ticket_medio)}</td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{fecha(a.ultima_venta)}</td>
                     </tr>
@@ -303,14 +303,14 @@ export default function SalesAnalysisPage() {
                       <td className="px-4 py-3 text-muted-foreground text-[12px] max-w-[160px] truncate" title={cl.asesoras || ''}>{cl.asesoras || '—'}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{cl.ventas}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold">{fmt(cl.importe)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{fmt(cl.cobrado)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-orange-600 dark:text-orange-400">{fmt(cl.pendiente)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-success">{fmt(cl.cobrado)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-warning">{fmt(cl.pendiente)}</td>
                       <td className="px-4 py-3">
                         {cl.cuotas_pendientes === 0 ? (
                           <span className="text-muted-foreground text-[11px]">—</span>
                         ) : (
                           <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-                            cl.cuotas_vencidas > 0 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
+                            cl.cuotas_vencidas > 0 ? 'text-destructive' : 'text-warning'
                           }`}>
                             {cl.cuotas_vencidas > 0 && <WarningCircle size={12} weight="fill" />}
                             {cl.cuotas_pendientes} pend. · {fmt(cl.cuotas_importe_pendiente)}

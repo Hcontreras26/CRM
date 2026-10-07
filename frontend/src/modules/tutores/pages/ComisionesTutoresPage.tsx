@@ -284,11 +284,11 @@ export default function ComisionesTutoresPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <KpiCard icon={Coins} iconBg="bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+        <KpiCard icon={Coins} iconBg="bg-warning-soft text-warning-soft-foreground"
           label="Por pagar" value={euros(total.pendiente)} />
-        <KpiCard icon={CheckCircle} iconBg="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+        <KpiCard icon={CheckCircle} iconBg="bg-success-soft text-success-soft-foreground"
           label="Ya pagado este mes" value={euros(total.pagada)} />
-        <KpiCard icon={Coins} iconBg="bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+        <KpiCard icon={Coins} iconBg="bg-info-soft text-info-soft-foreground"
           label="Cobrado de sus formaciones" value={euros(total.base)} />
       </div>
 
@@ -307,12 +307,12 @@ export default function ComisionesTutoresPage() {
       {/* El dinero que no se puede atribuir. Se enseña a proposito: esconderlo
           haria parecer cuadrado un mes que no lo esta. */}
       {sinFormacion.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-lg p-3">
-          <p className="font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5 text-sm">
+        <div className="bg-warning-soft border border-warning/30 rounded-lg p-3">
+          <p className="font-semibold text-warning-soft-foreground flex items-center gap-1.5 text-sm">
             <Warning size={16} weight="fill" />
             {euros(total.sinAtribuir)} cobrados sin saber de qué formación son
           </p>
-          <p className="text-xs text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
+          <p className="text-xs text-warning-soft-foreground mt-1 leading-relaxed">
             {sinFormacion.length} {sinFormacion.length === 1 ? 'cobro' : 'cobros'} de ventas que no están atadas
             al catálogo. Nadie cobra comisión por ellos. Se arregla eligiendo la formación en cada venta:
             {' '}{sinFormacion.slice(0, 3).map((p) => `#${p.venta} ${p.alumno}`).join(' · ')}
@@ -411,7 +411,7 @@ export default function ComisionesTutoresPage() {
                       </span>
                     )}
                     {Number(r.pendiente) === 0 && r.ultima_liquidacion && (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold shrink-0">
+                      <span className="text-xs text-success font-semibold shrink-0">
                         pagado el {soloFecha(r.ultima_liquidacion)}
                       </span>
                     )}
@@ -452,7 +452,7 @@ export default function ComisionesTutoresPage() {
                               </td>
                               <td className="py-1.5 px-3">
                                 {l.estado === 'pagada' ? (
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                  <span className="text-success font-semibold">
                                     pagada {soloFecha(l.fecha_liquidacion)}
                                   </span>
                                 ) : l.estado === 'revertida' ? (
@@ -469,10 +469,10 @@ export default function ComisionesTutoresPage() {
                                     className={`h-7 px-1.5 rounded border border-border bg-background text-xs font-semibold
                                       focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50 ${
                                         l.estado === 'falta_factura'
-                                          ? 'text-red-600 dark:text-red-400'
+                                          ? 'text-destructive'
                                           : l.estado === 'notificada'
-                                            ? 'text-sky-600 dark:text-sky-400'
-                                            : 'text-amber-600 dark:text-amber-400'
+                                            ? 'text-info'
+                                            : 'text-warning'
                                       }`}
                                   >
                                     <option value="pendiente">Pendiente</option>
@@ -480,7 +480,7 @@ export default function ComisionesTutoresPage() {
                                     <option value="falta_factura">Falta factura</option>
                                   </select>
                                 ) : (
-                                  <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                                  <span className="text-warning font-semibold">
                                     {ETIQUETA_ESTADO[l.estado] || l.estado}
                                   </span>
                                 )}
@@ -489,7 +489,7 @@ export default function ComisionesTutoresPage() {
                                 {esAdmin && l.estado !== 'revertida' && (
                                   <button type="button" onClick={() => revertir(l)}
                                     title="Revertir esta comisión"
-                                    className="text-muted-foreground hover:text-red-600">
+                                    className="text-muted-foreground hover:text-destructive">
                                     <ArrowCounterClockwise size={13} weight="bold" />
                                   </button>
                                 )}
@@ -618,7 +618,7 @@ export default function ComisionesTutoresPage() {
               )}
 
               {!aviso.tieneIban && (
-                <p className="text-xs flex gap-1.5 text-amber-700 dark:text-amber-400">
+                <p className="text-xs flex gap-1.5 text-warning-soft-foreground">
                   <Warning size={14} weight="fill" className="shrink-0 mt-0.5" />
                   <span>No tenemos su IBAN. El correo se lo pide — cuando conteste, hay que meterlo en su ficha.</span>
                 </p>

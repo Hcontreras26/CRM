@@ -63,7 +63,7 @@ export default function TopProductsCard({ projectId, issuerId = null, responsabl
     <div className={`bg-card border border-border rounded-lg p-4 ${className}`}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Trophy size={16} weight="duotone" className="text-amber-500" />
+          <Trophy size={16} weight="duotone" className="text-warning" />
           {title}
         </h3>
         <span className="text-[11px] text-muted-foreground">{days ? `Últimos ${days}d` : 'Histórico'}</span>
@@ -81,9 +81,9 @@ export default function TopProductsCard({ projectId, issuerId = null, responsabl
           {rows.map((r, i) => (
             <li key={`${r.product_id ?? 'np'}-${i}`} className="py-2 flex items-center gap-3">
               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${
-                i === 0 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
-                : i === 1 ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                : i === 2 ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300'
+                i === 0 ? 'bg-warning-soft text-warning-soft-foreground'
+                : i === 1 ? 'bg-muted text-muted-foreground'
+                : i === 2 ? 'bg-warning-soft text-warning-soft-foreground'
                 : 'bg-muted text-muted-foreground'
               }`}>{i + 1}</span>
               <div className="min-w-0 flex-1">
@@ -97,7 +97,7 @@ export default function TopProductsCard({ projectId, issuerId = null, responsabl
       )}
 
       {sinAsignar && (
-        <p className="mt-3 pt-2.5 border-t border-border text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+        <p className="mt-3 pt-2.5 border-t border-border text-[11px] text-warning-soft-foreground leading-relaxed">
           <strong>{sinAsignar.ventas}</strong>{' '}
           {sinAsignar.ventas === 1 ? 'venta no dice qué programa se vendió' : 'ventas no dicen qué programa se vendió'}
           {' '}({fmt(sinAsignar.facturado)}). No entran en este ranking porque «pendiente
