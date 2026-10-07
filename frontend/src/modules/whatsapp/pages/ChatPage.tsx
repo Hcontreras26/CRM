@@ -1345,18 +1345,6 @@ export default function ChatPage() {
   // cargadas, y por eso no aparecia nada de mas atras.
   const visibles = chats;
 
-  if (conexion && !conexion.configurado) {
-    return (
-      <div className="bg-card border border-border rounded-lg p-8 text-center">
-        <p className="font-semibold mb-1">WhatsApp no esta conectado</p>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto">{conexion.motivo}</p>
-        <Link to="/whatsapp/conexion" className="text-sm text-primary hover:underline mt-3 inline-block">
-          Ir a conectar el número
-        </Link>
-      </div>
-    );
-  }
-
   // Por que no se puede escribir ahora mismo, si es que no se puede.
   //
   // Antes la caja seguia activa con WhatsApp caido: se escribia el mensaje
@@ -1380,7 +1368,6 @@ export default function ChatPage() {
   // final porque son los ultimos por definicion.
   const enCamino = pendientes.filter((m) => m.paraConversacion === abierto);
   const hilo = enCamino.length ? [...mensajes, ...enCamino] : mensajes;
-
 
   /**
    * Los datos con los que se rellenan los huecos, del chat que esté abierto.
@@ -1410,6 +1397,18 @@ export default function ChatPage() {
       })
       .catch(() => setDatosPlantilla({}));
   }, [abierto, deQuien]);
+
+  if (conexion && !conexion.configurado) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-8 text-center">
+        <p className="font-semibold mb-1">WhatsApp no esta conectado</p>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">{conexion.motivo}</p>
+        <Link to="/whatsapp/conexion" className="text-sm text-primary hover:underline mt-3 inline-block">
+          Ir a conectar el número
+        </Link>
+      </div>
+    );
+  }
 
   /**
    * Han elegido una plantilla desde la barra de arriba.
