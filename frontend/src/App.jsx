@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 import { Suspense, lazy, useEffect } from 'react';
 import { useProjectContext } from './contexts/ProjectContext';
 import { tituloDeRuta } from './shared/lib/rutasTitulos';
@@ -197,7 +198,7 @@ function App() {
           <Route path="/prospectos/cola" element={<ColaDelDiaPage />} />
           <Route path="/prospectos/seguimiento" element={<SeguimientoPage />} />
           <Route path="/prospectos/proceso" element={<ProcesoPage />} />
-          <Route path="/prospectos/convocatorias" element={<ConvocatoriasPage />} />
+          <Route path="/prospectos/convocatorias" element={SOLO_EN_PRUEBAS ? <ConvocatoriasPage /> : <Navigate to="/prospectos" replace />} />
           <Route path="/prospectos/:id" element={<LeadDetailPage />} />
 
           {/* Clientes — tabs */}
@@ -316,7 +317,7 @@ function App() {
           <Route path="/manual" element={<ManualPage />} />
           <Route path="/documentos" element={<DocumentsPage />} />
           <Route path="/preferencias" element={<PreferencesPage />} />
-          <Route path="/tareas" element={<TasksPage />} />
+          <Route path="/tareas" element={SOLO_EN_PRUEBAS ? <TasksPage /> : <Navigate to="/" replace />} />
           <Route path="/external/:panelId" element={<ExternalPanelPage />} />
           <Route path="/configuracion" element={<SettingsPage />} />
           <Route path="/perfil" element={<ProfilePage />} />

@@ -16,7 +16,7 @@ export const VERSIONES = [
     "version": "2.1.0",
     "fecha": "2026-10-07",
     "titulo": "Versión 2.1.0",
-    "intro": "Facturas que no pasan de lo cobrado, el tablero de tareas del equipo, cada pantalla dentro de tus campus y una conexión con Claude más segura. Aquí está todo lo nuevo, con un botón para ir a cada pantalla.",
+    "intro": "Facturas que no pasan de lo cobrado, cada pantalla dentro de tus campus y una conexión con Claude más segura. Aquí está todo lo nuevo, con un botón para ir a cada pantalla.",
     "grupos": [
       {
         "titulo": "Facturas y ventas",
@@ -90,17 +90,6 @@ export const VERSIONES = [
             ],
             "ruta": "/prospectos",
             "boton": "Ir a Prospectos"
-          },
-          {
-            "titulo": "Convocatorias y becas",
-            "texto": "Pantalla nueva en Prospectos. Arriba, a quién le debes una respuesta de beca (lo de hoy en ámbar, lo atrasado en rojo); debajo, el embudo de cada convocatoria. En la ficha del prospecto se ofrece la beca, se apunta si llenó la solicitud y el descuento: si pasa del tope avisa, pero no bloquea. Crear y cerrar convocatorias es de administración.",
-            "roles": [
-              "gestor",
-              "admin",
-              "superadmin"
-            ],
-            "ruta": "/prospectos/convocatorias",
-            "boton": "Abrir Convocatorias"
           }
         ]
       },
@@ -117,44 +106,6 @@ export const VERSIONES = [
             ],
             "ruta": "/clientes",
             "boton": "Ir a Clientes"
-          }
-        ]
-      },
-      {
-        "titulo": "Tablero de tareas",
-        "items": [
-          {
-            "titulo": "Tareas: el tablero del equipo",
-            "texto": "Entrada nueva en el menú. Cuatro columnas (Por hacer, En curso, En revisión y Hecha) y en cada tarjeta prioridad, fecha, etiquetas, lista de comprobación, enlaces y comentarios. «Mi tablero» enseña lo tuyo; quien dirige ve «Todo el equipo», persona a persona, con lo abierto y lo vencido. Marcar una tarea como «Hecha» es de administración.",
-            "roles": [
-              "gestor",
-              "admin",
-              "superadmin",
-              "soporte"
-            ],
-            "ruta": "/tareas",
-            "boton": "Abrir Tareas"
-          },
-          {
-            "titulo": "Los avisos de las tareas",
-            "texto": "Te llega un correo cuando te asignan una tarea, y cada mañana otro con lo que te vence ese día y lo vencido (solo si hay algo). Quien creó una tarea recibe aviso cuando pasa a «En revisión» o a «Hecha». Los dos correos se apagan en «Mis preferencias».",
-            "roles": [
-              "gestor",
-              "admin",
-              "superadmin",
-              "soporte"
-            ],
-            "ruta": "/preferencias",
-            "boton": "Ver mis avisos"
-          },
-          {
-            "titulo": "El rol «Colaborador»",
-            "texto": "Para quien trabaja con el equipo sin usar el resto del CRM: entra y solo ve Tareas y sus preferencias. Se elige al dar de alta al usuario.",
-            "roles": [
-              "superadmin"
-            ],
-            "ruta": "/configuracion",
-            "boton": "Ir a Configuración"
           }
         ]
       },

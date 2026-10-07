@@ -76,6 +76,7 @@ import { toast } from '@/shared/hooks/useToast';
 import { getLocalLogo } from '@/shared/lib/projectLogos';
 import { isBetaAllowed, BETA_MODE, BETA_VERSION } from '@/shared/config/betaConfig';
 import { moduloApagado } from '@/shared/lib/modulos';
+import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 
 const ProjectSettingsDialog = lazy(() => import('@/modules/settings/components/ProjectSettingsDialog'));
 const NotificationsBell = lazy(() => import('./NotificationsBell'));
@@ -130,7 +131,8 @@ const NAV_SECTIONS = [
           // compro, y se repasa cuando se puede, no cada mañana.
           { label: 'Seguimiento de fin de mes', to: '/prospectos/seguimiento', detail: 'La base que no compró', icon: ArrowCounterClockwise },
           { label: 'Proceso comercial', to: '/prospectos/proceso', detail: 'Los cinco pasos', icon: ListChecks },
-          { label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap },
+          // Sin aprobar para producción (07/10): solo en /testeo.
+          ...(SOLO_EN_PRUEBAS ? [{ label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap }] : []),
         ],
       },
       // WhatsApp cuelga de su propia entrada, con lo suyo escalonado debajo: son
@@ -172,7 +174,8 @@ const NAV_SECTIONS = [
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions' },
-      { label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks, roles: ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'] },
+      // El tablero (#210) sigue en evaluación: solo en /testeo (07/10).
+      ...(SOLO_EN_PRUEBAS ? [{ label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks, roles: ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'] }] : []),
     ],
   },
   {
