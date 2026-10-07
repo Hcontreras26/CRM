@@ -48,7 +48,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     'field_defs.view': true,  'field_defs.edit': true,
     'channels.view': true,  'channels.edit': true,
     'roles.view': true,   'roles.edit': false,
-    'tasks.view_all': true, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': true, 'tasks.edit': true, 'tasks.delete': true,
+    'tasks.view_all': true, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': true, 'tasks.edit': true, 'tasks.delete': true, 'tasks.close': true, 'tasks.manage': true,
   },
   gestor: {
     'leads.view': true,          'leads.create': true,        'leads.edit': true,          'leads.delete': false,       'leads.export': false,       'leads.assign': false,       'leads.bulk_action': false,
@@ -73,7 +73,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     'field_defs.view': false,  'field_defs.edit': false,
     'channels.view': true,   'channels.edit': false,
     'roles.view': false,  'roles.edit': false,
-    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false,
+    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
   },
   // Soporte NO es acceso total: el backend lo define como mirar y poco mas.
   // Antes `can()` lo saltaba con un `return true` y veia todos los botones.
@@ -99,7 +99,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     'field_defs.view': false,  'field_defs.edit': false,
     'channels.view': true,   'channels.edit': false,
     'roles.view': false,  'roles.edit': false,
-    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false,
+    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
   },
   // Un tutor no tiene permisos de gestion: entra a lo suyo —sus cursos y sus
   // comisiones— y el menu ya se lo recorta enumerando lo que puede ver. Vacio
@@ -108,7 +108,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
   tutor: {},
   // Colaborador (#210, fase 5): solo su tablero de tareas. Espejo del backend.
   colaborador: {
-    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false,
+    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
   },
 };
 
@@ -137,7 +137,7 @@ export const PERMISSION_RESOURCES: ReadonlyArray<PermissionResource> = [
   { key: 'field_defs',       label: 'Campos',               actions: ['view', 'edit'] },
   { key: 'channels',         label: 'Canales',              actions: ['view', 'edit'] },
   { key: 'roles',            label: 'Roles',                actions: ['view', 'edit'] },
-  { key: 'tasks',            label: 'Tareas',               actions: ['view_all', 'view_own', 'create', 'assign', 'edit', 'delete'] },
+  { key: 'tasks',            label: 'Tareas',               actions: ['view_all', 'view_own', 'create', 'assign', 'edit', 'delete', 'close', 'manage'] },
 ];
 
 export const FIXED_ROLES: ReadonlyArray<FixedRole> = [

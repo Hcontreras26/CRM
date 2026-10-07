@@ -3,30 +3,79 @@ import { z } from 'zod';
 export const ESTADOS_VALIDOS = ['por_hacer', 'en_curso', 'en_revision', 'hecha'];
 export const PRIORIDADES_VALIDAS = ['baja', 'media', 'alta'];
 
-// Fecha y hora completas (lo que manda el tablero) o solo el dia («2026-10-31»).
-// Un texto cualquiera, o vacio, se rechaza aqui y no como 500 en la base.
-const fecha = z.string().trim().refine((v) => v !== '' && !Number.isNaN(Date.parse(v)), {
+/**
+ * Valida de forma estricta fechas de calendario (AAAA-MM-DD) o marcas ISO 8601 completas.
+ * Comprueba que el año, mes y día existan realmente en el calendario (rechaza días como 2026-02-31 o textos inválidos).
+ */
+export function isValidIsoDate(val) {
+  if (typeof val !== 'string') return false;
+  const str = val.trim();
+  if (!str) return false;
+
+  // 1. Formato solo día: AAAA-MM-DD
+  const dateOnlyMatch = /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.exec(str);
+  if (dateOnlyMatch) {
+    const y = parseInt(dateOnlyMatch[1], 10);
+    const m = parseInt(dateOnlyMatch[2], 10);
+    const d = parseInt(dateOnlyMatch[3], 10);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+  }
+
+  // 2. Formato ISO completo con hora
+  const isoMatch = /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?(?:Z|[+-](\d{2}):?(\d{2}))?$/.exec(str);
+  if (!isoMatch) return false;
+
+  const y = parseInt(isoMatch[1], 10);
+  const m = parseInt(isoMatch[2], 10);
+  const d = parseInt(isoMatch[3], 10);
+  const dtUtc = new Date(Date.UTC(y, m - 1, d));
+  if (dtUtc.getUTCFullYear() !== y || dtUtc.getUTCMonth() !== m - 1 || dtUtc.getUTCDate() !== d) {
+    return false;
+  }
+
+  const parsed = Date.parse(str);
+  return !Number.isNaN(parsed);
+}
+
+export function isValidIsoDay(val) {
+  if (typeof val !== 'string') return false;
+  const str = val.trim();
+  const dateOnlyMatch = /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.exec(str);
+  if (!dateOnlyMatch) return false;
+  const y = parseInt(dateOnlyMatch[1], 10);
+  const m = parseInt(dateOnlyMatch[2], 10);
+  const d = parseInt(dateOnlyMatch[3], 10);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+const fecha = z.string().trim().refine(isValidIsoDate, {
   message: 'Fecha límite (due_date) inválida',
 });
 
-const dia = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida: usa AAAA-MM-DD')
-  .refine((v) => !Number.isNaN(Date.parse(v)), 'Fecha inválida');
+const dia = z.string().trim().refine(isValidIsoDay, {
+  message: 'Fecha inválida: usa AAAA-MM-DD con un día existente en el calendario',
+});
 
 const id = z.number().int().positive();
 
 // En la query string todo llega como texto: «false» tiene que ser falso.
-// `z.coerce.boolean()` lo convierte en `true`, porque es un texto no vacio.
 const booleanoDeQuery = z.enum(['true', 'false', '1', '0'])
   .transform((v) => v === 'true' || v === '1');
 
 export const createTaskSchema = z.object({
   title: z.string().trim().min(1, 'El título es obligatorio').max(255, 'Máximo 255 caracteres'),
   description: z.string().trim().max(10000, 'Máximo 10.000 caracteres').optional().nullable(),
-  status: z.enum(ESTADOS_VALIDOS).default('por_hacer'),
+  status: z.string().trim().min(1).max(50).default('por_hacer'),
   priority: z.enum(PRIORIDADES_VALIDAS).default('media'),
   due_date: fecha.optional().nullable(),
   project_id: id.optional().nullable(),
+  external_project_id: id.optional().nullable(),
+  area_id: id.optional().nullable(),
   assigned_to: id.optional().nullable(),
+}).refine((d) => !(d.project_id && d.external_project_id), {
+  message: 'No puedes asignar un proyecto del catálogo y un proyecto propio a la vez',
 });
 
 export const updateTaskSchema = z.object({
@@ -35,22 +84,31 @@ export const updateTaskSchema = z.object({
   priority: z.enum(PRIORIDADES_VALIDAS).optional(),
   due_date: fecha.optional().nullable(),
   project_id: id.optional().nullable(),
+  external_project_id: id.optional().nullable(),
+  area_id: id.optional().nullable(),
   assigned_to: id.optional().nullable(),
-}).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });
+}).refine((d) => Object.keys(d).length > 0, {
+  message: 'No se envió ningún campo para actualizar',
+}).refine((d) => !(d.project_id && d.external_project_id), {
+  message: 'No puedes asignar un proyecto del catálogo y un proyecto propio a la vez',
+});
 
-// Mover: la columna de destino y, si se suelta entre dos tarjetas, cuales son.
-// Se mandan los ids y no las posiciones: la posicion la lee el servidor de la
-// base, que es la que manda, y no la que tuviera la pantalla hace un rato.
 export const moveTaskSchema = z.object({
-  status: z.enum(ESTADOS_VALIDOS),
+  status: z.string().trim().min(1).max(50),
   prev_id: id.optional().nullable(),
   next_id: id.optional().nullable(),
 });
 
+export const returnTaskSchema = z.object({
+  comment: z.string().trim().min(1, 'El motivo de la devolución es obligatorio').max(5000),
+});
+
 export const listTasksQuerySchema = z.object({
-  status: z.enum(ESTADOS_VALIDOS).optional(),
+  status: z.string().trim().min(1).max(50).optional(),
   assigned_to: z.coerce.number().int().positive().optional(),
   project_id: z.coerce.number().int().positive().optional(),
+  external_project_id: z.coerce.number().int().positive().optional(),
+  area_id: z.coerce.number().int().positive().optional(),
   priority: z.enum(PRIORIDADES_VALIDAS).optional(),
   search: z.string().trim().max(100).optional(),
   tag: z.string().trim().min(1).max(50).optional(),
@@ -64,6 +122,7 @@ export const listTasksQuerySchema = z.object({
 
 export const metricsQuerySchema = z.object({
   project_id: z.coerce.number().int().positive().optional(),
+  area_id: z.coerce.number().int().positive().optional(),
 });
 
 export const addChecklistItemSchema = z.object({
@@ -83,7 +142,7 @@ export const COLORES_ETIQUETA = ['sky', 'rose', 'amber', 'emerald', 'violet', 's
 
 export const addTagSchema = z.object({
   name: z.string().trim().min(1, 'Nombre de etiqueta obligatorio').max(50),
-  color: z.enum(COLORES_ETIQUETA).default('sky'),
+  color: z.string().trim().max(30).default('sky'),
 });
 
 // Solo http(s): un «javascript:» guardado aqui se ejecutaria al pulsarlo.
@@ -92,3 +151,53 @@ export const addLinkSchema = z.object({
     .refine((u) => /^https?:\/\//i.test(u), 'El enlace tiene que empezar por http:// o https://'),
   title: z.string().trim().max(255).optional().nullable(),
 });
+
+/* --- Configuración de columnas, áreas y proyectos externos --- */
+
+export const createColumnSchema = z.object({
+  key: z.string().trim().min(1).max(50).regex(/^[a-z0-9_]+$/, 'La clave solo puede tener letras minúsculas, números y guiones bajos'),
+  name: z.string().trim().min(1, 'El nombre de la columna es obligatorio').max(100),
+  color: z.string().trim().max(30).optional().default('gray'),
+  sort_order: z.number().int().optional(),
+});
+
+export const updateColumnSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  color: z.string().trim().max(30).optional(),
+  sort_order: z.number().int().optional(),
+  is_active: z.boolean().optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });
+
+export const reorderColumnsSchema = z.object({
+  keys: z.array(z.string().trim().min(1)).min(1, 'Debes enviar la lista de claves'),
+});
+
+export const createAreaSchema = z.object({
+  name: z.string().trim().min(1, 'El nombre del área es obligatorio').max(100),
+  color: z.string().trim().max(30).optional().default('gray'),
+  sort_order: z.number().int().optional(),
+});
+
+export const updateAreaSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  color: z.string().trim().max(30).optional(),
+  sort_order: z.number().int().optional(),
+  is_active: z.boolean().optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });
+
+export const setUserAreasSchema = z.object({
+  area_ids: z.array(z.number().int().positive()),
+});
+
+export const createExternalProjectSchema = z.object({
+  name: z.string().trim().min(1, 'El nombre del proyecto es obligatorio').max(150),
+  description: z.string().trim().max(5000).optional().nullable(),
+  color: z.string().trim().max(30).optional().default('gray'),
+});
+
+export const updateExternalProjectSchema = z.object({
+  name: z.string().trim().min(1).max(150).optional(),
+  description: z.string().trim().max(5000).optional().nullable(),
+  color: z.string().trim().max(30).optional(),
+  is_active: z.boolean().optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });

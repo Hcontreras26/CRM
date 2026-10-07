@@ -1,8 +1,9 @@
-// Los correos del tablero de tareas (#210, fase 3), con la plantilla comun del
-// CRM: la misma cabecera, el mismo boton y el pie para apagarlo en «Mis
+// Los correos del tablero de tareas (#210, fase 3 y entrega final), con la plantilla común del
+// CRM: la misma cabecera, el mismo botón y el pie para apagarlo en «Mis
 // preferencias». Cada uno lleva su clave de idempotencia: un reintento o un
 // reinicio no lo manda dos veces.
 import { sendEmail } from '../../shared/services/brevo.service.js';
+import { logger } from '../../shared/utils/logger.js';
 import {
   correo, parrafo, boton, nota, seccion, esc, enlace,
 } from '../../shared/services/email-plantilla.service.js';
@@ -10,6 +11,9 @@ import {
 // Los nombres con los que se apagan en «Mis preferencias» (avisos_apagados).
 export const AVISO_TAREA_ASIGNADA = 'tarea_asignada';
 export const AVISO_TAREAS_DEL_DIA = 'tareas_del_dia';
+export const AVISO_TAREA_DEVUELTA = 'tarea_devuelta';
+export const AVISO_TAREA_CERRADA = 'tarea_cerrada';
+export const AVISO_TAREA_COMENTARIO = 'tarea_comentario';
 
 const ESTADOS = {
   por_hacer: 'Por hacer', en_curso: 'En curso', en_revision: 'En revisión', hecha: 'Hecha',
@@ -19,12 +23,37 @@ const PRIORIDADES = { baja: 'Baja', media: 'Media', alta: 'Alta' };
 const tz = () => process.env.APP_TIMEZONE || 'Europe/Madrid';
 const fechaCorta = (d) => new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: tz() });
 
+export const correosActivos = () => {
+  const v = process.env.TAREAS_CORREOS_ACTIVOS;
+  return v === 'true' || v === '1';
+};
+
+/**
+ * Función base para despachar correos respetando el interruptor TAREAS_CORREOS_ACTIVOS.
+ */
+async function despacharCorreo({ to, subject, htmlContent, textContent, tags, clave }) {
+  if (!correosActivos()) {
+    logger.info({ to: to[0]?.email, subject, clave }, 'Envío de correo de tareas simulado (TAREAS_CORREOS_ACTIVOS=false)');
+    return { sent: true, simulated: true };
+  }
+  return sendEmail({
+    to,
+    subject,
+    htmlContent,
+    textContent,
+    tags,
+    clave,
+  });
+}
+
 /** El correo «te han asignado una tarea». */
 export function armarCorreoAsignada({ persona, tarea, quien }) {
   const datos = [
     `Prioridad: <strong>${esc(PRIORIDADES[tarea.priority] || tarea.priority)}</strong>`,
     tarea.due_date ? `Fecha límite: <strong>${esc(fechaCorta(tarea.due_date))}</strong>` : null,
     tarea.project_name ? `Proyecto: <strong>${esc(tarea.project_name)}</strong>` : null,
+    tarea.external_project_name ? `Proyecto propio: <strong>${esc(tarea.external_project_name)}</strong>` : null,
+    tarea.area_name ? `Área: <strong>${esc(tarea.area_name)}</strong>` : null,
   ].filter(Boolean).join('<br>');
 
   const { htmlContent, textContent } = correo({
@@ -43,14 +72,97 @@ export function armarCorreoAsignada({ persona, tarea, quien }) {
 
 export async function enviarCorreoAsignada({ persona, tarea, quien }) {
   const c = armarCorreoAsignada({ persona, tarea, quien });
-  return sendEmail({
+  return despacharCorreo({
     to: [{ email: persona.email, name: persona.nombre }],
     subject: c.asunto,
     htmlContent: c.htmlContent,
     textContent: c.textContent,
     tags: ['tareas', 'tarea-asignada'],
-    // Por tarea y persona: reasignarla a la misma persona no repite el correo.
     clave: `${AVISO_TAREA_ASIGNADA}-${tarea.id}-${persona.id}`,
+  });
+}
+
+/** El correo «tarea devuelta para corrección». */
+export function armarCorreoDevuelta({ persona, tarea, quien, comentario }) {
+  const { htmlContent, textContent } = correo({
+    titulo: 'Tarea devuelta para corrección',
+    saludo: persona.nombre,
+    resumen: `${quien?.nombre || 'Administración'} ha devuelto la tarea «${tarea.title}»`,
+    bloques: [
+      parrafo(`${esc(quien?.nombre || 'Administración')} ha revisado tu tarea y la ha devuelto a <strong>En curso</strong> con las siguientes indicaciones:`),
+      nota(`<strong>Motivo / Qué falta:</strong><br>${esc(comentario)}`),
+      boton({ texto: 'Abrir la tarea en el tablero', url: enlace(`tareas?id=${tarea.id}`) }),
+    ],
+    apagar: { texto: 'Recibes este aviso porque una de tus tareas en revisión fue devuelta.' },
+  });
+  return { asunto: `Tarea devuelta: ${tarea.title}`, htmlContent, textContent };
+}
+
+export async function enviarCorreoDevuelta({ persona, tarea, quien, comentario }) {
+  const c = armarCorreoDevuelta({ persona, tarea, quien, comentario });
+  return despacharCorreo({
+    to: [{ email: persona.email, name: persona.nombre }],
+    subject: c.asunto,
+    htmlContent: c.htmlContent,
+    textContent: c.textContent,
+    tags: ['tareas', 'tarea-devuelta'],
+    clave: `${AVISO_TAREA_DEVUELTA}-${tarea.id}-${Date.now()}`,
+  });
+}
+
+/** El correo «tarea aprobada / cerrada». */
+export function armarCorreoCerrada({ persona, tarea, quien }) {
+  const { htmlContent, textContent } = correo({
+    titulo: 'Tarea aprobada y cerrada',
+    saludo: persona.nombre,
+    resumen: `${quien?.nombre || 'Administración'} ha marcado «${tarea.title}» como Hecha`,
+    bloques: [
+      parrafo(`¡Excelente trabajo! ${esc(quien?.nombre || 'Administración')} ha validado y cerrado la tarea:`),
+      nota(`<strong>${esc(tarea.title)}</strong>`),
+      boton({ texto: 'Ver tarea', url: enlace(`tareas?id=${tarea.id}`) }),
+    ],
+    apagar: { texto: 'Recibes este aviso porque una de tus tareas fue aprobada.' },
+  });
+  return { asunto: `Tarea completada: ${tarea.title}`, htmlContent, textContent };
+}
+
+export async function enviarCorreoCerrada({ persona, tarea, quien }) {
+  const c = armarCorreoCerrada({ persona, tarea, quien });
+  return despacharCorreo({
+    to: [{ email: persona.email, name: persona.nombre }],
+    subject: c.asunto,
+    htmlContent: c.htmlContent,
+    textContent: c.textContent,
+    tags: ['tareas', 'tarea-cerrada'],
+    clave: `${AVISO_TAREA_CERRADA}-${tarea.id}-${persona.id}`,
+  });
+}
+
+/** El correo «nuevo comentario en tu tarea». */
+export function armarCorreoComentario({ persona, tarea, quien, comentario }) {
+  const { htmlContent, textContent } = correo({
+    titulo: 'Nuevo comentario en tu tarea',
+    saludo: persona.nombre,
+    resumen: `${quien?.nombre || 'Un compañero'} comentó en «${tarea.title}»`,
+    bloques: [
+      parrafo(`${esc(quien?.nombre || 'Alguien del equipo')} ha añadido un comentario en la tarea <strong>${esc(tarea.title)}</strong>:`),
+      nota(esc(comentario)),
+      boton({ texto: 'Responder en el CRM', url: enlace(`tareas?id=${tarea.id}`) }),
+    ],
+    apagar: { texto: 'Recibes este aviso por comentarios en tareas que tienes asignadas o creadas.' },
+  });
+  return { asunto: `Comentario en: ${tarea.title}`, htmlContent, textContent };
+}
+
+export async function enviarCorreoComentario({ persona, tarea, quien, comentario, commentId }) {
+  const c = armarCorreoComentario({ persona, tarea, quien, comentario });
+  return despacharCorreo({
+    to: [{ email: persona.email, name: persona.nombre }],
+    subject: c.asunto,
+    htmlContent: c.htmlContent,
+    textContent: c.textContent,
+    tags: ['tareas', 'tarea-comentario'],
+    clave: `${AVISO_TAREA_COMENTARIO}-${tarea.id}-${commentId}`,
   });
 }
 

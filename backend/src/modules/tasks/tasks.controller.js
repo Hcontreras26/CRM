@@ -4,6 +4,7 @@ import {
   createTaskSchema,
   updateTaskSchema,
   moveTaskSchema,
+  returnTaskSchema,
   listTasksQuerySchema,
   metricsQuerySchema,
   addChecklistItemSchema,
@@ -11,6 +12,14 @@ import {
   addCommentSchema,
   addTagSchema,
   addLinkSchema,
+  createColumnSchema,
+  updateColumnSchema,
+  reorderColumnsSchema,
+  createAreaSchema,
+  updateAreaSchema,
+  setUserAreasSchema,
+  createExternalProjectSchema,
+  updateExternalProjectSchema,
 } from './tasks.validation.js';
 
 function validar(schema, datos) {
@@ -32,11 +41,8 @@ function validarId(paramId) {
   return id;
 }
 
-// El usuario de la sesion, tal cual viene en el testigo: `userId`, `role`,
-// `roles_extra` y `customRoleId`. Nunca `req.user.id`.
 const quien = (req) => req.user;
 
-// Envuelve cada accion: un error, al errorHandler.
 const accion = (fn) => async (req, res, next) => {
   try {
     await fn(req, res);
@@ -44,6 +50,8 @@ const accion = (fn) => async (req, res, next) => {
     next(err);
   }
 };
+
+/* --- Tareas CRUD y Tablero --- */
 
 export const list = accion(async (req, res) => {
   const q = validar(listTasksQuerySchema, req.query);
@@ -81,7 +89,30 @@ export const archive = accion(async (req, res) => {
   res.json({ success: true, data });
 });
 
-/* --- Personas y etiquetas (selectores del tablero) --- */
+export const returnTask = accion(async (req, res) => {
+  const id = validarId(req.params.id);
+  const body = validar(returnTaskSchema, req.body);
+  const data = await taskService.returnTask(id, body, quien(req));
+  res.json({ success: true, data });
+});
+
+export const approve = accion(async (req, res) => {
+  const id = validarId(req.params.id);
+  const data = await taskService.approveTask(id, quien(req));
+  res.json({ success: true, data });
+});
+
+export const reviewTasks = accion(async (req, res) => {
+  const data = await taskService.getReviewTasks(quien(req));
+  res.json({ success: true, data });
+});
+
+export const reviewCount = accion(async (req, res) => {
+  const data = await taskService.getReviewCount(quien(req));
+  res.json({ success: true, data });
+});
+
+/* --- Personas, Etiquetas y Métricas --- */
 
 export const assignees = accion(async (req, res) => {
   const data = await taskService.listAssignees(quien(req));
@@ -93,7 +124,13 @@ export const tagNames = accion(async (req, res) => {
   res.json({ success: true, data });
 });
 
-/* --- Lista de comprobacion --- */
+export const teamMetrics = accion(async (req, res) => {
+  const { project_id: projectId, area_id: areaId } = validar(metricsQuerySchema, req.query);
+  const data = await taskService.getTeamMetrics(projectId || null, areaId || null, quien(req));
+  res.json({ success: true, data });
+});
+
+/* --- Lista de comprobación --- */
 
 export const addChecklistItem = accion(async (req, res) => {
   const taskId = validarId(req.params.id);
@@ -165,10 +202,92 @@ export const deleteLink = accion(async (req, res) => {
   res.json({ success: true, data });
 });
 
-/* --- Todo el equipo --- */
+/* --- Configuración: Columnas --- */
 
-export const teamMetrics = accion(async (req, res) => {
-  const { project_id: projectId } = validar(metricsQuerySchema, req.query);
-  const data = await taskService.getTeamMetrics(projectId || null, quien(req));
+export const listColumns = accion(async (req, res) => {
+  const data = await taskService.listColumns(quien(req));
+  res.json({ success: true, data });
+});
+
+export const createColumn = accion(async (req, res) => {
+  const body = validar(createColumnSchema, req.body);
+  const data = await taskService.createColumn(body, quien(req));
+  res.status(201).json({ success: true, data });
+});
+
+export const updateColumn = accion(async (req, res) => {
+  const id = validarId(req.params.id);
+  const body = validar(updateColumnSchema, req.body);
+  const data = await taskService.updateColumn(id, body, quien(req));
+  res.json({ success: true, data });
+});
+
+export const archiveColumn = accion(async (req, res) => {
+  const id = validarId(req.params.id);
+  const data = await taskService.archiveColumn(id, quien(req));
+  res.json({ success: true, data });
+});
+
+export const reorderColumns = accion(async (req, res) => {
+  const body = validar(reorderColumnsSchema, req.body);
+  const data = await taskService.reorderColumns(body, quien(req));
+  res.json({ success: true, data });
+});
+
+/* --- Configuración: Áreas --- */
+
+export const listAreas = accion(async (req, res) => {
+  const data = await taskService.listAreas(quien(req));
+  res.json({ success: true, data });
+});
+
+export const createArea = accion(async (req, res) => {
+  const body = validar(createAreaSchema, req.body);
+  const data = await taskService.createArea(body, quien(req));
+  res.status(201).json({ success: true, data });
+});
+
+export const updateArea = accion(async (req, res) => {
+  const id = validarId(req.params.id);
+  const body = validar(updateAreaSchema, req.body);
+  const data = await taskService.updateArea(id, body, quien(req));
+  res.json({ success: true, data });
+});
+
+export const getUserAreas = accion(async (req, res) => {
+  const userId = validarId(req.params.userId);
+  const data = await taskService.getUserAreas(userId);
+  res.json({ success: true, data });
+});
+
+export const getUserAreaAssignments = accion(async (req, res) => {
+  const data = await taskService.getUserAreaAssignments(quien(req));
+  res.json({ success: true, data });
+});
+
+export const setUserAreas = accion(async (req, res) => {
+  const userId = validarId(req.params.userId);
+  const body = validar(setUserAreasSchema, req.body);
+  const data = await taskService.setUserAreas(userId, body, quien(req));
+  res.json({ success: true, data });
+});
+
+/* --- Configuración: Proyectos Propios --- */
+
+export const listExternalProjects = accion(async (req, res) => {
+  const data = await taskService.listExternalProjects(quien(req));
+  res.json({ success: true, data });
+});
+
+export const createExternalProject = accion(async (req, res) => {
+  const body = validar(createExternalProjectSchema, req.body);
+  const data = await taskService.createExternalProject(body, quien(req));
+  res.status(201).json({ success: true, data });
+});
+
+export const updateExternalProject = accion(async (req, res) => {
+  const id = validarId(req.params.id);
+  const body = validar(updateExternalProjectSchema, req.body);
+  const data = await taskService.updateExternalProject(id, body, quien(req));
   res.json({ success: true, data });
 });

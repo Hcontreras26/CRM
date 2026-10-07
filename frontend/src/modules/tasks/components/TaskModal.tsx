@@ -1,74 +1,60 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import {
-  X, Trash, CheckSquare, ChatCircle, ClockCounterClockwise, Plus, PaperPlaneRight, Tag, LinkSimple, ArrowSquareOut,
+  CalendarBlank, ChatCircle, CheckSquare, Clock, LinkSimple,
+  PaperPlaneRight, Plus, Tag, Trash, User, X, Check, ArrowUUpLeft, Folder, Globe,
 } from '@phosphor-icons/react';
 import Portal from '@/shared/components/ui/portal';
-import Field from '@/shared/components/ui/Field';
-import Select from '@/shared/components/ui/Select';
-import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import { Button } from '@/shared/components/ui/button';
-import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
+import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 import { toast } from '@/shared/hooks/useToast';
-import { inputClass } from '@/shared/lib/ui';
 import * as tasksApi from '../api/tasks.api';
 import {
-  COLUMNS, PRIORITY, STATUS_LABEL, TAG_COLORS, fromDateInput, tagChip, toDateInput,
+  DEFAULT_COLUMNS, PRIORITY, TAG_COLORS, fromDateInput, tagChip, toDateInput,
 } from '../lib/taskUi';
 import type {
-  Assignee, TagColor, TaskDetail, TaskEvent, TaskPriority, TaskStatus,
+  Assignee,
+  TagColor,
+  TaskArea,
+  TaskColumn,
+  TaskDetail,
+  TaskExternalProject,
+  TaskPriority,
+  TaskStatus,
 } from '../types';
+
+interface ProjectOption {
+  id: number;
+  nombre: string;
+}
 
 interface TaskModalProps {
   open: boolean;
-  /** La tarea que se abre; `null` para crear una nueva. */
   taskId: number | null;
-  /** Para una nueva: en que columna y con que proyecto empieza. */
   initialStatus?: TaskStatus;
   initialProjectId?: number | null;
+  defaultAssigneeId?: number | null;
   onClose: () => void;
-  /** Algo cambio: el tablero se vuelve a pedir. */
   onChanged: () => void;
   currentUserId: number;
   isAdmin: boolean;
+  canClose?: boolean;
   canAssign: boolean;
   canArchiveAny: boolean;
   assignees: Assignee[];
-  projects: Array<{ id: number; nombre: string }>;
+  projects: ProjectOption[];
+  areas?: TaskArea[];
+  externalProjects?: TaskExternalProject[];
+  columns?: TaskColumn[];
 }
 
-const errorDe = (err: unknown, porDefecto: string) =>
-  (err instanceof Error && err.message) ? err.message : porDefecto;
-
-const fallo = (titulo: string, err: unknown) =>
-  toast({ title: titulo, description: errorDe(err, 'Inténtalo de nuevo.'), variant: 'destructive' });
-
-const textareaClass = inputClass.replace('h-9', 'min-h-[72px] py-2') + ' resize-y';
-
-/** Una linea del historial, en castellano. */
-function describir(ev: TaskEvent): string {
-  const d = ev.details || {};
-  const estado = (k: unknown) => STATUS_LABEL[k as TaskStatus] || String(k ?? '');
-  switch (ev.event_type) {
-    case 'created': return 'creó la tarea';
-    case 'status_changed': return `la movió de «${estado(d.old_status)}» a «${estado(d.new_status)}»`;
-    case 'reordered': return 'la cambió de sitio en la columna';
-    case 'assigned': return 'cambió el responsable';
-    case 'updated': return `editó ${Object.keys(d).join(', ') || 'la tarea'}`;
-    case 'archived': return 'la archivó';
-    case 'comment': return 'comentó';
-    case 'checklist': {
-      const que = { item_added: 'añadió', item_checked: 'marcó', item_unchecked: 'desmarcó', item_removed: 'quitó' }[String(d.action)] || 'cambió';
-      return `${que} «${String(d.title ?? '')}» en la lista`;
-    }
-    case 'tag': return `${d.action === 'removed' ? 'quitó' : 'añadió'} la etiqueta «${String(d.name ?? '')}»`;
-    case 'link': return `${d.action === 'removed' ? 'quitó' : 'añadió'} un enlace`;
-    default: return ev.event_type;
-  }
-}
+const inputClass = 'w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:opacity-60';
+const textareaClass = 'w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y disabled:opacity-60';
 
 export function TaskModal({
-  open, taskId, initialStatus = 'por_hacer', initialProjectId = null, onClose, onChanged,
-  currentUserId, isAdmin, canAssign, canArchiveAny, assignees, projects,
+  open, taskId, initialStatus = 'por_hacer', initialProjectId = null, defaultAssigneeId = null, onClose, onChanged,
+  currentUserId, isAdmin, canClose = false, canAssign, canArchiveAny, assignees, projects,
+  areas = [], externalProjects = [], columns = [],
 }: TaskModalProps) {
   useEscapeKey(onClose, open);
   const editando = taskId != null;
@@ -78,13 +64,17 @@ export function TaskModal({
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [confirmarArchivo, setConfirmarArchivo] = useState(false);
+  const [devolviendo, setDevolviendo] = useState(false);
+  const [motivoDevolucion, setMotivoDevolucion] = useState('');
+  const [mostrarDialogoDevolver, setMostrarDialogoDevolver] = useState(false);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>('por_hacer');
   const [priority, setPriority] = useState<TaskPriority>('media');
   const [dueDate, setDueDate] = useState('');
-  const [projectId, setProjectId] = useState<number | ''>('');
+  const [projectSelection, setProjectSelection] = useState<string>(''); // 'campus:1' o 'ext:2' o ''
+  const [areaId, setAreaId] = useState<number | ''>('');
   const [assignedTo, setAssignedTo] = useState<number>(currentUserId);
 
   const [nuevoPaso, setNuevoPaso] = useState('');
@@ -94,6 +84,8 @@ export function TaskModal({
   const [nuevoEnlace, setNuevoEnlace] = useState('');
   const [tituloEnlace, setTituloEnlace] = useState('');
 
+  const tienePermisoCierre = isAdmin || canClose;
+
   const rellenar = useCallback((t: TaskDetail) => {
     setTask(t);
     setTitle(t.title);
@@ -101,15 +93,19 @@ export function TaskModal({
     setStatus(t.status);
     setPriority(t.priority);
     setDueDate(toDateInput(t.due_date));
-    setProjectId(t.project_id ?? '');
+    if (t.project_id) setProjectSelection(`campus:${t.project_id}`);
+    else if (t.external_project_id) setProjectSelection(`ext:${t.external_project_id}`);
+    else setProjectSelection('');
+    setAreaId(t.area_id ?? '');
     setAssignedTo(t.assigned_to ?? currentUserId);
   }, [currentUserId]);
 
   const recargar = useCallback(async (id: number) => {
     try {
       rellenar(await tasksApi.getTaskById(id));
-    } catch (err) {
-      fallo('No se pudo abrir la tarea', err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      toast({ title: 'No se pudo abrir la tarea', description: msg, tone: 'destructive' });
       onClose();
     }
   }, [rellenar, onClose]);
@@ -118,6 +114,9 @@ export function TaskModal({
     if (!open) return;
     setTab('detalles');
     setConfirmarArchivo(false);
+    setMostrarDialogoDevolver(false);
+    setMotivoDevolucion('');
+
     if (taskId != null) {
       setCargando(true);
       recargar(taskId).finally(() => setCargando(false));
@@ -128,74 +127,89 @@ export function TaskModal({
       setStatus(initialStatus);
       setPriority('media');
       setDueDate('');
-      setProjectId(initialProjectId ?? '');
-      setAssignedTo(currentUserId);
+      setProjectSelection(initialProjectId ? `campus:${initialProjectId}` : '');
+      setAreaId('');
+      setAssignedTo(defaultAssigneeId ?? currentUserId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, taskId]);
+  }, [open, taskId, initialStatus, initialProjectId, defaultAssigneeId, currentUserId, recargar]);
 
   if (!open) return null;
 
-  // Decision 4: «Hecha» solo la ponen o la quitan admin y superadmin.
-  const opcionesEstado = COLUMNS
-    .filter((c) => isAdmin || (c.key !== 'hecha' && (!editando || task?.status !== 'hecha')))
-    .map((c) => ({ value: c.key, label: c.label }));
-  const estadoBloqueado = editando && task?.status === 'hecha' && !isAdmin;
+  const columnasDisponibles = columns.length > 0 ? columns : DEFAULT_COLUMNS.map((c, i) => ({
+    id: i + 1,
+    key: c.key,
+    name: c.label,
+    color: 'gray',
+    sort_order: (i + 1) * 10,
+    is_system: true,
+    is_active: true,
+  }));
 
-  const opcionesProyecto = [
-    { value: '' as number | '', label: 'Sin proyecto' },
-    ...projects.map((p) => ({ value: p.id as number | '', label: p.nombre })),
-  ];
+  const opcionesEstado = columnasDisponibles
+    .filter((c) => tienePermisoCierre || (c.key !== 'hecha' && (!editando || task?.status !== 'hecha')))
+    .map((c) => ({ value: c.key, label: c.name }));
+
+  const estadoBloqueado = editando && task?.status === 'hecha' && !tienePermisoCierre;
+
   const opcionesResponsable = (assignees.length ? assignees : [{ id: currentUserId, nombre: 'Yo', email: '', role: '' }])
     .map((a) => ({ value: a.id, label: a.id === currentUserId ? `${a.nombre} (yo)` : a.nombre }));
 
-  const puedeArchivar = editando && task != null && (canArchiveAny || task.created_by === currentUserId);
-
-  async function guardar(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
-      toast({ title: 'El título es obligatorio', variant: 'destructive' });
+      toast({ title: 'El título es obligatorio', tone: 'destructive' });
       return;
     }
-    const payload: tasksApi.TaskPayload = {
-      title: title.trim(),
-      description: description.trim() || null,
-      priority,
-      due_date: fromDateInput(dueDate),
-      project_id: projectId === '' ? null : projectId,
-    };
-    // Solo quien puede asignar manda el responsable: al resto se lo pone el servidor.
-    if (canAssign) payload.assigned_to = assignedTo;
 
     setGuardando(true);
+    let parsedProjectId: number | null = null;
+    let parsedExternalProjectId: number | null = null;
+
+    if (projectSelection.startsWith('campus:')) {
+      parsedProjectId = parseInt(projectSelection.replace('campus:', ''), 10);
+    } else if (projectSelection.startsWith('ext:')) {
+      parsedExternalProjectId = parseInt(projectSelection.replace('ext:', ''), 10);
+    }
+
+    const payload = {
+      title: title.trim(),
+      description: description.trim() || null,
+      status,
+      priority,
+      due_date: fromDateInput(dueDate),
+      project_id: parsedProjectId,
+      external_project_id: parsedExternalProjectId,
+      area_id: areaId ? Number(areaId) : null,
+      assigned_to: canAssign ? (assignedTo || null) : currentUserId,
+    };
+
     try {
-      if (editando && task) {
-        await tasksApi.updateTask(task.id, payload);
-        toast({ title: 'Tarea guardada' });
+      if (editando) {
+        await tasksApi.updateTask(task!.id, payload);
+        toast({ title: 'Tarea actualizada' });
       } else {
-        await tasksApi.createTask({ ...payload, status });
+        await tasksApi.createTask(payload);
         toast({ title: 'Tarea creada' });
       }
       onChanged();
       onClose();
-    } catch (err) {
-      fallo('No se pudo guardar la tarea', err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar';
+      toast({ title: 'No se pudo guardar la tarea', description: msg, tone: 'destructive' });
     } finally {
       setGuardando(false);
     }
   }
 
-  // «Mover a…»: en una tarea ya creada el estado se cambia al momento, con las
-  // reglas del servidor. Es tambien la forma de moverla en el movil.
-  async function moverA(nuevo: TaskStatus) {
-    if (!task || nuevo === task.status) return;
+  async function cambio(operacion: () => Promise<unknown>, errorTitulo: string, onOk?: () => void) {
     try {
-      await tasksApi.moveTask(task.id, { status: nuevo });
-      toast({ title: `Movida a «${STATUS_LABEL[nuevo]}»` });
-      await recargar(task.id);
+      await operacion();
       onChanged();
-    } catch (err) {
-      fallo('No se pudo mover', err);
+      if (task) await recargar(task.id);
+      onOk?.();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error en la operación';
+      toast({ title: errorTitulo, description: msg, tone: 'destructive' });
     }
   }
 
@@ -206,242 +220,339 @@ export function TaskModal({
       toast({ title: 'Tarea archivada' });
       onChanged();
       onClose();
-    } catch (err) {
-      fallo('No se pudo archivar', err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al archivar';
+      toast({ title: 'No se pudo archivar la tarea', description: msg, tone: 'destructive' });
     } finally {
       setConfirmarArchivo(false);
     }
   }
 
-  /** Para lo que cuelga de la tarjeta: hace la llamada, recarga y avisa si falla. */
-  async function cambio(fn: () => Promise<unknown>, siFalla: string, despues?: () => void) {
+  async function aprobarTarea() {
     if (!task) return;
     try {
-      await fn();
-      despues?.();
-      await recargar(task.id);
+      await tasksApi.approveTask(task.id);
+      toast({ title: 'Tarea aprobada y marcada como Hecha' });
       onChanged();
-    } catch (err) {
-      fallo(siFalla, err);
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al aprobar';
+      toast({ title: 'No se pudo aprobar la tarea', description: msg, tone: 'destructive' });
     }
   }
 
-  const hechos = task?.checklist.filter((c) => c.is_completed).length ?? 0;
-  const pasos = task?.checklist.length ?? 0;
+  async function devolverTarea() {
+    if (!task || !motivoDevolucion.trim()) {
+      toast({ title: 'Debes indicar el motivo de la devolución', tone: 'destructive' });
+      return;
+    }
+    setDevolviendo(true);
+    try {
+      await tasksApi.returnTask(task.id, motivoDevolucion.trim());
+      toast({ title: 'Tarea devuelta a En curso con comentario registrado' });
+      onChanged();
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al devolver';
+      toast({ title: 'No se pudo devolver la tarea', description: msg, tone: 'destructive' });
+    } finally {
+      setDevolviendo(false);
+      setMostrarDialogoDevolver(false);
+    }
+  }
+
+  const puedeArchivar = editando && task && (canArchiveAny || task.created_by === currentUserId);
 
   return (
     <Portal>
-      <div className="fixed inset-0 !m-0 z-[70] flex items-center justify-center sm:p-4">
-        <div className="fixed inset-0 !m-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="task-modal-title"
-          className="relative bg-card sm:rounded-lg border border-border w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
-        >
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-xs">
+        <div className="w-full max-w-2xl max-h-[92vh] flex flex-col bg-card rounded-xl border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          
           {/* Cabecera */}
-          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
-            <div className="flex items-center gap-3 min-w-0">
-              <h2 id="task-modal-title" className="text-base font-semibold truncate">
-                {editando ? 'Tarea' : 'Nueva tarea'}
-              </h2>
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/30">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {editando ? `Tarea #${task?.id ?? '…'}` : 'Nueva tarea'}
+              </span>
               {editando && (
-                <div className="flex bg-muted p-0.5 rounded-md text-xs" role="tablist">
-                  {(['detalles', 'historial'] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      role="tab"
-                      aria-selected={tab === t}
-                      onClick={() => setTab(t)}
-                      className={`px-3 py-1 rounded font-medium inline-flex items-center gap-1.5 ${
-                        tab === t ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {t === 'historial' && <ClockCounterClockwise size={13} />}
-                      {t === 'detalles' ? 'Detalles' : 'Historial'}
-                    </button>
-                  ))}
+                <div className="flex rounded-lg bg-muted p-0.5 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setTab('detalles')}
+                    className={`px-2.5 py-1 rounded-md transition-colors ${tab === 'detalles' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Detalles
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab('historial')}
+                    className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${tab === 'historial' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <Clock size={12} /> Historial
+                  </button>
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cerrar"
-              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
-            >
-              <X size={18} weight="bold" />
-            </button>
+
+            <div className="flex items-center gap-1.5">
+              {/* Acciones de Revisión si la tarea está en revisión */}
+              {editando && task?.status === 'en_revision' && tienePermisoCierre && (
+                <div className="flex items-center gap-1.5 mr-2">
+                  <Button type="button" size="sm" variant="outline" className="text-amber-600 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs h-7.5 px-2" onClick={() => setMostrarDialogoDevolver(true)}>
+                    <ArrowUUpLeft size={13} className="mr-1" /> Devolver
+                  </Button>
+                  <Button type="button" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-7.5 px-2.5" onClick={aprobarTarea}>
+                    <Check size={13} className="mr-1" /> Aprobar
+                  </Button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Cerrar ventana"
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
-          {/* Contenido */}
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          {/* Contenido con Scroll */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {cargando ? (
-              <p className="py-12 text-center text-sm text-muted-foreground">Cargando la tarea…</p>
+              <div className="py-12 text-center text-sm text-muted-foreground">Cargando datos de la tarea…</div>
             ) : tab === 'historial' && task ? (
-              <ol className="relative border-l border-border ml-1 space-y-4">
-                {task.events.map((ev) => (
-                  <li key={ev.id} className="ml-4">
-                    <span className="absolute -left-[5px] mt-1.5 w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-card" />
-                    <p className="text-sm">
-                      <span className="font-semibold">{ev.user_name || 'El sistema'}</span>{' '}
-                      <span className="text-muted-foreground">{describir(ev)}</span>
-                    </p>
-                    <p className="text-[11px] text-muted-foreground tabular-nums">
-                      {new Date(ev.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
-                    </p>
-                  </li>
-                ))}
-              </ol>
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actividad registrada</h3>
+                {task.events.length === 0 && <p className="text-sm text-muted-foreground">No hay eventos guardados.</p>}
+                <ul className="divide-y divide-border border border-border rounded-lg">
+                  {task.events.map((ev) => (
+                    <li key={ev.id} className="p-3 text-xs space-y-1">
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span className="font-semibold text-foreground">{ev.user_name || 'Sistema'}</span>
+                        <span className="tabular-nums">{new Date(ev.created_at).toLocaleString('es-ES')}</span>
+                      </div>
+                      <p className="text-muted-foreground">
+                        {ev.event_type === 'created' && 'Creó esta tarea'}
+                        {ev.event_type === 'status_changed' && `Cambió el estado a "${ev.details?.new_status || 'desconocido'}"`}
+                        {ev.event_type === 'assigned' && 'Modificó la asignación'}
+                        {ev.event_type === 'updated' && 'Actualizó los datos'}
+                        {ev.event_type === 'comment' && 'Añadió un comentario'}
+                        {ev.event_type === 'checklist' && 'Modificó la lista de comprobación'}
+                        {ev.event_type === 'tag' && 'Modificó las etiquetas'}
+                        {ev.event_type === 'link' && 'Añadió o quitó un enlace'}
+                        {ev.event_type === 'archived' && 'Archivó la tarea'}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : (
-              <form id="task-form" onSubmit={guardar} className="space-y-4">
-                <Field label="Título" required htmlFor="task-title">
+              <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1">Título *</label>
                   <input
-                    id="task-title"
+                    type="text"
+                    required
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    maxLength={255}
-                    placeholder="Ej.: Revisar la ficha del máster en la web"
+                    placeholder="¿Qué hay que hacer?"
                     className={inputClass}
                     autoFocus={!editando}
-                    required
                   />
-                </Field>
+                </div>
 
-                <Field label="Descripción" htmlFor="task-desc">
+                <div>
+                  <label className="block text-xs font-semibold mb-1">Descripción</label>
                   <textarea
-                    id="task-desc"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
-                    placeholder="Qué hay que hacer, para cuándo y cualquier detalle útil"
+                    placeholder="Detalles, contexto o pasos iniciales…"
                     className={textareaClass}
                   />
-                </Field>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label={editando ? 'Mover a…' : 'Columna'} hint={estadoBloqueado ? 'Cerrada: solo administración la reabre.' : undefined}>
-                    <Select<TaskStatus>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">Estado</label>
+                    <select
                       value={status}
-                      onChange={(v) => (editando ? moverA(v) : setStatus(v))}
-                      options={estadoBloqueado ? [{ value: 'hecha', label: 'Hecha' }] : opcionesEstado}
                       disabled={estadoBloqueado}
-                      ariaLabel="Columna"
-                    />
-                  </Field>
+                      onChange={(e) => setStatus(e.target.value as TaskStatus)}
+                      className={inputClass}
+                    >
+                      {opcionesEstado.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    {estadoBloqueado && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Solo quienes tienen permiso pueden reabrir tareas completadas.</p>
+                    )}
+                  </div>
 
-                  <Field label="Prioridad">
-                    <Select<TaskPriority>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">Prioridad</label>
+                    <select
                       value={priority}
-                      onChange={setPriority}
-                      options={(['alta', 'media', 'baja'] as const).map((p) => ({ value: p, label: PRIORITY[p].label }))}
-                      ariaLabel="Prioridad"
-                    />
-                  </Field>
+                      onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                      className={inputClass}
+                    >
+                      <option value="baja">Baja</option>
+                      <option value="media">Media</option>
+                      <option value="alta">Alta</option>
+                    </select>
+                  </div>
+                </div>
 
-                  <Field label="Fecha límite" htmlFor="task-due">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 flex items-center gap-1">
+                      <CalendarBlank size={12} /> Fecha límite
+                    </label>
                     <input
-                      id="task-due"
                       type="date"
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
                       className={inputClass}
                     />
-                  </Field>
+                  </div>
 
-                  <Field label="Proyecto o web">
-                    <Select<number | ''>
-                      value={projectId}
-                      onChange={setProjectId}
-                      options={opcionesProyecto}
-                      ariaLabel="Proyecto"
-                    />
-                  </Field>
-
-                  <Field
-                    label="Responsable"
-                    className="sm:col-span-2"
-                    hint={canAssign ? undefined : 'Tus tareas son para ti. Asignar a otra persona lo hace administración.'}
-                  >
-                    {canAssign ? (
-                      <Select<number>
-                        value={assignedTo}
-                        onChange={setAssignedTo}
-                        options={opcionesResponsable}
-                        ariaLabel="Responsable"
-                      />
-                    ) : (
-                      <p className={`${inputClass} flex items-center text-muted-foreground`}>
-                        {task?.assigned_to_name || 'Yo'}
-                      </p>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 flex items-center gap-1">
+                      <User size={12} /> Responsable
+                    </label>
+                    <select
+                      value={assignedTo}
+                      disabled={!canAssign}
+                      onChange={(e) => setAssignedTo(Number(e.target.value))}
+                      className={inputClass}
+                    >
+                      {opcionesResponsable.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    {!canAssign && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Tus tareas son para ti.</p>
                     )}
-                  </Field>
+                  </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 flex items-center gap-1">
+                      <Folder size={12} /> Proyecto / Ámbito
+                    </label>
+                    <select
+                      value={projectSelection}
+                      onChange={(e) => setProjectSelection(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Sin proyecto</option>
+                      {projects.length > 0 && (
+                        <optgroup label="Campus / Proyectos principales">
+                          {projects.map((p) => (
+                            <option key={`campus:${p.id}`} value={`campus:${p.id}`}>{p.nombre}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {externalProjects.length > 0 && (
+                        <optgroup label="Proyectos propios / Externos">
+                          {externalProjects.map((ep) => (
+                            <option key={`ext:${ep.id}`} value={`ext:${ep.id}`}>{ep.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1 flex items-center gap-1">
+                      <Globe size={12} /> Área de trabajo
+                    </label>
+                    <select
+                      value={areaId}
+                      onChange={(e) => setAreaId(e.target.value ? Number(e.target.value) : '')}
+                      className={inputClass}
+                    >
+                      <option value="">Sin área específica</option>
+                      {areas.map((ar) => (
+                        <option key={ar.id} value={ar.id}>{ar.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Submódulos cuando la tarjeta ya existe */}
                 {editando && task && (
                   <>
                     {/* Lista de comprobación */}
                     <section className="pt-4 border-t border-border space-y-2">
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                         <CheckSquare size={14} /> Lista de comprobación
-                        {pasos > 0 && <span className="tabular-nums normal-case">· {hechos}/{pasos}</span>}
+                        {task.checklist.length > 0 && (
+                          <span className="tabular-nums normal-case">
+                            · {task.checklist.filter((i) => i.is_completed).length}/{task.checklist.length}
+                          </span>
+                        )}
                       </h3>
-                      {pasos > 0 && (
-                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-primary transition-all" style={{ width: `${(hechos / pasos) * 100}%` }} />
-                        </div>
-                      )}
-                      <ul className="space-y-1">
+                      <ul className="space-y-1.5">
                         {task.checklist.map((item) => (
-                          <li key={item.id} className="flex items-center gap-2 group rounded-md px-1 py-1 hover:bg-muted/50">
+                          <li key={item.id} className="flex items-center gap-2 text-sm group">
                             <input
                               type="checkbox"
                               checked={item.is_completed}
-                              onChange={() => cambio(
-                                () => tasksApi.updateChecklistItem(task.id, item.id, { is_completed: !item.is_completed }),
-                                'No se pudo marcar'
+                              onChange={(e) => cambio(
+                                () => tasksApi.updateChecklistItem(task.id, item.id, { is_completed: e.target.checked }),
+                                'No se pudo actualizar el elemento'
                               )}
-                              className="h-4 w-4 rounded border-border accent-primary"
-                              aria-label={item.title}
+                              className="rounded border-border text-primary focus:ring-primary h-4 w-4"
                             />
-                            <span className={`flex-1 text-sm ${item.is_completed ? 'line-through text-muted-foreground' : ''}`}>
+                            <span className={`flex-1 break-words ${item.is_completed ? 'line-through text-muted-foreground' : ''}`}>
                               {item.title}
                             </span>
                             <button
                               type="button"
-                              onClick={() => cambio(() => tasksApi.deleteChecklistItem(task.id, item.id), 'No se pudo quitar')}
-                              aria-label={`Quitar ${item.title}`}
-                              className="p-1 text-muted-foreground hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+                              onClick={() => cambio(() => tasksApi.deleteChecklistItem(task.id, item.id), 'No se pudo borrar el elemento')}
+                              aria-label="Borrar elemento"
+                              className="hover:text-destructive text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                             >
-                              <Trash size={14} />
+                              <Trash size={12} />
                             </button>
                           </li>
                         ))}
                       </ul>
                       <div className="flex gap-2">
                         <input
+                          type="text"
                           value={nuevoPaso}
                           onChange={(e) => setNuevoPaso(e.target.value)}
+                          placeholder="Añadir paso o comprobación…"
+                          className={inputClass}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              if (nuevoPaso.trim()) cambio(() => tasksApi.addChecklistItem(task.id, { title: nuevoPaso.trim() }), 'No se pudo añadir', () => setNuevoPaso(''));
+                              if (nuevoPaso.trim()) {
+                                cambio(
+                                  () => tasksApi.addChecklistItem(task.id, { title: nuevoPaso.trim() }),
+                                  'No se pudo añadir el paso',
+                                  () => setNuevoPaso('')
+                                );
+                              }
                             }
                           }}
-                          placeholder="Añadir un paso…"
-                          maxLength={255}
-                          className={inputClass}
                         />
                         <Button
                           type="button"
-                          variant="secondary"
                           size="sm"
-                          className="h-9"
                           disabled={!nuevoPaso.trim()}
-                          onClick={() => cambio(() => tasksApi.addChecklistItem(task.id, { title: nuevoPaso.trim() }), 'No se pudo añadir', () => setNuevoPaso(''))}
+                          onClick={() => cambio(
+                            () => tasksApi.addChecklistItem(task.id, { title: nuevoPaso.trim() }),
+                            'No se pudo añadir el paso',
+                            () => setNuevoPaso('')
+                          )}
                         >
-                          <Plus size={14} className="mr-1" /> Añadir
+                          <Plus size={14} /> Añadir
                         </Button>
                       </div>
                     </section>
@@ -451,43 +562,42 @@ export function TaskModal({
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                         <Tag size={14} /> Etiquetas
                       </h3>
-                      {task.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {task.tags.map((t) => (
-                            <span key={t.id} className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded ${tagChip(t.color)}`}>
-                              {t.name}
-                              <button
-                                type="button"
-                                onClick={() => cambio(() => tasksApi.deleteTag(task.id, t.id), 'No se pudo quitar la etiqueta')}
-                                aria-label={`Quitar etiqueta ${t.name}`}
-                                className="opacity-70 hover:opacity-100"
-                              >
-                                <X size={11} weight="bold" />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        {task.tags.map((t) => (
+                          <span key={t.id} className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded ${tagChip(t.color)}`}>
+                            {t.name}
+                            <button
+                              type="button"
+                              onClick={() => cambio(() => tasksApi.deleteTag(task.id, t.id), 'No se pudo quitar la etiqueta')}
+                              className="hover:opacity-80"
+                              aria-label={`Quitar etiqueta ${t.name}`}
+                            >
+                              <X size={11} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
                       <div className="flex gap-2">
                         <input
+                          type="text"
                           value={nuevaEtiqueta}
                           onChange={(e) => setNuevaEtiqueta(e.target.value)}
                           placeholder="Nueva etiqueta…"
                           maxLength={50}
                           className={inputClass}
                         />
-                        <Select<TagColor>
+                        <select
                           value={colorEtiqueta}
-                          onChange={setColorEtiqueta}
-                          options={(Object.keys(TAG_COLORS) as TagColor[]).map((c) => ({ value: c, label: TAG_COLORS[c].label }))}
-                          ariaLabel="Color de la etiqueta"
-                          className="w-32 flex-shrink-0"
-                        />
+                          onChange={(e) => setColorEtiqueta(e.target.value as TagColor)}
+                          className="px-2 py-2 text-sm bg-background border border-border rounded-md"
+                        >
+                          {Object.entries(TAG_COLORS).map(([k, v]) => (
+                            <option key={k} value={k}>{v.label}</option>
+                          ))}
+                        </select>
                         <Button
                           type="button"
-                          variant="secondary"
                           size="sm"
-                          className="h-9"
                           disabled={!nuevaEtiqueta.trim()}
                           onClick={() => cambio(
                             () => tasksApi.addTag(task.id, { name: nuevaEtiqueta.trim(), color: colorEtiqueta }),
@@ -495,7 +605,7 @@ export function TaskModal({
                             () => setNuevaEtiqueta('')
                           )}
                         >
-                          Añadir
+                          <Plus size={14} />
                         </Button>
                       </div>
                     </section>
@@ -507,57 +617,49 @@ export function TaskModal({
                       </h3>
                       <ul className="space-y-1">
                         {task.links.map((l) => (
-                          <li key={l.id} className="flex items-center gap-2 group rounded-md px-1 py-1 hover:bg-muted/50">
-                            <ArrowSquareOut size={14} className="text-muted-foreground flex-shrink-0" />
-                            <a
-                              href={l.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-1 min-w-0 text-sm text-primary hover:underline truncate"
-                            >
+                          <li key={l.id} className="flex items-center justify-between text-xs p-2 rounded bg-muted/40 border border-border group">
+                            <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium truncate mr-2">
                               {l.title || l.url}
                             </a>
                             <button
                               type="button"
                               onClick={() => cambio(() => tasksApi.deleteLink(task.id, l.id), 'No se pudo quitar el enlace')}
-                              aria-label={`Quitar enlace ${l.title || l.url}`}
-                              className="p-1 text-muted-foreground hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+                              className="hover:text-destructive text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100"
+                              aria-label="Quitar enlace"
                             >
-                              <Trash size={14} />
+                              <Trash size={12} />
                             </button>
                           </li>
                         ))}
                       </ul>
-                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_10rem_auto] gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input
                           type="url"
                           value={nuevoEnlace}
                           onChange={(e) => setNuevoEnlace(e.target.value)}
-                          placeholder="https://… (web, Drive, issue de GitHub)"
+                          placeholder="https://…"
                           className={inputClass}
                         />
                         <input
+                          type="text"
                           value={tituloEnlace}
                           onChange={(e) => setTituloEnlace(e.target.value)}
-                          placeholder="Nombre (opcional)"
-                          maxLength={255}
+                          placeholder="Título del enlace (opcional)"
                           className={inputClass}
                         />
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          className="h-9"
-                          disabled={!nuevoEnlace.trim()}
-                          onClick={() => cambio(
-                            () => tasksApi.addLink(task.id, { url: nuevoEnlace.trim(), title: tituloEnlace.trim() || null }),
-                            'No se pudo añadir el enlace',
-                            () => { setNuevoEnlace(''); setTituloEnlace(''); }
-                          )}
-                        >
-                          Añadir
-                        </Button>
                       </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!nuevoEnlace.trim()}
+                        onClick={() => cambio(
+                          () => tasksApi.addLink(task.id, { url: nuevoEnlace.trim(), title: tituloEnlace.trim() || null }),
+                          'No se pudo añadir el enlace',
+                          () => { setNuevoEnlace(''); setTituloEnlace(''); }
+                        )}
+                      >
+                        Añadir enlace
+                      </Button>
                     </section>
 
                     {/* Comentarios */}
@@ -566,7 +668,6 @@ export function TaskModal({
                         <ChatCircle size={14} /> Comentarios
                         {task.comments.length > 0 && <span className="tabular-nums normal-case">· {task.comments.length}</span>}
                       </h3>
-                      {task.comments.length === 0 && <p className="text-sm text-muted-foreground">Todavía no hay comentarios.</p>}
                       <ul className="space-y-2">
                         {task.comments.map((c) => (
                           <li key={c.id} className="rounded-md bg-muted/50 border border-border px-3 py-2 group">
@@ -652,6 +753,51 @@ export function TaskModal({
         onConfirm={archivar}
         onCancel={() => setConfirmarArchivo(false)}
       />
+
+      {/* Diálogo de Devolución de Tarea */}
+      {mostrarDialogoDevolver && (
+        <Portal>
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-foreground">Devolver tarea a «En curso»</h3>
+                <button type="button" onClick={() => setMostrarDialogoDevolver(false)} className="text-muted-foreground hover:text-foreground">
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Indica qué correcciones o puntos faltan para que el responsable pueda completarla. Se publicará como comentario y se enviará notificación.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold mb-1">Motivo / Qué falta *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={motivoDevolucion}
+                  onChange={(e) => setMotivoDevolucion(e.target.value)}
+                  placeholder="Explica qué debe revisarse o corregirse…"
+                  className={textareaClass}
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setMostrarDialogoDevolver(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!motivoDevolucion.trim() || devolviendo}
+                  onClick={devolverTarea}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {devolviendo ? 'Devolviendo…' : 'Devolver tarea'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
     </Portal>
   );
 }

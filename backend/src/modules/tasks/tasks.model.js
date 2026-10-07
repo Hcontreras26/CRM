@@ -1,9 +1,6 @@
-import { query } from '../../shared/config/db.js';
+import { query, getClient } from '../../shared/config/db.js';
 
 // Quien tiene tablero de tareas. Los tutores no: entran con el rol colaborador.
-// Se compara como texto (`role::text`) a proposito: si un valor no estuviera en
-// el ENUM `user_role`, una lista literal tumbaria la consulta entera con
-// «invalid input value for enum»; como texto, simplemente no coincide.
 export const ROLES_TAREAS = ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'];
 
 const CON_TABLERO = `(u.role::text = ANY($ROLES::text[]) OR u.roles_extra::text[] && $ROLES::text[])`;
@@ -21,6 +18,12 @@ const COLUMNAS = `
   t.due_date,
   t.project_id,
   p.nombre AS project_name,
+  t.external_project_id,
+  ep.name AS external_project_name,
+  ep.color AS external_project_color,
+  t.area_id,
+  ar.name AS area_name,
+  ar.color AS area_color,
   t.assigned_to,
   u_assign.nombre AS assigned_to_name,
   u_assign.email AS assigned_to_email,
@@ -34,11 +37,13 @@ const COLUMNAS = `
 const JOINS = `
   FROM tasks t
   LEFT JOIN projects p ON p.id = t.project_id
+  LEFT JOIN task_external_projects ep ON ep.id = t.external_project_id
+  LEFT JOIN task_areas ar ON ar.id = t.area_id
   LEFT JOIN users u_assign ON u_assign.id = t.assigned_to
   LEFT JOIN users u_create ON u_create.id = t.created_by`;
 
 export async function findTasks({
-  assigned_to, project_id, status, priority, search, tag, vencidas, desde, hasta,
+  assigned_to, project_id, external_project_id, area_id, status, priority, search, tag, vencidas, desde, hasta,
   incluir_archivadas = false,
 }) {
   const conditions = [];
@@ -51,6 +56,8 @@ export async function findTasks({
   if (!incluir_archivadas) conditions.push('t.archived_at IS NULL');
   if (assigned_to != null) add('t.assigned_to = $?', assigned_to);
   if (project_id != null) add('t.project_id = $?', project_id);
+  if (external_project_id != null) add('t.external_project_id = $?', external_project_id);
+  if (area_id != null) add('t.area_id = $?', area_id);
   if (status) add('t.status = $?', status);
   if (priority) add('t.priority = $?', priority);
   if (search) add('(t.title ILIKE $? OR t.description ILIKE $?)', `%${search}%`);
@@ -68,6 +75,7 @@ export async function findTasks({
       (SELECT COUNT(*)::int FROM task_checklist_items ci WHERE ci.task_id = t.id AND ci.is_completed) AS checklist_completed,
       (SELECT COUNT(*)::int FROM task_comments cm WHERE cm.task_id = t.id) AS comments_count,
       (SELECT COUNT(*)::int FROM task_links lk WHERE lk.task_id = t.id) AS links_count,
+      (SELECT cm.content FROM task_comments cm WHERE cm.task_id = t.id ORDER BY cm.created_at DESC, cm.id DESC LIMIT 1) AS last_comment,
       COALESCE((
         SELECT json_agg(json_build_object('id', tg.id, 'name', tg.name, 'color', tg.color) ORDER BY tg.id)
         FROM task_tags tg WHERE tg.task_id = t.id
@@ -82,7 +90,12 @@ export async function findTasks({
 }
 
 export async function findTaskById(id) {
-  const { rows } = await query(`SELECT ${COLUMNAS} ${JOINS} WHERE t.id = $1`, [id]);
+  const { rows } = await query(
+    `SELECT ${COLUMNAS},
+       (SELECT cm.content FROM task_comments cm WHERE cm.task_id = t.id ORDER BY cm.created_at DESC, cm.id DESC LIMIT 1) AS last_comment
+     ${JOINS} WHERE t.id = $1`,
+    [id]
+  );
   return rows[0] || null;
 }
 
@@ -107,11 +120,59 @@ export async function getMaxPosition(status, assigned_to = null) {
 }
 
 /**
+ * Encuentra de forma exacta las posiciones de las tarjetas anterior y siguiente
+ * en la misma columna y para el mismo responsable, evitando saltos indebidos si
+ * los IDs del frontal estuviesen desfasados.
+ */
+export async function findNeighbors(status, assigned_to, { prev_id, next_id }) {
+  let prevPos = null;
+  let nextPos = null;
+
+  if (next_id) {
+    const nextTask = await findPosition(next_id);
+    if (nextTask && nextTask.status === status && nextTask.assigned_to === assigned_to) {
+      nextPos = nextTask.position;
+      const { rows } = await query(
+        `SELECT position::float8 AS position
+           FROM tasks
+          WHERE status = $1 AND archived_at IS NULL AND assigned_to IS NOT DISTINCT FROM $2
+            AND position < $3
+          ORDER BY position DESC
+          LIMIT 1`,
+        [status, assigned_to, nextPos]
+      );
+      if (rows[0]) {
+        prevPos = rows[0].position;
+      }
+    }
+  }
+
+  if (prevPos == null && prev_id) {
+    const prevTask = await findPosition(prev_id);
+    if (prevTask && prevTask.status === status && prevTask.assigned_to === assigned_to) {
+      prevPos = prevTask.position;
+      if (nextPos == null) {
+        const { rows } = await query(
+          `SELECT position::float8 AS position
+             FROM tasks
+            WHERE status = $1 AND archived_at IS NULL AND assigned_to IS NOT DISTINCT FROM $2
+              AND position > $3
+            ORDER BY position ASC
+            LIMIT 1`,
+          [status, assigned_to, prevPos]
+        );
+        if (rows[0]) {
+          nextPos = rows[0].position;
+        }
+      }
+    }
+  }
+
+  return { prevPos, nextPos };
+}
+
+/**
  * Vuelve a repartir las posiciones de una columna con huecos de 1.000.
- *
- * Soltar siempre entre las dos mismas tarjetas parte el hueco por la mitad cada
- * vez; con NUMERIC(12,4) se agota tras unas trece. Solo entonces se renumera,
- * y solo esa columna de esa persona: mover una tarjeta no reescribe las demas.
  */
 export async function renumberColumn(status, assigned_to) {
   await query(
@@ -136,6 +197,8 @@ export async function createTask(data) {
     priority = 'media',
     due_date = null,
     project_id = null,
+    external_project_id = null,
+    area_id = null,
     assigned_to = null,
     created_by,
     completed_at = null,
@@ -144,16 +207,16 @@ export async function createTask(data) {
   const { rows } = await query(
     `INSERT INTO tasks (
        title, description, status, position, priority,
-       due_date, project_id, assigned_to, created_by, completed_at
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       due_date, project_id, external_project_id, area_id, assigned_to, created_by, completed_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING id`,
-    [title, description, status, position, priority, due_date, project_id, assigned_to, created_by, completed_at]
+    [title, description, status, position, priority, due_date, project_id, external_project_id, area_id, assigned_to, created_by, completed_at]
   );
   return findTaskById(rows[0].id);
 }
 
 export async function updateTask(id, fields) {
-  const allowed = ['title', 'description', 'priority', 'due_date', 'project_id', 'assigned_to'];
+  const allowed = ['title', 'description', 'priority', 'due_date', 'project_id', 'external_project_id', 'area_id', 'assigned_to'];
   const sets = [];
   const params = [];
 
@@ -195,6 +258,80 @@ export async function archiveTask(id) {
   return rowCount ? findTaskById(id) : null;
 }
 
+/**
+ * Devolver tarea atómicamente: en una única transacción de Postgres
+ * pasa a «en_curso», inserta el comentario obligatorio y registra los eventos.
+ */
+export async function returnTaskAtomic({ taskId, comment, user }) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: taskRows } = await client.query(
+      `SELECT * FROM tasks WHERE id = $1 AND archived_at IS NULL FOR UPDATE`,
+      [taskId]
+    );
+    const task = taskRows[0];
+    if (!task) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    // Calcular posición al final de «en_curso»
+    const { rows: posRows } = await client.query(
+      `SELECT COALESCE(MAX(position), 0)::float8 AS max_pos
+         FROM tasks
+        WHERE status = 'en_curso' AND archived_at IS NULL AND assigned_to IS NOT DISTINCT FROM $1`,
+      [task.assigned_to]
+    );
+    const newPos = Number(posRows[0]?.max_pos || 0) + 1000;
+
+    await client.query(
+      `UPDATE tasks
+          SET status = 'en_curso', position = $1, completed_at = NULL, updated_at = NOW()
+        WHERE id = $2`,
+      [newPos, taskId]
+    );
+
+    const { rows: commentRows } = await client.query(
+      `INSERT INTO task_comments (task_id, user_id, content)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [taskId, user.userId, comment]
+    );
+
+    await client.query(
+      `INSERT INTO task_events (task_id, user_id, event_type, details)
+       VALUES ($1, $2, 'status_changed', $3)`,
+      [
+        taskId,
+        user.userId,
+        JSON.stringify({
+          old_status: task.status,
+          new_status: 'en_curso',
+          motivo: comment,
+        }),
+      ]
+    );
+
+    await client.query(
+      `INSERT INTO task_events (task_id, user_id, event_type, details)
+       VALUES ($1, $2, 'comment', $3)`,
+      [taskId, user.userId, JSON.stringify({ comment_id: commentRows[0].id })]
+    );
+
+    await client.query('COMMIT');
+
+    const updatedTask = await findTaskById(taskId);
+    return { task: updatedTask, comment: commentRows[0], oldTask: task };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 /* --- Historial --- */
 
 export async function createTaskEvent({ task_id, user_id, event_type, details = {} }) {
@@ -221,8 +358,6 @@ export async function findTaskEvents(task_id) {
 }
 
 /* --- Lista de comprobacion --- */
-// Todo lo que toca un elemento va acotado por `task_id`: el acceso se comprueba
-// sobre la tarea de la URL, y sin esto un id de otra tarea se colaba.
 
 export async function findChecklistItems(task_id) {
   const { rows } = await query(
@@ -337,6 +472,7 @@ export async function createTag({ task_id, name, color = 'sky' }) {
   const { rows } = await query(
     `INSERT INTO task_tags (task_id, name, color)
      VALUES ($1, $2, $3)
+     ON CONFLICT (task_id, LOWER(name)) DO UPDATE SET color = EXCLUDED.color
      RETURNING *`,
     [task_id, name, color]
   );
@@ -405,7 +541,6 @@ export async function deleteLink(task_id, id) {
 
 /* --- Personas --- */
 
-/** A quien se le puede asignar una tarea: activos y con tablero. */
 export async function findAssignees() {
   const { rows } = await query(
     `SELECT u.id, u.nombre, u.email, u.role
@@ -427,14 +562,20 @@ export async function findUserBasic(id) {
   return rows[0] || null;
 }
 
-/* --- Todo el equipo (fase 4) --- */
+/* --- Todo el equipo y métricas --- */
 
-export async function getTeamMetrics(projectId = null) {
+export async function getTeamMetrics(projectId = null, areaId = null) {
   const params = [ROLES_TAREAS];
   let filtroProyecto = '';
+  let filtroArea = '';
+
   if (projectId) {
     params.push(projectId);
-    filtroProyecto = 'AND t.project_id = $2';
+    filtroProyecto = `AND t.project_id = $${params.length}`;
+  }
+  if (areaId) {
+    params.push(areaId);
+    filtroArea = `AND t.area_id = $${params.length}`;
   }
 
   const { rows } = await query(
@@ -443,15 +584,12 @@ export async function getTeamMetrics(projectId = null) {
        u.nombre AS user_name,
        u.email AS user_email,
        u.role AS user_role,
-       -- Abiertas y vencidas: lo que sigue en el tablero.
        COUNT(t.id) FILTER (WHERE t.archived_at IS NULL AND t.status <> 'hecha')::int AS open_tasks,
        COUNT(t.id) FILTER (WHERE t.archived_at IS NULL AND t.status <> 'hecha' AND t.due_date < NOW())::int AS overdue_tasks,
-       -- Cerradas: tambien las archivadas. Archivar en vez de borrar es
-       -- justo para que lo completado se siga contando.
        COUNT(t.id) FILTER (WHERE t.status = 'hecha' AND t.completed_at >= date_trunc('week', NOW()))::int AS completed_this_week,
        COUNT(t.id) FILTER (WHERE t.status = 'hecha' AND t.completed_at >= date_trunc('month', NOW()))::int AS completed_this_month
      FROM users u
-     LEFT JOIN tasks t ON t.assigned_to = u.id ${filtroProyecto}
+     LEFT JOIN tasks t ON t.assigned_to = u.id ${filtroProyecto} ${filtroArea}
      WHERE u.active AND ${conTablero(1)}
      GROUP BY u.id, u.nombre, u.email, u.role
      ORDER BY open_tasks DESC, u.nombre ASC`,
@@ -460,12 +598,258 @@ export async function getTeamMetrics(projectId = null) {
   return rows;
 }
 
-/* --- Correo diario (fase 3) --- */
+/* --- Columnas dinámicas --- */
 
-/**
- * Para el correo de cada mañana: por persona, lo que vence hoy y lo vencido.
- * Fuera quien lo haya apagado en «Mis preferencias».
- */
+export async function findActiveColumns() {
+  const { rows } = await query(
+    `SELECT id, key, name, color, sort_order, is_system, is_active, created_at, updated_at
+       FROM task_columns
+      WHERE is_active = true
+      ORDER BY sort_order ASC, id ASC`
+  );
+  return rows;
+}
+
+export async function findAllColumns() {
+  const { rows } = await query(
+    `SELECT id, key, name, color, sort_order, is_system, is_active, created_at, updated_at
+       FROM task_columns
+      ORDER BY sort_order ASC, id ASC`
+  );
+  return rows;
+}
+
+export async function findColumnByKey(key) {
+  const { rows } = await query(`SELECT * FROM task_columns WHERE key = $1`, [key]);
+  return rows[0] || null;
+}
+
+export async function findColumnById(id) {
+  const { rows } = await query(`SELECT * FROM task_columns WHERE id = $1`, [id]);
+  return rows[0] || null;
+}
+
+export async function countTasksInColumn(key) {
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS total FROM tasks WHERE status = $1 AND archived_at IS NULL`,
+    [key]
+  );
+  return rows[0]?.total || 0;
+}
+
+export async function createColumn({ key, name, color = 'gray', sort_order = 0 }) {
+  const { rows } = await query(
+    `INSERT INTO task_columns (key, name, color, sort_order, is_system, is_active)
+     VALUES ($1, $2, $3, $4, FALSE, TRUE)
+     RETURNING *`,
+    [key, name, color, sort_order]
+  );
+  return rows[0];
+}
+
+export async function updateColumn(id, fields) {
+  const allowed = ['name', 'color', 'sort_order', 'is_active'];
+  const sets = [];
+  const params = [];
+
+  for (const k of allowed) {
+    if (fields[k] !== undefined) {
+      params.push(fields[k]);
+      sets.push(`${k} = $${params.length}`);
+    }
+  }
+  if (sets.length === 0) return findColumnById(id);
+
+  sets.push('updated_at = NOW()');
+  params.push(id);
+
+  const { rows } = await query(
+    `UPDATE task_columns SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+    params
+  );
+  return rows[0] || null;
+}
+
+export async function reorderColumns(keys) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    for (let i = 0; i < keys.length; i++) {
+      await client.query(
+        `UPDATE task_columns SET sort_order = $1, updated_at = NOW() WHERE key = $2`,
+        [(i + 1) * 10, keys[i]]
+      );
+    }
+    await client.query('COMMIT');
+    return findActiveColumns();
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/* --- Áreas de trabajo --- */
+
+export async function findActiveAreas() {
+  const { rows } = await query(
+    `SELECT id, name, color, sort_order, is_active, created_at, updated_at
+       FROM task_areas
+      WHERE is_active = true
+      ORDER BY sort_order ASC, id ASC`
+  );
+  return rows;
+}
+
+export async function findAllAreas() {
+  const { rows } = await query(
+    `SELECT id, name, color, sort_order, is_active, created_at, updated_at
+       FROM task_areas
+      ORDER BY sort_order ASC, id ASC`
+  );
+  return rows;
+}
+
+export async function findAreaById(id) {
+  const { rows } = await query(`SELECT * FROM task_areas WHERE id = $1`, [id]);
+  return rows[0] || null;
+}
+
+export async function createArea({ name, color = 'gray', sort_order = 0 }) {
+  const { rows } = await query(
+    `INSERT INTO task_areas (name, color, sort_order, is_active)
+     VALUES ($1, $2, $3, TRUE)
+     RETURNING *`,
+    [name, color, sort_order]
+  );
+  return rows[0];
+}
+
+export async function updateArea(id, fields) {
+  const allowed = ['name', 'color', 'sort_order', 'is_active'];
+  const sets = [];
+  const params = [];
+
+  for (const k of allowed) {
+    if (fields[k] !== undefined) {
+      params.push(fields[k]);
+      sets.push(`${k} = $${params.length}`);
+    }
+  }
+  if (sets.length === 0) return findAreaById(id);
+
+  sets.push('updated_at = NOW()');
+  params.push(id);
+
+  const { rows } = await query(
+    `UPDATE task_areas SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+    params
+  );
+  return rows[0] || null;
+}
+
+export async function getUserAreas(userId) {
+  const { rows } = await query(
+    `SELECT ta.id, ta.name, ta.color, ta.sort_order
+       FROM user_task_areas uta
+       JOIN task_areas ta ON ta.id = uta.area_id
+      WHERE uta.user_id = $1 AND ta.is_active = true
+      ORDER BY ta.sort_order ASC`,
+    [userId]
+  );
+  return rows;
+}
+
+export async function getUserAreaAssignments() {
+  const { rows } = await query(
+    `SELECT user_id, area_id FROM user_task_areas`
+  );
+  return rows;
+}
+
+export async function setUserAreas(userId, areaIds) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM user_task_areas WHERE user_id = $1`, [userId]);
+    for (const areaId of areaIds) {
+      await client.query(
+        `INSERT INTO user_task_areas (user_id, area_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [userId, areaId]
+      );
+    }
+    await client.query('COMMIT');
+    return getUserAreas(userId);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/* --- Proyectos Propios (Externos) --- */
+
+export async function findActiveExternalProjects() {
+  const { rows } = await query(
+    `SELECT id, name, description, color, is_active, created_at, updated_at
+       FROM task_external_projects
+      WHERE is_active = true
+      ORDER BY name ASC`
+  );
+  return rows;
+}
+
+export async function findAllExternalProjects() {
+  const { rows } = await query(
+    `SELECT id, name, description, color, is_active, created_at, updated_at
+       FROM task_external_projects
+      ORDER BY name ASC`
+  );
+  return rows;
+}
+
+export async function findExternalProjectById(id) {
+  const { rows } = await query(`SELECT * FROM task_external_projects WHERE id = $1`, [id]);
+  return rows[0] || null;
+}
+
+export async function createExternalProject({ name, description = null, color = 'gray' }) {
+  const { rows } = await query(
+    `INSERT INTO task_external_projects (name, description, color, is_active)
+     VALUES ($1, $2, $3, TRUE)
+     RETURNING *`,
+    [name, description, color]
+  );
+  return rows[0];
+}
+
+export async function updateExternalProject(id, fields) {
+  const allowed = ['name', 'description', 'color', 'is_active'];
+  const sets = [];
+  const params = [];
+
+  for (const k of allowed) {
+    if (fields[k] !== undefined) {
+      params.push(fields[k]);
+      sets.push(`${k} = $${params.length}`);
+    }
+  }
+  if (sets.length === 0) return findExternalProjectById(id);
+
+  sets.push('updated_at = NOW()');
+  params.push(id);
+
+  const { rows } = await query(
+    `UPDATE task_external_projects SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+    params
+  );
+  return rows[0] || null;
+}
+
+/* --- Correo diario --- */
+
 export async function findDailyDigest(aviso) {
   const { rows } = await query(
     `SELECT u.id AS user_id, u.nombre, u.email,
@@ -490,7 +874,6 @@ export async function findDailyDigest(aviso) {
   return rows;
 }
 
-/** Si esta persona ha apagado este aviso por correo. */
 export async function avisoApagado(userId, aviso) {
   const { rows } = await query(
     'SELECT 1 FROM avisos_apagados WHERE user_id = $1 AND aviso = $2',

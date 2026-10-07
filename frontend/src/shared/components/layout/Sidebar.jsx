@@ -63,6 +63,7 @@ import {
   // que una de sus filas, deja de ordenar y pasa a confundir.
   Flask, House, Funnel, Books, ChalkboardTeacher, Bank, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
+import usePermission from '@/shared/hooks/usePermission';
 import { rolesDe } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -172,6 +173,14 @@ const NAV_SECTIONS = [
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions' },
+      { label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks, roles: ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'] },
+    ],
+  },
+  {
+    label: 'Equipo de Desarrollo',
+    icon: GitMerge,
+    items: [
+      { label: 'GitHub Issues', href: 'https://github.com/diego-landaeta/CRM/issues', detail: 'Incidencias del repo', icon: GitMerge, roles: ['superadmin', 'admin', 'soporte', 'colaborador'] },
       { label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks, roles: ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'] },
     ],
   },
@@ -670,6 +679,8 @@ function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, o
     return (
       <a
         href={href}
+        target={href.startsWith('http') ? '_blank' : undefined}
+        rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
         onClick={onClick}
         title={collapsed ? displayLabel : undefined}
         aria-label={collapsed ? displayLabel : undefined}
@@ -884,6 +895,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const [newLeadsBadge, setNewLeadsBadge] = useState(0);
   const [spamReportsBadge, setSpamReportsBadge] = useState(0);
   const [msgUnreadBadge, setMsgUnreadBadge] = useState(0);
+  const [tasksReviewBadge, setTasksReviewBadge] = useState(0);
+  const { can } = usePermission();
 
   // Estado de secciones colapsadas (Captación, Catálogo, Finanzas, etc.).
   // Persistido en localStorage. Por defecto, abierto: Principal + la sección
@@ -1057,6 +1070,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
 
   // Badge de mensajes no leidos
   useEffect(() => {
+    if (user?.role === 'colaborador' && (!user.roles_extra || user.roles_extra.length === 0)) return;
     let cancelled = false;
     async function fetchMsgCount() {
       try {
@@ -1067,7 +1081,22 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
     fetchMsgCount();
     const interval = setInterval(fetchMsgCount, 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+  }, [user?.role, user?.roles_extra]);
+
+  // Badge de tareas pendientes de revisión (solo para quien tiene permiso para cerrar/revisar)
+  useEffect(() => {
+    if (!can('tasks.close')) return;
+    let cancelled = false;
+    async function fetchReviewCount() {
+      try {
+        const res = await client.get('/tasks/review/count');
+        if (!cancelled && res.success) setTasksReviewBadge(res.data?.count || 0);
+      } catch {}
+    }
+    fetchReviewCount();
+    const interval = setInterval(fetchReviewCount, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [can]);
 
   const initials = user?.nombre?.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) || '??';
   // Vanessa y quien lleve las colaboraciones: solo tutores, nada mas.
@@ -1228,6 +1257,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                   item.to === '/prospectos' && newLeadsBadge > 0 ? newLeadsBadge
                   : item.to === '/notificaciones' && spamReportsBadge > 0 ? spamReportsBadge
                   : item.to === '/mensajes' && msgUnreadBadge > 0 ? msgUnreadBadge
+                  : item.to === '/tareas' && tasksReviewBadge > 0 ? tasksReviewBadge
                   : undefined
                 }
                 labelOverrides={activeProject?.sidebar_labels}
