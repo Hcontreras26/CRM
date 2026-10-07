@@ -11,7 +11,7 @@
 // Se activa con VITE_BETA_MODE=true (lo pone el build de producción).
 // ============================================================
 
-export const BETA_VERSION = '2.0.0';
+export const BETA_VERSION = '2.1.0';
 
 export const BETA_MODE: boolean = String(import.meta.env.VITE_BETA_MODE || '').toLowerCase() === 'true';
 
@@ -37,6 +37,7 @@ export const BETA_ROUTES: readonly string[] = [
   '/notificaciones',         // Sistema básico
   '/manual',                 // Manual de usuario
   '/preferencias',            // Mis preferencias
+  '/tareas',                  // Tablero de tareas del equipo (#210, 2.1.0)
   '/perfil',                // Perfil
   '/configuracion',               // Ajustes (gestión de usuarios, proyectos, etc.)
   '/conexion',               // Conexión: MCP de Claude (solo consulta)
