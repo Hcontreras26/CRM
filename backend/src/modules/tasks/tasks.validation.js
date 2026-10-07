@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-export const ESTADOS_VALIDOS = ['por_hacer', 'en_curso', 'en_revision', 'hecha'];
 export const PRIORIDADES_VALIDAS = ['baja', 'media', 'alta'];
 
 /**
@@ -60,6 +59,14 @@ const dia = z.string().trim().refine(isValidIsoDay, {
 
 const id = z.number().int().positive();
 
+// La clave de una columna: la de las 4 fijas o la de una propia. Que exista y
+// este activa lo comprueba el servicio contra task_columns.
+const columna = z.string().trim().min(1).max(50).regex(/^[a-z0-9_]+$/, 'Columna inválida');
+
+// Los colores que sabe pintar el tablero (columnas, áreas y proyectos propios).
+export const COLORES_TABLERO = ['gray', 'blue', 'yellow', 'green', 'purple', 'rose'];
+const colorTablero = z.enum(COLORES_TABLERO, { message: `Color inválido: usa ${COLORES_TABLERO.join(', ')}` });
+
 // En la query string todo llega como texto: «false» tiene que ser falso.
 const booleanoDeQuery = z.enum(['true', 'false', '1', '0'])
   .transform((v) => v === 'true' || v === '1');
@@ -67,7 +74,7 @@ const booleanoDeQuery = z.enum(['true', 'false', '1', '0'])
 export const createTaskSchema = z.object({
   title: z.string().trim().min(1, 'El título es obligatorio').max(255, 'Máximo 255 caracteres'),
   description: z.string().trim().max(10000, 'Máximo 10.000 caracteres').optional().nullable(),
-  status: z.string().trim().min(1).max(50).default('por_hacer'),
+  status: columna.default('por_hacer'),
   priority: z.enum(PRIORIDADES_VALIDAS).default('media'),
   due_date: fecha.optional().nullable(),
   project_id: id.optional().nullable(),
@@ -94,7 +101,7 @@ export const updateTaskSchema = z.object({
 });
 
 export const moveTaskSchema = z.object({
-  status: z.string().trim().min(1).max(50),
+  status: columna,
   prev_id: id.optional().nullable(),
   next_id: id.optional().nullable(),
 });
@@ -104,7 +111,7 @@ export const returnTaskSchema = z.object({
 });
 
 export const listTasksQuerySchema = z.object({
-  status: z.string().trim().min(1).max(50).optional(),
+  status: columna.optional(),
   assigned_to: z.coerce.number().int().positive().optional(),
   project_id: z.coerce.number().int().positive().optional(),
   external_project_id: z.coerce.number().int().positive().optional(),
@@ -142,7 +149,7 @@ export const COLORES_ETIQUETA = ['sky', 'rose', 'amber', 'emerald', 'violet', 's
 
 export const addTagSchema = z.object({
   name: z.string().trim().min(1, 'Nombre de etiqueta obligatorio').max(50),
-  color: z.string().trim().max(30).default('sky'),
+  color: z.enum(COLORES_ETIQUETA, { message: 'Color de etiqueta inválido' }).default('sky'),
 });
 
 // Solo http(s): un «javascript:» guardado aqui se ejecutaria al pulsarlo.
@@ -157,13 +164,13 @@ export const addLinkSchema = z.object({
 export const createColumnSchema = z.object({
   key: z.string().trim().min(1).max(50).regex(/^[a-z0-9_]+$/, 'La clave solo puede tener letras minúsculas, números y guiones bajos'),
   name: z.string().trim().min(1, 'El nombre de la columna es obligatorio').max(100),
-  color: z.string().trim().max(30).optional().default('gray'),
+  color: colorTablero.default('gray'),
   sort_order: z.number().int().optional(),
 });
 
 export const updateColumnSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
-  color: z.string().trim().max(30).optional(),
+  color: colorTablero.optional(),
   sort_order: z.number().int().optional(),
   is_active: z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });
@@ -174,30 +181,41 @@ export const reorderColumnsSchema = z.object({
 
 export const createAreaSchema = z.object({
   name: z.string().trim().min(1, 'El nombre del área es obligatorio').max(100),
-  color: z.string().trim().max(30).optional().default('gray'),
+  color: colorTablero.default('gray'),
   sort_order: z.number().int().optional(),
 });
 
 export const updateAreaSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
-  color: z.string().trim().max(30).optional(),
+  color: colorTablero.optional(),
   sort_order: z.number().int().optional(),
   is_active: z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });
 
 export const setUserAreasSchema = z.object({
-  area_ids: z.array(z.number().int().positive()),
+  area_ids: z.array(z.number().int().positive()).max(50),
+});
+
+// Quién está en un área: la lista entera, de una vez.
+export const setAreaMembersSchema = z.object({
+  user_ids: z.array(z.number().int().positive()).max(200),
 });
 
 export const createExternalProjectSchema = z.object({
   name: z.string().trim().min(1, 'El nombre del proyecto es obligatorio').max(150),
   description: z.string().trim().max(5000).optional().nullable(),
-  color: z.string().trim().max(30).optional().default('gray'),
+  url: z.string().trim().max(500).url('Enlace inválido')
+    .refine((u) => /^https?:\/\//i.test(u), 'El enlace tiene que empezar por http:// o https://')
+    .optional().nullable(),
+  color: colorTablero.default('gray'),
 });
 
 export const updateExternalProjectSchema = z.object({
   name: z.string().trim().min(1).max(150).optional(),
   description: z.string().trim().max(5000).optional().nullable(),
-  color: z.string().trim().max(30).optional(),
+  url: z.string().trim().max(500).url('Enlace inválido')
+    .refine((u) => /^https?:\/\//i.test(u), 'El enlace tiene que empezar por http:// o https://')
+    .optional().nullable(),
+  color: colorTablero.optional(),
   is_active: z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });

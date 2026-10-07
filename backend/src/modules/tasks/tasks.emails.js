@@ -23,18 +23,23 @@ const PRIORIDADES = { baja: 'Baja', media: 'Media', alta: 'Alta' };
 const tz = () => process.env.APP_TIMEZONE || 'Europe/Madrid';
 const fechaCorta = (d) => new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: tz() });
 
+/**
+ * El interruptor de los correos de tareas (TAREAS_CORREOS_ACTIVOS, en el .env).
+ * Apagado por defecto: lo enciende Diego en producción cuando lo decida.
+ */
 export const correosActivos = () => {
-  const v = process.env.TAREAS_CORREOS_ACTIVOS;
+  const v = String(process.env.TAREAS_CORREOS_ACTIVOS || '').toLowerCase();
   return v === 'true' || v === '1';
 };
 
 /**
- * Función base para despachar correos respetando el interruptor TAREAS_CORREOS_ACTIVOS.
+ * Todos los correos de tareas salen por aquí. Apagado, el correo se arma
+ * entero y se registra (para y asunto), pero no se llama a Brevo.
  */
-async function despacharCorreo({ to, subject, htmlContent, textContent, tags, clave }) {
+export async function despacharCorreo({ to, subject, htmlContent, textContent, tags, clave }) {
   if (!correosActivos()) {
-    logger.info({ to: to[0]?.email, subject, clave }, 'Envío de correo de tareas simulado (TAREAS_CORREOS_ACTIVOS=false)');
-    return { sent: true, simulated: true };
+    logger.info({ to: to[0]?.email, subject, clave }, 'Correo de tareas registrado sin enviar (TAREAS_CORREOS_ACTIVOS apagado)');
+    return { sent: false, simulated: true };
   }
   return sendEmail({
     to,
@@ -117,7 +122,7 @@ export function armarCorreoCerrada({ persona, tarea, quien }) {
     saludo: persona.nombre,
     resumen: `${quien?.nombre || 'Administración'} ha marcado «${tarea.title}» como Hecha`,
     bloques: [
-      parrafo(`¡Excelente trabajo! ${esc(quien?.nombre || 'Administración')} ha validado y cerrado la tarea:`),
+      parrafo(`${esc(quien?.nombre || 'Administración')} ha revisado y aprobado tu tarea. Ya está en «Hecha»:`),
       nota(`<strong>${esc(tarea.title)}</strong>`),
       boton({ texto: 'Ver tarea', url: enlace(`tareas?id=${tarea.id}`) }),
     ],
@@ -134,7 +139,8 @@ export async function enviarCorreoCerrada({ persona, tarea, quien }) {
     htmlContent: c.htmlContent,
     textContent: c.textContent,
     tags: ['tareas', 'tarea-cerrada'],
-    clave: `${AVISO_TAREA_CERRADA}-${tarea.id}-${persona.id}`,
+    // Con la fecha de cierre: si se reabre y se vuelve a cerrar, avisa otra vez.
+    clave: `${AVISO_TAREA_CERRADA}-${tarea.id}-${persona.id}-${new Date(tarea.completed_at || Date.now()).getTime()}`,
   });
 }
 
@@ -149,7 +155,7 @@ export function armarCorreoComentario({ persona, tarea, quien, comentario }) {
       nota(esc(comentario)),
       boton({ texto: 'Responder en el CRM', url: enlace(`tareas?id=${tarea.id}`) }),
     ],
-    apagar: { texto: 'Recibes este aviso por comentarios en tareas que tienes asignadas o creadas.' },
+    apagar: { texto: 'Recibes este aviso porque alguien ha comentado en una tarea tuya.' },
   });
   return { asunto: `Comentario en: ${tarea.title}`, htmlContent, textContent };
 }
@@ -168,10 +174,13 @@ export async function enviarCorreoComentario({ persona, tarea, quien, comentario
 
 /** El correo de cada mañana: lo que vence hoy y lo vencido. */
 export function armarCorreoDelDia({ persona, tareas, hoy = new Date() }) {
-  const inicioHoy = new Date(hoy);
-  inicioHoy.setHours(0, 0, 0, 0);
-  const vencidas = tareas.filter((t) => new Date(t.due_date) < inicioHoy);
-  const deHoy = tareas.filter((t) => new Date(t.due_date) >= inicioHoy);
+  // «Hoy» y «vencida» con el día de la oficina, no con el del servidor (UTC).
+  const dia = (d) => new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz(), year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(d));
+  const hoyDia = dia(hoy);
+  const vencidas = tareas.filter((t) => dia(t.due_date) < hoyDia);
+  const deHoy = tareas.filter((t) => dia(t.due_date) >= hoyDia);
 
   const linea = (t) => `<li style="margin:0 0 6px"><a href="${esc(enlace(`tareas?id=${t.id}`))}">${esc(t.title)}</a>`
     + ` · ${esc(ESTADOS[t.status] || t.status)}`

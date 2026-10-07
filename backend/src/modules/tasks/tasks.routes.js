@@ -10,6 +10,7 @@ router.use(soloRoles(...ROLES_TAREAS));
 
 // Rutas fijas antes que /:id, para no chocar
 router.get('/metrics', ctrl.teamMetrics);
+router.get('/metrics/areas', ctrl.teamMetricsByArea);
 router.get('/assignees', ctrl.assignees);
 router.get('/tags', ctrl.tagNames);
 
@@ -31,6 +32,7 @@ router.get('/areas/assignments', ctrl.getUserAreaAssignments);
 router.get('/areas/user/:userId', ctrl.getUserAreas);
 router.put('/areas/user/:userId', ctrl.setUserAreas);
 router.patch('/areas/:id', ctrl.updateArea);
+router.put('/areas/:id/members', ctrl.setAreaMembers);
 
 // Configuración de proyectos propios
 router.get('/external-projects', ctrl.listExternalProjects);

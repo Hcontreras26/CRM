@@ -44,7 +44,7 @@ const JOINS = `
 
 export async function findTasks({
   assigned_to, project_id, external_project_id, area_id, status, priority, search, tag, vencidas, desde, hasta,
-  incluir_archivadas = false,
+  incluir_archivadas = false, orden = 'tablero',
 }) {
   const conditions = [];
   const params = [];
@@ -82,11 +82,21 @@ export async function findTasks({
       ), '[]'::json) AS tags
     ${JOINS}
     ${whereClause}
-    ORDER BY t.position ASC, t.created_at DESC
+    ORDER BY ${orden === 'vencimiento'
+    ? 't.due_date ASC NULLS LAST, t.updated_at ASC'
+    : 't.position ASC, t.created_at DESC'}
   `;
 
   const { rows } = await query(sql, params);
   return rows;
+}
+
+/** Cuántas tareas esperan revisión: el número del selector y del menú. */
+export async function countReview() {
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS total FROM tasks WHERE status = 'en_revision' AND archived_at IS NULL`
+  );
+  return rows[0].total;
 }
 
 export async function findTaskById(id) {
@@ -124,22 +134,22 @@ export async function getMaxPosition(status, assigned_to = null) {
  * en la misma columna y para el mismo responsable, evitando saltos indebidos si
  * los IDs del frontal estuviesen desfasados.
  */
-export async function findNeighbors(status, assigned_to, { prev_id, next_id }) {
+export async function findNeighbors(status, assigned_to, { prev_id, next_id, sin = 0 }) {
   let prevPos = null;
   let nextPos = null;
 
   if (next_id) {
-    const nextTask = await findPosition(next_id);
+    const nextTask = next_id === sin ? null : await findPosition(next_id);
     if (nextTask && nextTask.status === status && nextTask.assigned_to === assigned_to) {
       nextPos = nextTask.position;
       const { rows } = await query(
         `SELECT position::float8 AS position
            FROM tasks
           WHERE status = $1 AND archived_at IS NULL AND assigned_to IS NOT DISTINCT FROM $2
-            AND position < $3
+            AND position < $3 AND id <> $4
           ORDER BY position DESC
           LIMIT 1`,
-        [status, assigned_to, nextPos]
+        [status, assigned_to, nextPos, sin]
       );
       if (rows[0]) {
         prevPos = rows[0].position;
@@ -148,7 +158,7 @@ export async function findNeighbors(status, assigned_to, { prev_id, next_id }) {
   }
 
   if (prevPos == null && prev_id) {
-    const prevTask = await findPosition(prev_id);
+    const prevTask = prev_id === sin ? null : await findPosition(prev_id);
     if (prevTask && prevTask.status === status && prevTask.assigned_to === assigned_to) {
       prevPos = prevTask.position;
       if (nextPos == null) {
@@ -156,10 +166,10 @@ export async function findNeighbors(status, assigned_to, { prev_id, next_id }) {
           `SELECT position::float8 AS position
              FROM tasks
             WHERE status = $1 AND archived_at IS NULL AND assigned_to IS NOT DISTINCT FROM $2
-              AND position > $3
+              AND position > $3 AND id <> $4
             ORDER BY position ASC
             LIMIT 1`,
-          [status, assigned_to, prevPos]
+          [status, assigned_to, prevPos, sin]
         );
         if (rows[0]) {
           nextPos = rows[0].position;
@@ -276,6 +286,10 @@ export async function returnTaskAtomic({ taskId, comment, user }) {
       await client.query('ROLLBACK');
       return null;
     }
+    if (task.status !== 'en_revision') {
+      await client.query('ROLLBACK');
+      return { noEnRevision: true, oldTask: task };
+    }
 
     // Calcular posición al final de «en_curso»
     const { rows: posRows } = await client.query(
@@ -324,6 +338,51 @@ export async function returnTaskAtomic({ taskId, comment, user }) {
 
     const updatedTask = await findTaskById(taskId);
     return { task: updatedTask, comment: commentRows[0], oldTask: task };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Aprobar: de «En revisión» a «Hecha», con su fecha de cierre y su evento, en
+ * una transacción. Si otra persona la movió mientras tanto, no se toca.
+ */
+export async function approveTaskAtomic({ taskId, user }) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const { rows: [task] } = await client.query(
+      'SELECT * FROM tasks WHERE id = $1 AND archived_at IS NULL FOR UPDATE',
+      [taskId]
+    );
+    if (!task) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    if (task.status !== 'en_revision') {
+      await client.query('ROLLBACK');
+      return { noEnRevision: true, oldTask: task };
+    }
+    const { rows: [pos] } = await client.query(
+      `SELECT COALESCE(MAX(position), 0)::float8 AS max_pos FROM tasks
+        WHERE status = 'hecha' AND archived_at IS NULL AND assigned_to IS NOT DISTINCT FROM $1`,
+      [task.assigned_to]
+    );
+    await client.query(
+      `UPDATE tasks SET status = 'hecha', position = $1, completed_at = NOW(), updated_at = NOW()
+        WHERE id = $2`,
+      [Number(pos.max_pos) + 1000, taskId]
+    );
+    await client.query(
+      `INSERT INTO task_events (task_id, user_id, event_type, details)
+       VALUES ($1, $2, 'status_changed', $3)`,
+      [taskId, user.userId, JSON.stringify({ old_status: 'en_revision', new_status: 'hecha', action: 'approved' })]
+    );
+    await client.query('COMMIT');
+    return { task: await findTaskById(taskId), oldTask: task };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -468,15 +527,24 @@ export async function findTags(task_id) {
   return rows;
 }
 
+/**
+ * «Web» y «web» son la misma etiqueta (índice único de la 196). Si ya estaba,
+ * se devuelve la que había, sin cambiarle el color, y `repetida` lo dice.
+ */
 export async function createTag({ task_id, name, color = 'sky' }) {
   const { rows } = await query(
     `INSERT INTO task_tags (task_id, name, color)
      VALUES ($1, $2, $3)
-     ON CONFLICT (task_id, LOWER(name)) DO UPDATE SET color = EXCLUDED.color
+     ON CONFLICT (task_id, LOWER(name)) DO NOTHING
      RETURNING *`,
     [task_id, name, color]
   );
-  return rows[0];
+  if (rows[0]) return { ...rows[0], repetida: false };
+  const { rows: [ya] } = await query(
+    'SELECT * FROM task_tags WHERE task_id = $1 AND LOWER(name) = LOWER($2)',
+    [task_id, name]
+  );
+  return { ...ya, repetida: true };
 }
 
 export async function deleteTag(task_id, id) {
@@ -593,6 +661,34 @@ export async function getTeamMetrics(projectId = null, areaId = null) {
      WHERE u.active AND ${conTablero(1)}
      GROUP BY u.id, u.nombre, u.email, u.role
      ORDER BY open_tasks DESC, u.nombre ASC`,
+    params
+  );
+  return rows;
+}
+
+/** «Todo el equipo» por área: lo mismo que por persona, agrupado por área. */
+export async function getTeamMetricsByArea(projectId = null) {
+  const params = [];
+  let filtroProyecto = '';
+  if (projectId) {
+    params.push(projectId);
+    filtroProyecto = `AND t.project_id = $${params.length}`;
+  }
+  const { rows } = await query(
+    `SELECT
+       ar.id AS area_id,
+       COALESCE(ar.name, 'Sin área') AS area_name,
+       ar.color AS area_color,
+       COUNT(t.id) FILTER (WHERE t.archived_at IS NULL AND t.status <> 'hecha')::int AS open_tasks,
+       COUNT(t.id) FILTER (WHERE t.archived_at IS NULL AND t.status <> 'hecha' AND t.due_date < NOW())::int AS overdue_tasks,
+       COUNT(t.id) FILTER (WHERE t.status = 'hecha' AND t.completed_at >= date_trunc('week', NOW()))::int AS completed_this_week,
+       COUNT(t.id) FILTER (WHERE t.status = 'hecha' AND t.completed_at >= date_trunc('month', NOW()))::int AS completed_this_month,
+       (SELECT COUNT(*)::int FROM user_task_areas uta WHERE uta.area_id = ar.id) AS people
+     FROM tasks t
+     LEFT JOIN task_areas ar ON ar.id = t.area_id
+     WHERE TRUE ${filtroProyecto}
+     GROUP BY ar.id, ar.name, ar.color, ar.sort_order
+     ORDER BY ar.sort_order ASC NULLS LAST, area_name ASC`,
     params
   );
   return rows;
@@ -761,6 +857,30 @@ export async function getUserAreas(userId) {
   return rows;
 }
 
+/** Deja en el área exactamente a estas personas (las demás áreas de cada una, intactas). */
+export async function setAreaMembers(areaId, userIds) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM user_task_areas WHERE area_id = $1', [areaId]);
+    if (userIds.length) {
+      await client.query(
+        `INSERT INTO user_task_areas (user_id, area_id)
+         SELECT UNNEST($1::int[]), $2 ON CONFLICT DO NOTHING`,
+        [userIds, areaId]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+  const { rows } = await query('SELECT user_id FROM user_task_areas WHERE area_id = $1 ORDER BY user_id', [areaId]);
+  return rows.map((x) => x.user_id);
+}
+
 export async function getUserAreaAssignments() {
   const { rows } = await query(
     `SELECT user_id, area_id FROM user_task_areas`
@@ -793,7 +913,7 @@ export async function setUserAreas(userId, areaIds) {
 
 export async function findActiveExternalProjects() {
   const { rows } = await query(
-    `SELECT id, name, description, color, is_active, created_at, updated_at
+    `SELECT id, name, description, url, color, is_active, created_at, updated_at
        FROM task_external_projects
       WHERE is_active = true
       ORDER BY name ASC`
@@ -803,7 +923,7 @@ export async function findActiveExternalProjects() {
 
 export async function findAllExternalProjects() {
   const { rows } = await query(
-    `SELECT id, name, description, color, is_active, created_at, updated_at
+    `SELECT id, name, description, url, color, is_active, created_at, updated_at
        FROM task_external_projects
       ORDER BY name ASC`
   );
@@ -815,18 +935,18 @@ export async function findExternalProjectById(id) {
   return rows[0] || null;
 }
 
-export async function createExternalProject({ name, description = null, color = 'gray' }) {
+export async function createExternalProject({ name, description = null, url = null, color = 'gray' }) {
   const { rows } = await query(
-    `INSERT INTO task_external_projects (name, description, color, is_active)
-     VALUES ($1, $2, $3, TRUE)
+    `INSERT INTO task_external_projects (name, description, url, color, is_active)
+     VALUES ($1, $2, $3, $4, TRUE)
      RETURNING *`,
-    [name, description, color]
+    [name, description, url, color]
   );
   return rows[0];
 }
 
 export async function updateExternalProject(id, fields) {
-  const allowed = ['name', 'description', 'color', 'is_active'];
+  const allowed = ['name', 'description', 'url', 'color', 'is_active'];
   const sets = [];
   const params = [];
 
@@ -850,7 +970,12 @@ export async function updateExternalProject(id, fields) {
 
 /* --- Correo diario --- */
 
-export async function findDailyDigest(aviso) {
+/**
+ * Lo que vence hoy o ya venció, por persona. `hoy` es la fecha (AAAA-MM-DD) en
+ * la zona de la oficina y `tz` esa zona: el fin del día se calcula ahí, no en
+ * la de la base, que en el servidor es UTC.
+ */
+export async function findDailyDigest(aviso, hoy, tz = 'Europe/Madrid') {
   const { rows } = await query(
     `SELECT u.id AS user_id, u.nombre, u.email,
             json_agg(json_build_object(
@@ -863,13 +988,13 @@ export async function findDailyDigest(aviso) {
         AND u.email IS NOT NULL
         AND t.archived_at IS NULL
         AND t.status <> 'hecha'
-        AND t.due_date < (CURRENT_DATE + INTERVAL '1 day')
+        AND t.due_date < (($2::date + 1)::timestamp AT TIME ZONE $3)
         AND NOT EXISTS (
           SELECT 1 FROM avisos_apagados a WHERE a.user_id = u.id AND a.aviso = $1
         )
       GROUP BY u.id, u.nombre, u.email
       ORDER BY u.nombre`,
-    [aviso]
+    [aviso, hoy, tz]
   );
   return rows;
 }

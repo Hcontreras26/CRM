@@ -18,6 +18,7 @@ import {
   createAreaSchema,
   updateAreaSchema,
   setUserAreasSchema,
+  setAreaMembersSchema,
   createExternalProjectSchema,
   updateExternalProjectSchema,
 } from './tasks.validation.js';
@@ -127,6 +128,12 @@ export const tagNames = accion(async (req, res) => {
 export const teamMetrics = accion(async (req, res) => {
   const { project_id: projectId, area_id: areaId } = validar(metricsQuerySchema, req.query);
   const data = await taskService.getTeamMetrics(projectId || null, areaId || null, quien(req));
+  res.json({ success: true, data });
+});
+
+export const teamMetricsByArea = accion(async (req, res) => {
+  const { project_id: projectId } = validar(metricsQuerySchema, req.query);
+  const data = await taskService.getTeamMetricsByArea(projectId || null, quien(req));
   res.json({ success: true, data });
 });
 
@@ -256,7 +263,7 @@ export const updateArea = accion(async (req, res) => {
 
 export const getUserAreas = accion(async (req, res) => {
   const userId = validarId(req.params.userId);
-  const data = await taskService.getUserAreas(userId);
+  const data = await taskService.getUserAreas(userId, quien(req));
   res.json({ success: true, data });
 });
 
@@ -269,6 +276,13 @@ export const setUserAreas = accion(async (req, res) => {
   const userId = validarId(req.params.userId);
   const body = validar(setUserAreasSchema, req.body);
   const data = await taskService.setUserAreas(userId, body, quien(req));
+  res.json({ success: true, data });
+});
+
+export const setAreaMembers = accion(async (req, res) => {
+  const areaId = validarId(req.params.id);
+  const body = validar(setAreaMembersSchema, req.body);
+  const data = await taskService.setAreaMembers(areaId, body, quien(req));
   res.json({ success: true, data });
 });
 

@@ -92,6 +92,11 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Tarea asignada', agrupa: false,
     descripcion: 'Cuando te asignan una tarea del equipo',
   },
+  // Devuelta desde «Por revisar»: hay que hacer lo que dice el comentario.
+  task_devuelta: {
+    clase: ACCION, etiqueta: 'Tarea devuelta', agrupa: false,
+    descripcion: 'Cuando revisan una tarea tuya y la devuelven a «En curso» con lo que falta',
+  },
 
   // ── Saber ──
   task_estado_cambiado: {
@@ -101,6 +106,10 @@ export const TIPOS = {
   task_comentario: {
     clase: AVISO, etiqueta: 'Comentario en tarea', agrupa: false,
     descripcion: 'Cuando alguien comenta en una tarea que tienes asignada o creaste',
+  },
+  task_aprobada: {
+    clase: AVISO, etiqueta: 'Tarea aprobada', agrupa: false,
+    descripcion: 'Cuando aprueban una tarea tuya y pasa a «Hecha»',
   },
   venta_automatica: {
     clase: AVISO, etiqueta: 'Venta automática', agrupa: false,
