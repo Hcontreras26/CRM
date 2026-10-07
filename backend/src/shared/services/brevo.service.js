@@ -348,7 +348,7 @@ export async function sendCorreoCambiadoEmail({ nombre, de, a }) {
     resumen: `A partir de ahora entras con ${a}`,
     bloques: [
       P.parrafo(`Un administrador ha cambiado el correo con el que entras al CRM (${P.esc(fechaHoraCorreo(new Date()))}):`),
-      P.nota(`${P.esc(de)} &rarr; <strong>${P.esc(a)}</strong>`),
+      P.nota(`${P.esc(de)} → <strong>${P.esc(a)}</strong>`),
       P.parrafo(`A partir de ahora entra con <strong>${P.esc(a)}</strong>. Con esta dirección ya no podrás, y tendrás que volver a iniciar sesión.`),
       P.boton({ texto: 'Entrar al CRM', url: P.enlace('login') }),
       letraPequena('Si no esperabas este cambio, avisa a tu responsable cuanto antes.'),
