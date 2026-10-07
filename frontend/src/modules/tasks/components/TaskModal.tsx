@@ -6,11 +6,12 @@ import {
 import Portal from '@/shared/components/ui/portal';
 import { Button } from '@/shared/components/ui/button';
 import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
-import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
+import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { toast } from '@/shared/hooks/useToast';
+import { inputClass } from '@/shared/lib/ui';
 import * as tasksApi from '../api/tasks.api';
 import {
-  DEFAULT_COLUMNS, PRIORITY, TAG_COLORS, fromDateInput, tagChip, toDateInput,
+  DEFAULT_COLUMNS, TAG_COLORS, fromDateInput, tagChip, toDateInput,
 } from '../lib/taskUi';
 import type {
   Assignee,
@@ -37,7 +38,7 @@ interface TaskModalProps {
   onClose: () => void;
   onChanged: () => void;
   currentUserId: number;
-  isAdmin: boolean;
+  /** `tasks.close`: aprobar, devolver, cerrar y reabrir. */
   canClose?: boolean;
   canAssign: boolean;
   canArchiveAny: boolean;
@@ -48,12 +49,13 @@ interface TaskModalProps {
   columns?: TaskColumn[];
 }
 
-const inputClass = 'w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:opacity-60';
-const textareaClass = 'w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y disabled:opacity-60';
+// La clase del campo es la de todo el CRM (shared/lib/ui.ts); el área de
+// texto, la misma con su alto.
+const textareaClass = `${inputClass.replace('h-9', 'min-h-[72px] py-2')} resize-y disabled:opacity-60`;
 
 export function TaskModal({
   open, taskId, initialStatus = 'por_hacer', initialProjectId = null, defaultAssigneeId = null, onClose, onChanged,
-  currentUserId, isAdmin, canClose = false, canAssign, canArchiveAny, assignees, projects,
+  currentUserId, canClose = false, canAssign, canArchiveAny, assignees, projects,
   areas = [], externalProjects = [], columns = [],
 }: TaskModalProps) {
   useEscapeKey(onClose, open);
@@ -84,7 +86,9 @@ export function TaskModal({
   const [nuevoEnlace, setNuevoEnlace] = useState('');
   const [tituloEnlace, setTituloEnlace] = useState('');
 
-  const tienePermisoCierre = isAdmin || canClose;
+  // Lo decide la clave `tasks.close`, no el rol: lo que se cambie en
+  // Configuración › Roles manda también aquí.
+  const tienePermisoCierre = canClose;
 
   const rellenar = useCallback((t: TaskDetail) => {
     setTask(t);
@@ -105,7 +109,7 @@ export function TaskModal({
       rellenar(await tasksApi.getTaskById(id));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error desconocido';
-      toast({ title: 'No se pudo abrir la tarea', description: msg, tone: 'destructive' });
+      toast({ title: 'No se pudo abrir la tarea', description: msg, variant: 'destructive' });
       onClose();
     }
   }, [rellenar, onClose]);
@@ -157,7 +161,7 @@ export function TaskModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
-      toast({ title: 'El título es obligatorio', tone: 'destructive' });
+      toast({ title: 'El título es obligatorio', variant: 'destructive' });
       return;
     }
 
@@ -195,7 +199,7 @@ export function TaskModal({
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al guardar';
-      toast({ title: 'No se pudo guardar la tarea', description: msg, tone: 'destructive' });
+      toast({ title: 'No se pudo guardar la tarea', description: msg, variant: 'destructive' });
     } finally {
       setGuardando(false);
     }
@@ -209,7 +213,7 @@ export function TaskModal({
       onOk?.();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error en la operación';
-      toast({ title: errorTitulo, description: msg, tone: 'destructive' });
+      toast({ title: errorTitulo, description: msg, variant: 'destructive' });
     }
   }
 
@@ -222,7 +226,7 @@ export function TaskModal({
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al archivar';
-      toast({ title: 'No se pudo archivar la tarea', description: msg, tone: 'destructive' });
+      toast({ title: 'No se pudo archivar la tarea', description: msg, variant: 'destructive' });
     } finally {
       setConfirmarArchivo(false);
     }
@@ -237,13 +241,13 @@ export function TaskModal({
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al aprobar';
-      toast({ title: 'No se pudo aprobar la tarea', description: msg, tone: 'destructive' });
+      toast({ title: 'No se pudo aprobar la tarea', description: msg, variant: 'destructive' });
     }
   }
 
   async function devolverTarea() {
     if (!task || !motivoDevolucion.trim()) {
-      toast({ title: 'Debes indicar el motivo de la devolución', tone: 'destructive' });
+      toast({ title: 'Debes indicar el motivo de la devolución', variant: 'destructive' });
       return;
     }
     setDevolviendo(true);
@@ -254,7 +258,7 @@ export function TaskModal({
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al devolver';
-      toast({ title: 'No se pudo devolver la tarea', description: msg, tone: 'destructive' });
+      toast({ title: 'No se pudo devolver la tarea', description: msg, variant: 'destructive' });
     } finally {
       setDevolviendo(false);
       setMostrarDialogoDevolver(false);
@@ -334,7 +338,7 @@ export function TaskModal({
                       </div>
                       <p className="text-muted-foreground">
                         {ev.event_type === 'created' && 'Creó esta tarea'}
-                        {ev.event_type === 'status_changed' && `Cambió el estado a "${ev.details?.new_status || 'desconocido'}"`}
+                        {ev.event_type === 'status_changed' && `La movió a «${columnasDisponibles.find((c) => c.key === ev.details?.new_status)?.name || String(ev.details?.new_status || '')}»`}
                         {ev.event_type === 'assigned' && 'Modificó la asignación'}
                         {ev.event_type === 'updated' && 'Actualizó los datos'}
                         {ev.event_type === 'comment' && 'Añadió un comentario'}
@@ -450,14 +454,14 @@ export function TaskModal({
                     >
                       <option value="">Sin proyecto</option>
                       {projects.length > 0 && (
-                        <optgroup label="Campus / Proyectos principales">
+                        <optgroup label="Campus">
                           {projects.map((p) => (
                             <option key={`campus:${p.id}`} value={`campus:${p.id}`}>{p.nombre}</option>
                           ))}
                         </optgroup>
                       )}
                       {externalProjects.length > 0 && (
-                        <optgroup label="Proyectos propios / Externos">
+                        <optgroup label="Proyectos propios">
                           {externalProjects.map((ep) => (
                             <option key={`ext:${ep.id}`} value={`ext:${ep.id}`}>{ep.name}</option>
                           ))}
@@ -675,7 +679,7 @@ export function TaskModal({
                               <span className="font-semibold text-foreground">{c.user_name}</span>
                               <span className="flex items-center gap-2 tabular-nums">
                                 {new Date(c.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
-                                {(isAdmin || c.user_id === currentUserId) && (
+                                {(canArchiveAny || c.user_id === currentUserId) && (
                                   <button
                                     type="button"
                                     onClick={() => cambio(() => tasksApi.deleteComment(task.id, c.id), 'No se pudo borrar el comentario')}

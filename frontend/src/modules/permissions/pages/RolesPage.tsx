@@ -32,7 +32,22 @@ const COLUMNAS = ['view', 'create', 'edit', 'delete'];
 const ACCION_ES: Record<string, string> = {
   view: 'Ver', create: 'Crear', edit: 'Editar', delete: 'Eliminar',
   export: 'Exportar', assign: 'Asignar', bulk_action: 'En bloque',
-  upload: 'Subir', sync: 'Sincronizar',
+  upload: 'Subir', sync: 'Sincronizar', sin_gestora: 'Sin gestora',
+  view_all: 'Ver todo', view_own: 'Ver lo suyo', close: 'Aprobar y cerrar', manage: 'Configurar',
+};
+
+// Qué permite cada clave, cuando el nombre no basta. Sale al pasar el ratón.
+// Las 8 de Tareas (#210): «Aprobar y cerrar» y «Configurar» deciden en el
+// servidor, no el rol.
+const AYUDA: Record<string, string> = {
+  'tasks.view_all': 'Ver el tablero de cualquier persona, «Todo el equipo» y sus métricas',
+  'tasks.view_own': 'Ver su propio tablero',
+  'tasks.create': 'Crearse tareas para sí',
+  'tasks.assign': 'Asignar o reasignar tareas a otras personas',
+  'tasks.edit': 'Editar las tareas que ve',
+  'tasks.delete': 'Archivar cualquier tarea y borrar comentarios de otros',
+  'tasks.close': 'Aprobar o devolver desde «Por revisar», y cerrar o reabrir una tarea («Hecha»)',
+  'tasks.manage': 'Configurar el tablero: columnas, áreas y proyectos propios',
 };
 
 interface RoleEntry {
@@ -252,8 +267,8 @@ export default function RolesPage() {
                           ))}
                           <td className="py-2 px-2 text-center text-[11px] text-muted-foreground">
                             {others.length === 0 ? '—' : others.map((a) => (
-                              <span key={a} className={`inline-block px-1.5 mx-0.5 rounded ${has(a) ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted/40'}`}>
-                                {a}
+                              <span key={a} title={AYUDA[`${res.key}.${a}`]} className={`inline-block px-1.5 mx-0.5 rounded ${has(a) ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted/40'}`}>
+                                {ACCION_ES[a] || a}
                               </span>
                             ))}
                           </td>
@@ -293,8 +308,8 @@ export default function RolesPage() {
                       {others.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/50 flex flex-wrap gap-1">
                           {others.map((a) => (
-                            <span key={a} className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${has(a) ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted/40 text-muted-foreground'}`}>
-                              {a}
+                            <span key={a} title={AYUDA[`${res.key}.${a}`]} className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${has(a) ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-muted/40 text-muted-foreground'}`}>
+                              {ACCION_ES[a] || a}
                             </span>
                           ))}
                         </div>

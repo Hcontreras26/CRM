@@ -1,279 +1,202 @@
 import { useState } from 'react';
 import {
-  CalendarBlank, Check, ArrowUUpLeft, ChatCircle, CheckSquare, ListChecks, X,
+  ArrowClockwise, ArrowUUpLeft, Buildings, CalendarBlank, ChatCircle, Check, CheckSquare, Rocket, X,
 } from '@phosphor-icons/react';
 import { Button } from '@/shared/components/ui/button';
 import Portal from '@/shared/components/ui/portal';
+import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { avatarColorFor, getInitials } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
 import * as tasksApi from '../api/tasks.api';
-import { dueInfo, AREA_COLORS } from '../lib/taskUi';
+import { boardColor, dueInfo } from '../lib/taskUi';
 import type { Task } from '../types';
 
 interface TasksReviewViewProps {
   tasks: Task[];
   loading: boolean;
+  error: string | null;
+  onRetry: () => void;
   onOpenTask: (task: Task) => void;
-  onRefresh: () => void;
+  onChanged: () => void;
 }
 
-export function TasksReviewView({
-  tasks,
-  loading,
-  onOpenTask,
-  onRefresh,
-}: TasksReviewViewProps) {
-  const [taskDevolver, setTaskDevolver] = useState<Task | null>(null);
-  const [motivo, setMotivo] = useState('');
-  const [procesando, setProcesando] = useState(false);
+const errorDe = (err: unknown, porDefecto: string) =>
+  (err instanceof Error && err.message) ? err.message : porDefecto;
 
-  async function handleAprobar(e: React.MouseEvent, task: Task) {
-    e.stopPropagation();
+/**
+ * «Por revisar»: las tareas «En revisión» de todo el equipo, por fecha límite.
+ * Una lista, no un tablero: lo que se hace aquí es aprobar o devolver.
+ *
+ * El título abre la tarjeta y los dos botones actúan; la fila no es un botón,
+ * para que Enter sobre «Aprobar» apruebe y no abra la tarea.
+ */
+export function TasksReviewView({ tasks, loading, error, onRetry, onOpenTask, onChanged }: TasksReviewViewProps) {
+  const [devolviendo, setDevolviendo] = useState<Task | null>(null);
+  const [motivo, setMotivo] = useState('');
+  const [ocupada, setOcupada] = useState<number | null>(null);
+
+  const cerrarDevolver = () => { setDevolviendo(null); setMotivo(''); };
+  useEscapeKey(cerrarDevolver, devolviendo != null);
+
+  async function aprobar(task: Task) {
+    setOcupada(task.id);
     try {
       await tasksApi.approveTask(task.id);
-      toast({ title: `Tarea «${task.title}» aprobada y cerrada` });
-      onRefresh();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al aprobar';
-      toast({ title: 'No se pudo aprobar la tarea', description: msg, tone: 'destructive' });
-    }
-  }
-
-  function handleAbrirDevolver(e: React.MouseEvent, task: Task) {
-    e.stopPropagation();
-    setTaskDevolver(task);
-    setMotivo('');
-  }
-
-  async function handleConfirmarDevolver() {
-    if (!taskDevolver || !motivo.trim()) {
-      toast({ title: 'Indica qué falta para completar la tarea', tone: 'destructive' });
-      return;
-    }
-    setProcesando(true);
-    try {
-      await tasksApi.returnTask(taskDevolver.id, motivo.trim());
-      toast({ title: `Tarea devuelta a «En curso»` });
-      setTaskDevolver(null);
-      setMotivo('');
-      onRefresh();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al devolver';
-      toast({ title: 'No se pudo devolver la tarea', description: msg, tone: 'destructive' });
+      toast({ title: 'Aprobada', description: `«${task.title}» pasa a «Hecha».` });
+      onChanged();
+    } catch (err) {
+      toast({ title: 'No se pudo aprobar', description: errorDe(err, 'Inténtalo de nuevo.'), variant: 'destructive' });
     } finally {
-      setProcesando(false);
+      setOcupada(null);
     }
   }
 
-  if (loading) {
+  async function devolver() {
+    if (!devolviendo || !motivo.trim()) return;
+    setOcupada(devolviendo.id);
+    try {
+      await tasksApi.returnTask(devolviendo.id, motivo.trim());
+      toast({ title: 'Devuelta', description: `«${devolviendo.title}» vuelve a «En curso» con tu comentario.` });
+      cerrarDevolver();
+      onChanged();
+    } catch (err) {
+      toast({ title: 'No se pudo devolver', description: errorDe(err, 'Inténtalo de nuevo.'), variant: 'destructive' });
+    } finally {
+      setOcupada(null);
+    }
+  }
+
+  if (error) {
     return (
-      <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-        Cargando tareas por revisar…
+      <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive-soft text-destructive-soft-foreground p-6 text-center space-y-3">
+        <p className="font-semibold text-sm">No se pudieron cargar las tareas por revisar</p>
+        <p className="text-xs">{error}</p>
+        <Button size="sm" variant="outline" onClick={onRetry}>
+          <ArrowClockwise size={14} className="mr-1.5" /> Reintentar
+        </Button>
       </div>
     );
   }
 
+  if (loading && tasks.length === 0) {
+    return <p className="py-12 text-center text-sm text-muted-foreground">Cargando lo que hay por revisar…</p>;
+  }
+
   if (tasks.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-xl p-12 text-center space-y-3">
-        <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
-          <Check size={24} weight="bold" />
+      <div className="bg-card border border-border rounded-lg p-10 text-center space-y-2">
+        <div className="w-11 h-11 rounded-full bg-success-soft text-success-soft-foreground flex items-center justify-center mx-auto">
+          <Check size={22} weight="bold" />
         </div>
-        <h3 className="text-base font-semibold text-foreground">¡Todo al día!</h3>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto">
-          No hay tareas del equipo esperando revisión en este momento.
-        </p>
+        <p className="text-sm font-semibold">No hay nada por revisar</p>
+        <p className="text-sm text-muted-foreground">Cuando alguien lleve una tarjeta a «En revisión», saldrá aquí.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden">
-      <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <ListChecks size={18} className="text-primary" />
-            Tareas esperando revisión ({tasks.length})
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Valida los resultados o devuélvelas con indicaciones claras de qué falta.
-          </p>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/30">
-              <th className="px-4 py-3 font-semibold">Tarea y Persona</th>
-              <th className="px-3 py-3 font-semibold">Área / Proyecto</th>
-              <th className="px-3 py-3 font-semibold">Vencimiento</th>
-              <th className="px-3 py-3 font-semibold text-center">Checklist</th>
-              <th className="px-4 py-3 font-semibold">Último comentario</th>
-              <th className="px-4 py-3 font-semibold text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {tasks.map((task) => {
-              const vence = dueInfo(task);
-              const totalSteps = task.checklist_total || 0;
-              const completedSteps = task.checklist_completed || 0;
-
-              return (
-                <tr
-                  key={task.id}
-                  onClick={() => onOpenTask(task)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onOpenTask(task);
-                    }
-                  }}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Abrir tarea ${task.title}`}
-                  className="hover:bg-muted/40 focus:bg-muted/60 focus:outline-none cursor-pointer transition-colors"
-                >
-                  <td className="px-4 py-3 min-w-[220px]">
-                    <div className="space-y-1">
-                      <p className="font-semibold text-foreground leading-snug">{task.title}</p>
-                      <div className="flex items-center gap-2">
-                        {task.assigned_to && (
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-semibold flex-shrink-0 ${avatarColorFor(task.assigned_to)}`}>
-                            {getInitials(task.assigned_to_name)}
-                          </span>
-                        )}
-                        <span className="text-xs text-muted-foreground font-medium truncate">
-                          {task.assigned_to_name || 'Sin asignar'}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    <div className="flex flex-col gap-1 items-start">
-                      {task.area_name && (
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${AREA_COLORS[task.area_color || 'gray'] || AREA_COLORS.gray}`}>
-                          {task.area_name}
-                        </span>
-                      )}
-                      {(task.project_name || task.external_project_name) && (
-                        <span className="text-[11px] text-muted-foreground bg-secondary/80 px-2 py-0.5 rounded border border-border/50 truncate max-w-[150px]">
-                          {task.project_name || task.external_project_name}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    {vence ? (
-                      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded ${vence.classes}`}>
-                        <CalendarBlank size={12} weight="bold" />
-                        {vence.label}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/60">Sin fecha</span>
-                    )}
-                  </td>
-
-                  <td className="px-3 py-3 text-center whitespace-nowrap">
-                    {totalSteps > 0 ? (
-                      <span className={`inline-flex items-center gap-1 text-xs font-medium tabular-nums ${completedSteps === totalSteps ? 'text-success font-semibold' : 'text-muted-foreground'}`}>
-                        <CheckSquare size={13} />
-                        {completedSteps}/{totalSteps}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/50">—</span>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-3 min-w-[180px] max-w-[280px]">
-                    {task.last_comment ? (
-                      <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                        <ChatCircle size={14} className="shrink-0 mt-0.5 text-primary/70" />
-                        <p className="line-clamp-2 italic">"{task.last_comment}"</p>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/50">Sin comentarios</span>
-                    )}
-                  </td>
-
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => handleAbrirDevolver(e, task)}
-                        className="text-amber-600 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs h-8 px-2.5"
-                      >
-                        <ArrowUUpLeft size={14} className="mr-1" /> Devolver
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={(e) => handleAprobar(e, task)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3"
-                      >
-                        <Check size={14} className="mr-1" /> Aprobar
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal Devolver con Motivo Obligatorio */}
-      {taskDevolver && (
-        <Portal>
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-foreground">Devolver tarea para corrección</h3>
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <ul className="divide-y divide-border">
+        {tasks.map((task) => {
+          const vence = dueInfo(task);
+          const total = task.checklist_total || 0;
+          const hechos = task.checklist_completed || 0;
+          const enCurso = ocupada === task.id;
+          return (
+            <li key={task.id} className="p-4 flex flex-col lg:flex-row lg:items-center gap-3">
+              <div className="min-w-0 flex-1 space-y-1.5">
                 <button
                   type="button"
-                  onClick={() => setTaskDevolver(null)}
-                  className="p-1 rounded-md text-muted-foreground hover:text-foreground"
+                  onClick={() => onOpenTask(task)}
+                  className="text-left text-sm font-semibold hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                 >
+                  {task.title}
+                </button>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-semibold ${avatarColorFor(task.assigned_to || 0)}`}>
+                      {getInitials(task.assigned_to_name)}
+                    </span>
+                    {task.assigned_to_name || 'Sin responsable'}
+                  </span>
+                  {task.area_name && (
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${boardColor(task.area_color).chip}`}>
+                      {task.area_name}
+                    </span>
+                  )}
+                  {task.project_name && (
+                    <span className="inline-flex items-center gap-1"><Buildings size={11} aria-hidden /> {task.project_name}</span>
+                  )}
+                  {task.external_project_name && (
+                    <span className="inline-flex items-center gap-1"><Rocket size={11} aria-hidden /> {task.external_project_name}</span>
+                  )}
+                  {vence ? (
+                    <span className={`inline-flex items-center gap-1 font-semibold px-1.5 py-0.5 rounded ${vence.classes}`}>
+                      <CalendarBlank size={11} weight="bold" /> {vence.label}
+                    </span>
+                  ) : (
+                    <span>Sin fecha límite</span>
+                  )}
+                  {total > 0 && (
+                    <span className={`inline-flex items-center gap-1 tabular-nums ${hechos === total ? 'text-success font-semibold' : ''}`}>
+                      <CheckSquare size={12} aria-hidden /> {hechos}/{total}
+                    </span>
+                  )}
+                </div>
+                {task.last_comment && (
+                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <ChatCircle size={13} className="shrink-0 mt-0.5" aria-hidden />
+                    <span className="line-clamp-2">{task.last_comment}</span>
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 lg:flex-shrink-0">
+                <Button type="button" size="sm" variant="outline" className="h-8" disabled={enCurso}
+                  onClick={() => { setDevolviendo(task); setMotivo(''); }}>
+                  <ArrowUUpLeft size={14} className="mr-1" /> Devolver
+                </Button>
+                <Button type="button" size="sm" className="h-8" disabled={enCurso} onClick={() => aprobar(task)}>
+                  <Check size={14} className="mr-1" /> {enCurso ? 'Aprobando…' : 'Aprobar'}
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {devolviendo && (
+        <Portal>
+          <div className="fixed inset-0 !m-0 z-[80] flex items-center justify-center sm:p-4">
+            <div className="fixed inset-0 !m-0 bg-black/50 backdrop-blur-sm" onClick={cerrarDevolver} />
+            <div role="dialog" aria-modal="true" aria-labelledby="devolver-titulo"
+              className="relative bg-card sm:rounded-lg border border-border w-full max-w-md p-5 space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 id="devolver-titulo" className="text-base font-semibold">Devolver a «En curso»</h2>
+                <button type="button" onClick={cerrarDevolver} aria-label="Cerrar"
+                  className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground">
                   <X size={16} />
                 </button>
               </div>
-
-              <div className="p-3 bg-muted/40 rounded-lg text-xs space-y-1">
-                <span className="font-semibold text-foreground">{taskDevolver.title}</span>
-                <p className="text-muted-foreground">Responsable: {taskDevolver.assigned_to_name || 'Sin asignar'}</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold mb-1 text-foreground">
-                  Motivo de la devolución / ¿Qué falta? *
-                </label>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{devolviendo.title}</span>
+                {' · '}{devolviendo.assigned_to_name || 'Sin responsable'}
+              </p>
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-muted-foreground">Qué falta (obligatorio)</span>
                 <textarea
-                  rows={3}
-                  required
                   value={motivo}
                   onChange={(e) => setMotivo(e.target.value)}
-                  placeholder="Explica qué correcciones debe realizar antes de marcarla como revisada…"
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y"
+                  rows={4}
+                  maxLength={5000}
                   autoFocus
+                  placeholder="Se guarda en la tarjeta y le llega a la persona en la campana."
+                  className="w-full px-3 py-2 rounded-md border border-border bg-muted/50 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-card resize-y"
                 />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setTaskDevolver(null)}>
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={!motivo.trim() || procesando}
-                  onClick={handleConfirmarDevolver}
-                  className="bg-amber-600 hover:bg-amber-700 text-white"
-                >
-                  {procesando ? 'Devolviendo…' : 'Devolver tarea'}
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={cerrarDevolver}>Cancelar</Button>
+                <Button type="button" size="sm" disabled={!motivo.trim() || ocupada === devolviendo.id} onClick={devolver}>
+                  {ocupada === devolviendo.id ? 'Devolviendo…' : 'Devolver'}
                 </Button>
               </div>
             </div>

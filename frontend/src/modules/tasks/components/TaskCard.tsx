@@ -1,7 +1,7 @@
 import type { DragEvent } from 'react';
-import { CalendarBlank, ChatCircle, CheckSquare, DotsSixVertical, LinkSimple, WarningCircle } from '@phosphor-icons/react';
+import { Buildings, CalendarBlank, ChatCircle, CheckSquare, DotsSixVertical, LinkSimple, Rocket, WarningCircle } from '@phosphor-icons/react';
 import { avatarColorFor, getInitials } from '@/shared/lib/ui';
-import { PRIORITY, dueInfo, tagChip, AREA_COLORS } from '../lib/taskUi';
+import { PRIORITY, dueInfo, tagChip, boardColor } from '../lib/taskUi';
 import type { Task } from '../types';
 
 interface TaskCardProps {
@@ -63,14 +63,21 @@ export function TaskCard({
         )}
 
         {task.area_name && (
-          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${AREA_COLORS[task.area_color || 'gray'] || AREA_COLORS.gray}`}>
+          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${boardColor(task.area_color).chip}`}>
             {task.area_name}
           </span>
         )}
 
-        {(task.project_name || task.external_project_name) && (
-          <span className="text-[10px] text-muted-foreground bg-secondary/80 border border-border/50 rounded px-1.5 py-0.5 truncate max-w-[140px]">
-            {task.project_name || task.external_project_name}
+        {/* Campus y proyecto propio se distinguen: un campus del CRM no es lo
+            mismo que Opynio o un cliente externo. */}
+        {task.project_name && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-secondary/80 border border-border/50 rounded px-1.5 py-0.5 truncate max-w-[140px]" title={`Campus: ${task.project_name}`}>
+            <Buildings size={10} aria-hidden /> {task.project_name}
+          </span>
+        )}
+        {task.external_project_name && (
+          <span className={`inline-flex items-center gap-1 text-[10px] font-medium border rounded px-1.5 py-0.5 truncate max-w-[140px] ${boardColor(task.external_project_color).chip}`} title={`Proyecto propio: ${task.external_project_name}`}>
+            <Rocket size={10} aria-hidden /> {task.external_project_name}
           </span>
         )}
       </div>

@@ -14,6 +14,7 @@ import type {
   TaskStatus,
   TaskTag,
   TeamMemberMetric,
+  AreaMetric,
 } from '../types';
 
 export type GetTasksParams = {
@@ -173,6 +174,14 @@ export async function getTeamMetrics(projectId?: number, areaId?: number): Promi
   return data ?? [];
 }
 
+/** «Todo el equipo» agrupado por área. */
+export async function getTeamMetricsByArea(projectId?: number): Promise<AreaMetric[]> {
+  const { data } = await client.get<AreaMetric[]>('/tasks/metrics/areas', {
+    params: projectId ? { project_id: projectId } : {},
+  });
+  return data ?? [];
+}
+
 /* --- Configuración de Columnas --- */
 
 export async function getColumns(): Promise<TaskColumn[]> {
@@ -213,7 +222,7 @@ export async function createArea(payload: { name: string; color?: string; sort_o
 }
 
 export async function updateArea(id: number, payload: Partial<TaskArea>): Promise<TaskArea> {
-  const { data } = await client.patch<TaskArea>(`/tasks/${id}`, payload);
+  const { data } = await client.patch<TaskArea>(`/tasks/areas/${id}`, payload);
   return data as TaskArea;
 }
 
@@ -222,13 +231,9 @@ export async function getUserAreaAssignments(): Promise<{ user_id: number; area_
   return data ?? [];
 }
 
-export async function getUserAreas(userId: number): Promise<TaskArea[]> {
-  const { data } = await client.get<TaskArea[]>(`/tasks/areas/user/${userId}`);
-  return data ?? [];
-}
-
-export async function setUserAreas(userId: number, areaIds: number[]): Promise<TaskArea[]> {
-  const { data } = await client.put<TaskArea[]>(`/tasks/areas/user/${userId}`, { area_ids: areaIds });
+/** Quién está en un área: la lista entera. Las demás áreas de cada persona no se tocan. */
+export async function setAreaMembers(areaId: number, userIds: number[]): Promise<number[]> {
+  const { data } = await client.put<number[]>(`/tasks/areas/${areaId}/members`, { user_ids: userIds });
   return data ?? [];
 }
 
@@ -239,7 +244,7 @@ export async function getExternalProjects(): Promise<TaskExternalProject[]> {
   return data ?? [];
 }
 
-export async function createExternalProject(payload: { name: string; description?: string | null; color?: string }): Promise<TaskExternalProject> {
+export async function createExternalProject(payload: { name: string; description?: string | null; url?: string | null; color?: string }): Promise<TaskExternalProject> {
   const { data } = await client.post<TaskExternalProject>('/tasks/external-projects', payload);
   return data as TaskExternalProject;
 }

@@ -114,6 +114,17 @@ export interface TeamMemberMetric {
   completed_this_month: number;
 }
 
+export interface AreaMetric {
+  area_id: number | null;
+  area_name: string;
+  area_color: string | null;
+  open_tasks: number;
+  overdue_tasks: number;
+  completed_this_week: number;
+  completed_this_month: number;
+  people: number;
+}
+
 export interface TaskColumn {
   id: number;
   key: string;
@@ -141,6 +152,7 @@ export interface TaskExternalProject {
   id: number;
   name: string;
   description: string | null;
+  url?: string | null;
   color: string;
   is_active: boolean;
   created_at?: string;

@@ -31,6 +31,7 @@ export const BETA_ROUTES: readonly string[] = [
   '/whatsapp',               // WhatsApp: cola, plantillas y el panel del equipo
   '/tutores',                // Tutores: alta, colaboraciones y comisiones
   '/mis-cursos',             // La pantalla del propio tutor
+  '/tareas',                 // Equipo de Desarrollo: tablero, «Por revisar» y «Configurar tablero» (#210)
   '/secuencias-email',         // Email de seguimiento
   '/documentos',              // Documentos comerciales
   '/solicitudes-cambio',     // RFC — Solicitud de Cambio (todos los roles)

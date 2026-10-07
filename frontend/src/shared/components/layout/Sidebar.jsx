@@ -57,14 +57,14 @@ import {
   CopySimple,
   WhatsappLogo,
   ChatText,
-  UsersThree, QrCode, Warning, Key, ListChecks,
+  UsersThree, QrCode, Warning, Key, ListChecks, Kanban, CheckSquare, SlidersHorizontal, Code,
   // Los de los encabezados de seccion (#105). Ninguno repite el de una
   // entrada de su propia seccion: si el encabezado lleva el mismo dibujo
   // que una de sus filas, deja de ordenar y pasa a confundir.
   Flask, House, Funnel, Books, ChalkboardTeacher, Bank, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
-import { rolesDe } from '@/shared/lib/roles';
+import { rolesDe, soloEsColaborador } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/shared/lib/utils';
@@ -86,6 +86,11 @@ const IS_REDESIGN_NAV_ENABLED = import.meta.env.DEV
 
 // Secciones del sidebar — cada una con label + items.
 // Cada item: roles (omitir=todos) + module (clave en project.modules; omitir=siempre)
+// Quién tiene tablero de tareas: el mismo `ROLES_TAREAS` que el backend.
+const ROLES_TAREAS = ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'];
+// Las issues del repo. Se puede cambiar por entorno sin tocar el código.
+const GITHUB_ISSUES_URL = import.meta.env.VITE_TAREAS_GITHUB_URL || 'https://github.com/diego-landaeta/CRM/issues';
+
 const NAV_SECTIONS = [
   {
     label: 'Testeo',
@@ -173,15 +178,21 @@ const NAV_SECTIONS = [
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions' },
-      { label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks, roles: ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'] },
     ],
   },
+  // El tablero del equipo (#210 y mejoras del 07/10). Es lo único que ve quien
+  // es solo colaborador. «Por revisar» y «Configurar tablero» se enseñan por
+  // permiso (`permiso`), no por rol: lo que se cambie en Configuración › Roles
+  // manda también aquí.
   {
     label: 'Equipo de Desarrollo',
-    icon: GitMerge,
+    icon: Code,
     items: [
-      { label: 'GitHub Issues', href: 'https://github.com/diego-landaeta/CRM/issues', detail: 'Incidencias del repo', icon: GitMerge, roles: ['superadmin', 'admin', 'soporte', 'colaborador'] },
-      { label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks, roles: ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'] },
+      { label: 'Tablero', to: '/tareas', detail: 'Las tareas del equipo, por áreas', icon: Kanban, roles: ROLES_TAREAS },
+      { label: 'Por revisar', to: '/tareas/revisar', detail: 'Aprobar o devolver', icon: CheckSquare, roles: ROLES_TAREAS, permiso: 'tasks.close' },
+      { label: 'Configurar tablero', to: '/tareas/configurar', detail: 'Columnas, áreas y proyectos', icon: SlidersHorizontal, roles: ROLES_TAREAS, permiso: 'tasks.manage' },
+      // Programación no va con tarjetas: va por las issues del repo.
+      { label: 'Programación', href: GITHUB_ISSUES_URL, detail: 'Issues en GitHub', icon: GitMerge, roles: ROLES_TAREAS },
     ],
   },
   {
@@ -1012,7 +1023,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   useEffect(() => { setUserMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
-    if (!activeProject?.id) return;
+    if (!activeProject?.id || soloEsColaborador(user)) return;
     let cancelled = false;
     let interval = null;
 
@@ -1051,7 +1062,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
         document.removeEventListener('visibilitychange', onVisibilityChange);
       }
     };
-  }, [activeProject?.id]);
+  }, [activeProject?.id, user]);
 
   // Badge de reportes de spam pendientes — solo superadmin
   useEffect(() => {
@@ -1070,7 +1081,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
 
   // Badge de mensajes no leidos
   useEffect(() => {
-    if (user?.role === 'colaborador' && (!user.roles_extra || user.roles_extra.length === 0)) return;
+    if (soloEsColaborador(user)) return;
     let cancelled = false;
     async function fetchMsgCount() {
       try {
@@ -1081,11 +1092,12 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
     fetchMsgCount();
     const interval = setInterval(fetchMsgCount, 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [user?.role, user?.roles_extra]);
+  }, [user]);
 
-  // Badge de tareas pendientes de revisión (solo para quien tiene permiso para cerrar/revisar)
+  // «Por revisar (n)» en el menú: solo a quien puede cerrar tareas.
+  const puedeRevisar = can('tasks.close');
   useEffect(() => {
-    if (!can('tasks.close')) return;
+    if (!puedeRevisar) return;
     let cancelled = false;
     async function fetchReviewCount() {
       try {
@@ -1094,9 +1106,9 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       } catch {}
     }
     fetchReviewCount();
-    const interval = setInterval(fetchReviewCount, 30000);
+    const interval = setInterval(fetchReviewCount, 60000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [can]);
+  }, [puedeRevisar]);
 
   const initials = user?.nombre?.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) || '??';
   // Vanessa y quien lleve las colaboraciones: solo tutores, nada mas.
@@ -1225,7 +1237,9 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       )}>
         {NAV_SECTIONS.map((section, sIdx) => {
           // Filtrar items que el usuario puede ver
-          const visibleItems = section.items.filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
+          const visibleItems = section.items
+            .filter((item) => !item.permiso || can(item.permiso))
+            .filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
           if (visibleItems.length === 0) return null;
           const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
@@ -1257,7 +1271,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                   item.to === '/prospectos' && newLeadsBadge > 0 ? newLeadsBadge
                   : item.to === '/notificaciones' && spamReportsBadge > 0 ? spamReportsBadge
                   : item.to === '/mensajes' && msgUnreadBadge > 0 ? msgUnreadBadge
-                  : item.to === '/tareas' && tasksReviewBadge > 0 ? tasksReviewBadge
+                  : item.to === '/tareas/revisar' && tasksReviewBadge > 0 ? tasksReviewBadge
                   : undefined
                 }
                 labelOverrides={activeProject?.sidebar_labels}

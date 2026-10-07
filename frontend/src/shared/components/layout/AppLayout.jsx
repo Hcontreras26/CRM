@@ -8,6 +8,7 @@ import { cn } from '@/shared/lib/utils';
 import { toast } from '@/shared/hooks/useToast';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { soloEsColaborador } from '@/shared/lib/roles';
 import NeedsProjectBanner from '@/shared/components/ui/NeedsProjectBanner';
 
 // Rutas que SÍ funcionan en modo "Todos los proyectos" (vista global).
@@ -304,7 +305,9 @@ const G_TARGETS = {
 
 export default function AppLayout() {
   const { user } = useAuth();
-  const esSoloColaborador = user?.role === 'colaborador' && (!user.roles_extra || user.roles_extra.length === 0);
+  // Quien es solo colaborador no tiene WhatsApp ni mensajes: el servidor le
+  // responde 403, y estos avisos preguntaban cada pocos segundos (QA del 07/10).
+  const esSoloColaborador = soloEsColaborador(user);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === '1'; } catch { return false; }
