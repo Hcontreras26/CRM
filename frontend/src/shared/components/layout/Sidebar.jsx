@@ -172,6 +172,7 @@ const NAV_SECTIONS = [
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions' },
+      { label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks, roles: ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'] },
     ],
   },
   {
@@ -295,7 +296,7 @@ const NAV_SECTIONS = [
       { label: 'Solicitudes de cambio', to: '/solicitudes-cambio', detail: 'Pedir un cambio', icon: GitMerge },
       { label: 'Notificaciones', to: '/notificaciones', detail: 'Lo que ha pasado', icon: BookOpen },
       // El tutor entra aqui: es donde cambia su contraseña.
-      { label: 'Mis preferencias', to: '/preferencias', detail: 'Tus ajustes', icon: UserCircle, roles: ['superadmin', 'admin', 'gestor', 'tutor'] },
+      { label: 'Mis preferencias', to: '/preferencias', detail: 'Tus ajustes', icon: UserCircle, roles: ['superadmin', 'admin', 'gestor', 'tutor', 'colaborador'] },
       { label: 'Soporte', to: '/soporte', detail: 'Ayuda y contacto', icon: Headset },
       // Claves y variables (#80). Los mismos roles que exige el servidor con
       // `soloRoles`: ofrecer en el menu lo que la API va a negar es peor que
@@ -392,7 +393,7 @@ export function applyLabel(original, overrides) {
 // PRINCIPAL, como el servidor: un rol añadido no da el MCP.
 export function tieneAccesoMcp(role, permisos) {
   if (role === 'superadmin' || role === 'admin') return true;
-  if (role === 'tutor') return false;
+  if (role === 'tutor' || role === 'colaborador') return false;
   return permisos?.usa_mcp === true;
 }
 
@@ -417,6 +418,11 @@ function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permi
   // no se le esconde el CRM: se le suma lo suyo.
   if (suyos.length === 1 && suyos[0] === 'tutor') {
     return Array.isArray(item.roles) && item.roles.includes('tutor');
+  }
+  // Lo mismo para quien es SOLO colaborador (#210, fase 5): Tareas y sus
+  // preferencias. El servidor le responde 403 en todo lo demas.
+  if (suyos.length > 0 && suyos.every((r) => r === 'colaborador')) {
+    return Array.isArray(item.roles) && item.roles.includes('colaborador');
   }
   // MCP de Claude: super admin y admin por su rol; el resto solo con la casilla.
   // Va ANTES del atajo de soporte: «roles únicamente», dijo Diego.
@@ -1073,7 +1079,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   // que es dar de alta profesores y ajustarles el porcentaje.
   const rolLabel = user?.gestor_colaboraciones
     ? 'Colaboraciones'
-    : ({ superadmin: 'Superadmin', admin: 'Admin', gestor: 'Gestor', soporte: 'Soporte', tutor: 'Tutor' }[user?.role] || '');
+    : ({ superadmin: 'Superadmin', admin: 'Admin', gestor: 'Gestor', soporte: 'Soporte', tutor: 'Tutor', colaborador: 'Colaborador' }[user?.role] || '');
 
   async function handleLogout() {
     await logout();

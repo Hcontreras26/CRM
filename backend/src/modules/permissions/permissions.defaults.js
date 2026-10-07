@@ -30,6 +30,7 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'field_defs.view': true, 'field_defs.edit': true,
     'channels.view': true, 'channels.edit': true,
     'roles.view': true, 'roles.edit': false,
+    'tasks.view_all': true, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': true, 'tasks.edit': true, 'tasks.delete': true,
   },
 
   gestor: {
@@ -63,6 +64,7 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'field_defs.view': false, 'field_defs.edit': false,
     'channels.view': true, 'channels.edit': false,
     'roles.view': false, 'roles.edit': false,
+    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false,
   },
 
   soporte: {
@@ -88,6 +90,13 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'field_defs.view': false, 'field_defs.edit': false,
     'channels.view': true, 'channels.edit': false,
     'roles.view': false, 'roles.edit': false,
+    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false,
+  },
+  // Colaborador (#210, fase 5): solo su tablero de tareas. Lo que no esta aqui
+  // es «no»: `resolvePermission` solo da por bueno un `true` explicito, y el
+  // servidor le corta el resto de rutas en `verifyToken`.
+  colaborador: {
+    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false,
   },
 };
 
@@ -113,4 +122,5 @@ export const ALL_RESOURCES = {
   field_defs:       ['view', 'edit'],
   channels:         ['view', 'edit'],
   roles:            ['view', 'edit'],
+  tasks:            ['view_all', 'view_own', 'create', 'assign', 'edit', 'delete'],
 };

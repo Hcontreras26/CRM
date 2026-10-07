@@ -215,6 +215,11 @@ const AVISOS = [
     detalle: 'Los lunes: tus números de la semana, contra la anterior y la media del equipo, y tu puesto.' },
   { aviso: 'reporte_semanal', titulo: 'Reporte semanal (dirección)',
     detalle: 'Los lunes, por empresa: la semana contra la anterior y el ranking. Solo administración.' },
+  // Tablero de tareas (#210, fase 3). Los nombres, en tasks.emails.js.
+  { aviso: 'tarea_asignada', titulo: 'Tarea asignada',
+    detalle: 'Cuando alguien te asigna una tarea del tablero.' },
+  { aviso: 'tareas_del_dia', titulo: 'Tus tareas de hoy',
+    detalle: 'Cada mañana, si tienes tareas que vencen hoy o ya vencidas.' },
 ];
 
 export async function misAvisos(req, res, next) {

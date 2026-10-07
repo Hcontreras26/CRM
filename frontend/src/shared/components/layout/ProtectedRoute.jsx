@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { soloEsTutor } from '@/shared/lib/roles';
+import { soloEsTutor, soloEsColaborador } from '@/shared/lib/roles';
 
 // Dev-only bypass: si VITE_DEV_BYPASS_AUTH=true en .env.local, deja pasar sin login.
 // Solo para validar UI/menus en local sin backend. NUNCA activar en producción.
@@ -17,6 +17,14 @@ const RUTAS_DEL_TUTOR = ['/mis-cursos', '/preferencias', '/perfil', '/set-passwo
 
 function tutorPuede(pathname) {
   return RUTAS_DEL_TUTOR.some((p) => pathname === p || pathname.startsWith(p + '/'));
+}
+
+// Lo unico que abre un colaborador (#210, fase 5). El corte de verdad esta en
+// el servidor (`verifyToken`), que le responde 403 en todo lo demas.
+const RUTAS_DEL_COLABORADOR = ['/tareas', '/preferencias', '/perfil', '/set-password'];
+
+function colaboradorPuede(pathname) {
+  return RUTAS_DEL_COLABORADOR.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
 export default function ProtectedRoute({ children }) {
@@ -47,6 +55,10 @@ export default function ProtectedRoute({ children }) {
   // poner mas de un rol.
   if (soloEsTutor(user) && !tutorPuede(location.pathname)) {
     return <Navigate to="/mis-cursos" replace />;
+  }
+
+  if (soloEsColaborador(user) && !colaboradorPuede(location.pathname)) {
+    return <Navigate to="/tareas" replace />;
   }
 
   return children;

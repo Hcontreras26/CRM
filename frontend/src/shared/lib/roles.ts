@@ -47,3 +47,13 @@ export function soloEsTutor(user: Quien | null | undefined): boolean {
   const suyos = rolesDe(user);
   return suyos.length === 1 && suyos[0] === 'tutor';
 }
+
+/**
+ * Colaborador y NADA MÁS (#210, fase 5): solo ve su tablero de Tareas. El corte
+ * de verdad lo hace el servidor (`verifyToken`); esto evita pintarle pantallas
+ * que le responderían 403.
+ */
+export function soloEsColaborador(user: Quien | null | undefined): boolean {
+  const suyos = rolesDe(user);
+  return suyos.length > 0 && suyos.every((r) => r === 'colaborador');
+}

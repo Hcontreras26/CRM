@@ -58,6 +58,7 @@ import correosModule from './modules/correos/index.js';
 import certifexModule from './modules/certifex/index.js';
 import changeRequestsModule from './modules/change-requests/index.js';
 import mcpModule from './modules/mcp/index.js';
+import tasksModule from './modules/tasks/index.js';
 import { resolveActiveModules } from './bundles/manifest.js';
 import { query } from './shared/config/db.js';
 import { startEmailSequenceScheduler } from './jobs/emailSequenceScheduler.js';
@@ -78,6 +79,7 @@ import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js'
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
+import { startTasksDailySummaryScheduler } from './jobs/tasksDailySummaryJob.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -189,6 +191,7 @@ const ALL_MODULES = [
   // Conexion de Claude por MCP: solo consulta, con token personal.
   { name: 'mcp', mod: mcpModule },
   { name: 'certifex', mod: certifexModule },
+  { name: 'tasks', mod: tasksModule },
 ];
 
 // Módulos siempre activos (fuera del sistema de bundles)
@@ -329,7 +332,8 @@ if (process.env.NODE_ENV !== 'test') {
     startReporteSemanalScheduler();
     startMcpRotacionScheduler();
     startMcpVigilanciaScheduler();
-  startCorreoEntranteScheduler();
+    startCorreoEntranteScheduler();
+    startTasksDailySummaryScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }
