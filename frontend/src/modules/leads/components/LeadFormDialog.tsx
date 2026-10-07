@@ -472,7 +472,7 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
                 className="h-9 px-4 rounded-md border border-border bg-card text-sm font-semibold hover:bg-muted transition-colors"
               >Cancelar</button>
               <button type="submit" disabled={isSubmitting}
-                className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
               >{isSubmitting ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear prospecto'}</button>
             </div>
           </form>
@@ -512,7 +512,7 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
               {!pendingDup.lead.masked && (
                 <button type="button"
                   onClick={() => { const id = pendingDup.lead.id; setPendingDup(null); onClose(); const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, ''); window.location.href = `${base}/prospectos/${id}`; }}
-                  className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90"
+                  className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90"
                 >Ver prospecto existente</button>
               )}
               <button type="button"

@@ -105,7 +105,7 @@ export default function CobrarProformaDialog({ invoice, onClose, onSaved }: {
         <div className="p-3 border-t border-border flex justify-end gap-2 bg-muted/20">
           <button onClick={onClose} disabled={working} className="h-9 px-3 rounded-md border border-border bg-card text-sm">Cancelar</button>
           <button onClick={guardar} disabled={working || !valido}
-            className="h-9 px-3 rounded-md bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-1.5">
+            className="h-9 px-3 rounded-md bg-success text-success-foreground text-sm font-semibold hover:bg-success/90 disabled:opacity-50 inline-flex items-center gap-1.5">
             <CheckCircle size={14} weight="bold" /> {working ? 'Guardando…' : 'Apuntar cobro y facturar'}
           </button>
         </div>

@@ -61,7 +61,7 @@ export default function RepartoVentaCard({ conversionId }: { conversionId: numbe
       <div className="bg-card border border-border rounded-lg p-4 text-sm">
         <div className="flex items-start justify-between gap-3 mb-3">
           <h3 className="font-semibold flex items-center gap-2">
-            <UsersThree size={16} weight="duotone" className="text-violet-600" />
+            <UsersThree size={16} weight="duotone" className="text-primary" />
             Vendedoras
           </h3>
           {puedeRepartir && (
@@ -92,7 +92,7 @@ export default function RepartoVentaCard({ conversionId }: { conversionId: numbe
                 <li key={p.user_id} className="flex items-center justify-between gap-3">
                   <span className="min-w-0 truncate font-medium">{p.nombre}</span>
                   <span className="flex items-center gap-2 tabular-nums whitespace-nowrap">
-                    <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                    <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
                       {p.porcentaje}%
                     </span>
                     <span className="text-muted-foreground">{eur(p.importe)}</span>
@@ -114,7 +114,7 @@ export default function RepartoVentaCard({ conversionId }: { conversionId: numbe
               <button
                 type="button"
                 onClick={deshacer}
-                className="mt-2 text-[11px] font-medium text-red-600 hover:underline dark:text-red-400"
+                className="mt-2 text-[11px] font-medium text-destructive hover:underline"
               >
                 Deshacer el reparto
               </button>

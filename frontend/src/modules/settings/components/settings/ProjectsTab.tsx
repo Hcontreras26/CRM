@@ -37,7 +37,7 @@ export default function ProjectsTab() {
           <p className="text-normal text-muted-foreground mt-0.5">Psiko, ISEIH, Fono Aprende + plataformas IA</p>
         </div>
         {canCreate && (
-          <button onClick={() => { setEditing(null); setDialogOpen(true); }} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 whitespace-nowrap flex-shrink-0">
+          <button onClick={() => { setEditing(null); setDialogOpen(true); }} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 whitespace-nowrap flex-shrink-0">
             <Plus size={14} weight="bold" /> <span className="hidden sm:inline">Nuevo proyecto</span><span className="sm:hidden">Nuevo</span>
           </button>
         )}
@@ -58,8 +58,8 @@ export default function ProjectsTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-sm truncate">{p.nombre}</p>
-                    <span className={`px-1.5 py-0.5 rounded text-secundario font-medium ${p.type === 'ia' ? 'bg-violet-100 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'}`}>{p.type}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-secundario font-medium ${p.active ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-secundario font-medium ${p.type === 'ia' ? 'bg-primary/10 text-primary' : 'bg-info-soft text-info-soft-foreground'}`}>{p.type}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-secundario font-medium ${p.active ? 'bg-success-soft text-success' : 'bg-destructive-soft text-destructive'}`}>
                       {p.active ? 'activo' : 'inactivo'}
                     </span>
                   </div>
@@ -72,7 +72,7 @@ export default function ProjectsTab() {
               {canCreate && (
                 <div className="border-t border-border bg-muted/20 px-5 py-2.5 flex items-center justify-between">
                   <span className="text-secundario text-muted-foreground">Gestión completa del proyecto</span>
-                  <button onClick={() => setConfigProject(p)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 shadow">
+                  <button onClick={() => setConfigProject(p)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow">
                     <Gear size={13} weight="bold" /> Configurar
                   </button>
                 </div>

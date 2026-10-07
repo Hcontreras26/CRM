@@ -44,7 +44,7 @@ function Meta({ f }: { f: FormacionSinTutor }) {
   // avisa, porque para el CRM «tiene anuncio» y la realidad es que no gasta.
   if (f.anuncio_desaparecido) {
     return (
-      <span className={`${base} bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300`}
+      <span className={`${base} bg-warning-soft text-warning-soft-foreground`}
         title="Se apuntó un anuncio y ya no está en Meta: archivado o borrado allí">
         ya no está en Meta
       </span>
@@ -56,7 +56,7 @@ function Meta({ f }: { f: FormacionSinTutor }) {
     return (
       <span className="inline-flex flex-col items-start gap-0.5">
         <span className={`${base} ${activo
-          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+          ? 'bg-success-soft text-success-soft-foreground'
           : 'bg-muted text-muted-foreground'}`}
           title={f.anuncio_nombre || ''}>
           {activo ? 'anuncio activo' : 'anuncio pausado'}
@@ -78,7 +78,7 @@ function Meta({ f }: { f: FormacionSinTutor }) {
     // tiempo. Lo de si hay anuncio se dice al lado, en gris y sin alarma.
     return (
       <span className="inline-flex flex-col items-start gap-0.5">
-        <span className={`${base} bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300`}>
+        <span className={`${base} bg-info-soft text-info-soft-foreground`}>
           buscando
         </span>
         <span className="text-[11px] text-muted-foreground">sin anuncio aún</span>
@@ -209,13 +209,13 @@ export default function FormacionesSinTutorPage() {
 
       {/* El titular, antes de la lista: es la cifra que decide si esto urge. */}
       {!cargando && filas.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-lg p-3">
-          <p className="font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5 text-sm">
+        <div className="bg-warning-soft border border-warning/30 rounded-lg p-3">
+          <p className="font-semibold text-warning-soft-foreground flex items-center gap-1.5 text-sm">
             <Warning size={16} weight="fill" />
             {euros(total.cobrado)} cobrados en {filas.length}{' '}
             {filas.length === 1 ? 'formación' : 'formaciones'} sin tutor
           </p>
-          <p className="text-xs text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
+          <p className="text-xs text-warning-soft-foreground mt-1 leading-relaxed">
             {total.pagos} {total.pagos === 1 ? 'cobro' : 'cobros'} de {total.alumnos}{' '}
             {total.alumnos === 1 ? 'alumno' : 'alumnos'}. Nadie cobra comisión por ellos.
             Se arregla asignándole un tutor a cada formación.

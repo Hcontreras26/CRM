@@ -122,7 +122,7 @@ export default function GestoresStatsTable({ projectId, issuerId = null, classNa
     <div className={`bg-card border border-border rounded-lg p-4 ${className}`}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Users size={16} weight="duotone" className="text-blue-600" />
+          <Users size={16} weight="duotone" className="text-info" />
           {/* El titulo dice lo que de verdad se esta contando. Decia el mes
               siempre, y con el filtro en un dia eso era mentira. */}
           Equipo de ventas — {from && to
@@ -160,7 +160,7 @@ export default function GestoresStatsTable({ projectId, issuerId = null, classNa
                       <p className="font-medium text-[13px] truncate" title={r.email}>{r.nombre}</p>
                       <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                         <span className="capitalize">{r.role}</span>
-                        {r.recibe_leads === false && <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">No recibe leads</span>}
+                        {r.recibe_leads === false && <span className="px-1.5 py-0.5 rounded bg-warning-soft text-warning-soft-foreground">No recibe leads</span>}
                       </p>
                     </td>
                     <td className="py-2.5 text-right tabular-nums">
@@ -176,7 +176,7 @@ export default function GestoresStatsTable({ projectId, issuerId = null, classNa
                               siendo el total real de la empresa. */}
                           {!!r.compartidas && (
                             <span
-                              className="text-[11px] text-violet-700 dark:text-violet-300 block"
+                              className="text-[11px] text-primary block"
                               title="Ventas atendidas a medias con otra gestora. Cada una suma su parte."
                             >
                               {r.compartidas === 1 ? '1 compartida' : `${r.compartidas} compartidas`}
@@ -184,7 +184,7 @@ export default function GestoresStatsTable({ projectId, issuerId = null, classNa
                           )}
                           {r.meta_ventas != null && r.meta_ventas > 0 && (
                             <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden ml-auto" style={{ maxWidth: 100 }}>
-                              <div className={`h-full ${pctV >= 100 ? 'bg-emerald-500' : pctV >= 50 ? 'bg-amber-500' : 'bg-red-400'}`} style={{ width: `${pctV}%` }} />
+                              <div className={`h-full ${pctV >= 100 ? 'bg-success' : pctV >= 50 ? 'bg-warning' : 'bg-destructive'}`} style={{ width: `${pctV}%` }} />
                             </div>
                           )}
                         </>
@@ -200,19 +200,19 @@ export default function GestoresStatsTable({ projectId, issuerId = null, classNa
                           <span className="text-muted-foreground text-xs block">{r.meta_facturacion != null ? `meta ${fmt(r.meta_facturacion)}` : 'sin meta'}</span>
                           {r.meta_facturacion != null && r.meta_facturacion > 0 && (
                             <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden ml-auto" style={{ maxWidth: 100 }}>
-                              <div className={`h-full ${pctF >= 100 ? 'bg-emerald-500' : pctF >= 50 ? 'bg-amber-500' : 'bg-red-400'}`} style={{ width: `${pctF}%` }} />
+                              <div className={`h-full ${pctF >= 100 ? 'bg-success' : pctF >= 50 ? 'bg-warning' : 'bg-destructive'}`} style={{ width: `${pctF}%` }} />
                             </div>
                           )}
                         </>
                       )}
                     </td>
-                    <td className="py-2.5 text-right tabular-nums text-green-600">{fmt(r.cobrado)}</td>
+                    <td className="py-2.5 text-right tabular-nums text-success">{fmt(r.cobrado)}</td>
                     {canEdit && (
                       <td className="py-2.5 text-right">
                         {isEditing ? (
                           <div className="flex gap-1 justify-end">
                             <button onClick={() => setEditingId(null)} disabled={saving} className="p-1.5 rounded hover:bg-muted text-muted-foreground"><X size={14} /></button>
-                            <button onClick={() => saveEdit(r)} disabled={saving} className="p-1.5 rounded hover:bg-emerald-100 text-emerald-600"><Check size={14} weight="bold" /></button>
+                            <button onClick={() => saveEdit(r)} disabled={saving} className="p-1.5 rounded hover:bg-success-soft text-success"><Check size={14} weight="bold" /></button>
                           </div>
                         ) : (
                           <button onClick={() => startEdit(r)} title="Establecer meta" className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary">

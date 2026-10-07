@@ -100,7 +100,7 @@ type ChipTone = 'default' | 'danger' | 'warning';
 
 function QuickChip({ active, onClick, label, count, tone = 'default' }: { active: boolean; onClick: () => void; label: string; count?: number; tone?: ChipTone }) {
   const toneActive: string = {
-    default: 'bg-primary text-white',
+    default: 'bg-primary text-primary-foreground',
     danger: 'bg-destructive text-destructive-foreground',
     warning: 'bg-warning text-warning-foreground',
   }[tone];
@@ -1285,7 +1285,7 @@ export default function LeadsPage() {
                   onClick={() => setPage(p)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                     p === page
-                      ? 'bg-primary text-white shadow-sm'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'border border-border bg-card hover:bg-muted'
                   }`}
                 >

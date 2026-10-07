@@ -7,7 +7,7 @@ import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import Card from '@/shared/components/ui/Card';
 import { toast } from '@/shared/hooks/useToast';
 import {
-  createUser, deactivateUser, reactivateUser, setUserPassword, updateUser, type CrmUser,
+  avisoCambioCorreo, createUser, deactivateUser, reactivateUser, setUserPassword, updateUser, type CrmUser,
 } from '../api/users.api';
 import useUsers from '../hooks/useUsers';
 import useAvailabilityMap from '../hooks/useAvailabilityMap';
@@ -69,8 +69,13 @@ export default function UsersPanel() {
         }
       } else if (dialogo?.modo === 'editar') {
         const sinProyectos = values.projects.length === 0;
+        // El correo solo si ha cambiado, y solo lo cambia el super admin (#248):
+        // a cualquier otro el servidor le contesta 403.
+        const correoNuevo = values.email.trim().toLowerCase();
+        const cambiaCorreo = esSuperadmin && correoNuevo !== dialogo.user.email.toLowerCase();
         await updateUser(dialogo.user.id, {
           nombre: values.nombre,
+          ...(cambiaCorreo ? { email: correoNuevo, reenviarEnlace: values.reenviarEnlace } : {}),
           role: values.role,
           // Se manda SIEMPRE, aunque venga vacia: una lista vacia significa
           // «quitale los de mas», y omitirla dejaria imposible volver atras.
@@ -91,7 +96,9 @@ export default function UsersPanel() {
             title: 'Usuario actualizado, sin proyectos',
             description: `${values.nombre} ya no tiene ningún proyecto asignado: al entrar no verá nada.`,
           }
-          : { title: 'Usuario actualizado', description: values.nombre });
+          : cambiaCorreo
+            ? { title: 'Usuario actualizado', description: `${values.nombre} entra ahora con ${correoNuevo}. Sus sesiones se han cerrado.` }
+            : { title: 'Usuario actualizado', description: values.nombre });
       }
       setDialogo(null);
       lista.recargar();
@@ -102,10 +109,10 @@ export default function UsersPanel() {
     }
   }
 
-  async function reiniciarPassword(password: string) {
+  async function reiniciarPassword(password: string, repetida: string) {
     if (dialogo?.modo !== 'editar') return;
     try {
-      await setUserPassword(dialogo.user.id, password);
+      await setUserPassword(dialogo.user.id, password, repetida);
       toast({
         title: 'Contraseña actualizada',
         description: `${dialogo.user.nombre} deberá entrar con la nueva. Sus sesiones se han cerrado.`,
@@ -211,7 +218,7 @@ export default function UsersPanel() {
         <button
           onClick={() => setDialogo({ modo: 'crear' })}
           aria-label="Crear usuario"
-          className="flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+          className="flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
         >
           <Plus size={14} weight="bold" /> <span className="hidden sm:inline">Crear usuario</span>
         </button>
@@ -273,6 +280,8 @@ export default function UsersPanel() {
           user={dialogo.modo === 'editar' ? dialogo.user : null}
           projects={projects || []}
           canResetPassword={esSuperadmin}
+          canChangeEmail={esSuperadmin}
+          onCheckEmail={() => (dialogo.modo === 'editar' ? avisoCambioCorreo(dialogo.user.id) : Promise.resolve(null))}
           loading={guardando}
           onClose={() => setDialogo(null)}
           onSubmit={guardar}

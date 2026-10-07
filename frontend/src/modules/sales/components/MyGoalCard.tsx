@@ -102,7 +102,7 @@ export default function MyGoalCard({ projectId, issuerId = null, className = '',
     <div className={`bg-card border border-border rounded-lg p-4 ${className}`}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Target size={16} weight="duotone" className="text-emerald-600" />
+          <Target size={16} weight="duotone" className="text-success" />
           Mi meta del mes
         </h3>
         <span className="text-[11px] text-muted-foreground">{periodo}</span>
@@ -114,7 +114,7 @@ export default function MyGoalCard({ projectId, issuerId = null, className = '',
           <p className="text-xl font-bold tabular-nums">{stats.ventas}{stats.meta_ventas != null && <span className="text-sm text-muted-foreground font-normal"> / {stats.meta_ventas}</span>}</p>
           {stats.meta_ventas != null && stats.meta_ventas > 0 && (
             <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
-              <div className={`h-full ${pctV >= 100 ? 'bg-emerald-500' : pctV >= 50 ? 'bg-amber-500' : 'bg-red-400'}`} style={{ width: `${pctV}%` }} />
+              <div className={`h-full ${pctV >= 100 ? 'bg-success' : pctV >= 50 ? 'bg-warning' : 'bg-destructive'}`} style={{ width: `${pctV}%` }} />
             </div>
           )}
         </div>
@@ -123,7 +123,7 @@ export default function MyGoalCard({ projectId, issuerId = null, className = '',
           <p className="text-xl font-bold tabular-nums">{fmt(stats.facturado)}{stats.meta_facturacion != null && <span className="text-sm text-muted-foreground font-normal"> / {fmt(stats.meta_facturacion)}</span>}</p>
           {stats.meta_facturacion != null && stats.meta_facturacion > 0 && (
             <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
-              <div className={`h-full ${pctF >= 100 ? 'bg-emerald-500' : pctF >= 50 ? 'bg-amber-500' : 'bg-red-400'}`} style={{ width: `${pctF}%` }} />
+              <div className={`h-full ${pctF >= 100 ? 'bg-success' : pctF >= 50 ? 'bg-warning' : 'bg-destructive'}`} style={{ width: `${pctF}%` }} />
             </div>
           )}
         </div>
@@ -141,7 +141,7 @@ export default function MyGoalCard({ projectId, issuerId = null, className = '',
             <button onClick={() => setEditing(false)} disabled={saving} className="h-8 px-3 rounded-md border border-border text-xs hover:bg-muted flex items-center gap-1">
               <X size={12} /> Cancelar
             </button>
-            <button onClick={save} disabled={saving} className="h-8 px-3 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90 flex items-center gap-1">
+            <button onClick={save} disabled={saving} className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 flex items-center gap-1">
               <Check size={12} /> {saving ? 'Guardando…' : 'Guardar'}
             </button>
           </div>

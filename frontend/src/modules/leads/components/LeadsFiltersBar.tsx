@@ -566,7 +566,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 type ChipTone = 'default' | 'danger' | 'warning';
 function QuickChip({ active, onClick, label, count, tone = 'default' }: { active: boolean; onClick: () => void; label: string; count?: number; tone?: ChipTone }) {
   const toneActive: string = ({
-    default: 'bg-primary text-white',
+    default: 'bg-primary text-primary-foreground',
     danger: 'bg-destructive text-destructive-foreground',
     warning: 'bg-warning text-warning-foreground',
   } as Record<ChipTone, string>)[tone];

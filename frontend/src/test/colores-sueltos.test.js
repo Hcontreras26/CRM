@@ -83,15 +83,65 @@ describe('colores sueltos escritos a mano (#32)', () => {
     expect(copias, `la paleta está duplicada en:\n${copias.join('\n')}`).toEqual(['shared/lib/ui.ts']);
   });
 
+  it('ni letra blanca fija sobre un fondo que en oscuro se aclara', () => {
+    // «Comprobar el modo oscuro con los tokens nuevos» (#32). primary, success,
+    // info y warning se aclaran en oscuro y piden texto oscuro: `text-white`
+    // encima se lee mal, y sobre warning ni siquiera en claro. Su pareja es
+    // `text-<token>-foreground`, que cambia sola. Al traer el trabajo de Fabián
+    // había 75 así; destructive no entra porque su texto es blanco en los dos.
+    //
+    // Se mira cada cadena entre comillas por separado (también las de dentro
+    // de un `${cond ? '…' : '…'}`), para no juntar clases de dos elementos.
+    // WhatsApp (de Ángel, #79) y las maquetas de referencia quedan fuera.
+    const FONDO = /(?:^|\s)(?:[a-z-]+:)*bg-(primary|success|info|warning)(?:\/(\d+))?(?=\s|$)/;
+    const fuera = /^(test\/|modules\/(whatsapp|suitedash-preview|ui-preview)\/)|\.test\./;
+    const malas = [];
+    for (const f of ficheros('.').filter((x) => !fuera.test(x))) {
+      const texto = fs.readFileSync(path.join(RAIZ, f), 'utf8');
+      for (const q of ["'", '"', '`']) {
+        for (const [, cuerpo] of texto.matchAll(new RegExp(`${q}([^${q}\\n]*)${q}`, 'g'))) {
+          const m = cuerpo.match(FONDO);
+          if (m && !(m[2] && Number(m[2]) < 60) && /(^|\s)text-white(\s|$)/.test(cuerpo)) malas.push(`${f}: ${cuerpo.trim().slice(0, 90)}`);
+        }
+      }
+    }
+    expect(malas.join('\n'), 'usa text-<token>-foreground en vez de text-white').toBe('');
+  });
+
   it('deja escrito cuánta deuda queda por módulo, que es la tarea #34', () => {
-    // No falla nunca: es el marcador. Cuando un bloque del #34 se termina, su
-    // número baja a cero aquí y se ve sin tener que fiarse de nadie.
+    // ESTO SÍ FALLA, y es la mitad que faltaba del #32.
+    //
+    // Hasta ahora solo imprimía el marcador y comprobaba `total >= 0`, que es
+    // verdad siempre. O sea: medía, pero no cerraba. Llevar los ocho bloques a
+    // cero cuesta semanas y volver a ensuciarlos cuesta una línea, así que sin
+    // tope el trabajo se deshace solo y nadie se entera hasta la siguiente
+    // revisión.
+    //
+    // EL TECHO SOLO PUEDE BAJAR. Si un bloque sube por encima de su número, la
+    // prueba falla y dice cuál y cuánto. Si baja —porque alguien ha limpiado
+    // más— no falla: avisa de que se puede apretar la tuerca, y apretarla es
+    // cambiar un número en esta tabla.
+    //
+    // Se pone a cero porque ahí están los ocho hoy. Si esta rama entrara antes
+    // de que los bloques estén limpios, habría que escribir aquí el número de
+    // ese momento y bajarlo después.
+    const TECHO = {
+      '1 · Prospectos': 0,
+      '2 · Clientes y matrículas': 0,
+      '3 · Ventas y conversiones': 0,
+      '4 · Finanzas': 0,
+      '5 · Tutores y comisiones': 0,
+      '6 · Publicidad y análisis': 0,
+      '7 · Ajustes y administración': 0,
+      '8 · Entrar, contraseña y errores': 0,
+    };
+
     const bloques = {
       '1 · Prospectos': ['modules/leads'],
-      '2 · Clientes y matrículas': ['modules/clients'],
+      '2 · Clientes y matrículas': ['modules/clients', 'modules/matriculas'],
       '3 · Ventas y conversiones': ['modules/sales', 'modules/conversions'],
       '4 · Finanzas': ['modules/accounting', 'modules/invoices'],
-      '5 · Tutores y comisiones': ['modules/commissions', 'modules/tutors'],
+      '5 · Tutores y comisiones': ['modules/commissions', 'modules/tutores'],
       '6 · Publicidad y análisis': ['modules/campaigns', 'modules/meta-ads', 'modules/reports'],
       '7 · Ajustes y administración': ['modules/settings', 'modules/permissions', 'modules/preferences'],
       '8 · Entrar, contraseña y errores': ['shared/pages'],
@@ -107,6 +157,70 @@ describe('colores sueltos escritos a mano (#32)', () => {
 
     // eslint-disable-next-line no-console
     console.log(`\ncolores a pelo por bloque del #34:\n${filas.join('\n')}\n  ${'total'.padEnd(34)} ${String(total).padStart(5)}\n`);
-    expect(total).toBeGreaterThanOrEqual(0);
+
+    // LO QUE NO VIGILA NADIE.
+    //
+    // Los ocho bloques no cubren todos los modulos, y lo que queda fuera no
+    // aparecia en ningun sitio: el numero se leia como «la deuda» cuando era
+    // «la deuda de lo que miramos». Una errata —`modules/tutors` por
+    // `modules/tutores`— escondio 102 durante semanas sin que nadie lo notara,
+    // porque un directorio que no existe cuenta cero y cero no llama la
+    // atencion.
+    //
+    // Asi que se listan. No se asignan a un bloque por mi cuenta —eso es
+    // redibujar el plan del #34, y es de Diego— pero se ven.
+    const enBloques = new Set(Object.values(bloques).flat());
+    // Las maquetas de referencia NO cuentan: son el SuiteDash de /testeo2 y el
+    // muestrario, que existen justamente para enseñar de donde salen los
+    // tokens. Exigirles tokens seria pedirle a la foto que se parezca al
+    // retrato.
+    const MAQUETAS = /^modules\/(suitedash-preview|ui-preview|dev)$/;
+    const sueltos = fs.readdirSync(path.join(RAIZ, 'modules'), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => `modules/${e.name}`)
+      .filter((d) => !enBloques.has(d) && !MAQUETAS.test(d))
+      .map((d) => ({ d, n: contar(d).total }))
+      .filter((x) => x.n > 0)
+      .sort((a, b) => b.n - a.n);
+
+    if (sueltos.length) {
+      const fuera = sueltos.reduce((s, x) => s + x.n, 0);
+      // eslint-disable-next-line no-console
+      console.log(
+        `sin asignar a ningun bloque — ${fuera} en ${sueltos.length} modulos:\n`
+        + sueltos.map((x) => `  ${x.d.padEnd(34)} ${String(x.n).padStart(5)}`).join('\n')
+        + `\n  ${'TOTAL DE VERDAD'.padEnd(34)} ${String(total + fuera).padStart(5)}\n`,
+      );
+    }
+
+    // EL CIERRE. Un bloque por encima de su techo para la entrega y dice cuál.
+    const conTecho = Object.entries(bloques).map(([nombre, dirs]) => ({
+      nombre,
+      n: dirs.reduce((suma, d) => suma + contar(d).total, 0),
+      techo: TECHO[nombre] ?? 0,
+    }));
+
+    const subidos = conTecho.filter((x) => x.n > x.techo);
+    expect(
+      subidos.map((x) => `  ${x.nombre}: ${x.n} colores a pelo, y el techo es ${x.techo}`).join('\n'),
+      [
+        'han entrado colores sueltos en un bloque que ya estaba limpio.',
+        'Usa los tokens de index.css —success, warning, info, destructive, cada uno',
+        'con su -soft y su -soft-foreground— en vez de bg-red-100 y compañía.',
+        'Si el color es de una paleta de identidad, va en shared/lib/ui.ts.',
+      ].join('\n'),
+    ).toBe('');
+
+    // Y si alguien ha limpiado de más, que se note: apretar la tuerca es
+    // cambiar un número en TECHO, y si no se cambia, el siguiente puede volver
+    // a ensuciar hasta el techo viejo sin que nadie se queje.
+    const bajados = conTecho.filter((x) => x.n < x.techo);
+    if (bajados.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `se puede bajar el techo en colores-sueltos.test.js:\n${
+          bajados.map((x) => `  ${x.nombre}: ${x.techo} → ${x.n}`).join('\n')}\n`,
+      );
+    }
   });
 });

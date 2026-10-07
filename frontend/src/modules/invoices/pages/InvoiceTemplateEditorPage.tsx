@@ -71,23 +71,23 @@ function BlockPreview({ b }: { b: TemplateBlock }) {
     overflow: 'hidden', lineHeight: 1.35,
   };
   switch (b.type) {
-    case 'logo': return <div style={style} className="flex items-center justify-center border border-dashed border-slate-300 rounded bg-slate-50 text-slate-400">🖼 Logo</div>;
+    case 'logo': return <div style={style} className="flex items-center justify-center border border-dashed border-border rounded bg-muted text-muted-foreground">🖼 Logo</div>;
     case 'emisor': return <div style={style}><b>MI EMPRESA S.L.</b><br/>NIF: B12345678<br/>Calle Ejemplo 1, Madrid<br/>28001 · España</div>;
     case 'cliente': return <div style={style}><b>Cliente</b><br/>Nombre del cliente<br/>NIF: X0000000T<br/>Dirección fiscal</div>;
     case 'meta': return <div style={style}>FACTURA Nº 2026/0001<br/>Fecha: 30/06/2026</div>;
     case 'totales': return <div style={style}>Base imponible: 100,00 €<br/>IVA (21%): 21,00 €<br/><b>TOTAL: 121,00 €</b></div>;
     case 'pie': return <div style={style}>Forma de pago: transferencia<br/>IBAN ES00 0000 0000 0000<br/>Vencimiento: 30 días</div>;
     case 'texto': return <div style={style}>{b.text || 'Texto libre…'}</div>;
-    case 'coletilla': return <div style={{ ...style, fontStyle: 'italic' }} className="border border-dashed border-amber-300 bg-amber-50/50 rounded px-1">Operación exenta de IVA conforme al art. 20.Uno.9º… <span className="not-italic text-amber-600">(coletilla legal según el régimen)</span></div>;
+    case 'coletilla': return <div style={{ ...style, fontStyle: 'italic' }} className="border border-dashed border-warning/40 bg-warning-soft/50 rounded px-1">Operación exenta de IVA conforme al art. 20.Uno.9º… <span className="not-italic text-warning">(coletilla legal según el régimen)</span></div>;
     case 'items': return (
       <div style={style}>
         <table className="tabla-cifras w-full border-collapse" style={{ fontSize: b.fontSize || 11 }}>
-          <thead><tr className="border-b border-slate-400 text-left">
+          <thead><tr className="border-b border-border text-left">
             <th className="py-0.5">{b.cols?.desc || 'Descripción'}</th><th className="text-center">{b.cols?.cant || 'Cant.'}</th><th className="text-right">{b.cols?.precio || 'Precio'}</th><th className="text-right">{b.cols?.total || 'Total'}</th>
           </tr></thead>
           <tbody>
-            <tr className="border-b border-slate-200"><td>Curso ejemplo</td><td className="text-center">1</td><td className="text-right">100,00</td><td className="text-right">100,00</td></tr>
-            <tr className="border-b border-slate-200"><td>…</td><td className="text-center">—</td><td className="text-right">—</td><td className="text-right">—</td></tr>
+            <tr className="border-b border-border"><td>Curso ejemplo</td><td className="text-center">1</td><td className="text-right">100,00</td><td className="text-right">100,00</td></tr>
+            <tr className="border-b border-border"><td>…</td><td className="text-center">—</td><td className="text-right">—</td><td className="text-right">—</td></tr>
           </tbody>
         </table>
       </div>
@@ -228,7 +228,7 @@ export default function InvoiceTemplateEditorPage() {
                       {t.issuer_nombre || 'Todas las empresas'} · {CONDICION_LABEL[t.condicion_pais || 'todos']}
                     </span>
                   </button>
-                  <button onClick={() => removeTemplate(t.id)} className="text-red-500 hover:text-red-600"><Trash size={12}/></button>
+                  <button onClick={() => removeTemplate(t.id)} className="text-destructive hover:text-destructive"><Trash size={12}/></button>
                 </div>
               ))}
             </div>
@@ -253,7 +253,7 @@ export default function InvoiceTemplateEditorPage() {
             <div className="bg-card border border-border rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase text-muted-foreground">{BLOCK_LABELS[selected.type]}</h3>
-                <button onClick={() => { setLayout((l) => l.filter((b) => b.id !== selected.id)); setSelectedId(null); }} className="text-red-500 text-[11px] inline-flex items-center gap-1"><Trash size={12}/>Quitar</button>
+                <button onClick={() => { setLayout((l) => l.filter((b) => b.id !== selected.id)); setSelectedId(null); }} className="text-destructive text-[11px] inline-flex items-center gap-1"><Trash size={12}/>Quitar</button>
               </div>
               <label className="block text-[11px]">Tamaño de fuente
                 <input type="number" min={6} max={48} value={selected.fontSize || 12} onChange={(e) => patch(selected.id, { fontSize: Number(e.target.value) })} className="w-full h-8 px-2 mt-0.5 rounded border border-border bg-background text-sm" />
@@ -318,7 +318,7 @@ export default function InvoiceTemplateEditorPage() {
                   key={b.id}
                   onPointerDown={(e) => onPointerDown(e, b.id, 'move')}
                   onClick={(e) => { e.stopPropagation(); setSelectedId(b.id); }}
-                  className={`absolute cursor-move ${selectedId === b.id ? 'ring-2 ring-primary' : 'ring-1 ring-slate-200 hover:ring-slate-300'}`}
+                  className={`absolute cursor-move ${selectedId === b.id ? 'ring-2 ring-primary' : 'ring-1 ring-border hover:ring-muted-foreground/40'}`}
                   style={{ left: b.x, top: b.y, width: b.w, height: b.h }}
                 >
                   <BlockPreview b={b} />

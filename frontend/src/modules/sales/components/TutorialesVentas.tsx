@@ -34,7 +34,7 @@ const TUTORIALES: Tutorial[] = [
     titulo: 'Ventas divididas',
     resumen: 'Dos gestoras atendieron a la misma persona: cómo repartir el mérito.',
     icono: UsersThree,
-    color: 'text-violet-600 bg-violet-50 dark:bg-violet-950/40 dark:text-violet-300',
+    color: 'text-primary bg-primary/10',
     pasos: [
       {
         que: 'Quién puede repartir',
@@ -64,7 +64,7 @@ const TUTORIALES: Tutorial[] = [
     titulo: 'Qué es VENTA y qué es CUOTA',
     resumen: 'Las etiquetas de cada fila de la lista, y por qué una venta puede salir dos veces.',
     icono: Tag,
-    color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300',
+    color: 'text-success bg-success-soft',
     pasos: [
       { que: 'VENTA', detalle: 'Una venta nueva registrada en el periodo que estás mirando. Es dinero nuevo que entra.' },
       { que: 'CUOTA', detalle: 'Una mensualidad cobrada en el periodo, de una venta que puede ser de hace meses. Aparece con su número de factura, o «sin factura» si todavía no se ha emitido.' },
@@ -78,7 +78,7 @@ const TUTORIALES: Tutorial[] = [
     titulo: 'Los filtros de fecha',
     resumen: 'Por defecto este mes, y qué significa exactamente cada atajo.',
     icono: CalendarBlank,
-    color: 'text-sky-600 bg-sky-50 dark:bg-sky-950/40 dark:text-sky-300',
+    color: 'text-info bg-info-soft',
     pasos: [
       { que: 'Al entrar', detalle: 'La pantalla abre siempre con el mes en curso, del día 1 a hoy.' },
       { que: 'Esta semana', detalle: 'De LUNES a HOY. No los últimos siete días, y no llega hasta el domingo: enseñar días que aún no han pasado hace parecer que la semana va peor de lo que va.' },
@@ -92,7 +92,7 @@ const TUTORIALES: Tutorial[] = [
     titulo: 'Las tarjetas de arriba',
     resumen: 'Qué cuenta cada una y por qué no son la misma cifra.',
     icono: ChartBar,
-    color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300',
+    color: 'text-warning bg-warning-soft',
     pasos: [
       { que: 'Ventas', detalle: 'Ventas nuevas registradas en el periodo, por fecha de venta.' },
       { que: 'Cuotas cobradas', detalle: 'Mensualidades cobradas en el periodo, vengan de la venta que vengan. Una venta de marzo que paga en septiembre cuenta aquí, no en Ventas.' },
@@ -106,7 +106,7 @@ const TUTORIALES: Tutorial[] = [
     titulo: 'Empresa y proyecto',
     resumen: 'Ver una sociedad entera o un solo campus.',
     icono: Buildings,
-    color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 dark:text-indigo-300',
+    color: 'text-info bg-info-soft',
     pasos: [
       { que: 'Elegir empresa', detalle: 'Enseña todos sus campus juntos, y debajo el reparto de ventas y cuotas proyecto por proyecto.' },
       { que: 'Elegir un proyecto', detalle: 'Solo ese. El equipo enseña únicamente a quien recibe leads ahí — o a quien haya vendido, aunque ya no reciba.' },
@@ -118,7 +118,7 @@ const TUTORIALES: Tutorial[] = [
     titulo: 'Por qué una venta no tiene factura',
     resumen: 'Tres motivos distintos, y solo uno es un problema.',
     icono: Receipt,
-    color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300',
+    color: 'text-destructive bg-destructive-soft',
     pasos: [
       { que: 'No la requiere', detalle: 'Marcada como que no lleva factura. Es lo normal en ventas antiguas o facturadas por otra vía.' },
       { que: 'Importe cero', detalle: 'Una ficha sin importe: no hay nada que facturar.' },
@@ -197,11 +197,11 @@ export default function TutorialesVentas({ onCerrar }: { onCerrar: () => void })
             </ol>
 
             {t.ojo && (
-              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              <div className="mt-4 rounded-md border border-warning/30 bg-warning-soft p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-warning-soft-foreground">
                   Ojo con esto
                 </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-amber-900 dark:text-amber-100">{t.ojo}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-warning-soft-foreground">{t.ojo}</p>
               </div>
             )}
           </div>

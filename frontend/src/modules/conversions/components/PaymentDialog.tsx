@@ -109,11 +109,11 @@ export default function PaymentDialog({ open, onClose, conversion, onPaid }: Pay
             </div>
             <div className="flex justify-between mb-1">
               <span className="text-muted-foreground">Pagado:</span>
-              <span className="font-semibold text-green-600 tabular-nums">{formatCurrency(conversion.importe_pagado)}</span>
+              <span className="font-semibold text-success tabular-nums">{formatCurrency(conversion.importe_pagado)}</span>
             </div>
             <div className="flex justify-between pt-1 border-t border-border">
               <span className="text-muted-foreground">Pendiente:</span>
-              <span className="font-bold text-orange-600 tabular-nums">{formatCurrency(pendiente)}</span>
+              <span className="font-bold text-warning tabular-nums">{formatCurrency(pendiente)}</span>
             </div>
           </div>
 
@@ -146,7 +146,7 @@ export default function PaymentDialog({ open, onClose, conversion, onPaid }: Pay
 
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onClose} className="h-9 px-4 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
-              <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+              <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
                 {saving ? 'Guardando...' : 'Registrar abono'}
               </button>
             </div>

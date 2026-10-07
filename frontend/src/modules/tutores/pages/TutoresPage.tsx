@@ -12,6 +12,8 @@ import Entregables from '../components/Entregables';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import { lasQueYaRigen, laQueDuerme, cursosParaElAlta, avisoDelAlta, type CursoDelAlta, type CursoQueFallo } from '../lib/colaboraciones';
 import { tutoresApi, type Tutor, type Colaboracion, type AjustesTutores } from '../api/tutores.api';
+import { avisoCambioCorreo } from '@/modules/users/api/users.api';
+import { confirmacionCambioCorreo, problemaDeContrasena } from '@/modules/users/lib/credenciales';
 
 // Tutores y sus colaboraciones.
 //
@@ -58,6 +60,8 @@ export default function TutoresPage() {
   // si o si».
   const campus = useProyectosDelAmbito<{ id: number; nombre: string }>();
   const puede = ['admin', 'superadmin'].includes(user?.role || '') || user?.gestor_colaboraciones === true;
+  // El correo y la contraseña de un tutor, solo el super admin (#248).
+  const esSuperadmin = user?.role === 'superadmin';
   const proyectoFijado = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
   // Con una sociedad elegida se ven sus campus; sin nada, todos. La lista se
   // lee siempre: quien lleva las colaboraciones trabaja con la plantilla
@@ -116,6 +120,7 @@ export default function TutoresPage() {
   const [popupClave, setPopupClave] = useState(false);
   const [popupPago, setPopupPago] = useState(false);
   const [claveNueva, setClaveNueva] = useState('');
+  const [claveRepetida, setClaveRepetida] = useState('');
   const [claveCopiada, setClaveCopiada] = useState(false);
   const [popupRetiro, setPopupRetiro] = useState(false);
   const [procesando, setProcesando] = useState(false);
@@ -209,7 +214,9 @@ export default function TutoresPage() {
   function abrirColab() { setCursoColab(null); setPopupColab(true); }
 
   function abrirClave() {
-    setClaveNueva(generarContrasena());
+    const clave = generarContrasena();
+    setClaveNueva(clave);
+    setClaveRepetida(clave);
     setClaveCopiada(false);
     setPopupClave(true);
   }
@@ -221,9 +228,9 @@ export default function TutoresPage() {
     if (!elegido) return;
     setProcesando(true);
     try {
-      const r = await tutoresApi.cambiarContrasena(elegido.id, claveNueva);
+      const r = await tutoresApi.cambiarContrasena(elegido.id, claveNueva, claveRepetida);
       if (!r.success) throw new Error(r.error || 'no se pudo');
-      toast({ title: 'Contraseña cambiada', description: `${elegido.nombre} ya puede entrar con ella.` });
+      toast({ title: 'Contraseña cambiada', description: `${elegido.nombre} ya puede entrar con ella. Sus sesiones abiertas se han cerrado.` });
       setPopupClave(false);
       cargar();
     } catch (err) {
@@ -291,7 +298,7 @@ export default function TutoresPage() {
         <div className="text-[11px] text-muted-foreground font-semibold mt-0.5">retirado</div>
       )}
       {t.pendiente_de_entrar && (
-        <div className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold mt-0.5">
+        <div className="text-[11px] text-warning-soft-foreground font-semibold mt-0.5">
           aún no ha entrado
         </div>
       )}
@@ -326,12 +333,19 @@ export default function TutoresPage() {
     setProcesando(true);
     try {
       const nombre = String(f.get('nombre') || '').trim();
-      const email = String(f.get('email') || '').trim();
+      // El correo solo lo cambia el super admin (#248); a los demás el campo les
+      // sale bloqueado y el servidor les contesta 403.
+      const email = esSuperadmin ? String(f.get('email') || '').trim().toLowerCase() : '';
+      const cambiaCorreo = Boolean(email) && email !== String(elegido.email || '').toLowerCase();
+      if (cambiaCorreo) {
+        const aviso = await avisoCambioCorreo(elegido.id).catch(() => null);
+        if (!window.confirm(confirmacionCambioCorreo(elegido.nombre || 'este tutor', elegido.email || '—', email, aviso))) return;
+      }
       const r = await tutoresApi.guardarPerfil(elegido.id, {
         // El nombre y el correo solo se mandan si han cambiado: el correo es la
         // credencial y tocarlo por costumbre echaria a alguien de su cuenta.
         ...(nombre && nombre !== elegido.nombre ? { nombre } : {}),
-        ...(email && email !== elegido.email ? { email, reenviarEnlace: f.get('reenviarEnlace') === 'on' } : {}),
+        ...(cambiaCorreo ? { email, reenviarEnlace: f.get('reenviarEnlace') === 'on' } : {}),
         dniNif: String(f.get('dniNif') || ''),
         telefono: String(f.get('telefono') || ''),
         // Sin espacios: se copian del banco con ellos y luego no casan.
@@ -686,9 +700,12 @@ export default function TutoresPage() {
                       <Button variant="outline" size="sm" onClick={() => setPopupPago(true)}>
                         <PencilSimple size={14} weight="bold" className="mr-1.5" /> Editar tutor
                       </Button>
-                      <Button variant="outline" size="sm" onClick={abrirClave}>
-                        <Key size={14} weight="bold" className="mr-1.5" /> Cambiar contraseña
-                      </Button>
+                      {/* Solo el super admin (#248). */}
+                      {esSuperadmin && (
+                        <Button variant="outline" size="sm" onClick={abrirClave}>
+                          <Key size={14} weight="bold" className="mr-1.5" /> Cambiar contraseña
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm"
                         className="text-destructive hover:text-destructive"
                         onClick={() => setPopupRetiro(true)}>
@@ -758,7 +775,7 @@ export default function TutoresPage() {
                           )}
                           <td className="py-2 px-3">
                             {c.rige_hoy ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
                                 <CheckCircle size={13} weight="fill" /> vigente
                               </span>
                             ) : (
@@ -816,7 +833,7 @@ export default function TutoresPage() {
                             {!c.activa && editando !== c.id && (
                               <button type="button" onClick={() => alternarColab(c)}
                                 disabled={procesando}
-                                className="text-xs font-semibold inline-flex items-center gap-1 mr-3 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
+                                className="text-xs font-semibold inline-flex items-center gap-1 mr-3 text-success hover:text-success-soft-foreground">
                                 <ArrowsClockwise size={13} weight="bold" />
                                 Reactivar
                               </button>
@@ -834,7 +851,7 @@ export default function TutoresPage() {
                             )}
                             <button type="button" onClick={() => quitar(c)}
                               className={`text-xs font-semibold inline-flex items-center gap-1 ${
-                                borrando === c.id ? 'text-red-600' : 'text-muted-foreground hover:text-foreground'
+                                borrando === c.id ? 'text-destructive' : 'text-muted-foreground hover:text-foreground'
                               }`}>
                               <Trash size={13} weight="bold" />
                               {borrando === c.id ? '¿Seguro?' : 'Quitar'}
@@ -888,11 +905,14 @@ export default function TutoresPage() {
               <div>
                 <label htmlFor="pago-email" className="text-xs font-semibold">Correo</label>
                 <input id="pago-email" name="email" type="email" defaultValue={elegido.email || ''}
-                  className="mt-1 w-full h-9 px-2.5 rounded-md border border-border bg-background text-sm" />
+                  readOnly={!esSuperadmin} disabled={!esSuperadmin}
+                  className={`mt-1 w-full h-9 px-2.5 rounded-md border border-border bg-background text-sm ${esSuperadmin ? '' : 'opacity-60 cursor-not-allowed'}`} />
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Es con lo que entra al CRM: al cambiarlo, deja de poder entrar con el anterior.
+                  {esSuperadmin
+                    ? 'Es con lo que entra al CRM: al cambiarlo, deja de poder entrar con el anterior y se cierran sus sesiones.'
+                    : 'Solo un superadmin puede cambiar el correo.'}
                 </p>
-                {!sinCorreos && (
+                {esSuperadmin && !sinCorreos && (
                   <label className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
                     <input type="checkbox" name="reenviarEnlace" className="h-3.5 w-3.5 rounded border-border" />
                     Mandarle el enlace para poner contraseña en la dirección nueva
@@ -958,12 +978,12 @@ export default function TutoresPage() {
                 <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Quién es</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="mb-1.5 block px-1 text-secundario font-medium sm:col-span-2">
-                    Nombre y apellidos <span className="text-red-500">*</span>
+                    Nombre y apellidos <span className="text-destructive">*</span>
                     <input name="nombre" required autoFocus
                       className="mt-1 w-full h-9 px-3 rounded-md border border-border bg-background text-sm font-normal" />
                   </label>
                   <label className="mb-1.5 block px-1 text-secundario font-medium sm:col-span-2">
-                    Correo <span className="text-red-500">*</span>
+                    Correo <span className="text-destructive">*</span>
                     <input name="email" type="email" required
                       className="mt-1 w-full h-9 px-3 rounded-md border border-border bg-background text-sm font-normal" />
                     <span className="block text-[11px] text-muted-foreground font-normal mt-1">
@@ -1003,7 +1023,7 @@ export default function TutoresPage() {
                   </Button>
                   <Button type="button" variant="outline" size="sm" disabled={!contrasena}
                     onClick={() => { navigator.clipboard?.writeText(contrasena); setCopiada(true); }}>
-                    {copiada ? <CheckCircle size={14} weight="fill" className="text-emerald-600" /> : <Copy size={14} weight="bold" />}
+                    {copiada ? <CheckCircle size={14} weight="fill" className="text-success" /> : <Copy size={14} weight="bold" />}
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -1099,7 +1119,7 @@ export default function TutoresPage() {
                         </div>
                         <span className="tabular-nums font-semibold shrink-0">{c.pct} %</span>
                         <button type="button" aria-label="Quitar"
-                          className="text-muted-foreground hover:text-red-600 shrink-0"
+                          className="text-muted-foreground hover:text-destructive shrink-0"
                           onClick={() => setCursosAlta((prev) => prev.filter((x) => x.productId !== c.productId))}>
                           <Trash size={14} weight="bold" />
                         </button>
@@ -1116,7 +1136,7 @@ export default function TutoresPage() {
 
                 {ajustes && (
                   <p className="text-[11px] text-muted-foreground flex gap-1.5">
-                    <Warning size={13} weight="fill" className="text-amber-500 shrink-0 mt-0.5" />
+                    <Warning size={13} weight="fill" className="text-warning shrink-0 mt-0.5" />
                     <span>
                       Aunque pongas una fecha anterior, no se paga nada cobrado antes del{' '}
                       <strong className="tabular-nums">{enCastellano(String(ajustes.aplica_desde).slice(0, 10))}</strong>,
@@ -1188,7 +1208,7 @@ export default function TutoresPage() {
             </div>
 
             <p className="text-xs text-muted-foreground flex gap-1.5">
-              <Warning size={14} weight="fill" className="text-amber-500 shrink-0 mt-0.5" />
+              <Warning size={14} weight="fill" className="text-warning shrink-0 mt-0.5" />
               <span>
                 <strong>Desde</strong> es el día que empezó con esta formación, no el de hoy si ya llevaba
                 tiempo. Cobra los pagos a partir de esa fecha — y nunca antes del arranque general del módulo.
@@ -1219,22 +1239,27 @@ export default function TutoresPage() {
             </p>
             <div className="flex gap-1.5">
               <input value={claveNueva} onChange={(e) => { setClaveNueva(e.target.value); setClaveCopiada(false); }}
+                aria-label="Nueva contraseña" autoComplete="new-password"
                 className="flex-1 h-9 px-3 rounded-md border border-border bg-background text-sm font-mono min-w-0" />
               <Button type="button" variant="outline" size="sm" aria-label="Generar otra"
-                onClick={() => { setClaveNueva(generarContrasena()); setClaveCopiada(false); }}>
+                onClick={() => { const c = generarContrasena(); setClaveNueva(c); setClaveRepetida(c); setClaveCopiada(false); }}>
                 <ArrowsClockwise size={14} weight="bold" />
               </Button>
               <Button type="button" variant="outline" size="sm" aria-label="Copiar"
                 onClick={() => { navigator.clipboard?.writeText(claveNueva); setClaveCopiada(true); }}>
-                {claveCopiada ? <CheckCircle size={14} weight="fill" className="text-green-600" /> : <Copy size={14} weight="bold" />}
+                {claveCopiada ? <CheckCircle size={14} weight="fill" className="text-success" /> : <Copy size={14} weight="bold" />}
               </Button>
             </div>
-            {claveNueva.length < 8 && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                Necesita al menos 8 caracteres.
+            {/* Repetida, como en «Establece tu contraseña» (#248). La generada ya la rellena. */}
+            <input value={claveRepetida} onChange={(e) => setClaveRepetida(e.target.value)}
+              placeholder="Repítela" aria-label="Repite la contraseña" autoComplete="new-password"
+              className="w-full h-9 px-3 rounded-md border border-border bg-background text-sm font-mono" />
+            {problemaDeContrasena(claveNueva, claveRepetida) && (
+              <p className="text-[11px] text-warning-soft-foreground">
+                {problemaDeContrasena(claveNueva, claveRepetida)}
               </p>
             )}
-            <Button className="w-full" disabled={procesando || claveNueva.length < 8} onClick={guardarClave}>
+            <Button className="w-full" disabled={procesando || Boolean(problemaDeContrasena(claveNueva, claveRepetida))} onClick={guardarClave}>
               {procesando ? 'Cambiando…' : 'Cambiar la contraseña'}
             </Button>
           </div>

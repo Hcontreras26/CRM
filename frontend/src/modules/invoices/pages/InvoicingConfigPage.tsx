@@ -236,13 +236,13 @@ export default function InvoicingConfigPage() {
                 <div>
                   <div className="text-sm font-medium flex items-center gap-2">
                     {iss.razon_social}
-                    {iss.es_default && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">DEFAULT</span>}
+                    {iss.es_default && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-success-soft text-success-soft-foreground">DEFAULT</span>}
                   </div>
                   <div className="text-[11px] text-muted-foreground">{iss.nif}{iss.ciudad ? ` · ${iss.ciudad}` : ''}{iss.iban ? ` · ${iss.iban}` : ''}</div>
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => { setLogoFile(null); setEditingIssuer(iss); }} className="h-7 px-2 rounded border border-border text-[11px] hover:bg-muted">Editar</button>
-                  <button onClick={() => removeIssuer(iss.id)} className="h-7 px-2 rounded border border-red-300 text-[11px] text-red-600 hover:bg-red-50">Eliminar</button>
+                  <button onClick={() => removeIssuer(iss.id)} className="h-7 px-2 rounded border border-destructive/40 text-[11px] text-destructive hover:bg-destructive-soft">Eliminar</button>
                 </div>
               </div>
             ))}

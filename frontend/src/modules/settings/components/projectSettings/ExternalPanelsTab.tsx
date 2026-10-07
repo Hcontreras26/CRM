@@ -169,7 +169,7 @@ export default function ExternalPanelsTab({ project, onSaved }: Props) {
           <button
             type="submit"
             disabled={saving || !draft.label || !draft.url}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 disabled:opacity-50"
           >
             <Plus size={14} weight="bold" /> Agregar panel
           </button>
@@ -244,7 +244,7 @@ export default function ExternalPanelsTab({ project, onSaved }: Props) {
                 <div className="flex items-center gap-1">
                   {isEditing ? (
                     <>
-                      <button onClick={saveEdit} disabled={saving} aria-label="Guardar" className="p-1.5 rounded hover:bg-green-50 text-green-600">
+                      <button onClick={saveEdit} disabled={saving} aria-label="Guardar" className="p-1.5 rounded hover:bg-success-soft text-success">
                         <FloppyDisk size={14} weight="bold" />
                       </button>
                       <button onClick={() => { setEditingId(null); setEditBuf(null); }} aria-label="Cancelar" className="p-1.5 rounded hover:bg-muted">
@@ -256,7 +256,7 @@ export default function ExternalPanelsTab({ project, onSaved }: Props) {
                       <button onClick={() => startEdit(p)} aria-label="Editar" className="p-1.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100">
                         <ArrowSquareOut size={14} />
                       </button>
-                      <button onClick={() => handleDelete(p.id)} aria-label="Eliminar" className="p-1.5 rounded hover:bg-red-50 text-red-500 opacity-0 group-hover:opacity-100">
+                      <button onClick={() => handleDelete(p.id)} aria-label="Eliminar" className="p-1.5 rounded hover:bg-destructive-soft text-destructive opacity-0 group-hover:opacity-100">
                         <X size={14} />
                       </button>
                     </>

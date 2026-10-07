@@ -5,8 +5,9 @@ import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
 import { avatarColorFor, getInitials, inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
-import type { CrmUser, ProjectAssignment } from '../api/users.api';
+import type { AvisoCambioCorreo, CrmUser, ProjectAssignment } from '../api/users.api';
 import { ASSIGNABLE_ROLES } from '../lib/usersUi';
+import { confirmacionCambioCorreo, problemaDeContrasena } from '../lib/credenciales';
 import ProjectSelector from './ProjectSelector';
 
 export interface UserFormValues {
@@ -20,6 +21,8 @@ export interface UserFormValues {
   factura_manager: boolean;
   editar_fechas_factura: boolean;
   usa_whatsapp: boolean;
+  /** Con un correo nuevo: mandarle el enlace para poner contraseña allí (#246). */
+  reenviarEnlace: boolean;
 }
 
 interface Props {
@@ -28,21 +31,27 @@ interface Props {
   projects: Project[];
   /** El cambio de contraseña solo lo puede hacer un superadmin. */
   canResetPassword: boolean;
+  /** Y el del correo, también solo él (#248). */
+  canChangeEmail: boolean;
+  /** Antes de guardar un correo nuevo: si recibe prospectos por Make (#248). */
+  onCheckEmail: () => Promise<AvisoCambioCorreo | null>;
   loading: boolean;
   onClose: () => void;
   onSubmit: (values: UserFormValues) => void | Promise<void>;
-  onResetPassword: (password: string) => Promise<void>;
+  onResetPassword: (password: string, repetida: string) => Promise<void>;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function UserFormDialog({
-  user, projects, canResetPassword, loading, onClose, onSubmit, onResetPassword,
+  user, projects, canResetPassword, canChangeEmail, loading, onClose, onSubmit, onCheckEmail, onResetPassword,
 }: Props) {
   const esEdicion = !!user;
 
   const [nombre, setNombre] = useState(user?.nombre ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
+  const [reenviarEnlace, setReenviarEnlace] = useState(false);
+  const cambiaCorreo = esEdicion && canChangeEmail && email.trim().toLowerCase() !== user!.email.toLowerCase();
   const [role, setRole] = useState<UserRole>((user?.role as UserRole) ?? 'gestor');
   // Los roles añadidos. Diego, 22/09: «necesitamos que se pueda colocar más de
   // un rol a un usuario». El principal sigue mandando —es el que se enseña en
@@ -63,6 +72,7 @@ export default function UserFormDialog({
   const [usaWhatsapp, setUsaWhatsapp] = useState(!!user?.usa_whatsapp);
 
   const [nuevaPass, setNuevaPass] = useState('');
+  const [repetirPass, setRepetirPass] = useState('');
   const [guardandoPass, setGuardandoPass] = useState(false);
 
   function alternarProyecto(projectId: number) {
@@ -78,7 +88,7 @@ export default function UserFormDialog({
       : p));
   }
 
-  function enviar(e: React.FormEvent) {
+  async function enviar(e: React.FormEvent) {
     e.preventDefault();
     // El backend pide 2 caracteres minimo; validarlo aqui evita el viaje.
     if (nombre.trim().length < 2) {
@@ -95,6 +105,17 @@ export default function UserFormDialog({
         return;
       }
     }
+    // El correo de otro (#248): solo el super admin, y avisando antes de guardar
+    // de lo que supone, sobre todo si recibe prospectos por Make.
+    const correoNuevo = email.trim().toLowerCase();
+    if (esEdicion && canChangeEmail && correoNuevo !== user!.email.toLowerCase()) {
+      if (!EMAIL_RE.test(correoNuevo)) {
+        toast({ title: 'Email inválido', description: 'Revisa el formato del email.', variant: 'destructive' });
+        return;
+      }
+      const aviso = await onCheckEmail().catch(() => null);
+      if (!window.confirm(confirmacionCambioCorreo(user!.nombre, user!.email, correoNuevo, aviso))) return;
+    }
     onSubmit({
       nombre: nombre.trim(),
       email: email.trim(),
@@ -108,18 +129,21 @@ export default function UserFormDialog({
       // fechas se abre desde la factura. Si se quita lo primero, cae lo segundo.
       editar_fechas_factura: facturaManager && editarFechas,
       usa_whatsapp: usaWhatsapp,
+      reenviarEnlace: cambiaCorreo && reenviarEnlace,
     });
   }
 
   async function cambiarPassword() {
-    if (nuevaPass.length < 8) {
-      toast({ title: 'Contraseña muy corta', description: 'Mínimo 8 caracteres.', variant: 'destructive' });
+    const problema = problemaDeContrasena(nuevaPass, repetirPass);
+    if (problema) {
+      toast({ title: 'Revisa la contraseña', description: problema, variant: 'destructive' });
       return;
     }
     setGuardandoPass(true);
     try {
-      await onResetPassword(nuevaPass);
+      await onResetPassword(nuevaPass, repetirPass);
       setNuevaPass('');
+      setRepetirPass('');
     } finally {
       setGuardandoPass(false);
     }
@@ -191,13 +215,55 @@ export default function UserFormDialog({
                   required
                 />
               </div>
+            ) : canChangeEmail ? (
+              <div>
+                <label htmlFor="user-email" className="text-xs text-muted-foreground mb-1.5 block px-1">Email *</label>
+                <input
+                  id="user-email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  maxLength={255}
+                  className={inputClass}
+                  required
+                />
+                <p className="text-secundario text-muted-foreground mt-1 px-1 flex items-start gap-1">
+                  <Info size={11} className="mt-px flex-shrink-0" />
+                  Es con lo que entra: al cambiarlo, con el viejo ya no podrá, y se cierran sus sesiones.
+                  Se le avisa por correo en la dirección vieja. Si recibe prospectos por Make, cámbialo también allí.
+                </p>
+                {/* «Reenviar enlace de acceso» al correo nuevo (#246). A un tutor no le
+                    sale ningún correo mientras siga el freno: se dice en vez de esconderlo. */}
+                {cambiaCorreo && (
+                  role === 'tutor' ? (
+                    <p className="text-secundario text-muted-foreground mt-1.5 px-1">
+                      A los tutores no se les manda ningún correo por ahora: si lo necesita, ponle tú una contraseña abajo y pásasela.
+                    </p>
+                  ) : (
+                    <label className="mt-1.5 flex items-start gap-2 px-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={reenviarEnlace}
+                        onChange={(e) => setReenviarEnlace(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span className="text-sm">
+                        Reenviar enlace de acceso
+                        <span className="block text-secundario text-muted-foreground">
+                          Le llega a la dirección nueva para poner su contraseña.
+                        </span>
+                      </span>
+                    </label>
+                  )
+                )}
+              </div>
             ) : (
               <div>
                 <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Email</label>
                 <input value={user!.email} readOnly disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
                 <p className="text-secundario text-muted-foreground mt-1 px-1 flex items-start gap-1">
                   <Info size={11} className="mt-px flex-shrink-0" />
-                  El email es la identidad de la cuenta y hoy no se puede cambiar desde aquí.
+                  Solo un superadmin puede cambiar el correo.
                 </p>
               </div>
             )}
@@ -366,27 +432,40 @@ export default function UserFormDialog({
                 <label htmlFor="user-pass" className="text-xs font-semibold flex items-center gap-1.5 mb-1.5 px-1">
                   <Key size={12} weight="bold" /> Reiniciar contraseña
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     id="user-pass"
                     type="text"
                     value={nuevaPass}
                     onChange={(e) => setNuevaPass(e.target.value)}
-                    placeholder="Nueva contraseña (mín. 8)"
+                    placeholder="Nueva contraseña"
+                    autoComplete="new-password"
+                    maxLength={200}
+                    className={`${inputClass} font-mono`}
+                  />
+                  <input
+                    id="user-pass-2"
+                    type="text"
+                    value={repetirPass}
+                    onChange={(e) => setRepetirPass(e.target.value)}
+                    placeholder="Repítela"
+                    aria-label="Repite la contraseña"
+                    autoComplete="new-password"
                     maxLength={200}
                     className={`${inputClass} font-mono`}
                   />
                   <button
                     type="button"
                     onClick={cambiarPassword}
-                    disabled={guardandoPass || nuevaPass.length === 0}
+                    disabled={guardandoPass || nuevaPass.length === 0 || repetirPass.length === 0}
                     className="h-9 px-3 rounded-md border border-border text-sm font-medium hover:bg-muted disabled:opacity-50 whitespace-nowrap"
                   >
                     {guardandoPass ? '…' : 'Cambiar'}
                   </button>
                 </div>
                 <p className="text-secundario text-muted-foreground mt-1 px-1">
-                  Se la comunicas tú al usuario. Al cambiarla se cierran sus sesiones activas.
+                  Mínimo 8 caracteres, con una mayúscula y un número. Se la comunicas tú al usuario.
+                  Al cambiarla se cierran sus sesiones activas.
                 </p>
               </div>
             )}
@@ -402,7 +481,7 @@ export default function UserFormDialog({
               <button
                 type="submit"
                 disabled={loading}
-                className="h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {loading ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Crear usuario'}
               </button>

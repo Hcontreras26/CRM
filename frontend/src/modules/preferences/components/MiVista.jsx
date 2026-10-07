@@ -81,7 +81,7 @@ export default function MiVista({ preferences, update }) {
                     porElRol
                       ? 'border-border bg-muted/50 text-muted-foreground/60 line-through cursor-not-allowed'
                       : porMi
-                        ? 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 line-through'
+                        ? 'border-destructive/30 bg-destructive-soft text-destructive-soft-foreground line-through'
                         : 'border-border bg-card text-muted-foreground hover:bg-muted'
                   }`}
                 >

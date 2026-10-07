@@ -18,9 +18,9 @@ import { credencialesApi, type LineaRegistro } from '../api/credenciales.api';
 
 const ACCION: Record<string, { texto: string; Icon: typeof Eye; color: string }> = {
   'credencial.ver':     { texto: 'miró',      Icon: Eye,           color: 'bg-primary/10 text-primary' },
-  'credencial.crear':   { texto: 'puso',      Icon: Plus,          color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400' },
-  'credencial.cambiar': { texto: 'cambió',    Icon: PencilSimple,  color: 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400' },
-  'credencial.borrar':  { texto: 'borró',     Icon: Trash,         color: 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400' },
+  'credencial.crear':   { texto: 'puso',      Icon: Plus,          color: 'bg-success-soft text-success-soft-foreground' },
+  'credencial.cambiar': { texto: 'cambió',    Icon: PencilSimple,  color: 'bg-warning-soft text-warning-soft-foreground' },
+  'credencial.borrar':  { texto: 'borró',     Icon: Trash,         color: 'bg-destructive-soft text-destructive-soft-foreground' },
   'credencial.probar':  { texto: 'probó',     Icon: Flask,         color: 'bg-muted text-muted-foreground' },
 };
 

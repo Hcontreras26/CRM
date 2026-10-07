@@ -144,7 +144,7 @@ export default function LeadEmailDialog({
 
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {!leadEmail && (
-            <div className="bg-warning-soft border border-warning/30/50 rounded-md p-3 text-xs text-warning">
+            <div className="bg-warning-soft border border-warning/50 rounded-md p-3 text-xs text-warning">
               Este prospecto no tiene email. Edita la ficha y añade uno antes de enviar.
             </div>
           )}

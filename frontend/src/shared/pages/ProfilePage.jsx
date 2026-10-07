@@ -202,7 +202,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setConfirmDeleteAvatar(true)}
                 aria-label="Eliminar foto de perfil"
-                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-xs font-medium text-destructive hover:bg-destructive-soft transition-colors focus:outline-none focus:ring-2 focus:ring-destructive/40"
               >
                 <Trash size={14} weight="regular" /> Eliminar
               </button>

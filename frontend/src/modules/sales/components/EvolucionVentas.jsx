@@ -61,8 +61,8 @@ function Variacion({ v, invertir = false }) {
   const bueno = invertir ? n < 0 : n > 0;
   const Icono = plano ? Minus : (n > 0 ? TrendUp : TrendDown);
   const color = plano ? 'text-muted-foreground'
-    : bueno ? 'text-emerald-600 dark:text-emerald-400'
-      : 'text-red-600 dark:text-red-400';
+    : bueno ? 'text-success'
+      : 'text-destructive';
   return (
     <span className={`inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums ${color}`}>
       <Icono size={12} weight="bold" />
@@ -151,7 +151,7 @@ export default function EvolucionVentas({ projectId = null, issuerId = null, fro
   }
   if (error) {
     return (
-      <div className="bg-card border border-border rounded-lg p-6 text-sm text-red-600 dark:text-red-400">
+      <div className="bg-card border border-border rounded-lg p-6 text-sm text-destructive">
         {error}
       </div>
     );
@@ -207,7 +207,7 @@ export default function EvolucionVentas({ projectId = null, issuerId = null, fro
               {m.clave === 'tasa'
                 ? <span className={`text-xs font-semibold tabular-nums ${
                     Math.abs(v.tasa || 0) < 0.005 ? 'text-muted-foreground'
-                      : (v.tasa > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')
+                      : (v.tasa > 0 ? 'text-success' : 'text-destructive')
                   }`}>
                     {v.tasa > 0 ? '+' : ''}{new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(v.tasa || 0)} pts
                   </span>

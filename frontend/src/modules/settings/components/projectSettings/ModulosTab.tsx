@@ -82,7 +82,7 @@ export default function ModulosTab({ project, onSaved }) {
       ))}
 
       <div className="flex justify-end pt-2">
-        <button onClick={handleSave} disabled={saving} className="px-5 py-2.5 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 shadow disabled:opacity-50">
+        <button onClick={handleSave} disabled={saving} className="px-5 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 shadow disabled:opacity-50">
           {saving ? 'Guardando...' : 'Guardar modulos'}
         </button>
       </div>
