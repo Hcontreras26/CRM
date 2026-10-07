@@ -105,11 +105,13 @@ CREATE TABLE IF NOT EXISTS task_external_projects (
     description TEXT,
     url VARCHAR(500),
     color VARCHAR(30) NOT NULL DEFAULT 'gray',
+    sort_order INTEGER NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE task_external_projects ADD COLUMN IF NOT EXISTS url VARCHAR(500);
+ALTER TABLE task_external_projects ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
 
 -- 5. La tarea: área y proyecto propio
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS area_id INTEGER REFERENCES task_areas(id) ON DELETE SET NULL;

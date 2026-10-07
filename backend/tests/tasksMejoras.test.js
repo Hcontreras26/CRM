@@ -345,6 +345,13 @@ describe('2b · áreas', () => {
     expect(res.status).toBe(409);
   });
 
+  it('un área nueva va al final de la lista, no delante de Meta', async () => {
+    const lista = (await request.get('/api/tasks/areas').set(como('admin'))).body.data;
+    expect(lista[lista.length - 1].id).toBe(seo.id);
+    const meta = lista.find((a) => a.name === 'Meta');
+    expect(seo.sort_order).toBeGreaterThan(meta.sort_order);
+  });
+
   it('se filtra el tablero por área y se agrupan las métricas por área', async () => {
     const t = await crear('admin', { title: 'Del área SEO', assigned_to: U.colaborador.id, area_id: seo.id });
     const lista = await request.get(`/api/tasks?area_id=${seo.id}`).set(como('admin'));
@@ -395,6 +402,17 @@ describe('2c · proyectos propios', () => {
     const res = await request.patch(`/api/tasks/${t.id}`).set(como('admin')).send({ external_project_id: opynio.id });
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ project_id: null, external_project_id: opynio.id });
+  });
+
+  it('se reordena: el orden decide cómo salen en la lista', async () => {
+    const otro = await request.post('/api/tasks/external-projects').set(como('admin')).send({ name: `Web nueva ${MARCA}` });
+    expect(otro.status).toBe(201);
+    creados.proyectos.push(otro.body.data.id);
+    expect(otro.body.data.sort_order).toBeGreaterThan(opynio.sort_order ?? 0);
+    expect((await request.patch(`/api/tasks/external-projects/${otro.body.data.id}`).set(como('admin'))
+      .send({ sort_order: -1 })).status).toBe(200);
+    const ids = (await request.get('/api/tasks/external-projects').set(como('admin'))).body.data.map((p) => p.id);
+    expect(ids.indexOf(otro.body.data.id)).toBeLessThan(ids.indexOf(opynio.id));
   });
 
   it('una URL que no es http(s): 400', async () => {

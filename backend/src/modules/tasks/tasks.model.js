@@ -812,10 +812,11 @@ export async function findAreaById(id) {
   return rows[0] || null;
 }
 
-export async function createArea({ name, color = 'gray', sort_order = 0 }) {
+export async function createArea({ name, color = 'gray', sort_order = null }) {
+  // Sin orden, al final de la lista: con 0 una nueva saltaba delante de Meta.
   const { rows } = await query(
     `INSERT INTO task_areas (name, color, sort_order, is_active)
-     VALUES ($1, $2, $3, TRUE)
+     VALUES ($1, $2, COALESCE($3, (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM task_areas)), TRUE)
      RETURNING *`,
     [name, color, sort_order]
   );
@@ -913,19 +914,19 @@ export async function setUserAreas(userId, areaIds) {
 
 export async function findActiveExternalProjects() {
   const { rows } = await query(
-    `SELECT id, name, description, url, color, is_active, created_at, updated_at
+    `SELECT id, name, description, url, color, sort_order, is_active, created_at, updated_at
        FROM task_external_projects
       WHERE is_active = true
-      ORDER BY name ASC`
+      ORDER BY sort_order ASC, name ASC`
   );
   return rows;
 }
 
 export async function findAllExternalProjects() {
   const { rows } = await query(
-    `SELECT id, name, description, url, color, is_active, created_at, updated_at
+    `SELECT id, name, description, url, color, sort_order, is_active, created_at, updated_at
        FROM task_external_projects
-      ORDER BY name ASC`
+      ORDER BY sort_order ASC, name ASC`
   );
   return rows;
 }
@@ -936,9 +937,10 @@ export async function findExternalProjectById(id) {
 }
 
 export async function createExternalProject({ name, description = null, url = null, color = 'gray' }) {
+  // Al final de la lista.
   const { rows } = await query(
-    `INSERT INTO task_external_projects (name, description, url, color, is_active)
-     VALUES ($1, $2, $3, $4, TRUE)
+    `INSERT INTO task_external_projects (name, description, url, color, sort_order, is_active)
+     VALUES ($1, $2, $3, $4, (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM task_external_projects), TRUE)
      RETURNING *`,
     [name, description, url, color]
   );
@@ -946,7 +948,7 @@ export async function createExternalProject({ name, description = null, url = nu
 }
 
 export async function updateExternalProject(id, fields) {
-  const allowed = ['name', 'description', 'url', 'color', 'is_active'];
+  const allowed = ['name', 'description', 'url', 'color', 'sort_order', 'is_active'];
   const sets = [];
   const params = [];
 

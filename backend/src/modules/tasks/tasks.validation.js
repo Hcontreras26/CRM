@@ -217,5 +217,6 @@ export const updateExternalProjectSchema = z.object({
     .refine((u) => /^https?:\/\//i.test(u), 'El enlace tiene que empezar por http:// o https://')
     .optional().nullable(),
   color: colorTablero.optional(),
+  sort_order: z.number().int().optional(),
   is_active: z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });

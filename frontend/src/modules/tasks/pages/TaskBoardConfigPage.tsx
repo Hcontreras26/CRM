@@ -110,6 +110,22 @@ function Punto({ color }: { color: string | null | undefined }) {
   return <span className={`w-3 h-3 rounded-full flex-shrink-0 ${boardColor(color).dot}`} aria-hidden />;
 }
 
+/**
+ * Subir o bajar una fila: se intercambia su orden con el de la vecina. Si
+ * tenían el mismo (filas antiguas), se reparten de 10 en 10 antes.
+ */
+async function intercambiar<T extends { id: number; sort_order: number }>(
+  lista: T[], i: number, d: -1 | 1, guardar: (id: number, sort_order: number) => Promise<unknown>
+) {
+  const a = lista[i];
+  const b = lista[i + d];
+  if (!a || !b) return;
+  const ordenA = a.sort_order === b.sort_order ? (i + d + 1) * 10 : b.sort_order;
+  const ordenB = a.sort_order === b.sort_order ? (i + 1) * 10 : a.sort_order;
+  await guardar(a.id, ordenA);
+  await guardar(b.id, ordenB);
+}
+
 function Archivada() {
   return <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Archivada</span>;
 }
@@ -247,6 +263,14 @@ function Areas() {
   }, [cargarAsignaciones]);
 
   const de = (areaId: number) => asignaciones.filter((a) => a.area_id === areaId).map((a) => a.user_id);
+  const ordenadas = [...items].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id);
+
+  async function moverArea(i: number, d: -1 | 1) {
+    try {
+      await intercambiar(ordenadas, i, d, (id, sort_order) => tasksApi.updateArea(id, { sort_order }));
+      recargar();
+    } catch (err) { fallo('No se pudo ordenar', err); }
+  }
 
   async function crear(e: FormEvent) {
     e.preventDefault();
@@ -282,7 +306,7 @@ function Areas() {
           <p className="bg-card border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">Todavía no hay áreas.</p>
         ) : (
           <ul className="bg-card border border-border rounded-lg divide-y divide-border">
-            {items.map((a) => (
+            {ordenadas.map((a, i) => (
               <li key={a.id} className={`px-3 py-2 space-y-2 ${a.is_active ? '' : 'opacity-70'}`}>
                 <div className="flex flex-wrap items-center gap-2">
                   {editando === a.id ? (
@@ -300,6 +324,8 @@ function Areas() {
                       <Button size="sm" variant="ghost" className="h-8" onClick={() => { setMiembros(a.id); setSeleccion(new Set(de(a.id))); }}>
                         <Users size={14} className="mr-1" /> Personas
                       </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" disabled={i === 0} onClick={() => moverArea(i, -1)} aria-label={`Subir ${a.name}`}><ArrowUp size={14} /></Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" disabled={i === ordenadas.length - 1} onClick={() => moverArea(i, 1)} aria-label={`Bajar ${a.name}`}><ArrowDown size={14} /></Button>
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditando(a.id)} aria-label={`Renombrar ${a.name}`}><PencilSimple size={14} /></Button>
                       {a.is_active ? (
                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => activar(a, false)} aria-label={`Archivar ${a.name}`}><Archive size={14} /></Button>
@@ -364,6 +390,16 @@ function Proyectos() {
     } catch (err) { fallo('No se pudo crear el proyecto', err); }
   }
 
+  const ordenados = [...items].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
+
+  async function moverProyecto(i: number, d: -1 | 1) {
+    try {
+      await intercambiar(ordenados.map((p) => ({ ...p, sort_order: p.sort_order ?? 0 })), i, d,
+        (id, sort_order) => tasksApi.updateExternalProject(id, { sort_order }));
+      recargar();
+    } catch (err) { fallo('No se pudo ordenar', err); }
+  }
+
   async function activar(p: TaskExternalProject, activo: boolean) {
     try { await tasksApi.updateExternalProject(p.id, { is_active: activo }); recargar(); } catch (err) { fallo('No se pudo cambiar', err); }
   }
@@ -386,7 +422,7 @@ function Proyectos() {
           <p className="bg-card border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">Todavía no hay proyectos propios.</p>
         ) : (
           <ul className="bg-card border border-border rounded-lg divide-y divide-border">
-            {items.map((p) => (
+            {ordenados.map((p, i) => (
               <li key={p.id} className={`flex flex-wrap items-center gap-2 px-3 py-2 ${p.is_active ? '' : 'opacity-70'}`}>
                 {editando === p.id ? (
                   <EditarNombreColor
@@ -409,6 +445,8 @@ function Proyectos() {
                     )}
                     <span className="flex-1" />
                     {!p.is_active && <Archivada />}
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={i === 0} onClick={() => moverProyecto(i, -1)} aria-label={`Subir ${p.name}`}><ArrowUp size={14} /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={i === ordenados.length - 1} onClick={() => moverProyecto(i, 1)} aria-label={`Bajar ${p.name}`}><ArrowDown size={14} /></Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditando(p.id); setUrlEdicion(p.url || ''); }} aria-label={`Editar ${p.name}`}><PencilSimple size={14} /></Button>
                     {p.is_active ? (
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => activar(p, false)} aria-label={`Archivar ${p.name}`}><Archive size={14} /></Button>
