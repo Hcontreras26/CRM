@@ -64,14 +64,14 @@ export default function ApisTab({ project }) {
                   <>
                     <span className={`px-2 py-0.5 rounded-full text-secundario font-medium ${
                       cred.last_test_result === 'ok'
-                        ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                        ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'
                     }`}>{cred.last_test_result || 'sin probar'}</span>
-                    <button onClick={() => handleTest(cred.id)} className="text-secundario px-2 py-1 rounded bg-blue-50 text-blue-600 font-semibold">Test</button>
+                    <button onClick={() => handleTest(cred.id)} className="text-secundario px-2 py-1 rounded bg-info-soft text-info font-semibold">Test</button>
                     <button onClick={() => setDialogSvc(svc)} className="text-secundario px-2 py-1 rounded border border-border font-semibold">Editar</button>
-                    <button onClick={() => handleDelete(cred.id)} aria-label="Eliminar credencial" className="p-1 rounded hover:bg-red-50 text-red-500"><X size={14} /></button>
+                    <button onClick={() => handleDelete(cred.id)} aria-label="Eliminar credencial" className="p-1 rounded hover:bg-destructive-soft text-destructive"><X size={14} /></button>
                   </>
                 ) : (
-                  <button onClick={() => setDialogSvc(svc)} className="text-secundario px-3 py-1.5 rounded-lg bg-primary text-white font-semibold">Configurar</button>
+                  <button onClick={() => setDialogSvc(svc)} className="text-secundario px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-semibold">Configurar</button>
                 )}
               </div>
             );
@@ -132,7 +132,7 @@ function CredentialQuickDialog({ project, service, existing, onClose, onSaved })
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">{saving ? 'Guardando...' : 'Guardar'}</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">{saving ? 'Guardando...' : 'Guardar'}</button>
           </div>
         </form>
       </div>

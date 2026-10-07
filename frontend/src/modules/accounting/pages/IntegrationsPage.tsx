@@ -74,17 +74,17 @@ export default function IntegrationsPage() {
         title={(
           <span className="flex items-center gap-2">
             Integraciones
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400">PRUEBAS</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning-soft text-warning-soft-foreground">PRUEBAS</span>
           </span>
         ) as unknown as string}
         subtitle={`Configura conexiones externas (Stripe, Brevo) para ${activeProject?.nombre || 'el proyecto activo'}.`}
       />
 
-      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4 text-sm space-y-2">
-        <p className="font-semibold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+      <div className="bg-info-soft border border-info/30 rounded-lg p-4 text-sm space-y-2">
+        <p className="font-semibold text-info-soft-foreground flex items-center gap-1.5">
           <Question size={14} weight="bold" /> Cómo funciona esta página
         </p>
-        <div className="text-blue-900/90 dark:text-blue-300/90 text-xs space-y-1.5">
+        <div className="text-info text-xs space-y-1.5">
           <p><strong>1) Guardar credenciales</strong> — pegas la API key y se cifra en DB con AES-256. No se descarga ningún dato.</p>
           <p><strong>2) Probar conexión</strong> — el CRM hace 1 request a la API del proveedor para validar la key. Si responde 200, queda <em>Conectado</em>.</p>
           <p><strong>3) Uso real:</strong></p>
@@ -92,7 +92,7 @@ export default function IntegrationsPage() {
             <li><strong>Stripe:</strong> en proyectos IA, el dashboard hace live fetch de MRR / suscripciones / cobros fallidos. El webhook de pagos para crear conversions automáticas <em>está en desarrollo</em>.</li>
             <li><strong>Brevo:</strong> envía emails transaccionales (lead asignado, recordatorios, confirmación de pago) usando el From email validado. La automatización de resúmenes diarios / SLA 30min está en desarrollo.</li>
           </ul>
-          <p className="text-amber-700 dark:text-amber-400 pt-1">
+          <p className="text-warning-soft-foreground pt-1">
             <strong>⚠ Importante:</strong> cada proyecto tiene sus propias credenciales. Cambiá el proyecto en el sidebar antes de configurar para no mezclar cuentas.
           </p>
         </div>
@@ -204,7 +204,7 @@ function StripeCard({ projectId }: { projectId: number }) {
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="px-5 py-4 border-b border-border flex items-start gap-3">
-        <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 flex items-center justify-center flex-shrink-0">
+        <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
           <CreditCard size={22} weight="duotone" />
         </div>
         <div className="flex-1">
@@ -235,7 +235,7 @@ function StripeCard({ projectId }: { projectId: number }) {
               <ol className="list-decimal list-inside space-y-1 pl-1 text-muted-foreground">
                 <li>Entra a <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-0.5 hover:underline">dashboard.stripe.com/apikeys <ArrowSquareOut size={10} weight="bold" /></a></li>
                 <li><strong>Pruebas:</strong> arriba a la izquierda activa <strong>"Modo prueba"</strong> y copia la "Secret key" (empieza por <code className="px-1 rounded bg-card">sk_test_…</code>).</li>
-                <li><strong>Producción:</strong> desactiva modo prueba y copia la "Secret key live" (<code className="px-1 rounded bg-card">sk_live_…</code>). <span className="text-red-600 dark:text-red-400 font-semibold">Acceso real a movimientos de dinero.</span></li>
+                <li><strong>Producción:</strong> desactiva modo prueba y copia la "Secret key live" (<code className="px-1 rounded bg-card">sk_live_…</code>). <span className="text-destructive font-semibold">Acceso real a movimientos de dinero.</span></li>
                 <li>Pégala abajo en <em>API Key</em>, pulsa <strong>Guardar</strong> y luego <strong>Probar conexión</strong>.</li>
               </ol>
             </div>
@@ -251,7 +251,7 @@ function StripeCard({ projectId }: { projectId: number }) {
               <ol className="list-decimal list-inside space-y-1 pl-1 text-muted-foreground">
                 <li>En Stripe → <strong>Developers</strong> → <strong>Webhooks</strong> → <strong>"Add endpoint"</strong>.</li>
                 <li>URL del endpoint:<br/><code className="px-1 rounded bg-card text-[10px] break-all">{urlWebhook(projectId)}</code>
-                  {!projectId && <span className="text-amber-600 dark:text-amber-400"> — elige antes un proyecto: la dirección lleva su número.</span>}</li>
+                  {!projectId && <span className="text-warning"> — elige antes un proyecto: la dirección lleva su número.</span>}</li>
                 <li>Eventos a escuchar:{' '}
                   {EVENTOS_DEL_WEBHOOK.map((e, i) => (
                     <span key={e}>{i > 0 && ', '}<code className="px-1 rounded bg-card">{e}</code></span>
@@ -276,7 +276,7 @@ function StripeCard({ projectId }: { projectId: number }) {
               </ul>
             </div>
 
-            <p className="text-amber-700 dark:text-amber-400 pt-1 border-t border-border/50">
+            <p className="text-warning-soft-foreground pt-1 border-t border-border/50">
               <strong>⚠ Seguridad:</strong> nunca compartas la <code className="px-1 rounded bg-card">sk_live_…</code> por chat o email. Si se filtra, rotala desde el dashboard de Stripe.
             </p>
           </div>
@@ -339,7 +339,7 @@ function StripeCard({ projectId }: { projectId: number }) {
           </button>
           {data?.has_secret && (
             <button onClick={clear}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-red-300 dark:border-red-900 bg-card text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 ml-auto">
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-destructive/30 bg-card text-sm font-semibold text-destructive hover:bg-destructive-soft ml-auto">
               <Trash size={14} weight="bold" /> Eliminar
             </button>
           )}
@@ -434,7 +434,7 @@ function BrevoCard({ projectId }: { projectId: number }) {
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="px-5 py-4 border-b border-border flex items-start gap-3">
-        <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+        <div className="w-10 h-10 rounded-lg bg-success-soft text-success-soft-foreground flex items-center justify-center flex-shrink-0">
           <EnvelopeSimple size={22} weight="duotone" />
         </div>
         <div className="flex-1">
@@ -460,7 +460,7 @@ function BrevoCard({ projectId }: { projectId: number }) {
               <li>Rellena <strong>From name</strong> con el nombre que verán los destinatarios (ej. "ISEIH" o "CRM ISEIH").</li>
               <li>Guarda y pulsa <strong>"Probar conexión"</strong>. Si la cuenta responde, la API key es válida.</li>
             </ol>
-            <p className="text-amber-700 dark:text-amber-400 pt-1">
+            <p className="text-warning-soft-foreground pt-1">
               <strong>Importante:</strong> el correo de "From email" debe estar validado en Brevo, sino los envíos rebotarán.
             </p>
           </div>
@@ -514,7 +514,7 @@ function BrevoCard({ projectId }: { projectId: number }) {
           </button>
           {data?.has_secret && (
             <button onClick={clear}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-red-300 dark:border-red-900 bg-card text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 ml-auto">
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-destructive/30 bg-card text-sm font-semibold text-destructive hover:bg-destructive-soft ml-auto">
               <Trash size={14} weight="bold" /> Eliminar
             </button>
           )}
@@ -533,17 +533,17 @@ function StatusPill({ data }: { data: Integration | null }) {
     </span>
   );
   if (data.last_test_status === 'success') return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-success-soft text-success-soft-foreground">
       <CheckCircle size={10} weight="fill" /> Conectado
     </span>
   );
   if (data.last_test_status === 'error') return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400">
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-destructive-soft text-destructive-soft-foreground">
       <WarningCircle size={10} weight="fill" /> Error
     </span>
   );
   return (
-    <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
+    <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-info-soft text-info-soft-foreground">
       Guardado · sin probar
     </span>
   );
@@ -553,7 +553,7 @@ function TestStatus({ data }: { data: Integration | null }) {
   if (!data?.last_test_at) return null;
   const ok = data.last_test_status === 'success';
   return (
-    <div className={`text-xs p-2 rounded-md ${ok ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-400'}`}>
+    <div className={`text-xs p-2 rounded-md ${ok ? 'bg-success-soft text-success-soft-foreground' : 'bg-destructive-soft text-destructive-soft-foreground'}`}>
       <div className="flex items-center gap-1.5">
         {ok ? <CheckCircle size={12} weight="fill" /> : <WarningCircle size={12} weight="fill" />}
         <strong>Último test:</strong> <span>{fmt(data.last_test_at)}</span>

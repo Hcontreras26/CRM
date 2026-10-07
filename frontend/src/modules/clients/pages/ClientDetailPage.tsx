@@ -34,10 +34,10 @@ const MergeLeadDialog = lazy(() => import('@/modules/leads/components/MergeLeadD
 
 const INTERACTION_ICONS = { llamada: Phone, email: EnvelopeSimple, whatsapp: WhatsappLogo, nota: Note };
 const INTERACTION_COLORS = {
-  llamada:  'text-blue-600 bg-blue-50 dark:bg-blue-950/30',
-  email:    'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30',
-  whatsapp: 'text-green-600 bg-green-50 dark:bg-green-950/30',
-  nota:     'text-amber-600 bg-amber-50 dark:bg-amber-950/30',
+  llamada:  'text-info bg-info-soft',
+  email:    'text-success bg-success-soft',
+  whatsapp: 'text-success bg-success-soft',
+  nota:     'text-warning bg-warning-soft',
 };
 
 function fmt(n) {
@@ -65,9 +65,9 @@ function getInitials(name) {
 function KpiCard({ label, value, color = 'default', icon: Icon }) {
   const colors = {
     default: 'text-foreground',
-    green: 'text-emerald-600 dark:text-emerald-400',
-    orange: 'text-orange-600 dark:text-orange-400',
-    blue: 'text-blue-600 dark:text-blue-400',
+    green: 'text-success',
+    orange: 'text-warning',
+    blue: 'text-info',
   };
   return (
     <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-1">
@@ -224,7 +224,7 @@ export default function ClientDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
             <h2 className="text-xl font-bold">{lead.nombre}</h2>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-success-soft text-success-soft-foreground">
               <CheckCircle size={11} weight="fill" /> Cliente
             </span>
             {lead.origen && <ChannelBadge channel={lead.origen} />}
@@ -248,7 +248,7 @@ export default function ClientDetailPage() {
         <div className="flex items-center gap-2 flex-shrink-0">
           {waPhone && (
             <button type="button" onClick={abrirChatAqui} aria-label="Abrir el chat en el CRM"
-              className="h-9 px-3 rounded-lg border border-border bg-card hover:bg-green-50 dark:hover:bg-green-950/30 text-muted-foreground hover:text-green-700 dark:hover:text-green-400 transition-colors flex items-center gap-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/40">
+              className="h-9 px-3 rounded-lg border border-border bg-card hover:bg-success-soft text-muted-foreground hover:text-success-soft-foreground transition-colors flex items-center gap-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/40">
               <WhatsappLogo size={15} weight="regular" />
               <span className="hidden sm:inline">WhatsApp</span>
             </button>
@@ -284,7 +284,7 @@ export default function ClientDetailPage() {
               onClick={() => setMergeOpen(true)}
               aria-label="Fusionar cliente duplicado"
               title="Fusionar con otro cliente duplicado (mueve historial y elimina el duplicado)"
-              className="h-9 px-3 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-950/50 transition-colors flex items-center gap-1.5 text-sm font-medium"
+              className="h-9 px-3 rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-colors flex items-center gap-1.5 text-sm font-medium"
             >
               <GitMerge size={14} weight="regular" />
               <span className="hidden sm:inline">Fusionar</span>
@@ -295,7 +295,7 @@ export default function ClientDetailPage() {
               onClick={() => setDeleteOpen(true)}
               aria-label="Eliminar cliente (soft delete)"
               title="Eliminar cliente (queda en auditoría, no se ve más)"
-              className="h-9 px-3 rounded-lg border border-red-200 dark:border-red-800 bg-card hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-600 transition-colors flex items-center gap-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-400/40"
+              className="h-9 px-3 rounded-lg border border-destructive/30 bg-card hover:bg-destructive-soft text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-destructive/40"
             >
               <Trash size={14} weight="regular" />
               <span className="hidden sm:inline">Eliminar</span>

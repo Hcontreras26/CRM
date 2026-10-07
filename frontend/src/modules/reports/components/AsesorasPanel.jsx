@@ -155,8 +155,8 @@ export default function AsesorasPanel({ from, to }) {
           Pulsa cualquier número para ver los registros que hay detrás, con buscador.
         </p>
         <div className="mt-1.5 flex items-center gap-3 text-[10px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500" /> cobro de la venta</span>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-sky-500" /> cuota del plan de pago</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-success" /> cobro de la venta</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-info" /> cuota del plan de pago</span>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-md border border-border overflow-hidden">
@@ -220,7 +220,7 @@ export default function AsesorasPanel({ from, to }) {
                 <span className="text-[11px] text-muted-foreground">
                   <Num tipo="ventas" mes={m.mes}>{m.ventas}</Num> ventas
                 </span>
-                <span className="text-[11px] text-sky-600 dark:text-sky-400">
+                <span className="text-[11px] text-info">
                   <Num tipo="mensualidades" mes={m.mes}>{m.mensualidades}</Num> mensual.
                 </span>
                 <span className="text-[11px] text-muted-foreground tabular-nums">{tasa.toFixed(2)}%</span>
@@ -228,11 +228,11 @@ export default function AsesorasPanel({ from, to }) {
                 {m.cobrado > 0 && (
                   <span className="hidden md:flex h-2 w-28 rounded-full overflow-hidden bg-muted"
                     title={`${fmtMoney(m.cobradoVenta)} de ventas · ${fmtMoney(m.cobradoCuotas)} de cuotas`}>
-                    <span className="bg-emerald-500" style={{ width: `${(m.cobradoVenta / m.cobrado) * 100}%` }} />
-                    <span className="bg-sky-500" style={{ width: `${(m.cobradoCuotas / m.cobrado) * 100}%` }} />
+                    <span className="bg-success" style={{ width: `${(m.cobradoVenta / m.cobrado) * 100}%` }} />
+                    <span className="bg-info" style={{ width: `${(m.cobradoCuotas / m.cobrado) * 100}%` }} />
                   </span>
                 )}
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 w-28 text-right">
+                <span className="text-sm font-bold text-success w-28 text-right">
                   <Num tipo="cobros" mes={m.mes}>{fmtMoney(m.cobrado)}</Num>
                 </span>
               </div>
@@ -271,26 +271,26 @@ export default function AsesorasPanel({ from, to }) {
                           <td className="px-3 py-2 text-right">
                             <Num tipo="leads" mes={m.mes} asesora={a}>{Number(a.leads).toLocaleString('es-ES')}</Num>
                           </td>
-                          <td className="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400">
+                          <td className="px-3 py-2 text-right text-success">
                             <Num tipo="leads-convertidos" mes={m.mes} asesora={a}>{Number(a.leads_convertidos || 0).toLocaleString('es-ES')}</Num>
                           </td>
                           <td className="px-3 py-2 text-right font-semibold">
                             <Num tipo="ventas" mes={m.mes} asesora={a}>{a.ventas}</Num>
                           </td>
-                          <td className="px-3 py-2 text-right text-sky-600 dark:text-sky-400">
+                          <td className="px-3 py-2 text-right text-info">
                             <Num tipo="mensualidades" mes={m.mes} asesora={a}>{a.mensualidades}</Num>
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">{Number(a.tasa_conversion).toFixed(2)}%</td>
                           <td className="px-3 py-2 text-right">
                             <Num tipo="ventas" mes={m.mes} asesora={a}>{fmtMoney(a.vendido)}</Num>
                           </td>
-                          <td className="px-3 py-2 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                          <td className="px-3 py-2 text-right font-semibold text-success">
                             <Num tipo="cobros" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado)}</Num>
                           </td>
                           <td className="px-3 py-2 text-right text-muted-foreground">
                             <Num tipo="cobros-venta" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado_venta)}</Num>
                           </td>
-                          <td className="px-3 py-2 text-right text-sky-600 dark:text-sky-400">
+                          <td className="px-3 py-2 text-right text-info">
                             <Num tipo="mensualidades" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado_cuotas)}</Num>
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{fmtMoney(a.ticket_medio)}</td>
@@ -301,26 +301,26 @@ export default function AsesorasPanel({ from, to }) {
                         <td className="px-3 py-2 text-right">
                           <Num tipo="leads" mes={m.mes}>{m.leads.toLocaleString('es-ES')}</Num>
                         </td>
-                        <td className="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400">
+                        <td className="px-3 py-2 text-right text-success">
                           <Num tipo="leads-convertidos" mes={m.mes}>{m.convertidos.toLocaleString('es-ES')}</Num>
                         </td>
                         <td className="px-3 py-2 text-right">
                           <Num tipo="ventas" mes={m.mes}>{m.ventas}</Num>
                         </td>
-                        <td className="px-3 py-2 text-right text-sky-600 dark:text-sky-400">
+                        <td className="px-3 py-2 text-right text-info">
                           <Num tipo="mensualidades" mes={m.mes}>{m.mensualidades}</Num>
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">{tasa.toFixed(2)}%</td>
                         <td className="px-3 py-2 text-right">
                           <Num tipo="ventas" mes={m.mes}>{fmtMoney(m.vendido)}</Num>
                         </td>
-                        <td className="px-3 py-2 text-right text-emerald-600 dark:text-emerald-400">
+                        <td className="px-3 py-2 text-right text-success">
                           <Num tipo="cobros" mes={m.mes}>{fmtMoney(m.cobrado)}</Num>
                         </td>
                         <td className="px-3 py-2 text-right">
                           <Num tipo="cobros-venta" mes={m.mes}>{fmtMoney(m.cobradoVenta)}</Num>
                         </td>
-                        <td className="px-3 py-2 text-right text-sky-600 dark:text-sky-400">
+                        <td className="px-3 py-2 text-right text-info">
                           <Num tipo="mensualidades" mes={m.mes}>{fmtMoney(m.cobradoCuotas)}</Num>
                         </td>
                         <td className="px-3 py-2"></td>

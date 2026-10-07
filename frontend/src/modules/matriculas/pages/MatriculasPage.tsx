@@ -27,12 +27,20 @@ const ESTADO_LABEL = {
   validada: 'Validada',
   rechazada: 'Rechazada',
 };
+// CINCO ESTADOS, CINCO ASPECTOS. Tres son semánticos de libro —pendiente,
+// validada, rechazada—. Los otros dos son pasos de un recorrido y no dicen si
+// algo va bien o mal; antes eran sky e indigo, que no significan nada.
+//
+// Ahora: lo que acaba de llegar y nadie ha tocado se pinta neutro, y lo que ya
+// avanzó un paso se pinta como información. Si los dos cayeran en `info` —que
+// es lo que hizo la sustitución automática— dejarían de distinguirse, y esta
+// tabla existe justamente para distinguirlos.
 const ESTADO_COLOR = {
-  solicitud_admision: 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-900',
-  datos_validados: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900',
-  pendiente: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900',
-  validada: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900',
-  rechazada: 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900',
+  solicitud_admision: 'bg-muted text-muted-foreground border-border',
+  datos_validados: 'bg-info-soft text-info-soft-foreground border-info/30',
+  pendiente: 'bg-warning-soft text-warning-soft-foreground border-warning/30',
+  validada: 'bg-success-soft text-success-soft-foreground border-success/30',
+  rechazada: 'bg-destructive-soft text-destructive-soft-foreground border-destructive/30',
 };
 
 export default function MatriculasPage() {

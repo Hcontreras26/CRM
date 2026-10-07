@@ -69,7 +69,7 @@ export default function MakeWebhooksPage() {
           <button
             onClick={createNew}
             disabled={creating || !activeProject?.id}
-            className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
           >
             <Plus size={14} weight="bold" /> Nuevo conector
           </button>

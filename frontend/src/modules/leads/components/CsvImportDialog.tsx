@@ -390,14 +390,14 @@ export default function CsvImportDialog({ open, onClose, projectId, onImported }
                   Atras
                 </button>
                 <button onClick={handleImport} disabled={!allRequiredMapped}
-                  className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+                  className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
                   <UploadSimple size={14} weight="bold" /> Importar {parsed.rows.length} prospectos
                 </button>
               </>
             )}
             {step === 4 && (
               <button onClick={onClose}
-                className="inline-flex items-center h-9 px-4 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90">
+                className="inline-flex items-center h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
                 <Check size={14} weight="bold" className="mr-1" /> Listo
               </button>
             )}

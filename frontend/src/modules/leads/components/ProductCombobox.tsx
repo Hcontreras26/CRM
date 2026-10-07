@@ -100,7 +100,7 @@ export default function ProductCombobox({ value, onChange, products, projectId, 
             <button
               type="button"
               onClick={() => { setNewOpen(true); setOpen(false); }}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90"
             >
               <Plus size={14} weight="bold" /> Añadir {projectLabel.toLowerCase()} nuevo
             </button>
@@ -214,7 +214,7 @@ function NewProductDialog({ projectId, projectLabel, initialName = '', onClose, 
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
-            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">{saving ? 'Guardando...' : `Crear ${projectLabel.toLowerCase()}`}</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">{saving ? 'Guardando...' : `Crear ${projectLabel.toLowerCase()}`}</button>
           </div>
         </form>
       </div>

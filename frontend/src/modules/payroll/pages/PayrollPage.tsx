@@ -282,7 +282,7 @@ function PlanEditor({ plan, users, onSave, onClose }: PlanEditorProps) {
           </label>
           <div className="flex justify-end gap-2 pt-3 border-t border-border">
             <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs font-bold">Cancelar</button>
-            <button onClick={() => onSave(p)} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold"><FloppyDisk size={14} weight="bold" /> Guardar</button>
+            <button onClick={() => onSave(p)} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold"><FloppyDisk size={14} weight="bold" /> Guardar</button>
           </div>
         </div>
       </div>
@@ -337,7 +337,7 @@ function PeriodsTab({ project, ambito, deUnCampus }: TabProps) {
           ariaLabel="Mes"
           className="w-20"
         />
-        <button onClick={generateAll} className="ml-auto px-3 py-1.5 rounded bg-primary text-white text-xs font-bold">Generar/recalcular periodos</button>
+        <button onClick={generateAll} className="ml-auto px-3 py-1.5 rounded bg-primary text-primary-foreground text-xs font-bold">Generar/recalcular periodos</button>
       </div>
       {loading ? <SkeletonTable rows={4} columns={8} /> : periods.length === 0 ? (
         <EmptyState icon={Calendar} title="Sin periodos" description="Genera los periodos del mes" />
@@ -457,7 +457,7 @@ function HoursTab({ project, ambito, deUnCampus }: TabProps) {
         <input type="date" value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} className="h-10 px-3 rounded-lg border border-border bg-muted/30 text-sm" />
         <input type="number" step="0.25" placeholder="Horas" value={form.horas} onChange={e => setForm({ ...form, horas: e.target.value })} className="h-10 px-3 rounded-lg border border-border bg-muted/30 text-sm" />
         <input placeholder="Notas" value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })} className="h-10 px-3 rounded-lg border border-border bg-muted/30 text-sm md:col-span-1" />
-        <button onClick={add} className="h-10 px-4 rounded-lg bg-primary text-white text-sm font-bold flex items-center justify-center gap-1"><Plus size={14} weight="bold" /> Registrar</button>
+        <button onClick={add} className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-1"><Plus size={14} weight="bold" /> Registrar</button>
       </div>
 
       {loading ? <SkeletonTable rows={4} columns={5} /> : hours.length === 0 ? (

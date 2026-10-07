@@ -75,7 +75,7 @@ export default function ClientesVentas({ projectId = null, issuerId = null, from
 
   if (cargando) return <div className="bg-card border border-border rounded-lg p-6 h-[300px] animate-pulse" />;
   if (error) {
-    return <div className="bg-card border border-border rounded-lg p-6 text-sm text-red-600 dark:text-red-400">{error}</div>;
+    return <div className="bg-card border border-border rounded-lg p-6 text-sm text-destructive">{error}</div>;
   }
   if (!filas.length) return null;
 
@@ -155,7 +155,7 @@ export default function ClientesVentas({ projectId = null, issuerId = null, from
                       {/* El aviso es icono + texto, no color a secas. */}
                       {f.vencidas > 0 && (
                         <span title={`${f.vencidas} cuotas vencidas`}
-                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-warning-soft-foreground shrink-0">
                           <Warning size={11} weight="fill" />{f.vencidas}
                         </span>
                       )}
@@ -166,7 +166,7 @@ export default function ClientesVentas({ projectId = null, issuerId = null, from
                       {f.compartida && (
                         <span
                           title={f.asesoras ? `Compartida con ${f.asesoras}` : 'Venta compartida entre dos gestoras'}
-                          className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap shrink-0 bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+                          className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap shrink-0 bg-primary/10 text-primary"
                         >
                           COMPARTIDO
                         </span>
@@ -178,7 +178,7 @@ export default function ClientesVentas({ projectId = null, issuerId = null, from
                   <td className="py-1.5 px-2 text-right tabular-nums font-semibold">{eur(f.importe)}</td>
                   <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{eur(f.cobrado)}</td>
                   <td className={`py-1.5 pl-2 text-right tabular-nums font-semibold ${
-                    f.pendiente > 0.01 ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'
+                    f.pendiente > 0.01 ? 'text-warning-soft-foreground' : 'text-muted-foreground'
                   }`}>
                     {eur(f.pendiente)}
                   </td>

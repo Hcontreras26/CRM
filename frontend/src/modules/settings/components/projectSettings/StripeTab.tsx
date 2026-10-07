@@ -19,8 +19,8 @@ export default function StripeTab({ project }) {
 
   if (error) return (
     <div className="p-8 text-center">
-      <WarnIcon size={28} className="text-red-500 mx-auto mb-2" weight="regular" />
-      <p className="text-red-600 font-semibold text-sm">No se pudieron cargar las métricas de Stripe</p>
+      <WarnIcon size={28} className="text-destructive mx-auto mb-2" weight="regular" />
+      <p className="text-destructive font-semibold text-sm">No se pudieron cargar las métricas de Stripe</p>
       <p className="text-xs text-muted-foreground mt-1">{error}</p>
     </div>
   );
@@ -36,10 +36,10 @@ export default function StripeTab({ project }) {
   );
 
   const kpis = [
-    { icon: CreditCard, label: 'MRR actual', value: fmtMoney(metrics.mrr), delta: mrrDelta, color: 'bg-violet-100 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400' },
-    { icon: Users, label: 'Suscripciones activas', value: fmtNum(metrics.activeSubs), delta: subsDelta, color: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400' },
-    { icon: TrendDown, label: 'Churn rate mensual', value: fmtPct(metrics.churnRate), color: metrics.churnRate > 5 ? 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' },
-    { icon: WarnIcon, label: 'Cobros fallidos', value: fmtNum(metrics.failedPayments), color: metrics.failedPayments > 0 ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400' : 'bg-muted text-muted-foreground' },
+    { icon: CreditCard, label: 'MRR actual', value: fmtMoney(metrics.mrr), delta: mrrDelta, color: 'bg-primary/10 text-primary' },
+    { icon: Users, label: 'Suscripciones activas', value: fmtNum(metrics.activeSubs), delta: subsDelta, color: 'bg-info-soft text-info-soft-foreground' },
+    { icon: TrendDown, label: 'Churn rate mensual', value: fmtPct(metrics.churnRate), color: metrics.churnRate > 5 ? 'bg-destructive-soft text-destructive-soft-foreground' : 'bg-success-soft text-success-soft-foreground' },
+    { icon: WarnIcon, label: 'Cobros fallidos', value: fmtNum(metrics.failedPayments), color: metrics.failedPayments > 0 ? 'bg-warning-soft text-warning-soft-foreground' : 'bg-muted text-muted-foreground' },
   ];
 
   return (
@@ -53,7 +53,7 @@ export default function StripeTab({ project }) {
                 <Icon size={16} weight="duotone" />
               </div>
               {delta && (
-                <span className={`text-secundario font-bold ${delta.growing ? 'text-emerald-600' : 'text-red-500'}`}>
+                <span className={`text-secundario font-bold ${delta.growing ? 'text-success' : 'text-destructive'}`}>
                   {delta.growing ? '↑' : '↓'} {Math.abs(delta.pct)}%
                 </span>
               )}
@@ -66,11 +66,11 @@ export default function StripeTab({ project }) {
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-muted/30 rounded-lg p-4 border border-border text-center">
           <p className="text-xs text-muted-foreground">Nuevas suscripciones (mes)</p>
-          <p className="text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400 mt-1">+{metrics.newSubs}</p>
+          <p className="text-2xl font-semibold tabular-nums text-success-soft-foreground mt-1">+{metrics.newSubs}</p>
         </div>
         <div className="bg-muted/30 rounded-lg p-4 border border-border text-center">
           <p className="text-xs text-muted-foreground">Cancelaciones (mes)</p>
-          <p className="text-2xl font-semibold tabular-nums text-red-700 dark:text-red-400 mt-1">−{metrics.cancelledSubs}</p>
+          <p className="text-2xl font-semibold tabular-nums text-destructive-soft-foreground mt-1">−{metrics.cancelledSubs}</p>
         </div>
       </div>
     </div>

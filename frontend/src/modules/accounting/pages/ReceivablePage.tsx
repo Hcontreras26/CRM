@@ -133,10 +133,10 @@ export default function ReceivablePage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard icon={Receipt} iconBg="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400" label="Cobros pendientes" numericValue={resumen?.count ?? visibles.length} />
-        <KpiCard icon={Wallet} iconBg="bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400" label="Total pendiente" numericValue={totalPend} format={fmt} />
-        <KpiCard icon={WarningCircle} iconBg={(resumen?.count_vencidas || 0) > 0 ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400' : 'bg-muted text-muted-foreground'} label="Vencidas" numericValue={resumen?.count_vencidas ?? 0} />
-        <KpiCard icon={Coins} iconBg="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400" label="Importe vencido" numericValue={resumen?.total_vencido ?? 0} format={fmt} />
+        <KpiCard icon={Receipt} iconBg="bg-info-soft text-info-soft-foreground" label="Cobros pendientes" numericValue={resumen?.count ?? visibles.length} />
+        <KpiCard icon={Wallet} iconBg="bg-warning-soft text-warning-soft-foreground" label="Total pendiente" numericValue={totalPend} format={fmt} />
+        <KpiCard icon={WarningCircle} iconBg={(resumen?.count_vencidas || 0) > 0 ? 'bg-destructive-soft text-destructive-soft-foreground' : 'bg-muted text-muted-foreground'} label="Vencidas" numericValue={resumen?.count_vencidas ?? 0} />
+        <KpiCard icon={Coins} iconBg="bg-destructive-soft text-destructive-soft-foreground" label="Importe vencido" numericValue={resumen?.total_vencido ?? 0} format={fmt} />
       </div>
 
       {/* Filtros */}
@@ -211,7 +211,7 @@ export default function ReceivablePage() {
                   <div className={`text-[11px] font-semibold ${esHoy ? 'text-primary' : ''}`}>{c.date.getDate()}</div>
                   {b && (
                     <div className="mt-0.5 space-y-0.5">
-                      <div className={`text-[10px] font-bold tabular-nums leading-tight ${b.vencidas ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'}`}>{fmt0(b.total)}</div>
+                      <div className={`text-[10px] font-bold tabular-nums leading-tight ${b.vencidas ? 'text-destructive' : 'text-warning'}`}>{fmt0(b.total)}</div>
                       <div className="text-[9px] text-muted-foreground">{b.count} cobro{b.count !== 1 ? 's' : ''}</div>
                     </div>
                   )}
@@ -232,7 +232,7 @@ export default function ReceivablePage() {
                           <div className="text-sm font-semibold truncate">{r.cliente} {r.cuota_numero ? <span className="text-[10px] font-bold text-primary">· Cuota {r.cuota_numero}</span> : ''}</div>
                           <div className="text-[11px] text-muted-foreground truncate">{r.producto} · {r.proyecto_nombre}{r.gestora_nombre ? ` · ${r.gestora_nombre}` : ''}</div>
                         </div>
-                        <span className={`tabular-nums font-bold text-sm ${r.vencido ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'}`}>{fmt(r.importe)}</span>
+                        <span className={`tabular-nums font-bold text-sm ${r.vencido ? 'text-destructive' : 'text-warning'}`}>{fmt(r.importe)}</span>
                       </button>
                     </li>
                   ))}
@@ -272,10 +272,10 @@ export default function ReceivablePage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{r.proyecto_nombre}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.gestora_nombre || '—'}</td>
-                    <td className="px-4 py-3 text-right tabular-nums font-bold text-orange-600 dark:text-orange-400">{fmt(r.importe)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums font-bold text-warning">{fmt(r.importe)}</td>
                     <td className="px-4 py-3">
                       {r.vence ? (
-                        <span className={r.vencido ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>
+                        <span className={r.vencido ? 'text-destructive font-semibold' : ''}>
                           {r.vencido && <WarningCircle size={12} weight="fill" className="inline mr-1" />}
                           {formatDate(r.vence)}
                         </span>
@@ -296,12 +296,12 @@ export default function ReceivablePage() {
                     <div className="font-semibold truncate">{r.cliente} {r.cuota_numero ? <span className="text-[10px] font-bold text-primary">· Cuota {r.cuota_numero}</span> : ''}</div>
                     <div className="text-xs text-muted-foreground truncate">{r.producto} · {r.proyecto_nombre}</div>
                   </div>
-                  <span className="tabular-nums font-bold text-orange-600 dark:text-orange-400 flex-shrink-0">{fmt(r.importe)}</span>
+                  <span className="tabular-nums font-bold text-warning flex-shrink-0">{fmt(r.importe)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{r.gestora_nombre || '—'}</span>
                   {r.vence ? (
-                    <span className={r.vencido ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground'}>
+                    <span className={r.vencido ? 'text-destructive font-semibold' : 'text-muted-foreground'}>
                       {r.vencido && <WarningCircle size={11} weight="fill" className="inline mr-0.5" />}Vence {formatDate(r.vence)}
                     </span>
                   ) : <span className="text-muted-foreground">Sin fecha</span>}

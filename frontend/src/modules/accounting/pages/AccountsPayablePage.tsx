@@ -102,26 +102,26 @@ export default function AccountsPayablePage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiCard
             icon={Receipt}
-            iconBg="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+            iconBg="bg-info-soft text-info-soft-foreground"
             label="Facturado"
             value={fmt(stats.total_facturado)}
           />
           <KpiCard
             icon={CheckCircle}
-            iconBg="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
+            iconBg="bg-success-soft text-success-soft-foreground"
             label="Pagado"
             value={fmt(stats.total_pagado)}
           />
           <KpiCard
             icon={Wallet}
-            iconBg="bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400"
+            iconBg="bg-warning-soft text-warning-soft-foreground"
             label="Pendiente"
             value={fmt(stats.total_pendiente)}
           />
           <KpiCard
             icon={WarningCircle}
             iconBg={stats.vencidas > 0
-              ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
+              ? 'bg-destructive-soft text-destructive-soft-foreground'
               : 'bg-muted text-muted-foreground'}
             label="Vencidas"
             value={stats.vencidas}
@@ -189,11 +189,11 @@ export default function AccountsPayablePage() {
                       <td className="px-4 py-3">{r.concepto}</td>
                       <td className="px-4 py-3"><span className="px-2 py-0.5 rounded text-[10px] font-medium bg-muted">{r.categoria}</span></td>
                       <td className="px-4 py-3 text-right tabular-nums">{fmt(r.importe_total)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-green-600 dark:text-green-400">{fmt(r.importe_pagado)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums font-bold text-orange-600 dark:text-orange-400">{fmt(r.importe_pendiente)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-success">{fmt(r.importe_pagado)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-bold text-warning">{fmt(r.importe_pendiente)}</td>
                       <td className="px-4 py-3">
                         {r.fecha_compromiso_pago ? (
-                          <span className={r.vencido ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>
+                          <span className={r.vencido ? 'text-destructive font-semibold' : ''}>
                             {r.vencido && <WarningCircle size={12} weight="fill" className="inline mr-1" />}
                             {formatDate(r.fecha_compromiso_pago)}
                           </span>
@@ -201,10 +201,10 @@ export default function AccountsPayablePage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                          r.estado === 'pagado' ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' :
-                          r.estado === 'parcial' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
+                          r.estado === 'pagado' ? 'bg-success-soft text-success-soft-foreground' :
+                          r.estado === 'parcial' ? 'bg-warning-soft text-warning-soft-foreground' :
                           r.estado === 'cancelado' ? 'bg-muted text-muted-foreground' :
-                          'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400'
+                          'bg-warning-soft text-warning-soft-foreground'
                         }`}>{r.estado}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -214,7 +214,7 @@ export default function AccountsPayablePage() {
                               onClick={() => setDialog({ type: 'pay', payable: r })}
                               aria-label="Registrar pago"
                               title="Registrar pago"
-                              className="p-1.5 rounded hover:bg-green-50 dark:hover:bg-green-950/30 text-green-600 dark:text-green-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                              className="p-1.5 rounded hover:bg-success-soft text-success focus:outline-none focus:ring-2 focus:ring-primary/40"
                             >
                               <CurrencyEur size={14} weight="bold" />
                             </button>
@@ -223,7 +223,7 @@ export default function AccountsPayablePage() {
                             onClick={() => handleDelete(r.id)}
                             aria-label="Eliminar factura"
                             title="Eliminar"
-                            className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="p-1.5 rounded hover:bg-destructive-soft text-destructive focus:outline-none focus:ring-2 focus:ring-primary/40"
                           >
                             <Trash size={14} />
                           </button>
@@ -245,10 +245,10 @@ export default function AccountsPayablePage() {
                       <div className="text-xs text-muted-foreground truncate">{r.concepto}</div>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${
-                      r.estado === 'pagado' ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' :
-                      r.estado === 'parcial' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' :
+                      r.estado === 'pagado' ? 'bg-success-soft text-success-soft-foreground' :
+                      r.estado === 'parcial' ? 'bg-warning-soft text-warning-soft-foreground' :
                       r.estado === 'cancelado' ? 'bg-muted text-muted-foreground' :
-                      'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400'
+                      'bg-warning-soft text-warning-soft-foreground'
                     }`}>{r.estado}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm">
@@ -258,18 +258,18 @@ export default function AccountsPayablePage() {
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Pagado</div>
-                      <div className="tabular-nums text-green-600 dark:text-green-400">{fmt(r.importe_pagado)}</div>
+                      <div className="tabular-nums text-success">{fmt(r.importe_pagado)}</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Pendiente</div>
-                      <div className="tabular-nums font-semibold text-orange-600 dark:text-orange-400">{fmt(r.importe_pendiente)}</div>
+                      <div className="tabular-nums font-semibold text-warning">{fmt(r.importe_pendiente)}</div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-2 text-xs pt-1">
                     <div className="flex items-center gap-2 text-muted-foreground min-w-0">
                       <span className="px-2 py-0.5 rounded bg-muted text-[10px] font-medium flex-shrink-0">{r.categoria}</span>
                       {r.fecha_compromiso_pago && (
-                        <span className={r.vencido ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>
+                        <span className={r.vencido ? 'text-destructive font-semibold' : ''}>
                           {r.vencido && <WarningCircle size={12} weight="fill" className="inline mr-0.5" />}
                           Vence {formatDate(r.fecha_compromiso_pago)}
                         </span>
@@ -280,7 +280,7 @@ export default function AccountsPayablePage() {
                         <button
                           onClick={() => setDialog({ type: 'pay', payable: r })}
                           aria-label="Registrar pago"
-                          className="p-1.5 rounded hover:bg-green-50 dark:hover:bg-green-950/30 text-green-600 dark:text-green-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          className="p-1.5 rounded hover:bg-success-soft text-success focus:outline-none focus:ring-2 focus:ring-primary/40"
                         >
                           <CurrencyEur size={14} weight="bold" />
                         </button>
@@ -288,7 +288,7 @@ export default function AccountsPayablePage() {
                       <button
                         onClick={() => handleDelete(r.id)}
                         aria-label="Eliminar factura"
-                        className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 dark:text-red-400 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="p-1.5 rounded hover:bg-destructive-soft text-destructive focus:outline-none focus:ring-2 focus:ring-primary/40"
                       >
                         <Trash size={14} />
                       </button>

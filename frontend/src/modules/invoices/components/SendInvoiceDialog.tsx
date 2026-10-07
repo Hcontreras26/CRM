@@ -53,7 +53,7 @@ export default function SendInvoiceDialog({ invoice, onClose, onSent }: Props) {
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
               className="w-full h-9 px-2 mt-1 rounded border border-border bg-background" />
             {!invoice.cliente_email && (
-              <p className="text-amber-600 text-[11px] mt-1">⚠ La factura no tenía email guardado. Verifica antes de enviar.</p>
+              <p className="text-warning text-[11px] mt-1">⚠ La factura no tenía email guardado. Verifica antes de enviar.</p>
             )}
           </div>
           <p className="text-xs text-muted-foreground">

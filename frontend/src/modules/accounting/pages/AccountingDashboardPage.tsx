@@ -142,46 +142,46 @@ export default function AccountingDashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard
           icon={CurrencyEur}
-          iconBg="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
+          iconBg="bg-success-soft text-success-soft-foreground"
           label="Ingresos cobrados"
           value={fmt(ingresos.total_cobrado)}
         />
         <KpiCard
           icon={Receipt}
-          iconBg="bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400"
+          iconBg="bg-info-soft text-info-soft-foreground"
           label="Facturado (emitido)"
           value={fmt(ingresos.total_emitido || 0)}
           badge={ingresos.num_facturas ? `${ingresos.num_facturas} facturas` : null}
-          badgeColor="bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400"
+          badgeColor="bg-info-soft text-info-soft-foreground"
         />
         <KpiCard
           icon={Wallet}
-          iconBg="bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400"
+          iconBg="bg-warning-soft text-warning-soft-foreground"
           label="Por cobrar"
           value={fmt(cxc.total)}
           badge={cxc.num ? `${cxc.num} ventas` : null}
-          badgeColor="bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400"
+          badgeColor="bg-warning-soft text-warning-soft-foreground"
         />
         <KpiCard
           icon={Wallet}
-          iconBg="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+          iconBg="bg-destructive-soft text-destructive-soft-foreground"
           label="Vencido"
           value={fmt(cxc.total_vencido)}
           badge={cxc.num_vencido ? `${cxc.num_vencido} ventas` : null}
-          badgeColor="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+          badgeColor="bg-destructive-soft text-destructive-soft-foreground"
           trend="down"
         />
         <KpiCard
           icon={TrendDown}
-          iconBg="bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+          iconBg="bg-destructive-soft text-destructive-soft-foreground"
           label="Egresos"
           value={fmt(egresos.total)}
         />
         <KpiCard
           icon={balance >= 0 ? TrendUp : TrendDown}
           iconBg={balance >= 0
-            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400'
-            : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'}
+            ? 'bg-success-soft text-success-soft-foreground'
+            : 'bg-destructive-soft text-destructive-soft-foreground'}
           label="Balance neto"
           value={fmt(balance)}
         />
@@ -245,8 +245,8 @@ export default function AccountingDashboardPage() {
                     <td className="py-2 font-medium text-foreground">{v.vendedora}</td>
                     <td className="py-2 text-right tabular-nums">{v.ventas}</td>
                     <td className="py-2 text-right tabular-nums">{v.clientes}</td>
-                    <td className="py-2 text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">{fmt(v.cobrado)}</td>
-                    <td className="py-2 text-right tabular-nums text-orange-600 dark:text-orange-400">{fmt(v.pendiente)}</td>
+                    <td className="py-2 text-right tabular-nums font-semibold text-success">{fmt(v.cobrado)}</td>
+                    <td className="py-2 text-right tabular-nums text-warning">{fmt(v.pendiente)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -261,7 +261,7 @@ export default function AccountingDashboardPage() {
           <h3 className="font-semibold">Cuentas por cobrar ({cxc.num})</h3>
           {cxc.num > 0 && (
             <div className="text-sm text-muted-foreground">
-              Total pendiente: <span className="font-bold tabular-nums text-orange-600 dark:text-orange-400">{fmt(cxc.total)}</span>
+              Total pendiente: <span className="font-bold tabular-nums text-warning">{fmt(cxc.total)}</span>
             </div>
           )}
         </div>
@@ -295,11 +295,11 @@ export default function AccountingDashboardPage() {
                       <td className="px-5 py-3">{r.producto_contratado}</td>
                       <td className="px-5 py-3 text-muted-foreground">{r.proyecto_nombre}</td>
                       <td className="px-5 py-3 text-right tabular-nums">{fmt(r.importe_total)}</td>
-                      <td className="px-5 py-3 text-right tabular-nums text-green-600 dark:text-green-400">{fmt(r.importe_pagado)}</td>
-                      <td className="px-5 py-3 text-right tabular-nums font-bold text-orange-600 dark:text-orange-400">{fmt(r.importe_pendiente)}</td>
+                      <td className="px-5 py-3 text-right tabular-nums text-success">{fmt(r.importe_pagado)}</td>
+                      <td className="px-5 py-3 text-right tabular-nums font-bold text-warning">{fmt(r.importe_pendiente)}</td>
                       <td className="px-5 py-3">
                         {r.fecha_compromiso_pago ? (
-                          <span className={r.vencido ? 'text-red-600 dark:text-red-400 font-semibold' : ''}>
+                          <span className={r.vencido ? 'text-destructive font-semibold' : ''}>
                             {r.vencido && <WarningCircle size={12} weight="fill" className="inline mr-1" />}
                             {formatDate(r.fecha_compromiso_pago)}
                           </span>
@@ -333,9 +333,9 @@ export default function AccountingDashboardPage() {
                     <ArrowRight size={14} className="text-muted-foreground flex-shrink-0 mt-0.5" />
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="tabular-nums font-bold text-orange-600 dark:text-orange-400">{fmt(r.importe_pendiente)}</span>
+                    <span className="tabular-nums font-bold text-warning">{fmt(r.importe_pendiente)}</span>
                     {r.fecha_compromiso_pago && (
-                      <span className={r.vencido ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground'}>
+                      <span className={r.vencido ? 'text-destructive font-semibold' : 'text-muted-foreground'}>
                         {r.vencido && <WarningCircle size={11} weight="fill" className="inline mr-0.5" />}
                         Vence {formatDate(r.fecha_compromiso_pago)}
                       </span>

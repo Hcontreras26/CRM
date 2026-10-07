@@ -29,11 +29,11 @@ const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', c
 const fmtDate = (s: string | null) => s ? formatDateNumeric(s) : '—';
 
 const ESTADO_BADGE: Record<string, string> = {
-  borrador: 'bg-amber-100 text-amber-800 border border-amber-300',
-  emitida:  'bg-blue-100 text-blue-800',
-  enviada:  'bg-amber-100 text-amber-800',
-  pagada:   'bg-emerald-100 text-emerald-800',
-  cancelada: 'bg-red-100 text-red-800',
+  borrador: 'bg-warning-soft text-warning-soft-foreground border border-warning/30',
+  emitida:  'bg-info-soft text-info-soft-foreground',
+  enviada:  'bg-warning-soft text-warning-soft-foreground',
+  pagada:   'bg-success-soft text-success-soft-foreground',
+  cancelada: 'bg-destructive-soft text-destructive-soft-foreground',
 };
 
 type Stats = { total: number; emitidas: number; enviadas: number; pagadas: number; canceladas: number; total_facturado: number; total_cobrado: number; total_iva: number };
@@ -336,13 +336,13 @@ export default function InvoicesPage() {
 
       {!esProformas && stats && puedeFacturar && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard icon={Receipt} iconBg="bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+          <KpiCard icon={Receipt} iconBg="bg-info-soft text-info-soft-foreground"
             label="Total facturas" numericValue={stats.total} />
-          <KpiCard icon={Receipt} iconBg="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
+          <KpiCard icon={Receipt} iconBg="bg-success-soft text-success-soft-foreground"
             label="Facturado" numericValue={Number(stats.total_facturado)} format={(n) => fmt(Number(n))} />
-          <KpiCard icon={CheckCircle} iconBg="bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400"
+          <KpiCard icon={CheckCircle} iconBg="bg-primary/10 text-primary"
             label="Cobrado" numericValue={Number(stats.total_cobrado)} format={(n) => fmt(Number(n))} />
-          <KpiCard icon={Receipt} iconBg="bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400"
+          <KpiCard icon={Receipt} iconBg="bg-warning-soft text-warning-soft-foreground"
             label="IVA acumulado" numericValue={Number(stats.total_iva)} format={(n) => fmt(Number(n))} />
         </div>
       )}
@@ -359,17 +359,17 @@ export default function InvoicesPage() {
       {/* Cobros de Stripe sin asociar — también visibles aquí, no solo en Pagos Stripe.
           Hasta asociarlos a un cliente NO generan factura. */}
       {!esProformas && puedeFacturar && stripeSinAsociar.length > 0 && (
-        <div className="bg-red-50/70 dark:bg-red-950/20 border border-red-300 dark:border-red-900/50 rounded-lg overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-red-200 dark:border-red-900/40 flex items-center justify-between gap-2 flex-wrap">
+        <div className="bg-destructive-soft/70 border border-destructive/50 rounded-lg overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-destructive/40 flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <X size={15} weight="bold" className="text-red-600" />
-              <span className="font-semibold text-sm text-red-800 dark:text-red-300">Cobros de Stripe sin asociar</span>
+              <X size={15} weight="bold" className="text-destructive" />
+              <span className="font-semibold text-sm text-destructive-soft-foreground">Cobros de Stripe sin asociar</span>
               <span className="text-[11px] text-muted-foreground">
                 · {stripeSinAsociar.length} cobro{stripeSinAsociar.length !== 1 ? 's' : ''} sin cliente — <strong>no generan factura</strong> hasta asociarlos
               </span>
             </div>
             <Link to="/finanzas/pagos-stripe"
-              className="h-8 px-3 rounded-md bg-red-600 text-white text-[11px] font-semibold hover:bg-red-700 inline-flex items-center gap-1">
+              className="h-8 px-3 rounded-md bg-destructive text-white text-[11px] font-semibold hover:bg-destructive inline-flex items-center gap-1">
               Asociar en Pagos Stripe →
             </Link>
           </div>
@@ -377,13 +377,13 @@ export default function InvoicesPage() {
             <table className="tabla-cifras w-full text-[13px]">
               <tbody>
                 {stripeSinAsociar.slice(0, 8).map((p) => (
-                  <tr key={p.id} className="border-b border-red-100 dark:border-red-900/20 last:border-0">
+                  <tr key={p.id} className="border-b border-destructive/20 last:border-0">
                     <td className="px-3 py-2 whitespace-nowrap">{fmtDate(p.stripe_created_at)}</td>
                     <td className="px-3 py-2 font-medium">{p.customer_name || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{p.customer_email || '—'}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmt(Number(p.amount))}</td>
                     <td className="px-3 py-2 text-right">
-                      <Link to="/finanzas/pagos-stripe" className="text-[11px] font-bold text-red-700 dark:text-red-400 hover:underline">
+                      <Link to="/finanzas/pagos-stripe" className="text-[11px] font-bold text-destructive-soft-foreground hover:underline">
                         NO ASOCIADO · ASOCIAR
                       </Link>
                     </td>
@@ -400,9 +400,9 @@ export default function InvoicesPage() {
 
       {/* Ya no se esconde en modo sociedad: la consulta acepta los campus. */}
       {!esProformas && puedeFacturar && ventasSinFactura.length > 0 && (
-        <div className="bg-amber-50/60 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/40 rounded-lg overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-amber-200 dark:border-amber-900/40 flex items-center gap-2">
-            <Receipt size={15} weight="bold" className="text-amber-600" />
+        <div className="bg-warning-soft/60 border border-warning/40 rounded-lg overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-warning/40 flex items-center gap-2">
+            <Receipt size={15} weight="bold" className="text-warning" />
             <span className="font-semibold text-sm">Ventas sin factura</span>
             <span className="text-[11px] text-muted-foreground">· {ventasSinFactura.length} venta{ventasSinFactura.length !== 1 ? 's' : ''} registrada{ventasSinFactura.length !== 1 ? 's' : ''} sin factura emitida</span>
           </div>
@@ -411,7 +411,7 @@ export default function InvoicesPage() {
               arriba van los COBROS pendientes de facturar, en orden; aqui las
               VENTAS sin ninguna factura, incluidas las que todavia no han
               cobrado nada. Una venta con cobro sale en las dos. */}
-          <p className="px-4 py-2 text-[11px] leading-snug text-muted-foreground border-b border-amber-200 dark:border-amber-900/40">
+          <p className="px-4 py-2 text-[11px] leading-snug text-muted-foreground border-b border-warning/30">
             Esto son <b>ventas</b>; arriba, en la cola, van los <b>cobros</b> pendientes de facturar.
             {' '}Una venta que ya tiene algún cobro sale en las dos:
             {' '}<b>emítela desde la cola</b>, que es la que respeta el orden de la numeración.
@@ -419,7 +419,7 @@ export default function InvoicesPage() {
           </p>
           <div className="overflow-x-auto">
             <table className="tabla-cifras w-full text-[13px]">
-              <thead className="bg-amber-100/40 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-900/40">
+              <thead className="bg-warning-soft/40 border-b border-warning/40">
                 <tr>
                   <th className="px-3 py-2 text-left text-xs text-muted-foreground">Fecha</th>
                   <th className="px-3 py-2 text-left text-xs text-muted-foreground">Cliente</th>
@@ -430,7 +430,7 @@ export default function InvoicesPage() {
               </thead>
               <tbody>
                 {ventasSinFactura.map((v) => (
-                  <tr key={v.conversion_id} className="border-b border-amber-100 dark:border-amber-900/20 last:border-0">
+                  <tr key={v.conversion_id} className="border-b border-warning/20 last:border-0">
                     <td className="px-3 py-2">{fmtDate(v.fecha_conversion)}</td>
                     <td className="px-3 py-2 font-medium">{v.cliente_nombre}</td>
                     <td className="px-3 py-2 text-muted-foreground">{v.producto_contratado || '—'}</td>
@@ -545,21 +545,21 @@ export default function InvoicesPage() {
             </thead>
             <tbody>
               {invoices.map((inv) => (
-                <tr key={inv.id} className={`border-b last:border-0 hover:bg-muted/30 ${inv.tipo === 'rectificativa' ? 'bg-rose-50/40 dark:bg-rose-950/10' : inv.tipo === 'proforma' ? 'bg-slate-50/60 dark:bg-slate-900/20' : ''}`}>
+                <tr key={inv.id} className={`border-b last:border-0 hover:bg-muted/30 ${inv.tipo === 'rectificativa' ? 'bg-destructive-soft/40' : inv.tipo === 'proforma' ? 'bg-muted/40' : ''}`}>
                   <td className="px-3 py-2 font-mono font-semibold">
                     {inv.codigo || <span className="text-muted-foreground italic">— sin numerar —</span>}
                     {inv.tipo === 'rectificativa' && (
-                      <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">ABONO</span>
+                      <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive-soft text-destructive-soft-foreground">ABONO</span>
                     )}
                     {inv.tipo === 'proforma' && (
-                      <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">PROFORMA</span>
+                      <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">PROFORMA</span>
                     )}
                     {/* Origen del cobro: factura generada automáticamente por un pago Stripe */}
                     {inv.metodo_pago === 'tarjeta_stripe' && (
-                      <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700" title="Factura generada por un pago de Stripe">STRIPE</span>
+                      <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-info-soft text-info-soft-foreground" title="Factura generada por un pago de Stripe">STRIPE</span>
                     )}
                     {inv.moneda && inv.moneda !== 'EUR' && (
-                      <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="Factura en moneda extranjera">{inv.moneda}</span>
+                      <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-warning-soft text-warning-soft-foreground" title="Factura en moneda extranjera">{inv.moneda}</span>
                     )}
                     {inv.rectifica_codigo && (
                       <div className="text-[10px] text-muted-foreground font-normal">rectifica {inv.rectifica_codigo}</div>
@@ -577,7 +577,7 @@ export default function InvoicesPage() {
                     */}
                     {inv.tipo !== 'proforma' && inv.clase === 'cuota' && (
                       <div className="mt-0.5">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300"
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-info-soft text-info-soft-foreground"
                           title={inv.fecha_de_la_venta ? `Cuota de una venta del ${fmtDate(inv.fecha_de_la_venta)}` : 'Cuota de una venta anterior'}>
                           CUOTA
                         </span>
@@ -598,7 +598,7 @@ export default function InvoicesPage() {
                         Stripe. */}
                     {inv.tipo !== 'proforma' && inv.sospecha_duplicada && (
                       <div className="mt-0.5">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-destructive-soft text-destructive-soft-foreground"
                           title="Marcada como pagada sin cobro propio, y la venta tiene más facturado que cobrado. Probablemente se emitió dos veces.">
                           ¿REPETIDA?
                         </span>
@@ -606,7 +606,7 @@ export default function InvoicesPage() {
                     )}
                     {inv.tipo !== 'proforma' && inv.clase === 'parte' && (
                       <div className="mt-0.5">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
                           title="Otra factura de una venta ya facturada: la misma venta partida en varios papeles. No cuenta como venta nueva.">
                           MISMA VENTA
                         </span>
@@ -619,7 +619,7 @@ export default function InvoicesPage() {
                     )}
                     {inv.tipo !== 'proforma' && inv.clase === 'venta' && (
                       <div className="mt-0.5">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-success-soft text-success-soft-foreground"
                           title="Es la factura de una venta nueva">
                           VENTA
                         </span>
@@ -641,7 +641,7 @@ export default function InvoicesPage() {
                       columna Total no cuadraba con lo que suma la factura por
                       debajo: se leian dos cobros donde hay un cobro y una
                       devolucion. Mismo criterio que en el PDF. */}
-                  <td className={`px-3 py-2 text-right tabular-nums font-semibold ${Number(inv.total) < 0 ? 'text-rose-600' : ''}`}>
+                  <td className={`px-3 py-2 text-right tabular-nums font-semibold ${Number(inv.total) < 0 ? 'text-destructive' : ''}`}>
                     {inv.total_divisa != null && inv.moneda && inv.moneda !== 'EUR' ? (
                       <>
                         {fmtMoneda(Number(inv.total_divisa), inv.moneda)}
@@ -667,7 +667,7 @@ export default function InvoicesPage() {
                         title={inv.sent_at ? `Entregada el ${fmtDate(inv.sent_at)} — pulsa para desmarcar` : 'Marcar como entregada al cliente (no manda nada)'}
                         className={`mt-0.5 block text-[10px] font-semibold px-1.5 py-0.5 rounded transition-colors ${
                           inv.sent_at
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                            ? 'bg-success-soft text-success-soft-foreground'
                             : 'border border-dashed border-border text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -714,14 +714,14 @@ export default function InvoicesPage() {
                       {inv.estado === 'borrador' && isAdmin && (
                         <Link to={`nueva?editId=${inv.id}`}
                           title="Editar esta factura abierta (solo admin/superadmin)"
-                          className="h-7 px-2 rounded border border-sky-300 text-sky-700 dark:text-sky-300 text-[11px] font-semibold hover:bg-sky-50 dark:hover:bg-sky-950/30 inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded border border-info/30 text-info-soft-foreground text-[11px] font-semibold hover:bg-info-soft inline-flex items-center gap-1">
                           <Gear size={11} weight="bold" /> Editar
                         </Link>
                       )}
                       {inv.estado === 'borrador' && (
                         <button onClick={() => setEmittingInv(inv)}
                           title="Validar los datos y emitir la factura (asigna número fiscal)"
-                          className="h-7 px-2 rounded bg-amber-500 text-white text-[11px] font-semibold hover:bg-amber-600 inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded bg-warning text-warning-foreground text-[11px] font-semibold hover:bg-warning inline-flex items-center gap-1">
                           <CheckCircle size={11} weight="bold" /> Validar y emitir
                         </button>
                       )}
@@ -730,14 +730,14 @@ export default function InvoicesPage() {
                       {inv.estado !== 'borrador' && inv.estado !== 'cancelada' && canManage && (
                         <Link to={`nueva?editId=${inv.id}`}
                           title="Editar IVA, datos del cliente o concepto"
-                          className="h-7 px-2 rounded border border-sky-300 text-sky-700 dark:text-sky-300 text-[11px] font-semibold hover:bg-sky-50 dark:hover:bg-sky-950/30 inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded border border-info/30 text-info-soft-foreground text-[11px] font-semibold hover:bg-info-soft inline-flex items-center gap-1">
                           <Gear size={11} weight="bold" /> Editar
                         </Link>
                       )}
                       {inv.estado !== 'borrador' && inv.estado !== 'cancelada' && inv.tipo !== 'proforma' && invoiceFaltantes(inv).length > 0 && (
                         <button onClick={() => setEmittingInv(inv)}
                           title={`Para descargar/enviar debes rellenar: ${invoiceFaltantes(inv).join(', ')}`}
-                          className="h-7 px-2 rounded bg-amber-500 text-white text-[11px] font-semibold hover:bg-amber-600 inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded bg-warning text-warning-foreground text-[11px] font-semibold hover:bg-warning inline-flex items-center gap-1">
                           <CheckCircle size={11} weight="bold" /> Completar datos
                         </button>
                       )}
@@ -763,14 +763,14 @@ export default function InvoicesPage() {
                           title={inv.conversion_id
                             ? 'El cliente ya pagó: apunta el cobro en la venta y la proforma pasa a ser la factura'
                             : 'Asóciala antes a la venta del cliente (botón «Venta»): el cobro se apunta en la venta'}
-                          className="h-7 px-2 rounded border border-emerald-300 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-950/30 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                          className="h-7 px-2 rounded border border-success/30 text-success-soft-foreground text-[11px] font-semibold hover:bg-success-soft inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
                           <CheckCircle size={11} weight="bold" /> Cobrada
                         </button>
                       )}
                       {inv.estado !== 'borrador' && inv.tipo !== 'rectificativa' && canManage && (
                         <button onClick={() => rectificar(inv)}
                           title="Crear factura rectificativa (de abono)"
-                          className="h-7 px-2 rounded border border-rose-300 text-[11px] text-rose-600 hover:bg-rose-50 inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded border border-destructive/40 text-[11px] text-destructive hover:bg-destructive-soft inline-flex items-center gap-1">
                           <ArrowCounterClockwise size={11} /> Abono
                         </button>
                       )}
@@ -786,7 +786,7 @@ export default function InvoicesPage() {
                       {canManage && inv.estado !== 'cancelada' && (
                         <button onClick={() => setDeletingInv(inv)}
                           title="Eliminar la factura y liberar su número (se equivocaron al cargarla)"
-                          className="h-7 px-2 rounded border border-red-300 text-[11px] text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded border border-destructive/40 text-[11px] text-destructive hover:bg-destructive-soft inline-flex items-center gap-1">
                           <Trash size={11} weight="bold" />
                         </button>
                       )}
@@ -861,8 +861,8 @@ export default function InvoicesPage() {
                 <div className="text-[11px] text-muted-foreground">Importe bruto: {fmt(Number(descargarInv.total))} — lo que pagó el alumno. Es la factura fiscal.</div>
               </button>
               <button onClick={() => { descargar(descargarInv, 'gestor'); setDescargarInv(null); }}
-                className="w-full text-left p-3 rounded-md border border-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/30">
-                <div className="text-sm font-semibold text-violet-700 dark:text-violet-300">Copia de gestión</div>
+                className="w-full text-left p-3 rounded-md border border-primary/30 hover:bg-primary/5">
+                <div className="text-sm font-semibold text-primary">Copia de gestión</div>
                 <div className="text-[11px] text-muted-foreground">Importe neto liquidado por Stripe (descontada su comisión). Uso interno.</div>
               </button>
             </div>
@@ -886,7 +886,7 @@ export default function InvoicesPage() {
         <div className="fixed inset-0 z-[85] flex items-center justify-center p-4" onClick={() => !deleting && setDeletingInv(null)}>
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
           <div role="dialog" className="relative bg-card rounded-xl border border-border w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
-            <h3 className="font-semibold text-base mb-1 flex items-center gap-2 text-red-600"><Trash size={18} weight="bold" /> Eliminar factura</h3>
+            <h3 className="font-semibold text-base mb-1 flex items-center gap-2 text-destructive"><Trash size={18} weight="bold" /> Eliminar factura</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Vas a eliminar <b>{deletingInv.tipo === 'proforma' ? 'la proforma' : 'la factura'} {deletingInv.codigo}</b> ({fmt(Number(deletingInv.total))}).
               Se <b>liberará su número</b> si es el último de la serie. La venta se mantiene y podrás volver a facturarla. Esta acción no se puede deshacer.
@@ -905,7 +905,7 @@ export default function InvoicesPage() {
                     toast({ title: 'Error', description: e?.data?.error || e?.message, variant: 'destructive' });
                   } finally { setDeleting(false); }
                 }}
-                className="h-9 px-4 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700 inline-flex items-center gap-1.5 disabled:opacity-50">
+                className="h-9 px-4 rounded-md bg-destructive text-white text-sm font-semibold hover:bg-destructive inline-flex items-center gap-1.5 disabled:opacity-50">
                 <Trash size={15} weight="bold" /> {deleting ? 'Eliminando…' : 'Eliminar y liberar número'}
               </button>
             </div>
@@ -933,7 +933,7 @@ export default function InvoicesPage() {
                 </button>
               ))}
               {proyectosDeSociedad(socPrompt.id).length === 0 && (
-                <p className="text-xs text-amber-600">No tienes proyectos asignados en esta sociedad.</p>
+                <p className="text-xs text-warning">No tienes proyectos asignados en esta sociedad.</p>
               )}
             </div>
             <div className="flex justify-end">

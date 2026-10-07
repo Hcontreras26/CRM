@@ -163,7 +163,7 @@ export default function ColumnsTab({ project, onSaved }) {
               <input type="checkbox" checked={c.visible} onChange={() => toggle(idx)} />
               Visible
             </label>
-            <button onClick={() => remove(idx)} className="p-1.5 rounded hover:bg-red-50 text-red-500" title="Quitar"><X size={14} /></button>
+            <button onClick={() => remove(idx)} className="p-1.5 rounded hover:bg-destructive-soft text-destructive" title="Quitar"><X size={14} /></button>
           </div>
         ))}
       </div>
@@ -186,7 +186,7 @@ export default function ColumnsTab({ project, onSaved }) {
       )}
 
       <div className="flex justify-end pt-2 border-t border-border">
-        <button onClick={handleSave} disabled={saving} className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 shadow disabled:opacity-50">
+        <button onClick={handleSave} disabled={saving} className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 shadow disabled:opacity-50">
           {saving ? 'Guardando...' : 'Guardar columnas'}
         </button>
       </div>

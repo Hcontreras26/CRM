@@ -103,7 +103,7 @@ export default function MultiProjectPicker({
                   className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted flex items-center gap-2 ${checked ? 'bg-primary/5' : ''}`}
                   title={p.nombre}
                 >
-                  <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${checked ? 'bg-primary border-primary text-white' : 'border-border bg-card'}`}>
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${checked ? 'bg-primary border-primary text-primary-foreground' : 'border-border bg-card'}`}>
                     {checked && <Check size={10} weight="bold" />}
                   </span>
                   <span className="truncate flex-1">{p.nombre}</span>

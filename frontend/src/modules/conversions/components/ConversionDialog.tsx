@@ -527,8 +527,8 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
 
           {docPhase === 'choose' && created ? (
             <div className="py-4 text-center space-y-5">
-              <div className="mx-auto w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
-                <CheckCircle size={28} weight="fill" className="text-emerald-600" />
+              <div className="mx-auto w-12 h-12 rounded-full bg-success-soft flex items-center justify-center">
+                <CheckCircle size={28} weight="fill" className="text-success" />
               </div>
               <div>
                 <h3 className="font-semibold text-base">Venta registrada</h3>
@@ -542,11 +542,11 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                     No sale para quien numera aqui mismo --CEDIA e ICTESS--:
                     esos no dependen de la cola, le ponen el numero y emiten. */}
                 {pagoMode !== 'none' && !numeraAqui && (
-                  <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left dark:border-amber-900/50 dark:bg-amber-950/30">
-                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                  <div className="mt-3 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 text-left">
+                    <p className="text-sm font-semibold text-warning-soft-foreground">
                       La factura no se emite sola
                     </p>
-                    <p className="mt-0.5 text-[13px] leading-snug text-amber-800 dark:text-amber-300">
+                    <p className="mt-0.5 text-[13px] leading-snug text-warning-soft-foreground">
                       El cobro está en la <b>cola de facturación</b>. Para emitir la factura y
                       {' '}ponerle número, entra en <b>Finanzas → Facturación</b>.
                     </p>
@@ -574,7 +574,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                       El siguiente libre es el <b>{sugerido}</b>. Puedes poner ese u otro.
                     </p>
                   )}
-                  <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1.5">
+                  <p className="text-[11px] text-warning-soft-foreground mt-1.5">
                     ⚠ Comprueba la numeración en el Excel de facturación primero. Si hay discrepancia,
                     contacta con soporte; y si hace falta, genera la factura manualmente y avisa.
                   </p>
@@ -699,7 +699,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                       title="Precio unitario" placeholder="€/u"
                       className="col-span-3 h-9 px-2 rounded border border-border bg-background text-sm" />
                     <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                      className="col-span-1 text-muted-foreground hover:text-red-500 text-base">×</button>
+                      className="col-span-1 text-muted-foreground hover:text-destructive text-base">×</button>
                   </div>
                 ))}
                 <datalist id="conversion-products-list-multi">
@@ -731,7 +731,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                       placeholder={form.descuento_tipo === 'pct' ? '10' : '50'}
                       className="w-20 h-7 px-2 rounded border border-border bg-background text-sm" />
                     <span>{form.descuento_tipo === 'pct' ? '%' : '€'}</span>
-                    {calc.desc > 0 && <span className="text-emerald-600 font-semibold ml-1">−{calc.desc.toFixed(2)} €</span>}
+                    {calc.desc > 0 && <span className="text-success font-semibold ml-1">−{calc.desc.toFixed(2)} €</span>}
                   </div>
                 )}
               </div>
@@ -789,7 +789,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                       // indica al registrar cada cuota.
                       update('metodo_pago', 'fraccionado');
                     }}
-                    className={`flex-1 h-9 border-x border-border ${pagoMode === 'parcial' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300' : 'bg-card text-muted-foreground hover:bg-muted/50'}`}>Parcial</button>
+                    className={`flex-1 h-9 border-x border-border ${pagoMode === 'parcial' ? 'bg-warning-soft text-warning-soft-foreground' : 'bg-card text-muted-foreground hover:bg-muted/50'}`}>Parcial</button>
                   <button type="button" onClick={() => {
                       setPagoMode('total');
                       // Venia de «Parcial», que deja el metodo en fraccionado y un
@@ -801,14 +801,14 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                         setInstallmentsDirty(false);
                       }
                     }}
-                    className={`flex-1 h-9 ${pagoMode === 'total' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300' : 'bg-card text-muted-foreground hover:bg-muted/50'}`}>Pagó TODO</button>
+                    className={`flex-1 h-9 ${pagoMode === 'total' ? 'bg-success-soft text-success-soft-foreground' : 'bg-card text-muted-foreground hover:bg-muted/50'}`}>Pagó TODO</button>
                 </div>
                 {pagoMode === 'parcial' && (
                   <input type="number" step="0.01" min="0" value={form.importe_pagado} onChange={e => update('importe_pagado', e.target.value)}
                     placeholder="¿Cuánto pagó?" className={inputClass + ' mt-1.5'} autoFocus />
                 )}
                 {pagoMode === 'total' && (
-                  <p className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-1 font-medium">Se registrará el pago completo: {calc.total.toFixed(2)} €</p>
+                  <p className="text-[10px] text-success-soft-foreground mt-1 font-medium">Se registrará el pago completo: {calc.total.toFixed(2)} €</p>
                 )}
                 {/* Con plan fraccionado, el pago inicial necesita su método real
                     (la factura de ese pago lo usará; 'fraccionado' es el plan). */}
@@ -836,7 +836,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 <span>Subtotal</span><span className="tabular-nums">{calc.bruto.toFixed(2)} €</span>
               </div>
               {calc.desc > 0 && (
-                <div className="flex justify-between text-xs text-emerald-600">
+                <div className="flex justify-between text-xs text-success">
                   <span>Descuento {form.descuento_tipo === 'pct' ? `(${form.descuento_valor}%)` : ''}</span>
                   <span className="tabular-nums">−{calc.desc.toFixed(2)} €</span>
                 </div>
@@ -880,16 +880,16 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
             </div>
 
             {form.metodo_pago === 'fraccionado' && (
-              <div className="space-y-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
+              <div className="space-y-3 p-3 rounded-lg bg-warning-soft border border-warning/30">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                  <div className="text-xs font-bold text-warning-soft-foreground uppercase tracking-wider">
                     Plan de cuotas
                   </div>
                   {installmentsDirty && (
                     <button
                       type="button"
                       onClick={() => { setInstallmentsDirty(false); }}
-                      className="text-[10px] text-amber-700 dark:text-amber-300 underline"
+                      className="text-[10px] text-warning-soft-foreground underline"
                     >
                       Recalcular automáticamente
                     </button>
@@ -956,7 +956,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                       const diff = Math.round((pendienteFrac - suma) * 100) / 100;
                       const ok = Math.abs(diff) <= 0.05;
                       return (
-                        <div className={`text-[11px] font-medium pt-1 ${ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                        <div className={`text-[11px] font-medium pt-1 ${ok ? 'text-success-soft-foreground' : 'text-destructive'}`}>
                           Suma cuotas: {suma.toFixed(2)} € — Pendiente a fraccionar: {pendienteFrac.toFixed(2)} €
                           {pagadoInicial > 0 && <span className="text-muted-foreground"> (total {calc.total.toFixed(2)} € − {pagadoInicial.toFixed(2)} € pagado hoy)</span>}
                           {!ok && ` — Diferencia: ${diff.toFixed(2)} €`}
@@ -975,8 +975,8 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
 
             {/* Selector de enlace de pago Stripe (CRM-140) */}
             {(productLinks.length > 0 || form.producto_contratado) && (
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 space-y-2">
-                <div className="flex items-center gap-2 text-[11px] font-bold text-blue-800 dark:text-blue-300">
+              <div className="p-3 rounded-lg bg-info-soft border border-info/30 space-y-2">
+                <div className="flex items-center gap-2 text-[11px] font-bold text-info-soft-foreground">
                   <LinkIcon size={12} weight="bold" /> Enlace de pago para compartir
                 </div>
                 <Select<string>
@@ -1003,13 +1003,13 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 )}
                 {activeLink && (
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 truncate text-[11px] font-mono text-blue-700 dark:text-blue-300 bg-white/60 dark:bg-black/20 px-2 py-1.5 rounded">
+                    <code className="flex-1 truncate text-[11px] font-mono text-info-soft-foreground bg-white/60 dark:bg-black/20 px-2 py-1.5 rounded">
                       {activeLink}
                     </code>
                     <button
                       type="button"
                       onClick={copyActiveLink}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 flex-shrink-0"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-info text-info-foreground text-xs font-semibold hover:bg-info/90 flex-shrink-0"
                     >
                       {linkCopied ? <CheckCircle size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
                       {linkCopied ? 'Copiado' : 'Copiar'}
@@ -1017,7 +1017,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   </div>
                 )}
                 {productLinks.length === 0 && form.producto_contratado && (
-                  <p className="text-[10px] text-blue-700/70 dark:text-blue-300/70 italic">
+                  <p className="text-[10px] text-info-soft-foreground/70 italic">
                     Este producto no tiene enlaces configurados. Añádelos editando el producto.
                   </p>
                 )}
@@ -1031,7 +1031,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
 
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onClose} className="h-9 px-4 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
-              <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+              <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
                 {saving ? 'Guardando...' : 'Registrar conversion'}
               </button>
             </div>

@@ -43,24 +43,24 @@ export default function AvisoHuecosFacturas({ projectId }: { projectId?: number 
     .join(' · ');
 
   return (
-    <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 sm:p-4">
+    <div className="rounded-lg border border-warning/30 bg-warning-soft p-3 sm:p-4">
       <div className="flex items-start gap-3">
-        <WarningCircle size={20} weight="fill" className="text-amber-600 dark:text-amber-400 flex-none mt-0.5" />
+        <WarningCircle size={20} weight="fill" className="text-warning flex-none mt-0.5" />
         <div className="min-w-0">
-          <p className="font-semibold text-amber-900 dark:text-amber-200 text-sm">
+          <p className="font-semibold text-warning-soft-foreground text-sm">
             {n === 1
               ? `Falta una factura por emitir en la serie ${datos.serie}`
               : `Faltan ${n} facturas por emitir en la serie ${datos.serie}`}
           </p>
-          <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
+          <p className="text-sm text-warning-soft-foreground mt-1">
             No existen estos números: <b className="tabular-nums break-words">{lista}</b>
           </p>
-          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1.5">
+          <p className="text-xs text-warning-soft-foreground mt-1.5">
             Una serie fiscal no debería tener huecos. O falta cargar esas facturas,
             o alguien numeró a mano saltándose un número.
           </p>
           <Link to="/finanzas/facturas/nueva"
-            className="inline-flex items-center mt-2 h-7 px-2.5 rounded border border-amber-400 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40">
+            className="inline-flex items-center mt-2 h-7 px-2.5 rounded border border-warning/30 text-warning-soft-foreground text-xs font-semibold hover:bg-warning-soft">
             Emitir la que falta
           </Link>
         </div>

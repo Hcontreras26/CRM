@@ -70,7 +70,7 @@ export default function AvisosPorCorreo() {
 
       {error && (
         <div className="flex items-center gap-2 text-sm">
-          <WarningCircle size={16} className="text-amber-600 dark:text-amber-400" aria-hidden="true" />
+          <WarningCircle size={16} className="text-warning" aria-hidden="true" />
           <span className="text-foreground">{error}</span>
           <button type="button" onClick={cargar} className="underline text-muted-foreground">
             Reintentar

@@ -65,6 +65,16 @@ export default {
           foreground: 'hsl(var(--card-foreground))',
         },
       },
+      // Dos tokens que se usan también como LETRA y como letra no se leían
+      // (#32, medido con la fórmula de contraste WCAG; el mínimo es 4,5:1):
+      // - warning es un fondo pensado para texto oscuro encima: como letra
+      //   daba 2,0:1 en claro. Como letra usa el ámbar de los avisos suaves.
+      // - destructive como letra daba 4,2:1 en oscuro (3,7:1 en una tarjeta).
+      // Solo cambia `text-…`: bg-, border- y ring- siguen con el color de antes.
+      textColor: {
+        warning: { DEFAULT: 'hsl(var(--warning-soft-foreground))' },
+        destructive: { DEFAULT: 'hsl(var(--destructive-text))' },
+      },
       borderRadius: {
         '2xl': 'calc(var(--radius) + 4px)',
         xl: 'calc(var(--radius) + 2px)',

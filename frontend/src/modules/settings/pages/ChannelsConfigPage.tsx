@@ -5,25 +5,25 @@ import { ChatCircleText, WhatsappLogo, EnvelopeSimple, Phone, ArrowsClockwise, S
 const COMING = [
   {
     icon: WhatsappLogo,
-    iconClass: 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
+    iconClass: 'bg-success-soft text-success',
     title: 'WhatsApp Business por proyecto',
     desc: 'Conecta el WhatsApp Business de cada proyecto. Plantillas, detección automática de canal en leads entrantes.',
   },
   {
     icon: EnvelopeSimple,
-    iconClass: 'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
+    iconClass: 'bg-info-soft text-info',
     title: 'Email transaccional (Brevo)',
     desc: 'API key de Brevo por proyecto + dominios autorizados + plantillas de bienvenida y seguimiento.',
   },
   {
     icon: Phone,
-    iconClass: 'bg-violet-100 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400',
+    iconClass: 'bg-primary/10 text-primary',
     title: 'SMS vía Twilio',
     desc: 'Envío de SMS para confirmaciones rápidas y recordatorios de cita.',
   },
   {
     icon: PlugsConnected,
-    iconClass: 'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
+    iconClass: 'bg-warning-soft text-warning',
     title: 'Reglas de auto-detección',
     desc: 'Mapea automáticamente el canal de origen del lead según UTMs, dominio o headers.',
   },
@@ -39,14 +39,14 @@ export default function ChannelsConfigPage() {
         subtitle="Configura los canales de comunicación por proyecto: WhatsApp, Email, SMS"
       />
 
-      <div className="bg-gradient-to-br from-emerald-100/40 via-blue-100/30 to-transparent dark:from-emerald-950/20 dark:via-blue-950/20 border border-border rounded-2xl p-6 flex items-start gap-4">
+      <div className="bg-gradient-to-br from-primary/5 to-transparent border border-border rounded-2xl p-6 flex items-start gap-4">
         <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
           <ChatCircleText size={28} weight="duotone" className="text-primary" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="font-semibold text-base">Backend pendiente</h2>
-            <span className="text-secundario font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 uppercase tracking-wide">
+            <span className="text-secundario font-bold px-2 py-0.5 rounded-full bg-warning-soft text-warning-soft-foreground uppercase tracking-wide">
               En breve
             </span>
           </div>

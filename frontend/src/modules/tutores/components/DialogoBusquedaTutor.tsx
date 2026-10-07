@@ -128,7 +128,7 @@ export default function DialogoBusquedaTutor({
                   </span>
                   <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium',
                     a.status === 'ACTIVE'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                      ? 'bg-success-soft text-success-soft-foreground'
                       : 'bg-muted text-muted-foreground')}>
                     {a.status === 'ACTIVE' ? 'activo' : 'pausado'}
                   </span>

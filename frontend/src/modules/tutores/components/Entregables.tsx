@@ -65,7 +65,7 @@ export default function Entregables({
   const caja = (activo: boolean, extra = '') =>
     `inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap transition-colors ${
       activo
-        ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+        ? 'border-success bg-success-soft text-success-soft-foreground'
         : 'border-border text-muted-foreground'
     } ${extra}`;
 

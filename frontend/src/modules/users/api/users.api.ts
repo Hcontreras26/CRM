@@ -137,6 +137,10 @@ export async function createUser(payload: CreateUserPayload): Promise<CreateUser
 /** Solo estos campos acepta el backend hoy. El email NO se puede cambiar. */
 export interface UpdateUserPayload {
   nombre?: string;
+  /** Solo lo acepta el servidor si quien lo manda es super admin (#246). */
+  email?: string;
+  /** Con el correo nuevo, mandarle el enlace para poner contraseña allí (#246). */
+  reenviarEnlace?: boolean;
   role?: UserRole;
   /** Roles de MAS. Una lista vacia los quita todos, que es lo que se espera. */
   roles_extra?: UserRole[];
@@ -177,8 +181,26 @@ export async function reactivateUser(id: number): Promise<void> {
   if (!res.success) throw new Error(res.error || 'No se pudo reactivar el usuario');
 }
 
-/** Reset de contraseña por un superadmin. Cierra las sesiones activas del usuario. */
-export async function setUserPassword(id: number, password: string): Promise<void> {
-  const res = await client.patch(`/users/${id}/password`, { password });
+/**
+ * Reset de contraseña por un superadmin. Cierra las sesiones activas del usuario.
+ * Repetida, con las reglas de «Establece tu contraseña» (#248).
+ */
+export async function setUserPassword(id: number, password: string, confirmPassword: string): Promise<void> {
+  const res = await client.patch(`/users/${id}/password`, { password, confirmPassword });
   if (!res.success) throw new Error(res.error || 'No se pudo cambiar la contraseña');
+}
+
+/** Si cambiarle el correo a alguien puede dejarle sin prospectos de Make (#248). */
+export interface AvisoCambioCorreo {
+  email: string;
+  campusEnReparto: number;
+  prospectosAsignados: number;
+  enviosDeMake: number;
+  recibeProspectos: boolean;
+}
+
+export async function avisoCambioCorreo(id: number): Promise<AvisoCambioCorreo> {
+  const res = await client.get(`/users/${id}/aviso-correo`);
+  if (!res.success) throw new Error(res.error || 'No se pudo comprobar si recibe prospectos');
+  return res.data as AvisoCambioCorreo;
 }
