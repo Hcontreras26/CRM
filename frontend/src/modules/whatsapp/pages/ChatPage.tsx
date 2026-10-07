@@ -1345,6 +1345,35 @@ export default function ChatPage() {
   // cargadas, y por eso no aparecia nada de mas atras.
   const visibles = chats;
 
+  /**
+   * Los datos con los que se rellenan los huecos, del chat que esté abierto.
+   *
+   * La usan los dos botones de plantillas. Estaba escrita dentro del `onClick`
+   * de uno de ellos, y duplicarla en el otro era garantizar que un día
+   * rellenaran cosas distintas.
+   */
+  const traerDatosDePlantilla = useCallback(() => {
+    if (!abierto) { setDatosPlantilla({}); return; }
+    chatApi.ficha(abierto, deQuien)
+      .then((r) => {
+        if (!r.success) return;
+        const p = r.data.prospecto;
+        setDatosPlantilla(p
+          ? {
+            nombre: p.nombre, email: p.email, telefono: p.telefono,
+            producto: p.producto,
+            // Los de su formación (#129). Las plazas se cuentan AHORA, al abrir
+            // el selector: el documento comercial dice que no se arrastre nunca
+            // el dato del mensaje anterior.
+            plazas: p.plazas_libres,
+            cierre: p.fecha_cierre_convocatoria,
+            inicio: p.fecha_inicio_texto,
+          }
+          : { telefono: r.data.telefono, nombre: r.data.nombre });
+      })
+      .catch(() => setDatosPlantilla({}));
+  }, [abierto, deQuien]);
+
   if (conexion && !conexion.configurado) {
     return (
       <div className="bg-card border border-border rounded-lg p-8 text-center">
@@ -1380,36 +1409,6 @@ export default function ChatPage() {
   // final porque son los ultimos por definicion.
   const enCamino = pendientes.filter((m) => m.paraConversacion === abierto);
   const hilo = enCamino.length ? [...mensajes, ...enCamino] : mensajes;
-
-
-  /**
-   * Los datos con los que se rellenan los huecos, del chat que esté abierto.
-   *
-   * La usan los dos botones de plantillas. Estaba escrita dentro del `onClick`
-   * de uno de ellos, y duplicarla en el otro era garantizar que un día
-   * rellenaran cosas distintas.
-   */
-  const traerDatosDePlantilla = useCallback(() => {
-    if (!abierto) { setDatosPlantilla({}); return; }
-    chatApi.ficha(abierto, deQuien)
-      .then((r) => {
-        if (!r.success) return;
-        const p = r.data.prospecto;
-        setDatosPlantilla(p
-          ? {
-            nombre: p.nombre, email: p.email, telefono: p.telefono,
-            producto: p.producto,
-            // Los de su formación (#129). Las plazas se cuentan AHORA, al abrir
-            // el selector: el documento comercial dice que no se arrastre nunca
-            // el dato del mensaje anterior.
-            plazas: p.plazas_libres,
-            cierre: p.fecha_cierre_convocatoria,
-            inicio: p.fecha_inicio_texto,
-          }
-          : { telefono: r.data.telefono, nombre: r.data.nombre });
-      })
-      .catch(() => setDatosPlantilla({}));
-  }, [abierto, deQuien]);
 
   /**
    * Han elegido una plantilla desde la barra de arriba.
