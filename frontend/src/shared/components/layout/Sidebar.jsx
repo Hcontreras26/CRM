@@ -77,6 +77,7 @@ import { toast } from '@/shared/hooks/useToast';
 import { getLocalLogo } from '@/shared/lib/projectLogos';
 import { isBetaAllowed, BETA_MODE, BETA_VERSION } from '@/shared/config/betaConfig';
 import { moduloApagado } from '@/shared/lib/modulos';
+import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 
 const ProjectSettingsDialog = lazy(() => import('@/modules/settings/components/ProjectSettingsDialog'));
 const NotificationsBell = lazy(() => import('./NotificationsBell'));
@@ -136,7 +137,8 @@ const NAV_SECTIONS = [
           // compro, y se repasa cuando se puede, no cada mañana.
           { label: 'Seguimiento de fin de mes', to: '/prospectos/seguimiento', detail: 'La base que no compró', icon: ArrowCounterClockwise },
           { label: 'Proceso comercial', to: '/prospectos/proceso', detail: 'Los cinco pasos', icon: ListChecks },
-          { label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap },
+          // Sin aprobar para producción (07/10): solo en /testeo.
+          ...(SOLO_EN_PRUEBAS ? [{ label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap }] : []),
         ],
       },
       // WhatsApp cuelga de su propia entrada, con lo suyo escalonado debajo: son
@@ -184,7 +186,9 @@ const NAV_SECTIONS = [
   // es solo colaborador. «Por revisar» y «Configurar tablero» se enseñan por
   // permiso (`permiso`), no por rol: lo que se cambie en Configuración › Roles
   // manda también aquí.
-  {
+  // Toda la sección, solo en pruebas hasta que Diego la apruebe (07/10): en
+  // producción no sale ni en el menú ni por la dirección.
+  ...(SOLO_EN_PRUEBAS ? [{
     label: 'Equipo de Desarrollo',
     icon: Code,
     items: [
@@ -194,7 +198,7 @@ const NAV_SECTIONS = [
       // Programación no va con tarjetas: va por las issues del repo.
       { label: 'Programación', href: GITHUB_ISSUES_URL, detail: 'Issues en GitHub', icon: GitMerge, roles: ROLES_TAREAS },
     ],
-  },
+  }] : []),
   {
     label: 'Captación',
     icon: Funnel,
