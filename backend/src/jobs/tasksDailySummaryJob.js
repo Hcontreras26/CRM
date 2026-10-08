@@ -1,40 +1,56 @@
 import { logger } from '../shared/utils/logger.js';
-import { sendEmail } from '../shared/services/brevo.service.js';
 import { vigilar } from './latido.js';
 import { findDailyDigest } from '../modules/tasks/tasks.model.js';
-import { armarCorreoDelDia, AVISO_TAREAS_DEL_DIA } from '../modules/tasks/tasks.emails.js';
+import {
+  armarCorreoDelDia,
+  despacharCorreo,
+  AVISO_TAREAS_DEL_DIA,
+} from '../modules/tasks/tasks.emails.js';
 
 /**
  * El correo de cada mañana del tablero de tareas (#210, fase 3): a cada persona,
  * lo que le vence hoy y lo que ya tiene vencido. Quien no tiene nada de eso no
  * recibe nada — un correo diario que dice «nada» enseña a no abrirlo.
  *
- * Como el resto de avisos diarios: se mira la hora en cada vuelta en vez de
- * programar una hora exacta, y la clave lleva el DIA, asi un reinicio a las
- * 08:05 ni se lo salta ni lo repite. Se apaga en «Mis preferencias»
+ * La hora es la de la oficina (APP_TIMEZONE, o Europe/Madrid), como
+ * feedbackDia7Scheduler: el servidor está en UTC, y «a las 8» salía a las 10 en
+ * Madrid. «Hoy», tanto para la consulta como para la clave de idempotencia,
+ * también es el día de la oficina.
+ *
+ * Sale por `despacharCorreo`: con TAREAS_CORREOS_ACTIVOS apagado se arma y se
+ * registra, pero no llega a Brevo. Se apaga por persona en «Mis preferencias»
  * («tareas_del_dia») o, para todo un entorno, con TAREAS_DIARIO_DISABLED=1.
  */
 
 const HORA = parseInt(process.env.TAREAS_DIARIO_HORA || '8', 10);
 const TICK_MS = parseInt(process.env.TAREAS_DIARIO_TICK_MS || String(30 * 60 * 1000), 10);
 
-const hoy = () => new Date().toISOString().slice(0, 10);
+const zona = () => process.env.APP_TIMEZONE || 'Europe/Madrid';
+
+export function horaLocal(d = new Date()) {
+  return Number(new Intl.DateTimeFormat('es-ES', { hour: 'numeric', hourCycle: 'h23', timeZone: zona() }).format(d));
+}
+
+export function hoyLocal(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: zona(), year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
 
 export async function runTasksDailySummary({ ahora = new Date(), forzar = false } = {}) {
-  if (!forzar && ahora.getHours() !== HORA) return { omitido: 'fuera de hora' };
+  if (!forzar && horaLocal(ahora) !== HORA) return { omitido: 'fuera de hora' };
 
-  const gente = await findDailyDigest(AVISO_TAREAS_DEL_DIA);
+  const hoy = hoyLocal(ahora);
+  const gente = await findDailyDigest(AVISO_TAREAS_DEL_DIA, hoy, zona());
   let mandados = 0;
   for (const persona of gente) {
     try {
       const c = armarCorreoDelDia({ persona, tareas: persona.tareas, hoy: ahora });
-      const r = await sendEmail({
+      const r = await despacharCorreo({
         to: [{ email: persona.email, name: persona.nombre }],
         subject: c.asunto,
         htmlContent: c.htmlContent,
         textContent: c.textContent,
         tags: ['tareas', 'tareas-del-dia'],
-        clave: `${AVISO_TAREAS_DEL_DIA}-${persona.user_id}-${hoy()}`,
+        clave: `${AVISO_TAREAS_DEL_DIA}-${persona.user_id}-${hoy}`,
       });
       if (r?.sent) mandados++;
     } catch (err) {

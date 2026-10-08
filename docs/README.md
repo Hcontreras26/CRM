@@ -23,6 +23,8 @@ VPS `187.124.128.126`. PM2 corre como el usuario **claude** (`export PATH=~/.nvm
 **Copias.** Antes de una subida grande: `pg_dump -Fc`, tar del backend y del frontal en `/var/backups/crm/`.
 
 **Interruptores del `.env` de producción** (29/09): `NOVEDADES_AUTO=1` (manda las Novedades de una versión nueva al arrancar, una sola vez) · `FEEDBACK_DIA7_INICIO=2026-09-29` (el correo del 7.º día solo para primeros contactos desde ese día) · `PASO_VENCIDO_DISABLED=1` (el trabajo de las 3:00 apagado) · correos del equipo encendidos (sin `RESUMEN_DISABLED` ni `REPORTE_SEMANAL_DISABLED`) · `LEAD_SIN_TOCAR_DISABLED=1`. En pruebas, `EMAIL_LISTA_BLANCA` frena los correos a todo el que no esté en la lista.
+
+**Correos del tablero de tareas** (#210): `TAREAS_CORREOS_ACTIVOS`, **apagado por defecto**. Apagado, el CRM arma cada correo (asignada, devuelta, aprobada, comentario nuevo y el de cada mañana) y lo registra en el log con su destinatario y asunto, pero no llama a Brevo: no sale nada ni en local ni en /testeo. Lo enciende Diego en producción cuando lo decida (`true` o `1`). Cada persona puede apagar cada uno en «Mis preferencias». El de cada mañana va a `TAREAS_DIARIO_HORA` (8 por defecto) en la hora de la oficina (`APP_TIMEZONE`, Europe/Madrid), no en la del servidor; `TAREAS_DIARIO_DISABLED=1` ni lo programa.
 **Frontal:** `VITE_BETA_MODE=true` en producción (lo que no está en `BETA_ROUTES` sale como «Próximamente»); `VITE_FACTURACION_V2` solo en pruebas (la emisión automática de facturas no va a producción).
 **Paridad:** ISEIE (https://crm.iseie.com, repo `CRM-ISEIE`) tiene las mismas funciones; los módulos se copian, la navegación no (ISEIE usa `/leads` donde aquí es `/prospectos`).
 
@@ -232,10 +234,24 @@ Fuente de verdad del esquema. Cada archivo en `backend/migrations/` es un SQL ej
 | 182 | 182_mcp_acceso.sql | Conexion de Claude al CRM por MCP (Model Context Protocol). |
 | 183 | 183_conectores_alcance.sql | Conectores de un campus, de una EMPRESA o de TODO el sistema. |
 | 184 | 184_mcp_por_conector.sql | Un token del MCP de Claude puede nacer de un CONECTOR. |
+| 185 | 185_conectores_creador.sql | Quién creó cada conector, y cada conexión de Claude. |
+| 186 | 186_certifex_consultas.sql | Las consultas que llegan desde la web de Certifex. |
+| 187 | 187_emisor_bic.sql | El BIC/SWIFT de cada sociedad emisora, para las facturas por transferencia. |
+| 188 | 188_enlace_opynio_iseie.sql | El enlace de Opynio de ISEIE (#209). |
+| 189 | 189_mcp_codigo_desbloqueo.sql | Código de desbloqueo del MCP de Claude (#192). |
+| 190 | 190_mcp_caducidad_y_rotacion.sql | MCP de Claude: caducidad, rotación y URLs sin usar (#194). |
+| 191 | 191_mcp_auditoria_visible_y_alertas.sql | MCP de Claude: auditoría visible y alertas (#195). |
+| 192 | 192_mcp_interruptor.sql | Interruptor de emergencia del MCP de Claude (#196). |
+| 193 | 193_tasks_tablero.sql | Tablero de tareas del equipo (#210): tareas, historial, lista de comprobación, comentarios y etiquetas. |
+| 194 | 194_rol_colaborador.sql | El rol `colaborador` en el ENUM `user_role`: solo ve el Equipo de Desarrollo (#210, lo comparte #202). |
+| 195 | 195_tasks_enlaces.sql | Los enlaces de la tarjeta de una tarea (#210). |
+| 196 | 196_tasks_areas_columns_external.sql | Tablero (#210, 07/10): columnas propias (`tasks.status` pasa a apuntar a `task_columns`; las tareas conservan su columna), áreas, proyectos propios con CHECK «campus o proyecto propio», y etiquetas sin repetir. Se puede pasar dos veces sin deshacer lo configurado. |
 
 > **Comprobado el 29/09/2026 contra el catálogo de producción** (no contra la
 > salida de ningún comando): aplicadas todas las de esta lista hasta la **184**.
 > Las de la 2.0.0 se aplicaron ese día (160, 164, 166, 171 correo recibido y 175–184).
+> De la 185 en adelante están listadas, pero esta tabla no dice si ya están aplicadas
+> en cada servidor: compruébalo en `_migraciones` antes de dar una por puesta.
 
 
 > **Comprobado el 04/09/2026 contra el catalogo de las dos bases**, no contra la

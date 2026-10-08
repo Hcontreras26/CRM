@@ -1,11 +1,11 @@
-export type TaskStatus = 'por_hacer' | 'en_curso' | 'en_revision' | 'hecha';
+export type TaskStatus = 'por_hacer' | 'en_curso' | 'en_revision' | 'hecha' | string;
 export type TaskPriority = 'baja' | 'media' | 'alta';
-export type TagColor = 'sky' | 'rose' | 'amber' | 'emerald' | 'violet' | 'slate';
+export type TagColor = 'sky' | 'rose' | 'amber' | 'emerald' | 'violet' | 'slate' | string;
 
 export interface TaskTag {
   id: number;
   name: string;
-  color: TagColor | string;
+  color: TagColor;
 }
 
 export interface TaskChecklistItem {
@@ -59,6 +59,12 @@ export interface Task {
   due_date: string | null;
   project_id: number | null;
   project_name?: string | null;
+  external_project_id?: number | null;
+  external_project_name?: string | null;
+  external_project_color?: string | null;
+  area_id?: number | null;
+  area_name?: string | null;
+  area_color?: string | null;
   assigned_to: number | null;
   assigned_to_name?: string | null;
   assigned_to_email?: string | null;
@@ -72,6 +78,7 @@ export interface Task {
   checklist_completed?: number;
   comments_count?: number;
   links_count?: number;
+  last_comment?: string | null;
   tags?: TaskTag[];
 }
 
@@ -105,4 +112,50 @@ export interface TeamMemberMetric {
   overdue_tasks: number;
   completed_this_week: number;
   completed_this_month: number;
+}
+
+export interface AreaMetric {
+  area_id: number | null;
+  area_name: string;
+  area_color: string | null;
+  open_tasks: number;
+  overdue_tasks: number;
+  completed_this_week: number;
+  completed_this_month: number;
+  people: number;
+}
+
+export interface TaskColumn {
+  id: number;
+  key: string;
+  name: string;
+  color: string;
+  sort_order: number;
+  is_system: boolean;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TaskArea {
+  id: number;
+  name: string;
+  color: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  member_count?: number;
+}
+
+export interface TaskExternalProject {
+  id: number;
+  name: string;
+  description: string | null;
+  url?: string | null;
+  color: string;
+  sort_order?: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }

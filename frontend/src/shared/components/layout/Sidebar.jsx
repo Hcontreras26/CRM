@@ -57,13 +57,14 @@ import {
   CopySimple,
   WhatsappLogo,
   ChatText,
-  UsersThree, QrCode, Warning, Key, ListChecks,
+  UsersThree, QrCode, Warning, Key, ListChecks, Kanban, CheckSquare, SlidersHorizontal, Code,
   // Los de los encabezados de seccion (#105). Ninguno repite el de una
   // entrada de su propia seccion: si el encabezado lleva el mismo dibujo
   // que una de sus filas, deja de ordenar y pasa a confundir.
   Flask, House, Funnel, Books, ChalkboardTeacher, Bank, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
-import { rolesDe } from '@/shared/lib/roles';
+import usePermission from '@/shared/hooks/usePermission';
+import { rolesDe, soloEsColaborador } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/shared/lib/utils';
@@ -86,6 +87,11 @@ const IS_REDESIGN_NAV_ENABLED = import.meta.env.DEV
 
 // Secciones del sidebar — cada una con label + items.
 // Cada item: roles (omitir=todos) + module (clave en project.modules; omitir=siempre)
+// Quién tiene tablero de tareas: el mismo `ROLES_TAREAS` que el backend.
+const ROLES_TAREAS = ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'];
+// Las issues del repo. Se puede cambiar por entorno sin tocar el código.
+const GITHUB_ISSUES_URL = import.meta.env.VITE_TAREAS_GITHUB_URL || 'https://github.com/diego-landaeta/CRM/issues';
+
 const NAV_SECTIONS = [
   {
     label: 'Testeo',
@@ -174,10 +180,25 @@ const NAV_SECTIONS = [
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions' },
-      // El tablero (#210) sigue en evaluación: solo en /testeo (07/10).
-      ...(SOLO_EN_PRUEBAS ? [{ label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks, roles: ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'] }] : []),
     ],
   },
+  // El tablero del equipo (#210 y mejoras del 07/10). Es lo único que ve quien
+  // es solo colaborador. «Por revisar» y «Configurar tablero» se enseñan por
+  // permiso (`permiso`), no por rol: lo que se cambie en Configuración › Roles
+  // manda también aquí.
+  // Toda la sección, solo en pruebas hasta que Diego la apruebe (07/10): en
+  // producción no sale ni en el menú ni por la dirección.
+  ...(SOLO_EN_PRUEBAS ? [{
+    label: 'Equipo de Desarrollo',
+    icon: Code,
+    items: [
+      { label: 'Tablero', to: '/tareas', detail: 'Las tareas del equipo, por áreas', icon: Kanban, roles: ROLES_TAREAS },
+      { label: 'Por revisar', to: '/tareas/revisar', detail: 'Aprobar o devolver', icon: CheckSquare, roles: ROLES_TAREAS, permiso: 'tasks.close' },
+      { label: 'Configurar tablero', to: '/tareas/configurar', detail: 'Columnas, áreas y proyectos', icon: SlidersHorizontal, roles: ROLES_TAREAS, permiso: 'tasks.manage' },
+      // Programación no va con tarjetas: va por las issues del repo.
+      { label: 'Programación', href: GITHUB_ISSUES_URL, detail: 'Issues en GitHub', icon: GitMerge, roles: ROLES_TAREAS },
+    ],
+  }] : []),
   {
     label: 'Captación',
     icon: Funnel,
@@ -673,6 +694,8 @@ function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, o
     return (
       <a
         href={href}
+        target={href.startsWith('http') ? '_blank' : undefined}
+        rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
         onClick={onClick}
         title={collapsed ? displayLabel : undefined}
         aria-label={collapsed ? displayLabel : undefined}
@@ -887,6 +910,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const [newLeadsBadge, setNewLeadsBadge] = useState(0);
   const [spamReportsBadge, setSpamReportsBadge] = useState(0);
   const [msgUnreadBadge, setMsgUnreadBadge] = useState(0);
+  const [tasksReviewBadge, setTasksReviewBadge] = useState(0);
+  const { can } = usePermission();
 
   // Estado de secciones colapsadas (Captación, Catálogo, Finanzas, etc.).
   // Persistido en localStorage. Por defecto, abierto: Principal + la sección
@@ -1002,7 +1027,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   useEffect(() => { setUserMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
-    if (!activeProject?.id) return;
+    if (!activeProject?.id || soloEsColaborador(user)) return;
     let cancelled = false;
     let interval = null;
 
@@ -1041,7 +1066,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
         document.removeEventListener('visibilitychange', onVisibilityChange);
       }
     };
-  }, [activeProject?.id]);
+  }, [activeProject?.id, user]);
 
   // Badge de reportes de spam pendientes — solo superadmin
   useEffect(() => {
@@ -1060,6 +1085,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
 
   // Badge de mensajes no leidos
   useEffect(() => {
+    if (soloEsColaborador(user)) return;
     let cancelled = false;
     async function fetchMsgCount() {
       try {
@@ -1070,7 +1096,23 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
     fetchMsgCount();
     const interval = setInterval(fetchMsgCount, 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+  }, [user]);
+
+  // «Por revisar (n)» en el menú: solo a quien puede cerrar tareas.
+  const puedeRevisar = can('tasks.close');
+  useEffect(() => {
+    if (!puedeRevisar) return;
+    let cancelled = false;
+    async function fetchReviewCount() {
+      try {
+        const res = await client.get('/tasks/review/count');
+        if (!cancelled && res.success) setTasksReviewBadge(res.data?.count || 0);
+      } catch {}
+    }
+    fetchReviewCount();
+    const interval = setInterval(fetchReviewCount, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [puedeRevisar]);
 
   const initials = user?.nombre?.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) || '??';
   // Vanessa y quien lleve las colaboraciones: solo tutores, nada mas.
@@ -1199,7 +1241,9 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       )}>
         {NAV_SECTIONS.map((section, sIdx) => {
           // Filtrar items que el usuario puede ver
-          const visibleItems = section.items.filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
+          const visibleItems = section.items
+            .filter((item) => !item.permiso || can(item.permiso))
+            .filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
           if (visibleItems.length === 0) return null;
           const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
@@ -1231,6 +1275,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                   item.to === '/prospectos' && newLeadsBadge > 0 ? newLeadsBadge
                   : item.to === '/notificaciones' && spamReportsBadge > 0 ? spamReportsBadge
                   : item.to === '/mensajes' && msgUnreadBadge > 0 ? msgUnreadBadge
+                  : item.to === '/tareas/revisar' && tasksReviewBadge > 0 ? tasksReviewBadge
                   : undefined
                 }
                 labelOverrides={activeProject?.sidebar_labels}
