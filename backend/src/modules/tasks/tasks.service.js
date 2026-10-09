@@ -149,17 +149,18 @@ async function tareaRevisable(id, user) {
 }
 
 /**
- * Quién edita una tarea (Diego, por WhatsApp, 09/10): SOLO la persona
- * asignada, con «Editar». Los demás —el admin incluido— la ven, la comentan, y
- * con sus permisos la reasignan, la aprueban o la devuelven, pero no cambian
- * sus campos. Una tarea sin nadie asignado la edita quien la creó.
+ * Quién edita una tarea (Diego, 08/10 y WhatsApp 09/10): el admin y la persona
+ * asignada. Todos los demás la ven y la comentan, pero no la cambian. «Admin»
+ * es quien tiene «Editar» + «Ver todo» (decide la clave, no el rol). Una tarea
+ * sin nadie asignado la edita, además del admin, quien la creó.
  *
  * Cuenta como editar: los campos, moverla de columna, la lista, las etiquetas y
- * los enlaces.
+ * los enlaces. Siempre dentro del ámbito: fuera de él la tarea ni se abre.
  */
 function exigirEdicion(task, user, p) {
   const quienLaLleva = task.assigned_to ?? task.created_by;
-  exigir(p.edit && quienLaLleva === user.userId, 'Solo edita esta tarea la persona asignada');
+  exigir(p.edit && (quienLaLleva === user.userId || p.viewAll),
+    'Solo editan esta tarea el admin y la persona asignada');
 }
 
 /** El día de una fecha en la oficina: dos horas del mismo día no son un cambio. */

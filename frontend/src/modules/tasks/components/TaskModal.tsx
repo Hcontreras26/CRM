@@ -41,8 +41,10 @@ interface TaskModalProps {
   /** `tasks.close`: aprobar, devolver, cerrar y reabrir. */
   canClose?: boolean;
   canAssign: boolean;
-  /** `tasks.edit`: editar la tarea si es la persona asignada. */
+  /** `tasks.edit`: editar la tarea si es la persona asignada (o, con «Ver todo», cualquiera). */
   canEdit?: boolean;
+  /** `tasks.view_all`: con «Editar», es el admin, que edita todas. */
+  canViewAll?: boolean;
   canArchiveAny: boolean;
   assignees: Assignee[];
   projects: ProjectOption[];
@@ -57,7 +59,7 @@ const textareaClass = `${inputClass.replace('h-9', 'min-h-[72px] py-2')} resize-
 
 export function TaskModal({
   open, taskId, initialStatus = 'por_hacer', initialProjectId = null, defaultAssigneeId = null, onClose, onChanged,
-  currentUserId, canClose = false, canAssign, canEdit = true, canArchiveAny, assignees, projects,
+  currentUserId, canClose = false, canAssign, canEdit = true, canViewAll = false, canArchiveAny, assignees, projects,
   areas = [], externalProjects = [], columns = [],
 }: TaskModalProps) {
   useEscapeKey(onClose, open);
@@ -156,10 +158,10 @@ export function TaskModal({
     .map((c) => ({ value: c.key, label: c.name }));
 
   const estadoBloqueado = editando && task?.status === 'hecha' && !tienePermisoCierre;
-  // Al crear, todo se puede. Al editar, solo la persona asignada (Diego,
-  // WhatsApp 09/10): los demás la ven y la comentan con los campos bloqueados,
-  // y quien tiene «Asignar» puede reasignarla.
-  const soloLectura = editando && !!task && !puedeEditarTarea(task, currentUserId, { edit: canEdit });
+  // Al crear, todo se puede. Al editar, el admin y la persona asignada (Diego,
+  // 08/10 y WhatsApp 09/10): los demás la ven y la comentan con los campos
+  // bloqueados, y quien tiene «Asignar» puede reasignarla.
+  const soloLectura = editando && !!task && !puedeEditarTarea(task, currentUserId, { edit: canEdit, viewAll: canViewAll });
 
   const opcionesResponsable = (assignees.length ? assignees : [{ id: currentUserId, nombre: 'Yo', email: '', role: '' }])
     .map((a) => ({ value: a.id, label: a.id === currentUserId ? `${a.nombre} (yo)` : a.nombre }));
@@ -368,7 +370,7 @@ export function TaskModal({
               <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
                 {soloLectura && (
                   <p className="text-xs rounded-md border border-border bg-muted/50 px-3 py-2 text-muted-foreground">
-                    Solo la edita la persona asignada. Puedes verla y comentarla{canAssign ? ', y reasignarla' : ''}.
+                    Solo la editan el admin y la persona asignada. Puedes verla y comentarla{canAssign ? ', y reasignarla' : ''}.
                   </p>
                 )}
                 <div>

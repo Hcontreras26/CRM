@@ -165,19 +165,18 @@ export function neighboursAt(
 }
 
 /**
- * Quién edita una tarea (Diego, por WhatsApp, 09/10): SOLO la persona
- * asignada, con «Editar». Los demás —el admin incluido— la ven y la comentan,
- * y con sus permisos la reasignan, la aprueban o la devuelven. Sin nadie
- * asignado, la edita quien la creó. Es la misma regla que aplica el servidor;
+ * Quién edita una tarea (Diego, 08/10 y WhatsApp 09/10): el admin («Editar» +
+ * «Ver todo») y la persona asignada. Los demás la ven y la comentan. Sin nadie
+ * asignado, también quien la creó. Es la misma regla que aplica el servidor;
  * aquí solo evita ofrecer lo que daría 403.
  */
 export function puedeEditarTarea(
   task: { assigned_to: number | null; created_by?: number | null } | null | undefined,
   yo: number,
-  permisos: { edit: boolean },
+  permisos: { edit: boolean; viewAll: boolean },
 ): boolean {
   if (!task) return false;
-  return permisos.edit && (task.assigned_to ?? task.created_by ?? null) === yo;
+  return permisos.edit && ((task.assigned_to ?? task.created_by ?? null) === yo || permisos.viewAll);
 }
 
 /**

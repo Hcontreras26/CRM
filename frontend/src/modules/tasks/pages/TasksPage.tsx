@@ -239,7 +239,7 @@ export default function TasksPage() {
   }, [vista, tasks, assignees, yo, agrupar]);
 
   // Arrastrar es editar: la misma regla que la ficha y el servidor.
-  const puedeArrastrar = (t: Task) => puedeEditarTarea(t, yo, { edit: canEdit })
+  const puedeArrastrar = (t: Task) => puedeEditarTarea(t, yo, { edit: canEdit, viewAll: canViewAll })
     && (canClose || t.status !== 'hecha');
 
   function empezarArrastre(e: DragEvent<HTMLDivElement>, t: Task) {
@@ -535,6 +535,7 @@ export default function TasksPage() {
         currentUserId={yo}
         canAssign={canAssign}
         canEdit={canEdit}
+        canViewAll={canViewAll}
         canArchiveAny={canArchiveAny}
         canClose={canClose}
         assignees={assignees}

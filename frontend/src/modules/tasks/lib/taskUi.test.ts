@@ -145,19 +145,22 @@ describe('armarCambiosDeTarea: lo que manda la ficha al guardar (QA de Diego 08/
   });
 });
 
-describe('puedeEditarTarea: solo la persona asignada (Diego, WhatsApp 09/10)', () => {
+describe('puedeEditarTarea: el admin y la persona asignada (Diego, 08/10 y WhatsApp 09/10)', () => {
   const tarea = { assigned_to: 7, created_by: 5 };
   it('la persona asignada con «Editar»', () => {
-    expect(puedeEditarTarea(tarea, 7, { edit: true })).toBe(true);
+    expect(puedeEditarTarea(tarea, 7, { edit: true, viewAll: false })).toBe(true);
   });
-  it('quien la creó, o el admin, si no es la persona asignada: no', () => {
-    expect(puedeEditarTarea(tarea, 5, { edit: true })).toBe(false);
-    expect(puedeEditarTarea(tarea, 1, { edit: true })).toBe(false);
+  it('el admin («Editar» + «Ver todo»), aunque no la lleve', () => {
+    expect(puedeEditarTarea(tarea, 1, { edit: true, viewAll: true })).toBe(true);
+  });
+  it('quien solo la creó, u otra persona del equipo: no', () => {
+    expect(puedeEditarTarea(tarea, 5, { edit: true, viewAll: false })).toBe(false);
+    expect(puedeEditarTarea(tarea, 9, { edit: true, viewAll: false })).toBe(false);
   });
   it('sin nadie asignado, quien la creó', () => {
-    expect(puedeEditarTarea({ assigned_to: null, created_by: 5 }, 5, { edit: true })).toBe(true);
+    expect(puedeEditarTarea({ assigned_to: null, created_by: 5 }, 5, { edit: true, viewAll: false })).toBe(true);
   });
   it('sin «Editar», nadie, ni la persona asignada', () => {
-    expect(puedeEditarTarea(tarea, 7, { edit: false })).toBe(false);
+    expect(puedeEditarTarea(tarea, 7, { edit: false, viewAll: true })).toBe(false);
   });
 });

@@ -201,8 +201,8 @@ describe('B · comentario automático por cualquier cambio (Diego 08/10 y WhatsA
   });
 });
 
-describe('C · solo edita la persona asignada (Diego, WhatsApp 09/10), y las claves en el servidor', () => {
-  it('quien la creó y el admin ya no la editan; la ven y la comentan, y el admin la reasigna', async () => {
+describe('C · editan el admin y la persona asignada (Diego, 08/10 y WhatsApp 09/10), y las claves en el servidor', () => {
+  it('quien solo la creó ya no la edita (la ve y la comenta); el admin y la persona asignada, sí', async () => {
     // La gestora crea y el admin se la pasa a otra: ella sigue viéndola.
     const t = await crear('gestoraA', { title: 'La creé yo' });
     expect((await editar('adminA', t.id, { assigned_to: U.gestoraA2.id })).status).toBe(200);
@@ -211,12 +211,13 @@ describe('C · solo edita la persona asignada (Diego, WhatsApp 09/10), y las cla
     expect((await request.post(`/api/tasks/${t.id}/checklist`).set(como('gestoraA')).send({ title: 'x' })).status).toBe(403);
     expect((await request.get(`/api/tasks/${t.id}`).set(como('gestoraA'))).status).toBe(200);
     expect((await request.post(`/api/tasks/${t.id}/comments`).set(como('gestoraA')).send({ content: 'ok' })).status).toBe(201);
-    // El admin tampoco edita sus campos ni la mueve…
-    expect((await editar('adminA', t.id, { title: 'El admin no' })).status).toBe(403);
-    expect((await request.patch(`/api/tasks/${t.id}/move`).set(como('adminA')).send({ status: 'en_curso' })).status).toBe(403);
-    // …pero la reasigna aunque la ficha mande sus campos sin cambiar.
-    expect((await editar('adminA', t.id, { title: 'La creé yo', priority: 'media', assigned_to: U.gestoraA.id })).status).toBe(200);
-    // La persona asignada, sí.
+    // Otra persona del equipo sin «Ver todo», tampoco.
+    expect((await editar('gestoraA', t.id, { title: 'Otra vez' })).status).toBe(403);
+    // El admin sí: la edita, la mueve y la reasigna.
+    expect((await editar('adminA', t.id, { title: 'El admin sí' })).status).toBe(200);
+    expect((await request.patch(`/api/tasks/${t.id}/move`).set(como('adminA')).send({ status: 'en_curso' })).status).toBe(200);
+    expect((await editar('adminA', t.id, { title: 'El admin sí', priority: 'media', assigned_to: U.gestoraA.id })).status).toBe(200);
+    // Y la persona asignada, también.
     expect((await editar('gestoraA', t.id, { title: 'Ahora es mía' })).status).toBe(200);
   });
 
@@ -330,11 +331,11 @@ describe('D · acotado por empresa', () => {
     expect((await request.patch(`/api/tasks/${deC.id}/approve`).set(como('adminA'))).status).toBe(404);
   });
 
-  it('la tarea del colaborador sin campus la ven los admins de las dos empresas, pero solo la edita él', async () => {
+  it('la tarea del colaborador sin campus la ven todos; la editan el admin y él, nadie más', async () => {
     expect((await request.get(`/api/tasks/${deColaborador.id}`).set(como('adminC'))).status).toBe(200);
     expect((await request.get(`/api/tasks/${deColaborador.id}`).set(como('adminA'))).status).toBe(200);
-    expect((await editar('adminA', deColaborador.id, { title: 'El admin no' })).status).toBe(403);
-    expect((await editar('colaborador', deColaborador.id, { title: 'Yo sí' })).status).toBe(200);
+    expect((await editar('adminA', deColaborador.id, { title: 'El admin sí' })).status).toBe(200);
+    expect((await editar('colaborador', deColaborador.id, { title: 'Yo también' })).status).toBe(200);
   });
 
   it('el admin de UNO solo asigna a gente de UNO o a colaboradores sin campus', async () => {
