@@ -96,6 +96,8 @@ export interface Assignee {
   nombre: string;
   email: string;
   role: string;
+  /** Si quien mira puede ponerla como responsable (un colaborador sin campus, solo el superadmin). */
+  asignable?: boolean;
 }
 
 export interface TagName {

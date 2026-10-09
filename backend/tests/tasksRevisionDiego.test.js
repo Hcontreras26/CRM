@@ -384,14 +384,23 @@ describe('D · acotado por empresa', () => {
     expect((await editar('colaborador', deColaborador.id, { title: 'Yo también' })).status).toBe(200);
   });
 
-  it('el admin de UNO solo asigna a gente de UNO o a colaboradores sin campus', async () => {
-    const res = await request.post('/api/tasks').set(como('adminA')).send({ title: 'Para DOS', assigned_to: U.gestoraC.id });
-    expect(res.status).toBe(403);
-    await crear('adminA', { title: 'Para el colaborador', assigned_to: U.colaborador.id });
-    const personas = (await request.get('/api/tasks/assignees').set(como('adminA'))).body.data.map((u) => u.id);
-    expect(personas).toContain(U.gestoraA.id);
-    expect(personas).toContain(U.colaborador.id);
-    expect(personas).not.toContain(U.gestoraC.id);
+  it('el admin de UNO solo asigna a gente de sus campus; a un colaborador sin campus, solo el superadmin', async () => {
+    expect((await request.post('/api/tasks').set(como('adminA')).send({ title: 'Para DOS', assigned_to: U.gestoraC.id })).status).toBe(403);
+    expect((await request.post('/api/tasks').set(como('adminA')).send({ title: 'Para el colaborador', assigned_to: U.colaborador.id })).status).toBe(403);
+    await crear('adminA', { title: 'Para la gestora de UNO', assigned_to: U.gestoraA.id });
+    await crear('superadmin', { title: 'Del superadmin al colaborador', assigned_to: U.colaborador.id });
+    // Reasignar tampoco: el admin no se la pasa al colaborador.
+    const suya = await crear('adminA', { title: 'Del admin', assigned_to: U.gestoraA.id });
+    expect((await editar('adminA', suya.id, { assigned_to: U.colaborador.id })).status).toBe(403);
+
+    const personas = (await request.get('/api/tasks/assignees').set(como('adminA'))).body.data;
+    const de = (id) => personas.find((u) => u.id === id);
+    expect(de(U.gestoraA.id)?.asignable).toBe(true);
+    // El colaborador sale (su tablero se ve), pero no se le puede asignar.
+    expect(de(U.colaborador.id)?.asignable).toBe(false);
+    expect(de(U.gestoraC.id)).toBeUndefined();
+    const delSuper = (await request.get('/api/tasks/assignees').set(como('superadmin'))).body.data;
+    expect(delSuper.find((u) => u.id === U.colaborador.id)?.asignable).toBe(true);
   });
 
   it('las métricas de «Todo el equipo» solo cuentan a gente de su empresa', async () => {

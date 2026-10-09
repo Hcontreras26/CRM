@@ -126,11 +126,15 @@ async function exigirEnAmbito(personaId, user) {
   }
 }
 
-/** Solo se asigna a gente del ámbito de quien asigna (Diego 08/10, respuesta 5). */
+/**
+ * Solo se asigna a gente de los campus de quien asigna (Diego 08/10 y Hugo
+ * 09/10): un admin de CEDIA, a gente de sus campus de CEDIA. A un colaborador
+ * sin campus, solo el superadmin. Superadmin y soporte, a cualquiera.
+ */
 async function exigirResponsableEnAmbito(personaId, user) {
   const ambito = await ambitoDe(user);
-  if (!(await taskModel.personaEnAmbito(personaId, ambito, user.userId))) {
-    throw new AppError('Solo puedes asignar tareas a gente de tu empresa', 403, 'FORBIDDEN');
+  if (!(await taskModel.personaAsignable(personaId, ambito, user.userId))) {
+    throw new AppError('Solo puedes asignar tareas a gente de tus campus', 403, 'FORBIDDEN');
   }
 }
 
@@ -397,7 +401,7 @@ export async function getTaskById(id, user) {
 export async function listAssignees(user, q = {}) {
   const p = await permisosDe(user);
   exigir(p.viewAll || p.assign || p.manage, 'No tienes permiso para ver el equipo');
-  return taskModel.findAssignees(await ambitoDe(user, q), user.userId);
+  return taskModel.findAssignees(await ambitoDe(user, q), user.userId, await ambitoDe(user));
 }
 
 export async function listTagNames(user, q = {}) {

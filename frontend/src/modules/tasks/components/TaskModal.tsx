@@ -163,7 +163,10 @@ export function TaskModal({
   // bloqueados, y quien tiene «Asignar» puede reasignarla.
   const soloLectura = editando && !!task && !puedeEditarTarea(task, currentUserId, { edit: canEdit, viewAll: canViewAll });
 
+  // Solo la gente a la que se le puede asignar (un colaborador sin campus,
+  // solo el superadmin), más quien ya la lleva, para que el desplegable la enseñe.
   const opcionesResponsable = (assignees.length ? assignees : [{ id: currentUserId, nombre: 'Yo', email: '', role: '' }])
+    .filter((a: Assignee) => a.asignable !== false || a.id === (task?.assigned_to ?? currentUserId))
     .map((a) => ({ value: a.id, label: a.id === currentUserId ? `${a.nombre} (yo)` : a.nombre }));
 
   async function handleSubmit(e: FormEvent) {

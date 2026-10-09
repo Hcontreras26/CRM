@@ -22,6 +22,7 @@ const one = async (sql, params) => (await q(sql, params))[0];
 const U = {};
 const T = {};
 let rolSinCierre;
+let campus;
 const creados = { columnas: [], areas: [], proyectos: [] };
 
 async function persona(clave, role, extra = {}) {
@@ -49,6 +50,12 @@ async function crear(clave, body) {
 const mover = (clave, id, body) => request.patch(`/api/tasks/${id}/move`).set(como(clave)).send(body);
 
 beforeAll(async () => {
+  // Un campus con toda la gente de la prueba, como en el CRM de verdad: un
+  // admin solo asigna a gente de sus campus (09/10).
+  campus = await one(
+    'INSERT INTO projects (nombre, slug, webhook_api_key) VALUES ($1, $2, $3) RETURNING id',
+    [`${MARCA} Campus`, `${MARCA.toLowerCase()}-campus`, `${MARCA}-campus`]
+  );
   // Un rol a medida sobre «admin» al que en Configuración › Roles se le quitó
   // tasks.close: así se guarda desde esa pantalla.
   rolSinCierre = await one(
@@ -65,6 +72,10 @@ beforeAll(async () => {
   await persona('colaborador', 'colaborador');
   await persona('colaborador2', 'colaborador');
 
+  for (const u of Object.values(U)) {
+    await q('INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2)', [u.id, campus.id]);
+  }
+
   // Excepciones personales, como las guarda Configuración › Roles › Usuario.
   await q(
     `INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES
@@ -78,7 +89,9 @@ afterAll(async () => {
   await q('DELETE FROM tasks WHERE created_by = ANY($1::int[]) OR assigned_to = ANY($1::int[])', [ids]);
   await q('DELETE FROM admin_notifications WHERE target_user_ids && $1::int[]', [ids]);
   await q('DELETE FROM user_permission_overrides WHERE user_id = ANY($1::int[])', [ids]);
+  await q('DELETE FROM user_projects WHERE user_id = ANY($1::int[])', [ids]);
   await q('DELETE FROM users WHERE id = ANY($1::int[])', [ids]);
+  await q('DELETE FROM projects WHERE id = $1', [campus.id]);
   await q('DELETE FROM custom_roles WHERE id = $1', [rolSinCierre.id]);
   await q('DELETE FROM task_columns WHERE id = ANY($1::int[])', [creados.columnas]);
   await q('DELETE FROM task_areas WHERE id = ANY($1::int[])', [creados.areas]);

@@ -671,21 +671,52 @@ export async function deleteLink(task_id, id) {
 
 /* --- Personas --- */
 
-export async function findAssignees(ambito = null, yo = null) {
+/**
+ * A quién puede asignar tareas quien mira (Hugo, 09/10): a sí mismo y a la
+ * gente con algún campus activo dentro de su ámbito. Los colaboradores sin
+ * campus, NO: a ellos solo les asigna el superadmin (`ambito` null).
+ */
+export function asignableEnAmbito(col, idxIds, idxYo) {
+  return `(${col} = $${idxYo}
+    OR EXISTS (SELECT 1 FROM user_projects up_g
+                WHERE up_g.user_id = ${col} AND up_g.active AND up_g.project_id = ANY($${idxIds}::int[])))`;
+}
+
+/**
+ * La gente del equipo que ve quien mira. `asignable` dice si además puede
+ * ponerla como responsable: un colaborador sin campus sale (su tablero se ve),
+ * pero solo el superadmin se lo asigna.
+ */
+export async function findAssignees(ambito = null, yo = null, ambitoAsignar = null) {
   const params = [ROLES_TAREAS];
+  // `yo` solo entra si se usa: un parámetro sin usar no tiene tipo (42P18).
+  let idxYo = null;
+  const yoEn = () => { if (!idxYo) { params.push(yo); idxYo = params.length; } return idxYo; };
   let filtro = '';
   if (ambito) {
-    params.push(ambito, yo);
-    filtro = `AND ${genteDelAmbito('u.id', 2, 3)}`;
+    params.push(ambito);
+    filtro = `AND ${genteDelAmbito('u.id', params.length, yoEn())}`;
+  }
+  let asignable = 'TRUE';
+  if (ambitoAsignar) {
+    params.push(ambitoAsignar);
+    asignable = asignableEnAmbito('u.id', params.length, yoEn());
   }
   const { rows } = await query(
-    `SELECT u.id, u.nombre, u.email, u.role
+    `SELECT u.id, u.nombre, u.email, u.role, ${asignable} AS asignable
        FROM users u
       WHERE u.active AND ${conTablero(1)} ${filtro}
       ORDER BY u.nombre ASC`,
     params
   );
   return rows;
+}
+
+/** Si quien mira puede asignarle tareas a esta persona (ver `asignableEnAmbito`). */
+export async function personaAsignable(personaId, ambito, yo) {
+  if (!ambito) return true;
+  const { rows } = await query(`SELECT ${asignableEnAmbito('$3::int', 1, 2)} AS ok`, [ambito, yo, personaId]);
+  return rows[0].ok === true;
 }
 
 export async function findUserBasic(id) {

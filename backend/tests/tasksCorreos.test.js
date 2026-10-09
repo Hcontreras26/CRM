@@ -51,10 +51,20 @@ async function tareaEnRevision(titulo) {
   return t;
 }
 
+let campus;
+
 beforeAll(async () => {
   await persona('admin', 'admin');
   await persona('colaborador', 'colaborador');
   await persona('silencioso', 'colaborador');
+  // Todos en un campus: un admin solo asigna a gente de sus campus (09/10).
+  campus = await one(
+    'INSERT INTO projects (nombre, slug, webhook_api_key) VALUES ($1, $2, $3) RETURNING id',
+    [`${MARCA} Campus`, `${MARCA.toLowerCase()}-campus`, `${MARCA}-campus`]
+  );
+  for (const u of Object.values(U)) {
+    await q('INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2)', [u.id, campus.id]);
+  }
   // «silencioso» apagó en Mis preferencias todos los correos de tareas.
   for (const aviso of ['tarea_asignada', 'tarea_devuelta', 'tarea_cerrada', 'tarea_comentario', 'tareas_del_dia']) {
     await q('INSERT INTO avisos_apagados (user_id, aviso) VALUES ($1, $2)', [U.silencioso.id, aviso]);
@@ -65,7 +75,9 @@ afterAll(async () => {
   const ids = Object.values(U).map((u) => u.id);
   await q('DELETE FROM tasks WHERE created_by = ANY($1::int[]) OR assigned_to = ANY($1::int[])', [ids]);
   await q('DELETE FROM admin_notifications WHERE target_user_ids && $1::int[]', [ids]);
+  await q('DELETE FROM user_projects WHERE user_id = ANY($1::int[])', [ids]);
   await q('DELETE FROM users WHERE id = ANY($1::int[])', [ids]);
+  await q('DELETE FROM projects WHERE id = $1', [campus.id]);
   await pool.end();
 });
 
