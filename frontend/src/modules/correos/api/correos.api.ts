@@ -12,6 +12,11 @@ export interface CorreoEnLista {
   intentos: number;
   etiquetas: string[] | null;
   project_id: number | null;
+  /** El campus del correo, si lo tiene. */
+  campus: string | null;
+  /** Las personas del CRM detrás de los destinatarios y del remitente, si las hay. */
+  para_quien: string | null;
+  de_quien: string | null;
   error: string | null;
   /** Los envíos anteriores a que se guardara el texto no lo tienen. */
   tiene_cuerpo: boolean;

@@ -54,6 +54,9 @@ const ROTULO: Record<string, string> = {
   enviado: 'enviado', recibido: 'recibido', bloqueado: 'frenado', fallido: 'falló',
 };
 
+/** «María Eugenia · admisiones@academiaia.ai», o la dirección sola si no es de nadie del CRM. */
+const conNombre = (nombre: string | null | undefined, direccion: string) => (nombre ? `${nombre} · ${direccion}` : direccion);
+
 const cuando = (iso: string) => {
   const d = new Date(iso);
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} `
@@ -208,11 +211,19 @@ export default function CorreosPage() {
                     que lo que hay que leer de un vistazo es QUIÉN escribe. En
                     lo que sale, a quién. */}
                 <span className="text-sm truncate min-w-0 flex-1">
+                  {/* Con el NOMBRE de la persona del CRM delante de la dirección:
+                      «admisiones@academiaia.ai» a secas no dice que es María
+                      Eugenia (Diego, 09/10). */}
                   <span className="font-medium">
-                    {c.direccion === 'entrada' ? (c.remitente || '(sin remitente)') : c.destinatarios}
+                    {c.direccion === 'entrada'
+                      ? conNombre(c.de_quien, c.remitente || '(sin remitente)')
+                      : conNombre(c.para_quien, c.destinatarios)}
                   </span>
                   <span className="text-muted-foreground"> · {c.asunto}</span>
                 </span>
+                {c.campus && (
+                  <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{c.campus}</span>
+                )}
                 {c.intentos > 1 && (
                   <span className="text-[11px] text-muted-foreground shrink-0">{c.intentos} intentos</span>
                 )}
@@ -242,7 +253,9 @@ export default function CorreosPage() {
               <div className="min-w-0">
                 <h2 className="font-bold truncate">{abierto.asunto}</h2>
                 <p className="text-xs text-muted-foreground truncate">
-                  {abierto.remitente ? `${abierto.remitente} → ` : ''}{abierto.destinatarios}
+                  {abierto.remitente ? `${conNombre(abierto.de_quien, abierto.remitente)} → ` : ''}
+                  {conNombre(abierto.para_quien, abierto.destinatarios)}
+                  {abierto.campus ? ` · ${abierto.campus}` : ''}
                   {' · '}{cuando(abierto.cuando)}
                 </p>
               </div>
