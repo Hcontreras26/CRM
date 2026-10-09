@@ -80,6 +80,7 @@ import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
 import { startTasksDailySummaryScheduler } from './jobs/tasksDailySummaryJob.js';
+import { tareasActivas } from './shared/config/soloEnPruebas.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -191,8 +192,10 @@ const ALL_MODULES = [
   // Conexion de Claude por MCP: solo consulta, con token personal.
   { name: 'mcp', mod: mcpModule },
   { name: 'certifex', mod: certifexModule },
-  { name: 'tasks', mod: tasksModule },
+  // El tablero aún no está aprobado para producción: solo en local y /testeo.
+  ...(tareasActivas() ? [{ name: 'tasks', mod: tasksModule }] : []),
 ];
+if (!tareasActivas()) logger.info('Modulo SKIP (solo en pruebas): /api/tasks');
 
 // Módulos siempre activos (fuera del sistema de bundles)
 app.use(installationModule.prefix, installationModule.router);
@@ -333,7 +336,7 @@ if (process.env.NODE_ENV !== 'test') {
     startMcpRotacionScheduler();
     startMcpVigilanciaScheduler();
     startCorreoEntranteScheduler();
-    startTasksDailySummaryScheduler();
+    if (tareasActivas()) startTasksDailySummaryScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }
