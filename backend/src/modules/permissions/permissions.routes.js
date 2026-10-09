@@ -20,11 +20,11 @@ router.delete('/custom-roles/:id', roleGuard('superadmin'), ctrl.deleteCustomRol
 router.get('/users/:userId/permissions', roleGuard('admin', 'superadmin'), ctrl.getUserPermissions);
 router.put('/users/:userId/permissions', roleGuard('admin', 'superadmin'), ctrl.saveUserPermissions);
 
-// Permisos de Tareas por rol (Diego, 08/10 y WhatsApp 09/10): solo el
-// superadmin, que es quien maneja esa información. `soloRoles` y no
-// `roleGuard`, que dejaría pasar también a admin y soporte.
-router.get('/role-permissions/:roleKey', soloRoles('superadmin'), ctrl.getRolePermissions);
-router.put('/role-permissions/:roleKey', soloRoles('superadmin'), ctrl.saveRolePermissions);
+// Permisos de Tareas por rol (#210): los cambian el superadmin y el admin
+// (Hugo, 09/10). `soloRoles` y no `roleGuard`, que dejaría pasar también a
+// soporte.
+router.get('/role-permissions/:roleKey', soloRoles('superadmin', 'admin'), ctrl.getRolePermissions);
+router.put('/role-permissions/:roleKey', soloRoles('superadmin', 'admin'), ctrl.saveRolePermissions);
 
 // Vistas por rol (sidebar/dashboard/landing)
 router.get('/role-views/:roleKey', ctrl.getRoleView);

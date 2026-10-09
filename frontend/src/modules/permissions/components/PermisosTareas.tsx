@@ -5,7 +5,7 @@ import * as api from '../api/permissions.api';
 
 /**
  * Los permisos de Tareas que se editan por rol (Diego, 08/10, #210): «Aprobar
- * y cerrar» y «Configurar». Solo los cambia el superadmin (WhatsApp, 09/10).
+ * y cerrar» y «Configurar». Los cambian el superadmin y el admin (09/10).
  *
  * El servidor guarda solo lo que se aparta del valor por defecto del rol (o lo
  * fusiona en el JSON de un rol a medida) y cada persona lo recibe en /auth/me:

@@ -245,14 +245,16 @@ describe('C · editan el admin y la persona asignada (Diego, 08/10 y WhatsApp 09
 });
 
 describe('C · Configuración › Roles: permisos de Tareas por rol', () => {
-  it('solo el superadmin los cambia (WhatsApp 09/10): admin, soporte, gestora y colaborador, 403', async () => {
-    for (const clave of ['adminA', 'soporte', 'gestoraA', 'colaborador']) {
+  it('los cambian el superadmin y el admin; soporte, gestora y colaborador, 403', async () => {
+    for (const clave of ['soporte', 'gestoraA', 'colaborador']) {
       expect((await permisosDeRol(clave, 'project_manager', { 'tasks.close': false })).status).toBe(403);
       expect((await request.get('/api/permissions/role-permissions/project_manager').set(como(clave))).status).toBe(403);
     }
-    const res = await request.get('/api/permissions/role-permissions/project_manager').set(como('superadmin'));
-    expect(res.status).toBe(200);
-    expect(Object.keys(res.body.data.permissions).sort()).toEqual(['tasks.close', 'tasks.manage']);
+    for (const clave of ['superadmin', 'adminA']) {
+      const res = await request.get('/api/permissions/role-permissions/project_manager').set(como(clave));
+      expect(res.status).toBe(200);
+      expect(Object.keys(res.body.data.permissions).sort()).toEqual(['tasks.close', 'tasks.manage']);
+    }
   });
 
   it('solo «Aprobar y cerrar» y «Configurar»; otra clave, un valor que no es sí/no, o superadmin o tutor: 400', async () => {
@@ -270,12 +272,13 @@ describe('C · Configuración › Roles: permisos de Tareas por rol', () => {
     try {
       expect((await request.patch(`/api/tasks/${t.id}/approve`).set(como('pm'))).status).toBe(403);
 
-      const res = await permisosDeRol('superadmin', 'project_manager', { 'tasks.close': true });
+      // Lo cambia el admin.
+      const res = await permisosDeRol('adminA', 'project_manager', { 'tasks.close': true });
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       expect(res.body.data.permissions['tasks.close']).toBe(true);
       // Solo se guarda lo que se aparta del código.
       expect(await q(`SELECT action, allowed, updated_by FROM role_permission_overrides WHERE role = 'project_manager'`))
-        .toEqual([{ action: 'close', allowed: true, updated_by: U.superadmin.id }]);
+        .toEqual([{ action: 'close', allowed: true, updated_by: U.adminA.id }]);
 
       const me = await request.get('/api/auth/me').set(como('pm'));
       expect(me.body.data.permissions['tasks.close']).toBe(true);

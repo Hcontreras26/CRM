@@ -1,5 +1,5 @@
--- Permisos por rol, editables desde Configuración › Roles por el superadmin
--- (#210, Diego 08/10 y WhatsApp 09/10)
+-- Permisos por rol, editables desde Configuración › Roles por el superadmin y
+-- el admin (#210, 08/10 y 09/10)
 --
 -- Los permisos de cada rol del sistema (admin, gestor, soporte, colaborador…)
 -- viven en el código (permissions.defaults.js). Esta tabla guarda lo que se

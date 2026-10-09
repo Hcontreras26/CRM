@@ -248,7 +248,7 @@ Fuente de verdad del esquema. Cada archivo en `backend/migrations/` es un SQL ej
 | 194 | 194_rol_colaborador.sql | El rol `colaborador` en el ENUM `user_role`: solo ve el Equipo de Desarrollo (#210, lo comparte #202). |
 | 195 | 195_tasks_enlaces.sql | Los enlaces de la tarjeta de una tarea (#210). |
 | 196 | 196_tasks_areas_columns_external.sql | Tablero (#210, 07/10): columnas propias (`tasks.status` pasa a apuntar a `task_columns`; las tareas conservan su columna), áreas, proyectos propios con CHECK «campus o proyecto propio», y etiquetas sin repetir. Se puede pasar dos veces sin deshacer lo configurado. |
-| 197 | 197_permisos_por_rol.sql | Permisos de Tareas por rol («Aprobar y cerrar» y «Configurar»), editables desde Configuración › Roles por el superadmin (#210, 08/10). Guarda solo lo que se aparta del valor por defecto del código; el orden es: por defecto del rol → esta tabla → rol a medida → excepciones de la persona. Se puede pasar dos veces. |
+| 197 | 197_permisos_por_rol.sql | Permisos de Tareas por rol («Aprobar y cerrar» y «Configurar»), editables desde Configuración › Roles por el superadmin y el admin (#210, 08/10). Guarda solo lo que se aparta del valor por defecto del código; el orden es: por defecto del rol → esta tabla → rol a medida → excepciones de la persona. Se puede pasar dos veces. |
 
 > **Comprobado el 29/09/2026 contra el catálogo de producción** (no contra la
 > salida de ningún comando): aplicadas todas las de esta lista hasta la **184**.
