@@ -73,9 +73,9 @@ export default function RolesPage() {
   const [customRolesAvailable, setCustomRolesAvailable] = useState<boolean | null>(null);
   const [pestana, setPestana] = useState<'permisos' | 'vista'>('permisos');
   const [defaults, setDefaults] = useState<SystemDefaults | null>(null);
-  // Superadmin y admin cambian los permisos de Tareas (Diego, 08/10).
+  // Solo el superadmin cambia los permisos de Tareas (Diego, WhatsApp 09/10).
   const { tieneRol } = usePermission();
-  const puedeEditarTareas = tieneRol('superadmin', 'admin');
+  const puedeEditarTareas = tieneRol('superadmin');
 
   // El catalogo del backend: recursos, acciones, widgets y elementos del menu,
   // y los permisos de cada rol con lo cambiado aquí ya aplicado.
@@ -331,8 +331,8 @@ export default function RolesPage() {
               </div>
 
               <p className="text-[11px] text-muted-foreground italic pt-2">
-                Los permisos de los roles del sistema viven en el backend. Desde aquí solo se cambian los
-                de Tareas; esta tabla enseña lo que manda ahora, con esos cambios ya aplicados.
+                Los permisos de los roles del sistema viven en el backend. Desde aquí el superadmin solo cambia
+                «Aprobar y cerrar» y «Configurar» de Tareas; esta tabla enseña lo que manda ahora.
               </p>
               </>
               )}

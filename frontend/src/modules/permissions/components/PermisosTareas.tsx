@@ -4,22 +4,16 @@ import { toast } from '@/shared/hooks/useToast';
 import * as api from '../api/permissions.api';
 
 /**
- * Los 8 permisos de Tareas de un rol, editables (Diego, 08/10, #210).
+ * Los permisos de Tareas que se editan por rol (Diego, 08/10, #210): «Aprobar
+ * y cerrar» y «Configurar». Solo los cambia el superadmin (WhatsApp, 09/10).
  *
- * Los cambian el superadmin y el admin: son quienes manejan esa información.
  * El servidor guarda solo lo que se aparta del valor por defecto del rol (o lo
  * fusiona en el JSON de un rol a medida) y cada persona lo recibe en /auth/me:
  * `can()` ya da prioridad a ese mapa, así que no hay que tocar nada más.
  */
 
-// En el orden en que se entienden, con lo que hace cada uno.
+// Las dos que se cambian por rol, con lo que hace cada una.
 const CLAVES: ReadonlyArray<{ clave: string; nombre: string; ayuda: string }> = [
-  { clave: 'tasks.view_own', nombre: 'Ver lo suyo', ayuda: 'Ver su propio tablero' },
-  { clave: 'tasks.view_all', nombre: 'Ver todo', ayuda: 'El tablero de cualquier persona de su empresa, «Todo el equipo» y sus métricas' },
-  { clave: 'tasks.create', nombre: 'Crear', ayuda: 'Crearse tareas' },
-  { clave: 'tasks.edit', nombre: 'Editar', ayuda: 'Editar sus tareas; con «Ver todo», las de cualquiera' },
-  { clave: 'tasks.assign', nombre: 'Asignar', ayuda: 'Asignar o reasignar tareas a otras personas' },
-  { clave: 'tasks.delete', nombre: 'Archivar', ayuda: 'Archivar cualquier tarea y borrar comentarios de otros' },
   { clave: 'tasks.close', nombre: 'Aprobar y cerrar', ayuda: 'Aprobar o devolver desde «Por revisar», y cerrar o reabrir' },
   { clave: 'tasks.manage', nombre: 'Configurar', ayuda: 'Columnas, áreas y proyectos propios del tablero' },
 ];

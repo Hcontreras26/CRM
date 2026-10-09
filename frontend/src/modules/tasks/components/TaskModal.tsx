@@ -41,10 +41,8 @@ interface TaskModalProps {
   /** `tasks.close`: aprobar, devolver, cerrar y reabrir. */
   canClose?: boolean;
   canAssign: boolean;
-  /** `tasks.edit`: editar la tarea si es su responsable (o con «Ver todo», cualquiera). */
+  /** `tasks.edit`: editar la tarea si es la persona asignada. */
   canEdit?: boolean;
-  /** `tasks.view_all`. */
-  canViewAll?: boolean;
   canArchiveAny: boolean;
   assignees: Assignee[];
   projects: ProjectOption[];
@@ -59,7 +57,7 @@ const textareaClass = `${inputClass.replace('h-9', 'min-h-[72px] py-2')} resize-
 
 export function TaskModal({
   open, taskId, initialStatus = 'por_hacer', initialProjectId = null, defaultAssigneeId = null, onClose, onChanged,
-  currentUserId, canClose = false, canAssign, canEdit = true, canViewAll = false, canArchiveAny, assignees, projects,
+  currentUserId, canClose = false, canAssign, canEdit = true, canArchiveAny, assignees, projects,
   areas = [], externalProjects = [], columns = [],
 }: TaskModalProps) {
   useEscapeKey(onClose, open);
@@ -158,9 +156,10 @@ export function TaskModal({
     .map((c) => ({ value: c.key, label: c.name }));
 
   const estadoBloqueado = editando && task?.status === 'hecha' && !tienePermisoCierre;
-  // Al crear, todo se puede. Al editar, la regla de Diego (08/10): quien no
-  // puede la ve y la comenta, pero los campos salen bloqueados.
-  const soloLectura = editando && !!task && !puedeEditarTarea(task, currentUserId, { edit: canEdit, viewAll: canViewAll });
+  // Al crear, todo se puede. Al editar, solo la persona asignada (Diego,
+  // WhatsApp 09/10): los demás la ven y la comentan con los campos bloqueados,
+  // y quien tiene «Asignar» puede reasignarla.
+  const soloLectura = editando && !!task && !puedeEditarTarea(task, currentUserId, { edit: canEdit });
 
   const opcionesResponsable = (assignees.length ? assignees : [{ id: currentUserId, nombre: 'Yo', email: '', role: '' }])
     .map((a) => ({ value: a.id, label: a.id === currentUserId ? `${a.nombre} (yo)` : a.nombre }));
@@ -195,10 +194,10 @@ export function TaskModal({
     try {
       if (editando) {
         const { mover, actualizar } = armarCambiosDeTarea({
-          base: basePayload, estadoAntes: task!.status, estadoNuevo: status, canAssign, assignedTo,
+          base: basePayload, actual: task!, estadoAntes: task!.status, estadoNuevo: status, canAssign, assignedTo,
         });
         if (mover) await tasksApi.moveTask(task!.id, { status: mover });
-        await tasksApi.updateTask(task!.id, actualizar);
+        if (Object.keys(actualizar).length > 0) await tasksApi.updateTask(task!.id, actualizar);
         toast({ title: 'Tarea actualizada' });
       } else {
         const createPayload = {
@@ -369,17 +368,16 @@ export function TaskModal({
               <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
                 {soloLectura && (
                   <p className="text-xs rounded-md border border-border bg-muted/50 px-3 py-2 text-muted-foreground">
-                    Solo la edita su responsable o quien ve todo el equipo. Puedes verla y comentarla.
+                    Solo la edita la persona asignada. Puedes verla y comentarla{canAssign ? ', y reasignarla' : ''}.
                   </p>
                 )}
-                {/* Todo lo editable va aquí dentro: `disabled` lo bloquea de una vez. */}
-                <fieldset disabled={soloLectura} className="space-y-4 min-w-0">
                 <div>
                   <label className="block text-xs font-semibold mb-1">Título *</label>
                   <input
                     type="text"
                     required
                     value={title}
+                    disabled={soloLectura}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="¿Qué hay que hacer?"
                     className={inputClass}
@@ -391,6 +389,7 @@ export function TaskModal({
                   <label className="block text-xs font-semibold mb-1">Descripción</label>
                   <textarea
                     value={description}
+                    disabled={soloLectura}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
                     placeholder="Detalles, contexto o pasos iniciales…"
@@ -403,7 +402,7 @@ export function TaskModal({
                     <label className="block text-xs font-semibold mb-1">Estado</label>
                     <select
                       value={status}
-                      disabled={estadoBloqueado}
+                      disabled={estadoBloqueado || soloLectura}
                       onChange={(e) => setStatus(e.target.value as TaskStatus)}
                       className={inputClass}
                     >
@@ -420,6 +419,7 @@ export function TaskModal({
                     <label className="block text-xs font-semibold mb-1">Prioridad</label>
                     <select
                       value={priority}
+                      disabled={soloLectura}
                       onChange={(e) => setPriority(e.target.value as TaskPriority)}
                       className={inputClass}
                     >
@@ -438,6 +438,7 @@ export function TaskModal({
                     <input
                       type="date"
                       value={dueDate}
+                      disabled={soloLectura}
                       onChange={(e) => setDueDate(e.target.value)}
                       className={inputClass}
                     />
@@ -470,6 +471,7 @@ export function TaskModal({
                     </label>
                     <select
                       value={projectSelection}
+                      disabled={soloLectura}
                       onChange={(e) => setProjectSelection(e.target.value)}
                       className={inputClass}
                     >
@@ -497,6 +499,7 @@ export function TaskModal({
                     </label>
                     <select
                       value={areaId}
+                      disabled={soloLectura}
                       onChange={(e) => setAreaId(e.target.value ? Number(e.target.value) : '')}
                       className={inputClass}
                     >
@@ -507,8 +510,6 @@ export function TaskModal({
                     </select>
                   </div>
                 </div>
-
-                </fieldset>
 
                 {/* Submódulos cuando la tarjeta ya existe */}
                 {editando && task && (
@@ -764,7 +765,7 @@ export function TaskModal({
               <Button type="button" variant="outline" size="sm" onClick={onClose}>
                 {editando ? 'Cerrar' : 'Cancelar'}
               </Button>
-              {tab === 'detalles' && !cargando && !soloLectura && (
+              {tab === 'detalles' && !cargando && (!soloLectura || canAssign) && (
                 <Button type="submit" form="task-form" size="sm" disabled={guardando}>
                   {guardando ? 'Guardando…' : editando ? 'Guardar' : 'Crear tarea'}
                 </Button>

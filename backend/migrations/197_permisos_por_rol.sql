@@ -1,4 +1,5 @@
--- Permisos por rol, editables desde Configuración › Roles (#210, Diego 08/10)
+-- Permisos por rol, editables desde Configuración › Roles por el superadmin
+-- (#210, Diego 08/10 y WhatsApp 09/10)
 --
 -- Los permisos de cada rol del sistema (admin, gestor, soporte, colaborador…)
 -- viven en el código (permissions.defaults.js). Esta tabla guarda lo que se
@@ -9,7 +10,7 @@
 --   valor por defecto del rol → esta tabla → su rol a medida → sus excepciones
 --   personales (user_permission_overrides).
 --
--- De momento solo se editan las 8 claves de Tareas (lo valida el servidor),
+-- De momento solo se editan tasks.close y tasks.manage (lo valida el servidor),
 -- pero la tabla no se ata a ellas: es el mismo formato que las excepciones
 -- personales de la 033. Se puede pasar dos veces.
 

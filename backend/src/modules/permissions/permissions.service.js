@@ -215,7 +215,10 @@ export async function resolveUserView(userId, role, customRoleId, projectId = nu
 // Roles del sistema a los que se les pueden cambiar los permisos de Tareas. El
 // superadmin lo puede todo siempre; el tutor no tiene tablero.
 export const ROLES_EDITABLES = ['admin', 'gestor', 'soporte', 'colaborador', 'project_manager'];
-export const CLAVES_EDITABLES = ALL_RESOURCES.tasks.map((a) => `tasks.${a}`);
+// Solo estas dos (Diego, 08/10: «editar tasks.close y tasks.manage por rol»).
+// El resto de claves de Tareas sigue en los valores del rol y en las
+// excepciones de cada persona.
+export const CLAVES_EDITABLES = ['tasks.close', 'tasks.manage'];
 
 function rolDeLaClave(roleKey) {
   const m = /^custom:(\d+)$/.exec(String(roleKey));
@@ -224,7 +227,7 @@ function rolDeLaClave(roleKey) {
   return { role: roleKey };
 }
 
-/** Los 8 permisos de Tareas de un rol, como mandan ahora. */
+/** Los permisos de Tareas editables de un rol, como mandan ahora. */
 export async function getRoleTaskPermissions(roleKey) {
   const r = rolDeLaClave(roleKey);
   if (!r) return null;

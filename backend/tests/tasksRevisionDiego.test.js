@@ -122,7 +122,7 @@ describe('A · los fallos del QA', () => {
       .send({ is_active: false })).status).toBe(200);
 
     // Lo que manda la ficha al guardar: todos sus campos, también el área de siempre.
-    const res = await editar('adminA', t.id, { title: 'Con área, retocada', area_id: area.body.data.id });
+    const res = await editar('gestoraA', t.id, { title: 'Con área, retocada', area_id: area.body.data.id });
     expect(res.status, JSON.stringify(res.body)).toBe(200);
 
     const otra = await crear('adminA', { title: 'Sin área' });
@@ -158,7 +158,7 @@ describe('A · los fallos del QA', () => {
   });
 });
 
-describe('B · comentario automático al cambiar título, fecha o prioridad', () => {
+describe('B · comentario automático por cualquier cambio (Diego 08/10 y WhatsApp 09/10)', () => {
   it('la persona asignada cambia la fecha que puso el admin: historial + comentario en hora de Madrid', async () => {
     const t = await crear('adminA', {
       title: 'Con fecha', assigned_to: U.gestoraA.id, due_date: '2026-10-10T10:00:00.000Z',
@@ -175,17 +175,34 @@ describe('B · comentario automático al cambiar título, fecha o prioridad', ()
     expect(comentario.content).toContain('Cambió la prioridad de «media» a «alta».');
   });
 
-  it('también cuando lo cambia el admin, y no comenta si no cambia nada de eso', async () => {
+  it('cualquier campo, por mínimo que sea: descripción, columna y persona asignada', async () => {
     const t = await crear('adminA', { title: 'Viejo', assigned_to: U.gestoraA.id });
-    await editar('adminA', t.id, { title: 'Nuevo' });
-    await editar('adminA', t.id, { description: 'solo la descripción' });
-    const comentarios = await q('SELECT content FROM task_comments WHERE task_id = $1 ORDER BY id', [t.id]);
-    expect(comentarios.map((c) => c.content)).toEqual(['Cambió el título de «Viejo» a «Nuevo».']);
+    expect((await editar('gestoraA', t.id, { title: 'Nuevo' })).status).toBe(200);
+    expect((await editar('gestoraA', t.id, { description: 'Con detalle' })).status).toBe(200);
+    expect((await request.patch(`/api/tasks/${t.id}/move`).set(como('gestoraA')).send({ status: 'en_curso' })).status).toBe(200);
+    expect((await editar('adminA', t.id, { assigned_to: U.gestoraA2.id })).status).toBe(200);
+    const comentarios = (await q('SELECT content FROM task_comments WHERE task_id = $1 ORDER BY id', [t.id])).map((c) => c.content);
+    expect(comentarios).toEqual([
+      'Cambió el título de «Viejo» a «Nuevo».',
+      'Cambió la descripción.',
+      'Movió la tarea de «Por hacer» a «En curso».',
+      `Cambió la persona asignada de «${MARCA} gestoraA» a «${MARCA} gestoraA2».`,
+    ]);
+  });
+
+  it('guardar la ficha sin cambiar nada (o la misma fecha a otra hora) no deja comentario', async () => {
+    const t = await crear('adminA', { title: 'Quieta', assigned_to: U.gestoraA.id, due_date: '2026-10-14T21:59:00.000Z' });
+    const todo = {
+      title: 'Quieta', description: null, priority: 'media', due_date: '2026-10-14T10:00:00.000Z',
+      area_id: null, project_id: null, external_project_id: null,
+    };
+    expect((await editar('gestoraA', t.id, todo)).status).toBe(200);
+    expect(await q('SELECT 1 FROM task_comments WHERE task_id = $1', [t.id])).toEqual([]);
   });
 });
 
-describe('C · la regla de edición y las 8 claves en el servidor', () => {
-  it('quien creó la tarea, si no es su responsable ni tiene «Ver todo», ya no la edita (pero la ve y comenta)', async () => {
+describe('C · solo edita la persona asignada (Diego, WhatsApp 09/10), y las claves en el servidor', () => {
+  it('quien la creó y el admin ya no la editan; la ven y la comentan, y el admin la reasigna', async () => {
     // La gestora crea y el admin se la pasa a otra: ella sigue viéndola.
     const t = await crear('gestoraA', { title: 'La creé yo' });
     expect((await editar('adminA', t.id, { assigned_to: U.gestoraA2.id })).status).toBe(200);
@@ -194,9 +211,19 @@ describe('C · la regla de edición y las 8 claves en el servidor', () => {
     expect((await request.post(`/api/tasks/${t.id}/checklist`).set(como('gestoraA')).send({ title: 'x' })).status).toBe(403);
     expect((await request.get(`/api/tasks/${t.id}`).set(como('gestoraA'))).status).toBe(200);
     expect((await request.post(`/api/tasks/${t.id}/comments`).set(como('gestoraA')).send({ content: 'ok' })).status).toBe(201);
-    // Su responsable y el admin, sí.
-    expect((await editar('gestoraA2', t.id, { title: 'Ella sí' })).status).toBe(200);
-    expect((await editar('adminA', t.id, { title: 'El admin también' })).status).toBe(200);
+    // El admin tampoco edita sus campos ni la mueve…
+    expect((await editar('adminA', t.id, { title: 'El admin no' })).status).toBe(403);
+    expect((await request.patch(`/api/tasks/${t.id}/move`).set(como('adminA')).send({ status: 'en_curso' })).status).toBe(403);
+    // …pero la reasigna aunque la ficha mande sus campos sin cambiar.
+    expect((await editar('adminA', t.id, { title: 'La creé yo', priority: 'media', assigned_to: U.gestoraA.id })).status).toBe(200);
+    // La persona asignada, sí.
+    expect((await editar('gestoraA', t.id, { title: 'Ahora es mía' })).status).toBe(200);
+  });
+
+  it('cerrar o reabrir es de quien tiene «Aprobar y cerrar», aunque no la lleve', async () => {
+    const t = await crear('adminA', { title: 'Para cerrar', assigned_to: U.gestoraA.id });
+    expect((await request.patch(`/api/tasks/${t.id}/move`).set(como('adminA')).send({ status: 'hecha' })).status).toBe(200);
+    expect((await request.patch(`/api/tasks/${t.id}/move`).set(como('adminA')).send({ status: 'en_curso' })).status).toBe(200);
   });
 
   it('sin tasks.create no se crea; sin tasks.view_own no se ve el tablero; sin tasks.edit no se edita', async () => {
@@ -217,15 +244,18 @@ describe('C · la regla de edición y las 8 claves en el servidor', () => {
 });
 
 describe('C · Configuración › Roles: permisos de Tareas por rol', () => {
-  it('soporte, gestora y colaborador no los cambian (403); superadmin y admin sí', async () => {
-    for (const clave of ['soporte', 'gestoraA', 'colaborador']) {
+  it('solo el superadmin los cambia (WhatsApp 09/10): admin, soporte, gestora y colaborador, 403', async () => {
+    for (const clave of ['adminA', 'soporte', 'gestoraA', 'colaborador']) {
       expect((await permisosDeRol(clave, 'project_manager', { 'tasks.close': false })).status).toBe(403);
       expect((await request.get('/api/permissions/role-permissions/project_manager').set(como(clave))).status).toBe(403);
     }
-    expect((await request.get('/api/permissions/role-permissions/project_manager').set(como('adminA'))).status).toBe(200);
+    const res = await request.get('/api/permissions/role-permissions/project_manager').set(como('superadmin'));
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body.data.permissions).sort()).toEqual(['tasks.close', 'tasks.manage']);
   });
 
-  it('una clave que no es de Tareas, un valor que no es sí/no, o el rol superadmin o tutor: 400', async () => {
+  it('solo «Aprobar y cerrar» y «Configurar»; otra clave, un valor que no es sí/no, o superadmin o tutor: 400', async () => {
+    expect((await permisosDeRol('superadmin', 'project_manager', { 'tasks.view_all': true })).status).toBe(400);
     expect((await permisosDeRol('superadmin', 'project_manager', { 'leads.view': true })).status).toBe(400);
     expect((await permisosDeRol('superadmin', 'project_manager', { 'tasks.close': 'si' })).status).toBe(400);
     expect((await permisosDeRol('superadmin', 'project_manager', {})).status).toBe(400);
@@ -239,12 +269,12 @@ describe('C · Configuración › Roles: permisos de Tareas por rol', () => {
     try {
       expect((await request.patch(`/api/tasks/${t.id}/approve`).set(como('pm'))).status).toBe(403);
 
-      const res = await permisosDeRol('adminA', 'project_manager', { 'tasks.close': true });
+      const res = await permisosDeRol('superadmin', 'project_manager', { 'tasks.close': true });
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       expect(res.body.data.permissions['tasks.close']).toBe(true);
       // Solo se guarda lo que se aparta del código.
       expect(await q(`SELECT action, allowed, updated_by FROM role_permission_overrides WHERE role = 'project_manager'`))
-        .toEqual([{ action: 'close', allowed: true, updated_by: U.adminA.id }]);
+        .toEqual([{ action: 'close', allowed: true, updated_by: U.superadmin.id }]);
 
       const me = await request.get('/api/auth/me').set(como('pm'));
       expect(me.body.data.permissions['tasks.close']).toBe(true);
@@ -300,10 +330,11 @@ describe('D · acotado por empresa', () => {
     expect((await request.patch(`/api/tasks/${deC.id}/approve`).set(como('adminA'))).status).toBe(404);
   });
 
-  it('la tarea del colaborador sin campus la ve el admin, pero solo la edita el admin o el colaborador', async () => {
+  it('la tarea del colaborador sin campus la ven los admins de las dos empresas, pero solo la edita él', async () => {
     expect((await request.get(`/api/tasks/${deColaborador.id}`).set(como('adminC'))).status).toBe(200);
-    expect((await editar('adminA', deColaborador.id, { title: 'El admin sí' })).status).toBe(200);
-    expect((await editar('colaborador', deColaborador.id, { title: 'Y yo también' })).status).toBe(200);
+    expect((await request.get(`/api/tasks/${deColaborador.id}`).set(como('adminA'))).status).toBe(200);
+    expect((await editar('adminA', deColaborador.id, { title: 'El admin no' })).status).toBe(403);
+    expect((await editar('colaborador', deColaborador.id, { title: 'Yo sí' })).status).toBe(200);
   });
 
   it('el admin de UNO solo asigna a gente de UNO o a colaboradores sin campus', async () => {

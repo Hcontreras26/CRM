@@ -40,6 +40,38 @@ function formatearFechaTexto(fecha) {
   }).format(d);
 }
 
+const PRIORIDAD_ES = { baja: 'baja', media: 'media', alta: 'alta' };
+
+/**
+ * Una línea por cada campo que cambió, en castellano: «Cambió la fecha del
+ * 10/10 al 14/10.». Los nombres (proyecto, área, responsable) salen de la
+ * tarea antes y después del cambio, que ya los traen.
+ */
+function comentariosDeCambios(dif, antes, despues) {
+  const lineas = [];
+  const nombre = (t, campo, vacio) => t[campo] || vacio;
+  if (dif.title) lineas.push(`Cambió el título de «${dif.title.antes}» a «${dif.title.despues}».`);
+  if (dif.description) lineas.push(dif.description.despues ? 'Cambió la descripción.' : 'Quitó la descripción.');
+  if (dif.priority) {
+    lineas.push(`Cambió la prioridad de «${PRIORIDAD_ES[dif.priority.antes] || dif.priority.antes || 'media'}» a «${PRIORIDAD_ES[dif.priority.despues] || dif.priority.despues}».`);
+  }
+  if (dif.due_date) {
+    lineas.push(`Cambió la fecha del ${formatearFechaTexto(dif.due_date.antes)} al ${formatearFechaTexto(dif.due_date.despues)}.`);
+  }
+  if (dif.project_id || dif.external_project_id) {
+    const de = antes.project_name || antes.external_project_name || 'sin proyecto';
+    const a = despues.project_name || despues.external_project_name || 'sin proyecto';
+    if (de !== a) lineas.push(`Cambió el proyecto de «${de}» a «${a}».`);
+  }
+  if (dif.area_id) {
+    lineas.push(`Cambió el área de «${nombre(antes, 'area_name', 'sin área')}» a «${nombre(despues, 'area_name', 'sin área')}».`);
+  }
+  if (dif.assigned_to) {
+    lineas.push(`Cambió la persona asignada de «${nombre(antes, 'assigned_to_name', 'nadie')}» a «${nombre(despues, 'assigned_to_name', 'nadie')}».`);
+  }
+  return lineas;
+}
+
 /**
  * Lo que esta persona puede hacer en el tablero, con el sistema de claves de
  * siempre: rol, roles añadidos, rol a medida y excepciones personales. Es el
@@ -117,14 +149,44 @@ async function tareaRevisable(id, user) {
 }
 
 /**
- * Quién edita una tarea (Diego 08/10): su responsable, si tiene «Editar», o
- * quien tiene «Editar» y «Ver todo». Quien solo la creó la ve y la comenta, pero
- * no la cambia. Cuenta como editar: los campos, moverla, la lista, las
- * etiquetas y los enlaces.
+ * Quién edita una tarea (Diego, por WhatsApp, 09/10): SOLO la persona
+ * asignada, con «Editar». Los demás —el admin incluido— la ven, la comentan, y
+ * con sus permisos la reasignan, la aprueban o la devuelven, pero no cambian
+ * sus campos. Una tarea sin nadie asignado la edita quien la creó.
+ *
+ * Cuenta como editar: los campos, moverla de columna, la lista, las etiquetas y
+ * los enlaces.
  */
 function exigirEdicion(task, user, p) {
-  exigir(p.edit && (task.assigned_to === user.userId || p.viewAll),
-    'No puedes editar esta tarea: la editan quien la lleva y quien gestiona el equipo');
+  const quienLaLleva = task.assigned_to ?? task.created_by;
+  exigir(p.edit && quienLaLleva === user.userId, 'Solo edita esta tarea la persona asignada');
+}
+
+/** El día de una fecha en la oficina: dos horas del mismo día no son un cambio. */
+const diaOficina = (f) => (f ? new Intl.DateTimeFormat('en-CA', {
+  timeZone: process.env.APP_TIMEZONE || 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+}).format(new Date(f)) : null);
+
+/**
+ * De lo que llega en el PATCH, solo lo que de verdad cambia. La ficha manda
+ * todos sus campos al guardar: sin esto, reasignar parecía editar y quedaban
+ * comentarios como «del 14/10 al 14/10».
+ */
+function soloLoQueCambia(fields, task) {
+  const iguales = {
+    due_date: (a, b) => diaOficina(a) === diaOficina(b),
+    description: (a, b) => (a || null) === (b || null),
+  };
+  const out = {};
+  for (const [k, v] of Object.entries(fields)) {
+    if (v === undefined) continue;
+    const antes = task[k];
+    const igual = iguales[k]
+      ? iguales[k](antes, v)
+      : (antes == null && v == null) || (antes != null && v != null && String(antes) === String(v));
+    if (!igual) out[k] = v;
+  }
+  return out;
 }
 
 /** Un nombre repetido (columna, área, proyecto) es un 409, no un 500. */
@@ -364,12 +426,19 @@ export async function createTask(data, user) {
   return createdTask;
 }
 
-export async function updateTask(id, fields, user) {
+export async function updateTask(id, rawFields, user) {
   const p = await permisosDe(user);
   const currentTask = await tareaVisible(id, user, p);
-  exigirEdicion(currentTask, user, p);
 
-  const cambiaResponsable = fields.assigned_to !== undefined && fields.assigned_to !== currentTask.assigned_to;
+  const fields = soloLoQueCambia(rawFields, currentTask);
+  const cambiaResponsable = fields.assigned_to !== undefined;
+  // Reasignar es de quien tiene «Asignar» (el admin, aunque no la lleve).
+  // Cualquier otro campo, solo la persona asignada.
+  const otrosCampos = Object.keys(fields).some((k) => k !== 'assigned_to');
+  // Guardar sin cambiar nada no es editar: se devuelve la tarea tal cual.
+  if (Object.keys(fields).length === 0) return currentTask;
+  if (otrosCampos) exigirEdicion(currentTask, user, p);
+
   if (cambiaResponsable) {
     exigir(p.assign, 'Solo quienes tienen permiso pueden reasignar tareas');
     if (fields.assigned_to) {
@@ -407,21 +476,10 @@ export async function updateTask(id, fields, user) {
     });
   }
 
-  // Comentario automático (Diego 08/10): cambiar el título, la fecha límite o
-  // la prioridad queda en el historial (arriba) y además comentado en la
-  // tarjeta, lo cambie quien lo cambie: «cambió la fecha del 10/10 al 14/10».
-  const comentariosAuto = [];
-  if (diferencias.title) {
-    comentariosAuto.push(`Cambió el título de «${diferencias.title.antes}» a «${diferencias.title.despues}».`);
-  }
-  if (diferencias.priority) {
-    comentariosAuto.push(`Cambió la prioridad de «${diferencias.priority.antes || 'media'}» a «${diferencias.priority.despues}».`);
-  }
-  if (diferencias.due_date) {
-    const antesFmt = formatearFechaTexto(diferencias.due_date.antes);
-    const despuesFmt = formatearFechaTexto(diferencias.due_date.despues);
-    comentariosAuto.push(`Cambió la fecha del ${antesFmt} al ${despuesFmt}.`);
-  }
+  // Comentario automático (Diego 08/10, y por WhatsApp el 09/10: «cualquier
+  // cambio, por mínimo que sea»): todo lo que cambie queda en el historial
+  // (arriba) y además comentado en la tarjeta, lo cambie quien lo cambie.
+  const comentariosAuto = comentariosDeCambios(diferencias, currentTask, updatedTask);
   if (comentariosAuto.length > 0) {
     await taskModel.createComment({
       task_id: id,
@@ -447,7 +505,10 @@ export async function updateTask(id, fields, user) {
 export async function moveTask(id, { status, prev_id, next_id }, user) {
   const p = await permisosDe(user);
   const currentTask = await tareaVisible(id, user, p);
-  exigirEdicion(currentTask, user, p);
+  // Cerrar o reabrir es de quien tiene «Aprobar y cerrar», aunque no la lleve;
+  // cualquier otro movimiento, solo la persona asignada.
+  const cierraOReabre = (status === HECHA) !== (currentTask.status === HECHA);
+  if (!(cierraOReabre && p.close)) exigirEdicion(currentTask, user, p);
 
   if (status !== currentTask.status) await validarColumna(status);
   exigir(!(status === HECHA && currentTask.status !== HECHA) || p.close,
@@ -493,6 +554,10 @@ export async function moveTask(id, { status, prev_id, next_id }, user) {
   });
 
   const [deNombre, aNombre] = await Promise.all([nombreDeColumna(currentTask.status), nombreDeColumna(status)]);
+  // Comentario automático también al cambiarla de columna (WhatsApp, 09/10).
+  await taskModel.createComment({
+    task_id: id, user_id: user.userId, content: `Movió la tarea de «${deNombre}» a «${aNombre}».`,
+  });
   const texto = `«${currentTask.title}» pasó de ${deNombre} a ${aNombre}.`;
 
   // A quien la creó: cuando pasa a «En revisión» o a «Hecha».

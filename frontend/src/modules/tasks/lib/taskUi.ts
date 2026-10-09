@@ -165,39 +165,51 @@ export function neighboursAt(
 }
 
 /**
- * Quién edita una tarea (Diego 08/10): su responsable, si tiene «Editar», o
- * quien tiene «Editar» y «Ver todo». Quien solo la creó la ve y la comenta,
- * pero no la cambia. Es la misma regla que aplica el servidor; aquí solo evita
- * ofrecer lo que daría 403.
+ * Quién edita una tarea (Diego, por WhatsApp, 09/10): SOLO la persona
+ * asignada, con «Editar». Los demás —el admin incluido— la ven y la comentan,
+ * y con sus permisos la reasignan, la aprueban o la devuelven. Sin nadie
+ * asignado, la edita quien la creó. Es la misma regla que aplica el servidor;
+ * aquí solo evita ofrecer lo que daría 403.
  */
 export function puedeEditarTarea(
-  task: { assigned_to: number | null } | null | undefined,
+  task: { assigned_to: number | null; created_by?: number | null } | null | undefined,
   yo: number,
-  permisos: { edit: boolean; viewAll: boolean },
+  permisos: { edit: boolean },
 ): boolean {
   if (!task) return false;
-  return permisos.edit && (task.assigned_to === yo || permisos.viewAll);
+  return permisos.edit && (task.assigned_to ?? task.created_by ?? null) === yo;
 }
 
 /**
- * Lo que manda la ficha al guardar una tarea que ya existe (fallos del QA de
- * Diego, 08/10):
+ * Lo que manda la ficha al guardar una tarea que ya existe (QA de Diego, 08/10,
+ * y WhatsApp 09/10):
  *   · el estado NO va en el PATCH (el servidor lo descarta): si cambió, se
  *     mueve aparte con `moveTask`;
- *   · `assigned_to` solo va con «Asignar»: sin él, el servidor da 403 aunque
- *     sea el mismo responsable.
+ *   · solo los campos que de verdad cambian: así el admin reasigna sin que
+ *     parezca que edita, y no quedan comentarios de cambios que no hubo;
+ *   · `assigned_to` solo con «Asignar».
+ * La fecha se compara por su día en la oficina, que es lo que enseña la ficha.
  */
-export function armarCambiosDeTarea<B extends object>({
-  base, estadoAntes, estadoNuevo, canAssign, assignedTo,
+export function armarCambiosDeTarea<B extends Record<string, unknown>>({
+  base, actual, estadoAntes, estadoNuevo, canAssign, assignedTo,
 }: {
   base: B;
+  actual: Partial<Record<keyof B | 'assigned_to', unknown>>;
   estadoAntes: TaskStatus;
   estadoNuevo: TaskStatus;
   canAssign: boolean;
   assignedTo: number | null;
-}): { mover: TaskStatus | null; actualizar: B & { assigned_to?: number | null } } {
-  return {
-    mover: estadoNuevo !== estadoAntes ? estadoNuevo : null,
-    actualizar: { ...base, ...(canAssign ? { assigned_to: assignedTo || null } : {}) },
+}): { mover: TaskStatus | null; actualizar: Partial<B> & { assigned_to?: number | null } } {
+  const igual = (k: string, a: unknown, b: unknown) => {
+    if (k === 'due_date') return toDateInput((a as string) || null) === toDateInput((b as string) || null);
+    if (a == null || a === '') return b == null || b === '';
+    return b != null && String(a) === String(b);
   };
+  const actualizar: Partial<B> & { assigned_to?: number | null } = {};
+  for (const [k, v] of Object.entries(base)) {
+    if (!igual(k, (actual as Record<string, unknown>)[k], v)) (actualizar as Record<string, unknown>)[k] = v;
+  }
+  const responsable = assignedTo || null;
+  if (canAssign && !igual('assigned_to', actual.assigned_to, responsable)) actualizar.assigned_to = responsable;
+  return { mover: estadoNuevo !== estadoAntes ? estadoNuevo : null, actualizar };
 }

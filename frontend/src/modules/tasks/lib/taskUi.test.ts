@@ -109,43 +109,55 @@ describe('fromDateInput / toDateInput: la fecha del formulario', () => {
   });
 });
 
-describe('armarCambiosDeTarea: lo que manda la ficha al guardar (QA de Diego, 08/10)', () => {
-  const base = { title: 'Título', priority: 'media' as const };
+describe('armarCambiosDeTarea: lo que manda la ficha al guardar (QA de Diego 08/10 y WhatsApp 09/10)', () => {
+  const actual = { title: 'Título', priority: 'media', due_date: '2026-10-14T21:59:00.000Z', area_id: null, assigned_to: 3 };
+  const base = { title: 'Título', priority: 'media', due_date: '2026-10-14T21:59:00.000Z', area_id: null };
+  const sin = { estadoAntes: 'por_hacer' as const, estadoNuevo: 'por_hacer' as const };
 
   it('si cambia el estado, pide moverla, y el estado nunca va en el PATCH', () => {
-    const r = armarCambiosDeTarea({ base, estadoAntes: 'en_curso', estadoNuevo: 'en_revision', canAssign: true, assignedTo: 3 });
+    const r = armarCambiosDeTarea({ base, actual, estadoAntes: 'en_curso', estadoNuevo: 'en_revision', canAssign: true, assignedTo: 3 });
     expect(r.mover).toBe('en_revision');
     expect(r.actualizar).not.toHaveProperty('status');
   });
 
   it('si no cambia el estado, no la mueve', () => {
-    expect(armarCambiosDeTarea({ base, estadoAntes: 'en_curso', estadoNuevo: 'en_curso', canAssign: true, assignedTo: 3 }).mover)
+    expect(armarCambiosDeTarea({ base, actual, estadoAntes: 'en_curso', estadoNuevo: 'en_curso', canAssign: true, assignedTo: 3 }).mover)
       .toBeNull();
   });
 
-  it('sin «Asignar» no manda assigned_to (el servidor daría 403)', () => {
-    const r = armarCambiosDeTarea({ base, estadoAntes: 'por_hacer', estadoNuevo: 'por_hacer', canAssign: false, assignedTo: 3 });
-    expect(r.actualizar).toEqual(base);
+  it('solo manda lo que cambia: sin cambios, nada', () => {
+    expect(armarCambiosDeTarea({ base, actual, ...sin, canAssign: true, assignedTo: 3 }).actualizar).toEqual({});
+    expect(armarCambiosDeTarea({ base: { ...base, title: 'Otro' }, actual, ...sin, canAssign: true, assignedTo: 3 }).actualizar)
+      .toEqual({ title: 'Otro' });
   });
 
-  it('con «Asignar», sí', () => {
-    const r = armarCambiosDeTarea({ base, estadoAntes: 'por_hacer', estadoNuevo: 'por_hacer', canAssign: true, assignedTo: 3 });
-    expect(r.actualizar).toEqual({ ...base, assigned_to: 3 });
+  it('la misma fecha a otra hora no es un cambio (se compara el día)', () => {
+    const r = armarCambiosDeTarea({ base: { ...base, due_date: '2026-10-14T08:00:00.000Z' }, actual, ...sin, canAssign: false, assignedTo: 3 });
+    expect(r.actualizar).toEqual({});
+  });
+
+  it('el admin reasigna: solo va assigned_to', () => {
+    expect(armarCambiosDeTarea({ base, actual, ...sin, canAssign: true, assignedTo: 9 }).actualizar).toEqual({ assigned_to: 9 });
+  });
+
+  it('sin «Asignar» nunca manda assigned_to (el servidor daría 403)', () => {
+    expect(armarCambiosDeTarea({ base, actual, ...sin, canAssign: false, assignedTo: 9 }).actualizar).toEqual({});
   });
 });
 
-describe('puedeEditarTarea: su responsable o quien tiene «Ver todo» (Diego, 08/10)', () => {
-  const tarea = { assigned_to: 7 };
-  it('su responsable con «Editar»', () => {
-    expect(puedeEditarTarea(tarea, 7, { edit: true, viewAll: false })).toBe(true);
+describe('puedeEditarTarea: solo la persona asignada (Diego, WhatsApp 09/10)', () => {
+  const tarea = { assigned_to: 7, created_by: 5 };
+  it('la persona asignada con «Editar»', () => {
+    expect(puedeEditarTarea(tarea, 7, { edit: true })).toBe(true);
   });
-  it('quien la creó pero no es su responsable ni ve todo: no', () => {
-    expect(puedeEditarTarea(tarea, 5, { edit: true, viewAll: false })).toBe(false);
+  it('quien la creó, o el admin, si no es la persona asignada: no', () => {
+    expect(puedeEditarTarea(tarea, 5, { edit: true })).toBe(false);
+    expect(puedeEditarTarea(tarea, 1, { edit: true })).toBe(false);
   });
-  it('el admin («Editar» + «Ver todo»)', () => {
-    expect(puedeEditarTarea(tarea, 5, { edit: true, viewAll: true })).toBe(true);
+  it('sin nadie asignado, quien la creó', () => {
+    expect(puedeEditarTarea({ assigned_to: null, created_by: 5 }, 5, { edit: true })).toBe(true);
   });
-  it('sin «Editar», nadie, ni su responsable', () => {
-    expect(puedeEditarTarea(tarea, 7, { edit: false, viewAll: true })).toBe(false);
+  it('sin «Editar», nadie, ni la persona asignada', () => {
+    expect(puedeEditarTarea(tarea, 7, { edit: false })).toBe(false);
   });
 });
