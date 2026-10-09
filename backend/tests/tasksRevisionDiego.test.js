@@ -341,6 +341,21 @@ describe('D · acotado por empresa', () => {
   });
 });
 
+describe('Fechas: los días son los de la oficina (Madrid), no los de la base (UTC)', () => {
+  it('«desde / hasta el 14/10» coge lo que vence el 14/10 en Madrid, aunque en UTC sea otro día', async () => {
+    // 14/10 a las 00:30 de Madrid = 13/10 22:30 UTC; 15/10 a las 00:30 de Madrid = 14/10 22:30 UTC.
+    const primeraHora = await crear('gestoraA', { title: 'Vence el 14 a primera hora', due_date: '2026-10-13T22:30:00.000Z' });
+    const ultimaHora = await crear('gestoraA', { title: 'Vence el 14 a las 23:59', due_date: '2026-10-14T21:59:00.000Z' });
+    const delQuince = await crear('gestoraA', { title: 'Vence el 15 a primera hora', due_date: '2026-10-14T22:30:00.000Z' });
+    const res = await request.get('/api/tasks?desde=2026-10-14&hasta=2026-10-14').set(como('gestoraA'));
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((t) => t.id);
+    expect(ids).toContain(primeraHora.id);
+    expect(ids).toContain(ultimaHora.id);
+    expect(ids).not.toContain(delQuince.id);
+  });
+});
+
 describe('E · /api/tasks solo en pruebas', () => {
   it('en producción está apagado, salvo /testeo o TAREAS_EN_PRODUCCION=1', () => {
     expect(tareasActivas({ NODE_ENV: 'test' })).toBe(true);

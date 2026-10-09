@@ -86,17 +86,36 @@ export const boardColor = (color: string | null | undefined) => BOARD_COLORS[col
 export const tagChip = (color: string): string =>
   (TAG_COLORS[color as TagColor] || TAG_COLORS.sky).chip;
 
+/**
+ * La zona de la oficina, la misma que usa el servidor (APP_TIMEZONE) para el
+ * comentario automático, el correo de cada mañana y los filtros por fecha.
+ *
+ * Una fecha límite es un DÍA, no una hora: elegir el 14/10 tiene que ser el
+ * 14/10 para todo el equipo. Con la hora del navegador, desde Caracas el 14/10
+ * a las 23:59 ya era el 15/10 en Madrid, y el comentario decía «al 15/10»
+ * mientras la tarjeta enseñaba 14/10 (QA del 09/10).
+ */
+export const ZONA_OFICINA = 'Europe/Madrid';
+
+/** El día (AAAA-MM-DD) que es un instante en la oficina. */
+export function diaEnOficina(fecha: Date | string): string {
+  // `en-CA` da justo AAAA-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: ZONA_OFICINA, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(fecha));
+}
+
+const diasEntre = (desde: string, hasta: string) =>
+  Math.round((Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86400000);
+
 /** «Vence hoy», «Vencida · 3 oct», «Mañana», «31 oct»… con su tono. */
 export function dueInfo(
   task: Pick<Task, 'due_date' | 'status'>,
   ahora: Date = new Date()
 ): { label: string; classes: string } | null {
   if (!task.due_date) return null;
-  const due = new Date(task.due_date);
-  const dia = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
-  const diff = Math.round((dia.getTime() - hoy.getTime()) / 86400000);
-  const fecha = due.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  const diff = diasEntre(diaEnOficina(ahora), diaEnOficina(task.due_date));
+  const fecha = new Date(task.due_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: ZONA_OFICINA });
   if (task.status === 'hecha') return { label: fecha, classes: 'bg-muted text-muted-foreground' };
   if (diff < 0) return { label: `Vencida · ${fecha}`, classes: 'bg-destructive-soft text-destructive-soft-foreground' };
   if (diff === 0) return { label: 'Vence hoy', classes: 'bg-warning-soft text-warning-soft-foreground' };
@@ -104,18 +123,28 @@ export function dueInfo(
   return { label: fecha, classes: 'bg-muted text-muted-foreground' };
 }
 
-/** La fecha guardada (ISO) como la quiere un `<input type="date">`, en hora local. */
+/** La fecha guardada (ISO) como la quiere un `<input type="date">`: su día en la oficina. */
 export function toDateInput(iso: string | null): string {
   if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return diaEnOficina(iso);
 }
 
-/** Del `<input type="date">` a ISO: vence al final de ese día, en hora local. */
+/**
+ * Del `<input type="date">` a ISO: vence al final de ese día EN LA OFICINA
+ * (23:59 de Madrid), esté donde esté quien la pone.
+ */
 export function fromDateInput(value: string): string | null {
   if (!value) return null;
-  return new Date(`${value}T23:59:00`).toISOString();
+  // Las 23:59 «de pared» como si fueran UTC, y se corrige por lo que Madrid
+  // se aparta de UTC ese día (1 o 2 horas según el horario de verano). A las
+  // 23:59 nunca hay cambio de hora, así que basta una pasada.
+  const comoUtc = Date.parse(`${value}T23:59:00Z`);
+  const partes = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: ZONA_OFICINA, hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).formatToParts(new Date(comoUtc)).map((p) => [p.type, p.value]));
+  const pared = Date.UTC(+partes.year, +partes.month - 1, +partes.day, +partes.hour, +partes.minute);
+  return new Date(comoUtc - (pared - comoUtc)).toISOString();
 }
 
 /**

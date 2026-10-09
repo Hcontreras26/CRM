@@ -87,9 +87,18 @@ export async function findTasks({
   if (search) add('(t.title ILIKE $? OR t.description ILIKE $?)', `%${search}%`);
   if (tag) add('EXISTS (SELECT 1 FROM task_tags tg WHERE tg.task_id = t.id AND LOWER(tg.name) = LOWER($?))', tag);
   if (vencidas) conditions.push(`t.due_date < NOW() AND t.status <> 'hecha'`);
-  // El rango es de dias enteros: «hasta el 31» incluye todo el 31.
-  if (desde) add('t.due_date >= $?::date', desde);
-  if (hasta) add(`t.due_date < ($?::date + INTERVAL '1 day')`, hasta);
+  // El rango es de dias enteros DE LA OFICINA (APP_TIMEZONE), como el
+  // comentario automático y el correo: «hasta el 31» incluye todo el 31 en
+  // Madrid, no en la hora de la base (UTC).
+  const zona = process.env.APP_TIMEZONE || 'Europe/Madrid';
+  if (desde) {
+    params.push(desde, zona);
+    conditions.push(`t.due_date >= ($${params.length - 1}::date::timestamp AT TIME ZONE $${params.length})`);
+  }
+  if (hasta) {
+    params.push(hasta, zona);
+    conditions.push(`t.due_date < (($${params.length - 1}::date + 1)::timestamp AT TIME ZONE $${params.length})`);
+  }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 

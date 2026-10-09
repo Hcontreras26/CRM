@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  armarCambiosDeTarea, dueInfo, fromDateInput, neighboursAt, puedeEditarTarea, toDateInput,
+  armarCambiosDeTarea, diaEnOficina, dueInfo, fromDateInput, neighboursAt, puedeEditarTarea, toDateInput,
 } from './taskUi';
 
 // Las funciones puras del tablero. `neighboursAt` es la que decide el orden al
@@ -46,9 +46,10 @@ describe('neighboursAt: entre qué dos tarjetas cae la que se suelta', () => {
 });
 
 describe('dueInfo: cómo se dice el vencimiento', () => {
-  // Un mediodía fijo: así «hoy» no depende de cuándo se pasen las pruebas.
-  const ahora = new Date(2026, 9, 7, 12, 0, 0);
-  const dia = (d: number, h = 18) => new Date(2026, 9, d, h, 0, 0).toISOString();
+  // Un mediodía fijo de Madrid (UTC+2 en octubre): así «hoy» no depende de
+  // cuándo ni desde dónde se pasen las pruebas.
+  const ahora = new Date('2026-10-07T10:00:00Z');
+  const dia = (d: number, h = 18) => new Date(Date.UTC(2026, 9, d, h - 2, 0, 0)).toISOString();
 
   it('sin fecha, nada', () => {
     expect(dueInfo({ due_date: null, status: 'por_hacer' }, ahora)).toBeNull();
@@ -87,16 +88,24 @@ describe('fromDateInput / toDateInput: la fecha del formulario', () => {
     expect(toDateInput(null)).toBe('');
   });
 
-  it('vence al final del día elegido, en hora local', () => {
-    const iso = fromDateInput('2026-10-31')!;
-    const d = new Date(iso);
-    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()]).toEqual([2026, 9, 31, 23, 59]);
+  it('vence a las 23:59 de Madrid del día elegido, con horario de verano o sin él', () => {
+    expect(fromDateInput('2026-10-14')).toBe('2026-10-14T21:59:00.000Z'); // verano, UTC+2
+    expect(fromDateInput('2026-12-31')).toBe('2026-12-31T22:59:00.000Z'); // invierno, UTC+1
+    // Los dos días de cambio de hora.
+    expect(fromDateInput('2026-03-29')).toBe('2026-03-29T21:59:00.000Z');
+    expect(fromDateInput('2026-10-25')).toBe('2026-10-25T22:59:00.000Z');
   });
 
   it('ida y vuelta: el formulario enseña el mismo día que se eligió', () => {
-    for (const dia of ['2026-01-01', '2026-03-29', '2026-10-25', '2026-12-31']) {
+    for (const dia of ['2026-01-01', '2026-03-29', '2026-10-14', '2026-10-25', '2026-12-31']) {
       expect(toDateInput(fromDateInput(dia))).toBe(dia);
     }
+  });
+
+  it('el día es el de la oficina: el 14/10 a las 23:59 de Madrid es el 14/10 (en Caracas ya era el 15 en Madrid)', () => {
+    expect(diaEnOficina('2026-10-14T21:59:00.000Z')).toBe('2026-10-14');
+    // Lo que guardaba antes la ficha desde Caracas (23:59 de allí):
+    expect(diaEnOficina('2026-10-15T03:59:00.000Z')).toBe('2026-10-15');
   });
 });
 
