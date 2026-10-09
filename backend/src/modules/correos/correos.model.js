@@ -74,6 +74,18 @@ export async function listar({ estado = null, direccion = null, busca = null, de
     `SELECT id, created_at AS cuando, direccion,
             remitente, destinatarios, asunto, estado, intentos, etiquetas,
             project_id, error,
+            -- QUIÉN ES QUIÉN (Diego, 09/10). Carlos vio en esta lista un
+            -- «Recordatorio vencido» mandado a admisiones@academiaia.ai y no supo
+            -- que era de María Eugenia: la lista solo tenía la dirección. Ahora
+            -- va también el nombre de la persona del CRM que hay detrás de cada
+            -- dirección, y el campus del correo si lo tiene.
+            (SELECT nombre FROM projects WHERE id = email_envios.project_id) AS campus,
+            (SELECT string_agg(DISTINCT u.nombre, ', ') FROM users u
+              WHERE COALESCE(u.email, '') <> ''
+                AND lower(u.email) = ANY (regexp_split_to_array(lower(email_envios.destinatarios), '[,;[:space:]<>]+'))) AS para_quien,
+            (SELECT u.nombre FROM users u
+              WHERE COALESCE(u.email, '') <> '' AND lower(u.email) = lower(email_envios.remitente)
+              ORDER BY u.active DESC LIMIT 1) AS de_quien,
             -- Solo si LO HAY, para que la pantalla pueda decir «este es
             -- anterior a que se guardara el texto» en vez de enseñar un hueco.
             (cuerpo_html IS NOT NULL) AS tiene_cuerpo
@@ -90,7 +102,19 @@ export async function uno(id) {
   const { rows } = await query(
     `SELECT id, created_at AS cuando, direccion,
             remitente, destinatarios, asunto, estado, intentos, etiquetas,
-            project_id, error, brevo_msg_id, cuerpo_html
+            project_id, error, brevo_msg_id, cuerpo_html,
+            -- QUIÉN ES QUIÉN (Diego, 09/10). Carlos vio en esta lista un
+            -- «Recordatorio vencido» mandado a admisiones@academiaia.ai y no supo
+            -- que era de María Eugenia: la lista solo tenía la dirección. Ahora
+            -- va también el nombre de la persona del CRM que hay detrás de cada
+            -- dirección, y el campus del correo si lo tiene.
+            (SELECT nombre FROM projects WHERE id = email_envios.project_id) AS campus,
+            (SELECT string_agg(DISTINCT u.nombre, ', ') FROM users u
+              WHERE COALESCE(u.email, '') <> ''
+                AND lower(u.email) = ANY (regexp_split_to_array(lower(email_envios.destinatarios), '[,;[:space:]<>]+'))) AS para_quien,
+            (SELECT u.nombre FROM users u
+              WHERE COALESCE(u.email, '') <> '' AND lower(u.email) = lower(email_envios.remitente)
+              ORDER BY u.active DESC LIMIT 1) AS de_quien
        FROM email_envios WHERE id = $1`, [Number(id)]);
   return rows[0] || null;
 }
