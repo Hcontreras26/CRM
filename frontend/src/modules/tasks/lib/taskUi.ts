@@ -134,3 +134,41 @@ export function neighboursAt(
   const at = column.slice(0, index).filter((t) => t.id !== draggedId).length;
   return { prev_id: sin[at - 1]?.id ?? null, next_id: sin[at]?.id ?? null };
 }
+
+/**
+ * Quién edita una tarea (Diego 08/10): su responsable, si tiene «Editar», o
+ * quien tiene «Editar» y «Ver todo». Quien solo la creó la ve y la comenta,
+ * pero no la cambia. Es la misma regla que aplica el servidor; aquí solo evita
+ * ofrecer lo que daría 403.
+ */
+export function puedeEditarTarea(
+  task: { assigned_to: number | null } | null | undefined,
+  yo: number,
+  permisos: { edit: boolean; viewAll: boolean },
+): boolean {
+  if (!task) return false;
+  return permisos.edit && (task.assigned_to === yo || permisos.viewAll);
+}
+
+/**
+ * Lo que manda la ficha al guardar una tarea que ya existe (fallos del QA de
+ * Diego, 08/10):
+ *   · el estado NO va en el PATCH (el servidor lo descarta): si cambió, se
+ *     mueve aparte con `moveTask`;
+ *   · `assigned_to` solo va con «Asignar»: sin él, el servidor da 403 aunque
+ *     sea el mismo responsable.
+ */
+export function armarCambiosDeTarea<B extends object>({
+  base, estadoAntes, estadoNuevo, canAssign, assignedTo,
+}: {
+  base: B;
+  estadoAntes: TaskStatus;
+  estadoNuevo: TaskStatus;
+  canAssign: boolean;
+  assignedTo: number | null;
+}): { mover: TaskStatus | null; actualizar: B & { assigned_to?: number | null } } {
+  return {
+    mover: estadoNuevo !== estadoAntes ? estadoNuevo : null,
+    actualizar: { ...base, ...(canAssign ? { assigned_to: assignedTo || null } : {}) },
+  };
+}

@@ -6,6 +6,25 @@ export const ROLES_TAREAS = ['superadmin', 'admin', 'gestor', 'soporte', 'projec
 const CON_TABLERO = `(u.role::text = ANY($ROLES::text[]) OR u.roles_extra::text[] && $ROLES::text[])`;
 const conTablero = (n) => CON_TABLERO.replaceAll('$ROLES', `$${n}`);
 
+/**
+ * La gente del ámbito (#245, decisiones de Diego del 08/10).
+ *
+ * Una persona entra si:
+ *   · tiene algún campus activo dentro del ámbito (su empresa o el campus elegido);
+ *   · NO tiene ningún campus: colaboradores del grupo, que los ve todo el equipo;
+ *   · o es quien está mirando.
+ *
+ * `col` es la columna con el id de la persona; `idxIds` y `idxYo`, los números
+ * de parámetro del ámbito (int[]) y de quien mira. Una tarea sin responsable no
+ * tiene campus, así que la ve todo el equipo, como un colaborador.
+ */
+export function genteDelAmbito(col, idxIds, idxYo) {
+  return `(${col} = $${idxYo}
+    OR EXISTS (SELECT 1 FROM user_projects up_a
+                WHERE up_a.user_id = ${col} AND up_a.active AND up_a.project_id = ANY($${idxIds}::int[]))
+    OR NOT EXISTS (SELECT 1 FROM user_projects up_s WHERE up_s.user_id = ${col} AND up_s.active))`;
+}
+
 // Las columnas de una tarjeta. `position` es NUMERIC y pg lo devolveria como
 // texto: se pasa a numero para que el tablero pueda calcular puntos medios.
 const COLUMNAS = `
@@ -44,7 +63,7 @@ const JOINS = `
 
 export async function findTasks({
   assigned_to, project_id, external_project_id, area_id, status, priority, search, tag, vencidas, desde, hasta,
-  incluir_archivadas = false, orden = 'tablero',
+  incluir_archivadas = false, orden = 'tablero', ambito = null, yo = null,
 }) {
   const conditions = [];
   const params = [];
@@ -55,6 +74,11 @@ export async function findTasks({
 
   if (!incluir_archivadas) conditions.push('t.archived_at IS NULL');
   if (assigned_to != null) add('t.assigned_to = $?', assigned_to);
+  // `null` es «todo el CRM» (superadmin y soporte): no se acota.
+  if (ambito) {
+    params.push(ambito, yo);
+    conditions.push(genteDelAmbito('t.assigned_to', params.length - 1, params.length));
+  }
   if (project_id != null) add('t.project_id = $?', project_id);
   if (external_project_id != null) add('t.external_project_id = $?', external_project_id);
   if (area_id != null) add('t.area_id = $?', area_id);
@@ -92,11 +116,29 @@ export async function findTasks({
 }
 
 /** Cuántas tareas esperan revisión: el número del selector y del menú. */
-export async function countReview() {
+export async function countReview(ambito = null, yo = null) {
+  const params = [];
+  let filtro = '';
+  if (ambito) {
+    params.push(ambito, yo);
+    filtro = `AND ${genteDelAmbito('t.assigned_to', 1, 2)}`;
+  }
   const { rows } = await query(
-    `SELECT COUNT(*)::int AS total FROM tasks WHERE status = 'en_revision' AND archived_at IS NULL`
+    `SELECT COUNT(*)::int AS total FROM tasks t
+      WHERE t.status = 'en_revision' AND t.archived_at IS NULL ${filtro}`,
+    params
   );
   return rows[0].total;
+}
+
+/** Si una persona está en el ámbito de quien mira (ver `genteDelAmbito`). */
+export async function personaEnAmbito(personaId, ambito, yo) {
+  if (!ambito) return true;
+  const { rows } = await query(
+    `SELECT ${genteDelAmbito('$3::int', 1, 2)} AS dentro`,
+    [ambito, yo, personaId]
+  );
+  return rows[0].dentro === true;
 }
 
 export async function findTaskById(id) {
@@ -203,7 +245,7 @@ export async function createTask(data) {
     title,
     description = null,
     status = 'por_hacer',
-    position = 1000.0,
+    position = null,
     priority = 'media',
     due_date = null,
     project_id = null,
@@ -218,7 +260,15 @@ export async function createTask(data) {
     `INSERT INTO tasks (
        title, description, status, position, priority,
        due_date, project_id, external_project_id, area_id, assigned_to, created_by, completed_at
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     ) VALUES (
+       $1, $2, $3::varchar,
+       -- Los tipos explícitos hacen falta: $3 y $10 se usan en dos sitios y,
+       -- sin ellos, PostgreSQL no sabe qué tipo darles (42P08).
+       COALESCE($4::numeric, (SELECT COALESCE(MAX(t2.position), 0) + 1000 FROM tasks t2
+                              WHERE t2.status = $3::varchar AND t2.assigned_to IS NOT DISTINCT FROM $10::int
+                                AND t2.archived_at IS NULL)),
+       $5, $6, $7, $8, $9, $10, $11, $12
+     )
      RETURNING id`,
     [title, description, status, position, priority, due_date, project_id, external_project_id, area_id, assigned_to, created_by, completed_at]
   );
@@ -556,12 +606,15 @@ export async function deleteTag(task_id, id) {
 }
 
 /** Los nombres de etiqueta que se pueden elegir en el filtro del tablero. */
-export async function findTagNames({ assigned_to = null } = {}) {
+export async function findTagNames({ assigned_to = null, ambito = null, yo = null } = {}) {
   const params = [];
   let filtro = '';
   if (assigned_to != null) {
     params.push(assigned_to);
     filtro = 'AND t.assigned_to = $1';
+  } else if (ambito) {
+    params.push(ambito, yo);
+    filtro = `AND ${genteDelAmbito('t.assigned_to', 1, 2)}`;
   }
   const { rows } = await query(
     `SELECT MIN(tg.name) AS name, COUNT(*)::int AS total
@@ -609,13 +662,19 @@ export async function deleteLink(task_id, id) {
 
 /* --- Personas --- */
 
-export async function findAssignees() {
+export async function findAssignees(ambito = null, yo = null) {
+  const params = [ROLES_TAREAS];
+  let filtro = '';
+  if (ambito) {
+    params.push(ambito, yo);
+    filtro = `AND ${genteDelAmbito('u.id', 2, 3)}`;
+  }
   const { rows } = await query(
     `SELECT u.id, u.nombre, u.email, u.role
        FROM users u
-      WHERE u.active AND ${conTablero(1)}
+      WHERE u.active AND ${conTablero(1)} ${filtro}
       ORDER BY u.nombre ASC`,
-    [ROLES_TAREAS]
+    params
   );
   return rows;
 }
@@ -632,10 +691,11 @@ export async function findUserBasic(id) {
 
 /* --- Todo el equipo y métricas --- */
 
-export async function getTeamMetrics(projectId = null, areaId = null) {
+export async function getTeamMetrics(projectId = null, areaId = null, ambito = null, yo = null) {
   const params = [ROLES_TAREAS];
   let filtroProyecto = '';
   let filtroArea = '';
+  let filtroGente = '';
 
   if (projectId) {
     params.push(projectId);
@@ -644,6 +704,10 @@ export async function getTeamMetrics(projectId = null, areaId = null) {
   if (areaId) {
     params.push(areaId);
     filtroArea = `AND t.area_id = $${params.length}`;
+  }
+  if (ambito) {
+    params.push(ambito, yo);
+    filtroGente = `AND ${genteDelAmbito('u.id', params.length - 1, params.length)}`;
   }
 
   const { rows } = await query(
@@ -658,7 +722,7 @@ export async function getTeamMetrics(projectId = null, areaId = null) {
        COUNT(t.id) FILTER (WHERE t.status = 'hecha' AND t.completed_at >= date_trunc('month', NOW()))::int AS completed_this_month
      FROM users u
      LEFT JOIN tasks t ON t.assigned_to = u.id ${filtroProyecto} ${filtroArea}
-     WHERE u.active AND ${conTablero(1)}
+     WHERE u.active AND ${conTablero(1)} ${filtroGente}
      GROUP BY u.id, u.nombre, u.email, u.role
      ORDER BY open_tasks DESC, u.nombre ASC`,
     params
@@ -667,12 +731,17 @@ export async function getTeamMetrics(projectId = null, areaId = null) {
 }
 
 /** «Todo el equipo» por área: lo mismo que por persona, agrupado por área. */
-export async function getTeamMetricsByArea(projectId = null) {
+export async function getTeamMetricsByArea(projectId = null, ambito = null, yo = null) {
   const params = [];
   let filtroProyecto = '';
+  let filtroGente = '';
   if (projectId) {
     params.push(projectId);
     filtroProyecto = `AND t.project_id = $${params.length}`;
+  }
+  if (ambito) {
+    params.push(ambito, yo);
+    filtroGente = `AND ${genteDelAmbito('t.assigned_to', params.length - 1, params.length)}`;
   }
   const { rows } = await query(
     `SELECT
@@ -686,7 +755,7 @@ export async function getTeamMetricsByArea(projectId = null) {
        (SELECT COUNT(*)::int FROM user_task_areas uta WHERE uta.area_id = ar.id) AS people
      FROM tasks t
      LEFT JOIN task_areas ar ON ar.id = t.area_id
-     WHERE TRUE ${filtroProyecto}
+     WHERE TRUE ${filtroProyecto} ${filtroGente}
      GROUP BY ar.id, ar.name, ar.color, ar.sort_order
      ORDER BY ar.sort_order ASC NULLS LAST, area_name ASC`,
     params

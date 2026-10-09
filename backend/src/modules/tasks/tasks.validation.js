@@ -110,7 +110,18 @@ export const returnTaskSchema = z.object({
   comment: z.string().trim().min(1, 'El motivo de la devolución es obligatorio').max(5000),
 });
 
+// El ámbito elegido arriba (#245): una empresa (`issuerId`) o un campus
+// (`projectId`). Es el de las PERSONAS que se ven; `project_id`, en cambio,
+// filtra por el campus de la propia tarea.
+const ambitoQuery = {
+  issuerId: z.coerce.number().int().positive().optional(),
+  projectId: z.coerce.number().int().positive().optional(),
+};
+
+export const ambitoQuerySchema = z.object(ambitoQuery);
+
 export const listTasksQuerySchema = z.object({
+  ...ambitoQuery,
   status: columna.optional(),
   assigned_to: z.coerce.number().int().positive().optional(),
   project_id: z.coerce.number().int().positive().optional(),
@@ -128,6 +139,7 @@ export const listTasksQuerySchema = z.object({
 });
 
 export const metricsQuerySchema = z.object({
+  ...ambitoQuery,
   project_id: z.coerce.number().int().positive().optional(),
   area_id: z.coerce.number().int().positive().optional(),
 });
@@ -161,17 +173,19 @@ export const addLinkSchema = z.object({
 
 /* --- Configuración de columnas, áreas y proyectos externos --- */
 
+const ordenEntero = z.number().int().min(0, 'El orden no puede ser negativo').max(2147483647, 'El orden supera el límite permitido');
+
 export const createColumnSchema = z.object({
   key: z.string().trim().min(1).max(50).regex(/^[a-z0-9_]+$/, 'La clave solo puede tener letras minúsculas, números y guiones bajos'),
   name: z.string().trim().min(1, 'El nombre de la columna es obligatorio').max(100),
   color: colorTablero.default('gray'),
-  sort_order: z.number().int().optional(),
+  sort_order: ordenEntero.optional(),
 });
 
 export const updateColumnSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   color: colorTablero.optional(),
-  sort_order: z.number().int().optional(),
+  sort_order: ordenEntero.optional(),
   is_active: z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });
 
@@ -182,13 +196,13 @@ export const reorderColumnsSchema = z.object({
 export const createAreaSchema = z.object({
   name: z.string().trim().min(1, 'El nombre del área es obligatorio').max(100),
   color: colorTablero.default('gray'),
-  sort_order: z.number().int().optional(),
+  sort_order: ordenEntero.optional(),
 });
 
 export const updateAreaSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   color: colorTablero.optional(),
-  sort_order: z.number().int().optional(),
+  sort_order: ordenEntero.optional(),
   is_active: z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });
 
@@ -217,6 +231,6 @@ export const updateExternalProjectSchema = z.object({
     .refine((u) => /^https?:\/\//i.test(u), 'El enlace tiene que empezar por http:// o https://')
     .optional().nullable(),
   color: colorTablero.optional(),
-  sort_order: z.number().int().optional(),
+  sort_order: ordenEntero.optional(),
   is_active: z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'No se envió ningún campo para actualizar' });

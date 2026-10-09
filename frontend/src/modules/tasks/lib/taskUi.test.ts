@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { dueInfo, fromDateInput, neighboursAt, toDateInput } from './taskUi';
+import {
+  armarCambiosDeTarea, dueInfo, fromDateInput, neighboursAt, puedeEditarTarea, toDateInput,
+} from './taskUi';
 
 // Las funciones puras del tablero. `neighboursAt` es la que decide el orden al
 // arrastrar: si se equivoca, la tarjeta cae donde no se soltó.
@@ -95,5 +97,46 @@ describe('fromDateInput / toDateInput: la fecha del formulario', () => {
     for (const dia of ['2026-01-01', '2026-03-29', '2026-10-25', '2026-12-31']) {
       expect(toDateInput(fromDateInput(dia))).toBe(dia);
     }
+  });
+});
+
+describe('armarCambiosDeTarea: lo que manda la ficha al guardar (QA de Diego, 08/10)', () => {
+  const base = { title: 'Título', priority: 'media' as const };
+
+  it('si cambia el estado, pide moverla, y el estado nunca va en el PATCH', () => {
+    const r = armarCambiosDeTarea({ base, estadoAntes: 'en_curso', estadoNuevo: 'en_revision', canAssign: true, assignedTo: 3 });
+    expect(r.mover).toBe('en_revision');
+    expect(r.actualizar).not.toHaveProperty('status');
+  });
+
+  it('si no cambia el estado, no la mueve', () => {
+    expect(armarCambiosDeTarea({ base, estadoAntes: 'en_curso', estadoNuevo: 'en_curso', canAssign: true, assignedTo: 3 }).mover)
+      .toBeNull();
+  });
+
+  it('sin «Asignar» no manda assigned_to (el servidor daría 403)', () => {
+    const r = armarCambiosDeTarea({ base, estadoAntes: 'por_hacer', estadoNuevo: 'por_hacer', canAssign: false, assignedTo: 3 });
+    expect(r.actualizar).toEqual(base);
+  });
+
+  it('con «Asignar», sí', () => {
+    const r = armarCambiosDeTarea({ base, estadoAntes: 'por_hacer', estadoNuevo: 'por_hacer', canAssign: true, assignedTo: 3 });
+    expect(r.actualizar).toEqual({ ...base, assigned_to: 3 });
+  });
+});
+
+describe('puedeEditarTarea: su responsable o quien tiene «Ver todo» (Diego, 08/10)', () => {
+  const tarea = { assigned_to: 7 };
+  it('su responsable con «Editar»', () => {
+    expect(puedeEditarTarea(tarea, 7, { edit: true, viewAll: false })).toBe(true);
+  });
+  it('quien la creó pero no es su responsable ni ve todo: no', () => {
+    expect(puedeEditarTarea(tarea, 5, { edit: true, viewAll: false })).toBe(false);
+  });
+  it('el admin («Editar» + «Ver todo»)', () => {
+    expect(puedeEditarTarea(tarea, 5, { edit: true, viewAll: true })).toBe(true);
+  });
+  it('sin «Editar», nadie, ni su responsable', () => {
+    expect(puedeEditarTarea(tarea, 7, { edit: false, viewAll: true })).toBe(false);
   });
 });

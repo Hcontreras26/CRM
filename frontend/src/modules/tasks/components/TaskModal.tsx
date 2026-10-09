@@ -11,7 +11,7 @@ import { toast } from '@/shared/hooks/useToast';
 import { inputClass } from '@/shared/lib/ui';
 import * as tasksApi from '../api/tasks.api';
 import {
-  DEFAULT_COLUMNS, TAG_COLORS, fromDateInput, tagChip, toDateInput,
+  DEFAULT_COLUMNS, TAG_COLORS, armarCambiosDeTarea, fromDateInput, puedeEditarTarea, tagChip, toDateInput,
 } from '../lib/taskUi';
 import type {
   Assignee,
@@ -41,6 +41,10 @@ interface TaskModalProps {
   /** `tasks.close`: aprobar, devolver, cerrar y reabrir. */
   canClose?: boolean;
   canAssign: boolean;
+  /** `tasks.edit`: editar la tarea si es su responsable (o con «Ver todo», cualquiera). */
+  canEdit?: boolean;
+  /** `tasks.view_all`. */
+  canViewAll?: boolean;
   canArchiveAny: boolean;
   assignees: Assignee[];
   projects: ProjectOption[];
@@ -55,7 +59,7 @@ const textareaClass = `${inputClass.replace('h-9', 'min-h-[72px] py-2')} resize-
 
 export function TaskModal({
   open, taskId, initialStatus = 'por_hacer', initialProjectId = null, defaultAssigneeId = null, onClose, onChanged,
-  currentUserId, canClose = false, canAssign, canArchiveAny, assignees, projects,
+  currentUserId, canClose = false, canAssign, canEdit = true, canViewAll = false, canArchiveAny, assignees, projects,
   areas = [], externalProjects = [], columns = [],
 }: TaskModalProps) {
   useEscapeKey(onClose, open);
@@ -154,6 +158,9 @@ export function TaskModal({
     .map((c) => ({ value: c.key, label: c.name }));
 
   const estadoBloqueado = editando && task?.status === 'hecha' && !tienePermisoCierre;
+  // Al crear, todo se puede. Al editar, la regla de Diego (08/10): quien no
+  // puede la ve y la comenta, pero los campos salen bloqueados.
+  const soloLectura = editando && !!task && !puedeEditarTarea(task, currentUserId, { edit: canEdit, viewAll: canViewAll });
 
   const opcionesResponsable = (assignees.length ? assignees : [{ id: currentUserId, nombre: 'Yo', email: '', role: '' }])
     .map((a) => ({ value: a.id, label: a.id === currentUserId ? `${a.nombre} (yo)` : a.nombre }));
@@ -175,24 +182,31 @@ export function TaskModal({
       parsedExternalProjectId = parseInt(projectSelection.replace('ext:', ''), 10);
     }
 
-    const payload = {
+    const basePayload = {
       title: title.trim(),
       description: description.trim() || null,
-      status,
       priority,
       due_date: fromDateInput(dueDate),
       project_id: parsedProjectId,
       external_project_id: parsedExternalProjectId,
       area_id: areaId ? Number(areaId) : null,
-      assigned_to: canAssign ? (assignedTo || null) : currentUserId,
     };
 
     try {
       if (editando) {
-        await tasksApi.updateTask(task!.id, payload);
+        const { mover, actualizar } = armarCambiosDeTarea({
+          base: basePayload, estadoAntes: task!.status, estadoNuevo: status, canAssign, assignedTo,
+        });
+        if (mover) await tasksApi.moveTask(task!.id, { status: mover });
+        await tasksApi.updateTask(task!.id, actualizar);
         toast({ title: 'Tarea actualizada' });
       } else {
-        await tasksApi.createTask(payload);
+        const createPayload = {
+          ...basePayload,
+          status,
+          assigned_to: canAssign ? (assignedTo || null) : currentUserId,
+        };
+        await tasksApi.createTask(createPayload);
         toast({ title: 'Tarea creada' });
       }
       onChanged();
@@ -353,6 +367,13 @@ export function TaskModal({
               </div>
             ) : (
               <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
+                {soloLectura && (
+                  <p className="text-xs rounded-md border border-border bg-muted/50 px-3 py-2 text-muted-foreground">
+                    Solo la edita su responsable o quien ve todo el equipo. Puedes verla y comentarla.
+                  </p>
+                )}
+                {/* Todo lo editable va aquí dentro: `disabled` lo bloquea de una vez. */}
+                <fieldset disabled={soloLectura} className="space-y-4 min-w-0">
                 <div>
                   <label className="block text-xs font-semibold mb-1">Título *</label>
                   <input
@@ -487,9 +508,12 @@ export function TaskModal({
                   </div>
                 </div>
 
+                </fieldset>
+
                 {/* Submódulos cuando la tarjeta ya existe */}
                 {editando && task && (
                   <>
+                    <fieldset disabled={soloLectura} className="space-y-0 min-w-0">
                     {/* Lista de comprobación */}
                     <section className="pt-4 border-t border-border space-y-2">
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
@@ -666,7 +690,9 @@ export function TaskModal({
                       </Button>
                     </section>
 
-                    {/* Comentarios */}
+                    </fieldset>
+
+                    {/* Comentarios: los puede escribir cualquiera que la vea. */}
                     <section className="pt-4 border-t border-border space-y-2">
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                         <ChatCircle size={14} /> Comentarios
@@ -738,7 +764,7 @@ export function TaskModal({
               <Button type="button" variant="outline" size="sm" onClick={onClose}>
                 {editando ? 'Cerrar' : 'Cancelar'}
               </Button>
-              {tab === 'detalles' && !cargando && (
+              {tab === 'detalles' && !cargando && !soloLectura && (
                 <Button type="submit" form="task-form" size="sm" disabled={guardando}>
                   {guardando ? 'Guardando…' : editando ? 'Guardar' : 'Crear tarea'}
                 </Button>

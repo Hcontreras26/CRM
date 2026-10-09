@@ -4,6 +4,7 @@ import { Plus, MagnifyingGlass, ArrowsClockwise, Warning, X, SlidersHorizontal, 
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import usePermission from '@/shared/hooks/usePermission';
+import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 import { toast } from '@/shared/hooks/useToast';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import Select from '@/shared/components/ui/Select';
@@ -14,7 +15,7 @@ import { TaskColumn } from '../components/TaskColumn';
 import { TaskModal } from '../components/TaskModal';
 import { TeamAreaMetrics, TeamTasksMetrics } from '../components/TeamTasksMetrics';
 import { TasksReviewView } from '../components/TasksReviewView';
-import { DEFAULT_COLUMNS, PRIORITY, boardColor, neighboursAt } from '../lib/taskUi';
+import { DEFAULT_COLUMNS, PRIORITY, boardColor, neighboursAt, puedeEditarTarea } from '../lib/taskUi';
 import type {
   AreaMetric,
   Assignee,
@@ -56,7 +57,7 @@ const errorDe = (err: unknown) => (err instanceof Error && err.message) ? err.me
 
 export default function TasksPage() {
   const { user } = useAuth();
-  const { projects } = useProjectContext();
+  const { projects, activeIssuerId, activeProject } = useProjectContext();
   const { can } = usePermission();
   const location = useLocation();
   const navigate = useNavigate();
@@ -70,6 +71,13 @@ export default function TasksPage() {
   const canCreate = can('tasks.create');
   const canClose = can('tasks.close');
   const canManage = can('tasks.manage');
+  const canEdit = can('tasks.edit');
+  const canViewOwn = can('tasks.view_own');
+
+  // La empresa o el campus de arriba (#245, Diego 08/10). En un id para que
+  // los efectos no se repitan con cada render.
+  const ambitoClave = JSON.stringify(ambitoComoObjeto({ activeIssuerId, activeProject }));
+  const ambito = useMemo<tasksApi.Ambito>(() => JSON.parse(ambitoClave), [ambitoClave]);
 
   const enRevisar = location.pathname.endsWith('/tareas/revisar');
   const [vistaTablero, setVistaTablero] = useState<Exclude<Vista, 'revisar'>>('mio');
@@ -123,10 +131,12 @@ export default function TasksPage() {
     setErrorCarga(null);
     try {
       if (vista === 'revisar') {
-        setTasks(await tasksApi.getReviewTasks());
+        setTasks(await tasksApi.getReviewTasks(ambito));
       } else {
         const assignedTo = vista === 'mio' ? yo : vista === 'equipo' ? undefined : vista;
         setTasks(await tasksApi.getTasks({
+          // Mi tablero es mío, esté donde esté: el ámbito solo acota al equipo.
+          ...(vista === 'mio' ? {} : ambito),
           assigned_to: assignedTo || undefined,
           search: filtros.search.trim() || undefined,
           project_id: filtros.projectId || undefined,
@@ -146,19 +156,19 @@ export default function TasksPage() {
     } finally {
       setCargando(false);
     }
-  }, [vista, yo, filtros]);
+  }, [vista, yo, filtros, ambito]);
 
   // Lo que no cambia al arrastrar: se pide al entrar y al volver de configurar.
   const cargarCatalogos = useCallback(() => {
     tasksApi.getAreas().then(setAreas).catch(() => setAreas([]));
     tasksApi.getExternalProjects().then(setProyectosPropios).catch(() => setProyectosPropios([]));
     tasksApi.getColumns().then(setColumnas).catch(() => setColumnas([]));
-    if (canViewAll || canAssign) tasksApi.getAssignees().then(setAssignees).catch(() => setAssignees([]));
-  }, [canViewAll, canAssign]);
+    if (canViewAll || canAssign) tasksApi.getAssignees(ambito).then(setAssignees).catch(() => setAssignees([]));
+  }, [canViewAll, canAssign, ambito]);
 
   const cargarEtiquetas = useCallback(() => {
-    tasksApi.getTagNames().then(setEtiquetas).catch(() => setEtiquetas([]));
-  }, []);
+    tasksApi.getTagNames(ambito).then(setEtiquetas).catch(() => setEtiquetas([]));
+  }, [ambito]);
 
   const cargarMetricas = useCallback(async () => {
     if (vista !== 'equipo' || !canViewAll) return;
@@ -166,8 +176,8 @@ export default function TasksPage() {
     try {
       const pid = filtros.projectId || undefined;
       const [personas, porArea] = await Promise.all([
-        tasksApi.getTeamMetrics(pid, filtros.areaId || undefined),
-        tasksApi.getTeamMetricsByArea(pid),
+        tasksApi.getTeamMetrics(pid, filtros.areaId || undefined, ambito),
+        tasksApi.getTeamMetricsByArea(pid, ambito),
       ]);
       setMetricas(personas);
       setMetricasArea(porArea);
@@ -176,16 +186,16 @@ export default function TasksPage() {
     } finally {
       setCargandoMetricas(false);
     }
-  }, [vista, canViewAll, filtros.projectId, filtros.areaId]);
+  }, [vista, canViewAll, filtros.projectId, filtros.areaId, ambito]);
 
   const cargarPorRevisar = useCallback(async () => {
     if (!canClose) return;
     try {
-      setPorRevisar((await tasksApi.getReviewCount()).count);
+      setPorRevisar((await tasksApi.getReviewCount(ambito)).count);
     } catch {
       setPorRevisar(0);
     }
-  }, [canClose]);
+  }, [canClose, ambito]);
 
   useEffect(() => { cargarTareas(); }, [cargarTareas]);
   useEffect(() => { cargarCatalogos(); cargarEtiquetas(); }, [cargarCatalogos, cargarEtiquetas]);
@@ -228,7 +238,9 @@ export default function TasksPage() {
     return [...grupos.values()].sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
   }, [vista, tasks, assignees, yo, agrupar]);
 
-  const puedeArrastrar = (t: Task) => canClose || t.status !== 'hecha';
+  // Arrastrar es editar: la misma regla que la ficha y el servidor.
+  const puedeArrastrar = (t: Task) => puedeEditarTarea(t, yo, { edit: canEdit, viewAll: canViewAll })
+    && (canClose || t.status !== 'hecha');
 
   function empezarArrastre(e: DragEvent<HTMLDivElement>, t: Task) {
     setArrastrando(t);
@@ -287,6 +299,19 @@ export default function TasksPage() {
 
   // Al crear desde el tablero de otra persona, el responsable es esa persona.
   const defaultAssigneeId = typeof vista === 'number' ? vista : yo;
+
+  // Sin «Ver lo suyo» ni «Ver todo» (Configuración › Roles), el servidor no da
+  // tablero: se dice en vez de enseñar un error de carga.
+  if (!canViewOwn && !canViewAll && !canClose) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Equipo de Desarrollo" />
+        <p className="text-sm text-muted-foreground">
+          Tu rol no tiene acceso al tablero de tareas. Si lo necesitas, pídeselo a quien gestiona los roles.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -509,6 +534,8 @@ export default function TasksPage() {
         onChanged={refrescar}
         currentUserId={yo}
         canAssign={canAssign}
+        canEdit={canEdit}
+        canViewAll={canViewAll}
         canArchiveAny={canArchiveAny}
         canClose={canClose}
         assignees={assignees}

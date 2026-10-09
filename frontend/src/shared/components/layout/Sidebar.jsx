@@ -89,8 +89,6 @@ const IS_REDESIGN_NAV_ENABLED = import.meta.env.DEV
 // Cada item: roles (omitir=todos) + module (clave en project.modules; omitir=siempre)
 // Quién tiene tablero de tareas: el mismo `ROLES_TAREAS` que el backend.
 const ROLES_TAREAS = ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'];
-// Las issues del repo. Se puede cambiar por entorno sin tocar el código.
-const GITHUB_ISSUES_URL = import.meta.env.VITE_TAREAS_GITHUB_URL || 'https://github.com/diego-landaeta/CRM/issues';
 
 const NAV_SECTIONS = [
   {
@@ -195,8 +193,6 @@ const NAV_SECTIONS = [
       { label: 'Tablero', to: '/tareas', detail: 'Las tareas del equipo, por áreas', icon: Kanban, roles: ROLES_TAREAS },
       { label: 'Por revisar', to: '/tareas/revisar', detail: 'Aprobar o devolver', icon: CheckSquare, roles: ROLES_TAREAS, permiso: 'tasks.close' },
       { label: 'Configurar tablero', to: '/tareas/configurar', detail: 'Columnas, áreas y proyectos', icon: SlidersHorizontal, roles: ROLES_TAREAS, permiso: 'tasks.manage' },
-      // Programación no va con tarjetas: va por las issues del repo.
-      { label: 'Programación', href: GITHUB_ISSUES_URL, detail: 'Issues en GitHub', icon: GitMerge, roles: ROLES_TAREAS },
     ],
   }] : []),
   {

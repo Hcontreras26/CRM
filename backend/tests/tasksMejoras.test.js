@@ -410,7 +410,7 @@ describe('2c · proyectos propios', () => {
     creados.proyectos.push(otro.body.data.id);
     expect(otro.body.data.sort_order).toBeGreaterThan(opynio.sort_order ?? 0);
     expect((await request.patch(`/api/tasks/external-projects/${otro.body.data.id}`).set(como('admin'))
-      .send({ sort_order: -1 })).status).toBe(200);
+      .send({ sort_order: 0 })).status).toBe(200);
     const ids = (await request.get('/api/tasks/external-projects').set(como('admin'))).body.data.map((p) => p.id);
     expect(ids.indexOf(otro.body.data.id)).toBeLessThan(ids.indexOf(opynio.id));
   });

@@ -25,6 +25,8 @@ VPS `187.124.128.126`. PM2 corre como el usuario **claude** (`export PATH=~/.nvm
 **Interruptores del `.env` de producción** (29/09): `NOVEDADES_AUTO=1` (manda las Novedades de una versión nueva al arrancar, una sola vez) · `FEEDBACK_DIA7_INICIO=2026-09-29` (el correo del 7.º día solo para primeros contactos desde ese día) · `PASO_VENCIDO_DISABLED=1` (el trabajo de las 3:00 apagado) · correos del equipo encendidos (sin `RESUMEN_DISABLED` ni `REPORTE_SEMANAL_DISABLED`) · `LEAD_SIN_TOCAR_DISABLED=1`. En pruebas, `EMAIL_LISTA_BLANCA` frena los correos a todo el que no esté en la lista.
 
 **Correos del tablero de tareas** (#210): `TAREAS_CORREOS_ACTIVOS`, **apagado por defecto**. Apagado, el CRM arma cada correo (asignada, devuelta, aprobada, comentario nuevo y el de cada mañana) y lo registra en el log con su destinatario y asunto, pero no llama a Brevo: no sale nada ni en local ni en /testeo. Lo enciende Diego en producción cuando lo decida (`true` o `1`). Cada persona puede apagar cada uno en «Mis preferencias». El de cada mañana va a `TAREAS_DIARIO_HORA` (8 por defecto) en la hora de la oficina (`APP_TIMEZONE`, Europe/Madrid), no en la del servidor; `TAREAS_DIARIO_DISABLED=1` ni lo programa.
+
+**El tablero de tareas, solo en pruebas** (#210, Diego 07/10): igual que la pantalla se esconde en /crm con `SOLO_EN_PRUEBAS`, el servidor no monta `/api/tasks` ni programa el correo de cada mañana en producción. Con `NODE_ENV=production` solo se montan si `CRM_BASE_URL` apunta a `/testeo` —**el servidor de /testeo tiene que tenerla así**, o su tablero dejaría de responder— o si se aprueba con `TAREAS_EN_PRODUCCION=1` (`backend/src/shared/config/soloEnPruebas.js`).
 **Frontal:** `VITE_BETA_MODE=true` en producción (lo que no está en `BETA_ROUTES` sale como «Próximamente»); `VITE_FACTURACION_V2` solo en pruebas (la emisión automática de facturas no va a producción).
 **Paridad:** ISEIE (https://crm.iseie.com, repo `CRM-ISEIE`) tiene las mismas funciones; los módulos se copian, la navegación no (ISEIE usa `/leads` donde aquí es `/prospectos`).
 
@@ -246,6 +248,7 @@ Fuente de verdad del esquema. Cada archivo en `backend/migrations/` es un SQL ej
 | 194 | 194_rol_colaborador.sql | El rol `colaborador` en el ENUM `user_role`: solo ve el Equipo de Desarrollo (#210, lo comparte #202). |
 | 195 | 195_tasks_enlaces.sql | Los enlaces de la tarjeta de una tarea (#210). |
 | 196 | 196_tasks_areas_columns_external.sql | Tablero (#210, 07/10): columnas propias (`tasks.status` pasa a apuntar a `task_columns`; las tareas conservan su columna), áreas, proyectos propios con CHECK «campus o proyecto propio», y etiquetas sin repetir. Se puede pasar dos veces sin deshacer lo configurado. |
+| 197 | 197_permisos_por_rol.sql | Permisos de Tareas por rol, editables desde Configuración › Roles por superadmin y admin (#210, 08/10). Guarda solo lo que se aparta del valor por defecto del código; el orden es: por defecto del rol → esta tabla → rol a medida → excepciones de la persona. Se puede pasar dos veces. |
 
 > **Comprobado el 29/09/2026 contra el catálogo de producción** (no contra la
 > salida de ningún comando): aplicadas todas las de esta lista hasta la **184**.

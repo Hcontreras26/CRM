@@ -7,6 +7,7 @@ import {
   returnTaskSchema,
   listTasksQuerySchema,
   metricsQuerySchema,
+  ambitoQuerySchema,
   addChecklistItemSchema,
   updateChecklistItemSchema,
   addCommentSchema,
@@ -104,36 +105,36 @@ export const approve = accion(async (req, res) => {
 });
 
 export const reviewTasks = accion(async (req, res) => {
-  const data = await taskService.getReviewTasks(quien(req));
+  const data = await taskService.getReviewTasks(quien(req), validar(ambitoQuerySchema, req.query));
   res.json({ success: true, data });
 });
 
 export const reviewCount = accion(async (req, res) => {
-  const data = await taskService.getReviewCount(quien(req));
+  const data = await taskService.getReviewCount(quien(req), validar(ambitoQuerySchema, req.query));
   res.json({ success: true, data });
 });
 
 /* --- Personas, Etiquetas y Métricas --- */
 
 export const assignees = accion(async (req, res) => {
-  const data = await taskService.listAssignees(quien(req));
+  const data = await taskService.listAssignees(quien(req), validar(ambitoQuerySchema, req.query));
   res.json({ success: true, data });
 });
 
 export const tagNames = accion(async (req, res) => {
-  const data = await taskService.listTagNames(quien(req));
+  const data = await taskService.listTagNames(quien(req), validar(ambitoQuerySchema, req.query));
   res.json({ success: true, data });
 });
 
 export const teamMetrics = accion(async (req, res) => {
-  const { project_id: projectId, area_id: areaId } = validar(metricsQuerySchema, req.query);
-  const data = await taskService.getTeamMetrics(projectId || null, areaId || null, quien(req));
+  const q = validar(metricsQuerySchema, req.query);
+  const data = await taskService.getTeamMetrics(q.project_id || null, q.area_id || null, quien(req), q);
   res.json({ success: true, data });
 });
 
 export const teamMetricsByArea = accion(async (req, res) => {
-  const { project_id: projectId } = validar(metricsQuerySchema, req.query);
-  const data = await taskService.getTeamMetricsByArea(projectId || null, quien(req));
+  const q = validar(metricsQuerySchema, req.query);
+  const data = await taskService.getTeamMetricsByArea(q.project_id || null, quien(req), q);
   res.json({ success: true, data });
 });
 

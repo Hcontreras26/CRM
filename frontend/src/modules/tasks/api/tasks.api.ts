@@ -17,7 +17,14 @@ import type {
   AreaMetric,
 } from '../types';
 
-export type GetTasksParams = {
+/**
+ * La empresa o el campus elegidos arriba (#245, Diego 08/10). Sale de
+ * `ambitoComoObjeto`: `{}`, `{ issuerId }` o `{ projectId }`. El servidor lo
+ * recorta además a los campus de quien mira.
+ */
+export type Ambito = { issuerId?: number; projectId?: number };
+
+export type GetTasksParams = Ambito & {
   status?: TaskStatus;
   assigned_to?: number;
   project_id?: number;
@@ -84,13 +91,13 @@ export async function approveTask(id: number): Promise<Task> {
   return data as Task;
 }
 
-export async function getReviewTasks(): Promise<Task[]> {
-  const { data } = await client.get<Task[]>('/tasks/review');
+export async function getReviewTasks(ambito: Ambito = {}): Promise<Task[]> {
+  const { data } = await client.get<Task[]>('/tasks/review', { params: ambito });
   return data ?? [];
 }
 
-export async function getReviewCount(): Promise<{ count: number }> {
-  const { data } = await client.get<{ count: number }>('/tasks/review/count');
+export async function getReviewCount(ambito: Ambito = {}): Promise<{ count: number }> {
+  const { data } = await client.get<{ count: number }>('/tasks/review/count', { params: ambito });
   return data ?? { count: 0 };
 }
 
@@ -99,13 +106,13 @@ export async function archiveTask(id: number): Promise<Task> {
   return data as Task;
 }
 
-export async function getAssignees(): Promise<Assignee[]> {
-  const { data } = await client.get<Assignee[]>('/tasks/assignees');
+export async function getAssignees(ambito: Ambito = {}): Promise<Assignee[]> {
+  const { data } = await client.get<Assignee[]>('/tasks/assignees', { params: ambito });
   return data ?? [];
 }
 
-export async function getTagNames(): Promise<TagName[]> {
-  const { data } = await client.get<TagName[]>('/tasks/tags');
+export async function getTagNames(ambito: Ambito = {}): Promise<TagName[]> {
+  const { data } = await client.get<TagName[]>('/tasks/tags', { params: ambito });
   return data ?? [];
 }
 
@@ -164,9 +171,10 @@ export async function deleteLink(taskId: number, linkId: number): Promise<void> 
 
 /* --- Todo el equipo --- */
 
-export async function getTeamMetrics(projectId?: number, areaId?: number): Promise<TeamMemberMetric[]> {
+export async function getTeamMetrics(projectId?: number, areaId?: number, ambito: Ambito = {}): Promise<TeamMemberMetric[]> {
   const { data } = await client.get<TeamMemberMetric[]>('/tasks/metrics', {
     params: {
+      ...ambito,
       ...(projectId ? { project_id: projectId } : {}),
       ...(areaId ? { area_id: areaId } : {}),
     },
@@ -175,9 +183,9 @@ export async function getTeamMetrics(projectId?: number, areaId?: number): Promi
 }
 
 /** «Todo el equipo» agrupado por área. */
-export async function getTeamMetricsByArea(projectId?: number): Promise<AreaMetric[]> {
+export async function getTeamMetricsByArea(projectId?: number, ambito: Ambito = {}): Promise<AreaMetric[]> {
   const { data } = await client.get<AreaMetric[]>('/tasks/metrics/areas', {
-    params: projectId ? { project_id: projectId } : {},
+    params: { ...ambito, ...(projectId ? { project_id: projectId } : {}) },
   });
   return data ?? [];
 }
