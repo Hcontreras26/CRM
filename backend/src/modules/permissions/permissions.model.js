@@ -1,4 +1,4 @@
-import { query } from '../../shared/config/db.js';
+import { query, getClient } from '../../shared/config/db.js';
 
 export async function findAllCustomRoles() {
   const { rows } = await query(
@@ -82,6 +82,62 @@ export async function saveOverridesForUser(userId, overrides) {
     `INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES ${placeholders}`,
     values
   );
+}
+
+/**
+ * Lo que se ha cambiado desde Roles para estos roles del sistema (migración
+ * 197). Sin la tabla todavía —servidor sin migrar— cada rol se queda con lo
+ * que dice el código, igual que antes.
+ */
+export async function getRoleOverrides(roles) {
+  const lista = [...new Set((roles || []).filter(Boolean))];
+  if (!lista.length) return [];
+  try {
+    const { rows } = await query(
+      `SELECT role, resource, action, allowed FROM role_permission_overrides
+        WHERE role = ANY($1::text[]) ORDER BY role, resource, action`,
+      [lista]
+    );
+    return rows;
+  } catch (err) {
+    if (err.code === '42P01') return [];
+    throw err;
+  }
+}
+
+/**
+ * Deja los permisos de un recurso de un rol exactamente así: borra los que
+ * había de ese recurso e inserta los nuevos, en una transacción.
+ */
+export async function saveRoleOverrides(role, resource, filas, updatedBy) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM role_permission_overrides WHERE role = $1 AND resource = $2', [role, resource]);
+    for (const { action, allowed } of filas) {
+      await client.query(
+        `INSERT INTO role_permission_overrides (role, resource, action, allowed, updated_by)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [role, resource, action, allowed, updatedBy]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** Cambia algunas claves de un rol a medida sin tocar el resto de su JSON. */
+export async function mergeCustomRolePermissions(id, cambios) {
+  const { rows } = await query(
+    `UPDATE custom_roles SET permissions = COALESCE(permissions, '{}'::jsonb) || $2::jsonb, updated_at = NOW()
+      WHERE id = $1 RETURNING id, label, base_role, permissions`,
+    [id, JSON.stringify(cambios)]
+  );
+  return rows[0] || null;
 }
 
 export async function getUserCustomRoleId(userId) {

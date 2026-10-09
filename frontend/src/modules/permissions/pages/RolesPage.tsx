@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useProjectContext } from '@/contexts/ProjectContext';
+import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/shared/components/ui/PageHeader';
-import { ShieldCheck, Plus, Lock, Warning, CheckCircle, Circle } from '@phosphor-icons/react';
+import { ShieldCheck, Plus, Lock, CheckCircle, Circle, PencilSimple } from '@phosphor-icons/react';
 import PestanaVista from '../components/PestanaVista';
+import PermisosTareas from '../components/PermisosTareas';
+import usePermission, { type PermissionMap } from '@/shared/hooks/usePermission';
 import {
   FIXED_ROLES,
   PERMISSION_RESOURCES,
@@ -47,6 +48,17 @@ const AYUDA: Record<string, string> = {
   'tasks.manage': 'Configurar el tablero: columnas, áreas y proyectos propios',
 };
 
+// Los roles con tablero que no salen en FIXED_ROLES (que se usa en más sitios
+// y no se toca): también se les pueden cambiar los permisos de Tareas.
+const ROLES_CON_TABLERO: ReadonlyArray<{ key: string; label: string; desc: string; color: RoleColor }> = [
+  { key: 'colaborador', label: 'Colaborador', desc: 'Del grupo, sin campus. Solo el tablero de tareas.', color: 'sky' },
+  { key: 'project_manager', label: 'Project manager', desc: 'Peticiones de cambio. En Tareas parte de lo de la gestora.', color: 'emerald' },
+];
+
+// A quién se le pueden cambiar los permisos de Tareas: a todos menos al
+// superadmin (lo puede todo) y al tutor (no tiene tablero). Igual que el servidor.
+const editaTareas = (key: string) => key !== 'superadmin' && key !== 'tutor';
+
 interface RoleEntry {
   key: string;
   label: string;
@@ -56,46 +68,53 @@ interface RoleEntry {
 }
 
 export default function RolesPage() {
-  const { activeProject } = useProjectContext();
   const [selectedRole, setSelectedRole] = useState<string>('superadmin');
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [customRolesAvailable, setCustomRolesAvailable] = useState<boolean | null>(null);
   const [pestana, setPestana] = useState<'permisos' | 'vista'>('permisos');
   const [defaults, setDefaults] = useState<SystemDefaults | null>(null);
+  // Superadmin y admin cambian los permisos de Tareas (Diego, 08/10).
+  const { tieneRol } = usePermission();
+  const puedeEditarTareas = tieneRol('superadmin', 'admin');
 
-  // El catalogo del backend: recursos, acciones, widgets y elementos del menu.
-  // Se pide una vez, no por rol.
-  useEffect(() => {
-    let cancelado = false;
-    api.getSystemDefaults()
-      .then((d) => { if (!cancelado) setDefaults(d); })
-      .catch(() => {});
-    return () => { cancelado = true; };
+  // El catalogo del backend: recursos, acciones, widgets y elementos del menu,
+  // y los permisos de cada rol con lo cambiado aquí ya aplicado.
+  const cargarDefaults = useCallback(() => {
+    api.getSystemDefaults().then(setDefaults).catch(() => {});
+  }, []);
+  useEffect(() => { cargarDefaults(); }, [cargarDefaults]);
+
+  const cargarRolesMedida = useCallback(async () => {
+    try {
+      setCustomRoles(await api.listCustomRoles());
+      setCustomRolesAvailable(true);
+    } catch {
+      setCustomRolesAvailable(false);
+    }
   }, []);
 
-  useEffect(() => {
-    if (!activeProject?.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await api.listCustomRoles(activeProject.id);
-        if (!cancelled) {
-          setCustomRoles(list);
-          setCustomRolesAvailable(true);
-        }
-      } catch {
-        // 404 esperado si CRM-228 backend aun no esta desplegado
-        if (!cancelled) setCustomRolesAvailable(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [activeProject?.id]);
+  // Los roles a medida son globales, no de un campus.
+  useEffect(() => { cargarRolesMedida(); }, [cargarRolesMedida]);
 
+  const rolesDelSistema = [...FIXED_ROLES, ...ROLES_CON_TABLERO];
   const allRoles: RoleEntry[] = [
-    ...FIXED_ROLES.map((r): RoleEntry => ({ key: r.key, label: r.label, desc: r.desc, color: r.color })),
+    ...rolesDelSistema.map((r): RoleEntry => ({ key: r.key, label: r.label, desc: r.desc, color: r.color })),
     ...customRoles.map((r): RoleEntry => ({ key: `custom:${r.id}`, label: r.label, custom: r, color: 'amber', desc: r.description || '' })),
   ];
   const role = allRoles.find((r) => r.key === selectedRole);
+
+  // Lo que manda de verdad: el servidor, con lo cambiado aquí. El espejo del
+  // frontal queda de respaldo mientras carga (y para el superadmin, «todo»).
+  // Un rol a medida es su rol base más sus propias claves.
+  function permisosDe(entrada: RoleEntry): PermissionMap {
+    const delServidor = (k: string) => {
+      const r = defaults?.roles?.[k];
+      return (r && typeof r === 'object') ? r : (ROLE_DEFAULT_PERMISSIONS[k as UserRole] || {});
+    };
+    if (entrada.custom) return { ...delServidor(entrada.custom.base_role || 'gestor'), ...(entrada.custom.permissions || {}) };
+    return delServidor(entrada.key);
+  }
+  const alGuardarTareas = () => { cargarDefaults(); cargarRolesMedida(); };
 
   return (
     <div className="space-y-5 pb-8">
@@ -117,24 +136,11 @@ export default function RolesPage() {
         }
       />
 
-      {customRolesAvailable === false && (
-        <div className="flex items-start gap-3 p-4 rounded-xl border border-warning/30 bg-warning-soft text-warning-soft-foreground">
-          <Warning size={20} weight="bold" className="flex-shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-semibold">Roles custom no disponibles aún</p>
-            <p className="text-xs mt-0.5 text-warning-soft-foreground">
-              El backend de roles personalizados (CRM-228) está en otra rama y aún no se ha mergeado.
-              Mientras tanto puedes ver los 4 roles fijos del sistema y la matriz de permisos por defecto.
-            </p>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
         {/* Panel izquierdo: lista de roles */}
         <aside className="space-y-2">
           <h3 className="text-xs font-bold uppercase text-muted-foreground px-1">Roles del sistema</h3>
-          {FIXED_ROLES.map((r) => (
+          {rolesDelSistema.map((r) => (
             <button
               key={r.key}
               type="button"
@@ -195,7 +201,11 @@ export default function RolesPage() {
                   <h2 className="text-lg font-bold">{role.label}</h2>
                   <p className="text-xs text-muted-foreground">{role.desc}</p>
                 </div>
-                {!role.custom && (
+                {puedeEditarTareas && editaTareas(role.key) ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/10 text-primary font-bold">
+                    <PencilSimple size={10} /> Tareas editables
+                  </span>
+                ) : !role.custom && (
                   <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-muted font-bold">
                     <Lock size={10} /> Solo lectura
                   </span>
@@ -227,6 +237,10 @@ export default function RolesPage() {
               ) : (
               <>
 
+              {puedeEditarTareas && editaTareas(role.key) && (
+                <PermisosTareas roleKey={role.key} onGuardado={alGuardarTareas} />
+              )}
+
               {/* Desktop table */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
@@ -242,7 +256,7 @@ export default function RolesPage() {
                   </thead>
                   <tbody>
                     {PERMISSION_RESOURCES.map((res) => {
-                      const perms = ROLE_DEFAULT_PERMISSIONS[role.key as UserRole] || {};
+                      const perms = permisosDe(role);
                       const all = perms['*'] === true;
                       const has = (a: string): boolean => all || perms[`${res.key}.${a}`] === true;
                       const others = res.actions.filter((a) => !COLUMNAS.includes(a));
@@ -279,7 +293,7 @@ export default function RolesPage() {
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
                 {PERMISSION_RESOURCES.map((res) => {
-                  const perms = ROLE_DEFAULT_PERMISSIONS[role.key as UserRole] || {};
+                  const perms = permisosDe(role);
                   const all = perms['*'] === true;
                   const has = (a: string): boolean => all || perms[`${res.key}.${a}`] === true;
                   const others = res.actions.filter((a) => !COLUMNAS.includes(a));
@@ -317,8 +331,8 @@ export default function RolesPage() {
               </div>
 
               <p className="text-[11px] text-muted-foreground italic pt-2">
-                Los permisos de los cuatro roles del sistema viven en el backend y no se tocan desde aqui.
-                Esta tabla es el espejo de lo que manda, y una prueba se encarga de que no se desvie.
+                Los permisos de los roles del sistema viven en el backend. Desde aquí solo se cambian los
+                de Tareas; esta tabla enseña lo que manda ahora, con esos cambios ya aplicados.
               </p>
               </>
               )}

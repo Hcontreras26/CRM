@@ -5,8 +5,22 @@ import { query } from '../../shared/config/db.js';
 // Un array de un ENUM puede llegar como texto crudo: se entiende en un sitio.
 import { comoLista } from '../../shared/utils/roles.js';
 
+/**
+ * Los permisos por defecto de un rol del sistema con lo que se le haya cambiado
+ * desde Configuración › Roles (tabla role_permission_overrides, migración 197).
+ * `filas` son las excepciones ya leídas; se filtran por el rol.
+ */
+export function defaultsDelRol(role, filas = [], respaldo = null) {
+  const out = { ...(SYSTEM_ROLE_DEFAULTS[role] || respaldo || {}) };
+  for (const f of filas) {
+    if (f.role === role) out[`${f.resource}.${f.action}`] = f.allowed;
+  }
+  return out;
+}
+
 // Resuelve si un usuario tiene permiso para resource.action
-// Orden de prioridad: superadmin → override personal → custom_role.permissions → SYSTEM_ROLE_DEFAULTS
+// Orden de prioridad: superadmin → override personal → custom_role.permissions
+// → lo cambiado en Roles para su rol (197) → SYSTEM_ROLE_DEFAULTS
 export async function resolvePermission(userId, role, customRoleId, resource, action, rolesExtra = []) {
   if (role === 'superadmin') return true;
 
@@ -25,12 +39,14 @@ export async function resolvePermission(userId, role, customRoleId, resource, ac
     }
     // Si el custom role no define este permiso, cae al base_role
     const baseRole = customRole?.base_role || 'gestor';
-    return SYSTEM_ROLE_DEFAULTS[baseRole]?.[key] ?? false;
+    const filas = await model.getRoleOverrides([baseRole]);
+    return defaultsDelRol(baseRole, filas)[key] ?? false;
   }
 
   // 3. Rol fijo del sistema, y los añadidos: basta con que uno lo permita.
   const todos = [role, ...comoLista(rolesExtra)];
-  return todos.some((r) => SYSTEM_ROLE_DEFAULTS[r]?.[key] === true);
+  const filas = await model.getRoleOverrides(todos);
+  return todos.some((r) => defaultsDelRol(r, filas)[key] === true);
 }
 
 /**
@@ -61,12 +77,14 @@ export async function buildPermissionsMap(userId, role, customRoleId, rolesExtra
     }
   }
 
-  const base = { ...(SYSTEM_ROLE_DEFAULTS[baseRole] || SYSTEM_ROLE_DEFAULTS.gestor) };
+  // Lo cambiado en Roles (197) para su rol y sus roles de más, de una vez.
+  const filas = await model.getRoleOverrides([baseRole, ...comoLista(rolesExtra)]);
+  const base = defaultsDelRol(baseRole, filas, SYSTEM_ROLE_DEFAULTS.gestor);
 
   // Los roles de mas, sumados encima: basta con que UNO lo permita.
   for (const extra of comoLista(rolesExtra)) {
-    const suyos = SYSTEM_ROLE_DEFAULTS[extra];
-    if (!suyos) continue;
+    if (!SYSTEM_ROLE_DEFAULTS[extra] && !filas.some((f) => f.role === extra)) continue;
+    const suyos = defaultsDelRol(extra, filas);
     for (const [clave, vale] of Object.entries(suyos)) {
       if (vale === true) base[clave] = true;
     }
@@ -108,15 +126,18 @@ export async function saveUserPermissions(userId, overrides) {
   return model.saveOverridesForUser(userId, overrides);
 }
 
-export function getSystemDefaults() {
+export async function getSystemDefaults() {
+  // Con lo cambiado en Roles ya aplicado: la pantalla enseña lo que manda.
+  const filas = await model.getRoleOverrides(ROLES_EDITABLES);
   return {
     resources: ALL_RESOURCES,
     roles: {
       superadmin: '(acceso total)',
-      admin: SYSTEM_ROLE_DEFAULTS.admin,
-      gestor: SYSTEM_ROLE_DEFAULTS.gestor,
-      soporte: SYSTEM_ROLE_DEFAULTS.soporte,
-      colaborador: SYSTEM_ROLE_DEFAULTS.colaborador,
+      admin: defaultsDelRol('admin', filas),
+      gestor: defaultsDelRol('gestor', filas),
+      soporte: defaultsDelRol('soporte', filas),
+      colaborador: defaultsDelRol('colaborador', filas),
+      project_manager: defaultsDelRol('project_manager', filas, SYSTEM_ROLE_DEFAULTS.gestor),
     },
     views: SYSTEM_ROLE_VIEWS,
     catalogs: {
@@ -187,4 +208,61 @@ export async function resolveUserView(userId, role, customRoleId, projectId = nu
   } catch { /* user_views puede no estar disponible, no bloquea */ }
 
   return view;
+}
+
+/* --- Permisos de Tareas por rol, desde Configuración › Roles (Diego 08/10) --- */
+
+// Roles del sistema a los que se les pueden cambiar los permisos de Tareas. El
+// superadmin lo puede todo siempre; el tutor no tiene tablero.
+export const ROLES_EDITABLES = ['admin', 'gestor', 'soporte', 'colaborador', 'project_manager'];
+export const CLAVES_EDITABLES = ALL_RESOURCES.tasks.map((a) => `tasks.${a}`);
+
+function rolDeLaClave(roleKey) {
+  const m = /^custom:(\d+)$/.exec(String(roleKey));
+  if (m) return { custom: Number(m[1]) };
+  if (!ROLES_EDITABLES.includes(roleKey)) return null;
+  return { role: roleKey };
+}
+
+/** Los 8 permisos de Tareas de un rol, como mandan ahora. */
+export async function getRoleTaskPermissions(roleKey) {
+  const r = rolDeLaClave(roleKey);
+  if (!r) return null;
+  let efectivos;
+  if (r.custom) {
+    const custom = await model.findCustomRoleById(r.custom);
+    if (!custom) return null;
+    const base = custom.base_role || 'gestor';
+    efectivos = { ...defaultsDelRol(base, await model.getRoleOverrides([base]), SYSTEM_ROLE_DEFAULTS.gestor), ...(custom.permissions || {}) };
+  } else {
+    efectivos = defaultsDelRol(r.role, await model.getRoleOverrides([r.role]), SYSTEM_ROLE_DEFAULTS.gestor);
+  }
+  return {
+    roleKey,
+    permissions: Object.fromEntries(CLAVES_EDITABLES.map((k) => [k, efectivos[k] === true])),
+  };
+}
+
+/**
+ * Guarda los permisos de Tareas de un rol. En un rol del sistema se apuntan
+ * solo los que se apartan del código (tabla 197); en uno a medida se fusionan
+ * en su JSON sin tocar el resto de claves.
+ */
+export async function saveRoleTaskPermissions(roleKey, permissions, updatedBy) {
+  const r = rolDeLaClave(roleKey);
+  if (!r) return null;
+  if (r.custom) {
+    const custom = await model.findCustomRoleById(r.custom);
+    if (!custom) return null;
+    await model.mergeCustomRolePermissions(r.custom, permissions);
+    return getRoleTaskPermissions(roleKey);
+  }
+  const deFabrica = { ...(SYSTEM_ROLE_DEFAULTS[r.role] || SYSTEM_ROLE_DEFAULTS.gestor) };
+  const actuales = defaultsDelRol(r.role, await model.getRoleOverrides([r.role]), SYSTEM_ROLE_DEFAULTS.gestor);
+  const deseados = { ...actuales, ...permissions };
+  const filas = CLAVES_EDITABLES
+    .filter((k) => (deseados[k] === true) !== (deFabrica[k] === true))
+    .map((k) => ({ action: k.slice('tasks.'.length), allowed: deseados[k] === true }));
+  await model.saveRoleOverrides(r.role, 'tasks', filas, updatedBy);
+  return getRoleTaskPermissions(roleKey);
 }

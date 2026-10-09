@@ -16,8 +16,38 @@ const overridesSchema = z.array(z.object({
   allowed:  z.boolean(),
 }));
 
-export async function getSystemDefaults(req, res) {
-  res.json({ success: true, data: service.getSystemDefaults() });
+export async function getSystemDefaults(req, res, next) {
+  try {
+    res.json({ success: true, data: await service.getSystemDefaults() });
+  } catch (err) { next(err); }
+}
+
+// Solo las 8 claves de Tareas, cada una con verdadero o falso.
+const rolePermissionsSchema = z.object({
+  permissions: z.record(z.boolean()).refine(
+    (p) => Object.keys(p).length > 0 && Object.keys(p).every((k) => service.CLAVES_EDITABLES.includes(k)),
+    { message: `Solo se pueden cambiar los permisos de Tareas: ${service.CLAVES_EDITABLES.join(', ')}` }
+  ),
+});
+
+const ROL_NO_EDITABLE = 'Ese rol no se puede editar: el superadmin lo puede todo y el tutor no tiene tablero';
+
+export async function getRolePermissions(req, res, next) {
+  try {
+    const data = await service.getRoleTaskPermissions(req.params.roleKey);
+    if (!data) throw new AppError(ROL_NO_EDITABLE, 400, 'ROLE_NOT_EDITABLE');
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+export async function saveRolePermissions(req, res, next) {
+  try {
+    const parsed = rolePermissionsSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    const data = await service.saveRoleTaskPermissions(req.params.roleKey, parsed.data.permissions, req.user.userId);
+    if (!data) throw new AppError(ROL_NO_EDITABLE, 400, 'ROLE_NOT_EDITABLE');
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
 }
 
 export async function listCustomRoles(req, res, next) {
