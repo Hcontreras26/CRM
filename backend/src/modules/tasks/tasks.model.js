@@ -663,7 +663,7 @@ export async function createLink({ task_id, url, title = null, created_by }) {
 
 export async function deleteLink(task_id, id) {
   const { rows } = await query(
-    'DELETE FROM task_links WHERE id = $1 AND task_id = $2 RETURNING id, url',
+    'DELETE FROM task_links WHERE id = $1 AND task_id = $2 RETURNING id, url, title',
     [id, task_id]
   );
   return rows[0] || null;

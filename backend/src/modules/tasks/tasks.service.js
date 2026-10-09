@@ -280,6 +280,37 @@ async function correoA(personaId, aviso, enviar) {
   }
 }
 
+/**
+ * «Cualquier cambio, desde el más mínimo, quien haga el cambio queda guardado
+ * y notificado» (Diego, WhatsApp 09/10).
+ *
+ * Guardado: un comentario automático en la tarjeta, a nombre de quien cambió
+ * (el historial ya lo apunta cada función). Notificado: un aviso en la campana
+ * a la persona asignada y a quien la creó, nunca a quien hizo el cambio ni a
+ * quien ya recibió otro aviso por lo mismo (`yaAvisados`). Sin correo: serían
+ * decenas al día.
+ */
+async function registrarCambio({ tarea, user, lineas, yaAvisados = [] }) {
+  const texto = [].concat(lineas).filter(Boolean).join('\n');
+  if (!texto) return;
+  await taskModel.createComment({ task_id: tarea.id, user_id: user.userId, content: texto });
+
+  const destinatarios = new Set([tarea.assigned_to, tarea.created_by].filter(Boolean));
+  destinatarios.delete(user.userId);
+  for (const id of yaAvisados) destinatarios.delete(id);
+  if (destinatarios.size === 0) return;
+  const autor = await taskModel.findUserBasic(user.userId);
+  await notifyUsers({
+    targetUserIds: [...destinatarios],
+    type: 'task_cambio',
+    title: `Cambio en: ${truncar(tarea.title, 180)}`,
+    message: `${autor?.nombre || 'Alguien del equipo'}: ${texto}`.slice(0, 1000),
+    link_path: `/tareas?id=${tarea.id}`,
+    triggered_by_user_id: user.userId,
+    metadata: { task_id: tarea.id },
+  });
+}
+
 async function avisarAsignacion({ tarea, responsableId, quien, reasignada = false }) {
   await notifyUsers({
     targetUserIds: [responsableId],
@@ -480,14 +511,13 @@ export async function updateTask(id, rawFields, user) {
   // Comentario automático (Diego 08/10, y por WhatsApp el 09/10: «cualquier
   // cambio, por mínimo que sea»): todo lo que cambie queda en el historial
   // (arriba) y además comentado en la tarjeta, lo cambie quien lo cambie.
-  const comentariosAuto = comentariosDeCambios(diferencias, currentTask, updatedTask);
-  if (comentariosAuto.length > 0) {
-    await taskModel.createComment({
-      task_id: id,
-      user_id: user.userId,
-      content: comentariosAuto.join('\n'),
-    });
-  }
+  // A quien se le acaba de asignar ya le llega «Tarea reasignada».
+  await registrarCambio({
+    tarea: currentTask,
+    user,
+    lineas: comentariosDeCambios(diferencias, currentTask, updatedTask),
+    yaAvisados: cambiaResponsable && fields.assigned_to ? [fields.assigned_to] : [],
+  });
 
   if (cambiaResponsable && fields.assigned_to && fields.assigned_to !== user.userId) {
     await avisarAsignacion({ tarea: updatedTask, responsableId: fields.assigned_to, quien: user, reasignada: true });
@@ -555,10 +585,6 @@ export async function moveTask(id, { status, prev_id, next_id }, user) {
   });
 
   const [deNombre, aNombre] = await Promise.all([nombreDeColumna(currentTask.status), nombreDeColumna(status)]);
-  // Comentario automático también al cambiarla de columna (WhatsApp, 09/10).
-  await taskModel.createComment({
-    task_id: id, user_id: user.userId, content: `Movió la tarea de «${deNombre}» a «${aNombre}».`,
-  });
   const texto = `«${currentTask.title}» pasó de ${deNombre} a ${aNombre}.`;
 
   // A quien la creó: cuando pasa a «En revisión» o a «Hecha».
@@ -575,9 +601,12 @@ export async function moveTask(id, { status, prev_id, next_id }, user) {
     });
   }
 
+  const yaAvisados = [];
+  if ([EN_REVISION, HECHA].includes(status)) yaAvisados.push(currentTask.created_by);
   if (status === HECHA) {
     // Cerrarla arrastrando avisa igual que aprobarla desde «Por revisar».
     await avisarCierre({ tarea: movedTask, quien: user });
+    yaAvisados.push(currentTask.assigned_to);
   } else if (currentTask.assigned_to && currentTask.assigned_to !== user.userId
       && currentTask.assigned_to !== currentTask.created_by) {
     await notifyUsers({
@@ -589,7 +618,13 @@ export async function moveTask(id, { status, prev_id, next_id }, user) {
       triggered_by_user_id: user.userId,
       metadata: { task_id: id, status },
     });
+    yaAvisados.push(currentTask.assigned_to);
   }
+
+  // Comentario automático también al cambiarla de columna (WhatsApp, 09/10).
+  await registrarCambio({
+    tarea: currentTask, user, lineas: `Movió la tarea de «${deNombre}» a «${aNombre}».`, yaAvisados,
+  });
 
   return movedTask;
 }
@@ -610,6 +645,7 @@ export async function archiveTask(id, user) {
     event_type: 'archived',
     details: { archived_by: user.userId },
   });
+  await registrarCambio({ tarea: currentTask, user, lineas: 'Archivó la tarea.' });
 
   return archived;
 }
@@ -697,7 +733,8 @@ export async function returnTask(id, { comment }, user) {
 
 export async function addChecklistItem(taskId, data, user) {
   const p = await permisosDe(user);
-  exigirEdicion(await tareaVisible(taskId, user, p), user, p);
+  const tarea = await tareaVisible(taskId, user, p);
+  exigirEdicion(tarea, user, p);
   const item = await taskModel.createChecklistItem({ task_id: taskId, title: data.title });
   await taskModel.createTaskEvent({
     task_id: taskId,
@@ -705,14 +742,18 @@ export async function addChecklistItem(taskId, data, user) {
     event_type: 'checklist',
     details: { action: 'item_added', title: data.title },
   });
+  await registrarCambio({ tarea, user, lineas: `Añadió el paso «${data.title}».` });
   return item;
 }
 
 export async function updateChecklistItem(taskId, itemId, fields, user) {
   const p = await permisosDe(user);
-  exigirEdicion(await tareaVisible(taskId, user, p), user, p);
+  const tarea = await tareaVisible(taskId, user, p);
+  exigirEdicion(tarea, user, p);
   const updated = await taskModel.updateChecklistItem(taskId, itemId, fields);
   if (!updated) throw new AppError('Elemento no encontrado en esta tarea', 404, 'NOT_FOUND');
+  const lineas = [];
+  if (fields.title !== undefined) lineas.push(`Cambió un paso a «${updated.title}».`);
   if (fields.is_completed !== undefined) {
     await taskModel.createTaskEvent({
       task_id: taskId,
@@ -720,13 +761,16 @@ export async function updateChecklistItem(taskId, itemId, fields, user) {
       event_type: 'checklist',
       details: { action: fields.is_completed ? 'item_checked' : 'item_unchecked', title: updated.title },
     });
+    lineas.push(fields.is_completed ? `Marcó como hecho el paso «${updated.title}».` : `Desmarcó el paso «${updated.title}».`);
   }
+  await registrarCambio({ tarea, user, lineas });
   return updated;
 }
 
 export async function deleteChecklistItem(taskId, itemId, user) {
   const p = await permisosDe(user);
-  exigirEdicion(await tareaVisible(taskId, user, p), user, p);
+  const tarea = await tareaVisible(taskId, user, p);
+  exigirEdicion(tarea, user, p);
   const deleted = await taskModel.deleteChecklistItem(taskId, itemId);
   if (!deleted) throw new AppError('Elemento no encontrado en esta tarea', 404, 'NOT_FOUND');
   await taskModel.createTaskEvent({
@@ -735,6 +779,7 @@ export async function deleteChecklistItem(taskId, itemId, user) {
     event_type: 'checklist',
     details: { action: 'item_removed', title: deleted.title },
   });
+  await registrarCambio({ tarea, user, lineas: `Quitó el paso «${deleted.title}».` });
   return deleted;
 }
 
@@ -793,7 +838,8 @@ export async function deleteComment(taskId, commentId, user) {
 
 export async function addTag(taskId, data, user) {
   const p = await permisosDe(user);
-  exigirEdicion(await tareaVisible(taskId, user, p), user, p);
+  const tarea = await tareaVisible(taskId, user, p);
+  exigirEdicion(tarea, user, p);
   const { repetida, ...tag } = await taskModel.createTag({ task_id: taskId, name: data.name, color: data.color });
   if (!repetida) {
     await taskModel.createTaskEvent({
@@ -802,13 +848,15 @@ export async function addTag(taskId, data, user) {
       event_type: 'tag',
       details: { action: 'added', name: tag.name },
     });
+    await registrarCambio({ tarea, user, lineas: `Añadió la etiqueta «${tag.name}».` });
   }
   return tag;
 }
 
 export async function deleteTag(taskId, tagId, user) {
   const p = await permisosDe(user);
-  exigirEdicion(await tareaVisible(taskId, user, p), user, p);
+  const tarea = await tareaVisible(taskId, user, p);
+  exigirEdicion(tarea, user, p);
   const deleted = await taskModel.deleteTag(taskId, tagId);
   if (!deleted) throw new AppError('Etiqueta no encontrada en esta tarea', 404, 'NOT_FOUND');
   await taskModel.createTaskEvent({
@@ -817,6 +865,7 @@ export async function deleteTag(taskId, tagId, user) {
     event_type: 'tag',
     details: { action: 'removed', name: deleted.name },
   });
+  await registrarCambio({ tarea, user, lineas: `Quitó la etiqueta «${deleted.name}».` });
   return deleted;
 }
 
@@ -824,7 +873,8 @@ export async function deleteTag(taskId, tagId, user) {
 
 export async function addLink(taskId, data, user) {
   const p = await permisosDe(user);
-  exigirEdicion(await tareaVisible(taskId, user, p), user, p);
+  const tarea = await tareaVisible(taskId, user, p);
+  exigirEdicion(tarea, user, p);
   const link = await taskModel.createLink({
     task_id: taskId, url: data.url, title: data.title || null, created_by: user.userId,
   });
@@ -834,12 +884,14 @@ export async function addLink(taskId, data, user) {
     event_type: 'link',
     details: { action: 'added', url: link.url, title: link.title },
   });
+  await registrarCambio({ tarea, user, lineas: `Añadió el enlace «${link.title || link.url}».` });
   return link;
 }
 
 export async function deleteLink(taskId, linkId, user) {
   const p = await permisosDe(user);
-  exigirEdicion(await tareaVisible(taskId, user, p), user, p);
+  const tarea = await tareaVisible(taskId, user, p);
+  exigirEdicion(tarea, user, p);
   const deleted = await taskModel.deleteLink(taskId, linkId);
   if (!deleted) throw new AppError('Enlace no encontrado en esta tarea', 404, 'NOT_FOUND');
   await taskModel.createTaskEvent({
@@ -848,6 +900,7 @@ export async function deleteLink(taskId, linkId, user) {
     event_type: 'link',
     details: { action: 'removed', url: deleted.url },
   });
+  await registrarCambio({ tarea, user, lineas: `Quitó el enlace «${deleted.title || deleted.url}».` });
   return deleted;
 }
 

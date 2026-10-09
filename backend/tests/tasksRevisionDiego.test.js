@@ -190,6 +190,49 @@ describe('B · comentario automático por cualquier cambio (Diego 08/10 y WhatsA
     ]);
   });
 
+  it('lo más mínimo también: pasos, etiquetas y enlaces quedan comentados', async () => {
+    const t = await crear('adminA', { title: 'Mínimos', assigned_to: U.gestoraA.id });
+    const paso = (await request.post(`/api/tasks/${t.id}/checklist`).set(como('gestoraA')).send({ title: 'Revisar' })).body.data;
+    await request.patch(`/api/tasks/${t.id}/checklist/${paso.id}`).set(como('gestoraA')).send({ is_completed: true });
+    await request.delete(`/api/tasks/${t.id}/checklist/${paso.id}`).set(como('gestoraA'));
+    const tag = (await request.post(`/api/tasks/${t.id}/tags`).set(como('gestoraA')).send({ name: 'SEO' })).body.data;
+    await request.delete(`/api/tasks/${t.id}/tags/${tag.id}`).set(como('gestoraA'));
+    const link = (await request.post(`/api/tasks/${t.id}/links`).set(como('gestoraA')).send({ url: 'https://ejemplo.test', title: 'Maqueta' })).body.data;
+    await request.delete(`/api/tasks/${t.id}/links/${link.id}`).set(como('gestoraA'));
+    const comentarios = (await q('SELECT content FROM task_comments WHERE task_id = $1 ORDER BY id', [t.id])).map((c) => c.content);
+    expect(comentarios).toEqual([
+      'Añadió el paso «Revisar».',
+      'Marcó como hecho el paso «Revisar».',
+      'Quitó el paso «Revisar».',
+      'Añadió la etiqueta «SEO».',
+      'Quitó la etiqueta «SEO».',
+      'Añadió el enlace «Maqueta».',
+      'Quitó el enlace «Maqueta».',
+    ]);
+  });
+
+  it('y notificado: aviso en la campana a la persona asignada y a quien la creó, nunca a quien cambia', async () => {
+    const t = await crear('adminA', { title: 'Avisos', assigned_to: U.gestoraA.id });
+    const avisos = (quien) => q(
+      `SELECT title, message FROM admin_notifications WHERE type = 'task_cambio' AND metadata->>'task_id' = $1 AND $2 = ANY(target_user_ids)`,
+      [String(t.id), quien]
+    );
+    // Cambia la persona asignada: avisa a quien la creó (el admin), no a ella.
+    expect((await editar('gestoraA', t.id, { priority: 'alta' })).status).toBe(200);
+    const alAdmin = await avisos(U.adminA.id);
+    expect(alAdmin).toHaveLength(1);
+    expect(alAdmin[0].title).toBe('Cambio en: Avisos');
+    expect(alAdmin[0].message).toBe(`${MARCA} gestoraA: Cambió la prioridad de «media» a «alta».`);
+    expect(await avisos(U.gestoraA.id)).toHaveLength(0);
+    // Cambia el admin: avisa a la persona asignada.
+    expect((await editar('adminA', t.id, { title: 'Avisos 2' })).status).toBe(200);
+    expect(await avisos(U.gestoraA.id)).toHaveLength(1);
+    // Reasignar: a la nueva le llega «Tarea reasignada», no además un «Cambio en».
+    expect((await editar('adminA', t.id, { assigned_to: U.gestoraA2.id })).status).toBe(200);
+    expect(await avisos(U.gestoraA2.id)).toHaveLength(0);
+    expect(await avisos(U.gestoraA.id)).toHaveLength(2);
+  });
+
   it('guardar la ficha sin cambiar nada (o la misma fecha a otra hora) no deja comentario', async () => {
     const t = await crear('adminA', { title: 'Quieta', assigned_to: U.gestoraA.id, due_date: '2026-10-14T21:59:00.000Z' });
     const todo = {

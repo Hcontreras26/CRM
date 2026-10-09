@@ -107,6 +107,12 @@ export const TIPOS = {
     clase: AVISO, etiqueta: 'Comentario en tarea', agrupa: false,
     descripcion: 'Cuando alguien comenta en una tarea que tienes asignada o creaste',
   },
+  // «Cualquier cambio, desde el más mínimo, queda guardado y notificado»
+  // (Diego, WhatsApp 09/10).
+  task_cambio: {
+    clase: AVISO, etiqueta: 'Cambio en tarea', agrupa: false,
+    descripcion: 'Cuando otra persona cambia algo de una tarea que tienes asignada o creaste',
+  },
   task_aprobada: {
     clase: AVISO, etiqueta: 'Tarea aprobada', agrupa: false,
     descripcion: 'Cuando aprueban una tarea tuya y pasa a «Hecha»',
