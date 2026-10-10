@@ -3,11 +3,13 @@ import pool, { getClient } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { getFromR2, uploadToR2 } from '../../shared/services/r2.service.js';
 import { generatePresignedUrl } from '../../shared/utils/presignedUrl.js';
+// R2 si está configurado; si no, el disco del servidor (revisión del 10/10: sin R2 la subida daba 500).
+import { guardar as guardarArchivo, urlDeDescarga } from './almacen.js';
 import * as model from './facturas.model.js';
 import { anotar } from './facturas-colaborador.model.js';
 import { ambitoDe } from './facturas-colaborador.service.js';
 import { logger } from '../../shared/utils/logger.js';
-import { empresaCorta, enviarCorreoDelMes, enviarAcuse, enviarAvisoDePago, urlDelEnlace } from './facturas.emails.js';
+import { correosActivos, empresaCorta, enviarCorreoDelMes, enviarAcuse, enviarAvisoDePago, urlDelEnlace } from './facturas.emails.js';
 import { notifyUsers } from '../notifications/notifications.service.js';
 import { enUtf8 } from '../whatsapp/media.service.js';
 import { calcularDesglose, cuadra } from './desglose.js';
@@ -155,8 +157,11 @@ async function avisarDeLaFactura(f) {
 
 async function avisar(f) {
   const importe = f.importe === null ? '' : ` · ${Number(f.importe).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €`;
+  // Sin nadie a quien avisar, nada: una lista vacía podría entenderse como «para todos».
+  const destinatarios = await model.avisarA(f.issuer_id);
+  if (!destinatarios?.length) return;
   await notifyUsers({
-    targetUserIds: await model.avisarA(f.issuer_id),
+    targetUserIds: destinatarios,
     type: 'factura_colaborador',
     title: `Factura recibida: ${f.colaborador_nombre}`,
     message: `${nombreDelMes(f.periodo)} · ${f.razon_social}${importe} · ${f.numero_recepcion}`,
@@ -166,6 +171,19 @@ async function avisar(f) {
 }
 
 /** El acuse con la copia. Si falla, la factura ya está guardada: solo se apunta en el log. */
+/**
+ * El acuse al colaborador y la campana, DESPUÉS de responder (revisión del 10/10):
+ * con un adjunto de 10 MB, Brevo puede tardar; dentro de la petición el colaborador
+ * esperaba o le cortaba nginx con la factura ya guardada, y al reintentar le salía
+ * «Ya subiste la factura». Cada uno se protege solo: un fallo no afecta al otro.
+ */
+function despuesDeResponder(subida, nombre, buffer) {
+  setImmediate(() => {
+    mandarAcuse(subida, { nombre, buffer }).catch((err) => logger.error({ err: err.message, facturaId: subida?.id }, 'Factura de colaborador: fallo el acuse'));
+    avisarDeLaFactura(subida).catch((err) => logger.error({ err: err.message, facturaId: subida?.id }, 'Factura de colaborador: fallo el aviso'));
+  });
+}
+
 async function mandarAcuse(f, archivo) {
   try {
     const r = await enviarAcuse({ f, archivo, marca: await model.marcaDeLaEmpresa(f.issuer_id) });
@@ -277,8 +295,7 @@ export async function subir(token, datos, ip) {
   const nombre = await guardarFactura(f, datos, { ip, enlaceHash: huella(token) });
   // Ya guardada: se lee fuera de la transacción, con lo que ve todo el mundo.
   const subida = await model.porTokenHash(huella(token));
-  await mandarAcuse(subida, { nombre, buffer: datos.archivo.buffer });
-  await avisarDeLaFactura(subida);
+  despuesDeResponder(subida, nombre, datos.archivo.buffer);
   return paraElColaborador(subida);
 }
 
@@ -325,8 +342,8 @@ async function guardarFactura(f, { archivo, importe, numeroFactura, desglose: en
   // conexión a la base y el candado de la fila quedaban ocupados todo lo que
   // tardara. Si luego la factura no se guarda (otra subida se adelantó), el
   // archivo se queda en R2 sin fila que lo use: es lo raro, y no se pierde nada.
-  const archivoKey = `facturas-colaborador/${f.periodo.slice(0, 7)}/${f.id}-${sha256.slice(0, 8)}/${nombre}`;
-  await uploadToR2(archivoKey, archivo.buffer, tipo.mime);
+  const archivoKey = await guardarArchivo(
+    `facturas-colaborador/${f.periodo.slice(0, 7)}/${f.id}-${sha256.slice(0, 8)}/${nombre}`, archivo.buffer, tipo.mime);
 
   await enTransaccion(async (db) => {
     // Con la fila bloqueada: dos envíos a la vez no pueden subir los dos.
@@ -366,7 +383,9 @@ export async function mias(user) {
     id: f.id,
     ...(await conCampus(paraElColaborador(f))),
     // Su enlace, rehecho con la semilla; solo mientras sirve para subirla.
+    // Solo si el enlace rehecho cuadra con su huella: si cambió la clave del servidor no funcionaría.
     enlace: f.token_semilla && !['recibida', 'anulada', 'caducado'].includes(f.estado)
+      && (!f.token_hash || huella(enlaceDeLaSemilla(f.token_semilla)) === f.token_hash)
       ? urlDelEnlace(enlaceDeLaSemilla(f.token_semilla)) : null,
   })));
 }
@@ -376,8 +395,7 @@ export async function subirMia(user, id, datos, ip) {
   if (!f) throw NO_ES_TUYA();
   const nombre = await guardarFactura(f, datos, { ip, userId: user.userId });
   const subida = await model.delUsuarioPorId(user.userId, id);
-  await mandarAcuse(subida, { nombre, buffer: datos.archivo.buffer });
-  await avisarDeLaFactura(subida);
+  despuesDeResponder(subida, nombre, datos.archivo.buffer);
   return { id, ...paraElColaborador(subida) };
 }
 
@@ -385,7 +403,7 @@ export async function archivoMio(user, id) {
   const f = await model.delUsuarioPorId(user.userId, id);
   if (!f) throw NO_ES_TUYA();
   if (!f.archivo_key) throw new AppError('Esta factura todavía no tiene archivo', 404, 'NOT_FOUND');
-  return { url: await generatePresignedUrl(f.archivo_key), nombre: f.nombre_original, caduca_en_segundos: 15 * 60 };
+  return { url: await urlDeDescarga(f.id, f.archivo_key), nombre: f.nombre_original, caduca_en_segundos: 15 * 60 };
 }
 
 /* ─────────────────────────── administración ─────────────────────────── */
@@ -511,7 +529,7 @@ export async function urlDelArchivo(user, id) {
   const f = await model.porId(id, await ambitoDe(user));
   if (!f) throw NO_ESTA();
   if (!f.archivo_key) throw new AppError('Esta factura todavía no tiene archivo', 404, 'NOT_FOUND');
-  return { url: await generatePresignedUrl(f.archivo_key), nombre: f.nombre_original, caduca_en_segundos: 15 * 60 };
+  return { url: await urlDeDescarga(f.id, f.archivo_key), nombre: f.nombre_original, caduca_en_segundos: 15 * 60 };
 }
 
 /* ─────────────────────────── el pago (segunda parte) ─────────────────────────── */
@@ -692,5 +710,20 @@ export async function prepararYMandar(periodo) {
     const r = await mandarEnlace(p.facturaId, p.token, { clave: `facturas-colaborador-mes-${p.facturaId}` });
     if (r?.sent) mandados++;
   }
-  return { preparados: preparados.length, mandados };
+  // Y las del mes ya preparadas cuyo enlace no salió (revisión del 10/10): si el mes
+  // se preparó con los correos apagados, salen en cuanto se encienden. Solo con los
+  // correos encendidos, para no llenar el registro de intentos en cada vuelta. Misma
+  // clave que el envío del mes: Brevo no lo repite si ya salió.
+  let pendientes = 0;
+  if (correosActivos()) {
+    const nuevos = new Set(preparados.map((p) => p.facturaId));
+    for (const { id, token_semilla: semilla, token_hash: hash } of await model.sinEnviar(periodo)) {
+      if (nuevos.has(id) || !semilla) continue;
+      const token = enlaceDeLaSemilla(semilla);
+      if (huella(token) !== hash) continue;
+      const r = await mandarEnlace(id, token, { clave: `facturas-colaborador-mes-${id}` });
+      if (r?.sent) { mandados++; pendientes++; }
+    }
+  }
+  return { preparados: preparados.length, mandados, pendientes_enviados: pendientes };
 }

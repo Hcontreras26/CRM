@@ -67,8 +67,8 @@ beforeAll(async () => {
   await persona('admin', 'admin');
   await persona('adminSinCierre', 'admin', { customRoleId: rolSinCierre.id });
   await persona('adminVetado', 'admin');
-  await persona('gestora', 'gestor');
-  await persona('gestoraConCierre', 'gestor');
+  await persona('gestora', 'colaborador');
+  await persona('gestoraConCierre', 'colaborador');
   await persona('colaborador', 'colaborador');
   await persona('colaborador2', 'colaborador');
 

@@ -54,12 +54,12 @@ const AYUDA: Record<string, string> = {
 // y no se toca): también se les pueden cambiar los permisos de Tareas.
 const ROLES_CON_TABLERO: ReadonlyArray<{ key: string; label: string; desc: string; color: RoleColor }> = [
   { key: 'colaborador', label: 'Colaborador', desc: 'Del grupo, sin campus. Solo el tablero de tareas.', color: 'sky' },
-  { key: 'project_manager', label: 'Project manager', desc: 'Peticiones de cambio. En Tareas parte de lo de la gestora.', color: 'emerald' },
 ];
 
-// A quién se le pueden cambiar los permisos de Tareas: a todos menos al
-// superadmin (lo puede todo) y al tutor (no tiene tablero). Igual que el servidor.
-const editaTareas = (key: string) => key !== 'superadmin' && key !== 'tutor';
+// A quién se le pueden cambiar los permisos de Tareas: a los roles con tablero
+// menos el superadmin (lo puede todo), y a los roles a medida. Gestora, soporte,
+// project manager y tutor no tienen tablero (Diego, 09/10). Igual que el servidor.
+const editaTareas = (key: string) => key === 'admin' || key === 'colaborador' || key.startsWith('custom:');
 
 interface RoleEntry {
   key: string;

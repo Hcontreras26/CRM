@@ -112,6 +112,8 @@ export function normalizarImporte(texto) {
 // Lo que manda el colaborador con el archivo. Llega por multipart: todo texto.
 export const subidaSchema = z.object({
   importe: z.string().trim().min(1, 'Escribe el importe de tu factura')
+    // Solo cifras, puntos, comas, espacios y «€»: «0x10» o «1e5» no son un importe (revisión del 10/10).
+    .regex(/^[\d.,\s€]+$/, 'Escribe el importe solo con cifras')
     .transform((v) => Number(normalizarImporte(v)))
     .refine((n) => Number.isFinite(n) && n >= 0 && n <= 9999999999.99, 'Importe inválido'),
   numero_factura: z.string().trim().min(1, 'Escribe el número de tu factura').max(60),

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react';
 import {
   CalendarBlank, ChatCircle, CheckSquare, Clock, LinkSimple,
   PaperPlaneRight, Plus, Tag, Trash, User, X, Check, ArrowUUpLeft, Folder, Globe,
@@ -10,6 +10,7 @@ import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { toast } from '@/shared/hooks/useToast';
 import { inputClass } from '@/shared/lib/ui';
 import * as tasksApi from '../api/tasks.api';
+import { agruparPorEmpresa, type CampusDeEmpresa } from '../lib/campusPorEmpresa';
 import {
   DEFAULT_COLUMNS, TAG_COLORS, armarCambiosDeTarea, fromDateInput, puedeEditarTarea, tagChip, toDateInput,
 } from '../lib/taskUi';
@@ -24,10 +25,6 @@ import type {
   TaskStatus,
 } from '../types';
 
-interface ProjectOption {
-  id: number;
-  nombre: string;
-}
 
 interface TaskModalProps {
   open: boolean;
@@ -47,7 +44,8 @@ interface TaskModalProps {
   canViewAll?: boolean;
   canArchiveAny: boolean;
   assignees: Assignee[];
-  projects: ProjectOption[];
+  /** Los campus que se pueden elegir con la empresa de la cabecera. */
+  projects: CampusDeEmpresa[];
   areas?: TaskArea[];
   externalProjects?: TaskExternalProject[];
   columns?: TaskColumn[];
@@ -93,6 +91,11 @@ export function TaskModal({
   // Lo decide la clave `tasks.close`, no el rol: lo que se cambie en
   // Configuración › Roles manda también aquí.
   const tienePermisoCierre = canClose;
+  const gruposDeCampus = useMemo(() => agruparPorEmpresa(projects), [projects]);
+  // Una tarea ya guardada con un campus de otra empresa no pierde el suyo al abrirla.
+  const campusFuera = task?.project_id && !projects.some((p) => p.id === task.project_id)
+    ? { id: task.project_id, nombre: task.project_name || `Campus ${task.project_id}` }
+    : null;
 
   const rellenar = useCallback((t: TaskDetail) => {
     setTask(t);
@@ -481,11 +484,17 @@ export function TaskModal({
                       className={inputClass}
                     >
                       <option value="">Sin proyecto</option>
-                      {projects.length > 0 && (
-                        <optgroup label="Campus">
-                          {projects.map((p) => (
+                      {/* Un grupo por empresa, no «Campus» a secas (Diego, 10/10). */}
+                      {gruposDeCampus.map((g) => (
+                        <optgroup key={`empresa:${g.empresaId ?? 'sin'}`} label={g.empresa}>
+                          {g.campus.map((p) => (
                             <option key={`campus:${p.id}`} value={`campus:${p.id}`}>{p.nombre}</option>
                           ))}
+                        </optgroup>
+                      ))}
+                      {campusFuera && (
+                        <optgroup label="De otra empresa">
+                          <option value={`campus:${campusFuera.id}`}>{campusFuera.nombre}</option>
                         </optgroup>
                       )}
                       {externalProjects.length > 0 && (

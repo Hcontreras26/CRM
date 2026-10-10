@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, useCallback, lazy, Suspense } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import client from '@/shared/api/client';
@@ -7,12 +7,12 @@ import usePermission from '@/shared/hooks/usePermission';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import Select from '@/shared/components/ui/Select';
-import { GraduationCap, Eye, PlugsConnected, Certificate, ChatText } from '@phosphor-icons/react';
+import { GraduationCap, Eye, PlugsConnected, Certificate, ChatText, SealCheck } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import PromptDialog from '@/shared/components/ui/PromptDialog';
 import WebhooksTab from '../components/WebhooksTab';
 import MatriculaDetail from '../components/MatriculaDetail';
-import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
+import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 
 // Certificaciones (Certifex). Diego, 30/09: «meterlo en la parte de matrículas en
 // una subsección que sea certificaciones [...] cuando alguien termina la formación,
@@ -20,6 +20,9 @@ import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 // solo la abre administración.
 const CertifexEmisionesPage = lazy(() => import('@/modules/certifex/pages/CertifexEmisionesPage'));
 const CertifexConsultasPage = lazy(() => import('@/modules/certifex/pages/CertifexConsultasPage'));
+// Diplomas (#272): lo que el alumno pide desde Moodle y los diplomas emitidos. Misma
+// regla que Certificaciones: en desarrollo, solo en pruebas, y solo administración.
+const CertifexDiplomasPage = lazy(() => import('@/modules/certifex/pages/CertifexDiplomasPage'));
 
 const ESTADO_LABEL = {
   solicitud_admision: 'Solicitud admisión',
@@ -54,9 +57,12 @@ export default function MatriculasPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  // Certificaciones (Certifex) está EN DESARROLLO, la lleva Ángel: solo en pruebas.
-  // En producción la dirección cae en el listado (Diego, 07/10).
-  const enCertificaciones = SOLO_EN_PRUEBAS && location.pathname.replace(/\/$/, '').endsWith('/certificaciones');
+  // Certificaciones y Diplomas (Certifex) se encienden por configuración
+  // (VITE_CERTIFEX_PANEL, ver shared/lib/certifexPanel.ts): apagadas en producción
+  // mientras no se enlace Certifex; apagadas, la dirección cae en el listado.
+  const enCertificaciones = CERTIFEX_PANEL && location.pathname.replace(/\/$/, '').endsWith('/certificaciones');
+  const enDiplomas = CERTIFEX_PANEL && location.pathname.replace(/\/$/, '').endsWith('/diplomas');
+  const enCertifex = enCertificaciones || enDiplomas;
   // Los mismos roles que la API: emitir es de administración; las consultas de la web
   // las ve también soporte.
   const verEmisiones = tieneRol('superadmin', 'admin');
@@ -90,6 +96,13 @@ export default function MatriculasPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // En el móvil la fila de pestañas se desliza y «Diplomas», la última, quedaba fuera de
+  // la vista: la activa se trae a la vista al entrar.
+  const pestanaDiplomas = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (enDiplomas) pestanaDiplomas.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [enDiplomas]);
+
   async function handleEstado(m, estado) {
     if (estado === 'rechazada') {
       setRechazoTarget(m);
@@ -119,25 +132,27 @@ export default function MatriculasPage() {
     <div className="space-y-5 pb-8">
       <PageHeader
         title="Matrículas"
-        subtitle={enCertificaciones
+        subtitle={enDiplomas
+          ? 'Diplomas: lo que piden los alumnos al terminar, y los diplomas emitidos, enviados y revocados'
+          : enCertificaciones
           ? 'Certificaciones: quien termina la formación se aprueba aquí, y Certifex emite su título'
           : `${stats.total || 0} matrículas en ${activeProject?.nombre || 'este proyecto'}`}
       />
 
-      <div className="flex border-b border-border">
+      <div className="flex overflow-x-auto border-b border-border [&>button]:shrink-0">
         <button
-          onClick={() => { setTab('list'); if (enCertificaciones) navigate('/clientes/matriculas'); }}
-          className={`flex items-center gap-2 px-3 h-9 text-sm font-bold border-b-2 focus:outline-none focus:ring-2 focus:ring-primary/40 ${!enCertificaciones && tab === 'list' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+          onClick={() => { setTab('list'); if (enCertifex) navigate('/clientes/matriculas'); }}
+          className={`flex items-center gap-2 px-3 h-9 text-sm font-bold border-b-2 focus:outline-none focus:ring-2 focus:ring-primary/40 ${!enCertifex && tab === 'list' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
         >
           <GraduationCap size={14} /> Listado
         </button>
         <button
-          onClick={() => { setTab('webhooks'); if (enCertificaciones) navigate('/clientes/matriculas'); }}
-          className={`flex items-center gap-2 px-3 h-9 text-sm font-bold border-b-2 focus:outline-none focus:ring-2 focus:ring-primary/40 ${!enCertificaciones && tab === 'webhooks' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+          onClick={() => { setTab('webhooks'); if (enCertifex) navigate('/clientes/matriculas'); }}
+          className={`flex items-center gap-2 px-3 h-9 text-sm font-bold border-b-2 focus:outline-none focus:ring-2 focus:ring-primary/40 ${!enCertifex && tab === 'webhooks' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
         >
           <PlugsConnected size={14} /> <span className="hidden sm:inline">Webhooks de admisión</span><span className="sm:hidden">Webhooks</span>
         </button>
-        {SOLO_EN_PRUEBAS && verConsultas && (
+        {CERTIFEX_PANEL && verConsultas && (
           <button
             onClick={() => navigate('/clientes/matriculas/certificaciones')}
             className={`flex items-center gap-2 px-3 h-9 text-sm font-bold border-b-2 focus:outline-none focus:ring-2 focus:ring-primary/40 ${enCertificaciones ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
@@ -145,9 +160,27 @@ export default function MatriculasPage() {
             <Certificate size={14} /> Certificaciones
           </button>
         )}
+        {CERTIFEX_PANEL && verEmisiones && (
+          <button
+            ref={pestanaDiplomas}
+            aria-current={enDiplomas ? 'page' : undefined}
+            onClick={() => navigate('/clientes/matriculas/diplomas')}
+            className={`flex items-center gap-2 px-3 h-9 text-sm font-bold border-b-2 focus:outline-none focus:ring-2 focus:ring-primary/40 ${enDiplomas ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+          >
+            <SealCheck size={14} /> Diplomas
+          </button>
+        )}
       </div>
 
-      {enCertificaciones ? (
+      {enDiplomas ? (
+        !verEmisiones ? (
+          <EmptyState icon={SealCheck} title="Solo administración" description="Los diplomas los aprueba, envía y revoca administración." />
+        ) : (
+          <Suspense fallback={<SkeletonTable rows={5} columns={6} />}>
+            <CertifexDiplomasPage />
+          </Suspense>
+        )
+      ) : enCertificaciones ? (
         !verConsultas ? (
           <EmptyState icon={Certificate} title="Solo administración" description="Las certificaciones las aprueba y emite administración." />
         ) : (

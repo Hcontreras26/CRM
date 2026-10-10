@@ -1,7 +1,10 @@
 import { query, getClient } from '../../shared/config/db.js';
 
-// Quien tiene tablero de tareas. Los tutores no: entran con el rol colaborador.
-export const ROLES_TAREAS = ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'];
+// Quien tiene tablero de tareas: el equipo de desarrollo (Diego, 09/10: «las
+// tareas son del equipo de desarrollo, las gestoras no tienen tareas»). Ni
+// gestoras, ni soporte, ni project manager, ni tutores (un tutor que trabaje en
+// el equipo entra con el rol colaborador).
+export const ROLES_TAREAS = ['superadmin', 'admin', 'colaborador'];
 
 const CON_TABLERO = `(u.role::text = ANY($ROLES::text[]) OR u.roles_extra::text[] && $ROLES::text[])`;
 const conTablero = (n) => CON_TABLERO.replaceAll('$ROLES', `$${n}`);

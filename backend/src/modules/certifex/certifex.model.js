@@ -1,4 +1,5 @@
 import { query } from '../../shared/config/db.js';
+import { proyectosDeCentro } from './certifex.programa.js';
 
 /*
   El apartado Certifex del CRM: las consultas que llegan desde la web de Certifex.
@@ -83,4 +84,297 @@ export async function actualizar(id, { estado, notaInterna }, userId) {
   if (!rows[0]) return null;
   const u = await query(`SELECT nombre FROM users WHERE id = $1`, [userId]);
   return fila({ ...rows[0], atendida_por_nombre: u.rows[0]?.nombre || null });
+}
+
+// ── Solicitudes de diploma (#272, migracion 199) ─────────────────────────────
+
+function solicitud(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    matriculaId: Number(r.matricula_id),
+    centro: r.centro,
+    curso: { ref: r.curso_ref == null ? null : Number(r.curso_ref), nombre: r.curso_nombre },
+    nombreDiploma: r.nombre_diploma,
+    nombreMoodle: r.nombre_moodle,
+    email: r.email,
+    leadId: r.lead_id,
+    solicitadaEn: r.solicitada_en,
+    veces: r.veces,
+    recibidaEn: r.recibida_en,
+  };
+}
+
+/**
+ * La ficha del CRM con ese correo, si hay: la mas reciente, sin las borradas ni las
+ * de los proyectos de prueba. Es la misma clave que usa el cruce de Emisiones.
+ */
+export async function leadPorCorreo(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return null;
+  const { rows } = await query(
+    `SELECT l.id FROM leads l
+      WHERE l.deleted_at IS NULL AND lower(l.email) = $1
+        AND l.project_id NOT IN (SELECT id FROM projects WHERE es_prueba)
+      ORDER BY l.id DESC LIMIT 1`,
+    [e],
+  );
+  return rows[0]?.id ?? null;
+}
+
+/**
+ * Guarda la solicitud que avisa Certifex. Una fila por matricula:
+ *  · `nueva`: no estaba.
+ *  · `actualizada`: el alumno lo ha vuelto a pedir (otra fecha u otro nombre). Se
+ *    actualiza la que habia y el aviso de rechazo anterior deja de valer.
+ *  · `repetida`: un reintento identico de Certifex. No cambia nada ni debe avisar.
+ */
+export async function recibirSolicitud(s) {
+  const leadId = await leadPorCorreo(s.alumno.email);
+  const { rows } = await query(
+    `INSERT INTO certifex_solicitudes
+       (matricula_id, centro, curso_ref, curso_nombre, nombre_diploma, nombre_moodle, email, lead_id, solicitada_en)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (matricula_id) DO UPDATE SET
+       centro = EXCLUDED.centro,
+       curso_ref = EXCLUDED.curso_ref,
+       curso_nombre = EXCLUDED.curso_nombre,
+       nombre_diploma = EXCLUDED.nombre_diploma,
+       nombre_moodle = EXCLUDED.nombre_moodle,
+       email = EXCLUDED.email,
+       lead_id = COALESCE(EXCLUDED.lead_id, certifex_solicitudes.lead_id),
+       solicitada_en = EXCLUDED.solicitada_en,
+       veces = CASE WHEN certifex_solicitudes.solicitada_en IS NULL THEN 1 ELSE certifex_solicitudes.veces + 1 END,
+       aviso_rechazo_en = NULL,
+       aviso_rechazo_por = NULL,
+       aviso_rechazo_resultado = NULL,
+       updated_at = NOW()
+     WHERE certifex_solicitudes.solicitada_en IS DISTINCT FROM EXCLUDED.solicitada_en
+        OR certifex_solicitudes.nombre_diploma IS DISTINCT FROM EXCLUDED.nombre_diploma
+     RETURNING *, (xmax = 0) AS insertada`,
+    [s.matriculaId, s.centro.toUpperCase(), s.curso?.ref ?? null, s.curso?.nombre ?? null,
+      s.alumno.nombreDiploma, s.alumno.nombreMoodle || null, s.alumno.email || null, leadId, s.solicitadaEn],
+  );
+  if (rows[0]) return { solicitud: solicitud(rows[0]), estado: rows[0].insertada ? 'nueva' : 'actualizada' };
+  const ya = await query(`SELECT * FROM certifex_solicitudes WHERE matricula_id = $1`, [s.matriculaId]);
+  return { solicitud: solicitud(ya.rows[0]), estado: 'repetida' };
+}
+
+/** Los usuarios activos de administracion: a quienes suena la campana de una solicitud. */
+export async function idsAdministracion() {
+  const { rows } = await query(
+    `SELECT id FROM users
+      WHERE active = true
+        AND (role IN ('admin', 'superadmin') OR roles_extra && ARRAY['admin', 'superadmin']::user_role[])`,
+  );
+  return rows.map((r) => r.id);
+}
+
+/** Apunta el aviso de rechazo que aprobo alguien del CRM, haya salido o no. */
+export async function registrarAvisosRechazo(resultados, por) {
+  for (const r of resultados) {
+    if (!r?.matriculaId || !r.resultado) continue;
+    await query(
+      `INSERT INTO certifex_solicitudes (matricula_id, aviso_rechazo_en, aviso_rechazo_por, aviso_rechazo_resultado)
+       VALUES ($1, NOW(), $2, $3)
+       ON CONFLICT (matricula_id) DO UPDATE SET
+         aviso_rechazo_en = NOW(), aviso_rechazo_por = $2, aviso_rechazo_resultado = $3, updated_at = NOW()`,
+      [r.matriculaId, por, r.resultado],
+    );
+  }
+}
+
+/** El ultimo aviso de rechazo aprobado de cada matricula, por id. */
+export async function avisosRechazoDe(matriculaIds) {
+  if (!matriculaIds.length) return new Map();
+  const { rows } = await query(
+    `SELECT matricula_id, aviso_rechazo_en, aviso_rechazo_por, aviso_rechazo_resultado
+       FROM certifex_solicitudes
+      WHERE matricula_id = ANY($1::bigint[]) AND aviso_rechazo_en IS NOT NULL`,
+    [matriculaIds],
+  );
+  return new Map(rows.map((r) => [Number(r.matricula_id), {
+    en: r.aviso_rechazo_en, por: r.aviso_rechazo_por, resultado: r.aviso_rechazo_resultado,
+  }]));
+}
+
+/**
+ * Lo que el CRM guardo de cada solicitud (correo, campus, curso), por matricula, con lo
+ * revisado a mano en el panel (correo del CRM, formacion elegida, programa editado).
+ *
+ * Tambien las filas a medias (sin campus: las crea el aviso de rechazo sin webhook
+ * previo): quien llama completa con Certifex lo que falte, SIN perder lo revisado.
+ */
+export async function datosDeSolicitudes(matriculaIds) {
+  if (!matriculaIds.length) return new Map();
+  const { rows } = await query(
+    `SELECT matricula_id, centro, email, curso_nombre, email_crm, producto_id, programa_editado
+       FROM certifex_solicitudes
+      WHERE matricula_id = ANY($1::bigint[])`,
+    [matriculaIds],
+  );
+  return new Map(rows.map((r) => [Number(r.matricula_id), {
+    matriculaId: Number(r.matricula_id), centro: r.centro ?? null, email: r.email, curso: r.curso_nombre ?? '',
+    emailCrm: r.email_crm ?? null, productoId: r.producto_id ?? null, programaEditado: r.programa_editado ?? null,
+  }]));
+}
+
+// ── Lo revisado a mano antes de aprobar (migracion 199, «Editar») ────────────
+
+function edicion(r) {
+  if (!r) return null;
+  if (!r.email_crm && r.producto_id == null && r.programa_editado == null) return null;
+  return {
+    emailCrm: r.email_crm ?? null,
+    productoId: r.producto_id ?? null,
+    programaEditado: r.programa_editado ?? null,
+    por: r.editado_por ?? null,
+    en: r.editado_en ?? null,
+  };
+}
+
+/** Lo revisado a mano de cada matricula, por id. Sin nada revisado, no sale. */
+export async function edicionesDe(matriculaIds) {
+  if (!matriculaIds.length) return new Map();
+  const { rows } = await query(
+    `SELECT matricula_id, email_crm, producto_id, programa_editado, editado_por, editado_en
+       FROM certifex_solicitudes
+      WHERE matricula_id = ANY($1::bigint[])
+        AND (email_crm IS NOT NULL OR producto_id IS NOT NULL OR programa_editado IS NOT NULL)`,
+    [matriculaIds],
+  );
+  return new Map(rows.map((r) => [Number(r.matricula_id), edicion(r)]));
+}
+
+/**
+ * Guarda lo revisado a mano de una matricula. `cambios` trae solo lo que se toca
+ * (`emailCrm`, `productoId`, `programa`); null en un campo es quitar esa edicion.
+ *
+ * La fila puede no existir si Certifex no aviso por el webhook: se crea con lo que dice
+ * Certifex de la matricula (`base`: campus, curso, correo, nombres, fecha), y en una que
+ * ya existe solo se rellena lo que faltaba. Devuelve la edicion que queda (o null).
+ */
+export async function guardarEdicion(matriculaId, cambios, por, base = {}) {
+  const params = [
+    matriculaId, base.centro ?? null, base.cursoRef ?? null, base.cursoNombre ?? null,
+    base.nombreDiploma ?? null, base.nombreMoodle ?? null, base.email ?? null, base.solicitadaEn ?? null, por,
+  ];
+  const cols = [];
+  const phs = [];
+  const campo = (col, valor) => { params.push(valor); cols.push(col); phs.push(`$${params.length}`); };
+  if (cambios.emailCrm !== undefined) campo('email_crm', cambios.emailCrm);
+  if (cambios.productoId !== undefined) campo('producto_id', cambios.productoId);
+  if (cambios.programa !== undefined) campo('programa_editado', cambios.programa == null ? null : JSON.stringify(cambios.programa));
+  const sets = cols.map((c, i) => `${c} = ${phs[i]}`);
+  const { rows } = await query(
+    `INSERT INTO certifex_solicitudes
+       (matricula_id, centro, curso_ref, curso_nombre, nombre_diploma, nombre_moodle, email, solicitada_en,
+        editado_por, editado_en${cols.map((c) => `, ${c}`).join('')})
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()${phs.map((v) => `, ${v}`).join('')})
+     ON CONFLICT (matricula_id) DO UPDATE SET
+       centro = COALESCE(certifex_solicitudes.centro, EXCLUDED.centro),
+       curso_ref = COALESCE(certifex_solicitudes.curso_ref, EXCLUDED.curso_ref),
+       curso_nombre = COALESCE(certifex_solicitudes.curso_nombre, EXCLUDED.curso_nombre),
+       nombre_diploma = COALESCE(certifex_solicitudes.nombre_diploma, EXCLUDED.nombre_diploma),
+       nombre_moodle = COALESCE(certifex_solicitudes.nombre_moodle, EXCLUDED.nombre_moodle),
+       email = COALESCE(certifex_solicitudes.email, EXCLUDED.email),
+       solicitada_en = COALESCE(certifex_solicitudes.solicitada_en, EXCLUDED.solicitada_en),
+       editado_por = EXCLUDED.editado_por,
+       editado_en = NOW(),
+       updated_at = NOW()${sets.map((s) => `,\n       ${s}`).join('')}
+     RETURNING *`,
+    params,
+  );
+  // Quitarlo todo tambien queda apuntado (editado_por/en), aunque ya no haya edicion.
+  return edicion(rows[0]);
+}
+
+// ── Quien recibe la campana de un campus (#272) ──────────────────────────────
+
+/**
+ * Los usuarios activos de administracion que deben enterarse de algo de ese campus de
+ * Certifex: super admin siempre, y los admin que tienen activo el proyecto del CRM que
+ * casa con el campus (la regla de `proyectosDeCentro`). Si el campus no casa con un
+ * unico proyecto, solo super admin: no se avisa a quien luego no lo podra ver.
+ */
+export async function idsAdministracionDeCentro(centro) {
+  const { rows: proyectos } = await query(`SELECT id, nombre, slug FROM projects WHERE NOT COALESCE(es_prueba, false)`);
+  const proys = proyectosDeCentro(centro, proyectos);
+  const projectId = proys.length === 1 ? proys[0].id : null;
+  const { rows } = await query(
+    `SELECT u.id FROM users u
+      WHERE u.active = true
+        AND (u.role = 'superadmin' OR u.roles_extra && ARRAY['superadmin']::user_role[]
+             OR ($1::int IS NOT NULL
+                 AND (u.role = 'admin' OR u.roles_extra && ARRAY['admin']::user_role[])
+                 AND EXISTS (SELECT 1 FROM user_projects up WHERE up.user_id = u.id AND up.active AND up.project_id = $1)))`,
+    [projectId],
+  );
+  return rows.map((r) => r.id);
+}
+
+// ── Terminaron sin pedir el diploma (aviso «ha terminado la formacion») ─────
+
+/**
+ * Guarda el aviso de Certifex de que Moodle da la formacion por terminada y el alumno
+ * aun no ha pedido el diploma. Una vez por matricula:
+ *  · `nueva`: es el primer aviso de esa matricula (haya fila o no: puede existir por
+ *    una edicion o un aviso de rechazo). Solo se rellena lo que faltaba de la fila.
+ *  · `repetida`: ya habia llegado; un reintento de Certifex no cambia nada.
+ */
+export async function recibirCompletado(c) {
+  const leadId = await leadPorCorreo(c.alumno.email);
+  const { rows } = await query(
+    `INSERT INTO certifex_solicitudes
+       (matricula_id, centro, curso_ref, curso_nombre, nombre_moodle, email, lead_id,
+        completado_en, completado_nota, completado_recibido_en)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+     ON CONFLICT (matricula_id) DO UPDATE SET
+       centro = COALESCE(certifex_solicitudes.centro, EXCLUDED.centro),
+       curso_ref = COALESCE(certifex_solicitudes.curso_ref, EXCLUDED.curso_ref),
+       curso_nombre = COALESCE(certifex_solicitudes.curso_nombre, EXCLUDED.curso_nombre),
+       nombre_moodle = COALESCE(certifex_solicitudes.nombre_moodle, EXCLUDED.nombre_moodle),
+       email = COALESCE(certifex_solicitudes.email, EXCLUDED.email),
+       lead_id = COALESCE(certifex_solicitudes.lead_id, EXCLUDED.lead_id),
+       completado_en = EXCLUDED.completado_en,
+       completado_nota = EXCLUDED.completado_nota,
+       completado_recibido_en = NOW(),
+       updated_at = NOW()
+     WHERE certifex_solicitudes.completado_recibido_en IS NULL
+     RETURNING *`,
+    [c.matriculaId, c.centro.toUpperCase(), c.curso?.ref ?? null, c.curso?.nombre ?? null,
+      c.alumno.nombreMoodle || null, c.alumno.email || null, leadId, c.completadoEn ?? null, c.notaFinal ?? null],
+  );
+  const fila = rows[0] ?? (await query(`SELECT * FROM certifex_solicitudes WHERE matricula_id = $1`, [c.matriculaId])).rows[0];
+  return { completado: completado(fila), estado: rows[0] ? 'nueva' : 'repetida' };
+}
+
+function completado(r) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    matriculaId: Number(r.matricula_id),
+    centro: r.centro,
+    curso: { ref: r.curso_ref == null ? null : Number(r.curso_ref), nombre: r.curso_nombre },
+    nombreMoodle: r.nombre_moodle,
+    email: r.email,
+    leadId: r.lead_id,
+    completadoEn: r.completado_en,
+    nota: r.completado_nota == null ? null : Number(r.completado_nota),
+    recibidoEn: r.completado_recibido_en,
+  };
+}
+
+/** El aviso de «terminado» de cada matricula, por id (cuando lo dio Moodle y cuando llego). */
+export async function completadosDe(matriculaIds) {
+  if (!matriculaIds.length) return new Map();
+  const { rows } = await query(
+    `SELECT matricula_id, completado_en, completado_nota, completado_recibido_en
+       FROM certifex_solicitudes
+      WHERE matricula_id = ANY($1::bigint[]) AND completado_recibido_en IS NOT NULL`,
+    [matriculaIds],
+  );
+  return new Map(rows.map((r) => [Number(r.matricula_id), {
+    en: r.completado_en, recibidoEn: r.completado_recibido_en, nota: r.completado_nota == null ? null : Number(r.completado_nota),
+  }]));
 }

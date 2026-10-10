@@ -1,7 +1,13 @@
 import { AppError } from '../../shared/utils/AppError.js';
 import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
-import { listarEmisionesSchema, decisionesSchema, emitirSchema, cursosSchema } from './certifex.validation.js';
+import { veTodoElCrm } from '../../shared/utils/ambito.js';
+import { listarEmisionesSchema, decisionesSchema, emitirSchema, cursosSchema, mensajeDeValidacion } from './certifex.validation.js';
+import { config, urlPublica, certifex, recorrer } from './certifex.cliente.js';
+import { alcanceDe, centrosPermitidos, acotar, exigirCentro, exigirMatriculas, exigirExpedientes } from './certifex.alcance.js';
+import { datosPara, emitirMatriculas } from './certifex.emision.js';
+
+export { certifex };
 
 /**
  * Certifex · Emisiones: el visto bueno y la emision de titulos, desde el CRM.
@@ -15,79 +21,62 @@ import { listarEmisionesSchema, decisionesSchema, emitirSchema, cursosSchema } f
  * palabra es del CRM. Aprobar y emitir son dos pasos: aprobar dice «esta persona tiene
  * derecho»; emitir gasta un numero de expediente en un registro que no se borra.
  *
- * Se habla con Certifex SIEMPRE desde este servidor. La clave (`CERTIFEX_CRM_CLAVE`,
- * con forma `cfx_crm_...`) vive solo en el .env del servidor: el navegador no la ve.
+ * Se habla con Certifex SIEMPRE desde este servidor (certifex.cliente.js). La clave
+ * (`CERTIFEX_CRM_CLAVE`) vive solo en el .env del servidor: el navegador no la ve.
  * Contrato: docs/integracion-crm.md en el repo de Certifex.
+ *
+ * Cada admin ve y toca solo los campus de sus proyectos (certifex.alcance.js); super
+ * admin, todos. Emitir pasa por la emision comun (certifex.emision.js): con el programa
+ * del CRM, igual que desde Diplomas.
  */
-
-function config() {
-  const url = (process.env.CERTIFEX_API_URL || '').trim().replace(/\/+$/, '');
-  const clave = (process.env.CERTIFEX_CRM_CLAVE || '').trim();
-  return url && clave ? { url, clave } : null;
-}
-
-/**
- * La web publica de Certifex, donde viven la verificacion y el diploma de cada titulo.
- * Por defecto la misma que la API; `CERTIFEX_PUBLICO_URL` por si alguna vez se separan.
- * No es secreta: es lo que ve cualquiera que escanee el QR de un diploma.
- */
-function urlPublica() {
-  return ((process.env.CERTIFEX_PUBLICO_URL || process.env.CERTIFEX_API_URL || '').trim().replace(/\/+$/, '')) || null;
-}
 
 /** Forma de un numero de expediente de Certifex: CTF-2026-000123-AB12. */
-const NEXP = /^[A-Z]{3}-\d{4}-\d{6}-[A-Z0-9]{4}$/;
+export const NEXP = /^[A-Z]{3}-\d{4}-\d{6}-[A-Z0-9]{4}$/;
 
 function parsear(schema, datos) {
   const r = schema.safeParse(datos);
-  if (!r.success) throw new AppError(r.error.errors[0].message, 400, 'VALIDATION_ERROR');
+  if (!r.success) throw new AppError(mensajeDeValidacion(r.error), 400, 'VALIDATION_ERROR');
   return r.data;
 }
 
 /**
- * Una llamada a la API de Certifex. Los errores salen con un mensaje que la pantalla
- * puede ensenar tal cual; la clave no aparece nunca en un log.
+ * ¿Esta conectado? Y si lo esta, sobre que centros manda este CRM (de esos, los que ve
+ * quien pregunta). Nunca falla.
  */
-async function certifex(metodo, ruta, cuerpo, { timeoutMs = 20_000 } = {}) {
-  const c = config();
-  if (!c) throw new AppError('Certifex no esta conectado: faltan CERTIFEX_API_URL y CERTIFEX_CRM_CLAVE en el servidor.', 503, 'CERTIFEX_SIN_CONFIGURAR');
-  let r;
-  try {
-    r = await fetch(`${c.url}/api/crm/v1${ruta}`, {
-      method: metodo,
-      headers: { Authorization: `Bearer ${c.clave}`, ...(cuerpo ? { 'Content-Type': 'application/json' } : {}) },
-      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (e) {
-    logger.error({ err: e.message, ruta }, 'Certifex: no responde');
-    throw new AppError('Certifex no responde. Prueba de nuevo en un momento.', 502, 'CERTIFEX_NO_RESPONDE');
-  }
-  const datos = await r.json().catch(() => null);
-  if (r.status === 401) throw new AppError('Certifex no acepta la clave de este CRM (CERTIFEX_CRM_CLAVE).', 502, 'CERTIFEX_CLAVE');
-  if (!r.ok) throw new AppError(datos?.error || `Certifex respondio ${r.status}`, r.status >= 500 ? 502 : r.status, 'CERTIFEX_ERROR');
-  return datos;
-}
-
-/** ¿Esta conectado? Y si lo esta, sobre que centros manda este CRM. Nunca falla. */
 export async function estado(req, res, next) {
   try {
     if (!config()) return res.json({ success: true, data: { conectado: false } });
+    let yo;
     try {
-      const yo = await certifex('GET', '/yo');
-      res.json({ success: true, data: { conectado: true, nombre: yo.nombre, centros: yo.centros, urlPublica: urlPublica() } });
+      yo = await certifex('GET', '/yo');
     } catch (e) {
-      res.json({ success: true, data: { conectado: false, error: e.message } });
+      return res.json({ success: true, data: { conectado: false, error: e.message } });
     }
+    const alcance = await centrosPermitidos(req.user, yo.centros);
+    const centros = alcance && Array.isArray(yo.centros) ? yo.centros.filter((c) => alcance.has(String(c).toUpperCase())) : yo.centros;
+    res.json({ success: true, data: { conectado: true, nombre: yo.nombre, centros, urlPublica: urlPublica() } });
   } catch (err) { next(err); }
 }
 
 export async function listar(req, res, next) {
   try {
     const f = parsear(listarEmisionesSchema, req.query);
-    const p = new URLSearchParams();
-    for (const [k, v] of Object.entries(f)) if (v !== undefined) p.set(k, String(v));
-    const data = await certifex('GET', `/candidatos?${p.toString()}`);
+    const ambito = acotar(await alcanceDe(req.user), f.centro);
+    const pagina = f.pagina ?? 1;
+    const tam = f.tam ?? 50;
+    let data;
+    if (ambito.vacio) {
+      data = { filas: [], total: 0, pagina, tam };
+    } else if (ambito.centros) {
+      // Varios campus suyos y ninguno elegido: Certifex filtra por uno solo, asi que se
+      // recorre y se pagina aqui.
+      const r = await recorrer('/candidatos', { estado: f.estado, curso: f.curso, q: f.q }, { filtro: (c) => ambito.centros.has(String(c.centro).toUpperCase()) });
+      data = { filas: r.filas.slice((pagina - 1) * tam, pagina * tam), total: r.filas.length, pagina, tam, truncado: r.truncado };
+    } else {
+      const p = new URLSearchParams();
+      for (const [k, v] of Object.entries({ ...f, centro: ambito.centro ?? f.centro })) if (v !== undefined) p.set(k, String(v));
+      data = await certifex('GET', `/candidatos?${p.toString()}`);
+    }
     if (Array.isArray(data?.filas)) await conLoDelCrm(data.filas, req.user);
     res.json({ success: true, data });
   } catch (err) { next(err); }
@@ -106,9 +95,13 @@ export async function listar(req, res, next) {
  * campus que la persona ve (super admin: todos menos los de prueba), la misma regla
  * que Conexion. Si la consulta falla, el listado sale igual, sin la columna: decidir
  * no puede quedarse bloqueado por esto.
+ *
+ * Si en el panel Diplomas alguien reviso a mano con que correo esta el alumno en el CRM
+ * (`edicion.emailCrm`, migracion 199), se cruza por ese y no por el de Moodle.
  */
-async function conLoDelCrm(filas, user) {
-  const correos = [...new Set(filas.map((f) => String(f?.titular?.email || '').trim().toLowerCase()).filter(Boolean))];
+export async function conLoDelCrm(filas, user) {
+  const correoDe = (f) => String(f?.edicion?.emailCrm || f?.titular?.email || '').trim().toLowerCase();
+  const correos = [...new Set(filas.map(correoDe).filter(Boolean))];
   for (const f of filas) f.crm = null;
   if (!correos.length) return;
   try {
@@ -128,11 +121,11 @@ async function conLoDelCrm(filas, user) {
                 SELECT 1 FROM user_projects up
                  WHERE up.user_id = $2 AND up.active AND up.project_id = l.project_id))
         GROUP BY lower(l.email)`,
-      [correos, user?.role === 'superadmin' ? null : user?.userId ?? -1],
+      [correos, veTodoElCrm(user) ? null : user?.userId ?? -1],
     );
     const porCorreo = new Map(rows.map((r) => [r.email, r]));
     for (const f of filas) {
-      const r = porCorreo.get(String(f?.titular?.email || '').trim().toLowerCase());
+      const r = porCorreo.get(correoDe(f));
       if (!r) continue;
       const pendiente = Math.round((r.vendido - r.cobrado) * 100) / 100;
       f.crm = { leadId: r.lead_id, fichas: r.fichas, ventas: r.ventas, vendido: r.vendido, cobrado: r.cobrado, pendiente };
@@ -143,11 +136,12 @@ async function conLoDelCrm(filas, user) {
   }
 }
 
-/** Los campus de este CRM: nombre, Moodle, logo y lo que hay que hacer en cada uno. */
+/** Los campus de este CRM (los que ve quien pregunta): nombre, Moodle, logo y lo pendiente. */
 export async function centros(req, res, next) {
   try {
+    const alcance = await alcanceDe(req.user);
     const data = await certifex('GET', '/centros');
-    res.json({ success: true, data });
+    res.json({ success: true, data: alcance && Array.isArray(data) ? data.filter((c) => alcance.has(String(c?.codigo).toUpperCase())) : data });
   } catch (err) { next(err); }
 }
 
@@ -155,15 +149,28 @@ export async function centros(req, res, next) {
 export async function cursos(req, res, next) {
   try {
     const { centro } = parsear(cursosSchema, req.query);
+    exigirCentro(await alcanceDe(req.user), centro, 'Campus no encontrado.');
     const data = await certifex('GET', `/cursos?centro=${encodeURIComponent(centro.toUpperCase())}`);
     res.json({ success: true, data });
   } catch (err) { next(err); }
+}
+
+/**
+ * 404 si alguna matricula no es de los campus de esta persona (super admin: nada que
+ * mirar). Lo comparten las acciones por matricula de Emisiones y de Diplomas.
+ */
+export async function exigirMisMatriculas(user, ids) {
+  const alcance = await alcanceDe(user);
+  if (!alcance) return;
+  const datos = await datosPara(ids);
+  exigirMatriculas(alcance, ids, (id) => datos.get(id)?.centro);
 }
 
 /** Aprobar o rechazar. Quien decide es el usuario del CRM con sesion, no el cuerpo. */
 export async function decidir(req, res, next) {
   try {
     const d = parsear(decisionesSchema, req.body);
+    await exigirMisMatriculas(req.user, d.items.map((i) => i.matriculaId));
     const data = await certifex('POST', '/decisiones', {
       decisiones: d.items.map((i) => ({ ...i, decididoPor: req.user.email })),
     });
@@ -173,16 +180,17 @@ export async function decidir(req, res, next) {
 }
 
 /**
- * Emitir lo aprobado. Timeout largo: en un centro con Moodle, Certifex baja el
- * expediente de cada alumno del campus, en serie (hasta 10 por llamada; ver
- * `emitirSchema`).
+ * Emitir lo aprobado, con el programa oficial del CRM (la misma emision que Diplomas:
+ * una matricula se imprime igual desde las dos pestañas). Timeout largo: en un centro
+ * con Moodle, Certifex baja el expediente de cada alumno del campus, en serie (hasta 10
+ * por llamada; ver `emitirSchema`).
  */
 export async function emitir(req, res, next) {
   try {
     const d = parsear(emitirSchema, req.body);
-    const data = await certifex('POST', '/emitir', { matriculaIds: d.matriculaIds, emitidaPor: req.user.email }, { timeoutMs: 180_000 });
+    const resultados = await emitirMatriculas(req.user, d.matriculaIds);
     logger.info({ userId: req.user.userId, n: d.matriculaIds.length }, 'Certifex: emision enviada');
-    res.json({ success: true, data });
+    res.json({ success: true, data: { resultados } });
   } catch (err) { next(err); }
 }
 
@@ -200,6 +208,12 @@ export async function diploma(req, res, next) {
     if (!NEXP.test(nexp)) throw new AppError('Numero de expediente no valido', 400, 'VALIDATION_ERROR');
     const base = urlPublica();
     if (!base) throw new AppError('Certifex no esta conectado: falta CERTIFEX_API_URL en el servidor.', 503, 'CERTIFEX_SIN_CONFIGURAR');
+    // El PDF es publico, pero desde aqui solo se ensena el de los campus de cada uno.
+    await exigirExpedientes(await alcanceDe(req.user), [nexp]);
+    // El A3 de imprenta (#95 de Certifex) NO es publico: se pide con la clave del CRM.
+    const formato = req.query.formato == null || req.query.formato === '' ? 'digital' : String(req.query.formato);
+    if (formato !== 'digital' && formato !== 'imprenta') throw new AppError('Formato desconocido: usa «digital» o «imprenta».', 400, 'VALIDATION_ERROR');
+    if (formato === 'imprenta') return await enviarImprenta(res, nexp);
     let r;
     try {
       r = await fetch(`${base}/diploma.pdf?exp=${encodeURIComponent(nexp)}`, { signal: AbortSignal.timeout(30_000) });
@@ -207,7 +221,12 @@ export async function diploma(req, res, next) {
       logger.error({ err: e.message, nexp }, 'Certifex: el diploma no responde');
       throw new AppError('Certifex no responde. Prueba de nuevo en un momento.', 502, 'CERTIFEX_NO_RESPONDE');
     }
-    if (r.status === 404) throw new AppError('Ese titulo no existe en Certifex.', 404, 'NOT_FOUND');
+    if (r.status === 404) throw new AppError('Ese titulo no existe en Certifex (o esta revocado).', 404, 'NOT_FOUND');
+    // Sin generador de PDF en su servidor, Certifex redirige a la vista de impresion
+    // (HTML). No es un fallo del diploma: se dice para que se abra en Certifex.
+    if (r.ok && (r.headers.get('content-type') || '').includes('html')) {
+      throw new AppError('Certifex no ha podido generar el PDF ahora mismo: abre el diploma en Certifex.', 502, 'CERTIFEX_SIN_PDF');
+    }
     if (!r.ok || !(r.headers.get('content-type') || '').includes('pdf')) {
       throw new AppError(`Certifex no devolvio el diploma (${r.status}).`, 502, 'CERTIFEX_ERROR');
     }
@@ -216,6 +235,40 @@ export async function diploma(req, res, next) {
     res.setHeader('Cache-Control', 'private, max-age=300');
     res.send(Buffer.from(await r.arrayBuffer()));
   } catch (err) { next(err); }
+}
+
+/**
+ * El A3 de imprenta de un diploma, para la imprenta. Al alumno le llega siempre el
+ * digital A4 (el publico); este solo lo da Certifex a quien tiene su clave, y solo de
+ * los centros de este CRM. Se descarga como fichero y no se cachea: se pide poco y no
+ * debe quedarse en ningun sitio.
+ */
+async function enviarImprenta(res, nexp) {
+  const c = config();
+  if (!c) throw new AppError('Certifex no esta conectado: faltan CERTIFEX_API_URL y CERTIFEX_CRM_CLAVE en el servidor.', 503, 'CERTIFEX_SIN_CONFIGURAR');
+  let r;
+  try {
+    // Generar el A3 lleva unos segundos (Chromium, A3): mas margen que el resto.
+    r = await fetch(`${c.url}/api/crm/v1/diplomas/${encodeURIComponent(nexp)}/pdf?formato=imprenta`, {
+      headers: { Authorization: `Bearer ${c.clave}` },
+      signal: AbortSignal.timeout(60_000),
+    });
+  } catch (e) {
+    logger.error({ err: e.message, nexp }, 'Certifex: el A3 no responde');
+    throw new AppError('Certifex no responde. Prueba de nuevo en un momento.', 502, 'CERTIFEX_NO_RESPONDE');
+  }
+  if (!r.ok || !(r.headers.get('content-type') || '').includes('pdf')) {
+    const d = await r.json().catch(() => null);
+    if (r.status === 401) throw new AppError('Certifex no acepta la clave de este CRM (CERTIFEX_CRM_CLAVE).', 502, 'CERTIFEX_CLAVE');
+    // 404 (no es de este CRM o no existe), 409 (revocado, o su campus no tiene A3) y 503
+    // (Certifex sin navegador o con la cola llena): el mensaje de Certifex se ensena tal cual.
+    const estado = [400, 404, 409].includes(r.status) ? r.status : 502;
+    throw new AppError(d?.error || `Certifex no devolvio el A3 (${r.status}).`, estado, 'CERTIFEX_ERROR');
+  }
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${nexp}-imprenta-A3.pdf"`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.send(Buffer.from(await r.arrayBuffer()));
 }
 
 /**

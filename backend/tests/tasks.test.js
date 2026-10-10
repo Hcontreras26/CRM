@@ -71,8 +71,8 @@ beforeAll(async () => {
   );
 
   await crearPersona('admin', 'admin');
-  await crearPersona('gestora', 'gestor');
-  await crearPersona('otraGestora', 'gestor');
+  await crearPersona('gestora', 'colaborador');
+  await crearPersona('otraGestora', 'colaborador');
   await crearPersona('colaborador', 'colaborador');
   await crearPersona('tutor', 'tutor');
 

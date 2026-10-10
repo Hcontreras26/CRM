@@ -23,7 +23,9 @@ const limite = (max) => rateLimit({
 
 // El tipo de verdad se mira después, por los primeros bytes (`tipoReal`).
 const recibir = (campo) => (req, res, next) => {
-  multer({ storage: multer.memoryStorage(), limits: { fileSize: TOPE_BYTES, files: 1 } })
+  // Pocos campos y cortos (revisión del 10/10): la subida trae el importe, el número y el
+  // desglose (horas o líneas); el pago, las facturas, la fecha, la forma y la referencia.
+  multer({ storage: multer.memoryStorage(), limits: { fileSize: TOPE_BYTES, files: 1, fields: 4, fieldSize: 10_000, parts: 6 } })
     .single(campo)(req, res, (err) => {
       if (!err) return next();
       if (err.code === 'LIMIT_FILE_SIZE') return next(new AppError('El archivo pasa de 10 MB', 400, 'FILE_TOO_LARGE'));
@@ -33,7 +35,13 @@ const recibir = (campo) => (req, res, next) => {
 const recibirArchivo = recibir('archivo');
 
 router.get('/enlace/:token', limite(60), facturas.verEnlace);
-router.post('/enlace/:token', limite(20), recibirArchivo, facturas.subir);
+// El formato del código se mira ANTES de leer el archivo: con cualquier cadena se
+// cargaban hasta 10 MB en memoria (revisión del 10/10).
+const codigoConFormato = (req, res, next) => (/^[A-Za-z0-9_-]{40,60}$/.test(String(req.params.token || ''))
+  ? next() : next(new AppError('Este enlace no existe o ya no es válido', 404, 'NOT_FOUND')));
+router.post('/enlace/:token', limite(20), codigoConFormato, recibirArchivo, facturas.subir);
+// El archivo guardado en disco (sin R2), con enlace firmado de 15 min (revisión del 10/10).
+router.get('/archivo-local/:id', limite(60), facturas.archivoLocal);
 
 // ─── «Mi factura»: el colaborador con usuario en el CRM, solo lo suyo ───
 // Son las únicas de este módulo que puede pedir el rol colaborador

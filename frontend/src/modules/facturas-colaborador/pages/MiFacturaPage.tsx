@@ -6,7 +6,7 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import SubirFactura from '../components/SubirFactura';
 import {
-  ESTADO, FORMA_PAGO_ES, diaDelPago, euros, facturasColaboradorApi, primeraMayuscula, type FacturaDelColaborador,
+  ESTADO, FORMA_PAGO_ES, diaDelPago, euros, facturasColaboradorApi, primeraMayuscula, type FacturaDelColaborador, urlDelArchivo,
 } from '../api/facturasColaborador.api';
 
 /**
@@ -36,7 +36,7 @@ export default function MiFacturaPage() {
   async function verArchivo(id: number) {
     try {
       const r = await facturasColaboradorApi.archivoMio(id);
-      window.open(r.data.url, '_blank', 'noopener');
+      window.open(urlDelArchivo(r.data.url), '_blank', 'noopener');
     } catch (err: any) {
       toast({ title: 'No se pudo abrir el archivo', description: err?.message, variant: 'destructive' });
     }

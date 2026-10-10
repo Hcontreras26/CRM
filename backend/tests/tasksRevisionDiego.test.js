@@ -77,9 +77,9 @@ beforeAll(async () => {
     P[c] = p.id;
   }
 
-  // Un rol a medida sobre «gestor», para cambiarle Tareas desde Roles.
+  // Un rol a medida sobre «colaborador», para cambiarle Tareas desde Roles.
   const rol = await one(
-    `INSERT INTO custom_roles (label, base_role, permissions) VALUES ($1, 'gestor', $2) RETURNING id`,
+    `INSERT INTO custom_roles (label, base_role, permissions) VALUES ($1, 'colaborador', $2) RETURNING id`,
     [`${MARCA} medida`, JSON.stringify({ 'leads.view': true })]
   );
   ids.customRoles.push(rol.id);
@@ -89,17 +89,20 @@ beforeAll(async () => {
   await persona('soporte', 'soporte');
   await persona('adminA', 'admin', ['A']);
   await persona('adminC', 'admin', ['C']);
-  await persona('gestoraA', 'gestor', ['A']);
-  await persona('gestoraA2', 'gestor', ['A']);
-  await persona('gestoraC', 'gestor', ['C']);
+  await persona('gestoraA', 'colaborador', ['A']);
+  await persona('gestoraA2', 'colaborador', ['A']);
+  await persona('gestoraC', 'colaborador', ['C']);
   await persona('colaborador', 'colaborador');
-  await persona('pm', 'project_manager', ['A']);
-  await persona('medida', 'gestor', ['A'], rol.id);
+  await persona('pm', 'colaborador', ['A']);
+  await persona('medida', 'colaborador', ['A'], rol.id);
+  // Sin tablero (Diego, 09/10: las tareas son del equipo de desarrollo).
+  await persona('gestoraVentas', 'gestor', ['A']);
+  await persona('pmReal', 'project_manager', ['A']);
 }, 60000);
 
 afterAll(async () => {
   const usuarios = Object.values(U).map((u) => u.id);
-  await q('DELETE FROM role_permission_overrides WHERE role = $1', ['project_manager']);
+  await q('DELETE FROM role_permission_overrides WHERE role = $1', ['colaborador']);
   await q('DELETE FROM tasks WHERE created_by = ANY($1::int[]) OR assigned_to = ANY($1::int[])', [usuarios]);
   await q('DELETE FROM admin_notifications WHERE target_user_ids && $1::int[]', [usuarios]);
   await q('DELETE FROM user_permission_overrides WHERE user_id = ANY($1::int[])', [usuarios]);
@@ -290,21 +293,21 @@ describe('C · editan el admin y la persona asignada (Diego, 08/10 y WhatsApp 09
 describe('C · Configuración › Roles: permisos de Tareas por rol', () => {
   it('los cambian el superadmin y el admin; soporte, gestora y colaborador, 403', async () => {
     for (const clave of ['soporte', 'gestoraA', 'colaborador']) {
-      expect((await permisosDeRol(clave, 'project_manager', { 'tasks.close': false })).status).toBe(403);
-      expect((await request.get('/api/permissions/role-permissions/project_manager').set(como(clave))).status).toBe(403);
+      expect((await permisosDeRol(clave, 'colaborador', { 'tasks.close': false })).status).toBe(403);
+      expect((await request.get('/api/permissions/role-permissions/colaborador').set(como(clave))).status).toBe(403);
     }
     for (const clave of ['superadmin', 'adminA']) {
-      const res = await request.get('/api/permissions/role-permissions/project_manager').set(como(clave));
+      const res = await request.get('/api/permissions/role-permissions/colaborador').set(como(clave));
       expect(res.status).toBe(200);
       expect(Object.keys(res.body.data.permissions).sort()).toEqual(['tasks.close', 'tasks.manage']);
     }
   });
 
   it('solo «Aprobar y cerrar» y «Configurar»; otra clave, un valor que no es sí/no, o superadmin o tutor: 400', async () => {
-    expect((await permisosDeRol('superadmin', 'project_manager', { 'tasks.view_all': true })).status).toBe(400);
-    expect((await permisosDeRol('superadmin', 'project_manager', { 'leads.view': true })).status).toBe(400);
-    expect((await permisosDeRol('superadmin', 'project_manager', { 'tasks.close': 'si' })).status).toBe(400);
-    expect((await permisosDeRol('superadmin', 'project_manager', {})).status).toBe(400);
+    expect((await permisosDeRol('superadmin', 'colaborador', { 'tasks.view_all': true })).status).toBe(400);
+    expect((await permisosDeRol('superadmin', 'colaborador', { 'leads.view': true })).status).toBe(400);
+    expect((await permisosDeRol('superadmin', 'colaborador', { 'tasks.close': 'si' })).status).toBe(400);
+    expect((await permisosDeRol('superadmin', 'colaborador', {})).status).toBe(400);
     expect((await permisosDeRol('superadmin', 'superadmin', { 'tasks.close': false })).status).toBe(400);
     expect((await permisosDeRol('superadmin', 'tutor', { 'tasks.close': true })).status).toBe(400);
   });
@@ -316,11 +319,11 @@ describe('C · Configuración › Roles: permisos de Tareas por rol', () => {
       expect((await request.patch(`/api/tasks/${t.id}/approve`).set(como('pm'))).status).toBe(403);
 
       // Lo cambia el admin.
-      const res = await permisosDeRol('adminA', 'project_manager', { 'tasks.close': true });
+      const res = await permisosDeRol('adminA', 'colaborador', { 'tasks.close': true });
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       expect(res.body.data.permissions['tasks.close']).toBe(true);
       // Solo se guarda lo que se aparta del código.
-      expect(await q(`SELECT action, allowed, updated_by FROM role_permission_overrides WHERE role = 'project_manager'`))
+      expect(await q(`SELECT action, allowed, updated_by FROM role_permission_overrides WHERE role = 'colaborador'`))
         .toEqual([{ action: 'close', allowed: true, updated_by: U.adminA.id }]);
 
       const me = await request.get('/api/auth/me').set(como('pm'));
@@ -328,10 +331,10 @@ describe('C · Configuración › Roles: permisos de Tareas por rol', () => {
       expect((await request.patch(`/api/tasks/${t.id}/approve`).set(como('pm'))).status).toBe(200);
 
       // Volver a dejarlo como el código borra la fila.
-      expect((await permisosDeRol('superadmin', 'project_manager', { 'tasks.close': false })).status).toBe(200);
-      expect(await q(`SELECT 1 FROM role_permission_overrides WHERE role = 'project_manager'`)).toEqual([]);
+      expect((await permisosDeRol('superadmin', 'colaborador', { 'tasks.close': false })).status).toBe(200);
+      expect(await q(`SELECT 1 FROM role_permission_overrides WHERE role = 'colaborador'`)).toEqual([]);
     } finally {
-      await q(`DELETE FROM role_permission_overrides WHERE role = 'project_manager'`);
+      await q(`DELETE FROM role_permission_overrides WHERE role = 'colaborador'`);
     }
   });
 
@@ -453,5 +456,29 @@ describe('E · /api/tasks solo en pruebas', () => {
     expect(tareasActivas({ NODE_ENV: 'production', CRM_BASE_URL: 'https://360crm.tech/testeo/' })).toBe(true);
     expect(tareasActivas({ NODE_ENV: 'production', CRM_BASE_URL: 'https://360crm.tech/testeos' })).toBe(false);
     expect(tareasActivas({ NODE_ENV: 'production', TAREAS_EN_PRODUCCION: '1' })).toBe(true);
+  });
+});
+
+describe('F · el tablero es del equipo de desarrollo (Diego, 09/10)', () => {
+  it('gestora, soporte y project manager no tienen tablero: 403', async () => {
+    for (const clave of ['gestoraVentas', 'soporte', 'pmReal']) {
+      expect((await request.get('/api/tasks').set(como(clave))).status, clave).toBe(403);
+      expect((await request.post('/api/tasks').set(como(clave)).send({ title: 'No' })).status, clave).toBe(403);
+    }
+  });
+
+  it('superadmin, admin y colaborador sí', async () => {
+    for (const clave of ['superadmin', 'adminA', 'colaborador']) {
+      expect((await request.get('/api/tasks').set(como(clave))).status, clave).toBe(200);
+    }
+  });
+
+  it('en Roles solo se editan los permisos de Tareas del admin y del colaborador', async () => {
+    for (const rol of ['admin', 'colaborador']) {
+      expect((await request.get(`/api/permissions/role-permissions/${rol}`).set(como('superadmin'))).status, rol).toBe(200);
+    }
+    for (const rol of ['gestor', 'soporte', 'project_manager', 'tutor', 'superadmin']) {
+      expect((await request.get(`/api/permissions/role-permissions/${rol}`).set(como('superadmin'))).status, rol).toBe(400);
+    }
   });
 });

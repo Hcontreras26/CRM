@@ -92,7 +92,7 @@ export async function porTokenHash(tokenHash) {
  */
 export async function delUsuario(userId) {
   const { rows } = await query(
-    `SELECT ${CAMPOS_ENLACE}, f.token_semilla
+    `SELECT ${CAMPOS_ENLACE}, f.token_semilla, f.token_hash
        FROM facturas_colaborador f
        JOIN colaboradores c ON c.id = f.colaborador_id
        JOIN invoice_issuers ii ON ii.id = f.issuer_id
@@ -134,6 +134,22 @@ export async function marcarEnviado(id) {
 }
 
 /** Las del mes que siguen sin subir, para el recordatorio del día 5: ni recibidas, ni anuladas, ni caducadas. */
+/**
+ * Las del mes que se prepararon pero cuyo enlace nunca salió (p. ej. con los correos
+ * apagados). Revisión del 10/10: antes solo se mandaban las recién creadas, y una
+ * fila preparada sin enviar se quedaba así para siempre.
+ */
+export async function sinEnviar(periodo) {
+  const { rows } = await query(
+    `SELECT f.id, f.token_semilla, f.token_hash FROM facturas_colaborador f
+      WHERE f.periodo = $1::date AND f.enviado_at IS NULL AND f.subida_at IS NULL AND f.anulada_at IS NULL
+        AND (f.caduca_at IS NULL OR f.caduca_at > NOW())
+      ORDER BY f.id`,
+    [periodo],
+  );
+  return rows.map((r) => ({ ...r, id: Number(r.id) }));
+}
+
 export async function sinSubir(periodo) {
   const { rows } = await query(
     `SELECT f.id, f.token_semilla, f.token_hash FROM facturas_colaborador f

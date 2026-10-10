@@ -50,6 +50,25 @@ const ROLE_LABELS = { superadmin: 'Superadmin', admin: 'Admin', gestor: 'Gestor'
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
+  const { logout } = useAuth();
+  // El propio correo, solo un tutor (#246, Diego 09/10). El resto lo pide a administración.
+  const esTutor = user?.role === 'tutor';
+  const [correoNuevo, setCorreoNuevo] = useState('');
+  const [cambiandoCorreo, setCambiandoCorreo] = useState(false);
+  async function onCambiarCorreo(e) {
+    e.preventDefault();
+    const nuevo = correoNuevo.trim().toLowerCase();
+    if (!nuevo || nuevo === String(user?.email || '').toLowerCase()) return;
+    setCambiandoCorreo(true);
+    try {
+      await client.patch('/auth/me/email', { email: nuevo });
+      // Es con lo que se entra: el servidor cierra las sesiones, hay que volver a entrar.
+      toast({ title: 'Correo cambiado', description: `Vuelve a entrar con ${nuevo}. Hemos avisado a administración.` });
+      setTimeout(() => { logout?.(); }, 2500);
+    } catch (err) {
+      toast({ title: 'No se pudo cambiar', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally { setCambiandoCorreo(false); }
+  }
   const { projects: allProjects } = useProjectContext();
   const { theme, toggleTheme } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
@@ -238,7 +257,7 @@ export default function ProfilePage() {
             </Field>
             <Field label="Email" error={errProfile.email?.message}>
               <input {...regProfile('email')} type="email" readOnly aria-readonly="true"
-                title="Es con lo que entras. Para cambiarlo, pídeselo a un administrador."
+                title={esTutor ? "Es con lo que entras. Cámbialo abajo." : "Es con lo que entras. Para cambiarlo, pídeselo a un administrador."}
                 className={inputClass + ' bg-muted/40 text-muted-foreground cursor-not-allowed'} />
             </Field>
           </div>
@@ -248,6 +267,23 @@ export default function ProfilePage() {
             </button>
           </div>
         </form>
+        {esTutor && (
+          <form onSubmit={onCambiarCorreo} className="mt-5 pt-4 border-t border-border space-y-2">
+            <Field label="Cambiar mi correo">
+              <input value={correoNuevo} onChange={(e) => setCorreoNuevo(e.target.value)} type="email" maxLength={255}
+                placeholder="tu.correo.nuevo@ejemplo.com" className={inputClass} />
+            </Field>
+            <p className="text-xs text-muted-foreground">
+              Es con lo que entras y a donde va la factura de tu comisión. Al cambiarlo se cierra tu sesión y entras con el nuevo; avisamos a administración.
+            </p>
+            <div className="flex justify-end">
+              <button type="submit" className={primaryBtn}
+                disabled={cambiandoCorreo || !correoNuevo.trim() || correoNuevo.trim().toLowerCase() === String(user?.email || '').toLowerCase()}>
+                {cambiandoCorreo ? 'Cambiando…' : 'Cambiar correo'}
+              </button>
+            </div>
+          </form>
+        )}
       </section>
 
       {/* Change password */}

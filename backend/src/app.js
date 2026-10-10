@@ -82,7 +82,7 @@ import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
 import { startTasksDailySummaryScheduler } from './jobs/tasksDailySummaryJob.js';
 import { startFacturasColaboradorScheduler } from './jobs/facturasColaboradorJob.js';
-import { tareasActivas } from './shared/config/soloEnPruebas.js';
+import { tareasActivas, facturasColaboradorActivas } from './shared/config/soloEnPruebas.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -197,9 +197,11 @@ const ALL_MODULES = [
   // El tablero aún no está aprobado para producción: solo en local y /testeo.
   ...(tareasActivas() ? [{ name: 'tasks', mod: tasksModule }] : []),
   // Facturas de colaboradores (#202): la lista, el enlace del mes y «Mi factura».
-  { name: 'facturas-colaborador', mod: facturasColaboradorModule },
+  // Facturas de colaboradores (#202): solo en pruebas también en el servidor, como el tablero.
+  ...(facturasColaboradorActivas() ? [{ name: 'facturas-colaborador', mod: facturasColaboradorModule }] : []),
 ];
 if (!tareasActivas()) logger.info('Modulo SKIP (solo en pruebas): /api/tasks');
+if (!facturasColaboradorActivas()) logger.info('Modulo SKIP (solo en pruebas): /api/facturas-colaborador');
 
 // Módulos siempre activos (fuera del sistema de bundles)
 app.use(installationModule.prefix, installationModule.router);
@@ -341,7 +343,7 @@ if (process.env.NODE_ENV !== 'test') {
     startMcpVigilanciaScheduler();
     startCorreoEntranteScheduler();
     if (tareasActivas()) startTasksDailySummaryScheduler();
-    startFacturasColaboradorScheduler();
+    if (facturasColaboradorActivas()) startFacturasColaboradorScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }

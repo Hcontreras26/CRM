@@ -216,6 +216,8 @@ function App() {
             <Route path="matriculas" element={<MatriculasPage />} />
             {/* Certifex vive dentro de Matrículas (Diego, 30/09). */}
             <Route path="matriculas/certificaciones" element={<MatriculasPage />} />
+            {/* Diplomas (#272): las solicitudes desde Moodle y los diplomas emitidos. */}
+            <Route path="matriculas/diplomas" element={<MatriculasPage />} />
           </Route>
           <Route path="/ventas" element={<SalesPage />} />
           <Route path="/meta-ads" element={<MetaAdsPage />} />

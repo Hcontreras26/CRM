@@ -3,6 +3,8 @@ import { AppError } from '../../shared/utils/AppError.js';
 import {
   subidaSchema, delMesSchema, anularSchema, pagarSchema, deshacerPagoSchema, vistaSchema, costePorCampusSchema, zipSchema,
 } from './facturas-colaborador.validation.js';
+import { firmaValida, esLocal, leerLocal } from './almacen.js';
+import * as model from './facturas.model.js';
 
 function validar(schema, datos) {
   const r = schema.safeParse(datos ?? {});
@@ -133,3 +135,26 @@ export const deshacerPago = accion(async (req, res) => {
 export const justificante = accion(async (req, res) => {
   res.json({ success: true, data: await service.urlDelJustificante(req.user, validarId(req.params.id)) });
 });
+
+// GET /api/facturas-colaborador/archivo-local/:id?exp=&sig= — el archivo guardado en el
+// disco del servidor (cuando no hay R2), con un enlace firmado de 15 minutos, como el
+// de R2. Sin usuario: lo que da acceso es la firma, que solo emite quien ya podía verlo.
+export async function archivoLocal(req, res, next) {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id) || !firmaValida(id, req.query.exp, req.query.sig)) {
+      throw new AppError('El enlace no vale o ha caducado', 403, 'FORBIDDEN');
+    }
+    const f = await model.porId(id, null);
+    if (!f || !esLocal(f.archivo_key)) throw new AppError('Archivo no encontrado', 404, 'NOT_FOUND');
+    const buffer = await leerLocal(f.archivo_key);
+    // Sin comillas, barras ni saltos de línea: no pueden partir la cabecera.
+    const nombre = String(f.nombre_original || `factura-${id}`).replace(/["\\\r\n]/g, '');
+    res.setHeader('Content-Type', f.mime || 'application/octet-stream');
+    res.setHeader('Content-Disposition',
+      `inline; filename="${nombre.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(buffer);
+  } catch (err) { next(err); }
+}

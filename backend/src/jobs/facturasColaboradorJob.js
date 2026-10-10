@@ -44,6 +44,15 @@ export async function runFacturasColaborador({ ahora = new Date() } = {}) {
     logger.info(r, 'Facturas de colaboradores: mes preparado');
     return { tarea: 'mes', ...r };
   }
+  // Del 1 al 4, el mes anterior otra vez (revisión del 10/10): si el último día la API
+  // estaba caída, o la migración se pasó tarde, ese mes no se preparaba nunca. Repetirlo
+  // no duplica nada (índice único y ON CONFLICT DO NOTHING) y manda lo que no salió.
+  if (dia >= 1 && dia <= 4) {
+    const anterior = mes === 1 ? primerDia(anio - 1, 12) : primerDia(anio, mes - 1);
+    const r = await prepararYMandar(anterior);
+    if (r.preparados || r.mandados) logger.info(r, 'Facturas de colaboradores: mes anterior recuperado');
+    return { tarea: 'recuperar', ...r };
+  }
   if (dia === 5) {
     const anterior = mes === 1 ? primerDia(anio - 1, 12) : primerDia(anio, mes - 1);
     const r = await recordar(anterior);

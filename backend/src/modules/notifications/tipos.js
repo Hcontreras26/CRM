@@ -84,6 +84,18 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Consulta desde Certifex', agrupa: false,
     descripcion: 'Un centro quiere inscribir su campus, o alguien escribe desde la web de Certifex',
   },
+  // Un alumno pide su diploma desde Moodle (#272). Alguien de administracion tiene que
+  // revisar el nombre y aprobarlo o rechazarlo en el panel Diplomas.
+  certifex_solicitud: {
+    clase: ACCION, etiqueta: 'Solicitud de diploma', agrupa: false,
+    descripcion: 'Un alumno termina su formación y pide su diploma desde Moodle',
+  },
+  // Moodle da una formacion por terminada y el alumno aun no ha pedido el diploma (#272).
+  // Solo lo cuenta: lo que se aprueba e imprime sale de la solicitud del alumno.
+  certifex_completado: {
+    clase: AVISO, etiqueta: 'Formación terminada sin pedir diploma', agrupa: false,
+    descripcion: 'Moodle da la formación por terminada y el alumno aún no ha pedido su diploma',
+  },
   rfc_created: {
     clase: ACCION, etiqueta: 'Solicitud de cambio', agrupa: false,
     descripcion: 'Alguien pide un cambio y hace falta aprobarlo',
@@ -143,6 +155,12 @@ export const TIPOS = {
   lead: {
     clase: AVISO, etiqueta: 'Prospectos', agrupa: true,
     descripcion: 'Avisos sueltos de prospecto',
+  },
+  // #246 (Diego, 09/10): un tutor cambia su correo desde «Mi perfil». Es el correo
+  // de la factura de su comisión, así que administración tiene que enterarse.
+  tutor_correo_cambiado: {
+    clase: AVISO, etiqueta: 'Correo de tutor cambiado', agrupa: false,
+    descripcion: 'Un tutor cambia su correo desde «Mi perfil»',
   },
 };
 
