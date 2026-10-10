@@ -18,6 +18,7 @@ import {
 import {
   AltaDialog, AnularDialog, BajaDialog, ColaboradorDialog, DeshacerPagoDialog, PagarDialog, RegistroDialog, esMes,
 } from '../components/DialogosFacturas';
+import ListaDeFacturas, { CostePorCampus } from '../components/ListaDeFacturas';
 
 /**
  * Finanzas › Facturas de colaboradores (#202).
@@ -58,15 +59,20 @@ export default function FacturasColaboradoresPage() {
   const { can } = usePermission();
   const veElMes = can('facturas_colaborador.ver_todas');
   const gestiona = can('facturas_colaborador.gestionar');
-  const pedida = params.get('vista') === 'colaboradores' ? 'colaboradores' : 'mes';
-  const vista = pedida === 'mes' && !veElMes ? 'colaboradores' : pedida === 'colaboradores' && !gestiona ? 'mes' : pedida;
+  // «Del mes · Enviadas · Por pagar · Pagadas · Historial» (segunda parte) y la lista de colaboradores.
+  const DE_FACTURAS = ['enviadas', 'por_pagar', 'pagadas', 'historial'] as const;
+  type Vista = 'mes' | 'colaboradores' | typeof DE_FACTURAS[number];
+  const enLaDireccion = params.get('vista');
+  const pedida: Vista = enLaDireccion === 'colaboradores' || (DE_FACTURAS as readonly string[]).includes(enLaDireccion ?? '')
+    ? enLaDireccion as Vista : 'mes';
+  const vista: Vista = pedida !== 'colaboradores' && !veElMes ? 'colaboradores' : pedida === 'colaboradores' && !gestiona ? 'mes' : pedida;
 
   useEffect(() => {
     if (!veElMes && !gestiona) return;
     facturasColaboradorApi.empresas().then((r) => setEmpresas(r.data)).catch(() => setEmpresas([]));
   }, [veElMes, gestiona]);
 
-  const cambiar = (v: 'mes' | 'colaboradores') => {
+  const cambiar = (v: Vista) => {
     const n = new URLSearchParams(params);
     if (v === 'mes') n.delete('vista'); else n.set('vista', v);
     setParams(n, { replace: true });
@@ -85,13 +91,15 @@ export default function FacturasColaboradoresPage() {
     );
   }
 
-  const pestanas = ([['mes', 'Del mes', veElMes], ['colaboradores', 'Colaboradores', gestiona]] as const)
-    .filter(([, , puede]) => puede);
+  const pestanas = ([
+    ['mes', 'Del mes', veElMes], ['enviadas', 'Enviadas', veElMes], ['por_pagar', 'Por pagar', veElMes],
+    ['pagadas', 'Pagadas', veElMes], ['historial', 'Historial', veElMes], ['colaboradores', 'Colaboradores', gestiona],
+  ] as const).filter(([, , puede]) => puede);
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
       {cabecera}
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {pestanas.map(([clave, rotulo]) => (
           <button key={clave} type="button" aria-pressed={vista === clave} onClick={() => cambiar(clave)}
             className={`h-8 px-3 rounded-md border text-xs font-medium transition-colors ${
@@ -101,7 +109,9 @@ export default function FacturasColaboradoresPage() {
           </button>
         ))}
       </div>
-      {vista === 'mes' ? <DelMes empresas={empresas} /> : <Colaboradores empresas={empresas} />}
+      {vista === 'mes' ? <DelMes empresas={empresas} />
+        : vista === 'colaboradores' ? <Colaboradores empresas={empresas} />
+          : <ListaDeFacturas key={vista} vista={vista} empresas={empresas} />}
     </div>
   );
 }
@@ -302,6 +312,8 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
           </div>
         )}
       </div>
+
+      <CostePorCampus periodo={periodo} />
 
       {anular && (
         <AnularDialog facturaId={anular.id} quien={`${anular.colaborador_nombre} · ${anular.empresa}`}

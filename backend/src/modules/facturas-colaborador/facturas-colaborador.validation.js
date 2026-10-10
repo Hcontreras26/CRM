@@ -128,6 +128,18 @@ export const delMesSchema = z.object({
   area: z.enum(AREAS).optional(),
 });
 
+// Las pestañas de la segunda parte: «filtrable por colaborador, empresa, mes y estado».
+export const VISTAS = ['enviadas', 'por_pagar', 'pagadas', 'historial'];
+export const vistaSchema = z.object({
+  vista: z.enum(VISTAS, { message: `Pestaña inválida: ${VISTAS.join(', ')}` }),
+  issuerId: z.coerce.number().int().positive().optional(),
+  colaboradorId: z.coerce.number().int().positive().max(2147483647).optional(),
+  periodo: mes.optional(),
+  estado: z.enum(['sin_enviar', 'enviado', 'abierto', 'recibida', 'anulada', 'no_enviado', 'caducado', 'no_cuadra']).optional(),
+});
+
+export const costePorCampusSchema = z.object({ periodo: mes });
+
 export const anularSchema = z.object({
   motivo: z.string().trim().min(3, 'Escribe el motivo de la anulación').max(1000),
 });

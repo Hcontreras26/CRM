@@ -224,3 +224,58 @@ describe('facturas de colaboradores (#202) · marcar pagada', () => {
     expect(await registro(F.aviso, 'aviso_pago')).toHaveLength(1);
   });
 });
+
+// Las pestañas (segunda parte): «Del mes · Enviadas · Por pagar (con el total
+// pendiente) · Pagadas · Historial, filtrable por colaborador, empresa, mes y
+// estado», y el coste por campus con las líneas del desglose.
+describe('facturas de colaboradores (#202) · Enviadas, Por pagar, Pagadas, Historial y coste por campus', () => {
+  const vista = (clave, params) => request.get(`${API}/facturas`).query(params).set(como(clave));
+  const mias = (res) => res.body.data.facturas.filter((f) => Object.values(F).includes(f.id)).map((f) => f.id).sort();
+
+  beforeAll(async () => {
+    // Una recibida de A sin pagar, que además no cuadra, con dos líneas (una con campus).
+    await factura('porPagar', E.A, { importe: 500 });
+    await q('UPDATE facturas_colaborador SET cuadra = false, total = 480 WHERE id = $1', [F.porPagar]);
+    await q(`INSERT INTO facturas_colaborador_lineas (factura_id, orden, concepto, project_id, horas, tarifa, importe)
+             VALUES ($1, 1, 'Landing', $2, 10, 30, 300), ($1, 2, 'Soporte', NULL, 5, 30, 150)`, [F.porPagar, P.A.id]);
+  });
+
+  it('Por pagar: recibidas y sin pagar, de sus empresas, con el total pendiente', async () => {
+    const res = await vista('adminA', { vista: 'por_pagar', periodo: '2026-05' });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(mias(res)).toEqual([F.porPagar]);
+    expect(res.body.data.resumen.pendiente).toBeGreaterThanOrEqual(500);
+    // La de B no la ve el admin de A; el super admin sí.
+    expect(mias(await vista('super', { vista: 'por_pagar', periodo: '2026-05' }))).toEqual([F.deB, F.porPagar].sort((a, b) => a - b));
+  });
+
+  it('Pagadas, Enviadas e Historial', async () => {
+    expect(mias(await vista('adminA', { vista: 'pagadas', periodo: '2026-05' })))
+      .toEqual([F.laura, F.ana, F.aviso].sort((a, b) => a - b));
+    expect(mias(await vista('adminA', { vista: 'enviadas', periodo: '2026-05' })))
+      .toEqual([F.laura, F.ana, F.aviso, F.porPagar].sort((a, b) => a - b));
+    // El historial lo lleva todo, también la que aún no ha llegado.
+    expect(mias(await vista('adminA', { vista: 'historial', periodo: '2026-05' })))
+      .toEqual([F.laura, F.ana, F.sinSubir, F.aviso, F.porPagar].sort((a, b) => a - b));
+  });
+
+  it('se filtra por colaborador y por estado («No cuadra» es de la factura)', async () => {
+    const colaborador = (await one('SELECT colaborador_id FROM facturas_colaborador WHERE id = $1', [F.ana])).colaborador_id;
+    expect(mias(await vista('adminA', { vista: 'historial', colaboradorId: colaborador }))).toEqual([F.ana]);
+    expect(mias(await vista('adminA', { vista: 'historial', periodo: '2026-05', estado: 'no_cuadra' }))).toEqual([F.porPagar]);
+  });
+
+  it('el admin de A no pide la lista de B; una pestaña inventada da 400', async () => {
+    expect((await vista('adminA', { vista: 'pagadas', issuerId: E.B.id })).status).toBe(403);
+    expect((await vista('adminA', { vista: 'todas' })).status).toBe(400);
+    expect((await vista('gestora', { vista: 'pagadas' })).status).toBe(403);
+  });
+
+  it('coste por campus: horas y base de las líneas del mes, juntas las que no tienen campus', async () => {
+    const res = await request.get(`${API}/coste-por-campus`).query({ periodo: '2026-05' }).set(como('adminA'));
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    const deA = res.body.data.campus.find((c) => c.project_id === P.A.id);
+    expect(deA).toMatchObject({ campus: `${MARCA} Campus A`, horas: 10, importe: 300, facturas: 1 });
+    expect(res.body.data.campus.find((c) => c.project_id === null)).toMatchObject({ horas: 5, importe: 150 });
+  });
+});

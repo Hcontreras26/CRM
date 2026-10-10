@@ -320,10 +320,8 @@ export async function cambiarEnlace(db, id, tokenHash, semilla, caducaAt) {
 }
 
 /** La lista del mes para administración, con su cabecera. */
-export async function delMes({ periodo, issuerIds, issuerId = null, estado = null, area = null }) {
-  const { rows } = await query(
-    `SELECT * FROM (
-       SELECT f.id, f.colaborador_id, f.issuer_id, to_char(f.periodo, 'YYYY-MM') AS periodo,
+/** Una fila de las listas de administración («Del mes» y las pestañas de la segunda parte). */
+const FILA_DE_LISTA = `SELECT f.id, f.colaborador_id, f.issuer_id, to_char(f.periodo, 'YYYY-MM') AS periodo,
               c.nombre AS colaborador_nombre, c.email, c.area,
               ii.razon_social AS empresa,
               f.importe_esperado, f.importe,
@@ -339,7 +337,12 @@ export async function delMes({ periodo, issuerIds, issuerId = null, estado = nul
               ${ESTADO} AS estado
          FROM facturas_colaborador f
          JOIN colaboradores c ON c.id = f.colaborador_id
-         JOIN invoice_issuers ii ON ii.id = f.issuer_id
+         JOIN invoice_issuers ii ON ii.id = f.issuer_id`;
+
+export async function delMes({ periodo, issuerIds, issuerId = null, estado = null, area = null }) {
+  const { rows } = await query(
+    `SELECT * FROM (
+       ${FILA_DE_LISTA}
         WHERE f.periodo = $1::date
           AND ($2::int[] IS NULL OR f.issuer_id = ANY($2::int[]))
           AND ($3::int IS NULL OR f.issuer_id = $3)
@@ -348,6 +351,57 @@ export async function delMes({ periodo, issuerIds, issuerId = null, estado = nul
      WHERE ($4::text IS NULL OR t.estado = $4)
      ORDER BY (t.estado = 'anulada'), t.colaborador_nombre, t.empresa, t.id`,
     [periodo, issuerIds, issuerId, estado, area],
+  );
+  return rows;
+}
+
+/**
+ * Las pestañas de la segunda parte («Añadido 01/10 (tarde)»): Enviadas, Por
+ * pagar, Pagadas e Historial, filtrables por colaborador, empresa, mes y estado.
+ * El estado de la factura y el del pago no se mezclan: «no_cuadra» es de la factura.
+ */
+const VISTAS = {
+  enviadas: 'f.subida_at IS NOT NULL AND f.anulada_at IS NULL',
+  por_pagar: 'f.subida_at IS NOT NULL AND f.anulada_at IS NULL AND f.pagada_at IS NULL',
+  pagadas: 'f.pagada_at IS NOT NULL AND f.anulada_at IS NULL',
+  historial: 'TRUE',
+};
+
+export async function deLaVista({ vista, issuerIds, issuerId = null, colaboradorId = null, periodo = null, estado = null }) {
+  const { rows } = await query(
+    `SELECT * FROM (
+       ${FILA_DE_LISTA}
+        WHERE ${VISTAS[vista]}
+          AND ($1::int[] IS NULL OR f.issuer_id = ANY($1::int[]))
+          AND ($2::int IS NULL OR f.issuer_id = $2)
+          AND ($3::int IS NULL OR f.colaborador_id = $3)
+          AND ($4::date IS NULL OR f.periodo = $4::date)
+     ) t
+     WHERE ($5::text IS NULL OR t.estado = $5 OR ($5 = 'no_cuadra' AND t.cuadra = false AND t.estado <> 'anulada'))
+     ORDER BY t.periodo DESC, t.colaborador_nombre, t.empresa, t.id
+     LIMIT 1000`,
+    [issuerIds, issuerId, colaboradorId, periodo, estado],
+  );
+  return rows;
+}
+
+/**
+ * Coste por campus: con las líneas del desglose, cuántas horas y cuánto dinero
+ * (la base, sin IVA ni IRPF) de colaboradores se va a cada campus en el mes.
+ * Las líneas sin campus (las de fijo, o sin elegir) van juntas.
+ */
+export async function costePorCampus({ periodo, issuerIds }) {
+  const { rows } = await query(
+    `SELECT l.project_id, p.nombre AS campus,
+            SUM(l.horas)::float AS horas, SUM(l.importe)::float AS importe, COUNT(DISTINCT f.id)::int AS facturas
+       FROM facturas_colaborador_lineas l
+       JOIN facturas_colaborador f ON f.id = l.factura_id
+       LEFT JOIN projects p ON p.id = l.project_id
+      WHERE f.periodo = $1::date AND f.subida_at IS NOT NULL AND f.anulada_at IS NULL
+        AND ($2::int[] IS NULL OR f.issuer_id = ANY($2::int[]))
+      GROUP BY l.project_id, p.nombre
+      ORDER BY (l.project_id IS NULL), importe DESC`,
+    [periodo, issuerIds],
   );
   return rows;
 }

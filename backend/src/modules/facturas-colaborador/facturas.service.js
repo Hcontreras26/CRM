@@ -410,6 +410,36 @@ export async function delMes(user, filtros) {
   };
 }
 
+/**
+ * Las pestañas Enviadas, Por pagar (con el total pendiente), Pagadas e
+ * Historial («Añadido 01/10 (tarde)»). Un admin, solo lo de sus empresas.
+ */
+export async function deLaVista(user, filtros) {
+  const ambito = await ambitoDe(user);
+  if (filtros.issuerId && ambito && !ambito.includes(filtros.issuerId)) {
+    throw new AppError('Esa empresa no es de tus campus', 403, 'FORBIDDEN');
+  }
+  const filas = await model.deLaVista({ ...filtros, issuerIds: ambito });
+  const suma = (l) => Math.round(l.reduce((s, f) => s + (f.importe === null ? 0 : Number(f.importe)), 0) * 100) / 100;
+  const vivas = filas.filter((f) => f.estado !== 'anulada');
+  return {
+    vista: filtros.vista,
+    resumen: {
+      total: filas.length,
+      importe: suma(vivas),
+      // «Por pagar (con el total pendiente)»: lo recibido y aún sin pagar.
+      pendiente: suma(vivas.filter((f) => f.subida_at && !f.pagada_at)),
+    },
+    facturas: filas,
+  };
+}
+
+/** Coste por campus del mes: horas y base de las líneas del desglose, de las empresas que se ven. */
+export async function costePorCampus(user, periodo) {
+  const filas = await model.costePorCampus({ periodo, issuerIds: await ambitoDe(user) });
+  return { periodo: periodo.slice(0, 7), mes: nombreDelMes(periodo), campus: filas };
+}
+
 /** El archivo, con un enlace firmado de 15 minutos. */
 export async function urlDelArchivo(user, id) {
   const f = await model.porId(id, await ambitoDe(user));

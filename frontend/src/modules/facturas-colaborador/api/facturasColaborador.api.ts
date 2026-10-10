@@ -27,6 +27,12 @@ export type FormaPago = typeof FORMAS_PAGO[number];
 export const FORMA_PAGO_ES: Record<FormaPago, string> = {
   transferencia: 'Transferencia', bizum: 'Bizum', paypal: 'PayPal', efectivo: 'Efectivo', otro: 'Otra',
 };
+// Las pestañas de la segunda parte: «Del mes · Enviadas · Por pagar · Pagadas · Historial».
+export type VistaDeFacturas = 'enviadas' | 'por_pagar' | 'pagadas' | 'historial';
+
+/** Coste por campus del mes: horas y base de las líneas del desglose. `project_id` null = sin campus. */
+export interface CosteDeCampus { project_id: number | null; campus: string | null; horas: number | null; importe: number; facturas: number }
+
 /** «2026-06-05» → «05/06», como «transferencia del 05/10» en la definición. */
 export const diaDelPago = (dia: string | null | undefined) => (dia ? `${dia.slice(8, 10)}/${dia.slice(5, 7)}` : '—');
 
@@ -228,6 +234,12 @@ export const facturasColaboradorApi = {
   deshacerPago: (id: number, motivo: string) =>
     client.post(`${BASE}/facturas/${id}/deshacer-pago`, { motivo }) as R<{ id: number }>,
   justificante: (id: number) => client.get(`${BASE}/facturas/${id}/justificante`) as R<{ url: string }>,
+
+  // ── Enviadas, Por pagar, Pagadas e Historial, y el coste por campus (segunda parte) ──
+  vista: (f: { vista: VistaDeFacturas; issuerId?: string; colaboradorId?: string; periodo?: string; estado?: string }) =>
+    client.get(`${BASE}/facturas${query(f)}`) as R<{ vista: VistaDeFacturas; resumen: { total: number; importe: number; pendiente: number }; facturas: FacturaDelMes[] }>,
+  costePorCampus: (periodo: string) =>
+    client.get(`${BASE}/coste-por-campus${query({ periodo })}`) as R<{ periodo: string; mes: string; campus: CosteDeCampus[] }>,
 
   // ── El enlace del colaborador (sin usuario) ──
   verEnlace: (token: string) => client.get(`${BASE}/enlace/${token}`) as R<FacturaDelColaborador>,

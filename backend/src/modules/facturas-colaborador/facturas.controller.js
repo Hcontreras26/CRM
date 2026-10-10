@@ -1,7 +1,7 @@
 import * as service from './facturas.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import {
-  subidaSchema, delMesSchema, anularSchema, pagarSchema, deshacerPagoSchema,
+  subidaSchema, delMesSchema, anularSchema, pagarSchema, deshacerPagoSchema, vistaSchema, costePorCampusSchema,
 } from './facturas-colaborador.validation.js';
 
 function validar(schema, datos) {
@@ -59,6 +59,16 @@ export const subir = accion(async (req, res) => {
 
 export const delMes = accion(async (req, res) => {
   res.json({ success: true, data: await service.delMes(req.user, validar(delMesSchema, req.query)) });
+});
+
+// Las pestañas Enviadas, Por pagar, Pagadas e Historial, y el coste por campus (segunda parte).
+export const deLaVista = accion(async (req, res) => {
+  res.json({ success: true, data: await service.deLaVista(req.user, validar(vistaSchema, req.query)) });
+});
+
+export const costePorCampus = accion(async (req, res) => {
+  const { periodo } = validar(costePorCampusSchema, req.query);
+  res.json({ success: true, data: await service.costePorCampus(req.user, periodo) });
 });
 
 export const archivo = accion(async (req, res) => {
