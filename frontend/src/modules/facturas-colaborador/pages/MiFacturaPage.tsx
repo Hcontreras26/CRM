@@ -5,12 +5,14 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import SubirFactura from '../components/SubirFactura';
-import { ESTADO, euros, facturasColaboradorApi, primeraMayuscula, type FacturaDelColaborador } from '../api/facturasColaborador.api';
+import {
+  ESTADO, FORMA_PAGO_ES, diaDelPago, euros, facturasColaboradorApi, primeraMayuscula, type FacturaDelColaborador,
+} from '../api/facturasColaborador.api';
 
 /**
  * «Mi factura» (#202): el colaborador con usuario en el CRM ve sus meses, su
  * enlace y el estado de cada factura, y la sube desde aquí. Solo lo suyo: lo
- * comprueba el servidor. (El estado del pago llega con la segunda parte.)
+ * comprueba el servidor. Y el estado del pago de cada mes (segunda parte).
  */
 export default function MiFacturaPage() {
   const [meses, setMeses] = useState<FacturaDelColaborador[]>([]);
@@ -66,6 +68,14 @@ export default function MiFacturaPage() {
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${ESTADO[m.estado].clase}`}>
                   {m.estado === 'recibida' || m.estado === 'anulada' || m.estado === 'caducado' ? ESTADO[m.estado].rotulo : 'Pendiente'}
                 </span>
+                {/* El pago, aparte del estado de la factura: «Pagada 05/10 · Transferencia» o «Por pagar». */}
+                {m.recibida && (m.pago ? (
+                  <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-success-soft text-success-soft-foreground">
+                    Pagada {diaDelPago(m.pago.pagada_at)}{m.pago.forma_pago ? ` · ${FORMA_PAGO_ES[m.pago.forma_pago]}` : ''}
+                  </span>
+                ) : (
+                  <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-warning-soft text-warning-soft-foreground">Por pagar</span>
+                ))}
                 {m.recibida && (
                   <Button variant="outline" size="sm" onClick={() => verArchivo(m.id!)}>
                     <FileText size={13} className="mr-1.5" /> Ver archivo

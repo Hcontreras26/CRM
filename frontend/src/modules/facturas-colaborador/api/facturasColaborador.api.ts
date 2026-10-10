@@ -155,6 +155,8 @@ export interface FacturaDelColaborador {
     /** Lo que calculó el CRM; `cuadra` null = subida sin desglose. */
     total: number | null; cuadra: boolean | null;
   };
+  /** El estado del pago (segunda parte): la fecha y la forma. */
+  pago: null | { pagada_at: string; forma_pago: FormaPago | null };
   enlace?: string | null;
 }
 

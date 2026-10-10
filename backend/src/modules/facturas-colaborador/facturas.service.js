@@ -217,6 +217,9 @@ function paraElColaborador(f) {
       total: num(f.total),
       cuadra: f.cuadra ?? null,
     } : null,
+    // El estado del pago («Mi factura», ficha de Diego del 07/10): la fecha y la
+    // forma, nada más (ni el justificante ni quién lo marcó).
+    pago: f.pagada_at ? { pagada_at: f.pagada_at, forma_pago: f.forma_pago } : null,
   };
 }
 
