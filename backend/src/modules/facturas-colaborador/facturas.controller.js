@@ -82,6 +82,10 @@ export const zip = accion(async (req, res) => {
   res.send(z.buffer);
 });
 
+export const desglose = accion(async (req, res) => {
+  res.json({ success: true, data: await service.desgloseDeFactura(req.user, validarId(req.params.id)) });
+});
+
 export const archivo = accion(async (req, res) => {
   res.json({ success: true, data: await service.urlDelArchivo(req.user, validarId(req.params.id)) });
 });

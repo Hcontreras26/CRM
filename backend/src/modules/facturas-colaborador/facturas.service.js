@@ -540,6 +540,21 @@ export async function zipDelMes(user, periodo, issuerId) {
   };
 }
 
+/**
+ * El desglose de una factura, para administración («Administración lo ve todo»):
+ * las líneas (encargo, campus, horas, tarifa e importe) y lo que calculó el CRM.
+ * Sin desglose (subida sin modalidad), las líneas van vacías y `cuadra` es null.
+ */
+export async function desgloseDeFactura(user, id) {
+  const f = await model.porId(id, await ambitoDe(user));
+  if (!f) throw NO_ESTA();
+  return {
+    importe: num(f.importe), base: num(f.base), iva: num(f.iva), irpf: num(f.irpf),
+    total: num(f.total), horas: num(f.horas), cuadra: f.cuadra ?? null,
+    lineas: await model.lineasDe(id),
+  };
+}
+
 /** El archivo, con un enlace firmado de 15 minutos. */
 export async function urlDelArchivo(user, id) {
   const f = await model.porId(id, await ambitoDe(user));

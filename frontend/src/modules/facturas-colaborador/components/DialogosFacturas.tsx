@@ -10,7 +10,8 @@ import { inputClass } from '@/shared/lib/ui';
 import {
   AREAS, AREA_ES, FORMAS_PAGO, FORMA_PAGO_ES, MODALIDADES, MODALIDAD_ES, diaDelPago, euros, facturasColaboradorApi,
   fechaHora, normalizarImporte,
-  type Area, type Colaborador, type EmpresaDelColaborador, type EmpresaDelGrupo, type FormaPago, type LineaRegistro, type Modalidad,
+  type Area, type Colaborador, type DesgloseDeFactura, type EmpresaDelColaborador, type EmpresaDelGrupo, type FormaPago,
+  type LineaRegistro, type Modalidad,
 } from '../api/facturasColaborador.api';
 
 /** El marco de los diálogos de esta pantalla. */
@@ -527,18 +528,73 @@ function detalleDe(l: LineaRegistro) {
   return partes.join(' · ');
 }
 
-export function RegistroDialog({ titulo, cargar, alCerrar }: {
+/**
+ * El desglose de una factura, arriba del registro (segunda parte): «Administración lo ve
+ * todo». Las líneas que declaró el colaborador y lo que calculó el CRM con su IVA e IRPF.
+ */
+function DesgloseDeLaFactura({ d }: { d: DesgloseDeFactura }) {
+  return (
+    <div className="mb-4 rounded-lg border border-border">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-border text-sm">
+        <strong>Desglose</strong>
+        {d.cuadra === false && (
+          <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-warning-soft text-warning-soft-foreground">
+            No cuadra: su factura dice {euros(d.importe)}
+          </span>
+        )}
+        {d.cuadra === true && (
+          <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-success-soft text-success-soft-foreground">Cuadra con su factura</span>
+        )}
+      </div>
+      <table className="w-full text-tabla">
+        <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-3 py-1.5">Encargo</th><th className="px-3 py-1.5">Campus</th>
+            <th className="px-3 py-1.5 text-right">Horas</th><th className="px-3 py-1.5 text-right">Tarifa</th><th className="px-3 py-1.5 text-right">Importe</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {d.lineas.map((l) => (
+            <tr key={l.orden}>
+              <td className="px-3 py-1.5">{l.concepto}</td>
+              <td className="px-3 py-1.5">{l.campus ?? <span className="text-muted-foreground">—</span>}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{l.horas === null ? '—' : l.horas.toLocaleString('es-ES')}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{l.tarifa === null ? '—' : `${euros(l.tarifa)}/h`}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{euros(l.importe)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-0.5 border-t border-border px-3 py-2 text-sm tabular-nums">
+        <dt className="text-muted-foreground">Base</dt><dd className="text-right">{euros(d.base)}</dd>
+        <dt className="text-muted-foreground">IVA</dt><dd className="text-right">{euros(d.iva)}</dd>
+        <dt className="text-muted-foreground">IRPF</dt><dd className="text-right">{d.irpf ? `−${euros(d.irpf)}` : euros(d.irpf)}</dd>
+        <dt className="font-semibold">Total</dt><dd className="text-right font-semibold">{euros(d.total)}</dd>
+      </dl>
+    </div>
+  );
+}
+
+export function RegistroDialog({ titulo, cargar, cargarDesglose, alCerrar }: {
   titulo: string; cargar: () => Promise<LineaRegistro[]>; alCerrar: () => void;
+  /** Si la factura tiene desglose, se enseña arriba del registro. */
+  cargarDesglose?: () => Promise<DesgloseDeFactura>;
 }) {
   const [lineas, setLineas] = useState<LineaRegistro[] | null>(null);
+  const [desglose, setDesglose] = useState<DesgloseDeFactura | null>(null);
   useEffect(() => {
     cargar().then(setLineas).catch((err) => {
       toast({ title: 'No se pudo cargar el registro', description: errorDe(err), variant: 'destructive' });
       setLineas([]);
     });
   }, [cargar]);
+  useEffect(() => {
+    if (!cargarDesglose) return;
+    cargarDesglose().then(setDesglose).catch(() => setDesglose(null));
+  }, [cargarDesglose]);
   return (
     <Dialogo titulo={titulo} alCerrar={alCerrar} ancho="max-w-2xl">
+      {desglose && desglose.lineas.length > 0 && <DesgloseDeLaFactura d={desglose} />}
       {!lineas ? <p className="text-muted-foreground">Cargando…</p>
         : lineas.length === 0 ? <p className="text-muted-foreground">Todavía no hay nada.</p>
           : (

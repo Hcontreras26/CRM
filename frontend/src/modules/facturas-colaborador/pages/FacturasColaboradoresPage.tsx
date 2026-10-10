@@ -209,6 +209,10 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
     () => facturasColaboradorApi.registroDeLaFactura(registro!.id).then((r) => r.data),
     [registro],
   );
+  const cargarDesglose = useCallback(
+    () => facturasColaboradorApi.desgloseDeLaFactura(registro!.id).then((r) => r.data),
+    [registro],
+  );
 
   const r = datos?.resumen;
   return (
@@ -348,7 +352,9 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
       )}
       {registro && (
         <RegistroDialog titulo={`Registro · ${registro.colaborador_nombre} · ${registro.empresa}`}
-          cargar={cargarRegistro} alCerrar={() => setRegistro(null)} />
+          cargar={cargarRegistro} alCerrar={() => setRegistro(null)}
+          // Con desglose (cuadra no es null), arriba del registro (segunda parte).
+          cargarDesglose={registro.cuadra === null ? undefined : cargarDesglose} />
       )}
     </div>
   );

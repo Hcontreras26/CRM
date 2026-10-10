@@ -81,6 +81,10 @@ export default function ListaDeFacturas({ vista, empresas }: { vista: VistaDeFac
     () => facturasColaboradorApi.registroDeLaFactura(registro!.id).then((r) => r.data),
     [registro],
   );
+  const cargarDesglose = useCallback(
+    () => facturasColaboradorApi.desgloseDeLaFactura(registro!.id).then((r) => r.data),
+    [registro],
+  );
 
   // En «Por pagar» se marcan varias para pagarlas a la vez.
   const conCasillas = vista === 'por_pagar' && puedePagar;
@@ -226,7 +230,9 @@ export default function ListaDeFacturas({ vista, empresas }: { vista: VistaDeFac
       )}
       {registro && (
         <RegistroDialog titulo={`Registro · ${registro.colaborador_nombre} · ${registro.empresa}`}
-          cargar={cargarRegistro} alCerrar={() => setRegistro(null)} />
+          cargar={cargarRegistro} alCerrar={() => setRegistro(null)}
+          // Con desglose (cuadra no es null), arriba del registro (segunda parte).
+          cargarDesglose={registro.cuadra === null ? undefined : cargarDesglose} />
       )}
     </div>
   );

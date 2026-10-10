@@ -96,6 +96,8 @@ router.get('/coste-por-campus', ve, facturas.costePorCampus);
 router.get('/zip', ve, facturas.zip);
 router.get('/facturas/:id/archivo', ve, facturas.archivo);
 router.get('/facturas/:id/registro', ve, facturas.registro);
+// El desglose de la factura (segunda parte): «Administración lo ve todo».
+router.get('/facturas/:id/desglose', ve, facturas.desglose);
 router.post('/facturas/:id/anular', anula, facturas.anular);
 router.post('/facturas/:id/reenviar', gestiona, facturas.reenviar);
 

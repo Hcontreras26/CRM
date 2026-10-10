@@ -314,6 +314,21 @@ describe('facturas de colaboradores (#202) · Enviadas, Por pagar, Pagadas, Hist
     expect((await vista('gestora', { vista: 'pagadas' })).status).toBe(403);
   });
 
+  it('el desglose de una factura, para administración: sus líneas con el campus y lo que calculó el CRM', async () => {
+    const res = await request.get(`${API}/facturas/${F.porPagar}/desglose`).set(como('adminA'));
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.data).toMatchObject({ importe: 500, total: 480, cuadra: false });
+    expect(res.body.data.lineas).toEqual([
+      expect.objectContaining({ orden: 1, concepto: 'Landing', campus: `${MARCA} Campus A`, horas: 10, tarifa: 30, importe: 300 }),
+      expect.objectContaining({ orden: 2, concepto: 'Soporte', campus: null, horas: 5, importe: 150 }),
+    ]);
+    // Sin desglose (subida sin modalidad): sin líneas y sin «cuadra».
+    expect((await request.get(`${API}/facturas/${F.laura}/desglose`).set(como('adminA'))).body.data).toMatchObject({ lineas: [], cuadra: null });
+    // Un admin, solo de sus empresas; la gestora, nada.
+    expect((await request.get(`${API}/facturas/${F.deB}/desglose`).set(como('adminA'))).status).toBe(404);
+    expect((await request.get(`${API}/facturas/${F.porPagar}/desglose`).set(como('gestora'))).status).toBe(403);
+  });
+
   it('coste por campus: horas y base de las líneas del mes, juntas las que no tienen campus', async () => {
     const res = await request.get(`${API}/coste-por-campus`).query({ periodo: '2026-05' }).set(como('adminA'));
     expect(res.status, JSON.stringify(res.body)).toBe(200);

@@ -33,6 +33,13 @@ export const FORMA_PAGO_ES: Record<FormaPago, string> = {
 // Las pestañas de la segunda parte: «Del mes · Enviadas · Por pagar · Pagadas · Historial».
 export type VistaDeFacturas = 'enviadas' | 'por_pagar' | 'pagadas' | 'historial';
 
+/** El desglose de una factura, para administración. Sin desglose: `lineas` vacías y `cuadra` null. */
+export interface DesgloseDeFactura {
+  importe: number | null; base: number | null; iva: number | null; irpf: number | null;
+  total: number | null; horas: number | null; cuadra: boolean | null;
+  lineas: { orden: number; concepto: string; project_id: number | null; campus: string | null; horas: number | null; tarifa: number | null; importe: number }[];
+}
+
 /** Coste por campus del mes: horas y base de las líneas del desglose. `project_id` null = sin campus. */
 export interface CosteDeCampus { project_id: number | null; campus: string | null; horas: number | null; importe: number; facturas: number }
 
@@ -226,6 +233,7 @@ export const facturasColaboradorApi = {
     client.get(`${BASE}/mes${query(f)}`) as R<Mes>,
   archivo: (id: number) => client.get(`${BASE}/facturas/${id}/archivo`) as R<{ url: string; nombre: string | null }>,
   registroDeLaFactura: (id: number) => client.get(`${BASE}/facturas/${id}/registro`) as R<LineaRegistro[]>,
+  desgloseDeLaFactura: (id: number) => client.get(`${BASE}/facturas/${id}/desglose`) as R<DesgloseDeFactura>,
   anular: (id: number, motivo: string) => client.post(`${BASE}/facturas/${id}/anular`, { motivo }) as R<{ anulada: number; nueva: number }>,
   reenviar: (id: number) => client.post(`${BASE}/facturas/${id}/reenviar`, {}) as R<{ id: number }>,
 
