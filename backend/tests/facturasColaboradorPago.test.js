@@ -220,15 +220,10 @@ describe('facturas de colaboradores (#202) · marcar pagada', () => {
     expect((await request.post(`${API}/facturas/${F.ana}/deshacer-pago`).set(como('adminA')).send({ motivo: 'otra vez' })).status).toBe(409);
   });
 
-  it('el aviso al colaborador: apagado no sale; encendido sale el de Diego, a él, y queda en el registro', async () => {
+  it('el aviso al colaborador: encendido sale el de Diego, a él, y queda en el registro; apagado no sale', async () => {
     sendEmail.mockClear();
-    delete process.env.FACTURAS_COLABORADOR_CORREOS_ACTIVOS;
-    expect((await pagar('adminA', datos([F.ana]))).status).toBe(200);
-    // Sale después de responder: se le da tiempo antes de encender los correos.
-    await new Promise((r) => setTimeout(r, 400));
-    expect(sendEmail).not.toHaveBeenCalled();
-    expect(await registro(F.ana, 'aviso_pago')).toHaveLength(0);
-
+    // Primero encendidos (se espera a que salgan) y al final apagados: el aviso sale después de
+    // responder y lee el interruptor al mandar; en este orden no depende de cuánto tarde.
     process.env.FACTURAS_COLABORADOR_CORREOS_ACTIVOS = 'true';
     try {
       expect((await pagar('adminA', { ...datos([F.aviso]), fecha: '2026-06-05' })).status).toBe(200);
@@ -246,6 +241,13 @@ describe('facturas de colaboradores (#202) · marcar pagada', () => {
       expect(segundo.subject).toContain('Bizum del 05/06');
       expect(segundo.clave).not.toBe(primero.clave);
     } finally { delete process.env.FACTURAS_COLABORADOR_CORREOS_ACTIVOS; }
+
+    // Apagados: no se llama a Brevo ni queda «aviso de pago» en el registro.
+    sendEmail.mockClear();
+    expect((await pagar('adminA', datos([F.ana]))).status).toBe(200);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(await registro(F.ana, 'aviso_pago')).toHaveLength(0);
   });
 
   it('anular y pagar a la vez: si el pago llega mientras anular espera la fila, la anulación no sigue', async () => {
@@ -463,5 +465,32 @@ describe('facturas de colaboradores (#202) · el justificante y el ZIP, en el di
     const { default: JSZip } = await import('jszip');
     const zip = await JSZip.loadAsync(res.body);
     expect(await zip.file('2026-05_En-disco.pdf').async('string')).toContain('%PDF-1.4 facturas-colaborador/2026-05/x/2026-05_En-disco.pdf');
+  });
+});
+
+// El aviso sale después de responder: si entretanto se deshizo el pago, no se avisa.
+describe('facturas de colaboradores (#202) · el aviso de pago, si se deshace antes de que salga', () => {
+  const datos = (ids) => ({ ids: ids.join(','), fecha: '2026-06-05', forma_pago: 'transferencia' });
+
+  it('pagadas dos a la vez: si la segunda se deshace mientras sale el aviso de la primera, el de la segunda no sale', async () => {
+    await factura('avisoPrimera', E.A);
+    await factura('avisoSegunda', E.A);
+    let seguir;
+    const esperar = new Promise((r) => { seguir = r; });
+    sendEmail.mockClear();
+    // El primer aviso se queda «en Brevo» hasta que se deshaga el pago de la segunda.
+    sendEmail.mockImplementationOnce(async () => { await esperar; return { sent: true }; });
+    process.env.FACTURAS_COLABORADOR_CORREOS_ACTIVOS = 'true';
+    try {
+      expect((await pagar('adminA', datos([F.avisoPrimera, F.avisoSegunda]))).status).toBe(200);
+      await vi.waitFor(() => expect(sendEmail).toHaveBeenCalledTimes(1));
+      expect((await request.post(`${API}/facturas/${F.avisoSegunda}/deshacer-pago`).set(como('adminA'))
+        .send({ motivo: 'Se pagó por error' })).status).toBe(200);
+      seguir();
+      await vi.waitFor(async () => expect(await registro(F.avisoPrimera, 'aviso_pago')).toHaveLength(1));
+      await new Promise((r) => setTimeout(r, 300));
+      expect(sendEmail).toHaveBeenCalledTimes(1);
+      expect(await registro(F.avisoSegunda, 'aviso_pago')).toHaveLength(0);
+    } finally { delete process.env.FACTURAS_COLABORADOR_CORREOS_ACTIVOS; }
   });
 });

@@ -504,7 +504,7 @@ export async function zipDelMes(user, periodo, issuerId) {
     // Si dos se llaman igual (mismo nombre y mismo número de factura), la segunda lleva
     // su número de recepción: si no, una pisaba a la otra dentro del ZIP sin avisar.
     let nombre = f.archivo_key.split('/').pop();
-    if (usados.has(nombre)) nombre = nombre.replace(/(.[^.]+)?$/, `_${f.numero_recepcion}$1`);
+    if (usados.has(nombre)) nombre = nombre.replace(/(\.[^.]+)?$/, `_${f.numero_recepcion}$1`);
     usados.add(nombre);
     zip.file(nombre, await leerArchivo(f.archivo_key));
   }
@@ -629,6 +629,8 @@ export async function pagar(user, { ids, fecha, forma, referencia, archivo }, ip
 async function mandarAvisoDePago(id) {
   try {
     const f = await model.porId(id, null);
+    // Sale después de responder: si entretanto se deshizo el pago, no se avisa de nada.
+    if (!f?.pagada_at) return;
     // La vez que se paga: si se deshace y se vuelve a pagar, aunque sea el mismo día, sale otro aviso.
     const vez = await model.vecesQue(id, 'pagada');
     const r = await enviarAvisoDePago({ f, vez, marca: await model.marcaDeLaEmpresa(f.issuer_id) });
