@@ -22,6 +22,13 @@ import { calcularDesglose, cuadra } from '../src/modules/facturas-colaborador/de
  * otros ficheros (julio, agosto, septiembre) corren a la vez y no se cruzan.
  */
 
+// R2 «configurado» con valores de prueba: así almacen.js (revisión del 10/10) usa el
+// R2 simulado de arriba también en la CI, que no tiene R2. El camino del disco lo
+// prueba facturasColaboradorRevision.test.js.
+process.env.CLOUDFLARE_R2_ACCOUNT_ID = 'cuenta-de-prueba';
+process.env.CLOUDFLARE_R2_ACCESS_KEY = 'clave-de-prueba';
+process.env.CLOUDFLARE_R2_BUCKET = 'cubo-de-prueba';
+
 const request = supertest(app);
 const API = '/api/facturas-colaborador';
 const MARCA = `FCDES_${Date.now().toString(36)}`;
