@@ -5,6 +5,7 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import usePermission from '@/shared/hooks/usePermission';
+import { useProjectContext } from '@/contexts/ProjectContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
@@ -28,7 +29,22 @@ import { AltaDialog, AnularDialog, BajaDialog, ColaboradorDialog, RegistroDialog
  *
  * El admin ve lo de las empresas de sus campus; el super admin, todo. Lo
  * decide el servidor: aquí solo se pinta lo que llega.
+ *
+ * Sigue a la empresa de la cabecera (Diego, 10/10: «son por EMPRESA, no por
+ * campus»): con una empresa elegida, la suya; con un campus, la de ese campus;
+ * con «Todos los proyectos», todas las que ve cada uno.
  */
+
+/** La empresa de la cabecera, o null con «Todos los proyectos». */
+function useEmpresaDeLaCabecera(): number | null {
+  const { activeIssuerId, activeProject, isAllProjects } = useProjectContext() as {
+    activeIssuerId: number | null; isAllProjects: boolean;
+    activeProject: { sociedad_emisora_id?: number | null } | null;
+  };
+  if (activeIssuerId) return activeIssuerId;
+  if (isAllProjects) return null;
+  return activeProject?.sociedad_emisora_id ? Number(activeProject.sociedad_emisora_id) : null;
+}
 
 /**
  * El mes que se abre: el último preparado. El último día del mes ya es ese mes
@@ -58,6 +74,7 @@ export default function FacturasColaboradoresPage() {
   const gestiona = can('facturas_colaborador.gestionar');
   const pedida = params.get('vista') === 'colaboradores' ? 'colaboradores' : 'mes';
   const vista = pedida === 'mes' && !veElMes ? 'colaboradores' : pedida === 'colaboradores' && !gestiona ? 'mes' : pedida;
+  const empresa = useEmpresaDeLaCabecera();
 
   useEffect(() => {
     if (!veElMes && !gestiona) return;
@@ -99,17 +116,19 @@ export default function FacturasColaboradoresPage() {
           </button>
         ))}
       </div>
-      {vista === 'mes' ? <DelMes empresas={empresas} /> : <Colaboradores empresas={empresas} />}
+      {vista === 'mes' ? <DelMes empresas={empresas} empresa={empresa} /> : <Colaboradores empresas={empresas} empresa={empresa} />}
     </div>
   );
 }
 
 /* ─────────────────────────── Del mes ─────────────────────────── */
 
-function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
+function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: number | null }) {
   const [params, setParams] = useSearchParams();
   const periodo = params.get('periodo') || mesPorDefecto();
-  const [issuerId, setIssuerId] = useState('');
+  // Con una empresa en la cabecera, esa: el desplegable no le lleva la contraria.
+  const [elegida, setIssuerId] = useState('');
+  const issuerId = empresa ? String(empresa) : elegida;
   const [estado, setEstado] = useState<'' | EstadoFactura>('');
   const [area, setArea] = useState<'' | Area>('');
   const [datos, setDatos] = useState<Mes | null>(null);
@@ -178,10 +197,12 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
         <div className="w-52 flex-none">
           <input type="month" aria-label="Mes" value={periodo} onChange={(e) => esMes(e.target.value) && ponerPeriodo(e.target.value)} className={inputClass} />
         </div>
-        <div className="w-56 flex-none">
-          <Select<string> value={issuerId} onChange={setIssuerId} ariaLabel="Empresa"
-            options={[{ value: '', label: 'Todas las empresas' }, ...empresas.map((e) => ({ value: String(e.id), label: e.razon_social }))]} />
-        </div>
+        {!empresa && (
+          <div className="w-56 flex-none">
+            <Select<string> value={issuerId} onChange={setIssuerId} ariaLabel="Empresa"
+              options={[{ value: '', label: 'Todas las empresas' }, ...empresas.map((e) => ({ value: String(e.id), label: e.razon_social }))]} />
+          </div>
+        )}
         <div className="w-44 flex-none">
           <Select<'' | Area> value={area} onChange={setArea} ariaLabel="Área"
             options={[{ value: '', label: 'Todas las áreas' }, ...AREAS.map((a) => ({ value: a, label: AREA_ES[a] }))]} />
@@ -274,7 +295,7 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
 
 /* ─────────────────────────── Colaboradores ─────────────────────────── */
 
-function Colaboradores({ empresas }: { empresas: EmpresaDelGrupo[] }) {
+function Colaboradores({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: number | null }) {
   const [estado, setEstado] = useState<'activos' | 'de_baja' | 'todos'>('activos');
   const [q, setQ] = useState('');
   const [lista, setLista] = useState<Colaborador[]>([]);
@@ -287,12 +308,13 @@ function Colaboradores({ empresas }: { empresas: EmpresaDelGrupo[] }) {
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const r = await facturasColaboradorApi.colaboradores({ estado, q: q.trim() || undefined });
+      // Con una empresa en la cabecera, solo quienes le facturan.
+      const r = await facturasColaboradorApi.colaboradores({ estado, q: q.trim() || undefined, issuerId: empresa ?? undefined });
       setLista(r.data);
     } catch (err) {
       toast({ title: 'No se pudo cargar la lista', description: errorDe(err), variant: 'destructive' });
     } finally { setCargando(false); }
-  }, [estado, q]);
+  }, [estado, q, empresa]);
 
   useEffect(() => {
     const t = setTimeout(() => { void cargar(); }, 250);
