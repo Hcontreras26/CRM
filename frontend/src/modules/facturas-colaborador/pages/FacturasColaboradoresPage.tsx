@@ -185,7 +185,7 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
   async function verJustificante(f: FacturaDelMes) {
     try {
       const r = await facturasColaboradorApi.justificante(f.id);
-      window.open(r.data.url, '_blank', 'noopener');
+      window.open(urlDelArchivo(r.data.url), '_blank', 'noopener');
     } catch (err) {
       toast({ title: 'No se pudo abrir el justificante', description: errorDe(err), variant: 'destructive' });
     }

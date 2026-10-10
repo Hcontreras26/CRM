@@ -42,6 +42,7 @@ const codigoConFormato = (req, res, next) => (/^[A-Za-z0-9_-]{40,60}$/.test(Stri
 router.post('/enlace/:token', limite(20), codigoConFormato, recibirArchivo, facturas.subir);
 // El archivo guardado en disco (sin R2), con enlace firmado de 15 min (revisión del 10/10).
 router.get('/archivo-local/:id', limite(60), facturas.archivoLocal);
+router.get('/justificante-local/:id', limite(60), facturas.justificanteLocal);
 
 // ─── «Mi factura»: el colaborador con usuario en el CRM, solo lo suyo ───
 // Son las únicas de este módulo que puede pedir el rol colaborador

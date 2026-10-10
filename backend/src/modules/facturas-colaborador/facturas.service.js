@@ -1,10 +1,8 @@
 import crypto from 'node:crypto';
 import pool, { getClient } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
-import { getFromR2, uploadToR2 } from '../../shared/services/r2.service.js';
-import { generatePresignedUrl } from '../../shared/utils/presignedUrl.js';
 // R2 si está configurado; si no, el disco del servidor (revisión del 10/10: sin R2 la subida daba 500).
-import { guardar as guardarArchivo, urlDeDescarga } from './almacen.js';
+import { guardar as guardarArchivo, leer as leerArchivo, urlDeDescarga } from './almacen.js';
 import * as model from './facturas.model.js';
 import { anotar } from './facturas-colaborador.model.js';
 import { ambitoDe } from './facturas-colaborador.service.js';
@@ -488,9 +486,8 @@ export async function zipDelMes(user, periodo, issuerId) {
   const [{ default: JSZip }, { default: ExcelJS }] = await Promise.all([import('jszip'), import('exceljs')]);
   const zip = new JSZip();
   for (const f of filas) {
-    const { body } = await getFromR2(f.archivo_key);
-    // El nombre con que se guardó: «2026-09_CEDIA_Laura-Perez_F-2026-09.pdf».
-    zip.file(f.archivo_key.split('/').pop(), Buffer.from(await body.transformToByteArray()));
+    // El nombre con que se guardó: «2026-09_CEDIA_Laura-Perez_F-2026-09.pdf» (de R2 o del disco).
+    zip.file(f.archivo_key.split('/').pop(), await leerArchivo(f.archivo_key));
   }
 
   const libro = new ExcelJS.Workbook();
@@ -554,7 +551,7 @@ export async function pagar(user, { ids, fecha, forma, referencia, archivo }, ip
   const yaPagadas = facturas.filter((f) => f.pagada_at);
   if (yaPagadas.length) throw new AppError(`Ya está pagada: ${nombres(yaPagadas)}`, 409, 'YA_PAGADA');
 
-  // El justificante, a R2 antes de la transacción (como el archivo de la factura).
+  // El justificante, guardado antes de la transacción (como el archivo de la factura): R2 o el disco.
   let justificante = null;
   let nombreJustificante = null;
   if (archivo) {
@@ -563,8 +560,8 @@ export async function pagar(user, { ids, fecha, forma, referencia, archivo }, ip
     if (!tipo) throw new AppError('El justificante tiene que ser un PDF o una foto JPG o PNG', 400, 'INVALID_FILE_TYPE');
     const sha = crypto.createHash('sha256').update(archivo.buffer).digest('hex').slice(0, 8);
     nombreJustificante = (enUtf8(archivo.originalname) || `justificante.${tipo.ext}`).slice(0, 255);
-    justificante = `facturas-colaborador/pagos/${fecha.slice(0, 7)}/${sha}/justificante-${fecha}.${tipo.ext}`;
-    await uploadToR2(justificante, archivo.buffer, tipo.mime);
+    justificante = await guardarArchivo(
+      `facturas-colaborador/pagos/${fecha.slice(0, 7)}/${sha}/justificante-${fecha}.${tipo.ext}`, archivo.buffer, tipo.mime);
   }
 
   await enTransaccion(async (db) => {
@@ -621,7 +618,7 @@ export async function urlDelJustificante(user, id) {
   const f = await model.porId(id, await ambitoDe(user));
   if (!f) throw NO_ESTA();
   if (!f.justificante) throw new AppError('Este pago no tiene justificante', 404, 'NOT_FOUND');
-  return { url: await generatePresignedUrl(f.justificante), caduca_en_segundos: 15 * 60 };
+  return { url: await urlDeDescarga(f.id, f.justificante, 'justificante'), caduca_en_segundos: 15 * 60 };
 }
 
 /**

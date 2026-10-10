@@ -158,3 +158,24 @@ export async function archivoLocal(req, res, next) {
     res.send(buffer);
   } catch (err) { next(err); }
 }
+
+// GET /api/facturas-colaborador/justificante-local/:id?exp=&sig= — el justificante del
+// pago (segunda parte) guardado en el disco, como archivoLocal y con su propia firma.
+const MIME_JUSTIFICANTE = { pdf: 'application/pdf', jpg: 'image/jpeg', png: 'image/png' };
+export async function justificanteLocal(req, res, next) {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id) || !firmaValida(id, req.query.exp, req.query.sig, Date.now(), 'justificante')) {
+      throw new AppError('El enlace no vale o ha caducado', 403, 'FORBIDDEN');
+    }
+    const f = await model.porId(id, null);
+    if (!f || !esLocal(f.justificante)) throw new AppError('Justificante no encontrado', 404, 'NOT_FOUND');
+    const buffer = await leerLocal(f.justificante);
+    const ext = String(f.justificante).split('.').pop();
+    res.setHeader('Content-Type', MIME_JUSTIFICANTE[ext] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="justificante-${id}.${MIME_JUSTIFICANTE[ext] ? ext : 'bin'}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(buffer);
+  } catch (err) { next(err); }
+}

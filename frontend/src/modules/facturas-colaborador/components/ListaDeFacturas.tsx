@@ -7,7 +7,7 @@ import { Button } from '@/shared/components/ui/button';
 import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import {
-  ESTADO, FORMA_PAGO_ES, diaDelPago, empresaCorta, euros, facturasColaboradorApi, fechaHora, primeraMayuscula,
+  ESTADO, FORMA_PAGO_ES, diaDelPago, empresaCorta, euros, facturasColaboradorApi, fechaHora, primeraMayuscula, urlDelArchivo,
   type CosteDeCampus, type EmpresaDelGrupo, type EstadoFactura, type FacturaDelMes, type VistaDeFacturas,
 } from '../api/facturasColaborador.api';
 import { DeshacerPagoDialog, PagarDialog, RegistroDialog, esMes } from './DialogosFacturas';
@@ -70,7 +70,8 @@ export default function ListaDeFacturas({ vista, empresas }: { vista: VistaDeFac
   async function abrir(f: FacturaDelMes, que: 'archivo' | 'justificante') {
     try {
       const r = que === 'archivo' ? await facturasColaboradorApi.archivo(f.id) : await facturasColaboradorApi.justificante(f.id);
-      window.open(r.data.url, '_blank', 'noopener');
+      // El del disco del servidor llega relativo a la API (revisión del 10/10).
+      window.open(urlDelArchivo(r.data.url), '_blank', 'noopener');
     } catch (err) {
       toast({ title: `No se pudo abrir el ${que}`, description: errorDe(err), variant: 'destructive' });
     }

@@ -9,6 +9,12 @@ vi.mock('../src/shared/services/r2.service.js', () => ({
   getFromR2: vi.fn(),
   deleteFromR2: vi.fn(),
 }));
+// El disco del servidor (sin R2, como hoy en /testeo y en producción), simulado.
+const enDisco = new Map();
+vi.mock('../src/shared/services/localStorage.service.js', () => ({
+  saveLocal: vi.fn(async (k, b) => { enDisco.set(k, b); return k; }),
+  getLocal: vi.fn(async (k) => ({ buffer: enDisco.get(k) ?? Buffer.from(`%PDF-1.4 ${k}`), size: 8 })),
+}));
 vi.mock('../src/shared/utils/presignedUrl.js', () => ({
   generatePresignedUrl: vi.fn(async (key) => `https://r2.test/${key}?firmado`),
 }));
@@ -344,5 +350,51 @@ describe('facturas de colaboradores (#202) · el ZIP del mes', () => {
     expect(vacio.status).toBe(404);
     expect(vacio.body.error).toContain('No hay facturas recibidas de abril de 2026');
     expect((await request.get(`${API}/zip`).query({ periodo: '2026-05', issuerId: E.A.id }).set(como('gestora'))).status).toBe(403);
+  });
+});
+
+// Sin R2, como hoy en /testeo y en producción (almacen.js, revisión del 10/10): el
+// justificante y las facturas van al disco del servidor, con su enlace firmado.
+describe('facturas de colaboradores (#202) · el justificante y el ZIP, en el disco del servidor', () => {
+  const sinR2 = () => {
+    const antes = { ...process.env };
+    delete process.env.CLOUDFLARE_R2_ACCOUNT_ID; delete process.env.CLOUDFLARE_R2_ACCESS_KEY; delete process.env.CLOUDFLARE_R2_BUCKET;
+    return () => Object.assign(process.env, {
+      CLOUDFLARE_R2_ACCOUNT_ID: antes.CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY: antes.CLOUDFLARE_R2_ACCESS_KEY,
+      CLOUDFLARE_R2_BUCKET: antes.CLOUDFLARE_R2_BUCKET,
+    });
+  };
+
+  it('el justificante se guarda en el disco y se abre con su enlace, que no abre la factura (ni al revés)', async () => {
+    await factura('enDisco', E.A);
+    const volver = sinR2();
+    try {
+      const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+      const res = await pagar('adminA', { ids: String(F.enDisco), fecha: '2026-06-05', forma_pago: 'bizum' }, jpg);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect((await fila(F.enDisco)).justificante).toMatch(/^local:facturas-colaborador\/pagos\/2026-06\/.+\.jpg$/);
+
+      const { url } = (await request.get(`${API}/facturas/${F.enDisco}/justificante`).set(como('adminA'))).body.data;
+      expect(url).toMatch(new RegExp(`^/facturas-colaborador/justificante-local/${F.enDisco}\\?exp=\\d+&sig=`));
+      const bajada = await request.get(`/api${url}`);
+      expect(bajada.status).toBe(200);
+      expect(bajada.headers['content-type']).toBe('image/jpeg');
+      expect(Buffer.from(bajada.body).equals(jpg)).toBe(true);
+
+      // La firma del justificante no abre la factura, ni la de la factura el justificante.
+      const firma = url.split('?')[1];
+      expect((await request.get(`${API}/archivo-local/${F.enDisco}?${firma}`)).status).toBe(403);
+      expect((await request.get(`${API}/justificante-local/${F.enDisco}?exp=9999999999&sig=inventada`)).status).toBe(403);
+    } finally { volver(); }
+  });
+
+  it('el ZIP lee también las facturas guardadas en el disco', async () => {
+    await q("UPDATE facturas_colaborador SET archivo_key = 'local:facturas-colaborador/2026-05/x/2026-05_En-disco.pdf' WHERE id = $1", [F.enDisco]);
+    const binario = (r, cb) => { const t = []; r.on('data', (c) => t.push(c)); r.on('end', () => cb(null, Buffer.concat(t))); };
+    const res = await request.get(`${API}/zip`).query({ periodo: '2026-05', issuerId: E.A.id }).set(como('adminA')).buffer(true).parse(binario);
+    expect(res.status).toBe(200);
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(res.body);
+    expect(await zip.file('2026-05_En-disco.pdf').async('string')).toContain('%PDF-1.4 facturas-colaborador/2026-05/x/2026-05_En-disco.pdf');
   });
 });
