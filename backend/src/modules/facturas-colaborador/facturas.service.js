@@ -415,13 +415,16 @@ export async function delMes(user, filtros) {
   const filas = await model.delMes({ ...filtros, issuerIds: ambito });
   const vivas = filas.filter((f) => f.estado !== 'anulada');
   const suma = (k) => vivas.reduce((s, f) => s + (f[k] === null ? 0 : Number(f[k])), 0);
+  // «3.150,00 € de 3.600,00 € acordados»: lo acordado es la base, así que con desglose
+  // cuenta su base (600 de 600, no los 636 con IVA e IRPF), como la diferencia de cada fila.
+  const recibido = vivas.reduce((s, f) => s + (f.importe === null ? 0 : Number(f.base ?? f.importe)), 0);
   return {
     periodo: filtros.periodo.slice(0, 7),
     mes: nombreDelMes(filtros.periodo),
     resumen: {
       total: vivas.length,
       recibidas: vivas.filter((f) => f.estado === 'recibida').length,
-      importe_recibido: Math.round(suma('importe') * 100) / 100,
+      importe_recibido: Math.round(recibido * 100) / 100,
       importe_acordado: Math.round(suma('importe_esperado') * 100) / 100,
     },
     facturas: filas,

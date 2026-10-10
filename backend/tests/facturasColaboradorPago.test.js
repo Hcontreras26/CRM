@@ -361,11 +361,16 @@ describe('facturas de colaboradores (#202) · Enviadas, Por pagar, Pagadas, Hist
   });
 
   it('con desglose, la diferencia es la de su base: lo acordado es la base, no el total con IVA e IRPF', async () => {
+    const recibido = async () => (await request.get(`${API}/mes`).query({ periodo: '2026-05', issuerId: E.A.id })
+      .set(como('adminA'))).body.data.resumen.importe_recibido;
+    const antes = await recibido();
     await q('UPDATE facturas_colaborador SET base = 450, importe_esperado = 450 WHERE id = $1', [F.porPagar]);
     const res = await vista('adminA', { vista: 'por_pagar', periodo: '2026-05' });
     const f = res.body.data.facturas.find((x) => x.id === F.porPagar);
     // Importe 500 (el total de su factura), base 450 y 450 acordados: diferencia 0.
     expect(Number(f.diferencia)).toBe(0);
+    // Y la cabecera de «Del mes» («… de … acordados») cuenta su base, no su total: 50 menos.
+    expect(Math.round((antes - await recibido()) * 100) / 100).toBe(50);
     await q('UPDATE facturas_colaborador SET base = NULL, importe_esperado = NULL WHERE id = $1', [F.porPagar]);
   });
 
