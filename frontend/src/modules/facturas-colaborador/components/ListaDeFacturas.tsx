@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowClockwise, ArrowCounterClockwise, ClockCounterClockwise, CurrencyEur, FileText, Receipt } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import usePermission from '@/shared/hooks/usePermission';
@@ -10,7 +10,7 @@ import {
   ESTADO, FORMA_PAGO_ES, diaDelPago, empresaCorta, euros, facturasColaboradorApi, fechaHora, primeraMayuscula, urlDelArchivo,
   type CosteDeCampus, type EmpresaDelGrupo, type EstadoFactura, type FacturaDelMes, type VistaDeFacturas,
 } from '../api/facturasColaborador.api';
-import { DeshacerPagoDialog, PagarDialog, RegistroDialog, esMes } from './DialogosFacturas';
+import { DeshacerPagoDialog, PagarDialog, RegistroDialog, errorDe, esMes } from './DialogosFacturas';
 
 /*
   Las pestañas de la segunda parte (#202, «Añadido 01/10 (tarde)»):
@@ -20,7 +20,6 @@ import { DeshacerPagoDialog, PagarDialog, RegistroDialog, esMes } from './Dialog
   no se mezclan: van en columnas distintas.
 */
 
-const errorDe = (err: any) => err?.data?.error || err?.message || 'Inténtalo de nuevo';
 const VACIO: Record<VistaDeFacturas, string> = {
   enviadas: 'Ninguna factura enviada con estos filtros',
   por_pagar: 'Nada por pagar con estos filtros',
@@ -54,15 +53,21 @@ export default function ListaDeFacturas({ vista, empresas }: { vista: VistaDeFac
       .catch(() => setColaboradores([]));
   }, []);
 
+  // Solo cuenta la última petición: si se cambia de filtro rápido, la respuesta del
+  // anterior no puede pisar la tabla (y «Marcar pagadas» pagaría las filas de otro filtro).
+  const peticion = useRef(0);
   const cargar = useCallback(async () => {
+    const esta = ++peticion.current;
     setCargando(true);
     try {
       const r = await facturasColaboradorApi.vista({ vista, issuerId, colaboradorId, periodo, estado });
+      if (esta !== peticion.current) return;
       setDatos(r.data);
       setMarcadas(new Set());
     } catch (err) {
+      if (esta !== peticion.current) return;
       toast({ title: 'No se pudo cargar la lista', description: errorDe(err), variant: 'destructive' });
-    } finally { setCargando(false); }
+    } finally { if (esta === peticion.current) setCargando(false); }
   }, [vista, issuerId, colaboradorId, periodo, estado]);
 
   useEffect(() => { void cargar(); }, [cargar]);
@@ -262,7 +267,7 @@ export function CostePorCampus({ periodo, issuerId }: { periodo: string; issuerI
         <tbody className="divide-y divide-border">
           {filas.map((c) => (
             <tr key={c.project_id ?? 'sin'}>
-              <td className="px-3 py-2">{c.campus ?? <span className="text-muted-foreground">Sin campus</span>}</td>
+              <td className="px-3 py-2">{c.campus ?? <span className="text-muted-foreground">Todo el grupo</span>}</td>
               <td className="px-3 py-2 text-right tabular-nums">{c.horas === null ? '—' : c.horas.toLocaleString('es-ES')}</td>
               <td className="px-3 py-2 text-right tabular-nums">{euros(c.importe)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{c.facturas}</td>

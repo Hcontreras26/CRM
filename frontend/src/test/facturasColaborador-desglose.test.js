@@ -35,7 +35,10 @@ describe('facturas de colaboradores · el desglose en la pantalla', () => {
       [{ concepto: 'x', project_id: '', horas: '1,5' }]).base).toBe(33.5);
   });
 
-  it('las horas, a dos decimales como el servidor: «7,333» son 7,33', () => {
-    expect(calcularDesglose(cobro({ modalidad: 'hora', tarifa_hora: 22, iva_pct: 0, irpf_pct: 0 }), '7,333', []).base).toBe(161.26);
+  it('las horas, como el servidor: dos decimales como mucho y sin punto de miles («0.500» no son 500 h)', () => {
+    const h = cobro({ modalidad: 'hora', tarifa_hora: 22, iva_pct: 0, irpf_pct: 0 });
+    expect(calcularDesglose(h, '7.25', []).base).toBe(159.5);
+    // El servidor las rechaza: aquí no suman.
+    for (const horas of ['7,333', '0.500', '1.000']) expect(calcularDesglose(h, horas, []).base, horas).toBe(0);
   });
 });

@@ -42,7 +42,7 @@ const mesActual = () => {
 };
 // Firefox no tiene el selector de mes y deja escribir: solo vale «AAAA-MM».
 export const esMes = (v: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
-const errorDe = (err: any) => err?.data?.error || err?.message || 'Inténtalo de nuevo';
+export const errorDe = (err: any) => err?.data?.error || err?.message || 'Inténtalo de nuevo';
 
 /* ─────────────────────────── alta y edición ─────────────────────────── */
 
@@ -388,10 +388,8 @@ export function PagarDialog({ facturas, alCerrar, alGuardar }: {
     setGuardando(true);
     try {
       await facturasColaboradorApi.pagar(facturas.map((f) => f.id), { fecha, forma_pago: forma, referencia_pago: referencia.trim() }, justificante);
-      toast({
-        title: facturas.length === 1 ? 'Factura pagada' : `${facturas.length} facturas pagadas`,
-        description: 'Se le avisa al colaborador.',
-      });
+      // Sin «se le avisa»: con los correos apagados el aviso no sale.
+      toast({ title: facturas.length === 1 ? 'Factura pagada' : `${facturas.length} facturas pagadas` });
       alGuardar();
     } catch (err) {
       toast({ title: 'No se pudo marcar pagada', description: errorDe(err), variant: 'destructive' });

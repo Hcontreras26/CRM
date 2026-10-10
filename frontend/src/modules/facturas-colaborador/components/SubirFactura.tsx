@@ -234,7 +234,7 @@ export default function SubirFactura({ factura, alSubir }: {
                   <div>
                     <span className="text-xs text-muted-foreground">Proyecto o campus</span>
                     <Select<string> value={l.project_id} onChange={(v) => cambiarLinea(i, 'project_id', v)} ariaLabel={`Proyecto de la línea ${i + 1}`}
-                      options={[{ value: '', label: 'Sin campus' }, ...(f.campus ?? []).map((p) => ({ value: String(p.id), label: p.nombre }))]} />
+                      options={[{ value: '', label: 'Todo el grupo' }, ...(f.campus ?? []).map((p) => ({ value: String(p.id), label: p.nombre }))]} />
                   </div>
                   <div>
                     <label htmlFor={`horas-${i}`} className="text-xs text-muted-foreground">Horas</label>

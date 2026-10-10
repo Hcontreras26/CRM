@@ -135,13 +135,13 @@ export const delMesSchema = z.object({
 export const VISTAS = ['enviadas', 'por_pagar', 'pagadas', 'historial'];
 export const vistaSchema = z.object({
   vista: z.enum(VISTAS, { message: `Pestaña inválida: ${VISTAS.join(', ')}` }),
-  issuerId: z.coerce.number().int().positive().optional(),
+  issuerId: z.coerce.number().int().positive().max(2147483647).optional(),
   colaboradorId: z.coerce.number().int().positive().max(2147483647).optional(),
   periodo: mes.optional(),
   estado: z.enum(['sin_enviar', 'enviado', 'abierto', 'recibida', 'anulada', 'no_enviado', 'caducado', 'no_cuadra']).optional(),
 });
 
-export const costePorCampusSchema = z.object({ periodo: mes, issuerId: z.coerce.number().int().positive().optional() });
+export const costePorCampusSchema = z.object({ periodo: mes, issuerId: z.coerce.number().int().positive().max(2147483647).optional() });
 
 // El ZIP del mes: de una empresa («facturas-colaboradores_2026-09_CEDIA.zip»).
 export const zipSchema = z.object({ periodo: mes, issuerId: z.coerce.number().int().positive().max(2147483647) });

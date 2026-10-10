@@ -7,11 +7,10 @@ import * as model from './facturas.model.js';
 import { anotar } from './facturas-colaborador.model.js';
 import { ambitoDe } from './facturas-colaborador.service.js';
 import { logger } from '../../shared/utils/logger.js';
-import { correosActivos, empresaCorta, enviarCorreoDelMes, enviarAcuse, enviarAvisoDePago, urlDelEnlace } from './facturas.emails.js';
+import { correosActivos, empresaCorta, enviarCorreoDelMes, enviarAcuse, enviarAvisoDePago, urlDelEnlace, conceptoSugerido } from './facturas.emails.js';
 import { notifyUsers } from '../notifications/notifications.service.js';
 import { enUtf8 } from '../whatsapp/media.service.js';
 import { calcularDesglose, cuadra } from './desglose.js';
-import { conceptoSugerido } from './facturas.emails.js';
 
 /*
   Facturas de colaboradores (#202) · el mes, el enlace y la subida.
@@ -523,7 +522,6 @@ export async function zipDelMes(user, periodo, issuerId) {
     { header: 'Número de recepción', key: 'numero_recepcion', width: 20 },
   ];
   hoja.getRow(1).font = { bold: true };
-  const num = (v) => (v === null ? null : Number(v));
   for (const f of filas) {
     hoja.addRow({
       colaborador: f.colaborador, area: AREA_ES[f.area] || f.area, nif: f.nif || '',
@@ -536,7 +534,6 @@ export async function zipDelMes(user, periodo, issuerId) {
   return {
     nombre: `facturas-colaboradores_${periodo.slice(0, 7)}_${empresaCorta(empresa)}.zip`,
     buffer: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }),
-    facturas: filas.length,
   };
 }
 

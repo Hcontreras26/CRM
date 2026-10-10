@@ -40,7 +40,7 @@ export interface DesgloseDeFactura {
   lineas: { orden: number; concepto: string; project_id: number | null; campus: string | null; horas: number | null; tarifa: number | null; importe: number }[];
 }
 
-/** Coste por campus del mes: horas y base de las líneas del desglose. `project_id` null = sin campus. */
+/** Coste por campus del mes: horas y base de las líneas del desglose. `project_id` null = todo el grupo. */
 export interface CosteDeCampus { project_id: number | null; campus: string | null; horas: number | null; importe: number; facturas: number }
 
 /** «2026-06-05» → «05/06», como «transferencia del 05/10» en la definición. */
@@ -184,7 +184,13 @@ export function calcularDesglose(cobro: NonNullable<FacturaDelColaborador['cobro
   // En céntimos enteros y con las horas a dos decimales, igual que desglose.js:
   // con decimales, 16,275 € salía 16,27 y la pantalla y el servidor no coincidían.
   const aC = (n: number) => Math.round(n * 100);
-  const horasC = (t: string) => { const n = Number(normalizarImporte(t)); return Number.isFinite(n) && n > 0 ? aC(n) : 0; };
+  // Las horas, sin separador de miles y con dos decimales como mucho (si no, el servidor las rechaza).
+  const horasC = (t: string) => {
+    const s = t.trim();
+    if (!/^\d+([.,]\d{1,2})?$/.test(s)) return 0;
+    const n = Number(s.replace(',', '.'));
+    return n > 0 ? aC(n) : 0;
+  };
   const tarifaC = aC(cobro.tarifa_hora ?? 0);
   const por = (hC: number) => Math.round((hC * tarifaC) / 100);
   const baseC = cobro.modalidad === 'fijo' ? aC(cobro.importe_fijo ?? 0)
@@ -272,8 +278,11 @@ export const facturasColaboradorApi = {
     const a = document.createElement('a');
     a.href = url;
     a.download = `facturas-colaboradores_${periodo}_${empresaCorta(razonSocial)}.zip`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    // Revocar en el mismo turno deja a algún navegador sin llegar a leer el blob (como en Certifex).
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   },
   costePorCampus: (periodo: string, issuerId?: string) =>
     client.get(`${BASE}/coste-por-campus${query({ periodo, issuerId })}`) as R<{ periodo: string; mes: string; campus: CosteDeCampus[] }>,

@@ -202,6 +202,15 @@ describe('facturas de colaboradores (#202) · marcar pagada', () => {
     expect((await request.get(`${API}/facturas/${F.sinSubir}/justificante`).set(como('adminA'))).status).toBe(404);
   });
 
+  it('el admin de A no abre el justificante de B ni le deshace el pago', async () => {
+    expect((await pagar('super', datos([F.deB]), PDF)).status).toBe(200);
+    expect((await request.get(`${API}/facturas/${F.deB}/justificante`).set(como('adminA'))).status).toBe(404);
+    expect((await request.post(`${API}/facturas/${F.deB}/deshacer-pago`).set(como('adminA')).send({ motivo: 'No es mía' })).status).toBe(404);
+    expect((await fila(F.deB)).pagada_at).toBe('2026-06-05');
+    // Se deja como estaba: por pagar (la usan las pestañas de abajo).
+    expect((await request.post(`${API}/facturas/${F.deB}/deshacer-pago`).set(como('super')).send({ motivo: 'Era de prueba' })).status).toBe(200);
+  });
+
   it('una pagada no se anula sin deshacer antes el pago', async () => {
     const res = await request.post(`${API}/facturas/${F.ana}/anular`).set(como('adminA')).send({ motivo: 'Se equivocó' });
     expect(res.status).toBe(409);
@@ -289,7 +298,8 @@ describe('facturas de colaboradores (#202) · Enviadas, Por pagar, Pagadas, Hist
     const res = await vista('adminA', { vista: 'por_pagar', periodo: '2026-05' });
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(mias(res)).toEqual([F.porPagar]);
-    expect(res.body.data.resumen.pendiente).toBeGreaterThanOrEqual(500);
+    // El admin de A solo ve la empresa A de esta prueba: lo pendiente es justo esa de 500.
+    expect(res.body.data.resumen).toMatchObject({ total: 1, pendiente: 500 });
     // La de B no la ve el admin de A; el super admin sí.
     expect(mias(await vista('super', { vista: 'por_pagar', periodo: '2026-05' }))).toEqual([F.deB, F.porPagar].sort((a, b) => a - b));
   });
@@ -369,7 +379,8 @@ describe('facturas de colaboradores (#202) · el ZIP del mes', () => {
       .set(como('adminA')).buffer(true).parse(binario);
     expect(res.status, res.text).toBe(200);
     expect(res.headers['content-type']).toBe('application/zip');
-    expect(res.headers['content-disposition']).toBe(`attachment; filename="facturas-colaboradores_2026-05_${MARCA}A.zip"`);
+    expect(res.headers['content-disposition']).toBe(
+      `attachment; filename="facturas-colaboradores_2026-05_${MARCA}A.zip"; filename*=UTF-8''facturas-colaboradores_2026-05_${MARCA}A.zip`);
 
     const { default: JSZip } = await import('jszip');
     const zip = await JSZip.loadAsync(res.body);
@@ -411,6 +422,20 @@ describe('facturas de colaboradores (#202) · el ZIP del mes', () => {
     await libro.xlsx.load(await zip.file('resumen.xlsx').async('nodebuffer'));
     const deLaura = [2, 3].map((n) => libro.getWorksheet('Resumen').getRow(n).values.slice(1)).find((r) => r[0] === `${MARCA} laura`);
     expect(deLaura[7].toISOString()).toBe('2026-06-01T12:44:00.000Z');
+  });
+
+  it('una razón social con «’» o «Ł» no rompe la descarga', async () => {
+    await q('UPDATE invoice_issuers SET razon_social = $2 WHERE id = $1', [E.A.id, `L’Łódź${MARCA} Empresa`]);
+    try {
+      const res = await request.get(`${API}/zip`).query({ periodo: '2026-05', issuerId: E.A.id })
+        .set(como('adminA')).buffer(true).parse(binario);
+      expect(res.status, res.text).toBe(200);
+      const nombre = `facturas-colaboradores_2026-05_L’Łódź${MARCA}.zip`;
+      expect(res.headers['content-disposition']).toBe(
+        `attachment; filename="${nombre.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`);
+    } finally {
+      await q('UPDATE invoice_issuers SET razon_social = $2 WHERE id = $1', [E.A.id, E.A.razon_social]);
+    }
   });
 
   it('un admin, solo de sus empresas; sin recibidas, 404; la gestora, 403', async () => {

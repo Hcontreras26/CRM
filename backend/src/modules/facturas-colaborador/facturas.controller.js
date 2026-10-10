@@ -78,7 +78,10 @@ export const zip = accion(async (req, res) => {
   const { periodo, issuerId } = validar(zipSchema, req.query);
   const z = await service.zipDelMes(req.user, periodo, issuerId);
   res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', `attachment; filename="${z.nombre}"`);
+  // Como la descarga del disco: el nombre sale de la razón social, y una «’» o una «Ł» rompían la cabecera (500).
+  const nombre = z.nombre.replace(/["\\\r\n]/g, '');
+  res.setHeader('Content-Disposition',
+    `attachment; filename="${nombre.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`);
   res.send(z.buffer);
 });
 

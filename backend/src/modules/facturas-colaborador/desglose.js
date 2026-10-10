@@ -1,5 +1,4 @@
 import { AppError } from '../../shared/utils/AppError.js';
-import { normalizarImporte } from './facturas-colaborador.validation.js';
 import { conceptoSugerido } from './facturas.emails.js';
 
 /*
@@ -31,15 +30,24 @@ const porciento = (baseC, pctC) => Math.round((baseC * pctC) / 10000);
 
 const MAL = (mensaje) => new AppError(mensaje, 400, 'VALIDATION_ERROR');
 
-/** Horas tal como las escribe la persona («7,5», «7.5»): número con dos decimales, o error. */
+/**
+ * Horas tal como las escribe la persona («7,5», «7.5»): número con dos decimales, o error.
+ * Sin separador de miles (como en el importe, «0.500» serían 500 horas) y sin redondear
+ * a escondidas («7,335» no es «7,33»).
+ */
 function horasDe(texto, donde) {
   if (texto === undefined || texto === null || String(texto).trim() === '') {
     throw MAL(`Escribe las horas${donde}`);
   }
-  const n = Number(normalizarImporte(texto));
-  if (!Number.isFinite(n) || n <= 0 || n > 744) throw MAL(`Horas inválidas${donde}`);
+  const t = String(texto).trim();
+  if (!/^\d+([.,]\d{1,2})?$/.test(t)) throw MAL(`Horas inválidas${donde}: con dos decimales como mucho`);
+  const n = Number(t.replace(',', '.'));
+  if (n <= 0 || n > 744) throw MAL(`Horas inválidas${donde}`);
   return aCentesimas(n);
 }
+
+// Lo que cabe en NUMERIC(12, 2): una tarifa alta por muchas horas no puede romper al guardar.
+const MAX_IMPORTE_C = 999_999_999_999;
 
 /** Las líneas que manda la pantalla (texto JSON, porque llega por multipart). */
 function lineasDe(texto) {
@@ -87,6 +95,7 @@ export function calcularDesglose({ cobro, area, periodo, entrada = {}, campus = 
   const baseC = lineas.reduce((s, l) => s + l.importeC, 0);
   const ivaC = porciento(baseC, aCentesimas(cobro.iva_pct));
   const irpfC = porciento(baseC, aCentesimas(cobro.irpf_pct));
+  if (baseC + ivaC > MAX_IMPORTE_C) throw MAL('El importe del desglose es demasiado grande');
   const conHoras = lineas.filter((l) => l.horasC !== null);
   return {
     lineas: lineas.map(({ horasC, importeC, ...l }) => ({ ...l, horas: horasC === null ? null : horasC / 100, importe: importeC / 100 })),

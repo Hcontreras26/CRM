@@ -156,9 +156,19 @@ describe('el cálculo del desglose', () => {
       { lineas: JSON.stringify([{ concepto: 'x', horas: '1,5' }]) }).lineas[0].importe).toBe(33.5);
   });
 
-  it('las horas, a dos decimales: «7,333» son 7,33 (como en la pantalla)', () => {
-    expect(desglose({ modalidad: 'hora', tarifa_hora: 22, iva_pct: 0, irpf_pct: 0 }, { horas: '7,333' }))
-      .toMatchObject({ horas: 7.33, base: 161.26 });
+  it('las horas, con dos decimales como mucho y sin punto de miles: «0.500» no son 500 horas', () => {
+    const h = { modalidad: 'hora', tarifa_hora: 22, iva_pct: 0, irpf_pct: 0 };
+    expect(desglose(h, { horas: '7.25' })).toMatchObject({ horas: 7.25, base: 159.5 });
+    // Antes «7,333» se quedaba en 7,33 sin avisar, y «0.500» se leía como 500 horas (el punto de miles del importe).
+    for (const horas of ['7,333', '0.500', '1.000', '7,5,1', '1e2']) {
+      expect(() => desglose(h, { horas }), horas).toThrow('Horas inválidas');
+    }
+  });
+
+  it('un desglose que no cabe en la base se rechaza antes de guardar', () => {
+    // La tarifa más alta que admite la ficha por 744 h: más de lo que cabe en NUMERIC(12, 2).
+    expect(() => desglose({ modalidad: 'hora', tarifa_hora: 99999999.99, iva_pct: 21, irpf_pct: 0 }, { horas: '744' }))
+      .toThrow('demasiado grande');
   });
 
   it('cuadra al céntimo', () => {

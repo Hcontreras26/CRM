@@ -433,14 +433,13 @@ export async function costePorCampus({ periodo, issuerIds, issuerId = null }) {
 /** Las recibidas de una empresa y un mes, para el ZIP: con su archivo y lo que pide el resumen. */
 export async function paraElZip(periodo, issuerId) {
   const { rows } = await query(
-    `SELECT f.id, c.nombre AS colaborador, c.area, c.nif, ii.razon_social AS empresa,
+    `SELECT f.id, c.nombre AS colaborador, c.area, c.nif,
             f.numero_factura, f.importe, f.importe_esperado,
             CASE WHEN f.importe IS NOT NULL AND f.importe_esperado IS NOT NULL
                  THEN f.importe - f.importe_esperado END AS diferencia,
             f.subida_at, f.numero_recepcion, f.archivo_key
        FROM facturas_colaborador f
        JOIN colaboradores c ON c.id = f.colaborador_id
-       JOIN invoice_issuers ii ON ii.id = f.issuer_id
       WHERE f.periodo = $1::date AND f.issuer_id = $2
         AND f.subida_at IS NOT NULL AND f.anulada_at IS NULL AND f.archivo_key IS NOT NULL
       ORDER BY c.nombre, f.id`,
