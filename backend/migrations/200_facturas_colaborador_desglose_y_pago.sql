@@ -7,7 +7,8 @@
 --     o pagada con su fecha.
 -- Los nombres de las columnas son los de su esquema.
 --
--- 199: la 198 es la primera PR de las facturas de colaboradores.
+-- 200: la 198 es la primera PR de las facturas de colaboradores; la 199, la de
+-- los diplomas de Certifex de Ángel (#300).
 -- Se puede pasar dos veces sin romper nada.
 
 BEGIN;
