@@ -169,6 +169,16 @@ describe('facturas de colaboradores (#202) · la lista', () => {
     expect((await request.get(`${API}/colaboradores?issuerId=${E.B.id}`).set(como('adminA'))).status).toBe(403);
   });
 
+  it('con una empresa en la cabecera, solo quienes le facturan (Diego, 10/10: «son por EMPRESA»)', async () => {
+    const deB = await request.get(`${API}/colaboradores?issuerId=${E.B.id}`).set(como('super'));
+    expect(deB.status).toBe(200);
+    const mios = deB.body.data.filter((c) => c.nombre.startsWith(MARCA));
+    expect(mios.map((c) => c.id)).toContain(pedro.id);
+    expect(mios.every((c) => c.empresas.some((e) => e.issuer_id === E.B.id))).toBe(true);
+    const deA = await request.get(`${API}/colaboradores?issuerId=${E.A.id}`).set(como('super'));
+    expect(deA.body.data.some((c) => c.id === pedro.id)).toBe(false);
+  });
+
   it('si el admin de A cambia las empresas de Laura, la B se queda como estaba', async () => {
     const res = await request.patch(`${API}/colaboradores/${laura.id}`).set(como('adminA'))
       .send({ empresas: [{ issuer_id: E.A.id, importe_acordado: 650 }] });

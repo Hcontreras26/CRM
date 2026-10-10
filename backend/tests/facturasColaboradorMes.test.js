@@ -275,6 +275,16 @@ describe('facturas de colaboradores (#202) · administración', () => {
     expect(mias.map((f) => f.estado).sort()).toEqual(['caducado', 'recibida', 'sin_enviar']);
   });
 
+  it('con una empresa en la cabecera solo llegan sus facturas (Diego, 10/10: «son por EMPRESA»)', async () => {
+    for (const k of ['A', 'B']) {
+      const res = await request.get(`${API}/mes?periodo=2026-09&issuerId=${E[k].id}`).set(como('super'));
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      const mias = res.body.data.facturas.filter((f) => f.colaborador_nombre.startsWith(MARCA));
+      expect(mias.length).toBeGreaterThan(0);
+      expect(new Set(mias.map((f) => f.empresa))).toEqual(new Set([`${MARCA} Empresa ${k}`]));
+    }
+  });
+
   it('el archivo se abre con un enlace firmado, y no el de otra empresa', async () => {
     const lauraA = await filaViva(C.laura, E.A);
     const res = await request.get(`${API}/facturas/${lauraA}/archivo`).set(como('adminA'));
