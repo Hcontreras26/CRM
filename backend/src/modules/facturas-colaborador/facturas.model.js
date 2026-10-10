@@ -122,7 +122,7 @@ export async function delUsuarioPorId(userId, id) {
 export async function bloquear(db, id) {
   const { rows } = await db.query(
     `SELECT f.id, f.colaborador_id, f.issuer_id, to_char(f.periodo, 'YYYY-MM-DD') AS periodo,
-            f.subida_at, f.anulada_at, f.caduca_at, f.token_hash
+            f.subida_at, f.anulada_at, f.caduca_at, f.token_hash, f.pagada_at
        FROM facturas_colaborador f WHERE f.id = $1 FOR UPDATE`,
     [id],
   );
@@ -199,6 +199,13 @@ export async function recordatorioFallido(id) {
     [id],
   );
   return rows.length > 0;
+}
+
+/** Cuántas veces pasó esto con esta factura (cuántas veces se ha pagado, para la clave del aviso). */
+export async function vecesQue(id, evento) {
+  const { rows } = await query(
+    'SELECT COUNT(*)::int AS n FROM facturas_colaborador_registro WHERE factura_id = $1 AND evento = $2', [id, evento]);
+  return rows[0].n;
 }
 
 /** ¿Ya pasó esto con esta factura? (para no repetir el recordatorio) */

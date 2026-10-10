@@ -224,17 +224,47 @@ describe('facturas de colaboradores (#202) · marcar pagada', () => {
     sendEmail.mockClear();
     delete process.env.FACTURAS_COLABORADOR_CORREOS_ACTIVOS;
     expect((await pagar('adminA', datos([F.ana]))).status).toBe(200);
+    // Sale después de responder: se le da tiempo antes de encender los correos.
+    await new Promise((r) => setTimeout(r, 400));
     expect(sendEmail).not.toHaveBeenCalled();
     expect(await registro(F.ana, 'aviso_pago')).toHaveLength(0);
 
     process.env.FACTURAS_COLABORADOR_CORREOS_ACTIVOS = 'true';
-    expect((await pagar('adminA', { ...datos([F.aviso]), fecha: '2026-06-05' })).status).toBe(200);
-    delete process.env.FACTURAS_COLABORADOR_CORREOS_ACTIVOS;
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    const correo = sendEmail.mock.calls[0][0];
-    expect(correo.to).toEqual([{ email: `aviso_${MARCA.toLowerCase()}@test.local`, name: `${MARCA} aviso` }]);
-    expect(correo.subject).toBe(`Tu factura de mayo para ${MARCA}A está pagada · 636,00 € · transferencia del 05/06`);
-    expect(await registro(F.aviso, 'aviso_pago')).toHaveLength(1);
+    try {
+      expect((await pagar('adminA', { ...datos([F.aviso]), fecha: '2026-06-05' })).status).toBe(200);
+      await vi.waitFor(async () => expect(await registro(F.aviso, 'aviso_pago')).toHaveLength(1));
+      expect(sendEmail).toHaveBeenCalledTimes(1);
+      const correo = sendEmail.mock.calls[0][0];
+      expect(correo.to).toEqual([{ email: `aviso_${MARCA.toLowerCase()}@test.local`, name: `${MARCA} aviso` }]);
+      expect(correo.subject).toBe(`Tu factura de mayo para ${MARCA}A está pagada · 636,00 € · transferencia del 05/06`);
+
+      // Se deshace y se vuelve a pagar el mismo día (otra forma de pago): sale otro aviso, con otra clave.
+      expect((await request.post(`${API}/facturas/${F.aviso}/deshacer-pago`).set(como('adminA')).send({ motivo: 'Era Bizum' })).status).toBe(200);
+      expect((await pagar('adminA', { ...datos([F.aviso]), fecha: '2026-06-05', forma_pago: 'bizum' })).status).toBe(200);
+      await vi.waitFor(async () => expect(await registro(F.aviso, 'aviso_pago')).toHaveLength(2));
+      const [primero, segundo] = sendEmail.mock.calls.map((c) => c[0]);
+      expect(segundo.subject).toContain('Bizum del 05/06');
+      expect(segundo.clave).not.toBe(primero.clave);
+    } finally { delete process.env.FACTURAS_COLABORADOR_CORREOS_ACTIVOS; }
+  });
+
+  it('anular y pagar a la vez: si el pago llega mientras anular espera la fila, la anulación no sigue', async () => {
+    await factura('carrera', E.A);
+    // La fila, bloqueada desde fuera: «anular» ya la ha leído sin pagar y se queda esperando.
+    const otro = await pool.connect();
+    try {
+      await otro.query('BEGIN');
+      await otro.query('SELECT id FROM facturas_colaborador WHERE id = $1 FOR UPDATE', [F.carrera]);
+      const anulando = request.post(`${API}/facturas/${F.carrera}/anular`).set(como('adminA')).send({ motivo: 'Se equivocó' }).then((r) => r);
+      await new Promise((r) => setTimeout(r, 600));
+      // Entretanto, otro admin la paga.
+      await otro.query("UPDATE facturas_colaborador SET pagada_at = '2026-06-05', forma_pago = 'transferencia' WHERE id = $1", [F.carrera]);
+      await otro.query('COMMIT');
+      const res = await anulando;
+      expect(res.status, JSON.stringify(res.body)).toBe(409);
+      expect(res.body.error).toContain('deshaz el pago');
+      expect((await one('SELECT anulada_at FROM facturas_colaborador WHERE id = $1', [F.carrera])).anulada_at).toBeNull();
+    } finally { otro.release(); }
   });
 });
 
@@ -264,12 +294,12 @@ describe('facturas de colaboradores (#202) · Enviadas, Por pagar, Pagadas, Hist
 
   it('Pagadas, Enviadas e Historial', async () => {
     expect(mias(await vista('adminA', { vista: 'pagadas', periodo: '2026-05' })))
-      .toEqual([F.laura, F.ana, F.aviso].sort((a, b) => a - b));
+      .toEqual([F.laura, F.ana, F.aviso, F.carrera].sort((a, b) => a - b));
     expect(mias(await vista('adminA', { vista: 'enviadas', periodo: '2026-05' })))
-      .toEqual([F.laura, F.ana, F.aviso, F.porPagar].sort((a, b) => a - b));
+      .toEqual([F.laura, F.ana, F.aviso, F.carrera, F.porPagar].sort((a, b) => a - b));
     // El historial lo lleva todo, también la que aún no ha llegado.
     expect(mias(await vista('adminA', { vista: 'historial', periodo: '2026-05' })))
-      .toEqual([F.laura, F.ana, F.sinSubir, F.aviso, F.porPagar].sort((a, b) => a - b));
+      .toEqual([F.laura, F.ana, F.sinSubir, F.aviso, F.carrera, F.porPagar].sort((a, b) => a - b));
   });
 
   it('se filtra por colaborador y por estado («No cuadra» es de la factura)', async () => {

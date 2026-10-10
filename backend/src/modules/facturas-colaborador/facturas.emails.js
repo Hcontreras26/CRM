@@ -165,15 +165,18 @@ export function armarAvisoDePago({ f, marca = null }) {
 
 const para = (f) => [{ email: f.colaborador_email, name: f.colaborador_nombre }];
 
-/** Manda el aviso de pago. La clave lleva la fecha: si se deshace y se paga otro día, sale otro. */
-export async function enviarAvisoDePago({ f, marca = null }) {
+/**
+ * Manda el aviso de pago. La clave lleva la vez que se paga: un reintento no lo
+ * repite, y si se deshace y se vuelve a pagar (aunque sea el mismo día) sale otro.
+ */
+export async function enviarAvisoDePago({ f, vez = 1, marca = null }) {
   const c = armarAvisoDePago({ f, marca });
   return despachar({
     projectId: marca?.id ?? null,
     to: para(f), subject: c.asunto, htmlContent: c.htmlContent, textContent: c.textContent,
     fromName: c.fromName,
     tags: ['facturas-colaborador', 'pago'],
-    clave: `facturas-colaborador-pago-${f.id}-${String(f.pagada_at).slice(0, 10)}`,
+    clave: `facturas-colaborador-pago-${f.id}-${vez}`,
   });
 }
 

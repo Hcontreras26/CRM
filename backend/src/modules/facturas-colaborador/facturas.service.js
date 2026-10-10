@@ -582,7 +582,12 @@ export async function pagar(user, { ids, fecha, forma, referencia, archivo }, ip
     }
   });
 
-  for (const f of facturas) await mandarAvisoDePago(f.id);
+  // El aviso, DESPUÉS de responder (como el acuse de la revisión del 10/10): con muchas
+  // a la vez y los correos encendidos, la petición esperaba a Brevo y podía cortarse
+  // con el pago ya guardado.
+  setImmediate(async () => {
+    for (const f of facturas) await mandarAvisoDePago(f.id);
+  });
   return { pagadas: ids, fecha, forma_pago: forma };
 }
 
@@ -590,7 +595,9 @@ export async function pagar(user, { ids, fecha, forma, referencia, archivo }, ip
 async function mandarAvisoDePago(id) {
   try {
     const f = await model.porId(id, null);
-    const r = await enviarAvisoDePago({ f, marca: await model.marcaDeLaEmpresa(f.issuer_id) });
+    // La vez que se paga: si se deshace y se vuelve a pagar, aunque sea el mismo día, sale otro aviso.
+    const vez = await model.vecesQue(id, 'pagada');
+    const r = await enviarAvisoDePago({ f, vez, marca: await model.marcaDeLaEmpresa(f.issuer_id) });
     if (r?.sent) await anotar(pool, { facturaId: id, evento: 'aviso_pago', detalle: { para: f.colaborador_email } });
   } catch (err) {
     logger.error({ err: err.message, facturaId: id }, 'No se pudo mandar el aviso de pago de la factura de colaborador');
@@ -637,6 +644,8 @@ export async function anular(user, id, motivo, ip) {
     // Con la fila bloqueada: si otra anulación se adelantó, esta no sigue.
     const fila = await model.bloquear(db, id);
     if (fila.anulada_at) throw new AppError('Esta factura ya está anulada', 409, 'CONFLICT');
+    // Y con la fila bloqueada: si otro admin la pagó entretanto, no queda pagada y anulada a la vez.
+    if (fila.pagada_at) throw new AppError('Esta factura está pagada: deshaz el pago antes de anularla', 409, 'PAGADA');
     await model.anular(db, id, user.userId, motivo);
     await anotar(db, { facturaId: id, evento: 'anulada', userId: user.userId, ip, detalle: { motivo } });
     const nueva = await model.crearDelMes(db, {
