@@ -374,6 +374,28 @@ describe('facturas de colaboradores (#202) · el ZIP del mes', () => {
     expect(deLaura[8]).toMatch(/^REC-P/);
   });
 
+  it('la fecha de subida, en hora de Madrid; y dos con el mismo nombre no se pisan', async () => {
+    // 10:44 UTC de un día de verano son las 12:44 en Madrid.
+    await q("UPDATE facturas_colaborador SET subida_at = '2026-06-01T10:44:00Z' WHERE id = $1", [F.laura]);
+    // La de porPagar, con el mismo nombre de archivo que la de Laura.
+    await q('UPDATE facturas_colaborador SET archivo_key = $2 WHERE id = $1',
+      [F.porPagar, `facturas-colaborador/2026-05/otra-carpeta/${nombre('laura')}`]);
+    const res = await request.get(`${API}/zip`).query({ periodo: '2026-05', issuerId: E.A.id })
+      .set(como('adminA')).buffer(true).parse(binario);
+    expect(res.status).toBe(200);
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(res.body);
+    const pdfs = Object.keys(zip.files).filter((n) => n.endsWith('.pdf'));
+    expect(pdfs).toHaveLength(2);
+    expect(pdfs.some((n) => /_REC-P\d+-\d+\.pdf$/.test(n)), pdfs.join(' · ')).toBe(true);
+
+    const { default: ExcelJS } = await import('exceljs');
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.load(await zip.file('resumen.xlsx').async('nodebuffer'));
+    const deLaura = [2, 3].map((n) => libro.getWorksheet('Resumen').getRow(n).values.slice(1)).find((r) => r[0] === `${MARCA} laura`);
+    expect(deLaura[7].toISOString()).toBe('2026-06-01T12:44:00.000Z');
+  });
+
   it('un admin, solo de sus empresas; sin recibidas, 404; la gestora, 403', async () => {
     expect((await request.get(`${API}/zip`).query({ periodo: '2026-05', issuerId: E.B.id }).set(como('adminA'))).status).toBe(403);
     const vacio = await request.get(`${API}/zip`).query({ periodo: '2026-04', issuerId: E.A.id }).set(como('adminA'));

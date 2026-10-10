@@ -461,6 +461,19 @@ export async function costePorCampus(user, periodo, issuerId = null) {
   return { periodo: periodo.slice(0, 7), mes: nombreDelMes(periodo), campus: filas };
 }
 
+/**
+ * La hora de Madrid, para el Excel: ExcelJS escribe la fecha en UTC, y una factura
+ * subida a las 12:44 de Madrid salía a las 10:44. Se pasa la hora de reloj de Madrid
+ * como si fuera UTC, que es lo que el Excel enseña.
+ */
+function horaDeMadrid(fecha) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: process.env.APP_TIMEZONE || 'Europe/Madrid', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(fecha)).map((x) => [x.type, x.value]));
+  return new Date(Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second));
+}
+
 const AREA_ES = {
   soporte: 'Soporte', desarrollo: 'Desarrollo', wordpress: 'WordPress', seo: 'SEO', contenido: 'Contenido', otra: 'Otra',
 };
@@ -485,9 +498,15 @@ export async function zipDelMes(user, periodo, issuerId) {
   // Se cargan aquí, al pedir el ZIP, y no al arrancar (como en wasapiCsv.js).
   const [{ default: JSZip }, { default: ExcelJS }] = await Promise.all([import('jszip'), import('exceljs')]);
   const zip = new JSZip();
+  const usados = new Set();
   for (const f of filas) {
     // El nombre con que se guardó: «2026-09_CEDIA_Laura-Perez_F-2026-09.pdf» (de R2 o del disco).
-    zip.file(f.archivo_key.split('/').pop(), await leerArchivo(f.archivo_key));
+    // Si dos se llaman igual (mismo nombre y mismo número de factura), la segunda lleva
+    // su número de recepción: si no, una pisaba a la otra dentro del ZIP sin avisar.
+    let nombre = f.archivo_key.split('/').pop();
+    if (usados.has(nombre)) nombre = nombre.replace(/(.[^.]+)?$/, `_${f.numero_recepcion}$1`);
+    usados.add(nombre);
+    zip.file(nombre, await leerArchivo(f.archivo_key));
   }
 
   const libro = new ExcelJS.Workbook();
@@ -509,7 +528,7 @@ export async function zipDelMes(user, periodo, issuerId) {
     hoja.addRow({
       colaborador: f.colaborador, area: AREA_ES[f.area] || f.area, nif: f.nif || '',
       numero_factura: f.numero_factura, importe: num(f.importe), acordado: num(f.importe_esperado),
-      diferencia: num(f.diferencia), subida: new Date(f.subida_at), numero_recepcion: f.numero_recepcion,
+      diferencia: num(f.diferencia), subida: horaDeMadrid(f.subida_at), numero_recepcion: f.numero_recepcion,
     });
   }
   zip.file('resumen.xlsx', Buffer.from(await libro.xlsx.writeBuffer()));
