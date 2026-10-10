@@ -47,8 +47,8 @@ export const verEnlace = accion(async (req, res) => {
 
 export const subir = accion(async (req, res) => {
   const token = enlaceDe(req);
-  const { importe, numero_factura: numeroFactura } = validar(subidaSchema, req.body);
-  const data = await service.subir(token, { archivo: req.file, importe, numeroFactura }, ipDe(req));
+  const { importe, numero_factura: numeroFactura, horas, lineas } = validar(subidaSchema, req.body);
+  const data = await service.subir(token, { archivo: req.file, importe, numeroFactura, desglose: { horas, lineas } }, ipDe(req));
   res.status(201).json({ success: true, data });
 });
 
@@ -86,8 +86,8 @@ export const mias = accion(async (req, res) => {
 
 export const subirMia = accion(async (req, res) => {
   const id = validarId(req.params.id);
-  const { importe, numero_factura: numeroFactura } = validar(subidaSchema, req.body);
-  const data = await service.subirMia(req.user, id, { archivo: req.file, importe, numeroFactura }, ipDe(req));
+  const { importe, numero_factura: numeroFactura, horas, lineas } = validar(subidaSchema, req.body);
+  const data = await service.subirMia(req.user, id, { archivo: req.file, importe, numeroFactura, desglose: { horas, lineas } }, ipDe(req));
   res.status(201).json({ success: true, data });
 });
 

@@ -115,6 +115,10 @@ export const subidaSchema = z.object({
     .transform((v) => Number(normalizarImporte(v)))
     .refine((n) => Number.isFinite(n) && n >= 0 && n <= 9999999999.99, 'Importe inválido'),
   numero_factura: z.string().trim().min(1, 'Escribe el número de tu factura').max(60),
+  // El desglose (segunda parte): las horas, si cobra por hora; las líneas
+  // (JSON), si cobra por proyecto. Lo comprueba y lo calcula desglose.js.
+  horas: z.string().trim().max(20).optional(),
+  lineas: z.string().max(20000).optional(),
 });
 
 export const delMesSchema = z.object({

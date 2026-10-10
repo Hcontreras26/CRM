@@ -87,8 +87,8 @@ export default function MiFacturaPage() {
                 <div className="border-t border-border p-4">
                   <SubirFactura
                     factura={m}
-                    alSubir={async (archivo, importe, numero) => {
-                      await facturasColaboradorApi.subirMia(m.id!, archivo, importe, numero);
+                    alSubir={async (archivo, importe, numero, desglose) => {
+                      await facturasColaboradorApi.subirMia(m.id!, archivo, importe, numero, desglose);
                       toast({ title: 'Factura enviada', description: `${m.mes} · ${m.empresa.razon_social}` });
                       setAbierta(null);
                       await cargar();

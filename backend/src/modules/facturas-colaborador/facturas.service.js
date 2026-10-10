@@ -10,6 +10,8 @@ import { logger } from '../../shared/utils/logger.js';
 import { enviarCorreoDelMes, enviarAcuse, urlDelEnlace } from './facturas.emails.js';
 import { notifyUsers } from '../notifications/notifications.service.js';
 import { enUtf8 } from '../whatsapp/media.service.js';
+import { calcularDesglose, cuadra } from './desglose.js';
+import { conceptoSugerido } from './facturas.emails.js';
 
 /*
   Facturas de colaboradores (#202) · el mes, el enlace y la subida.
@@ -195,14 +197,35 @@ function paraElColaborador(f) {
     },
     importe_acordado: f.importe_esperado === null ? null : Number(f.importe_esperado),
     caduca_at: f.caduca_at,
+    // Cómo cobra de esta empresa (segunda parte), para pedirle el desglose. Sin
+    // modalidad, null: la factura se sube como en la primera parte.
+    cobro: f.modalidad ? {
+      modalidad: f.modalidad,
+      importe_fijo: num(f.importe_fijo),
+      tarifa_hora: num(f.tarifa_hora),
+      iva_pct: num(f.iva_pct),
+      irpf_pct: num(f.irpf_pct),
+      concepto: conceptoSugerido(f.area, f.periodo),
+    } : null,
     recibida: f.subida_at ? {
       subida_at: f.subida_at,
       numero_recepcion: f.numero_recepcion,
       importe: f.importe === null ? null : Number(f.importe),
       numero_factura: f.numero_factura,
       archivo: f.nombre_original,
+      // Lo que calculó el CRM; `cuadra` null = subida sin desglose.
+      total: num(f.total),
+      cuadra: f.cuadra ?? null,
     } : null,
   };
+}
+
+const num = (v) => (v === null || v === undefined ? null : Number(v));
+
+/** Si cobra por proyecto y aún puede subirla, los campus para elegir en cada línea. */
+async function conCampus(datos) {
+  const sube = datos.cobro?.modalidad === 'proyecto' && !datos.recibida && !['anulada', 'caducado'].includes(datos.estado);
+  return sube ? { ...datos, campus: await model.campusDelCrm() } : datos;
 }
 
 /** La primera vez que se usa un enlace caducado, queda en el registro. */
@@ -220,7 +243,7 @@ export async function verEnlace(token, ip) {
     await anotar(pool, { facturaId: f.id, evento: 'abierto', ip });
     f.estado = 'abierto';
   }
-  return paraElColaborador(f);
+  return conCampus(paraElColaborador(f));
 }
 
 const FIRMAS = [
@@ -260,7 +283,7 @@ export async function subir(token, datos, ip) {
  * Subir la factura de una fila del mes. Lo mismo por el enlace del correo que
  * desde «Mi factura»: una por empresa y mes, PDF o foto, 10 MB.
  */
-async function guardarFactura(f, { archivo, importe, numeroFactura }, { ip = null, userId = null, enlaceHash = null }) {
+async function guardarFactura(f, { archivo, importe, numeroFactura, desglose: entrada = {} }, { ip = null, userId = null, enlaceHash = null }) {
   const delMes = `${nombreDelMes(f.periodo)} para ${f.razon_social}`;
   if (f.estado === 'anulada') {
     throw new AppError('Esta factura se anuló: te llegará un enlace nuevo', 409, 'ANULADA');
@@ -276,6 +299,15 @@ async function guardarFactura(f, { archivo, importe, numeroFactura }, { ip = nul
   if (archivo.size > TOPE_BYTES) throw new AppError('El archivo pasa de 10 MB', 400, 'FILE_TOO_LARGE');
   const tipo = tipoReal(archivo.buffer);
   if (!tipo) throw new AppError('El archivo tiene que ser un PDF o una foto JPG o PNG', 400, 'INVALID_FILE_TYPE');
+
+  // El desglose, según cómo cobra de esta empresa (segunda parte). Se comprueba
+  // antes de subir nada a R2. Si no cuadra con su total, se guarda igual y
+  // queda marcada «No cuadra».
+  const desglose = calcularDesglose({
+    cobro: f, area: f.area, periodo: f.periodo, entrada,
+    campus: f.modalidad === 'proyecto' ? (await model.campusDelCrm()).map((p) => p.id) : [],
+  });
+  const cuadraConSuTotal = desglose ? cuadra(importe, desglose) : null;
 
   const sha256 = crypto.createHash('sha256').update(archivo.buffer).digest('hex');
   const nombre = nombreDelArchivo({
@@ -303,13 +335,17 @@ async function guardarFactura(f, { archivo, importe, numeroFactura }, { ip = nul
     const numeroRecepcion = await model.siguienteRecepcion(db, f.periodo);
     await model.guardarSubida(db, f.id, {
       numeroRecepcion, importe, numeroFactura, archivoKey, nombreOriginal,
-      mime: tipo.mime, tamano: archivo.size, sha256,
+      mime: tipo.mime, tamano: archivo.size, sha256, desglose, cuadra: cuadraConSuTotal,
     });
     await anotar(db, {
       facturaId: f.id, evento: 'recibida', ip, userId,
       detalle: {
         archivo: nombreOriginal, tamano: archivo.size, importe,
         numero_factura: numeroFactura, numero_recepcion: numeroRecepcion,
+        ...(desglose ? {
+          modalidad: f.modalidad, base: desglose.base, iva: desglose.iva, irpf: desglose.irpf,
+          total: desglose.total, horas: desglose.horas, cuadra: cuadraConSuTotal,
+        } : {}),
       },
     });
   });
@@ -323,13 +359,13 @@ const NO_ES_TUYA = () => new AppError('Factura no encontrada', 404, 'NOT_FOUND')
 /** Sus meses: los de los colaboradores de la lista que llevan su usuario. */
 export async function mias(user) {
   const filas = await model.delUsuario(user.userId);
-  return filas.map((f) => ({
+  return Promise.all(filas.map(async (f) => ({
     id: f.id,
-    ...paraElColaborador(f),
+    ...(await conCampus(paraElColaborador(f))),
     // Su enlace, rehecho con la semilla; solo mientras sirve para subirla.
     enlace: f.token_semilla && !['recibida', 'anulada', 'caducado'].includes(f.estado)
       ? urlDelEnlace(enlaceDeLaSemilla(f.token_semilla)) : null,
-  }));
+  })));
 }
 
 export async function subirMia(user, id, datos, ip) {

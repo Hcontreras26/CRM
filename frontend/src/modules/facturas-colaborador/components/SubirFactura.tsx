@@ -1,11 +1,15 @@
 import { useRef, useState } from 'react';
-import { CheckCircle, Copy, FilePdf, UploadSimple, WarningCircle } from '@phosphor-icons/react';
+import { CheckCircle, Copy, FilePdf, Plus, Trash, UploadSimple, WarningCircle } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import { Button } from '@/shared/components/ui/button';
 import Field from '@/shared/components/ui/Field';
 import FilaCampos from '@/shared/components/ui/FilaCampos';
+import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
-import { euros, normalizarImporte, type FacturaDelColaborador } from '../api/facturasColaborador.api';
+import {
+  calcularDesglose, euros, normalizarImporte,
+  type DesgloseEnvio, type FacturaDelColaborador, type LineaForm,
+} from '../api/facturasColaborador.api';
 
 /*
   La factura de un mes, tal como la ve el colaborador (#202): por su enlace
@@ -34,9 +38,15 @@ const cuando = (iso: string) => {
 export default function SubirFactura({ factura, alSubir }: {
   factura: FacturaDelColaborador;
   /** Manda el formulario; devuelve la factura ya recibida o lanza el error del servidor. */
-  alSubir: (archivo: File, importe: string, numero: string) => Promise<void>;
+  alSubir: (archivo: File, importe: string, numero: string, desglose: DesgloseEnvio) => Promise<void>;
 }) {
   const f = factura;
+  // El desglose (segunda parte): las horas del mes, o una línea por encargo.
+  const [horas, setHoras] = useState('');
+  const [lineas, setLineas] = useState<LineaForm[]>([{ concepto: '', project_id: '', horas: '' }]);
+  const cambiarLinea = (i: number, campo: keyof LineaForm, valor: string) =>
+    setLineas((ls) => ls.map((l, j) => (j === i ? { ...l, [campo]: valor } : l)));
+  const calculo = f.cobro ? calcularDesglose(f.cobro, horas, lineas) : null;
   const [archivo, setArchivo] = useState<File | null>(null);
   const [importe, setImporte] = useState(f.importe_acordado !== null ? String(f.importe_acordado).replace('.', ',') : '');
   const [numero, setNumero] = useState('');
@@ -48,6 +58,9 @@ export default function SubirFactura({ factura, alSubir }: {
   const importeNum = Number(normalizarImporte(importe));
   const noCoincide = f.importe_acordado !== null && importe.trim() !== ''
     && Number.isFinite(importeNum) && Math.abs(importeNum - f.importe_acordado) > 0.005;
+  // «Si no cuadra, se avisa y se deja enviar»: queda marcada «No cuadra».
+  const noCuadra = calculo !== null && importe.trim() !== ''
+    && Number.isFinite(importeNum) && Math.abs(importeNum - calculo.total) > 0.005;
 
   function elegir(a: File | null | undefined) {
     setError(null);
@@ -71,11 +84,23 @@ export default function SubirFactura({ factura, alSubir }: {
     if (!archivo) { setError('Elige el archivo de tu factura.'); return; }
     if (!importe.trim()) { setError('Escribe el importe de tu factura.'); return; }
     if (!numero.trim()) { setError('Escribe el número de tu factura.'); return; }
+    const desglose: DesgloseEnvio = {};
+    if (f.cobro?.modalidad === 'hora') {
+      if (!horas.trim()) { setError('Escribe las horas del mes.'); return; }
+      desglose.horas = horas.trim();
+    }
+    if (f.cobro?.modalidad === 'proyecto') {
+      const mal = lineas.findIndex((l) => !l.concepto.trim() || !l.horas.trim());
+      if (mal >= 0) { setError(`Escribe el encargo y las horas en la línea ${mal + 1}.`); return; }
+      desglose.lineas = JSON.stringify(lineas.map((l) => ({
+        concepto: l.concepto.trim(), project_id: l.project_id ? Number(l.project_id) : null, horas: l.horas.trim(),
+      })));
+    }
     setEnviando(true);
     setError(null);
     try {
       // Tal cual: lo normaliza el servidor (hacerlo dos veces convertía «12,500» en 12500).
-      await alSubir(archivo, importe.trim(), numero.trim());
+      await alSubir(archivo, importe.trim(), numero.trim(), desglose);
     } catch (err: any) {
       setError(err?.data?.error || err?.message || 'No se pudo enviar la factura.');
     } finally {
@@ -107,6 +132,9 @@ export default function SubirFactura({ factura, alSubir }: {
             <p className="text-secundario">
               {f.recibida.archivo} · {euros(f.recibida.importe)} · n.º {f.recibida.numero_factura}
             </p>
+            {f.recibida.cuadra === false && (
+              <p className="text-secundario">No cuadra con el desglose ({euros(f.recibida.total)}): administración lo revisará.</p>
+            )}
           </div>
         </div>
       </div>
@@ -171,6 +199,73 @@ export default function SubirFactura({ factura, alSubir }: {
         </div>
       </Field>
 
+      {f.cobro && calculo && (
+        // El desglose («Añadido 01/10 (tarde)»): fijo, ya relleno; por hora, sus
+        // horas; por proyecto, una línea por encargo. La tarifa es la de su ficha.
+        <div className="rounded-lg border border-border p-4 space-y-3">
+          <p className="text-sm font-semibold">Tu desglose</p>
+
+          {f.cobro.modalidad === 'fijo' && (
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0">{f.cobro.concepto}</span>
+              <span className="tabular-nums font-medium">{euros(f.cobro.importe_fijo)}</span>
+            </div>
+          )}
+
+          {f.cobro.modalidad === 'hora' && (
+            <div className="flex flex-wrap items-end gap-3 text-sm">
+              <div className="w-32">
+                <label htmlFor="factura-horas" className="text-xs text-muted-foreground">Horas del mes</label>
+                <input id="factura-horas" inputMode="decimal" value={horas} onChange={(e) => setHoras(e.target.value)} className={inputClass} />
+              </div>
+              <span className="pb-2 text-muted-foreground">× {euros(f.cobro.tarifa_hora)}/h = <strong className="text-foreground tabular-nums">{euros(calculo.base)}</strong></span>
+            </div>
+          )}
+
+          {f.cobro.modalidad === 'proyecto' && (
+            <div className="space-y-2">
+              {lineas.map((l, i) => (
+                <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_11rem_6rem_auto] gap-2 items-end">
+                  <div>
+                    <label htmlFor={`linea-${i}`} className="text-xs text-muted-foreground">Encargo {i + 1}</label>
+                    <input id={`linea-${i}`} value={l.concepto} maxLength={200} onChange={(e) => cambiarLinea(i, 'concepto', e.target.value)}
+                      className={inputClass} />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Proyecto o campus</span>
+                    <Select<string> value={l.project_id} onChange={(v) => cambiarLinea(i, 'project_id', v)} ariaLabel={`Proyecto de la línea ${i + 1}`}
+                      options={[{ value: '', label: 'Sin campus' }, ...(f.campus ?? []).map((p) => ({ value: String(p.id), label: p.nombre }))]} />
+                  </div>
+                  <div>
+                    <label htmlFor={`horas-${i}`} className="text-xs text-muted-foreground">Horas</label>
+                    <input id={`horas-${i}`} inputMode="decimal" value={l.horas} onChange={(e) => cambiarLinea(i, 'horas', e.target.value)}
+                      className={inputClass} />
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" title="Quitar la línea" aria-label={`Quitar la línea ${i + 1}`}
+                    disabled={lineas.length === 1} onClick={() => setLineas((ls) => ls.filter((_, j) => j !== i))}>
+                    <Trash size={15} />
+                  </Button>
+                </div>
+              ))}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setLineas((ls) => [...ls, { concepto: '', project_id: '', horas: '' }])}>
+                  <Plus size={13} className="mr-1.5" /> Añadir encargo
+                </Button>
+                <span className="text-secundario text-muted-foreground">A {euros(f.cobro.tarifa_hora)}/h, tu tarifa</span>
+              </div>
+            </div>
+          )}
+
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3 text-sm tabular-nums">
+            <dt className="text-muted-foreground">Base</dt><dd className="text-right">{euros(calculo.base)}</dd>
+            <dt className="text-muted-foreground">IVA ({f.cobro.iva_pct} %)</dt><dd className="text-right">{euros(calculo.iva)}</dd>
+            <dt className="text-muted-foreground">IRPF ({f.cobro.irpf_pct ? '−' : ''}{f.cobro.irpf_pct} %)</dt>
+            <dd className="text-right">{calculo.irpf ? '−' : ''}{euros(calculo.irpf)}</dd>
+            <dt className="font-semibold">Total</dt><dd className="text-right font-semibold">{euros(calculo.total)}</dd>
+          </dl>
+        </div>
+      )}
+
       <FilaCampos>
         <Field label="Importe de tu factura (€)" htmlFor="factura-importe" required
           hint={noCoincide ? undefined : (f.importe_acordado !== null ? 'Ya puesto el acordado: cámbialo si tu factura dice otro' : undefined)}>
@@ -186,6 +281,11 @@ export default function SubirFactura({ factura, alSubir }: {
       {noCoincide && (
         <p className="rounded-md bg-warning-soft text-warning-soft-foreground px-3 py-2 text-secundario">
           El importe no coincide con lo acordado ({euros(f.importe_acordado)}). Puedes enviarla igual.
+        </p>
+      )}
+      {noCuadra && calculo && (
+        <p className="rounded-md bg-warning-soft text-warning-soft-foreground px-3 py-2 text-secundario">
+          El total de tu factura no cuadra con el desglose ({euros(calculo.total)}). Puedes enviarla igual: quedará marcada «No cuadra».
         </p>
       )}
       {error && (

@@ -85,6 +85,11 @@ export interface FacturaDelMes {
   motivo_anulacion: string | null;
   nombre_original: string | null;
   tamano: number | null;
+  /** El desglose (segunda parte). `cuadra` null = subida sin desglose. */
+  base: string | null;
+  total: string | null;
+  horas: string | null;
+  cuadra: boolean | null;
   estado: EstadoFactura;
 }
 
@@ -118,10 +123,41 @@ export interface FacturaDelColaborador {
   };
   importe_acordado: number | null;
   caduca_at: string | null;
+  /** Cómo cobra de esta empresa (segunda parte). null: se sube sin desglose. */
+  cobro: null | {
+    modalidad: Modalidad; importe_fijo: number | null; tarifa_hora: number | null;
+    iva_pct: number; irpf_pct: number; concepto: string;
+  };
+  /** Los campus del CRM, para el proyecto de cada línea (solo si cobra por proyecto). */
+  campus?: { id: number; nombre: string }[];
   recibida: null | {
     subida_at: string; numero_recepcion: string; importe: number | null; numero_factura: string | null; archivo: string | null;
+    /** Lo que calculó el CRM; `cuadra` null = subida sin desglose. */
+    total: number | null; cuadra: boolean | null;
   };
   enlace?: string | null;
+}
+
+/** El desglose tal como lo manda el formulario: las horas o las líneas (JSON). */
+export interface DesgloseEnvio { horas?: string; lineas?: string }
+
+/** Una línea del desglose por proyecto, tal como se escribe. */
+export interface LineaForm { concepto: string; project_id: string; horas: string }
+
+/**
+ * El desglose calculado en la pantalla, solo para enseñarlo: el que cuenta es
+ * el del servidor (desglose.js), con las mismas reglas.
+ */
+export function calcularDesglose(cobro: NonNullable<FacturaDelColaborador['cobro']>, horas: string, lineas: LineaForm[]) {
+  const c = (n: number) => Math.round(n * 100) / 100;
+  const h = (t: string) => { const n = Number(normalizarImporte(t)); return Number.isFinite(n) && n > 0 ? n : 0; };
+  const tarifa = cobro.tarifa_hora ?? 0;
+  const base = c(cobro.modalidad === 'fijo' ? cobro.importe_fijo ?? 0
+    : cobro.modalidad === 'hora' ? h(horas) * tarifa
+      : lineas.reduce((s, l) => s + c(h(l.horas) * tarifa), 0));
+  const iva = c(base * cobro.iva_pct / 100);
+  const irpf = c(base * cobro.irpf_pct / 100);
+  return { base, iva, irpf, total: c(base + iva - irpf) };
 }
 
 type R<T> = Promise<{ success: boolean; data: T; error?: string; message?: string }>;
@@ -136,11 +172,13 @@ const query = (f: Record<string, unknown>) => {
 };
 
 /** El formulario de subida: archivo, importe y número de factura. */
-const subida = (archivo: File, importe: string, numeroFactura: string) => {
+const subida = (archivo: File, importe: string, numeroFactura: string, desglose: DesgloseEnvio = {}) => {
   const fd = new FormData();
   fd.append('archivo', archivo);
   fd.append('importe', importe);
   fd.append('numero_factura', numeroFactura);
+  if (desglose.horas !== undefined) fd.append('horas', desglose.horas);
+  if (desglose.lineas !== undefined) fd.append('lineas', desglose.lineas);
   return fd;
 };
 
@@ -165,13 +203,13 @@ export const facturasColaboradorApi = {
 
   // ── El enlace del colaborador (sin usuario) ──
   verEnlace: (token: string) => client.get(`${BASE}/enlace/${token}`) as R<FacturaDelColaborador>,
-  subirPorEnlace: (token: string, archivo: File, importe: string, numeroFactura: string) =>
-    client.post(`${BASE}/enlace/${token}`, subida(archivo, importe, numeroFactura)) as R<FacturaDelColaborador>,
+  subirPorEnlace: (token: string, archivo: File, importe: string, numeroFactura: string, desglose?: DesgloseEnvio) =>
+    client.post(`${BASE}/enlace/${token}`, subida(archivo, importe, numeroFactura, desglose)) as R<FacturaDelColaborador>,
 
   // ── «Mi factura» (colaborador con usuario) ──
   mias: () => client.get(`${BASE}/mias`) as R<FacturaDelColaborador[]>,
-  subirMia: (id: number, archivo: File, importe: string, numeroFactura: string) =>
-    client.post(`${BASE}/mias/${id}`, subida(archivo, importe, numeroFactura)) as R<FacturaDelColaborador>,
+  subirMia: (id: number, archivo: File, importe: string, numeroFactura: string, desglose?: DesgloseEnvio) =>
+    client.post(`${BASE}/mias/${id}`, subida(archivo, importe, numeroFactura, desglose)) as R<FacturaDelColaborador>,
   archivoMio: (id: number) => client.get(`${BASE}/mias/${id}/archivo`) as R<{ url: string; nombre: string | null }>,
 };
 

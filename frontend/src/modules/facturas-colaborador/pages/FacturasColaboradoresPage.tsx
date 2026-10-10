@@ -227,6 +227,13 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
                     </td>
                     <td className="px-2 py-2">
                       <Pildora estado={f.estado} />
+                      {/* El desglose no da su total: se dejó enviar y queda marcada (segunda parte). */}
+                      {f.cuadra === false && f.estado !== 'anulada' && (
+                        <span title={`El desglose da ${euros(f.total)}`}
+                          className="ml-1 rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap bg-warning-soft text-warning-soft-foreground">
+                          No cuadra
+                        </span>
+                      )}
                       {f.numero_recepcion && (
                         <div className="text-xs text-muted-foreground mt-0.5 whitespace-nowrap">{f.numero_recepcion}<br />{fechaHora(f.subida_at)}</div>
                       )}

@@ -67,7 +67,9 @@ const CAMPOS_ENLACE = `
   f.subida_at, f.abierto_at, f.caduca_at, f.anulada_at, f.nombre_original,
   ${ESTADO} AS estado,
   c.nombre AS colaborador_nombre, c.email AS colaborador_email, c.area, c.nif AS colaborador_nif,
-  ii.razon_social, ii.nif AS empresa_nif, ii.direccion, ii.cp, ii.ciudad, ii.pais, ii.logo_url`;
+  ii.razon_social, ii.nif AS empresa_nif, ii.direccion, ii.cp, ii.ciudad, ii.pais, ii.logo_url,
+  ce.modalidad, ce.importe_fijo, ce.tarifa_hora, ce.iva_pct, ce.irpf_pct,
+  f.base, f.iva, f.irpf, f.total, f.horas, f.cuadra`;
 
 /** La fila de un enlace, por la huella de su token. */
 export async function porTokenHash(tokenHash) {
@@ -76,6 +78,7 @@ export async function porTokenHash(tokenHash) {
        FROM facturas_colaborador f
        JOIN colaboradores c ON c.id = f.colaborador_id
        JOIN invoice_issuers ii ON ii.id = f.issuer_id
+       LEFT JOIN colaborador_empresas ce ON ce.colaborador_id = f.colaborador_id AND ce.issuer_id = f.issuer_id
       WHERE f.token_hash = $1`,
     [tokenHash],
   );
@@ -92,6 +95,7 @@ export async function delUsuario(userId) {
        FROM facturas_colaborador f
        JOIN colaboradores c ON c.id = f.colaborador_id
        JOIN invoice_issuers ii ON ii.id = f.issuer_id
+       LEFT JOIN colaborador_empresas ce ON ce.colaborador_id = f.colaborador_id AND ce.issuer_id = f.issuer_id
       WHERE c.user_id = $1 AND f.anulada_at IS NULL
       ORDER BY f.periodo DESC, ii.razon_social`,
     [userId],
@@ -106,6 +110,7 @@ export async function delUsuarioPorId(userId, id) {
        FROM facturas_colaborador f
        JOIN colaboradores c ON c.id = f.colaborador_id
        JOIN invoice_issuers ii ON ii.id = f.issuer_id
+       LEFT JOIN colaborador_empresas ce ON ce.colaborador_id = f.colaborador_id AND ce.issuer_id = f.issuer_id
       WHERE f.id = $2 AND c.user_id = $1`,
     [userId, id],
   );
@@ -210,14 +215,46 @@ export async function siguienteRecepcion(db, periodo) {
 }
 
 export async function guardarSubida(db, id, datos) {
+  // Sin desglose (ficha sin modalidad): base, IVA, IRPF, total, horas y cuadra, vacíos.
+  const d = datos.desglose;
   await db.query(
     `UPDATE facturas_colaborador
         SET subida_at = NOW(), numero_recepcion = $2, importe = $3, numero_factura = $4,
-            archivo_key = $5, nombre_original = $6, mime = $7, tamano = $8, sha256 = $9
+            archivo_key = $5, nombre_original = $6, mime = $7, tamano = $8, sha256 = $9,
+            base = $10, iva = $11, irpf = $12, total = $13, horas = $14, cuadra = $15
       WHERE id = $1`,
     [id, datos.numeroRecepcion, datos.importe, datos.numeroFactura,
-      datos.archivoKey, datos.nombreOriginal, datos.mime, datos.tamano, datos.sha256],
+      datos.archivoKey, datos.nombreOriginal, datos.mime, datos.tamano, datos.sha256,
+      d?.base ?? null, d?.iva ?? null, d?.irpf ?? null, d?.total ?? null, d?.horas ?? null,
+      d ? datos.cuadra : null],
   );
+  for (const l of d?.lineas ?? []) {
+    await db.query(
+      `INSERT INTO facturas_colaborador_lineas (factura_id, orden, concepto, project_id, horas, tarifa, importe)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [id, l.orden, l.concepto, l.project_id, l.horas, l.tarifa, l.importe],
+    );
+  }
+}
+
+/** Los campus del CRM, para el proyecto de cada línea del desglose. */
+export async function campusDelCrm() {
+  // Sin los de prueba, como el resumen del equipo (correosDelEquipo.js).
+  const { rows } = await query('SELECT id, nombre FROM projects WHERE active AND NOT COALESCE(es_prueba, false) ORDER BY nombre');
+  return rows.map((r) => ({ id: Number(r.id), nombre: r.nombre }));
+}
+
+/** Las líneas del desglose de una factura, con el nombre de su campus. */
+export async function lineasDe(facturaId) {
+  const { rows } = await query(
+    `SELECT l.orden, l.concepto, l.project_id, p.nombre AS campus, l.horas, l.tarifa, l.importe
+       FROM facturas_colaborador_lineas l
+       LEFT JOIN projects p ON p.id = l.project_id
+      WHERE l.factura_id = $1 ORDER BY l.orden`,
+    [facturaId],
+  );
+  const num = (v) => (v === null ? null : Number(v));
+  return rows.map((r) => ({ ...r, horas: num(r.horas), tarifa: num(r.tarifa), importe: num(r.importe) }));
 }
 
 /** Para administración: una factura, si es de una empresa que se ve. */
@@ -227,6 +264,7 @@ export async function porId(id, issuerIds, db = pool) {
        FROM facturas_colaborador f
        JOIN colaboradores c ON c.id = f.colaborador_id
        JOIN invoice_issuers ii ON ii.id = f.issuer_id
+       LEFT JOIN colaborador_empresas ce ON ce.colaborador_id = f.colaborador_id AND ce.issuer_id = f.issuer_id
       WHERE f.id = $1 AND ($2::int[] IS NULL OR f.issuer_id = ANY($2::int[]))`,
     [id, issuerIds],
   );
@@ -263,6 +301,8 @@ export async function delMes({ periodo, issuerIds, issuerId = null, estado = nul
                    THEN f.importe - f.importe_esperado END AS diferencia,
               f.numero_factura, f.numero_recepcion, f.subida_at, f.enviado_at, f.abierto_at,
               f.caduca_at, f.anulada_at, f.motivo_anulacion, f.nombre_original, f.tamano,
+              -- El desglose (segunda parte): cuadra null = subida sin desglose.
+              f.base, f.total, f.horas, f.cuadra,
               ${ESTADO} AS estado
          FROM facturas_colaborador f
          JOIN colaboradores c ON c.id = f.colaborador_id
