@@ -120,7 +120,8 @@ export const subidaSchema = z.object({
   // El desglose (segunda parte): las horas, si cobra por hora; las líneas
   // (JSON), si cobra por proyecto. Lo comprueba y lo calcula desglose.js.
   horas: z.string().trim().max(20).optional(),
-  lineas: z.string().max(20000).optional(),
+  // El mismo tope que la subida (multer, fieldSize 10 000): más largo no llega aquí.
+  lineas: z.string().max(10_000, 'El desglose es demasiado largo: acorta los encargos o júntalos en menos líneas').optional(),
 });
 
 export const delMesSchema = z.object({

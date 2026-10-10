@@ -204,6 +204,16 @@ describe('facturas de colaboradores (#202) · el desglose al subir', () => {
     expect(reg.detalle).toMatchObject({ modalidad: 'fijo', base: 600, total: 636, cuadra: false, importe: 600 });
   });
 
+  it('un desglose demasiado largo da un mensaje claro (no «no se pudo leer el archivo») y no sube nada', async () => {
+    uploadToR2.mockClear();
+    // 30 encargos de 200 eñes: unos 12 000 bytes (la eñe ocupa dos), más que el tope de la subida.
+    const larga = { concepto: 'ñ'.repeat(200), horas: '1' };
+    const res = await subir('proyecto', { importe: '60', numero_factura: 'F-P-06', lineas: JSON.stringify(Array(30).fill(larga)) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('El desglose es demasiado largo');
+    expect(uploadToR2).not.toHaveBeenCalled();
+  });
+
   it('un desglose mal escrito da 400 y no sube nada a R2', async () => {
     uploadToR2.mockClear();
     const res = await subir('proyecto', {

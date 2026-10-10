@@ -29,6 +29,10 @@ const recibir = (campo) => (req, res, next) => {
     .single(campo)(req, res, (err) => {
       if (!err) return next();
       if (err.code === 'LIMIT_FILE_SIZE') return next(new AppError('El archivo pasa de 10 MB', 400, 'FILE_TOO_LARGE'));
+      // El desglose por proyecto es el campo más largo: si pasa del límite, decirlo, no «el archivo».
+      if (err.code === 'LIMIT_FIELD_VALUE') {
+        return next(new AppError('El desglose es demasiado largo: acorta los encargos o júntalos en menos líneas', 400, 'VALIDATION_ERROR'));
+      }
       return next(new AppError('No se pudo leer el archivo', 400, 'INVALID_FILE'));
     });
 };
