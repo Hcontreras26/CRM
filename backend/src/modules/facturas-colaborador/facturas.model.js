@@ -357,8 +357,10 @@ const FILA_DE_LISTA = `SELECT f.id, f.colaborador_id, f.issuer_id, to_char(f.per
               c.nombre AS colaborador_nombre, c.email, c.area,
               ii.razon_social AS empresa,
               f.importe_esperado, f.importe,
+              -- Lo acordado es la base: con desglose, la diferencia es la de su base
+              -- (600 acordados y 636 de total con IVA e IRPF no son 36 € de más).
               CASE WHEN f.importe IS NOT NULL AND f.importe_esperado IS NOT NULL
-                   THEN f.importe - f.importe_esperado END AS diferencia,
+                   THEN COALESCE(f.base, f.importe) - f.importe_esperado END AS diferencia,
               f.numero_factura, f.numero_recepcion, f.subida_at, f.enviado_at, f.abierto_at,
               f.caduca_at, f.anulada_at, f.motivo_anulacion, f.nombre_original, f.tamano,
               -- El desglose (segunda parte): cuadra null = subida sin desglose.
@@ -420,20 +422,23 @@ export async function deLaVista({ vista, issuerIds, issuerId = null, colaborador
 /**
  * Coste por campus: con las líneas del desglose, cuántas horas y cuánto dinero
  * (la base, sin IVA ni IRPF) de colaboradores se va a cada campus en el mes.
- * Las líneas sin campus (las de fijo, o sin elegir) van juntas.
+ * Las líneas sin campus (las de fijo, o sin elegir) van juntas, cada empresa en la suya.
  */
 export async function costePorCampus({ periodo, issuerIds, issuerId = null }) {
   const { rows } = await query(
-    `SELECT l.project_id, p.nombre AS campus,
+    // Por empresa y campus (Diego, 10/10: «son por EMPRESA»): con «Todos los
+    // proyectos», lo que no lleva campus de CEDIA y de Ictess no se suma en una fila.
+    `SELECT f.issuer_id, ii.razon_social AS empresa, l.project_id, p.nombre AS campus,
             SUM(l.horas)::float AS horas, SUM(l.importe)::float AS importe, COUNT(DISTINCT f.id)::int AS facturas
        FROM facturas_colaborador_lineas l
        JOIN facturas_colaborador f ON f.id = l.factura_id
+       JOIN invoice_issuers ii ON ii.id = f.issuer_id
        LEFT JOIN projects p ON p.id = l.project_id
       WHERE f.periodo = $1::date AND f.subida_at IS NOT NULL AND f.anulada_at IS NULL
         AND ($2::int[] IS NULL OR f.issuer_id = ANY($2::int[]))
         AND ($3::int IS NULL OR f.issuer_id = $3)
-      GROUP BY l.project_id, p.nombre
-      ORDER BY (l.project_id IS NULL), importe DESC`,
+      GROUP BY f.issuer_id, ii.razon_social, l.project_id, p.nombre
+      ORDER BY ii.razon_social, (l.project_id IS NULL), importe DESC`,
     [periodo, issuerIds, issuerId],
   );
   return rows;
@@ -444,8 +449,9 @@ export async function paraElZip(periodo, issuerId) {
   const { rows } = await query(
     `SELECT f.id, c.nombre AS colaborador, c.area, c.nif,
             f.numero_factura, f.importe, f.importe_esperado,
+            -- Como en la lista: con desglose, la de su base.
             CASE WHEN f.importe IS NOT NULL AND f.importe_esperado IS NOT NULL
-                 THEN f.importe - f.importe_esperado END AS diferencia,
+                 THEN COALESCE(f.base, f.importe) - f.importe_esperado END AS diferencia,
             f.subida_at, f.numero_recepcion, f.archivo_key
        FROM facturas_colaborador f
        JOIN colaboradores c ON c.id = f.colaborador_id

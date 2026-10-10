@@ -17,7 +17,8 @@ import {
   → «Página del enlace»: quién, mes y empresa; lo acordado; «Factura a nombre
   de» con un botón para copiar los datos; el archivo, el importe (con lo
   acordado ya puesto) y el número de factura. Si el importe no coincide con lo
-  acordado, se hace notar y se deja enviar.
+  acordado, se hace notar y se deja enviar. Con desglose (segunda parte), el
+  importe viene con su total y lo acordado se compara con la base.
 */
 
 const TOPE = 10 * 1024 * 1024;
@@ -48,7 +49,14 @@ export default function SubirFactura({ factura, alSubir }: {
     setLineas((ls) => ls.map((l, j) => (j === i ? { ...l, [campo]: valor } : l)));
   const calculo = f.cobro ? calcularDesglose(f.cobro, horas, lineas) : null;
   const [archivo, setArchivo] = useState<File | null>(null);
-  const [importe, setImporte] = useState(f.importe_acordado !== null ? String(f.importe_acordado).replace('.', ',') : '');
+  // El importe sugerido: sin desglose, lo acordado (primera parte, «con el acordado ya
+  // sugerido»); con desglose, su total, que sigue a las horas hasta que lo cambie a mano.
+  // Lo acordado es la base (el ejemplo de Diego: 600 acordados, 636 de total con IVA e IRPF):
+  // sugerirlo y compararlo con el total avisaba siempre, aunque la factura estuviera bien.
+  const [escrito, setEscrito] = useState(!f.cobro && f.importe_acordado !== null ? String(f.importe_acordado).replace('.', ',') : '');
+  const [tocado, setTocado] = useState(false);
+  const sugerido = calculo && calculo.total > 0 ? calculo.total.toFixed(2).replace('.', ',') : '';
+  const importe = calculo && !tocado ? sugerido : escrito;
   const [numero, setNumero] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -56,8 +64,10 @@ export default function SubirFactura({ factura, alSubir }: {
   const entrada = useRef<HTMLInputElement>(null);
 
   const importeNum = Number(normalizarImporte(importe));
-  const noCoincide = f.importe_acordado !== null && importe.trim() !== ''
-    && Number.isFinite(importeNum) && Math.abs(importeNum - f.importe_acordado) > 0.005;
+  // Con desglose, lo acordado se compara con la base; sin él, con el importe (como en la primera parte).
+  const comparado = calculo ? calculo.base : (importe.trim() !== '' ? importeNum : NaN);
+  const noCoincide = f.importe_acordado !== null && Number.isFinite(comparado) && (!calculo || calculo.base > 0)
+    && Math.abs(comparado - f.importe_acordado) > 0.005;
   // «Si no cuadra, se avisa y se deja enviar»: queda marcada «No cuadra».
   const noCuadra = calculo !== null && importe.trim() !== ''
     && Number.isFinite(importeNum) && Math.abs(importeNum - calculo.total) > 0.005;
@@ -234,7 +244,7 @@ export default function SubirFactura({ factura, alSubir }: {
                   <div>
                     <span className="text-xs text-muted-foreground">Proyecto o campus</span>
                     <Select<string> value={l.project_id} onChange={(v) => cambiarLinea(i, 'project_id', v)} ariaLabel={`Proyecto de la línea ${i + 1}`}
-                      options={[{ value: '', label: 'Todo el grupo' }, ...(f.campus ?? []).map((p) => ({ value: String(p.id), label: p.nombre }))]} />
+                      options={[{ value: '', label: 'Toda la empresa' }, ...(f.campus ?? []).map((p) => ({ value: String(p.id), label: p.nombre }))]} />
                   </div>
                   <div>
                     <label htmlFor={`horas-${i}`} className="text-xs text-muted-foreground">Horas</label>
@@ -268,8 +278,10 @@ export default function SubirFactura({ factura, alSubir }: {
 
       <FilaCampos>
         <Field label="Importe de tu factura (€)" htmlFor="factura-importe" required
-          hint={noCoincide ? undefined : (f.importe_acordado !== null ? 'Ya puesto el acordado: cámbialo si tu factura dice otro' : undefined)}>
-          <input id="factura-importe" inputMode="decimal" value={importe} onChange={(e) => setImporte(e.target.value)}
+          hint={calculo ? (tocado ? undefined : 'Ya puesto el total de tu desglose: cámbialo si tu factura dice otro')
+            : noCoincide ? undefined : (f.importe_acordado !== null ? 'Ya puesto el acordado: cámbialo si tu factura dice otro' : undefined)}>
+          <input id="factura-importe" inputMode="decimal" value={importe}
+            onChange={(e) => { setTocado(true); setEscrito(e.target.value); }}
             placeholder="600,00" className={inputClass} />
         </Field>
         <Field label="Número de tu factura" htmlFor="factura-numero" required>
@@ -280,7 +292,9 @@ export default function SubirFactura({ factura, alSubir }: {
 
       {noCoincide && (
         <p className="rounded-md bg-warning-soft text-warning-soft-foreground px-3 py-2 text-secundario">
-          El importe no coincide con lo acordado ({euros(f.importe_acordado)}). Puedes enviarla igual.
+          {calculo
+            ? <>La base de tu desglose ({euros(calculo.base)}) no coincide con lo acordado ({euros(f.importe_acordado)}). Puedes enviarla igual.</>
+            : <>El importe no coincide con lo acordado ({euros(f.importe_acordado)}). Puedes enviarla igual.</>}
         </p>
       )}
       {noCuadra && calculo && (

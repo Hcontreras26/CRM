@@ -40,8 +40,11 @@ export interface DesgloseDeFactura {
   lineas: { orden: number; concepto: string; project_id: number | null; campus: string | null; horas: number | null; tarifa: number | null; importe: number }[];
 }
 
-/** Coste por campus del mes: horas y base de las líneas del desglose. `project_id` null = todo el grupo. */
-export interface CosteDeCampus { project_id: number | null; campus: string | null; horas: number | null; importe: number; facturas: number }
+/** Coste por campus del mes, por empresa: horas y base de las líneas del desglose. `project_id` null = toda la empresa. */
+export interface CosteDeCampus {
+  issuer_id: number; empresa: string;
+  project_id: number | null; campus: string | null; horas: number | null; importe: number; facturas: number;
+}
 
 /** «2026-06-05» → «05/06», como «transferencia del 05/10» en la definición. */
 export const diaDelPago = (dia: string | null | undefined) => (dia ? `${dia.slice(8, 10)}/${dia.slice(5, 7)}` : '—');

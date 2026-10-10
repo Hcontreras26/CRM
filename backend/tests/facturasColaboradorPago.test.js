@@ -349,6 +349,26 @@ describe('facturas de colaboradores (#202) · Enviadas, Por pagar, Pagadas, Hist
     expect(res.body.data.campus.find((c) => c.project_id === null)).toMatchObject({ horas: 5, importe: 150 });
   });
 
+  it('con todas las empresas, lo que no lleva campus no se suma entre empresas (Diego, 10/10: «son por EMPRESA»)', async () => {
+    await q(`INSERT INTO facturas_colaborador_lineas (factura_id, orden, concepto, project_id, horas, tarifa, importe)
+             VALUES ($1, 1, 'Soporte', NULL, 2, 30, 60)`, [F.deB]);
+    const res = await request.get(`${API}/coste-por-campus`).query({ periodo: '2026-05' }).set(como('super'));
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    const sinCampus = res.body.data.campus.filter((c) => c.project_id === null && [E.A.id, E.B.id].includes(c.issuer_id));
+    expect(sinCampus.map((c) => [c.issuer_id, c.empresa, c.importe]).sort()).toEqual([
+      [E.A.id, `${MARCA}A Empresa`, 150], [E.B.id, `${MARCA}B Empresa`, 60],
+    ].sort());
+  });
+
+  it('con desglose, la diferencia es la de su base: lo acordado es la base, no el total con IVA e IRPF', async () => {
+    await q('UPDATE facturas_colaborador SET base = 450, importe_esperado = 450 WHERE id = $1', [F.porPagar]);
+    const res = await vista('adminA', { vista: 'por_pagar', periodo: '2026-05' });
+    const f = res.body.data.facturas.find((x) => x.id === F.porPagar);
+    // Importe 500 (el total de su factura), base 450 y 450 acordados: diferencia 0.
+    expect(Number(f.diferencia)).toBe(0);
+    await q('UPDATE facturas_colaborador SET base = NULL, importe_esperado = NULL WHERE id = $1', [F.porPagar]);
+  });
+
   it('el coste por campus sigue el filtro de empresa; un admin no pide el de otra', async () => {
     const deB = await request.get(`${API}/coste-por-campus`).query({ periodo: '2026-05', issuerId: E.B.id }).set(como('super'));
     expect(deB.status).toBe(200);

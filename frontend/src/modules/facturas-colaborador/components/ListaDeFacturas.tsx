@@ -261,9 +261,16 @@ export default function ListaDeFacturas({ vista, empresas, empresa }: {
 export function CostePorCampus({ periodo, issuerId }: { periodo: string; issuerId?: string }) {
   const [filas, setFilas] = useState<CosteDeCampus[]>([]);
   useEffect(() => {
-    facturasColaboradorApi.costePorCampus(periodo, issuerId).then((r) => setFilas(r.data.campus)).catch(() => setFilas([]));
+    // Solo la respuesta de la empresa y el mes de ahora: al cambiar deprisa, una vieja no pisa a la nueva.
+    let vigente = true;
+    facturasColaboradorApi.costePorCampus(periodo, issuerId)
+      .then((r) => { if (vigente) setFilas(r.data.campus); })
+      .catch(() => { if (vigente) setFilas([]); });
+    return () => { vigente = false; };
   }, [periodo, issuerId]);
   if (!filas.length) return null;
+  // Con todas las empresas, cada fila dice de cuál es: son por empresa (Diego, 10/10).
+  const conEmpresa = !issuerId;
   return (
     <div className="bg-card border border-border rounded-lg">
       <div className="px-4 py-2.5 border-b border-border text-sm">
@@ -272,12 +279,16 @@ export function CostePorCampus({ periodo, issuerId }: { periodo: string; issuerI
       </div>
       <table className="w-full text-tabla">
         <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-          <tr><th className="px-3 py-2">Campus</th><th className="px-3 py-2 text-right">Horas</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2 text-right">Facturas</th></tr>
+          <tr>
+            {conEmpresa && <th className="px-3 py-2">Empresa</th>}
+            <th className="px-3 py-2">Campus</th><th className="px-3 py-2 text-right">Horas</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2 text-right">Facturas</th>
+          </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {filas.map((c) => (
-            <tr key={c.project_id ?? 'sin'}>
-              <td className="px-3 py-2">{c.campus ?? <span className="text-muted-foreground">Todo el grupo</span>}</td>
+            <tr key={`${c.issuer_id}-${c.project_id ?? 'empresa'}`}>
+              {conEmpresa && <td className="px-3 py-2 whitespace-nowrap" title={c.empresa}>{empresaCorta(c.empresa)}</td>}
+              <td className="px-3 py-2">{c.campus ?? <span className="text-muted-foreground">Toda la empresa</span>}</td>
               <td className="px-3 py-2 text-right tabular-nums">{c.horas === null ? '—' : c.horas.toLocaleString('es-ES')}</td>
               <td className="px-3 py-2 text-right tabular-nums">{euros(c.importe)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{c.facturas}</td>
