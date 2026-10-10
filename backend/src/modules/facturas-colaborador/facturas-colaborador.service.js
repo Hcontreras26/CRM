@@ -93,7 +93,7 @@ export async function crear(user, datos, ip) {
 
   const id = await enTransaccion(async (db) => {
     const nuevo = await model.insertar(db, datos, user.userId);
-    for (const e of datos.empresas) await model.ponerEmpresa(db, nuevo, e.issuer_id, e.importe_acordado);
+    for (const e of datos.empresas) await model.ponerEmpresa(db, nuevo, e);
     await model.anotar(db, {
       colaboradorId: nuevo, evento: 'alta', userId: user.userId, ip,
       detalle: {
@@ -143,12 +143,12 @@ export async function editar(user, id, cambios, ip) {
       // como estaban, aunque no las vea.
       const todas = await model.empresasDe(id, db);
       const mias = ambito ? todas.filter((e) => ambito.includes(e.issuer_id)) : todas;
-      const nuevas = new Map(cambios.empresas.map((e) => [e.issuer_id, e.importe_acordado ?? null]));
+      const nuevas = new Map(cambios.empresas.map((e) => [e.issuer_id, e]));
 
       for (const e of mias) {
         if (!nuevas.has(e.issuer_id)) await model.quitarEmpresa(db, id, e.issuer_id);
       }
-      for (const [issuerId, importe] of nuevas) await model.ponerEmpresa(db, id, issuerId, importe);
+      for (const e of nuevas.values()) await model.ponerEmpresa(db, id, e);
 
       const despues = await model.empresasDe(id, db);
       if (!despues.length) {

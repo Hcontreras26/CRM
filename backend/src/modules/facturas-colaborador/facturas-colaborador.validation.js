@@ -13,10 +13,29 @@ const mes = z.string().trim()
   .transform((v) => (v.length === 7 ? `${v}-01` : v));
 
 const importe = z.number().nonnegative('El importe no puede ser negativo').max(9999999999.99).nullable();
+const tarifa = z.number().nonnegative('La tarifa no puede ser negativa').max(99999999.99).nullable();
+const pct = z.number().min(0, 'El porcentaje va de 0 a 100').max(100, 'El porcentaje va de 0 a 100').nullable();
+
+// Cómo cobra de esa empresa («Añadido 01/10 (tarde)»): fijo, por hora o por
+// proyecto (por horas). Sin modalidad, como las fichas de la primera parte.
+export const MODALIDADES = ['fijo', 'hora', 'proyecto'];
 
 const empresa = z.object({
   issuer_id: id,
   importe_acordado: importe.optional(),
+  modalidad: z.enum(MODALIDADES, { message: `Modalidad inválida: ${MODALIDADES.join(', ')}` }).nullable().optional(),
+  importe_fijo: importe.optional(),
+  tarifa_hora: tarifa.optional(),
+  iva_pct: pct.optional(),
+  irpf_pct: pct.optional(),
+}).superRefine((e, ctx) => {
+  if (!e.modalidad) return;
+  const falta = (path, message) => ctx.addIssue({ code: 'custom', path: [path], message });
+  // «Según la ficha del colaborador»: sin ellos no se puede calcular. El 0 vale.
+  if (e.iva_pct == null) falta('iva_pct', 'Pon el IVA % de su factura (0 si factura desde fuera)');
+  if (e.irpf_pct == null) falta('irpf_pct', 'Pon el IRPF % de su factura (0 si no lleva)');
+  if (e.modalidad === 'fijo' && e.importe_fijo == null) falta('importe_fijo', 'Pon el importe fijo de cada mes');
+  if (e.modalidad !== 'fijo' && e.tarifa_hora == null) falta('tarifa_hora', 'Pon su tarifa por hora');
 });
 
 // Un texto opcional: vacío se guarda como null, pero si NO llega se queda sin

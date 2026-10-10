@@ -8,8 +8,8 @@ import FilaCampos from '@/shared/components/ui/FilaCampos';
 import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import {
-  AREAS, AREA_ES, euros, facturasColaboradorApi, fechaHora, normalizarImporte,
-  type Area, type Colaborador, type EmpresaDelGrupo, type LineaRegistro,
+  AREAS, AREA_ES, MODALIDADES, MODALIDAD_ES, euros, facturasColaboradorApi, fechaHora, normalizarImporte,
+  type Area, type Colaborador, type EmpresaDelColaborador, type EmpresaDelGrupo, type LineaRegistro, type Modalidad,
 } from '../api/facturasColaborador.api';
 
 /** El marco de los diálogos de esta pantalla. */
@@ -46,6 +46,18 @@ const errorDe = (err: any) => err?.data?.error || err?.message || 'Inténtalo de
 
 interface UsuarioColaborador { id: number; nombre: string; email: string }
 
+/** Una empresa marcada, tal como se escribe en el formulario (texto; vacío = sin poner). */
+interface FormEmpresa { acordado: string; modalidad: Modalidad | ''; fijo: string; tarifa: string; iva: string; irpf: string }
+
+const texto = (v: number | string | null | undefined) => (v === null || v === undefined ? '' : String(v));
+const deLaFicha = (e: EmpresaDelColaborador): FormEmpresa => ({
+  acordado: texto(e.importe_acordado), modalidad: e.modalidad ?? '',
+  fijo: texto(e.importe_fijo), tarifa: texto(e.tarifa_hora), iva: texto(e.iva_pct), irpf: texto(e.irpf_pct),
+});
+const VACIA: FormEmpresa = { acordado: '', modalidad: '', fijo: '', tarifa: '', iva: '', irpf: '' };
+/** Texto a número (vacío → null; mal escrito → NaN, para avisar). */
+const numero = (v: string) => (v.trim() === '' ? null : Number(normalizarImporte(v)));
+
 export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }: {
   colaborador: Colaborador | null;
   empresas: EmpresaDelGrupo[];
@@ -60,10 +72,12 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
   const [notas, setNotas] = useState(c?.notas ?? '');
   const [altaDesde, setAltaDesde] = useState(c?.alta_desde ?? '');
   const [userId, setUserId] = useState<number | null>(c?.user_id ?? null);
-  // Empresa marcada → su importe acordado (texto, vacío = sin importe).
-  const [marcadas, setMarcadas] = useState<Record<number, string>>(() => Object.fromEntries(
-    (c?.empresas ?? []).map((e) => [e.issuer_id, e.importe_acordado === null ? '' : String(e.importe_acordado)]),
+  // Empresa marcada → lo acordado y cómo cobra de ella.
+  const [marcadas, setMarcadas] = useState<Record<number, FormEmpresa>>(() => Object.fromEntries(
+    (c?.empresas ?? []).map((e) => [e.issuer_id, deLaFicha(e)]),
   ));
+  const cambiar = (id: number, campo: keyof FormEmpresa, valor: string) =>
+    setMarcadas((m) => ({ ...m, [id]: { ...m[id], [campo]: valor } }));
   const [usuarios, setUsuarios] = useState<UsuarioColaborador[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,13 +91,32 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
-    const lista = Object.entries(marcadas).map(([id, imp]) => ({
-      issuer_id: Number(id),
-      importe_acordado: imp.trim() === '' ? null : Number(normalizarImporte(imp)),
-    }));
-    if (!lista.length) { setError('Elige al menos una empresa a la que factura.'); return; }
-    if (lista.some((l) => l.importe_acordado !== null && !Number.isFinite(l.importe_acordado))) {
-      setError('Revisa los importes acordados: tienen que ser números.'); return;
+    const nombreDe = (id: number) => empresas.find((x) => x.id === id)?.razon_social ?? 'esa empresa';
+    const ids = Object.keys(marcadas).map(Number);
+    if (!ids.length) { setError('Elige al menos una empresa a la que factura.'); return; }
+    // Cómo cobra de cada una: sin eso no se puede pedir ni comprobar el desglose.
+    for (const id of ids) {
+      const f = marcadas[id];
+      if (!f.modalidad) { setError(`Elige cómo cobra de ${nombreDe(id)}.`); return; }
+      if (f.modalidad === 'fijo' && !f.fijo.trim()) { setError(`Pon el importe fijo de ${nombreDe(id)}.`); return; }
+      if (f.modalidad !== 'fijo' && !f.tarifa.trim()) { setError(`Pon la tarifa por hora de ${nombreDe(id)}.`); return; }
+      if (!f.iva.trim() || !f.irpf.trim()) { setError(`Pon el IVA y el IRPF de ${nombreDe(id)} (0 si no lleva).`); return; }
+    }
+    const lista = ids.map((id) => {
+      const f = marcadas[id];
+      return {
+        issuer_id: id,
+        importe_acordado: numero(f.acordado),
+        modalidad: f.modalidad || null,
+        importe_fijo: f.modalidad === 'fijo' ? numero(f.fijo) : null,
+        tarifa_hora: f.modalidad !== 'fijo' ? numero(f.tarifa) : null,
+        iva_pct: numero(f.iva),
+        irpf_pct: numero(f.irpf),
+      };
+    });
+    const numeros = lista.flatMap((l) => [l.importe_acordado, l.importe_fijo, l.tarifa_hora, l.iva_pct, l.irpf_pct]);
+    if (numeros.some((n) => n !== null && !Number.isFinite(n))) {
+      setError('Revisa los importes y porcentajes: tienen que ser números.'); return;
     }
     const cuerpo = {
       nombre: nombre.trim(), email: email.trim(), nif: nif.trim() || null, area,
@@ -133,25 +166,66 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
         </FilaCampos>
         </fieldset>
 
-        <Field label="Empresas a las que factura" required hint="Una o varias. El importe acordado es opcional: se le enseña como referencia">
+        <Field label="Empresas a las que factura" required
+          hint="Una o varias. El importe acordado es opcional: se le enseña como referencia. Cómo cobra, el IVA y el IRPF sirven para comprobar su factura">
           <div className="space-y-2">
             {empresas.map((e) => {
               const on = e.id in marcadas;
+              const f = marcadas[e.id];
               return (
-                <div key={e.id} className="flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm min-w-0 flex-1">
-                    <input type="checkbox" checked={on} onChange={() => setMarcadas((m) => {
-                      const n = { ...m };
-                      if (on) delete n[e.id]; else n[e.id] = '';
-                      return n;
-                    })} />
-                    <span className="truncate">{e.razon_social}</span>
-                  </label>
+                <div key={e.id} className={on ? 'rounded-md border border-border p-2 space-y-2' : ''}>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm min-w-0 flex-1">
+                      <input type="checkbox" checked={on} onChange={() => setMarcadas((m) => {
+                        const n = { ...m };
+                        if (on) delete n[e.id]; else n[e.id] = { ...VACIA };
+                        return n;
+                      })} />
+                      <span className="truncate">{e.razon_social}</span>
+                    </label>
+                    {on && (
+                      <div className="w-40 flex-none">
+                        <input aria-label={`Importe acordado con ${e.razon_social}`} inputMode="decimal" placeholder="€/mes (opcional)"
+                          value={f.acordado} onChange={(ev) => cambiar(e.id, 'acordado', ev.target.value)}
+                          className={inputClass} />
+                      </div>
+                    )}
+                  </div>
                   {on && (
-                    <div className="w-40 flex-none">
-                      <input aria-label={`Importe acordado con ${e.razon_social}`} inputMode="decimal" placeholder="€/mes (opcional)"
-                        value={marcadas[e.id]} onChange={(ev) => setMarcadas((m) => ({ ...m, [e.id]: ev.target.value }))}
-                        className={inputClass} />
+                    // Cómo cobra de esta empresa: fijo, por hora o por proyecto, con su IVA e IRPF.
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <label className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Cómo cobra</span>
+                        <Select<string> value={f.modalidad} onChange={(v) => cambiar(e.id, 'modalidad', v)}
+                          ariaLabel={`Cómo cobra de ${e.razon_social}`}
+                          options={[{ value: '', label: 'Elige…' }, ...MODALIDADES.map((m) => ({ value: m, label: MODALIDAD_ES[m] }))]} />
+                      </label>
+                      {f.modalidad === 'fijo' ? (
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Fijo €/mes (base)</span>
+                          <input aria-label={`Importe fijo con ${e.razon_social}`} inputMode="decimal"
+                            value={f.fijo} onChange={(ev) => cambiar(e.id, 'fijo', ev.target.value)} className={inputClass} />
+                        </label>
+                      ) : (
+                        <label className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Tarifa €/h</span>
+                          <input aria-label={`Tarifa por hora con ${e.razon_social}`} inputMode="decimal"
+                            disabled={!f.modalidad}
+                            value={f.tarifa} onChange={(ev) => cambiar(e.id, 'tarifa', ev.target.value)} className={inputClass} />
+                        </label>
+                      )}
+                      <label className="space-y-1">
+                        <span className="text-xs text-muted-foreground">IVA %</span>
+                        <input aria-label={`IVA % con ${e.razon_social}`} inputMode="decimal"
+                          disabled={!f.modalidad}
+                          value={f.iva} onChange={(ev) => cambiar(e.id, 'iva', ev.target.value)} className={inputClass} />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs text-muted-foreground">IRPF %</span>
+                        <input aria-label={`IRPF % con ${e.razon_social}`} inputMode="decimal"
+                          disabled={!f.modalidad}
+                          value={f.irpf} onChange={(ev) => cambiar(e.id, 'irpf', ev.target.value)} className={inputClass} />
+                      </label>
                     </div>
                   )}
                 </div>

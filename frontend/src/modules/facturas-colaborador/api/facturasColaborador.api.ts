@@ -16,7 +16,21 @@ export type EstadoFactura = 'sin_enviar' | 'enviado' | 'abierto' | 'recibida' | 
 
 export interface EmpresaDelGrupo { id: number; razon_social: string; nif: string }
 
-export interface EmpresaDelColaborador { issuer_id: number; razon_social: string; importe_acordado: number | string | null }
+// Cómo cobra de cada empresa (#202, segunda parte, «Añadido 01/10 (tarde)»).
+export const MODALIDADES = ['fijo', 'hora', 'proyecto'] as const;
+export type Modalidad = typeof MODALIDADES[number];
+export const MODALIDAD_ES: Record<Modalidad, string> = { fijo: 'Fijo', hora: 'Por hora', proyecto: 'Por proyecto' };
+
+/** Cómo cobra: sin modalidad, las fichas de la primera parte. Los números llegan como texto de la base. */
+export interface ComoCobra {
+  modalidad: Modalidad | null;
+  importe_fijo: number | string | null;
+  tarifa_hora: number | string | null;
+  iva_pct: number | string | null;
+  irpf_pct: number | string | null;
+}
+
+export interface EmpresaDelColaborador extends ComoCobra { issuer_id: number; razon_social: string; importe_acordado: number | string | null }
 
 export interface Colaborador {
   id: number;
@@ -42,7 +56,11 @@ export interface ColaboradorEnvio {
   area: Area;
   notas?: string | null;
   alta_desde?: string | null;
-  empresas: { issuer_id: number; importe_acordado: number | null }[];
+  empresas: {
+    issuer_id: number; importe_acordado: number | null;
+    modalidad: Modalidad | null; importe_fijo: number | null; tarifa_hora: number | null;
+    iva_pct: number | null; irpf_pct: number | null;
+  }[];
 }
 
 export interface FacturaDelMes {

@@ -185,7 +185,8 @@ describe('facturas de colaboradores (#202) · la lista', () => {
 
     const cambio = await one(
       `SELECT detalle FROM facturas_colaborador_registro WHERE colaborador_id = $1 AND evento = 'cambio'`, [laura.id]);
-    expect(cambio.detalle.empresas.despues).toEqual([{ issuer_id: E.A.id, importe_acordado: 650 }]);
+    // Solo la de A (la B no es suya). Desde la segunda parte lleva también cómo cobra.
+    expect(cambio.detalle.empresas.despues).toMatchObject([{ issuer_id: E.A.id, importe_acordado: 650 }]);
   });
 
   it('nadie se queda sin empresa: quitarle la única da error', async () => {
@@ -266,5 +267,74 @@ describe('facturas de colaboradores (#202) · la lista', () => {
     expect(res.status).toBe(200);
     const mios = res.body.data.filter((c) => c.nombre.startsWith(MARCA));
     expect(mios.map((c) => c.nombre)).toEqual([`${MARCA} SEO 100% local`]);
+  });
+});
+
+// Segunda parte (#202, «Añadido 01/10 (tarde)»): cómo cobra de cada empresa.
+// Entran en 2030: los meses que preparan los otros ficheros no los alcanzan.
+describe('facturas de colaboradores (#202) · cómo cobra cada uno', () => {
+  const ficha = (nombre, empresas) => ({
+    nombre: `${MARCA} ${nombre}`, email: `${nombre.toLowerCase().replace(/\W/g, '')}_${MARCA.toLowerCase()}@test.local`,
+    area: 'seo', alta_desde: '2030-01', empresas,
+  });
+
+  it('fijo, por hora y por proyecto, con su IVA e IRPF', async () => {
+    const res = await alta('super', ficha('Modalidades', [
+      { issuer_id: E.A.id, modalidad: 'fijo', importe_fijo: 600, iva_pct: 21, irpf_pct: 15 },
+      { issuer_id: E.B.id, modalidad: 'hora', tarifa_hora: 22, iva_pct: 0, irpf_pct: 0 },
+    ]));
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    const [a, b] = [E.A.id, E.B.id].map((i) => res.body.data.empresas.find((e) => e.issuer_id === i));
+    expect(a).toMatchObject({ modalidad: 'fijo', importe_fijo: 600, tarifa_hora: null, iva_pct: 21, irpf_pct: 15 });
+    // El 0 vale: «0 % si factura desde fuera».
+    expect(b).toMatchObject({ modalidad: 'hora', tarifa_hora: 22, importe_fijo: null, iva_pct: 0, irpf_pct: 0 });
+  });
+
+  it('con modalidad, sin IVA o IRPF, o sin su importe o tarifa, no se guarda', async () => {
+    const casos = [
+      [{ modalidad: 'fijo', importe_fijo: 600, irpf_pct: 15 }, 'IVA'],
+      [{ modalidad: 'fijo', importe_fijo: 600, iva_pct: 21 }, 'IRPF'],
+      [{ modalidad: 'fijo', iva_pct: 21, irpf_pct: 15 }, 'importe fijo'],
+      [{ modalidad: 'hora', iva_pct: 21, irpf_pct: 15 }, 'tarifa'],
+      [{ modalidad: 'proyecto', iva_pct: 21, irpf_pct: 15 }, 'tarifa'],
+      [{ modalidad: 'mensual', iva_pct: 21, irpf_pct: 15 }, 'Modalidad'],
+      [{ modalidad: 'hora', tarifa_hora: 22, iva_pct: 121, irpf_pct: 15 }, 'porcentaje'],
+    ];
+    for (const [cobra, texto] of casos) {
+      const res = await alta('super', ficha('Mal', [{ issuer_id: E.A.id, ...cobra }]));
+      expect(res.status, JSON.stringify(cobra)).toBe(400);
+      expect(JSON.stringify(res.body), JSON.stringify(cobra)).toContain(texto);
+    }
+  });
+
+  it('solo se guarda lo de su modalidad, y sin modalidad nada (como en la primera parte)', async () => {
+    const res = await alta('super', ficha('Limpia', [
+      { issuer_id: E.A.id, modalidad: 'proyecto', importe_fijo: 999, tarifa_hora: 30, iva_pct: 21, irpf_pct: 15 },
+      { issuer_id: E.B.id, importe_acordado: 250, importe_fijo: 999, iva_pct: 21 },
+    ]));
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    const [a, b] = [E.A.id, E.B.id].map((i) => res.body.data.empresas.find((e) => e.issuer_id === i));
+    expect(a).toMatchObject({ modalidad: 'proyecto', tarifa_hora: 30, importe_fijo: null });
+    expect(b).toMatchObject({ modalidad: null, importe_fijo: null, tarifa_hora: null, iva_pct: null, irpf_pct: null, importe_acordado: 250 });
+  });
+
+  it('el admin cambia cómo cobra de su empresa, aunque también facture a otra, y queda en el historial', async () => {
+    const c = (await alta('super', ficha('Compartida', [
+      { issuer_id: E.A.id, modalidad: 'hora', tarifa_hora: 20, iva_pct: 21, irpf_pct: 15 },
+      { issuer_id: E.B.id, modalidad: 'fijo', importe_fijo: 300, iva_pct: 21, irpf_pct: 15 },
+    ]))).body.data;
+    const res = await request.patch(`${API}/colaboradores/${c.id}`).set(como('adminA')).send({
+      empresas: [{ issuer_id: E.A.id, modalidad: 'hora', tarifa_hora: 25, iva_pct: 21, irpf_pct: 15 }],
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    // La de B, que no es suya, sigue igual.
+    const todas = (await request.get(`${API}/colaboradores/${c.id}`).set(como('super'))).body.data.empresas;
+    expect(todas.find((e) => e.issuer_id === E.A.id).tarifa_hora).toBe(25);
+    expect(todas.find((e) => e.issuer_id === E.B.id)).toMatchObject({ modalidad: 'fijo', importe_fijo: 300 });
+
+    const reg = (await request.get(`${API}/colaboradores/${c.id}/registro`).set(como('adminA'))).body.data;
+    const cambio = reg.find((l) => l.evento === 'cambio');
+    expect(cambio.detalle.empresas.antes[0].tarifa_hora).toBe(20);
+    expect(cambio.detalle.empresas.despues[0].tarifa_hora).toBe(25);
   });
 });
