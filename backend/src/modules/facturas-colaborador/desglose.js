@@ -20,7 +20,14 @@ import { conceptoSugerido } from './facturas.emails.js';
 */
 
 const MAX_LINEAS = 30;
-const centimos = (n) => Math.round(n * 100) / 100;
+// Todo en céntimos enteros: con decimales, 16,275 € salía 16,27 (el medio céntimo se
+// redondeaba hacia abajo) y una factura bien hecha quedaba «No cuadra».
+/** A centésimas enteras: 7,5 → 750; 21,7 → 2170 (horas, tarifas, importes y porcentajes). */
+const aCentesimas = (n) => Math.round(Number(n) * 100);
+/** a × b, los dos en centésimas, al céntimo; el medio céntimo, hacia arriba. */
+const por = (aC, bC) => Math.round((aC * bC) / 100);
+/** El porcentaje (en centésimas) de una cantidad en céntimos, al céntimo. */
+const porciento = (baseC, pctC) => Math.round((baseC * pctC) / 10000);
 
 const MAL = (mensaje) => new AppError(mensaje, 400, 'VALIDATION_ERROR');
 
@@ -31,7 +38,7 @@ function horasDe(texto, donde) {
   }
   const n = Number(normalizarImporte(texto));
   if (!Number.isFinite(n) || n <= 0 || n > 744) throw MAL(`Horas inválidas${donde}`);
-  return centimos(n);
+  return aCentesimas(n);
 }
 
 /** Las líneas que manda la pantalla (texto JSON, porque llega por multipart). */
@@ -53,15 +60,16 @@ function lineasDe(texto) {
  */
 export function calcularDesglose({ cobro, area, periodo, entrada = {}, campus = [] }) {
   if (!cobro?.modalidad) return null;
-  const tarifa = cobro.tarifa_hora === null || cobro.tarifa_hora === undefined ? null : Number(cobro.tarifa_hora);
+  const tarifaC = cobro.tarifa_hora === null || cobro.tarifa_hora === undefined ? null : aCentesimas(cobro.tarifa_hora);
+  const tarifa = tarifaC === null ? null : tarifaC / 100;
   const concepto = conceptoSugerido(area, periodo);
   let lineas;
 
   if (cobro.modalidad === 'fijo') {
-    lineas = [{ orden: 1, concepto, project_id: null, horas: null, tarifa: null, importe: centimos(Number(cobro.importe_fijo)) }];
+    lineas = [{ orden: 1, concepto, project_id: null, horasC: null, tarifa: null, importeC: aCentesimas(cobro.importe_fijo) }];
   } else if (cobro.modalidad === 'hora') {
-    const horas = horasDe(entrada.horas, '');
-    lineas = [{ orden: 1, concepto, project_id: null, horas, tarifa, importe: centimos(horas * tarifa) }];
+    const horasC = horasDe(entrada.horas, '');
+    lineas = [{ orden: 1, concepto, project_id: null, horasC, tarifa, importeC: por(horasC, tarifaC) }];
   } else {
     lineas = lineasDe(entrada.lineas).map((l, i) => {
       const donde = ` en la línea ${i + 1}`;
@@ -71,22 +79,22 @@ export function calcularDesglose({ cobro, area, periodo, entrada = {}, campus = 
       // El proyecto es opcional; si llega, tiene que ser un campus del CRM.
       const projectId = l?.project_id === null || l?.project_id === undefined || l?.project_id === '' ? null : Number(l.project_id);
       if (projectId !== null && !campus.includes(projectId)) throw MAL(`Ese campus no existe${donde}`);
-      const horas = horasDe(l?.horas, donde);
-      return { orden: i + 1, concepto: texto, project_id: projectId, horas, tarifa, importe: centimos(horas * tarifa) };
+      const horasC = horasDe(l?.horas, donde);
+      return { orden: i + 1, concepto: texto, project_id: projectId, horasC, tarifa, importeC: por(horasC, tarifaC) };
     });
   }
 
-  const base = centimos(lineas.reduce((s, l) => s + l.importe, 0));
-  const iva = centimos(base * Number(cobro.iva_pct) / 100);
-  const irpf = centimos(base * Number(cobro.irpf_pct) / 100);
-  const conHoras = lineas.filter((l) => l.horas !== null);
+  const baseC = lineas.reduce((s, l) => s + l.importeC, 0);
+  const ivaC = porciento(baseC, aCentesimas(cobro.iva_pct));
+  const irpfC = porciento(baseC, aCentesimas(cobro.irpf_pct));
+  const conHoras = lineas.filter((l) => l.horasC !== null);
   return {
-    lineas,
-    base,
-    iva,
-    irpf,
-    total: centimos(base + iva - irpf),
-    horas: conHoras.length ? centimos(conHoras.reduce((s, l) => s + l.horas, 0)) : null,
+    lineas: lineas.map(({ horasC, importeC, ...l }) => ({ ...l, horas: horasC === null ? null : horasC / 100, importe: importeC / 100 })),
+    base: baseC / 100,
+    iva: ivaC / 100,
+    irpf: irpfC / 100,
+    total: (baseC + ivaC - irpfC) / 100,
+    horas: conHoras.length ? conHoras.reduce((s, l) => s + l.horasC, 0) / 100 : null,
   };
 }
 

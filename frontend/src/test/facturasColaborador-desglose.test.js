@@ -25,4 +25,17 @@ describe('facturas de colaboradores · el desglose en la pantalla', () => {
     expect(calcularDesglose(cobro({ modalidad: 'proyecto', tarifa_hora: 30, iva_pct: 0, irpf_pct: 0 }), '', lineas))
       .toEqual({ base: 345, iva: 0, irpf: 0, total: 345 });
   });
+
+  it('el medio céntimo, hacia arriba, igual que el servidor (no «No cuadra» por un céntimo)', () => {
+    // 5 h × 21,70 = 108,50; IRPF 15 % = 16,275 → 16,28 (con decimales salía 16,27).
+    expect(calcularDesglose(cobro({ modalidad: 'hora', tarifa_hora: 21.7 }), '5', []))
+      .toEqual({ base: 108.5, iva: 22.79, irpf: 16.28, total: 115.01 });
+    expect(calcularDesglose(cobro({ modalidad: 'fijo', importe_fijo: 158.5, irpf_pct: 0 }), '', []).iva).toBe(33.29);
+    expect(calcularDesglose(cobro({ modalidad: 'proyecto', tarifa_hora: 22.33, iva_pct: 0, irpf_pct: 0 }), '',
+      [{ concepto: 'x', project_id: '', horas: '1,5' }]).base).toBe(33.5);
+  });
+
+  it('las horas, a dos decimales como el servidor: «7,333» son 7,33', () => {
+    expect(calcularDesglose(cobro({ modalidad: 'hora', tarifa_hora: 22, iva_pct: 0, irpf_pct: 0 }), '7,333', []).base).toBe(161.26);
+  });
 });

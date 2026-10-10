@@ -174,15 +174,18 @@ export interface LineaForm { concepto: string; project_id: string; horas: string
  * el del servidor (desglose.js), con las mismas reglas.
  */
 export function calcularDesglose(cobro: NonNullable<FacturaDelColaborador['cobro']>, horas: string, lineas: LineaForm[]) {
-  const c = (n: number) => Math.round(n * 100) / 100;
-  const h = (t: string) => { const n = Number(normalizarImporte(t)); return Number.isFinite(n) && n > 0 ? n : 0; };
-  const tarifa = cobro.tarifa_hora ?? 0;
-  const base = c(cobro.modalidad === 'fijo' ? cobro.importe_fijo ?? 0
-    : cobro.modalidad === 'hora' ? h(horas) * tarifa
-      : lineas.reduce((s, l) => s + c(h(l.horas) * tarifa), 0));
-  const iva = c(base * cobro.iva_pct / 100);
-  const irpf = c(base * cobro.irpf_pct / 100);
-  return { base, iva, irpf, total: c(base + iva - irpf) };
+  // En céntimos enteros y con las horas a dos decimales, igual que desglose.js:
+  // con decimales, 16,275 € salía 16,27 y la pantalla y el servidor no coincidían.
+  const aC = (n: number) => Math.round(n * 100);
+  const horasC = (t: string) => { const n = Number(normalizarImporte(t)); return Number.isFinite(n) && n > 0 ? aC(n) : 0; };
+  const tarifaC = aC(cobro.tarifa_hora ?? 0);
+  const por = (hC: number) => Math.round((hC * tarifaC) / 100);
+  const baseC = cobro.modalidad === 'fijo' ? aC(cobro.importe_fijo ?? 0)
+    : cobro.modalidad === 'hora' ? por(horasC(horas))
+      : lineas.reduce((s, l) => s + por(horasC(l.horas)), 0);
+  const ivaC = Math.round((baseC * aC(cobro.iva_pct)) / 10000);
+  const irpfC = Math.round((baseC * aC(cobro.irpf_pct)) / 10000);
+  return { base: baseC / 100, iva: ivaC / 100, irpf: irpfC / 100, total: (baseC + ivaC - irpfC) / 100 };
 }
 
 type R<T> = Promise<{ success: boolean; data: T; error?: string; message?: string }>;

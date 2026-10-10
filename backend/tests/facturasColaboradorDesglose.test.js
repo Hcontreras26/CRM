@@ -146,6 +146,21 @@ describe('el cálculo del desglose', () => {
     expect(desglose({ modalidad: null }, {})).toBeNull();
   });
 
+  it('el medio céntimo, hacia arriba: una factura bien hecha no sale «No cuadra» por un céntimo', () => {
+    // 5 h × 21,70 = 108,50; IRPF 15 % = 16,275 → 16,28 (con decimales salía 16,27 y no cuadraba con 115,01).
+    const h = desglose({ modalidad: 'hora', tarifa_hora: 21.7, iva_pct: 21, irpf_pct: 15 }, { horas: '5' });
+    expect(h).toMatchObject({ base: 108.5, iva: 22.79, irpf: 16.28, total: 115.01 });
+    expect(cuadra(115.01, h)).toBe(true);
+    expect(desglose({ modalidad: 'fijo', importe_fijo: 158.5, iva_pct: 21, irpf_pct: 0 }, {}).iva).toBe(33.29);
+    expect(desglose({ modalidad: 'proyecto', tarifa_hora: 22.33, iva_pct: 0, irpf_pct: 0 },
+      { lineas: JSON.stringify([{ concepto: 'x', horas: '1,5' }]) }).lineas[0].importe).toBe(33.5);
+  });
+
+  it('las horas, a dos decimales: «7,333» son 7,33 (como en la pantalla)', () => {
+    expect(desglose({ modalidad: 'hora', tarifa_hora: 22, iva_pct: 0, irpf_pct: 0 }, { horas: '7,333' }))
+      .toMatchObject({ horas: 7.33, base: 161.26 });
+  });
+
   it('cuadra al céntimo', () => {
     const d = { total: 419.76 };
     expect(cuadra(419.76, d)).toBe(true);
