@@ -278,4 +278,64 @@ describe('facturas de colaboradores (#202) · Enviadas, Por pagar, Pagadas, Hist
     expect(deA).toMatchObject({ campus: `${MARCA} Campus A`, horas: 10, importe: 300, facturas: 1 });
     expect(res.body.data.campus.find((c) => c.project_id === null)).toMatchObject({ horas: 5, importe: 150 });
   });
+
+  it('el coste por campus sigue el filtro de empresa; un admin no pide el de otra', async () => {
+    const deB = await request.get(`${API}/coste-por-campus`).query({ periodo: '2026-05', issuerId: E.B.id }).set(como('super'));
+    expect(deB.status).toBe(200);
+    expect(deB.body.data.campus.find((c) => c.project_id === P.A.id)).toBeUndefined();
+    expect((await request.get(`${API}/coste-por-campus`).query({ periodo: '2026-05', issuerId: E.B.id }).set(como('adminA'))).status).toBe(403);
+  });
+});
+
+// El ZIP del mes (segunda parte): «facturas-colaboradores_2026-09_CEDIA.zip, con
+// un resumen.xlsx dentro», con las columnas de la definición.
+describe('facturas de colaboradores (#202) · el ZIP del mes', () => {
+  const nombre = (clave) => `2026-05_${MARCA}A_${clave}_F-${clave}.pdf`;
+  const binario = (res, cb) => { const t = []; res.on('data', (c) => t.push(c)); res.on('end', () => cb(null, Buffer.concat(t))); };
+
+  beforeAll(async () => {
+    const { getFromR2 } = await import('../src/shared/services/r2.service.js');
+    getFromR2.mockImplementation(async (key) => ({
+      body: { transformToByteArray: async () => new TextEncoder().encode(`%PDF-1.4 ${key}`) },
+    }));
+    for (const clave of ['laura', 'porPagar']) {
+      await q('UPDATE facturas_colaborador SET archivo_key = $2, importe_esperado = 600 WHERE id = $1',
+        [F[clave], `facturas-colaborador/2026-05/${F[clave]}-abc/${nombre(clave)}`]);
+    }
+  });
+
+  it('las recibidas de la empresa, con su nombre, y el resumen con las columnas de la definición', async () => {
+    const res = await request.get(`${API}/zip`).query({ periodo: '2026-05', issuerId: E.A.id })
+      .set(como('adminA')).buffer(true).parse(binario);
+    expect(res.status, res.text).toBe(200);
+    expect(res.headers['content-type']).toBe('application/zip');
+    expect(res.headers['content-disposition']).toBe(`attachment; filename="facturas-colaboradores_2026-05_${MARCA}A.zip"`);
+
+    const { default: JSZip } = await import('jszip');
+    const zip = await JSZip.loadAsync(res.body);
+    const archivos = Object.keys(zip.files).sort();
+    expect(archivos).toEqual([nombre('laura'), nombre('porPagar'), 'resumen.xlsx'].sort());
+    expect(await zip.file(nombre('laura')).async('string')).toContain(`%PDF-1.4 facturas-colaborador/2026-05/${F.laura}`);
+
+    const { default: ExcelJS } = await import('exceljs');
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.load(await zip.file('resumen.xlsx').async('nodebuffer'));
+    const hoja = libro.getWorksheet('Resumen');
+    expect(hoja.getRow(1).values.slice(1)).toEqual([
+      'Colaborador', 'Área', 'NIF', 'Número de factura', 'Importe', 'Acordado', 'Diferencia', 'Fecha de subida', 'Número de recepción',
+    ]);
+    const filas = [2, 3].map((n) => hoja.getRow(n).values.slice(1));
+    const deLaura = filas.find((f) => f[0] === `${MARCA} laura`);
+    expect(deLaura.slice(0, 7)).toEqual([`${MARCA} laura`, 'SEO', '', 'F-laura', 636, 600, 36]);
+    expect(deLaura[7]).toBeInstanceOf(Date);
+    expect(deLaura[8]).toMatch(/^REC-P/);
+  });
+
+  it('un admin, solo de sus empresas; sin recibidas, 404; la gestora, 403', async () => {
+    expect((await request.get(`${API}/zip`).query({ periodo: '2026-05', issuerId: E.B.id }).set(como('adminA'))).status).toBe(403);
+    const vacio = await request.get(`${API}/zip`).query({ periodo: '2026-04', issuerId: E.A.id }).set(como('adminA'));
+    expect(vacio.status).toBe(404);
+    expect(vacio.body.error).toContain('No hay facturas recibidas de abril de 2026');
+    expect((await request.get(`${API}/zip`).query({ periodo: '2026-05', issuerId: E.A.id }).set(como('gestora'))).status).toBe(403);
+  });
 });

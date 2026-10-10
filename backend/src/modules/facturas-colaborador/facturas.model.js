@@ -390,7 +390,7 @@ export async function deLaVista({ vista, issuerIds, issuerId = null, colaborador
  * (la base, sin IVA ni IRPF) de colaboradores se va a cada campus en el mes.
  * Las líneas sin campus (las de fijo, o sin elegir) van juntas.
  */
-export async function costePorCampus({ periodo, issuerIds }) {
+export async function costePorCampus({ periodo, issuerIds, issuerId = null }) {
   const { rows } = await query(
     `SELECT l.project_id, p.nombre AS campus,
             SUM(l.horas)::float AS horas, SUM(l.importe)::float AS importe, COUNT(DISTINCT f.id)::int AS facturas
@@ -399,11 +399,36 @@ export async function costePorCampus({ periodo, issuerIds }) {
        LEFT JOIN projects p ON p.id = l.project_id
       WHERE f.periodo = $1::date AND f.subida_at IS NOT NULL AND f.anulada_at IS NULL
         AND ($2::int[] IS NULL OR f.issuer_id = ANY($2::int[]))
+        AND ($3::int IS NULL OR f.issuer_id = $3)
       GROUP BY l.project_id, p.nombre
       ORDER BY (l.project_id IS NULL), importe DESC`,
-    [periodo, issuerIds],
+    [periodo, issuerIds, issuerId],
   );
   return rows;
+}
+
+/** Las recibidas de una empresa y un mes, para el ZIP: con su archivo y lo que pide el resumen. */
+export async function paraElZip(periodo, issuerId) {
+  const { rows } = await query(
+    `SELECT f.id, c.nombre AS colaborador, c.area, c.nif, ii.razon_social AS empresa,
+            f.numero_factura, f.importe, f.importe_esperado,
+            CASE WHEN f.importe IS NOT NULL AND f.importe_esperado IS NOT NULL
+                 THEN f.importe - f.importe_esperado END AS diferencia,
+            f.subida_at, f.numero_recepcion, f.archivo_key
+       FROM facturas_colaborador f
+       JOIN colaboradores c ON c.id = f.colaborador_id
+       JOIN invoice_issuers ii ON ii.id = f.issuer_id
+      WHERE f.periodo = $1::date AND f.issuer_id = $2
+        AND f.subida_at IS NOT NULL AND f.anulada_at IS NULL AND f.archivo_key IS NOT NULL
+      ORDER BY c.nombre, f.id`,
+    [periodo, issuerId],
+  );
+  return rows;
+}
+
+export async function razonSocial(issuerId) {
+  const { rows } = await query('SELECT razon_social FROM invoice_issuers WHERE id = $1', [issuerId]);
+  return rows[0]?.razon_social ?? null;
 }
 
 export async function registroDeFactura(id) {

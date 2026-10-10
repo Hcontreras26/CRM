@@ -1,4 +1,4 @@
-import client from '@/shared/api/client';
+import client, { API_BASE_URL, getAccessToken } from '@/shared/api/client';
 
 /*
   Facturas de colaboradores (#202): la gente de fuera que factura al grupo cada
@@ -238,8 +238,29 @@ export const facturasColaboradorApi = {
   // ── Enviadas, Por pagar, Pagadas e Historial, y el coste por campus (segunda parte) ──
   vista: (f: { vista: VistaDeFacturas; issuerId?: string; colaboradorId?: string; periodo?: string; estado?: string }) =>
     client.get(`${BASE}/facturas${query(f)}`) as R<{ vista: VistaDeFacturas; resumen: { total: number; importe: number; pendiente: number }; facturas: FacturaDelMes[] }>,
-  costePorCampus: (periodo: string) =>
-    client.get(`${BASE}/coste-por-campus${query({ periodo })}`) as R<{ periodo: string; mes: string; campus: CosteDeCampus[] }>,
+  /**
+   * El ZIP del mes de una empresa, como descarga. Con su propio fetch, como el
+   * diploma de Certifex: `client` lee como texto lo que no es JSON y el ZIP se rompía.
+   */
+  bajarZip: async (periodo: string, issuerId: number, razonSocial: string) => {
+    const t = getAccessToken();
+    const r = await fetch(`${API_BASE_URL}${BASE}/zip${query({ periodo, issuerId })}`, {
+      credentials: 'include',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d?.error || `Error ${r.status}`);
+    }
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `facturas-colaboradores_${periodo}_${empresaCorta(razonSocial)}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+  costePorCampus: (periodo: string, issuerId?: string) =>
+    client.get(`${BASE}/coste-por-campus${query({ periodo, issuerId })}`) as R<{ periodo: string; mes: string; campus: CosteDeCampus[] }>,
 
   // ── El enlace del colaborador (sin usuario) ──
   verEnlace: (token: string) => client.get(`${BASE}/enlace/${token}`) as R<FacturaDelColaborador>,

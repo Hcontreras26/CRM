@@ -80,6 +80,7 @@ router.get('/mes', ve, facturas.delMes);
 // Enviadas, Por pagar, Pagadas e Historial, y el coste por campus (segunda parte).
 router.get('/facturas', ve, facturas.deLaVista);
 router.get('/coste-por-campus', ve, facturas.costePorCampus);
+router.get('/zip', ve, facturas.zip);
 router.get('/facturas/:id/archivo', ve, facturas.archivo);
 router.get('/facturas/:id/registro', ve, facturas.registro);
 router.post('/facturas/:id/anular', anula, facturas.anular);

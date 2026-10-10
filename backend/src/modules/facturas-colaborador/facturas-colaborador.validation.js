@@ -138,7 +138,10 @@ export const vistaSchema = z.object({
   estado: z.enum(['sin_enviar', 'enviado', 'abierto', 'recibida', 'anulada', 'no_enviado', 'caducado', 'no_cuadra']).optional(),
 });
 
-export const costePorCampusSchema = z.object({ periodo: mes });
+export const costePorCampusSchema = z.object({ periodo: mes, issuerId: z.coerce.number().int().positive().optional() });
+
+// El ZIP del mes: de una empresa («facturas-colaboradores_2026-09_CEDIA.zip»).
+export const zipSchema = z.object({ periodo: mes, issuerId: z.coerce.number().int().positive().max(2147483647) });
 
 export const anularSchema = z.object({
   motivo: z.string().trim().min(3, 'Escribe el motivo de la anulación').max(1000),

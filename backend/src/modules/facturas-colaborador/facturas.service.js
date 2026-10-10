@@ -1,13 +1,13 @@
 import crypto from 'node:crypto';
 import pool, { getClient } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
-import { uploadToR2 } from '../../shared/services/r2.service.js';
+import { getFromR2, uploadToR2 } from '../../shared/services/r2.service.js';
 import { generatePresignedUrl } from '../../shared/utils/presignedUrl.js';
 import * as model from './facturas.model.js';
 import { anotar } from './facturas-colaborador.model.js';
 import { ambitoDe } from './facturas-colaborador.service.js';
 import { logger } from '../../shared/utils/logger.js';
-import { enviarCorreoDelMes, enviarAcuse, enviarAvisoDePago, urlDelEnlace } from './facturas.emails.js';
+import { empresaCorta, enviarCorreoDelMes, enviarAcuse, enviarAvisoDePago, urlDelEnlace } from './facturas.emails.js';
 import { notifyUsers } from '../notifications/notifications.service.js';
 import { enUtf8 } from '../whatsapp/media.service.js';
 import { calcularDesglose, cuadra } from './desglose.js';
@@ -435,9 +435,72 @@ export async function deLaVista(user, filtros) {
 }
 
 /** Coste por campus del mes: horas y base de las líneas del desglose, de las empresas que se ven. */
-export async function costePorCampus(user, periodo) {
-  const filas = await model.costePorCampus({ periodo, issuerIds: await ambitoDe(user) });
+export async function costePorCampus(user, periodo, issuerId = null) {
+  const ambito = await ambitoDe(user);
+  if (issuerId && ambito && !ambito.includes(issuerId)) throw new AppError('Esa empresa no es de tus campus', 403, 'FORBIDDEN');
+  const filas = await model.costePorCampus({ periodo, issuerIds: ambito, issuerId });
   return { periodo: periodo.slice(0, 7), mes: nombreDelMes(periodo), campus: filas };
+}
+
+const AREA_ES = {
+  soporte: 'Soporte', desarrollo: 'Desarrollo', wordpress: 'WordPress', seo: 'SEO', contenido: 'Contenido', otra: 'Otra',
+};
+
+/**
+ * El ZIP del mes de una empresa, para mandárselo al gestor:
+ * «facturas-colaboradores_2026-09_CEDIA.zip», con las facturas recibidas y un
+ * resumen.xlsx con las columnas de la definición (colaborador, área y NIF;
+ * número de factura; importe, lo acordado y la diferencia; fecha de subida y
+ * número de recepción). Un admin, solo de sus empresas.
+ */
+export async function zipDelMes(user, periodo, issuerId) {
+  const ambito = await ambitoDe(user);
+  if (ambito && !ambito.includes(issuerId)) throw new AppError('Esa empresa no es de tus campus', 403, 'FORBIDDEN');
+  const empresa = await model.razonSocial(issuerId);
+  if (!empresa) throw new AppError('Esa empresa no existe', 404, 'NOT_FOUND');
+  const filas = await model.paraElZip(periodo, issuerId);
+  if (!filas.length) {
+    throw new AppError(`No hay facturas recibidas de ${nombreDelMes(periodo)} para ${empresa}`, 404, 'NOT_FOUND');
+  }
+
+  // Se cargan aquí, al pedir el ZIP, y no al arrancar (como en wasapiCsv.js).
+  const [{ default: JSZip }, { default: ExcelJS }] = await Promise.all([import('jszip'), import('exceljs')]);
+  const zip = new JSZip();
+  for (const f of filas) {
+    const { body } = await getFromR2(f.archivo_key);
+    // El nombre con que se guardó: «2026-09_CEDIA_Laura-Perez_F-2026-09.pdf».
+    zip.file(f.archivo_key.split('/').pop(), Buffer.from(await body.transformToByteArray()));
+  }
+
+  const libro = new ExcelJS.Workbook();
+  const hoja = libro.addWorksheet('Resumen');
+  hoja.columns = [
+    { header: 'Colaborador', key: 'colaborador', width: 28 },
+    { header: 'Área', key: 'area', width: 14 },
+    { header: 'NIF', key: 'nif', width: 14 },
+    { header: 'Número de factura', key: 'numero_factura', width: 20 },
+    { header: 'Importe', key: 'importe', width: 12, style: { numFmt: '#,##0.00 €' } },
+    { header: 'Acordado', key: 'acordado', width: 12, style: { numFmt: '#,##0.00 €' } },
+    { header: 'Diferencia', key: 'diferencia', width: 12, style: { numFmt: '#,##0.00 €' } },
+    { header: 'Fecha de subida', key: 'subida', width: 18, style: { numFmt: 'dd/mm/yyyy hh:mm' } },
+    { header: 'Número de recepción', key: 'numero_recepcion', width: 20 },
+  ];
+  hoja.getRow(1).font = { bold: true };
+  const num = (v) => (v === null ? null : Number(v));
+  for (const f of filas) {
+    hoja.addRow({
+      colaborador: f.colaborador, area: AREA_ES[f.area] || f.area, nif: f.nif || '',
+      numero_factura: f.numero_factura, importe: num(f.importe), acordado: num(f.importe_esperado),
+      diferencia: num(f.diferencia), subida: new Date(f.subida_at), numero_recepcion: f.numero_recepcion,
+    });
+  }
+  zip.file('resumen.xlsx', Buffer.from(await libro.xlsx.writeBuffer()));
+
+  return {
+    nombre: `facturas-colaboradores_${periodo.slice(0, 7)}_${empresaCorta(empresa)}.zip`,
+    buffer: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }),
+    facturas: filas.length,
+  };
 }
 
 /** El archivo, con un enlace firmado de 15 minutos. */

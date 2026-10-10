@@ -236,11 +236,11 @@ export default function ListaDeFacturas({ vista, empresas }: { vista: VistaDeFac
  * desglose, cuántas horas y cuánto dinero (la base, sin IVA ni IRPF) de
  * colaboradores se va a cada campus. Sin líneas en el mes, no se pinta.
  */
-export function CostePorCampus({ periodo }: { periodo: string }) {
+export function CostePorCampus({ periodo, issuerId }: { periodo: string; issuerId?: string }) {
   const [filas, setFilas] = useState<CosteDeCampus[]>([]);
   useEffect(() => {
-    facturasColaboradorApi.costePorCampus(periodo).then((r) => setFilas(r.data.campus)).catch(() => setFilas([]));
-  }, [periodo]);
+    facturasColaboradorApi.costePorCampus(periodo, issuerId).then((r) => setFilas(r.data.campus)).catch(() => setFilas([]));
+  }, [periodo, issuerId]);
   if (!filas.length) return null;
   return (
     <div className="bg-card border border-border rounded-lg">

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ArrowClockwise, ArrowCounterClockwise, ClockCounterClockwise, CurrencyEur, FileText, LockKey, PaperPlaneTilt, PencilSimple, Plus, Prohibit,
+  ArrowClockwise, ArrowCounterClockwise, ClockCounterClockwise, CurrencyEur, FileText, FileZip, LockKey, PaperPlaneTilt, PencilSimple, Plus, Prohibit,
   Receipt, UserMinus, UserPlus, UsersThree,
 } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
@@ -168,6 +168,19 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
     }
   }
 
+  // El ZIP del mes es de una empresa («facturas-colaboradores_2026-09_CEDIA.zip»).
+  const [bajando, setBajando] = useState(false);
+  async function bajarZip() {
+    const empresa = empresas.find((e) => String(e.id) === issuerId);
+    if (!empresa || bajando) return;
+    setBajando(true);
+    try {
+      await facturasColaboradorApi.bajarZip(periodo, empresa.id, empresa.razon_social);
+    } catch (err) {
+      toast({ title: 'No se pudo bajar el ZIP', description: errorDe(err), variant: 'destructive' });
+    } finally { setBajando(false); }
+  }
+
   async function verJustificante(f: FacturaDelMes) {
     try {
       const r = await facturasColaboradorApi.justificante(f.id);
@@ -200,10 +213,10 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
-        <div className="w-52 flex-none">
+        <div className="w-48 flex-none">
           <input type="month" aria-label="Mes" value={periodo} onChange={(e) => esMes(e.target.value) && ponerPeriodo(e.target.value)} className={inputClass} />
         </div>
-        <div className="w-56 flex-none">
+        <div className="w-52 flex-none">
           <Select<string> value={issuerId} onChange={setIssuerId} ariaLabel="Empresa"
             options={[{ value: '', label: 'Todas las empresas' }, ...empresas.map((e) => ({ value: String(e.id), label: e.razon_social }))]} />
         </div>
@@ -215,7 +228,12 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
           <Select<'' | EstadoFactura> value={estado} onChange={setEstado} ariaLabel="Estado"
             options={[{ value: '', label: 'Todos los estados' }, ...(Object.keys(ESTADO) as EstadoFactura[]).map((e) => ({ value: e, label: ESTADO[e].rotulo }))]} />
         </div>
-        <Button variant="outline" size="sm" onClick={cargar} disabled={cargando} className="ml-auto">
+        <Button variant="outline" size="sm" className="ml-auto" onClick={bajarZip} disabled={!issuerId || bajando}
+          aria-label="Descargar el ZIP del mes"
+          title={issuerId ? 'Descargar el ZIP: las recibidas del mes y su resumen.xlsx, para el gestor' : 'Elige una empresa: el ZIP es de una empresa y un mes'}>
+          <FileZip size={13} className="mr-1.5" /> {bajando ? 'Preparando…' : 'ZIP'}
+        </Button>
+        <Button variant="outline" size="sm" onClick={cargar} disabled={cargando}>
           <ArrowClockwise size={13} weight="bold" className="mr-1.5" /> {cargando ? 'Cargando…' : 'Actualizar'}
         </Button>
       </div>
@@ -313,7 +331,7 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
         )}
       </div>
 
-      <CostePorCampus periodo={periodo} />
+      <CostePorCampus periodo={periodo} issuerId={issuerId} />
 
       {anular && (
         <AnularDialog facturaId={anular.id} quien={`${anular.colaborador_nombre} · ${anular.empresa}`}

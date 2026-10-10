@@ -1,7 +1,7 @@
 import * as service from './facturas.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import {
-  subidaSchema, delMesSchema, anularSchema, pagarSchema, deshacerPagoSchema, vistaSchema, costePorCampusSchema,
+  subidaSchema, delMesSchema, anularSchema, pagarSchema, deshacerPagoSchema, vistaSchema, costePorCampusSchema, zipSchema,
 } from './facturas-colaborador.validation.js';
 
 function validar(schema, datos) {
@@ -67,8 +67,17 @@ export const deLaVista = accion(async (req, res) => {
 });
 
 export const costePorCampus = accion(async (req, res) => {
-  const { periodo } = validar(costePorCampusSchema, req.query);
-  res.json({ success: true, data: await service.costePorCampus(req.user, periodo) });
+  const { periodo, issuerId } = validar(costePorCampusSchema, req.query);
+  res.json({ success: true, data: await service.costePorCampus(req.user, periodo, issuerId) });
+});
+
+/** El ZIP del mes de una empresa, con su resumen.xlsx (segunda parte). */
+export const zip = accion(async (req, res) => {
+  const { periodo, issuerId } = validar(zipSchema, req.query);
+  const z = await service.zipDelMes(req.user, periodo, issuerId);
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${z.nombre}"`);
+  res.send(z.buffer);
 });
 
 export const archivo = accion(async (req, res) => {
