@@ -240,10 +240,10 @@ function paraElColaborador(f) {
 
 const num = (v) => (v === null || v === undefined ? null : Number(v));
 
-/** Si cobra por proyecto y aún puede subirla, los campus para elegir en cada línea. */
-async function conCampus(datos) {
+/** Si cobra por proyecto y aún puede subirla, los campus de esa empresa para elegir en cada línea. */
+async function conCampus(datos, issuerId) {
   const sube = datos.cobro?.modalidad === 'proyecto' && !datos.recibida && !['anulada', 'caducado'].includes(datos.estado);
-  return sube ? { ...datos, campus: await model.campusDelCrm() } : datos;
+  return sube ? { ...datos, campus: await model.campusDeLaEmpresa(issuerId) } : datos;
 }
 
 /** La primera vez que se usa un enlace caducado, queda en el registro. */
@@ -261,7 +261,7 @@ export async function verEnlace(token, ip) {
     await anotar(pool, { facturaId: f.id, evento: 'abierto', ip });
     f.estado = 'abierto';
   }
-  return conCampus(paraElColaborador(f));
+  return conCampus(paraElColaborador(f), f.issuer_id);
 }
 
 const FIRMAS = [
@@ -322,7 +322,7 @@ async function guardarFactura(f, { archivo, importe, numeroFactura, desglose: en
   // queda marcada «No cuadra».
   const desglose = calcularDesglose({
     cobro: f, area: f.area, periodo: f.periodo, entrada,
-    campus: f.modalidad === 'proyecto' ? (await model.campusDelCrm()).map((p) => p.id) : [],
+    campus: f.modalidad === 'proyecto' ? (await model.campusDeLaEmpresa(f.issuer_id)).map((p) => p.id) : [],
   });
   const cuadraConSuTotal = desglose ? cuadra(importe, desglose) : null;
 
@@ -378,7 +378,7 @@ export async function mias(user) {
   const filas = await model.delUsuario(user.userId);
   return Promise.all(filas.map(async (f) => ({
     id: f.id,
-    ...(await conCampus(paraElColaborador(f))),
+    ...(await conCampus(paraElColaborador(f), f.issuer_id)),
     // Su enlace, rehecho con la semilla; solo mientras sirve para subirla.
     // Solo si el enlace rehecho cuadra con su huella: si cambió la clave del servidor no funcionaría.
     enlace: f.token_semilla && !['recibida', 'anulada', 'caducado'].includes(f.estado)

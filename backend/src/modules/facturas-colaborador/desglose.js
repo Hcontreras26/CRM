@@ -63,7 +63,7 @@ function lineasDe(texto) {
  *   cobro:   { modalidad, importe_fijo, tarifa_hora, iva_pct, irpf_pct } de su ficha
  *   area, periodo: para el concepto de la línea de fijo y de horas
  *   entrada: { horas, lineas } tal como llegan del formulario
- *   campus:  ids de proyecto que se pueden elegir en una línea
+ *   campus:  ids de los campus de la empresa de la factura (los que se pueden elegir)
  * Devuelve null si su ficha no tiene modalidad (como en la primera parte).
  */
 export function calcularDesglose({ cobro, area, periodo, entrada = {}, campus = [] }) {
@@ -84,9 +84,9 @@ export function calcularDesglose({ cobro, area, periodo, entrada = {}, campus = 
       const texto = String(l?.concepto ?? '').trim();
       if (!texto) throw MAL(`Escribe el encargo${donde}`);
       if (texto.length > 200) throw MAL(`El encargo${donde} es demasiado largo`);
-      // El proyecto es opcional; si llega, tiene que ser un campus del CRM.
+      // El proyecto es opcional; si llega, tiene que ser un campus de la empresa de la factura.
       const projectId = l?.project_id === null || l?.project_id === undefined || l?.project_id === '' ? null : Number(l.project_id);
-      if (projectId !== null && !campus.includes(projectId)) throw MAL(`Ese campus no existe${donde}`);
+      if (projectId !== null && !campus.includes(projectId)) throw MAL(`Ese campus no es de esta empresa${donde}`);
       const horasC = horasDe(l?.horas, donde);
       return { orden: i + 1, concepto: texto, project_id: projectId, horasC, tarifa, importeC: por(horasC, tarifaC) };
     });

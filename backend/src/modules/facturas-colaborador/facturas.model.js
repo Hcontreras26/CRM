@@ -290,10 +290,19 @@ export async function deshacerPago(db, id) {
   );
 }
 
-/** Los campus del CRM, para el proyecto de cada línea del desglose. */
-export async function campusDelCrm() {
+/**
+ * Los campus de una empresa, para el proyecto de cada línea del desglose. Solo
+ * los de la empresa de la factura: Diego, 10/10, «son por EMPRESA, no por
+ * campus»; y en #307, con una empresa, «solo los campus de esa empresa».
+ */
+export async function campusDeLaEmpresa(issuerId) {
   // Sin los de prueba, como el resumen del equipo (correosDelEquipo.js).
-  const { rows } = await query('SELECT id, nombre FROM projects WHERE active AND NOT COALESCE(es_prueba, false) ORDER BY nombre');
+  const { rows } = await query(
+    `SELECT id, nombre FROM projects
+      WHERE active AND NOT COALESCE(es_prueba, false) AND sociedad_emisora_id = $1
+      ORDER BY nombre`,
+    [issuerId],
+  );
   return rows.map((r) => ({ id: Number(r.id), nombre: r.nombre }));
 }
 

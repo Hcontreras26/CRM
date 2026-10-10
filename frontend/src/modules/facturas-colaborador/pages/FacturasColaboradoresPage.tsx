@@ -129,7 +129,7 @@ export default function FacturasColaboradoresPage() {
       </div>
       {vista === 'mes' ? <DelMes empresas={empresas} empresa={empresa} />
         : vista === 'colaboradores' ? <Colaboradores empresas={empresas} empresa={empresa} />
-          : <ListaDeFacturas key={vista} vista={vista} empresas={empresas} />}
+          : <ListaDeFacturas key={vista} vista={vista} empresas={empresas} empresa={empresa} />}
     </div>
   );
 }
@@ -191,11 +191,12 @@ function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: n
   // El ZIP del mes es de una empresa («facturas-colaboradores_2026-09_CEDIA.zip»).
   const [bajando, setBajando] = useState(false);
   async function bajarZip() {
-    const empresa = empresas.find((e) => String(e.id) === issuerId);
-    if (!empresa || bajando) return;
+    // Con una empresa en la cabecera, el ZIP es de esa (y el botón ya está activo).
+    const deLaEmpresa = empresas.find((e) => String(e.id) === issuerId);
+    if (!deLaEmpresa || bajando) return;
     setBajando(true);
     try {
-      await facturasColaboradorApi.bajarZip(periodo, empresa.id, empresa.razon_social);
+      await facturasColaboradorApi.bajarZip(periodo, deLaEmpresa.id, deLaEmpresa.razon_social);
     } catch (err) {
       toast({ title: 'No se pudo bajar el ZIP', description: errorDe(err), variant: 'destructive' });
     } finally { setBajando(false); }

@@ -158,7 +158,7 @@ export interface FacturaDelColaborador {
     modalidad: Modalidad; importe_fijo: number | null; tarifa_hora: number | null;
     iva_pct: number; irpf_pct: number; concepto: string;
   };
-  /** Los campus del CRM, para el proyecto de cada línea (solo si cobra por proyecto). */
+  /** Los campus de la empresa de la factura, para el proyecto de cada línea (solo si cobra por proyecto). */
   campus?: { id: number; nombre: string }[];
   recibida: null | {
     subida_at: string; numero_recepcion: string; importe: number | null; numero_factura: string | null; archivo: string | null;

@@ -31,8 +31,14 @@ const nombreDelMes = (periodo: string) => primeraMayuscula(
   new Date(Number(periodo.slice(0, 4)), Number(periodo.slice(5, 7)) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
 ).replace(' de ', ' ');
 
-export default function ListaDeFacturas({ vista, empresas }: { vista: VistaDeFacturas; empresas: EmpresaDelGrupo[] }) {
-  const [issuerId, setIssuerId] = useState('');
+export default function ListaDeFacturas({ vista, empresas, empresa }: {
+  vista: VistaDeFacturas; empresas: EmpresaDelGrupo[];
+  /** La empresa de la cabecera (Diego, 10/10: «son por EMPRESA»), o null con «Todos los proyectos». */
+  empresa: number | null;
+}) {
+  // Con una empresa en la cabecera, esa: el desplegable no le lleva la contraria.
+  const [elegida, setIssuerId] = useState('');
+  const issuerId = empresa ? String(empresa) : elegida;
   const [colaboradorId, setColaboradorId] = useState('');
   const [periodo, setPeriodo] = useState('');
   const [estado, setEstado] = useState('');
@@ -47,11 +53,13 @@ export default function ListaDeFacturas({ vista, empresas }: { vista: VistaDeFac
   const puedePagar = can('facturas_colaborador.pagar');
 
   // El filtro por colaborador: la lista la da «Colaboradores» (si no se puede pedir, no sale).
+  // Con una empresa en la cabecera, solo quienes le facturan; al cambiarla, se quita el elegido.
   useEffect(() => {
-    facturasColaboradorApi.colaboradores({ estado: 'todos' })
+    setColaboradorId('');
+    facturasColaboradorApi.colaboradores({ estado: 'todos', issuerId: empresa ?? undefined })
       .then((r) => setColaboradores(r.data.map((c) => ({ id: c.id, nombre: c.nombre }))))
       .catch(() => setColaboradores([]));
-  }, []);
+  }, [empresa]);
 
   // Solo cuenta la última petición: si se cambia de filtro rápido, la respuesta del
   // anterior no puede pisar la tabla (y «Marcar pagadas» pagaría las filas de otro filtro).
@@ -107,10 +115,12 @@ export default function ListaDeFacturas({ vista, empresas }: { vista: VistaDeFac
               options={[{ value: '', label: 'Todos los colaboradores' }, ...colaboradores.map((c) => ({ value: String(c.id), label: c.nombre }))]} />
           </div>
         )}
-        <div className="w-56 flex-none">
-          <Select<string> value={issuerId} onChange={setIssuerId} ariaLabel="Empresa"
-            options={[{ value: '', label: 'Todas las empresas' }, ...empresas.map((e) => ({ value: String(e.id), label: e.razon_social }))]} />
-        </div>
+        {!empresa && (
+          <div className="w-56 flex-none">
+            <Select<string> value={issuerId} onChange={setIssuerId} ariaLabel="Empresa"
+              options={[{ value: '', label: 'Todas las empresas' }, ...empresas.map((e) => ({ value: String(e.id), label: e.razon_social }))]} />
+          </div>
+        )}
         <div className="w-48 flex-none">
           <input type="month" aria-label="Mes" value={periodo} title="Vacío: todos los meses"
             onChange={(e) => (e.target.value === '' || esMes(e.target.value)) && setPeriodo(e.target.value)} className={inputClass} />

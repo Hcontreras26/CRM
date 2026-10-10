@@ -40,6 +40,8 @@ const one = async (sql, params) => (await q(sql, params))[0];
 
 let empresa;
 let campus;
+let otra;           // otra empresa del grupo, con su campus: no se ofrece ni se acepta
+let campusDeOtra;
 const C = {};       // colaboradores por clave
 const enlace = {};  // clave → token en claro
 
@@ -58,6 +60,11 @@ beforeAll(async () => {
   campus = await one(
     `INSERT INTO projects (nombre, slug, webhook_api_key, sociedad_emisora_id) VALUES ($1, $2, $3, $4) RETURNING id`,
     [`${MARCA} Campus`, `${MARCA.toLowerCase()}-c`, `${MARCA}-key`, empresa.id]);
+  otra = await one('INSERT INTO invoice_issuers (razon_social, nif) VALUES ($1, $2) RETURNING id',
+    [`${MARCA} Otra`, `C${Date.now().toString().slice(-8)}`]);
+  campusDeOtra = await one(
+    `INSERT INTO projects (nombre, slug, webhook_api_key, sociedad_emisora_id) VALUES ($1, $2, $3, $4) RETURNING id`,
+    [`${MARCA} Campus de otra`, `${MARCA.toLowerCase()}-o`, `${MARCA}-key-o`, otra.id]);
 
   const fichas = {
     horas: { modalidad: 'hora', tarifa_hora: 22, iva_pct: 21, irpf_pct: 15 },
@@ -93,8 +100,8 @@ afterAll(async () => {
             AND (metadata->>'factura_id')::int IN (SELECT id FROM facturas_colaborador WHERE colaborador_id = ANY($1::int[]))`, [cs]);
   await q('DELETE FROM facturas_colaborador WHERE colaborador_id = ANY($1::int[])', [cs]);
   await q('DELETE FROM colaboradores WHERE id = ANY($1::int[])', [cs]);
-  await q('DELETE FROM projects WHERE id = $1', [campus.id]);
-  await q('DELETE FROM invoice_issuers WHERE id = $1', [empresa.id]);
+  await q('DELETE FROM projects WHERE id = ANY($1::int[])', [[campus.id, campusDeOtra.id]]);
+  await q('DELETE FROM invoice_issuers WHERE id = ANY($1::int[])', [[empresa.id, otra.id]]);
   await pool.end();
 });
 
@@ -135,7 +142,7 @@ describe('el cálculo del desglose', () => {
       [p, { lineas: '[]' }, 'al menos una línea'],
       [p, { lineas: 'no es json' }, 'no se pudo leer'],
       [p, { lineas: JSON.stringify([{ concepto: '', horas: 2 }]) }, 'Escribe el encargo en la línea 1'],
-      [p, { lineas: JSON.stringify([{ concepto: 'x', horas: 2, project_id: 999 }]) }, 'Ese campus no existe en la línea 1'],
+      [p, { lineas: JSON.stringify([{ concepto: 'x', horas: 2, project_id: 999 }]) }, 'Ese campus no es de esta empresa en la línea 1'],
     ];
     for (const [cobro, entrada, texto] of casos) {
       expect(() => desglose(cobro, entrada, [7]), texto).toThrow(texto);
@@ -189,6 +196,19 @@ describe('facturas de colaboradores (#202) · el desglose al subir', () => {
     expect((await request.get(`${API}/enlace/${enlace.sin}`)).body.data.cobro).toBeNull();
   });
 
+  it('solo los campus de la empresa de la factura (Diego, 10/10: «son por EMPRESA, no por campus»)', async () => {
+    const p = (await request.get(`${API}/enlace/${enlace.proyecto}`)).body.data;
+    expect(p.campus).toEqual([{ id: campus.id, nombre: `${MARCA} Campus` }]);
+    // Y si llega uno de otra empresa, se rechaza antes de subir nada.
+    uploadToR2.mockClear();
+    const res = await subir('proyecto', {
+      importe: '60', numero_factura: 'F-P-06', lineas: JSON.stringify([{ concepto: 'x', horas: 2, project_id: campusDeOtra.id }]),
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Ese campus no es de esta empresa');
+    expect(uploadToR2).not.toHaveBeenCalled();
+  });
+
   it('por hora y cuadra: se guardan la base, el IVA, el IRPF, el total y su línea', async () => {
     const res = await subir('horas', { importe: '419,76', numero_factura: 'F-H-06', horas: '18' });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
@@ -230,7 +250,7 @@ describe('facturas de colaboradores (#202) · el desglose al subir', () => {
       importe: '60', numero_factura: 'F-P-06', lineas: JSON.stringify([{ concepto: 'x', horas: 2, project_id: 2147483 }]),
     });
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('Ese campus no existe');
+    expect(res.body.error).toContain('Ese campus no es de esta empresa');
     expect(uploadToR2).not.toHaveBeenCalled();
     expect((await fila('proyecto')).subida_at).toBeNull();
   });
