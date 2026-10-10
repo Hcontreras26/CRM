@@ -8,8 +8,9 @@ import FilaCampos from '@/shared/components/ui/FilaCampos';
 import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import {
-  AREAS, AREA_ES, MODALIDADES, MODALIDAD_ES, euros, facturasColaboradorApi, fechaHora, normalizarImporte,
-  type Area, type Colaborador, type EmpresaDelColaborador, type EmpresaDelGrupo, type LineaRegistro, type Modalidad,
+  AREAS, AREA_ES, FORMAS_PAGO, FORMA_PAGO_ES, MODALIDADES, MODALIDAD_ES, diaDelPago, euros, facturasColaboradorApi,
+  fechaHora, normalizarImporte,
+  type Area, type Colaborador, type EmpresaDelColaborador, type EmpresaDelGrupo, type FormaPago, type LineaRegistro, type Modalidad,
 } from '../api/facturasColaborador.api';
 
 /** El marco de los diálogos de esta pantalla. */
@@ -359,6 +360,112 @@ export function AnularDialog({ facturaId, quien, alCerrar, alGuardar }: {
   );
 }
 
+/* ─────────────────────────── el pago (segunda parte) ─────────────────────────── */
+
+// Hoy en hora local, «AAAA-MM-DD» (con `toISOString` de 00:00 a 02:00 en Madrid salía ayer).
+const hoy = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * «Marcar pagada» («Añadido 01/10 (tarde)»): la fecha (hoy por defecto), la
+ * forma de pago y, si se quiere, el justificante. Una o varias a la vez.
+ */
+export function PagarDialog({ facturas, alCerrar, alGuardar }: {
+  facturas: { id: number; quien: string; importe: number | string | null }[];
+  alCerrar: () => void; alGuardar: () => void;
+}) {
+  const [fecha, setFecha] = useState(hoy());
+  const [forma, setForma] = useState<FormaPago>('transferencia');
+  const [referencia, setReferencia] = useState('');
+  const [justificante, setJustificante] = useState<File | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const total = facturas.reduce((s, f) => s + (f.importe === null ? 0 : Number(f.importe)), 0);
+
+  async function guardar() {
+    setGuardando(true);
+    try {
+      await facturasColaboradorApi.pagar(facturas.map((f) => f.id), { fecha, forma_pago: forma, referencia_pago: referencia.trim() }, justificante);
+      toast({
+        title: facturas.length === 1 ? 'Factura pagada' : `${facturas.length} facturas pagadas`,
+        description: 'Se le avisa al colaborador.',
+      });
+      alGuardar();
+    } catch (err) {
+      toast({ title: 'No se pudo marcar pagada', description: errorDe(err), variant: 'destructive' });
+    } finally { setGuardando(false); }
+  }
+
+  return (
+    <Dialogo titulo={facturas.length === 1 ? `Marcar pagada · ${facturas[0].quien}` : `Marcar pagadas · ${facturas.length} facturas`} alCerrar={alCerrar}>
+      <div className="space-y-4">
+        {facturas.length > 1 && (
+          <ul className="max-h-32 overflow-y-auto text-secundario text-muted-foreground space-y-0.5">
+            {facturas.map((f) => <li key={f.id}>{f.quien} · {euros(f.importe)}</li>)}
+          </ul>
+        )}
+        <p className="text-sm">Total: <strong className="tabular-nums">{euros(total)}</strong></p>
+        <FilaCampos>
+          <Field label="Fecha del pago" htmlFor="pago-fecha" required>
+            <input id="pago-fecha" type="date" value={fecha} max={hoy()} onChange={(e) => setFecha(e.target.value)} className={inputClass} />
+          </Field>
+          <Field label="Forma de pago" required>
+            <Select<FormaPago> value={forma} onChange={setForma} ariaLabel="Forma de pago"
+              options={FORMAS_PAGO.map((f) => ({ value: f, label: FORMA_PAGO_ES[f] }))} />
+          </Field>
+        </FilaCampos>
+        <Field label="Referencia" htmlFor="pago-referencia" hint="Opcional: la de la transferencia, por ejemplo">
+          <input id="pago-referencia" value={referencia} maxLength={100} onChange={(e) => setReferencia(e.target.value)} className={inputClass} />
+        </Field>
+        <Field label="Justificante" htmlFor="pago-justificante" hint="Opcional: PDF o foto (JPG, PNG), hasta 10 MB">
+          <input id="pago-justificante" type="file" accept="application/pdf,image/jpeg,image/png"
+            onChange={(e) => setJustificante(e.target.files?.[0] ?? null)} className="text-sm" />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={alCerrar}>Cancelar</Button>
+          <Button onClick={guardar} disabled={guardando || !fecha}>{guardando ? 'Guardando…' : 'Marcar pagada'}</Button>
+        </div>
+      </div>
+    </Dialogo>
+  );
+}
+
+/** «Se puede deshacer con motivo»: vuelve a «por pagar». */
+export function DeshacerPagoDialog({ facturaId, quien, alCerrar, alGuardar }: {
+  facturaId: number; quien: string; alCerrar: () => void; alGuardar: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  async function guardar() {
+    setGuardando(true);
+    try {
+      await facturasColaboradorApi.deshacerPago(facturaId, motivo.trim());
+      toast({ title: 'Pago deshecho', description: 'Vuelve a «por pagar».' });
+      alGuardar();
+    } catch (err) {
+      toast({ title: 'No se pudo deshacer el pago', description: errorDe(err), variant: 'destructive' });
+    } finally { setGuardando(false); }
+  }
+  return (
+    <Dialogo titulo={`Deshacer el pago · ${quien}`} alCerrar={alCerrar}>
+      <div className="space-y-4">
+        <p className="text-secundario text-muted-foreground">
+          La factura vuelve a «por pagar». La fecha, la forma y la referencia del pago quedan en el registro.
+        </p>
+        <Field label="Motivo" htmlFor="deshacer-motivo" required>
+          <textarea id="deshacer-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3}
+            placeholder="Por ejemplo: la transferencia era de otra factura" className={`${inputClass} h-auto py-2`} />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={alCerrar}>Cancelar</Button>
+          <Button variant="destructive" onClick={guardar} disabled={guardando || motivo.trim().length < 3}>Deshacer el pago</Button>
+        </div>
+      </div>
+    </Dialogo>
+  );
+}
+
 /* ─────────────────────────── registro ─────────────────────────── */
 
 const EVENTO: Record<string, string> = {
@@ -366,6 +473,7 @@ const EVENTO: Record<string, string> = {
   enviado: 'Correo enviado', no_enviado: 'No se pudo enviar', abierto: 'Enlace abierto',
   recibida: 'Factura recibida', acuse: 'Acuse enviado', recordatorio: 'Recordatorio enviado',
   anulada: 'Factura anulada', reenviado: 'Enlace nuevo', caducado: 'Enlace caducado',
+  pagada: 'Factura pagada', pago_deshecho: 'Pago deshecho', aviso_pago: 'Aviso de pago enviado',
 };
 
 const CAMPO: Record<string, string> = {
@@ -402,6 +510,14 @@ function detalleDe(l: LineaRegistro) {
   if (d.importe !== undefined && d.importe !== null) partes.push(euros(d.importe as number));
   if (d.numero_factura) partes.push(`n.º ${d.numero_factura}`);
   if (d.numero_recepcion) partes.push(String(d.numero_recepcion));
+  // El desglose y el pago (segunda parte).
+  if (d.cuadra === false) partes.push(`no cuadra (el desglose da ${euros(d.total as number)})`);
+  if (d.forma_pago) partes.push(`${FORMA_PAGO_ES[d.forma_pago as FormaPago] || d.forma_pago} del ${diaDelPago(String(d.fecha))}`);
+  if (d.referencia_pago) partes.push(`ref. ${d.referencia_pago}`);
+  if (d.justificante) partes.push(`justificante ${d.justificante}`);
+  if (d.junto_con) partes.push(`junto con otras ${Number(d.junto_con) - 1}`);
+  const antes = d.antes as { fecha?: string; forma_pago?: FormaPago } | undefined;
+  if (antes?.fecha) partes.push(`era ${(antes.forma_pago && FORMA_PAGO_ES[antes.forma_pago]) || 'pago'} del ${diaDelPago(antes.fecha)}`);
   if (d.motivo) partes.push(`«${d.motivo}»`);
   if (d.desde) partes.push(`desde ${String(d.desde).slice(0, 7)}`);
   if (d.para) partes.push(`a ${d.para}`);

@@ -21,6 +21,15 @@ export const MODALIDADES = ['fijo', 'hora', 'proyecto'] as const;
 export type Modalidad = typeof MODALIDADES[number];
 export const MODALIDAD_ES: Record<Modalidad, string> = { fijo: 'Fijo', hora: 'Por hora', proyecto: 'Por proyecto' };
 
+// Cómo se le paga (segunda parte, «Marcar pagada»): las del CRM que sirven para pagar a una persona.
+export const FORMAS_PAGO = ['transferencia', 'bizum', 'paypal', 'efectivo', 'otro'] as const;
+export type FormaPago = typeof FORMAS_PAGO[number];
+export const FORMA_PAGO_ES: Record<FormaPago, string> = {
+  transferencia: 'Transferencia', bizum: 'Bizum', paypal: 'PayPal', efectivo: 'Efectivo', otro: 'Otra',
+};
+/** «2026-06-05» → «05/06», como «transferencia del 05/10» en la definición. */
+export const diaDelPago = (dia: string | null | undefined) => (dia ? `${dia.slice(8, 10)}/${dia.slice(5, 7)}` : '—');
+
 /** Cómo cobra: sin modalidad, las fichas de la primera parte. Los números llegan como texto de la base. */
 export interface ComoCobra {
   modalidad: Modalidad | null;
@@ -90,6 +99,11 @@ export interface FacturaDelMes {
   total: string | null;
   horas: string | null;
   cuadra: boolean | null;
+  /** El pago, que no se mezcla con el estado de la factura. */
+  pagada_at: string | null; // AAAA-MM-DD
+  forma_pago: FormaPago | null;
+  referencia_pago: string | null;
+  con_justificante: boolean;
   estado: EstadoFactura;
 }
 
@@ -200,6 +214,20 @@ export const facturasColaboradorApi = {
   registroDeLaFactura: (id: number) => client.get(`${BASE}/facturas/${id}/registro`) as R<LineaRegistro[]>,
   anular: (id: number, motivo: string) => client.post(`${BASE}/facturas/${id}/anular`, { motivo }) as R<{ anulada: number; nueva: number }>,
   reenviar: (id: number) => client.post(`${BASE}/facturas/${id}/reenviar`, {}) as R<{ id: number }>,
+
+  // ── El pago (segunda parte): una o varias, con el justificante si se quiere ──
+  pagar: (ids: number[], datos: { fecha: string; forma_pago: FormaPago; referencia_pago?: string }, justificante?: File | null) => {
+    const fd = new FormData();
+    fd.append('ids', ids.join(','));
+    fd.append('fecha', datos.fecha);
+    fd.append('forma_pago', datos.forma_pago);
+    if (datos.referencia_pago) fd.append('referencia_pago', datos.referencia_pago);
+    if (justificante) fd.append('justificante', justificante);
+    return client.post(`${BASE}/facturas/pagar`, fd) as R<{ pagadas: number[] }>;
+  },
+  deshacerPago: (id: number, motivo: string) =>
+    client.post(`${BASE}/facturas/${id}/deshacer-pago`, { motivo }) as R<{ id: number }>,
+  justificante: (id: number) => client.get(`${BASE}/facturas/${id}/justificante`) as R<{ url: string }>,
 
   // ── El enlace del colaborador (sin usuario) ──
   verEnlace: (token: string) => client.get(`${BASE}/enlace/${token}`) as R<FacturaDelColaborador>,

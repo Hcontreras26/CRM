@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ArrowClockwise, ClockCounterClockwise, FileText, LockKey, PaperPlaneTilt, PencilSimple, Plus, Prohibit, UserMinus, UserPlus, UsersThree,
+  ArrowClockwise, ArrowCounterClockwise, ClockCounterClockwise, CurrencyEur, FileText, LockKey, PaperPlaneTilt, PencilSimple, Plus, Prohibit,
+  Receipt, UserMinus, UserPlus, UsersThree,
 } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import usePermission from '@/shared/hooks/usePermission';
@@ -11,10 +12,12 @@ import { Button } from '@/shared/components/ui/button';
 import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import {
-  AREAS, AREA_ES, ESTADO, euros, diaMes, empresaCorta, facturasColaboradorApi, fechaHora, primeraMayuscula,
+  AREAS, AREA_ES, ESTADO, FORMA_PAGO_ES, euros, diaDelPago, diaMes, empresaCorta, facturasColaboradorApi, fechaHora, primeraMayuscula,
   type Area, type Colaborador, type EmpresaDelGrupo, type EstadoFactura, type FacturaDelMes, type Mes,
 } from '../api/facturasColaborador.api';
-import { AltaDialog, AnularDialog, BajaDialog, ColaboradorDialog, RegistroDialog, esMes } from '../components/DialogosFacturas';
+import {
+  AltaDialog, AnularDialog, BajaDialog, ColaboradorDialog, DeshacerPagoDialog, PagarDialog, RegistroDialog, esMes,
+} from '../components/DialogosFacturas';
 
 /**
  * Finanzas › Facturas de colaboradores (#202).
@@ -115,8 +118,12 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
   const [cargando, setCargando] = useState(true);
   const [anular, setAnular] = useState<FacturaDelMes | null>(null);
   const [registro, setRegistro] = useState<FacturaDelMes | null>(null);
+  const [pagar, setPagar] = useState<FacturaDelMes | null>(null);
+  const [deshacer, setDeshacer] = useState<FacturaDelMes | null>(null);
   const { can } = usePermission();
   const puedeAnular = can('facturas_colaborador.anular');
+  // «Marcar pagada»: solo un admin (segunda parte).
+  const puedePagar = can('facturas_colaborador.pagar');
   const puedeReenviar = can('facturas_colaborador.gestionar');
   // La fila que se está reenviando: un segundo clic mandaba otro correo y el
   // enlace del primero ya no valía.
@@ -148,6 +155,15 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
       window.open(r.data.url, '_blank', 'noopener');
     } catch (err) {
       toast({ title: 'No se pudo abrir el archivo', description: errorDe(err), variant: 'destructive' });
+    }
+  }
+
+  async function verJustificante(f: FacturaDelMes) {
+    try {
+      const r = await facturasColaboradorApi.justificante(f.id);
+      window.open(r.data.url, '_blank', 'noopener');
+    } catch (err) {
+      toast({ title: 'No se pudo abrir el justificante', description: errorDe(err), variant: 'destructive' });
     }
   }
 
@@ -221,7 +237,7 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
                     <td className="px-2 py-2">{AREA_ES[f.area]}</td>
                     <td className="px-2 py-2 whitespace-nowrap" title={f.empresa}>{empresaCorta(f.empresa)}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{euros(f.importe_esperado)}</td>
-                    <td className="px-2 py-2 text-xs text-muted-foreground"><div className="max-w-[8rem] truncate" title={f.email}>{f.email}</div></td>
+                    <td className="px-2 py-2 text-xs text-muted-foreground"><div className="max-w-[6.5rem] truncate" title={f.email}>{f.email}</div></td>
                     <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">
                       {f.abierto_at ? <>Abierto<br />{diaMes(f.abierto_at)}</> : f.enviado_at ? <>Enviado<br />{diaMes(f.enviado_at)}</> : '—'}
                     </td>
@@ -229,22 +245,34 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
                       <Pildora estado={f.estado} />
                       {/* El desglose no da su total: se dejó enviar y queda marcada (segunda parte). */}
                       {f.cuadra === false && f.estado !== 'anulada' && (
-                        <span title={`El desglose da ${euros(f.total)}`}
-                          className="ml-1 rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap bg-warning-soft text-warning-soft-foreground">
-                          No cuadra
-                        </span>
+                        // Debajo, como «Pagada»: al lado no cabía la tabla en un portátil.
+                        <div className="mt-0.5">
+                          <span title={`El desglose da ${euros(f.total)}`}
+                            className="rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap bg-warning-soft text-warning-soft-foreground">
+                            No cuadra
+                          </span>
+                        </div>
                       )}
                       {f.numero_recepcion && (
                         <div className="text-xs text-muted-foreground mt-0.5 whitespace-nowrap">{f.numero_recepcion}<br />{fechaHora(f.subida_at)}</div>
                       )}
                       {f.motivo_anulacion && <div className="text-xs text-muted-foreground mt-0.5">«{f.motivo_anulacion}»</div>}
+                      {/* El pago, que no se mezcla con el estado de la factura (segunda parte). */}
+                      {f.pagada_at && (
+                        <div className="mt-0.5">
+                          <span title={`${f.forma_pago ? FORMA_PAGO_ES[f.forma_pago] : 'Pago'}${f.referencia_pago ? ` · ref. ${f.referencia_pago}` : ''}`}
+                            className="rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap bg-success-soft text-success-soft-foreground">
+                            Pagada {diaDelPago(f.pagada_at)}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{euros(f.importe)}</td>
                     <td className={`px-2 py-2 text-right tabular-nums ${f.diferencia && Number(f.diferencia) !== 0 ? 'text-warning-soft-foreground font-semibold' : ''}`}>
                       {f.diferencia === null ? '—' : euros(f.diferencia)}
                     </td>
                     <td className="px-2 py-2">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end gap-0.5">
                         {f.nombre_original && (
                           <Button variant="ghost" size="sm" className="px-2" title="Ver el archivo" aria-label="Ver el archivo" onClick={() => verArchivo(f)}><FileText size={15} /></Button>
                         )}
@@ -253,7 +281,16 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
                           <Button variant="ghost" size="sm" className="px-2" title="Reenviar el enlace" aria-label="Reenviar el enlace"
                             disabled={reenviando !== null} onClick={() => reenviar(f)}><PaperPlaneTilt size={15} /></Button>
                         )}
-                        {puedeAnular && !f.anulada_at && (
+                        {puedePagar && f.subida_at && !f.anulada_at && !f.pagada_at && (
+                          <Button variant="ghost" size="sm" className="px-2" title="Marcar pagada" aria-label="Marcar pagada" onClick={() => setPagar(f)}><CurrencyEur size={15} /></Button>
+                        )}
+                        {f.pagada_at && f.con_justificante && (
+                          <Button variant="ghost" size="sm" className="px-2" title="Ver el justificante" aria-label="Ver el justificante" onClick={() => verJustificante(f)}><Receipt size={15} /></Button>
+                        )}
+                        {puedePagar && f.pagada_at && (
+                          <Button variant="ghost" size="sm" className="px-2" title="Deshacer el pago" aria-label="Deshacer el pago" onClick={() => setDeshacer(f)}><ArrowCounterClockwise size={15} /></Button>
+                        )}
+                        {puedeAnular && !f.anulada_at && !f.pagada_at && (
                           <Button variant="ghost" size="sm" className="px-2" title="Anular" aria-label="Anular" onClick={() => setAnular(f)}><Prohibit size={15} /></Button>
                         )}
                       </div>
@@ -269,6 +306,14 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
       {anular && (
         <AnularDialog facturaId={anular.id} quien={`${anular.colaborador_nombre} · ${anular.empresa}`}
           alCerrar={() => setAnular(null)} alGuardar={() => { setAnular(null); void cargar(); }} />
+      )}
+      {pagar && (
+        <PagarDialog facturas={[{ id: pagar.id, quien: `${pagar.colaborador_nombre} · ${empresaCorta(pagar.empresa)}`, importe: pagar.importe }]}
+          alCerrar={() => setPagar(null)} alGuardar={() => { setPagar(null); void cargar(); }} />
+      )}
+      {deshacer && (
+        <DeshacerPagoDialog facturaId={deshacer.id} quien={`${deshacer.colaborador_nombre} · ${empresaCorta(deshacer.empresa)}`}
+          alCerrar={() => setDeshacer(null)} alGuardar={() => { setDeshacer(null); void cargar(); }} />
       )}
       {registro && (
         <RegistroDialog titulo={`Registro · ${registro.colaborador_nombre} · ${registro.empresa}`}

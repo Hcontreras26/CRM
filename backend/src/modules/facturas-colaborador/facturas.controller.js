@@ -1,6 +1,8 @@
 import * as service from './facturas.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
-import { subidaSchema, delMesSchema, anularSchema } from './facturas-colaborador.validation.js';
+import {
+  subidaSchema, delMesSchema, anularSchema, pagarSchema, deshacerPagoSchema,
+} from './facturas-colaborador.validation.js';
 
 function validar(schema, datos) {
   const r = schema.safeParse(datos ?? {});
@@ -93,4 +95,22 @@ export const subirMia = accion(async (req, res) => {
 
 export const archivoMio = accion(async (req, res) => {
   res.json({ success: true, data: await service.archivoMio(req.user, validarId(req.params.id)) });
+});
+
+// ─── El pago (segunda parte) ───
+
+export const pagar = accion(async (req, res) => {
+  const { ids, fecha, forma_pago: forma, referencia_pago: referencia } = validar(pagarSchema, req.body);
+  const data = await service.pagar(req.user, { ids, fecha, forma, referencia, archivo: req.file }, ipDe(req));
+  res.json({ success: true, data });
+});
+
+export const deshacerPago = accion(async (req, res) => {
+  const { motivo } = validar(deshacerPagoSchema, req.body);
+  const data = await service.deshacerPago(req.user, validarId(req.params.id), motivo, ipDe(req));
+  res.json({ success: true, data });
+});
+
+export const justificante = accion(async (req, res) => {
+  res.json({ success: true, data: await service.urlDelJustificante(req.user, validarId(req.params.id)) });
 });

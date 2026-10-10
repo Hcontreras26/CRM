@@ -32,7 +32,7 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'roles.view': true, 'roles.edit': false,
     'tasks.view_all': true, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': true, 'tasks.edit': true, 'tasks.delete': true, 'tasks.close': true, 'tasks.manage': true,
     // Facturas de colaboradores (#202): las de las empresas de sus campus.
-    'facturas_colaborador.ver_todas': true, 'facturas_colaborador.gestionar': true, 'facturas_colaborador.anular': true, 'facturas_colaborador.subir': false,
+    'facturas_colaborador.ver_todas': true, 'facturas_colaborador.gestionar': true, 'facturas_colaborador.anular': true, 'facturas_colaborador.pagar': true, 'facturas_colaborador.subir': false,
   },
 
   gestor: {
@@ -68,7 +68,7 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'roles.view': false, 'roles.edit': false,
     'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): no las ve.
-    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.subir': false,
+    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.pagar': false, 'facturas_colaborador.subir': false,
   },
 
   soporte: {
@@ -96,7 +96,7 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'roles.view': false, 'roles.edit': false,
     'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): no las ve.
-    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.subir': false,
+    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.pagar': false, 'facturas_colaborador.subir': false,
   },
   // Colaborador (#210, fase 5): solo su tablero de tareas. Lo que no esta aqui
   // es «no»: `resolvePermission` solo da por bueno un `true` explicito, y el
@@ -104,7 +104,7 @@ export const SYSTEM_ROLE_DEFAULTS = {
   colaborador: {
     'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): sube la suya («Mi factura»).
-    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.subir': true,
+    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.pagar': false, 'facturas_colaborador.subir': true,
   },
 };
 
@@ -131,5 +131,5 @@ export const ALL_RESOURCES = {
   channels:         ['view', 'edit'],
   roles:            ['view', 'edit'],
   tasks:            ['view_all', 'view_own', 'create', 'assign', 'edit', 'delete', 'close', 'manage'],
-  facturas_colaborador: ['ver_todas', 'gestionar', 'anular', 'subir'],
+  facturas_colaborador: ['ver_todas', 'gestionar', 'anular', 'pagar', 'subir'],
 };

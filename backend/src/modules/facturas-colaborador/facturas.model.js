@@ -69,7 +69,8 @@ const CAMPOS_ENLACE = `
   c.nombre AS colaborador_nombre, c.email AS colaborador_email, c.area, c.nif AS colaborador_nif,
   ii.razon_social, ii.nif AS empresa_nif, ii.direccion, ii.cp, ii.ciudad, ii.pais, ii.logo_url,
   ce.modalidad, ce.importe_fijo, ce.tarifa_hora, ce.iva_pct, ce.irpf_pct,
-  f.base, f.iva, f.irpf, f.total, f.horas, f.cuadra`;
+  f.base, f.iva, f.irpf, f.total, f.horas, f.cuadra,
+  to_char(f.pagada_at, 'YYYY-MM-DD') AS pagada_at, f.pagada_por, f.forma_pago, f.referencia_pago, f.justificante`;
 
 /** La fila de un enlace, por la huella de su token. */
 export async function porTokenHash(tokenHash) {
@@ -237,6 +238,35 @@ export async function guardarSubida(db, id, datos) {
   }
 }
 
+/** Varias facturas bloqueadas (en orden, para no cruzarse con otro pago a la vez). */
+export async function bloquearVarias(db, ids) {
+  const { rows } = await db.query(
+    `SELECT f.id, f.subida_at, f.anulada_at, to_char(f.pagada_at, 'YYYY-MM-DD') AS pagada_at
+       FROM facturas_colaborador f WHERE f.id = ANY($1::int[]) ORDER BY f.id FOR UPDATE`,
+    [ids],
+  );
+  return rows.map((r) => ({ ...r, id: Number(r.id) }));
+}
+
+export async function marcarPagada(db, id, { fecha, porUserId, forma, justificante, referencia }) {
+  await db.query(
+    `UPDATE facturas_colaborador
+        SET pagada_at = $2, pagada_por = $3, forma_pago = $4, justificante = $5, referencia_pago = $6
+      WHERE id = $1`,
+    [id, fecha, porUserId, forma, justificante, referencia],
+  );
+}
+
+/** Deshacer el pago: vuelve a «por pagar». Lo que había queda en el registro. */
+export async function deshacerPago(db, id) {
+  await db.query(
+    `UPDATE facturas_colaborador
+        SET pagada_at = NULL, pagada_por = NULL, forma_pago = NULL, justificante = NULL, referencia_pago = NULL
+      WHERE id = $1`,
+    [id],
+  );
+}
+
 /** Los campus del CRM, para el proyecto de cada línea del desglose. */
 export async function campusDelCrm() {
   // Sin los de prueba, como el resumen del equipo (correosDelEquipo.js).
@@ -303,6 +333,9 @@ export async function delMes({ periodo, issuerIds, issuerId = null, estado = nul
               f.caduca_at, f.anulada_at, f.motivo_anulacion, f.nombre_original, f.tamano,
               -- El desglose (segunda parte): cuadra null = subida sin desglose.
               f.base, f.total, f.horas, f.cuadra,
+              -- El pago, que no se mezcla con el estado de la factura.
+              to_char(f.pagada_at, 'YYYY-MM-DD') AS pagada_at, f.forma_pago, f.referencia_pago,
+              (f.justificante IS NOT NULL) AS con_justificante,
               ${ESTADO} AS estado
          FROM facturas_colaborador f
          JOIN colaboradores c ON c.id = f.colaborador_id

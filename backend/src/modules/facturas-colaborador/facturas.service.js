@@ -7,7 +7,7 @@ import * as model from './facturas.model.js';
 import { anotar } from './facturas-colaborador.model.js';
 import { ambitoDe } from './facturas-colaborador.service.js';
 import { logger } from '../../shared/utils/logger.js';
-import { enviarCorreoDelMes, enviarAcuse, urlDelEnlace } from './facturas.emails.js';
+import { enviarCorreoDelMes, enviarAcuse, enviarAvisoDePago, urlDelEnlace } from './facturas.emails.js';
 import { notifyUsers } from '../notifications/notifications.service.js';
 import { enUtf8 } from '../whatsapp/media.service.js';
 import { calcularDesglose, cuadra } from './desglose.js';
@@ -418,6 +418,98 @@ export async function urlDelArchivo(user, id) {
   return { url: await generatePresignedUrl(f.archivo_key), nombre: f.nombre_original, caduca_en_segundos: 15 * 60 };
 }
 
+/* ─────────────────────────── el pago (segunda parte) ─────────────────────────── */
+
+/**
+ * «Marcar pagada» («Añadido 01/10 (tarde)»): la fecha (hoy por defecto, la pone
+ * la pantalla), la forma de pago y, si se quiere, el justificante. Una o varias
+ * a la vez, solo un admin (el permiso lo mira la ruta), y todo al registro. El
+ * estado del pago no se mezcla con el de la factura: solo se paga una recibida.
+ */
+export async function pagar(user, { ids, fecha, forma, referencia, archivo }, ip) {
+  const ambito = await ambitoDe(user);
+  const facturas = [];
+  for (const id of ids) {
+    const f = await model.porId(id, ambito);
+    if (!f) throw NO_ESTA();
+    facturas.push(f);
+  }
+  const nombres = (l) => l.map((f) => `${f.colaborador_nombre} (${nombreDelMes(f.periodo)})`).join(', ');
+  const sinRecibir = facturas.filter((f) => !f.subida_at || f.anulada_at);
+  if (sinRecibir.length) throw new AppError(`Solo se paga una factura recibida: ${nombres(sinRecibir)}`, 409, 'NO_RECIBIDA');
+  const yaPagadas = facturas.filter((f) => f.pagada_at);
+  if (yaPagadas.length) throw new AppError(`Ya está pagada: ${nombres(yaPagadas)}`, 409, 'YA_PAGADA');
+
+  // El justificante, a R2 antes de la transacción (como el archivo de la factura).
+  let justificante = null;
+  let nombreJustificante = null;
+  if (archivo) {
+    if (archivo.size > TOPE_BYTES) throw new AppError('El justificante pasa de 10 MB', 400, 'FILE_TOO_LARGE');
+    const tipo = tipoReal(archivo.buffer);
+    if (!tipo) throw new AppError('El justificante tiene que ser un PDF o una foto JPG o PNG', 400, 'INVALID_FILE_TYPE');
+    const sha = crypto.createHash('sha256').update(archivo.buffer).digest('hex').slice(0, 8);
+    nombreJustificante = (enUtf8(archivo.originalname) || `justificante.${tipo.ext}`).slice(0, 255);
+    justificante = `facturas-colaborador/pagos/${fecha.slice(0, 7)}/${sha}/justificante-${fecha}.${tipo.ext}`;
+    await uploadToR2(justificante, archivo.buffer, tipo.mime);
+  }
+
+  await enTransaccion(async (db) => {
+    // Bloqueadas: si otro pago o una anulación se adelantó, este no sigue.
+    for (const fila of await model.bloquearVarias(db, ids)) {
+      if (fila.pagada_at) throw new AppError('Otra persona la acaba de marcar pagada', 409, 'YA_PAGADA');
+      if (!fila.subida_at || fila.anulada_at) throw new AppError('Solo se paga una factura recibida', 409, 'NO_RECIBIDA');
+    }
+    for (const f of facturas) {
+      await model.marcarPagada(db, f.id, { fecha, porUserId: user.userId, forma, justificante, referencia });
+      await anotar(db, {
+        facturaId: f.id, evento: 'pagada', userId: user.userId, ip,
+        detalle: {
+          fecha, forma_pago: forma, referencia_pago: referencia, justificante: nombreJustificante,
+          importe: f.importe === null ? null : Number(f.importe), ...(ids.length > 1 ? { junto_con: ids.length } : {}),
+        },
+      });
+    }
+  });
+
+  for (const f of facturas) await mandarAvisoDePago(f.id);
+  return { pagadas: ids, fecha, forma_pago: forma };
+}
+
+/** El aviso al colaborador. Si falla, el pago ya está guardado: solo se apunta en el log. */
+async function mandarAvisoDePago(id) {
+  try {
+    const f = await model.porId(id, null);
+    const r = await enviarAvisoDePago({ f, marca: await model.marcaDeLaEmpresa(f.issuer_id) });
+    if (r?.sent) await anotar(pool, { facturaId: id, evento: 'aviso_pago', detalle: { para: f.colaborador_email } });
+  } catch (err) {
+    logger.error({ err: err.message, facturaId: id }, 'No se pudo mandar el aviso de pago de la factura de colaborador');
+  }
+}
+
+/** «Se puede deshacer con motivo»: vuelve a «por pagar», y lo que había queda en el registro. */
+export async function deshacerPago(user, id, motivo, ip) {
+  const f = await model.porId(id, await ambitoDe(user));
+  if (!f) throw NO_ESTA();
+  if (!f.pagada_at) throw new AppError('Esta factura no está pagada', 409, 'NO_PAGADA');
+  await enTransaccion(async (db) => {
+    const [fila] = await model.bloquearVarias(db, [id]);
+    if (!fila.pagada_at) throw new AppError('Esta factura no está pagada', 409, 'NO_PAGADA');
+    await model.deshacerPago(db, id);
+    await anotar(db, {
+      facturaId: id, evento: 'pago_deshecho', userId: user.userId, ip,
+      detalle: { motivo, antes: { fecha: f.pagada_at, forma_pago: f.forma_pago, referencia_pago: f.referencia_pago } },
+    });
+  });
+  return { id };
+}
+
+export async function urlDelJustificante(user, id) {
+  const f = await model.porId(id, await ambitoDe(user));
+  if (!f) throw NO_ESTA();
+  if (!f.justificante) throw new AppError('Este pago no tiene justificante', 404, 'NOT_FOUND');
+  return { url: await generatePresignedUrl(f.justificante), caduca_en_segundos: 15 * 60 };
+}
+
 /**
  * Anular: la factura se queda (con su archivo) marcada como anulada, y nace
  * otra fila del mismo mes con un enlace nuevo para que la vuelva a subir.
@@ -426,6 +518,8 @@ export async function anular(user, id, motivo, ip) {
   const f = await model.porId(id, await ambitoDe(user));
   if (!f) throw NO_ESTA();
   if (f.anulada_at) throw new AppError('Esta factura ya está anulada', 409, 'CONFLICT');
+  // Pagada y anulada a la vez no cuadra: primero se deshace el pago, con su motivo.
+  if (f.pagada_at) throw new AppError('Esta factura está pagada: deshaz el pago antes de anularla', 409, 'PAGADA');
 
   const { token, hash, semilla } = tokenNuevo();
   const nuevaId = await enTransaccion(async (db) => {

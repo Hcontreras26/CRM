@@ -22,14 +22,15 @@ const limite = (max) => rateLimit({
 });
 
 // El tipo de verdad se mira después, por los primeros bytes (`tipoReal`).
-const recibirArchivo = (req, res, next) => {
+const recibir = (campo) => (req, res, next) => {
   multer({ storage: multer.memoryStorage(), limits: { fileSize: TOPE_BYTES, files: 1 } })
-    .single('archivo')(req, res, (err) => {
+    .single(campo)(req, res, (err) => {
       if (!err) return next();
       if (err.code === 'LIMIT_FILE_SIZE') return next(new AppError('El archivo pasa de 10 MB', 400, 'FILE_TOO_LARGE'));
       return next(new AppError('No se pudo leer el archivo', 400, 'INVALID_FILE'));
     });
 };
+const recibirArchivo = recibir('archivo');
 
 router.get('/enlace/:token', limite(60), facturas.verEnlace);
 router.post('/enlace/:token', limite(20), recibirArchivo, facturas.subir);
@@ -50,6 +51,8 @@ router.get('/mias/:id/archivo', sube, facturas.archivoMio);
 const gestiona = [verifyToken, checkPermission('facturas_colaborador', 'gestionar')];
 const ve = [verifyToken, checkPermission('facturas_colaborador', 'ver_todas')];
 const anula = [verifyToken, checkPermission('facturas_colaborador', 'anular')];
+// «Marcar pagada»: solo un admin (segunda parte).
+const paga = [verifyToken, checkPermission('facturas_colaborador', 'pagar')];
 
 // Las empresas, para el filtro de «Del mes» (ver_todas) y para la ficha (gestionar).
 const veOGestiona = async (req, res, next) => {
@@ -78,5 +81,11 @@ router.get('/facturas/:id/archivo', ve, facturas.archivo);
 router.get('/facturas/:id/registro', ve, facturas.registro);
 router.post('/facturas/:id/anular', anula, facturas.anular);
 router.post('/facturas/:id/reenviar', gestiona, facturas.reenviar);
+
+// ─── El pago (segunda parte): una o varias, con el justificante si se quiere ───
+
+router.post('/facturas/pagar', paga, recibir('justificante'), facturas.pagar);
+router.post('/facturas/:id/deshacer-pago', paga, facturas.deshacerPago);
+router.get('/facturas/:id/justificante', ve, facturas.justificante);
 
 export default router;

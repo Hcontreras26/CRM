@@ -131,3 +131,28 @@ export const delMesSchema = z.object({
 export const anularSchema = z.object({
   motivo: z.string().trim().min(3, 'Escribe el motivo de la anulación').max(1000),
 });
+
+// ─── El pago (segunda parte, «Marcar pagada») ───
+
+export const FORMAS_PAGO = ['transferencia', 'bizum', 'paypal', 'efectivo', 'otro'];
+
+/** Hoy en Madrid, «AAAA-MM-DD»: la fecha del pago no puede ser posterior. */
+const hoyEnMadrid = () => new Date().toLocaleDateString('en-CA', { timeZone: process.env.APP_TIMEZONE || 'Europe/Madrid' });
+
+// Llega por multipart (con el justificante, si se adjunta): todo texto.
+export const pagarSchema = z.object({
+  // «Se puede marcar una o varias a la vez»: «12» o «12,13,14».
+  ids: z.string().trim().min(1, 'Elige al menos una factura')
+    .transform((v) => [...new Set(v.split(',').map((x) => Number(x.trim())))])
+    .refine((l) => l.length >= 1 && l.length <= 200 && l.every((n) => Number.isInteger(n) && n > 0 && n <= 2147483647),
+      'Facturas inválidas'),
+  fecha: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida: usa AAAA-MM-DD')
+    .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().startsWith(v), 'Fecha inválida')
+    .refine((v) => v <= hoyEnMadrid(), 'La fecha del pago no puede ser posterior a hoy'),
+  forma_pago: z.enum(FORMAS_PAGO, { message: `Forma de pago inválida: ${FORMAS_PAGO.join(', ')}` }),
+  referencia_pago: z.string().trim().max(100).optional().transform((v) => v || null),
+});
+
+export const deshacerPagoSchema = z.object({
+  motivo: z.string().trim().min(3, 'Escribe por qué se deshace el pago').max(1000),
+});
