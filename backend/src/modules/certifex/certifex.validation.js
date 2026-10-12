@@ -244,6 +244,9 @@ export const editarSchema = z.object({
 
 export const formacionesSchema = z.object({ centro });
 
+/** Sincronizar el temario de una formación del catálogo con la página del curso (12/10). */
+export const sincronizarTemarioSchema = z.object({ centro, productoId: z.coerce.number().int().positive() });
+
 /**
  * Un nombre mal escrito se CORRIGE (mismo numero, auditado): no se revoca y reemite.
  * Mismos limites que Certifex (corregirCredencial): el nombre con la regla del diploma,

@@ -1,14 +1,17 @@
+import { query } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import { conLoDelCrm, exigirMisMatriculas } from './certifex.emisiones.js';
 import * as model from './certifex.model.js';
-import { programasPara, datosDeCandidato, formacionesDeCentro } from './certifex.programa.js';
+import { programasPara, datosDeCandidato, formacionesDeCentro, proyectoDeCentro } from './certifex.programa.js';
+import { sincronizarTemario } from '../products/temario.js';
 import { certifex, recorrer } from './certifex.cliente.js';
 import { alcanceDe, acotar, exigirCentro, exigirExpedientes, NO_ENCONTRADA } from './certifex.alcance.js';
 import { prepararEmision, emitirConPrograma, emitirMatriculas } from './certifex.emision.js';
 import {
   listarSolicitudesSchema, listarDiplomasSchema, porAvisarSchema, aprobarEmitirSchema, rechazarSchema, emitirDiplomasSchema,
   avisosSchema, avisosRechazoSchema, revocarSchema, corregirSchema, editarSchema, formacionesSchema, listarTerminadosSchema,
+  sincronizarTemarioSchema,
   mensajeDeValidacion,
 } from './certifex.validation.js';
 
@@ -426,6 +429,27 @@ export async function formaciones(req, res, next) {
     const { centro } = parsear(formacionesSchema, req.query);
     exigirCentro(await alcanceDe(req.user), centro, 'Campus no encontrado.');
     res.json({ success: true, data: await formacionesDeCentro(centro.toUpperCase()) });
+  } catch (err) { next(err); }
+}
+
+/**
+ * POST /diplomas/formaciones/sincronizar { centro, productoId } — los módulos de esa
+ * formación, leídos de la página del curso y guardados en el catálogo (12/10, Diego:
+ * «sincronizar a un producto»). Solo una formación del proyecto de ese campus. Devuelve la
+ * formación como la da `formaciones`, para que el panel la cargue y se pueda editar.
+ */
+export async function sincronizarFormacion(req, res, next) {
+  try {
+    const { centro, productoId } = parsear(sincronizarTemarioSchema, req.body);
+    const cod = centro.toUpperCase();
+    exigirCentro(await alcanceDe(req.user), cod, 'Campus no encontrado.');
+    const { proyecto, motivo } = await proyectoDeCentro(cod);
+    if (!proyecto) throw new AppError(motivo || 'Ese campus no tiene proyecto en el CRM.', 404, 'NOT_FOUND');
+    const { rows: [p] } = await query('SELECT id FROM products WHERE id = $1 AND project_id = $2', [productoId, proyecto.id]);
+    if (!p) throw new AppError('Esa formación no es del catálogo de este campus.', 404, 'NOT_FOUND');
+    const r = await sincronizarTemario(productoId);
+    const { formaciones: lista } = await formacionesDeCentro(cod);
+    res.json({ success: true, data: { formacion: lista.find((f) => f.id === productoId) ?? null, modulos: r.modulos.length, fuente: r.fuente, motivo: r.motivo } });
   } catch (err) { next(err); }
 }
 
