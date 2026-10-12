@@ -1090,6 +1090,8 @@ export async function updateExternalProject(id, fields) {
  * la de la base, que en el servidor es UTC.
  */
 export async function findDailyDigest(aviso, hoy, tz = 'Europe/Madrid') {
+  // Solo a quien tiene tablero (Diego, 09/10): una gestora con tareas de antes
+  // recibiría un correo con un enlace que ya no puede abrir (403).
   const { rows } = await query(
     `SELECT u.id AS user_id, u.nombre, u.email,
             json_agg(json_build_object(
@@ -1100,6 +1102,7 @@ export async function findDailyDigest(aviso, hoy, tz = 'Europe/Madrid') {
        JOIN tasks t ON t.assigned_to = u.id
       WHERE u.active
         AND u.email IS NOT NULL
+        AND ${conTablero(4)}
         AND t.archived_at IS NULL
         AND t.status <> 'hecha'
         AND t.due_date < (($2::date + 1)::timestamp AT TIME ZONE $3)
@@ -1108,7 +1111,7 @@ export async function findDailyDigest(aviso, hoy, tz = 'Europe/Madrid') {
         )
       GROUP BY u.id, u.nombre, u.email
       ORDER BY u.nombre`,
-    [aviso, hoy, tz]
+    [aviso, hoy, tz, ROLES_TAREAS]
   );
   return rows;
 }
