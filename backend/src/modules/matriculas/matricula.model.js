@@ -1,9 +1,22 @@
 import { query } from '../../shared/config/db.js';
+import { comoLista, SIN_PRUEBAS } from '../../shared/utils/ambito.js';
 
-export async function findAll({ projectId, estado, search, page = 1, limit = 50 }) {
-  const conditions = ['m.project_id = $1'];
-  const params = [projectId];
-  let idx = 2;
+/**
+ * Un campus, una empresa entera o «Todos» (#199: «por empresa y con "Todos los
+ * proyectos", como el resto del CRM»). El mismo helper que Ventas y Reportes;
+ * «Todos» sin los proyectos de pruebas.
+ */
+function alcance(projectId, projectIds, params) {
+  const lista = comoLista(projectId, projectIds);
+  if (!lista) return SIN_PRUEBAS('m.project_id');
+  params.push(lista);
+  return `m.project_id = ANY($${params.length}::int[])`;
+}
+
+export async function findAll({ projectId, projectIds = null, estado, search, page = 1, limit = 50 }) {
+  const params = [];
+  const conditions = [alcance(projectId, projectIds, params)];
+  let idx = params.length + 1;
   if (estado) { conditions.push(`m.estado = $${idx++}`); params.push(estado); }
   // Recortado, igual que en leads: un espacio pegado al nombre vaciaba la lista.
   const termino = typeof search === 'string' ? search.trim() : '';
@@ -97,13 +110,15 @@ export async function remove(id) {
   await query(`DELETE FROM matriculas WHERE id = $1`, [id]);
 }
 
-export async function getStats(projectId) {
+export async function getStats({ projectId, projectIds = null }) {
+  const params = [];
+  const where = alcance(projectId, projectIds, params);
   const { rows } = await query(
     `SELECT
        COUNT(*) as total,
        COUNT(*) FILTER (WHERE estado = 'pendiente') as pendientes,
        COUNT(*) FILTER (WHERE estado = 'validada') as validadas,
        COUNT(*) FILTER (WHERE estado = 'rechazada') as rechazadas
-     FROM matriculas WHERE project_id = $1`, [projectId]);
+     FROM matriculas m WHERE ${where}`, params);
   return rows[0];
 }

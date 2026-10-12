@@ -13,6 +13,7 @@ import PromptDialog from '@/shared/components/ui/PromptDialog';
 import WebhooksTab from '../components/WebhooksTab';
 import MatriculaDetail from '../components/MatriculaDetail';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
+import { ponerAmbito, TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 
 // Certificaciones (Certifex). Diego, 30/09: «meterlo en la parte de matrículas en
 // una subsección que sea certificaciones [...] cuando alguien termina la formación,
@@ -48,7 +49,16 @@ const ESTADO_COLOR = {
 };
 
 export default function MatriculasPage() {
-  const { activeProject } = useProjectContext();
+  const { activeProject, activeIssuerId, activeIssuer } = useProjectContext() as {
+    activeProject: { id?: number | null; nombre?: string } | null;
+    activeIssuerId: number | null; activeIssuer: { nombre?: string } | null;
+  };
+  // El listado va por campus, por empresa o con «Todos» (#199: «por empresa y con
+  // "Todos los proyectos", como el resto del CRM»). Los webhooks no: se montan
+  // para un campus, y sin uno elegido se dice que hay que elegirlo.
+  const campusElegido = !activeIssuerId && activeProject?.id && activeProject.id !== TODOS_LOS_PROYECTOS ? activeProject : null;
+  const nombreAmbito = activeIssuerId ? (activeIssuer?.nombre || 'esta empresa')
+    : campusElegido ? (campusElegido.nombre || 'este campus') : 'todos los campus';
   const { can, tieneRol } = usePermission();
   const [tab, setTab] = useState('list');
   // Certificaciones tiene dirección propia (/clientes/matriculas/certificaciones):
@@ -77,10 +87,9 @@ export default function MatriculasPage() {
   const [rechazoTarget, setRechazoTarget] = useState(null);
 
   const load = useCallback(async () => {
-    if (!activeProject?.id) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ projectId: activeProject.id });
+      const params = ponerAmbito(new URLSearchParams(), { activeIssuerId, activeProject });
       if (filterEstado) params.set('estado', filterEstado);
       if (search.trim()) params.set('search', search.trim());
       const res = await client.get(`/matriculas?${params}`);
@@ -92,7 +101,7 @@ export default function MatriculasPage() {
     } catch (err) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally { setLoading(false); }
-  }, [activeProject?.id, filterEstado, search]);
+  }, [activeIssuerId, activeProject?.id, filterEstado, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -136,7 +145,7 @@ export default function MatriculasPage() {
           ? 'Diplomas: lo que piden los alumnos al terminar, y los diplomas emitidos, enviados y revocados'
           : enCertificaciones
           ? 'Certificaciones: quien termina la formación se aprueba aquí, y Certifex emite su título'
-          : `${stats.total || 0} matrículas en ${activeProject?.nombre || 'este proyecto'}`}
+          : `${stats.total || 0} matrículas en ${nombreAmbito}`}
       />
 
       <div className="flex overflow-x-auto border-b border-border [&>button]:shrink-0">
@@ -211,7 +220,12 @@ export default function MatriculasPage() {
             </Suspense>
           </div>
         )
-      ) : tab === 'webhooks' ? <WebhooksTab project={activeProject} /> : <>
+      ) : tab === 'webhooks' ? (
+        campusElegido?.id ? <WebhooksTab project={{ id: campusElegido.id }} /> : (
+          <EmptyState icon={PlugsConnected} title="Elige un campus"
+            description="Cada webhook de admisión se conecta al formulario de un campus. Elige uno arriba para ver o crear el suyo." />
+        )
+      ) : <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {[
           { label: 'Total', value: stats.total, color: '#64748b' },

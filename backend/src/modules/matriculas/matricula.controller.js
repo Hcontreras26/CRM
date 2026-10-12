@@ -4,19 +4,21 @@ import { createSchema, updateSchema, setEstadoSchema } from './matricula.validat
 import { AppError } from '../../shared/utils/AppError.js';
 import { saveLocal, getLocal, deleteLocal } from '../../shared/services/localStorage.service.js';
 import { urlFirmada, firmaValida } from '../../shared/utils/firmaDeDocumento.js';
+import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
 
 export async function list(req, res, next) {
   try {
-    const projectId = parseInt(req.query.projectId);
-    if (!projectId) throw new AppError('projectId requerido', 400, 'PROJECT_REQUIRED');
+    // Un campus, una empresa (issuerId) o «Todos», siempre dentro de los campus
+    // de quien mira (#199, como el resto del CRM).
+    const ambito = await proyectosDelAmbito(req);
     const data = await model.findAll({
-      projectId,
+      ...ambito,
       estado: req.query.estado,
       search: req.query.search,
       page: parseInt(req.query.page) || 1,
       limit: parseInt(req.query.limit) || 50,
     });
-    const stats = await model.getStats(projectId);
+    const stats = await model.getStats(ambito);
     res.json({ success: true, data: data.matriculas.map(conDocumentosFirmados), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats });
   } catch (err) { next(err); }
 }
