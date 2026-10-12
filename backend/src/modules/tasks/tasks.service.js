@@ -129,7 +129,7 @@ async function exigirEnAmbito(personaId, user) {
 /**
  * Solo se asigna a gente de los campus de quien asigna (Diego 08/10 y Hugo
  * 09/10): un admin de CEDIA, a gente de sus campus de CEDIA. A un colaborador
- * sin campus, solo el superadmin. Superadmin y soporte, a cualquiera.
+ * sin campus, solo el superadmin. El superadmin, a cualquiera.
  */
 async function exigirResponsableEnAmbito(personaId, user) {
   const ambito = await ambitoDe(user);
@@ -141,7 +141,7 @@ async function exigirResponsableEnAmbito(personaId, user) {
 /**
  * Lo que puede aprobar o devolver quien tiene «Aprobar y cerrar»: lo mismo que
  * le sale en «Por revisar», es decir, cualquier tarea de su ámbito. No hace
- * falta «Ver todo»: una gestora a la que se le da tasks.close revisa.
+ * falta «Ver todo»: un colaborador al que se le da tasks.close revisa.
  */
 async function tareaRevisable(id, user) {
   const task = await taskModel.findTaskById(id);

@@ -279,6 +279,15 @@ export interface FormacionCatalogo {
   modulos: { titulo: string; horas?: number | null }[];
 }
 
+/** Lo que devuelve «Sincronizar con el producto»: la formación ya con sus módulos. */
+export interface TemarioSincronizado {
+  formacion: FormacionCatalogo | null;
+  modulos: number;
+  fuente: string | null;
+  /** Por qué no se cargó nada (la página no separa el temario, no abre…). */
+  motivo: string | null;
+}
+
 export interface CatalogoDelCampus {
   proyecto: { id: number; nombre: string } | null;
   /** Por qué no hay catálogo (el campus no casa con un proyecto del CRM). */
@@ -414,4 +423,7 @@ export const diplomasApi = {
   editar: (cambios: CambiosSolicitud) => client.post('/certifex/diplomas/editar', cambios) as R<Solicitud>,
   /** Las formaciones del catálogo del proyecto de ese campus, para elegir la vendida. */
   formaciones: (centro: string) => client.get(`/certifex/diplomas/formaciones?${qs({ centro })}`) as R<CatalogoDelCampus>,
+  /** Los módulos de esa formación, leídos de la página del curso y guardados en el catálogo (12/10). */
+  sincronizarTemario: (centro: string, productoId: number) =>
+    client.post('/certifex/diplomas/formaciones/sincronizar', { centro, productoId }) as R<TemarioSincronizado>,
 };

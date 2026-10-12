@@ -41,14 +41,13 @@ async function cuentaDeLaMarca(projectId, fromEmail) {
   try {
     const apiKey = await getDecryptedValue('brevo', projectId);
     if (!apiKey) return null;
-    let remitente = fromEmail;
-    if (!remitente) {
-      // to_jsonb: la columna es de la migracion 177; sin ella, null y no rompe.
-      const { rows } = await query(
-        "SELECT to_jsonb(p) ->> 'remitente_no_contestar' AS r FROM projects p WHERE p.id = $1", [projectId]);
-      remitente = rows[0]?.r || null;
-    }
-    return remitente ? { apiKey, remitente } : null;
+    // to_jsonb: la columna es de la migracion 177; sin ella, null y no rompe.
+    const { rows } = await query(
+      "SELECT to_jsonb(p) ->> 'remitente_no_contestar' AS r, p.nombre FROM projects p WHERE p.id = $1", [projectId]);
+    const remitente = fromEmail || rows[0]?.r || null;
+    // El nombre de la marca, para el remitente (12/10): «Fono Aprende <no-responder@…>»
+    // y no «CRM <no-responder@fonoaprende.com>».
+    return remitente ? { apiKey, remitente, nombre: rows[0]?.nombre || null } : null;
   } catch (err) {
     logger.warn({ err: err.message, projectId }, 'Brevo: error leyendo la cuenta de la marca');
     return null;
@@ -148,6 +147,8 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
   // remitente, si quien llama no puso otro.
   const marca = cuenta === 'crm' ? null : await cuentaDeLaMarca(projectId, fromEmail);
   if (marca) remitente = marca.remitente;
+  // Sale por la cuenta de la marca: con su nombre, si quien llama no puso otro.
+  if (marca && !fromName && marca.nombre) fromName = marca.nombre;
 
   // ¿SALE POR EL BUZON PROPIO?
   //

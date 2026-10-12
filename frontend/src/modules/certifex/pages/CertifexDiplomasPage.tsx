@@ -1542,6 +1542,9 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
   const [form, setForm] = useState<ProgramaForm>(aForm(ed?.programaEditado ?? c.programaCrm?.programa));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // «Sincronizar con el producto» (12/10): los módulos de la página del curso.
+  const [sincronizando, setSincronizando] = useState(false);
+  const [avisoTemario, setAvisoTemario] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -1563,8 +1566,37 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
 
   const elegirFormacion = (sel: string) => {
     setProducto(sel);
+    setAvisoTemario(null);
     if (!tocado) setForm(aForm(baseDe(sel)));
   };
+
+  // La formación con la que se trabaja: la elegida o, en «Automática», la que encaja.
+  const formacionActual = producto ? Number(producto) : (automatico?.formacion?.id ?? null);
+  async function sincronizar() {
+    if (!formacionActual || sincronizando) return;
+    setSincronizando(true);
+    setAvisoTemario(null);
+    try {
+      const r = (await diplomasApi.sincronizarTemario(c.centro, formacionActual)).data;
+      const f = r.formacion;
+      if (f) {
+        setCatalogo((cat) => (cat ? { ...cat, formaciones: cat.formaciones.map((x) => (x.id === f.id ? f : x)) } : cat));
+      }
+      if (r.modulos > 0 && f) {
+        // Se cargan en la lista para revisarlos: se pueden cambiar, quitar o añadir.
+        const horas = form.horas.trim() || (f.horas != null ? String(f.horas) : '');
+        setForm({ horas, modulos: f.modulos.map((m) => ({ titulo: m.titulo, horas: m.horas != null ? String(m.horas) : '' })) });
+        setTocado(true);
+        setAvisoTemario(`${r.modulos} módulos cargados de la página del curso${r.fuente ? ` (${new URL(r.fuente).hostname})` : ''}. Revísalos antes de guardar.`);
+      } else {
+        setAvisoTemario(r.motivo ?? 'No se encontraron módulos en la página del curso.');
+      }
+    } catch (e) {
+      setAvisoTemario(`No se pudo sincronizar: ${(e as Error).message}`);
+    } finally {
+      setSincronizando(false);
+    }
+  }
   const cambiarForm = (fn: (f: ProgramaForm) => ProgramaForm) => { setForm(fn); setTocado(true); };
   const volverAlCatalogo = () => { setForm(aForm(base)); setTocado(false); };
 
@@ -1675,6 +1707,15 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
                           : automatico?.motivo ?? 'La que el alumno compró y se llame como el curso de Moodle.'}
                 {correoN !== (ed?.emailCrm ?? '') && !producto ? ' Con otro correo, la automática se recalcula al guardar.' : ''}
               </span>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => void sincronizar()}
+                  disabled={!formacionActual || sincronizando || !catalogo} aria-busy={sincronizando}
+                  title={formacionActual ? 'Lee los módulos de la página del curso y los guarda en el catálogo' : 'Elige antes la formación vendida'}>
+                  <ArrowClockwise size={14} className={cn('mr-1.5', sincronizando && 'animate-spin')} />
+                  {sincronizando ? 'Sincronizando…' : 'Sincronizar módulos con el producto'}
+                </Button>
+                {avisoTemario && <span className="text-xs text-muted-foreground" role="status">{avisoTemario}</span>}
+              </div>
             </div>
 
             {/* Programa a imprimir: el del catálogo o uno escrito a mano. */}
