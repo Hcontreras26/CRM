@@ -256,6 +256,7 @@ Fuente de verdad del esquema. Cada archivo en `backend/migrations/` es un SQL ej
 | 193 | 193_tasks_tablero.sql | Tablero de tareas del equipo (#210): tareas, historial, lista de comprobación, comentarios y etiquetas. |
 | 194 | 194_rol_colaborador.sql | El rol `colaborador` en el ENUM `user_role`: solo ve el Equipo de Desarrollo (#210, lo comparte #202). |
 | 195 | 195_tasks_enlaces.sql | Los enlaces de la tarjeta de una tarea (#210). |
+| 200 | 200_widget_idiomas.sql | Widget de WhatsApp en varios idiomas: `project_widget_config.traducciones` (inglés, francés y portugués; el español sigue en `welcome_text` y `message_template`) y arregla el «¡Hablamos?» guardado por defecto. Se puede pasar dos veces. |
 
 > **09/10/2026, comprobado contra el catálogo de producción:** aplicadas hasta la **195**. La 193–195
 > (tablas del tablero de Hugo, #210, y el rol `colaborador`) están, pero vacías y sin pantalla: el
