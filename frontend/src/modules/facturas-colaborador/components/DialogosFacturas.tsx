@@ -8,7 +8,7 @@ import FilaCampos from '@/shared/components/ui/FilaCampos';
 import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import {
-  AREAS, AREA_ES, FORMAS_PAGO, FORMA_PAGO_ES, MODALIDADES, MODALIDAD_ES, diaDelPago, euros, facturasColaboradorApi,
+  AREAS, AREA_ES, FORMAS_PAGO, FORMA_PAGO_ES, MODALIDADES, MODALIDAD_ES, diaDelPago, empresaCorta, euros, facturasColaboradorApi,
   fechaHora, normalizarImporte,
   type Area, type Colaborador, type DesgloseDeFactura, type EmpresaDelColaborador, type EmpresaDelGrupo, type FormaPago,
   type LineaRegistro, type Modalidad,
@@ -484,15 +484,35 @@ const valor = (k: string, v: unknown) => {
   if (k === 'alta_desde') return String(v).slice(0, 7);
   return String(v);
 };
-/** «nombre: prueba → prueba editada»; las empresas, con su importe acordado. */
-function cambiosDe(d: Record<string, any>) {
+/** Lo de una empresa en la ficha: lo acordado y cómo cobra (segunda parte), con su IVA e IRPF. */
+const deLaEmpresa = (e: any) => {
+  const acordado = e.importe_acordado === null || e.importe_acordado === undefined ? 'sin acordado' : `${euros(e.importe_acordado)} acordados`;
+  if (!e.modalidad) return `${acordado}, sin cómo cobra`;
+  const cuanto = e.modalidad === 'fijo' ? euros(e.importe_fijo) : `a ${euros(e.tarifa_hora)}/h`;
+  return `${acordado}, ${MODALIDAD_ES[e.modalidad as Modalidad]} ${cuanto} · IVA ${e.iva_pct} % · IRPF ${e.irpf_pct} %`;
+};
+
+/**
+ * «nombre: prueba → prueba editada». Las empresas, por su nombre y solo las que cambian
+ * («qué se ha cambiado», definición del 01/10): antes solo salía lo acordado, y un cambio
+ * de cómo cobra se leía «#1 600,00 € → #1 600,00 €», como si no hubiera pasado nada.
+ */
+function cambiosDe(d: Record<string, any>, nombreDe: (id: number) => string) {
   return Object.entries(d).map(([k, c]) => {
     if (k === 'empresas') {
-      const lista = (l: any[]) => (l || []).map((e) => (e.importe_acordado === null ? `#${e.issuer_id}` : `#${e.issuer_id} ${euros(e.importe_acordado)}`)).join(', ') || '—';
-      return `empresas: ${lista(c?.antes)} → ${lista(c?.despues)}`;
+      const antes: any[] = c?.antes || [];
+      const despues: any[] = c?.despues || [];
+      const ids = [...new Set([...antes, ...despues].map((e) => Number(e.issuer_id)))];
+      return ids.map((id) => {
+        const a = antes.find((e) => Number(e.issuer_id) === id);
+        const b = despues.find((e) => Number(e.issuer_id) === id);
+        if (!a) return `añade ${nombreDe(id)} (${deLaEmpresa(b)})`;
+        if (!b) return `quita ${nombreDe(id)}`;
+        return deLaEmpresa(a) === deLaEmpresa(b) ? null : `${nombreDe(id)}: ${deLaEmpresa(a)} → ${deLaEmpresa(b)}`;
+      }).filter(Boolean).join(' · ') || null;
     }
     return `${CAMPO[k] || k}: ${valor(k, c?.antes)} → ${valor(k, c?.despues)}`;
-  }).join(' · ');
+  }).filter(Boolean).join(' · ');
 }
 
 /** «88.12.x.x», como en la definición: basta para reconocerla sin enseñarla entera. */
@@ -502,7 +522,7 @@ const ipCorta = (ip: string) => {
 };
 
 /** «factura-sept.pdf (214 KB) · 600,00 € · n.º F-2026-09», como en la definición. */
-function detalleDe(l: LineaRegistro) {
+function detalleDe(l: LineaRegistro, nombreDe: (id: number) => string) {
   const d = l.detalle || {};
   const partes: string[] = [];
   if (d.archivo) partes.push(`${d.archivo}${d.tamano ? ` (${Math.ceil(Number(d.tamano) / 1024)} KB)` : ''}`);
@@ -514,13 +534,17 @@ function detalleDe(l: LineaRegistro) {
   if (d.forma_pago) partes.push(`${FORMA_PAGO_ES[d.forma_pago as FormaPago] || d.forma_pago} del ${diaDelPago(String(d.fecha))}`);
   if (d.referencia_pago) partes.push(`ref. ${d.referencia_pago}`);
   if (d.justificante) partes.push(`justificante ${d.justificante}`);
-  if (d.junto_con) partes.push(`junto con otras ${Number(d.junto_con) - 1}`);
+  // «junto con otra» / «junto con otras 2» (antes, «junto con otras 1»).
+  if (d.junto_con) {
+    const otras = Number(d.junto_con) - 1;
+    if (otras > 0) partes.push(otras === 1 ? 'junto con otra' : `junto con otras ${otras}`);
+  }
   const antes = d.antes as { fecha?: string; forma_pago?: FormaPago } | undefined;
   if (antes?.fecha) partes.push(`era ${(antes.forma_pago && FORMA_PAGO_ES[antes.forma_pago]) || 'pago'} del ${diaDelPago(antes.fecha)}`);
   if (d.motivo) partes.push(`«${d.motivo}»`);
   if (d.desde) partes.push(`desde ${String(d.desde).slice(0, 7)}`);
   if (d.para) partes.push(`a ${d.para}`);
-  if (l.evento === 'cambio') return [cambiosDe(d), l.usuario_nombre ? `por ${l.usuario_nombre}` : null, l.ip ? ipCorta(l.ip) : null].filter(Boolean).join(' · ');
+  if (l.evento === 'cambio') return [cambiosDe(d, nombreDe), l.usuario_nombre ? `por ${l.usuario_nombre}` : null, l.ip ? ipCorta(l.ip) : null].filter(Boolean).join(' · ');
   if (l.usuario_nombre) partes.push(`por ${l.usuario_nombre}`);
   if (l.ip) partes.push(ipCorta(l.ip));
   return partes.join(' · ');
@@ -573,11 +597,17 @@ function DesgloseDeLaFactura({ d }: { d: DesgloseDeFactura }) {
   );
 }
 
-export function RegistroDialog({ titulo, cargar, cargarDesglose, alCerrar }: {
+export function RegistroDialog({ titulo, cargar, cargarDesglose, empresas = [], alCerrar }: {
   titulo: string; cargar: () => Promise<LineaRegistro[]>; alCerrar: () => void;
   /** Si la factura tiene desglose, se enseña arriba del registro. */
   cargarDesglose?: () => Promise<DesgloseDeFactura>;
+  /** Para nombrar las empresas en el historial de una ficha («CEDIA» y no «#1»). */
+  empresas?: EmpresaDelGrupo[];
 }) {
+  const nombreDe = (id: number) => {
+    const e = empresas.find((x) => x.id === id);
+    return e ? empresaCorta(e.razon_social) : `empresa ${id}`;
+  };
   const [lineas, setLineas] = useState<LineaRegistro[] | null>(null);
   const [desglose, setDesglose] = useState<DesgloseDeFactura | null>(null);
   useEffect(() => {
@@ -601,7 +631,7 @@ export function RegistroDialog({ titulo, cargar, cargarDesglose, alCerrar }: {
                 <li key={l.id} className="text-sm">
                   <span className="font-mono text-secundario text-muted-foreground mr-2">{fechaHora(l.creado_at)}</span>
                   <strong>{EVENTO[l.evento] || l.evento}</strong>
-                  {detalleDe(l) && <span className="text-muted-foreground"> · {detalleDe(l)}</span>}
+                  {detalleDe(l, nombreDe) && <span className="text-muted-foreground"> · {detalleDe(l, nombreDe)}</span>}
                 </li>
               ))}
             </ol>

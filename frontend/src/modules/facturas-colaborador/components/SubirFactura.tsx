@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { CheckCircle, Copy, FilePdf, Plus, Trash, UploadSimple, WarningCircle } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import { Button } from '@/shared/components/ui/button';
@@ -42,6 +42,8 @@ export default function SubirFactura({ factura, alSubir }: {
   alSubir: (archivo: File, importe: string, numero: string, desglose: DesgloseEnvio) => Promise<void>;
 }) {
   const f = factura;
+  // Ids propios: en «Mi factura» puede haber varios formularios montados a la vez (uno por mes pendiente).
+  const uid = useId();
   // El desglose (segunda parte): las horas del mes, o una línea por encargo.
   const [horas, setHoras] = useState('');
   const [lineas, setLineas] = useState<LineaForm[]>([{ concepto: '', project_id: '', horas: '' }]);
@@ -225,8 +227,8 @@ export default function SubirFactura({ factura, alSubir }: {
           {f.cobro.modalidad === 'hora' && (
             <div className="flex flex-wrap items-end gap-3 text-sm">
               <div className="w-32">
-                <label htmlFor="factura-horas" className="text-xs text-muted-foreground">Horas del mes</label>
-                <input id="factura-horas" inputMode="decimal" value={horas} onChange={(e) => setHoras(e.target.value)} className={inputClass} />
+                <label htmlFor={`${uid}-horas`} className="text-xs text-muted-foreground">Horas del mes</label>
+                <input id={`${uid}-horas`} inputMode="decimal" value={horas} onChange={(e) => setHoras(e.target.value)} className={inputClass} />
               </div>
               <span className="pb-2 text-muted-foreground">× {euros(f.cobro.tarifa_hora)}/h = <strong className="text-foreground tabular-nums">{euros(calculo.base)}</strong></span>
             </div>
@@ -237,8 +239,8 @@ export default function SubirFactura({ factura, alSubir }: {
               {lineas.map((l, i) => (
                 <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_11rem_6rem_auto] gap-2 items-end">
                   <div>
-                    <label htmlFor={`linea-${i}`} className="text-xs text-muted-foreground">Encargo {i + 1}</label>
-                    <input id={`linea-${i}`} value={l.concepto} maxLength={200} onChange={(e) => cambiarLinea(i, 'concepto', e.target.value)}
+                    <label htmlFor={`${uid}-linea-${i}`} className="text-xs text-muted-foreground">Encargo {i + 1}</label>
+                    <input id={`${uid}-linea-${i}`} value={l.concepto} maxLength={200} onChange={(e) => cambiarLinea(i, 'concepto', e.target.value)}
                       className={inputClass} />
                   </div>
                   <div>
@@ -247,8 +249,8 @@ export default function SubirFactura({ factura, alSubir }: {
                       options={[{ value: '', label: 'Toda la empresa' }, ...(f.campus ?? []).map((p) => ({ value: String(p.id), label: p.nombre }))]} />
                   </div>
                   <div>
-                    <label htmlFor={`horas-${i}`} className="text-xs text-muted-foreground">Horas</label>
-                    <input id={`horas-${i}`} inputMode="decimal" value={l.horas} onChange={(e) => cambiarLinea(i, 'horas', e.target.value)}
+                    <label htmlFor={`${uid}-horas-${i}`} className="text-xs text-muted-foreground">Horas</label>
+                    <input id={`${uid}-horas-${i}`} inputMode="decimal" value={l.horas} onChange={(e) => cambiarLinea(i, 'horas', e.target.value)}
                       className={inputClass} />
                   </div>
                   <Button type="button" variant="ghost" size="sm" title="Quitar la línea" aria-label={`Quitar la línea ${i + 1}`}
@@ -277,15 +279,19 @@ export default function SubirFactura({ factura, alSubir }: {
       )}
 
       <FilaCampos>
-        <Field label="Importe de tu factura (€)" htmlFor="factura-importe" required
-          hint={calculo ? (tocado ? undefined : 'Ya puesto el total de tu desglose: cámbialo si tu factura dice otro')
+        <Field label="Importe de tu factura (€)" htmlFor={`${uid}-importe`} required
+          // Con desglose y aún sin total (sin horas), no se dice «ya puesto»: no hay nada puesto.
+          hint={calculo ? (tocado ? undefined : sugerido
+            ? 'Ya puesto el total de tu desglose: cámbialo si tu factura dice otro'
+            : 'Se rellena solo con el total de tu desglose')
             : noCoincide ? undefined : (f.importe_acordado !== null ? 'Ya puesto el acordado: cámbialo si tu factura dice otro' : undefined)}>
-          <input id="factura-importe" inputMode="decimal" value={importe}
+          <input id={`${uid}-importe`} inputMode="decimal" value={importe}
             onChange={(e) => { setTocado(true); setEscrito(e.target.value); }}
-            placeholder="600,00" className={inputClass} />
+            // «0,00» y no «600,00»: el ejemplo gris se leía como si fuera lo acordado.
+            placeholder="0,00" className={inputClass} />
         </Field>
-        <Field label="Número de tu factura" htmlFor="factura-numero" required>
-          <input id="factura-numero" value={numero} onChange={(e) => setNumero(e.target.value)}
+        <Field label="Número de tu factura" htmlFor={`${uid}-numero`} required>
+          <input id={`${uid}-numero`} value={numero} onChange={(e) => setNumero(e.target.value)}
             placeholder="F-2026-09" maxLength={60} className={inputClass} />
         </Field>
       </FilaCampos>

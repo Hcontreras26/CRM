@@ -93,8 +93,10 @@ export default function MiFacturaPage() {
                   </Button>
                 )}
               </div>
-              {abierta === m.id && !m.recibida && (
-                <div className="border-t border-border p-4">
+              {/* Montado aunque esté cerrado: al abrir otro mes (o «Cerrar») no se pierde lo que
+                  ya había puesto —el archivo, el número, las horas—. Diana, prueba a mano del 12/10. */}
+              {!m.recibida && m.estado !== 'anulada' && m.estado !== 'caducado' && (
+                <div className={abierta === m.id ? 'border-t border-border p-4' : 'hidden'}>
                   <SubirFactura
                     factura={m}
                     alSubir={async (archivo, importe, numero, desglose) => {

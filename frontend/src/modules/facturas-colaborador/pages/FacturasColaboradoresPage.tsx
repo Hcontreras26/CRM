@@ -491,7 +491,7 @@ function Colaboradores({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; emp
       )}
       {baja && <BajaDialog colaborador={baja} alCerrar={() => setBaja(null)} alGuardar={() => { setBaja(null); void cargar(); }} />}
       {vuelve && <AltaDialog colaborador={vuelve} alCerrar={() => setVuelve(null)} alGuardar={() => { setVuelve(null); void cargar(); }} />}
-      {historial && <RegistroDialog titulo={`Historial · ${historial.nombre}`} cargar={cargarHistorial} alCerrar={() => setHistorial(null)} />}
+      {historial && <RegistroDialog titulo={`Historial · ${historial.nombre}`} cargar={cargarHistorial} empresas={empresas} alCerrar={() => setHistorial(null)} />}
     </div>
   );
 }
