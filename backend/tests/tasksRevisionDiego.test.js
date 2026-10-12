@@ -473,6 +473,31 @@ describe('F · el tablero es del equipo de desarrollo (Diego, 09/10)', () => {
     }
   });
 
+  it('gestora, soporte y project manager no reciben permisos de Tareas en su sesión (/auth/me)', async () => {
+    for (const clave of ['gestoraVentas', 'soporte', 'pmReal']) {
+      const { permissions } = (await request.get('/api/auth/me').set(como(clave))).body.data;
+      const deTareas = Object.entries(permissions).filter(([k, v]) => k.startsWith('tasks.') && v === true);
+      expect(deTareas, clave).toEqual([]);
+    }
+  });
+
+  it('el correo de cada mañana no va a quien ya no tiene tablero, aunque tenga tareas de antes', async () => {
+    const { findDailyDigest } = await import('../src/modules/tasks/tasks.model.js');
+    // Una tarea vencida de antes de la decisión: de una gestora y de un colaborador.
+    const ayer = new Date(Date.now() - 86400000).toISOString();
+    const [deGestora, deColab] = await Promise.all([
+      one(`INSERT INTO tasks (title, assigned_to, created_by, due_date) VALUES ($1, $2, $2, $3) RETURNING id`,
+        ['Vieja de la gestora', U.gestoraVentas.id, ayer]),
+      one(`INSERT INTO tasks (title, assigned_to, created_by, due_date) VALUES ($1, $2, $2, $3) RETURNING id`,
+        ['Vieja del colaborador', U.colaborador.id, ayer]),
+    ]);
+    const hoy = new Date().toISOString().slice(0, 10);
+    const gente = (await findDailyDigest('tareas_del_dia', hoy)).map((g) => g.user_id);
+    expect(gente).not.toContain(U.gestoraVentas.id);
+    expect(gente).toContain(U.colaborador.id);
+    await q('DELETE FROM tasks WHERE id = ANY($1::int[])', [[deGestora.id, deColab.id]]);
+  });
+
   it('en Roles solo se editan los permisos de Tareas del admin y del colaborador', async () => {
     for (const rol of ['admin', 'colaborador']) {
       expect((await request.get(`/api/permissions/role-permissions/${rol}`).set(como('superadmin'))).status, rol).toBe(200);

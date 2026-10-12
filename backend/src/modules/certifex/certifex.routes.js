@@ -57,6 +57,7 @@ router.post('/diplomas/corregir', soloAdmin, diplomas.corregir);
 // Revisar antes de aprobar: nombre (en Certifex), correo del CRM, formacion y programa.
 router.post('/diplomas/editar', soloAdmin, diplomas.editar);
 router.get('/diplomas/formaciones', soloAdmin, diplomas.formaciones);
+router.post('/diplomas/formaciones/sincronizar', soloAdmin, diplomas.sincronizarFormacion);
 router.get('/diplomas', soloAdmin, diplomas.diplomas);
 
 export default router;
