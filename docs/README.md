@@ -302,6 +302,7 @@ Fuente de verdad del esquema. Cada archivo en `backend/migrations/` es un SQL ej
 | 197 | 197_permisos_por_rol.sql | Permisos de Tareas por rol («Aprobar y cerrar» y «Configurar»), editables desde Configuración › Roles por el superadmin y el admin (#210, 08/10). Guarda solo lo que se aparta del valor por defecto del código; el orden es: por defecto del rol → esta tabla → rol a medida → excepciones de la persona. Se puede pasar dos veces. |
 | 198 | 198_facturas_colaborador.sql | Facturas de colaboradores (#202, Diana): colaboradores, sus empresas e importe acordado, la factura de cada mes con su enlace y el registro (solo añadir). Se puede pasar dos veces. |
 | 199 | 199_certifex_solicitudes_diploma.sql | Certifex · Diplomas (#272): las solicitudes de diploma que avisa Certifex desde Moodle, lo revisado a mano antes de aprobar («Editar») y el aviso «ha terminado la formación». Se puede pasar dos veces. |
+| 200 | 200_widget_idiomas.sql | Widget de WhatsApp en varios idiomas: `project_widget_config.traducciones` (inglés, francés y portugués; el español sigue en `welcome_text` y `message_template`) y arregla el «¡Hablamos?» guardado por defecto. Se puede pasar dos veces. |
 
 > **09/10/2026, comprobado contra el catálogo de producción:** aplicadas hasta la **195**. La 193–195
 > (tablas del tablero de Hugo, #210, y el rol `colaborador`) están, pero vacías y sin pantalla: el
