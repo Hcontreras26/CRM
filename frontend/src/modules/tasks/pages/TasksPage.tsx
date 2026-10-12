@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, MagnifyingGlass, ArrowsClockwise, Warning, X, SlidersHorizontal, ArrowClockwise } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, ArrowsClockwise, Warning, X, SlidersHorizontal, ArrowClockwise, Compass } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import usePermission from '@/shared/hooks/usePermission';
 import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 import { toast } from '@/shared/hooks/useToast';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import RecorridoGuiado, { recorridoPendiente } from '@/shared/components/ui/RecorridoGuiado';
+import { CLAVE_RECORRIDO_TABLERO, PASOS_TABLERO } from '../lib/recorridoTablero';
 import Select from '@/shared/components/ui/Select';
 import { agruparPorEmpresa, campusConEmpresa, campusDelAmbito, empresaCorta } from '../lib/campusPorEmpresa';
 import { Button } from '@/shared/components/ui/button';
@@ -110,6 +112,8 @@ export default function TasksPage() {
   const [porRevisar, setPorRevisar] = useState(0);
   const [arrastrando, setArrastrando] = useState<Task | null>(null);
   const [nueva, setNueva] = useState<{ status: TaskStatus } | null>(null);
+  // El recorrido guiado (12/10): solo la primera vez, y cuando se pida con «Recorrido».
+  const [recorrido, setRecorrido] = useState(false);
 
   // Por empresa, no por campus (Diego, 10/10): con una empresa o un campus en la
   // cabecera, solo los de esa empresa; los de otras, con «Todos los proyectos».
@@ -314,6 +318,12 @@ export default function TasksPage() {
     ...(canViewAll ? [{ value: 'equipo' as Vista, label: 'Todo el equipo' }] : []),
     ...(canViewAll ? assignees.filter((a) => a.id !== yo).map((a) => ({ value: a.id as Vista, label: a.nombre })) : []),
   ];
+  useEffect(() => {
+    if (cargando || vista === 'revisar' || !recorridoPendiente(CLAVE_RECORRIDO_TABLERO)) return undefined;
+    const t = setTimeout(() => setRecorrido(true), 800);
+    return () => clearTimeout(t);
+  }, [cargando, vista]);
+
   function cambiarVista(v: Vista) {
     if (v === 'revisar') { navigate('/tareas/revisar'); return; }
     vistaElegida.current = true;
@@ -349,18 +359,23 @@ export default function TasksPage() {
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             {opcionesVista.length > 1 && (
-              <Select<Vista> value={vista} onChange={cambiarVista} options={opcionesVista} ariaLabel="Qué tablero ver" size="sm" className="w-48" />
+              <span data-recorrido="vista">
+                <Select<Vista> value={vista} onChange={cambiarVista} options={opcionesVista} ariaLabel="Qué tablero ver" size="sm" className="w-48" />
+              </span>
             )}
             {canManage && (
-              <Button variant="outline" size="sm" className="h-9" onClick={() => navigate('/tareas/configurar')}>
+              <Button variant="outline" size="sm" className="h-9" onClick={() => navigate('/tareas/configurar')} data-recorrido="configurar">
                 <SlidersHorizontal size={15} className="mr-1.5" /> Configurar tablero
               </Button>
             )}
+            <Button variant="outline" size="sm" className="h-9" onClick={() => setRecorrido(true)} title="Un recorrido por el tablero, paso a paso">
+              <Compass size={15} className="mr-1.5" /> Recorrido
+            </Button>
             <Button variant="outline" size="icon" className="h-9 w-9" onClick={refrescar} aria-label="Recargar">
               <ArrowsClockwise size={16} />
             </Button>
             {canCreate && vista !== 'revisar' && (
-              <Button size="sm" className="h-9" onClick={() => setNueva({ status: 'por_hacer' })}>
+              <Button size="sm" className="h-9" onClick={() => setNueva({ status: 'por_hacer' })} data-recorrido="nueva">
                 <Plus size={15} weight="bold" className="mr-1.5" /> Nueva tarea
               </Button>
             )}
@@ -372,7 +387,7 @@ export default function TasksPage() {
         <>
           {/* El tablero se divide por áreas (Meta, WEB · WordPress · SEO…). */}
           {areasActivas.length > 0 && (
-            <div role="tablist" aria-label="Áreas" className="flex flex-wrap gap-1.5">
+            <div role="tablist" aria-label="Áreas" className="flex flex-wrap gap-1.5" data-recorrido="areas">
               {[{ id: '' as number | '', name: 'Todas las áreas', color: null as string | null }, ...areasActivas].map((a) => {
                 const activa = filtros.areaId === a.id;
                 return (
@@ -394,7 +409,7 @@ export default function TasksPage() {
             </div>
           )}
 
-          <div className="bg-card border border-border rounded-lg p-3 flex flex-wrap items-end gap-2">
+          <div className="bg-card border border-border rounded-lg p-3 flex flex-wrap items-end gap-2" data-recorrido="filtros">
             <div className="relative flex-1 min-w-[12rem]">
               <MagnifyingGlass size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar en título o descripción…"
@@ -467,7 +482,7 @@ export default function TasksPage() {
       ) : (
         <>
           {vista === 'equipo' && (
-            <div className="space-y-2">
+            <div className="space-y-2" data-recorrido="metricas">
               <div role="tablist" aria-label="Agrupar" className="inline-flex bg-muted p-0.5 rounded-md text-xs">
                 {(['persona', 'area'] as const).map((g) => (
                   <button key={g} type="button" role="tab" aria-selected={agrupar === g} onClick={() => setAgrupar(g)}
@@ -517,7 +532,7 @@ export default function TasksPage() {
                       <span className="text-xs font-normal text-muted-foreground tabular-nums">· {carril.tasks.length}</span>
                     </h2>
                   )}
-                  <div className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory sm:snap-none -mx-4 px-4 lg:mx-0 lg:px-0">
+                  <div className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory sm:snap-none -mx-4 px-4 lg:mx-0 lg:px-0" data-recorrido="columnas">
                     {columnasActivas.map((col) => {
                       const columna = carril.tasks.filter((t) => t.status === col.key);
                       return (
@@ -546,6 +561,10 @@ export default function TasksPage() {
             })
           )}
         </>
+      )}
+
+      {recorrido && (
+        <RecorridoGuiado pasos={PASOS_TABLERO} clave={CLAVE_RECORRIDO_TABLERO} alCerrar={() => setRecorrido(false)} />
       )}
 
       <TaskModal

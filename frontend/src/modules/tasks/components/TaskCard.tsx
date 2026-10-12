@@ -24,6 +24,7 @@ export function TaskCard({
 
   return (
     <div
+      data-recorrido="tarjeta"
       draggable={draggable}
       onDragStart={(e) => onDragStart(e, task)}
       onDragEnd={onDragEnd}
