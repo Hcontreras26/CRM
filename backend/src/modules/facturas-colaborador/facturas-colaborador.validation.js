@@ -41,12 +41,12 @@ const empresa = z.object({
 // Un texto opcional: vacío se guarda como null, pero si NO llega se queda sin
 // tocar (undefined). Antes se convertía en null también cuando no llegaba, y un
 // cambio de solo el nombre borraba el NIF y las notas.
-const textoOpcional = (max) => z.string().trim().max(max).nullable().optional()
+const textoOpcional = (max) => z.string().trim().max(max, `Demasiado largo: ${max} caracteres como mucho`).nullable().optional()
   .transform((v) => (v === undefined ? undefined : v || null));
 
 const base = {
-  nombre: z.string().trim().min(2, 'El nombre es obligatorio').max(200),
-  email: z.string().trim().toLowerCase().email('Correo inválido').max(255),
+  nombre: z.string().trim().min(2, 'El nombre es obligatorio').max(200, 'El nombre es demasiado largo'),
+  email: z.string().trim().toLowerCase().email('Correo inválido').max(255, 'El correo es demasiado largo'),
   nif: textoOpcional(30),
   area: z.enum(AREAS, { message: `Área inválida: ${AREAS.join(', ')}` }),
   notas: textoOpcional(5000),
@@ -83,7 +83,7 @@ export const altaSchema = z.object({
 export const listarColaboradoresSchema = z.object({
   issuerId: z.coerce.number().int().positive().optional(),
   estado: z.enum(['activos', 'de_baja', 'todos']).default('activos'),
-  q: z.string().trim().max(100).optional(),
+  q: z.string().trim().max(100, 'La búsqueda es demasiado larga').optional(),
 });
 
 // ─── Las facturas del mes ───
@@ -116,12 +116,12 @@ export const subidaSchema = z.object({
     .regex(/^[\d.,\s€]+$/, 'Escribe el importe solo con cifras')
     .transform((v) => Number(normalizarImporte(v)))
     .refine((n) => Number.isFinite(n) && n >= 0 && n <= 9999999999.99, 'Importe inválido'),
-  numero_factura: z.string().trim().min(1, 'Escribe el número de tu factura').max(60),
+  numero_factura: z.string().trim().min(1, 'Escribe el número de tu factura').max(60, 'El número de factura es demasiado largo: 60 caracteres como mucho'),
   // El desglose (segunda parte): las horas, si cobra por hora; las líneas
   // (JSON), si cobra por proyecto. Lo comprueba y lo calcula desglose.js.
-  horas: z.string().trim().max(20).optional(),
+  horas: z.string().trim().max(20, 'Horas inválidas').optional(),
   // El mismo tope que la subida (multer, fieldSize 10 000): más largo no llega aquí.
-  lineas: z.string().max(10_000, 'El desglose es demasiado largo: acorta los encargos o júntalos en menos líneas').optional(),
+  lineas: z.string().max(10_000, 'El desglose es demasiado largo: acorta los encargos o júntalos en menos').optional(),
 });
 
 export const delMesSchema = z.object({
@@ -147,7 +147,7 @@ export const costePorCampusSchema = z.object({ periodo: mes, issuerId: z.coerce.
 export const zipSchema = z.object({ periodo: mes, issuerId: z.coerce.number().int().positive().max(2147483647) });
 
 export const anularSchema = z.object({
-  motivo: z.string().trim().min(3, 'Escribe el motivo de la anulación').max(1000),
+  motivo: z.string().trim().min(3, 'Escribe el motivo de la anulación').max(1000, 'El motivo es demasiado largo: 1000 caracteres como mucho'),
 });
 
 // ─── El pago (segunda parte, «Marcar pagada») ───
@@ -168,9 +168,9 @@ export const pagarSchema = z.object({
     .refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().startsWith(v), 'Fecha inválida')
     .refine((v) => v <= hoyEnMadrid(), 'La fecha del pago no puede ser posterior a hoy'),
   forma_pago: z.enum(FORMAS_PAGO, { message: `Forma de pago inválida: ${FORMAS_PAGO.join(', ')}` }),
-  referencia_pago: z.string().trim().max(100).optional().transform((v) => v || null),
+  referencia_pago: z.string().trim().max(100, 'La referencia es demasiado larga: 100 caracteres como mucho').optional().transform((v) => v || null),
 });
 
 export const deshacerPagoSchema = z.object({
-  motivo: z.string().trim().min(3, 'Escribe por qué se deshace el pago').max(1000),
+  motivo: z.string().trim().min(3, 'Escribe por qué se deshace el pago').max(1000, 'El motivo es demasiado largo: 1000 caracteres como mucho'),
 });

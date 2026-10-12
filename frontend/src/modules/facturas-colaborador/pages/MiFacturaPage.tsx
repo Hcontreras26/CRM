@@ -49,7 +49,7 @@ export default function MiFacturaPage() {
       {meses.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title={cargando ? 'Cargando…' : 'Todavía no tienes ningún mes'}
+          title={cargando ? 'Cargando…' : 'Todavía no tienes facturas que subir'}
           description="El último día de cada mes aparece aquí el mes que tienes que facturar."
         />
       ) : (
@@ -101,7 +101,7 @@ export default function MiFacturaPage() {
                     factura={m}
                     alSubir={async (archivo, importe, numero, desglose) => {
                       await facturasColaboradorApi.subirMia(m.id!, archivo, importe, numero, desglose);
-                      toast({ title: 'Factura enviada', description: `${m.mes} · ${m.empresa.razon_social}` });
+                      toast({ title: 'Factura enviada', description: `${primeraMayuscula(m.mes)} · ${m.empresa.razon_social}` });
                       setAbierta(null);
                       await cargar();
                     }}

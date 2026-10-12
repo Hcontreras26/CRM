@@ -103,7 +103,7 @@ export default function SubirFactura({ factura, alSubir }: {
     }
     if (f.cobro?.modalidad === 'proyecto') {
       const mal = lineas.findIndex((l) => !l.concepto.trim() || !l.horas.trim());
-      if (mal >= 0) { setError(`Escribe el encargo y las horas en la línea ${mal + 1}.`); return; }
+      if (mal >= 0) { setError(`Escribe qué hiciste y las horas en el encargo ${mal + 1}.`); return; }
       desglose.lineas = JSON.stringify(lineas.map((l) => ({
         concepto: l.concepto.trim(), project_id: l.project_id ? Number(l.project_id) : null, horas: l.horas.trim(),
       })));
@@ -126,7 +126,10 @@ export default function SubirFactura({ factura, alSubir }: {
       <div className="min-w-0">
         <h2 className="text-seccion font-semibold">{f.colaborador} · {f.mes} · {f.empresa.razon_social}</h2>
         {f.importe_acordado !== null && (
-          <p className="text-secundario text-muted-foreground">Importe acordado: <strong className="text-foreground">{euros(f.importe_acordado)}</strong></p>
+          <p className="text-secundario text-muted-foreground">
+            {/* Con desglose, lo acordado es la base: que no parezca que su factura (con IVA e IRPF) está mal. */}
+            Importe acordado{f.cobro ? ' (base, sin IVA ni IRPF)' : ''}: <strong className="text-foreground">{euros(f.importe_acordado)}</strong>
+          </p>
         )}
       </div>
     </div>
@@ -263,7 +266,7 @@ export default function SubirFactura({ factura, alSubir }: {
                 <Button type="button" variant="outline" size="sm" onClick={() => setLineas((ls) => [...ls, { concepto: '', project_id: '', horas: '' }])}>
                   <Plus size={13} className="mr-1.5" /> Añadir encargo
                 </Button>
-                <span className="text-secundario text-muted-foreground">A {euros(f.cobro.tarifa_hora)}/h, tu tarifa</span>
+                <span className="text-secundario text-muted-foreground">Tu tarifa: {euros(f.cobro.tarifa_hora)}/h</span>
               </div>
             </div>
           )}
@@ -271,7 +274,7 @@ export default function SubirFactura({ factura, alSubir }: {
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3 text-sm tabular-nums">
             <dt className="text-muted-foreground">Base</dt><dd className="text-right">{euros(calculo.base)}</dd>
             <dt className="text-muted-foreground">IVA ({f.cobro.iva_pct} %)</dt><dd className="text-right">{euros(calculo.iva)}</dd>
-            <dt className="text-muted-foreground">IRPF ({f.cobro.irpf_pct ? '−' : ''}{f.cobro.irpf_pct} %)</dt>
+            <dt className="text-muted-foreground">IRPF ({f.cobro.irpf_pct} %)</dt>
             <dd className="text-right">{calculo.irpf ? '−' : ''}{euros(calculo.irpf)}</dd>
             <dt className="font-semibold">Total</dt><dd className="text-right font-semibold">{euros(calculo.total)}</dd>
           </dl>
@@ -282,17 +285,17 @@ export default function SubirFactura({ factura, alSubir }: {
         <Field label="Importe de tu factura (€)" htmlFor={`${uid}-importe`} required
           // Con desglose y aún sin total (sin horas), no se dice «ya puesto»: no hay nada puesto.
           hint={calculo ? (tocado ? undefined : sugerido
-            ? 'Ya puesto el total de tu desglose: cámbialo si tu factura dice otro'
+            ? 'Ya está puesto el total de tu desglose: cámbialo si tu factura dice otro importe'
             : 'Se rellena solo con el total de tu desglose')
-            : noCoincide ? undefined : (f.importe_acordado !== null ? 'Ya puesto el acordado: cámbialo si tu factura dice otro' : undefined)}>
+            : noCoincide ? undefined : (f.importe_acordado !== null ? 'Ya está puesto lo acordado: cámbialo si tu factura dice otro importe' : undefined)}>
           <input id={`${uid}-importe`} inputMode="decimal" value={importe}
             onChange={(e) => { setTocado(true); setEscrito(e.target.value); }}
-            // «0,00» y no «600,00»: el ejemplo gris se leía como si fuera lo acordado.
-            placeholder="0,00" className={inputClass} />
+            // Texto y no una cifra de ejemplo: el «600,00» gris se leía como si fuera lo acordado.
+            placeholder="Escribe el importe de tu factura" className={inputClass} />
         </Field>
         <Field label="Número de tu factura" htmlFor={`${uid}-numero`} required>
           <input id={`${uid}-numero`} value={numero} onChange={(e) => setNumero(e.target.value)}
-            placeholder="F-2026-09" maxLength={60} className={inputClass} />
+            placeholder="Escribe el número de tu factura" maxLength={60} className={inputClass} />
         </Field>
       </FilaCampos>
 

@@ -275,7 +275,7 @@ export const facturasColaboradorApi = {
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
-      throw new Error(d?.error || `Error ${r.status}`);
+      throw new Error(d?.error || 'No se pudo preparar la descarga. Inténtalo de nuevo.');
     }
     const url = URL.createObjectURL(await r.blob());
     const a = document.createElement('a');
@@ -312,6 +312,12 @@ export const empresaCorta = (razonSocial: string) => String(razonSocial || '').t
 
 /** Solo la primera letra en mayúscula: «Septiembre de 2026», no «Septiembre De 2026» (lo que hace `capitalize`). */
 export const primeraMayuscula = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+/** «2026-09» o «2026-09-01» → «septiembre de 2026»: para que no se vea «2026-09» en los textos. */
+export const mesEscrito = (v: string | null | undefined) => {
+  if (!v) return '—';
+  const [a, m] = String(v).split('-').map(Number);
+  return new Date(a, m - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+};
 
 /**
  * El importe tal como lo escribe la persona, a número (texto con punto decimal).

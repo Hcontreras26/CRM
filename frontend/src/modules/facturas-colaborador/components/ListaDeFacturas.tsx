@@ -20,11 +20,18 @@ import { DeshacerPagoDialog, PagarDialog, RegistroDialog, errorDe, esMes } from 
   no se mezclan: van en columnas distintas.
 */
 
+// Sin filtros puestos no se dice «con estos filtros» (ni se propone cambiarlos).
 const VACIO: Record<VistaDeFacturas, string> = {
   enviadas: 'Ninguna factura enviada con estos filtros',
   por_pagar: 'Nada por pagar con estos filtros',
   pagadas: 'Ninguna pagada con estos filtros',
   historial: 'Nada con estos filtros',
+};
+const VACIO_SIN_FILTROS: Record<VistaDeFacturas, string> = {
+  enviadas: 'Todavía no hay facturas enviadas',
+  por_pagar: 'No hay nada pendiente de pagar',
+  pagadas: 'Todavía no hay facturas pagadas',
+  historial: 'Todavía no hay facturas',
 };
 /** «2026-09» → «Septiembre 2026». */
 const nombreDelMes = (periodo: string) => primeraMayuscula(
@@ -99,6 +106,7 @@ export default function ListaDeFacturas({ vista, empresas, empresa }: {
     [registro],
   );
 
+  const conFiltros = Boolean(colaboradorId || periodo || estado || (!empresa && elegida));
   // En «Por pagar» se marcan varias para pagarlas a la vez.
   const conCasillas = vista === 'por_pagar' && puedePagar;
   const filas = useMemo(() => datos?.facturas ?? [], [datos]);
@@ -157,7 +165,8 @@ export default function ListaDeFacturas({ vista, empresas, empresa }: {
           </div>
         )}
         {filas.length === 0 ? (
-          <EmptyState icon={FileText} title={cargando ? 'Cargando…' : VACIO[vista]} description="Prueba con otro mes, otra empresa u otro estado." />
+          <EmptyState icon={FileText} title={cargando ? 'Cargando…' : conFiltros ? VACIO[vista] : VACIO_SIN_FILTROS[vista]}
+            description={!cargando && conFiltros ? 'Prueba con otro mes, otra empresa u otro estado.' : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-tabla">

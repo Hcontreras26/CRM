@@ -41,16 +41,17 @@ describe('subir la factura · lo acordado y el desglose', () => {
     expect(screen.getByText(/no cuadra con el desglose \(636,00 €\)/)).toBeTruthy();
   });
 
-  it('con desglose y sin horas todavía: no dice «ya puesto», y el ejemplo no parece lo acordado', () => {
+  it('con desglose y sin horas todavía: no dice «ya puesto», y ninguna casilla lleva una cifra de ejemplo', () => {
     // Prueba a mano del 12/10: salía un «600,00» gris (a Pedro le acordaron 300) y «Ya puesto el total…» sin total.
     abrir(factura({ importe_acordado: 300, cobro: cobro({ modalidad: 'hora', tarifa_hora: 22 }) }));
     expect(importe().value).toBe('');
-    expect(importe().placeholder).toBe('0,00');
+    expect(importe().placeholder).toBe('Escribe el importe de tu factura');
+    expect(screen.getByLabelText(/Número de tu factura/).placeholder).toBe('Escribe el número de tu factura');
     expect(screen.getByText('Se rellena solo con el total de tu desglose')).toBeTruthy();
-    expect(screen.queryByText(/Ya puesto/)).toBeNull();
+    expect(screen.queryByText(/Ya está puesto/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Horas del mes'), { target: { value: '18' } });
     expect(importe().value).toBe('419,76');
-    expect(screen.getByText(/Ya puesto el total de tu desglose/)).toBeTruthy();
+    expect(screen.getByText(/Ya está puesto el total de tu desglose/)).toBeTruthy();
   });
 
   it('sin desglose, como en la primera parte: con lo acordado ya puesto', () => {

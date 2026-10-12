@@ -42,7 +42,8 @@ function horasDe(texto, donde) {
   const t = String(texto).trim();
   if (!/^\d+([.,]\d{1,2})?$/.test(t)) throw MAL(`Horas inválidas${donde}: con dos decimales como mucho`);
   const n = Number(t.replace(',', '.'));
-  if (n <= 0 || n > 744) throw MAL(`Horas inválidas${donde}`);
+  if (n <= 0) throw MAL(`Horas inválidas${donde}: tienen que ser más de 0`);
+  if (n > 744) throw MAL(`Horas inválidas${donde}: como mucho 744 (las de un mes entero)`);
   return aCentesimas(n);
 }
 
@@ -53,8 +54,9 @@ const MAX_IMPORTE_C = 999_999_999_999;
 function lineasDe(texto) {
   let lista;
   try { lista = JSON.parse(texto || '[]'); } catch { throw MAL('El desglose no se pudo leer'); }
-  if (!Array.isArray(lista) || !lista.length) throw MAL('Añade al menos una línea al desglose');
-  if (lista.length > MAX_LINEAS) throw MAL(`Como mucho ${MAX_LINEAS} líneas`);
+  // «Encargo», como en la pantalla («Encargo 1», «Añadir encargo»), y no «línea».
+  if (!Array.isArray(lista) || !lista.length) throw MAL('Añade al menos un encargo al desglose');
+  if (lista.length > MAX_LINEAS) throw MAL(`Como mucho ${MAX_LINEAS} encargos`);
   return lista;
 }
 
@@ -80,10 +82,10 @@ export function calcularDesglose({ cobro, area, periodo, entrada = {}, campus = 
     lineas = [{ orden: 1, concepto, project_id: null, horasC, tarifa, importeC: por(horasC, tarifaC) }];
   } else {
     lineas = lineasDe(entrada.lineas).map((l, i) => {
-      const donde = ` en la línea ${i + 1}`;
+      const donde = ` en el encargo ${i + 1}`;
       const texto = String(l?.concepto ?? '').trim();
-      if (!texto) throw MAL(`Escribe el encargo${donde}`);
-      if (texto.length > 200) throw MAL(`El encargo${donde} es demasiado largo`);
+      if (!texto) throw MAL(`Escribe qué hiciste${donde}`);
+      if (texto.length > 200) throw MAL(`El texto del encargo ${i + 1} es demasiado largo`);
       // El proyecto es opcional; si llega, tiene que ser un campus de la empresa de la factura.
       const projectId = l?.project_id === null || l?.project_id === undefined || l?.project_id === '' ? null : Number(l.project_id);
       if (projectId !== null && !campus.includes(projectId)) throw MAL(`Ese campus no es de esta empresa${donde}`);

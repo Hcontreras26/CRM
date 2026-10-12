@@ -581,9 +581,13 @@ export async function pagar(user, { ids, fecha, forma, referencia, archivo }, ip
   }
   const nombres = (l) => l.map((f) => `${f.colaborador_nombre} (${nombreDelMes(f.periodo)})`).join(', ');
   const sinRecibir = facturas.filter((f) => !f.subida_at || f.anulada_at);
-  if (sinRecibir.length) throw new AppError(`Solo se paga una factura recibida: ${nombres(sinRecibir)}`, 409, 'NO_RECIBIDA');
+  if (sinRecibir.length) {
+    throw new AppError(`Solo se pagan facturas recibidas, y ${sinRecibir.length === 1 ? 'esta no lo está' : 'estas no lo están'}: ${nombres(sinRecibir)}`, 409, 'NO_RECIBIDA');
+  }
   const yaPagadas = facturas.filter((f) => f.pagada_at);
-  if (yaPagadas.length) throw new AppError(`Ya está pagada: ${nombres(yaPagadas)}`, 409, 'YA_PAGADA');
+  if (yaPagadas.length) {
+    throw new AppError(`${yaPagadas.length === 1 ? 'Ya está pagada' : 'Ya están pagadas'}: ${nombres(yaPagadas)}`, 409, 'YA_PAGADA');
+  }
 
   // El justificante, guardado antes de la transacción (como el archivo de la factura): R2 o el disco.
   let justificante = null;
@@ -601,8 +605,8 @@ export async function pagar(user, { ids, fecha, forma, referencia, archivo }, ip
   await enTransaccion(async (db) => {
     // Bloqueadas: si otro pago o una anulación se adelantó, este no sigue.
     for (const fila of await model.bloquearVarias(db, ids)) {
-      if (fila.pagada_at) throw new AppError('Otra persona la acaba de marcar pagada', 409, 'YA_PAGADA');
-      if (!fila.subida_at || fila.anulada_at) throw new AppError('Solo se paga una factura recibida', 409, 'NO_RECIBIDA');
+      if (fila.pagada_at) throw new AppError('Alguien acaba de marcarla como pagada. Actualiza la lista.', 409, 'YA_PAGADA');
+      if (!fila.subida_at || fila.anulada_at) throw new AppError('Solo se pagan facturas recibidas: actualiza la lista.', 409, 'NO_RECIBIDA');
     }
     for (const f of facturas) {
       await model.marcarPagada(db, f.id, { fecha, porUserId: user.userId, forma, justificante, referencia });

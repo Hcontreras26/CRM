@@ -19,6 +19,10 @@ export async function ambitoDe(user) {
 
 const NO_ESTA = () => new AppError('Colaborador no encontrado', 404, 'NOT_FOUND');
 
+/** «2026-09» → «septiembre de 2026», para los mensajes (no «2026-09»). */
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const mesEscrito = (v) => { const [a, m] = String(v).split('-').map(Number); return `${MESES[m - 1]} de ${a}`; };
+
 function comprobarEmpresas(empresas, ambito) {
   const repetidas = new Set();
   for (const e of empresas) {
@@ -46,7 +50,7 @@ async function comprobarUsuario(userId) {
  * otra, o lo daría de baja para todas.
  */
 const COMPARTIDO = () => new AppError(
-  'Este colaborador también factura a otras empresas: sus datos, su baja y su alta los cambia el super admin. Tú puedes cambiar lo de tu empresa.',
+  'Este colaborador también factura a otras empresas del grupo: sus datos, su baja y su alta solo los cambia el super admin. Tú puedes cambiar lo que es de tu empresa: si le factura y lo acordado.',
   403, 'FORBIDDEN',
 );
 
@@ -172,7 +176,7 @@ export async function darDeBaja(user, id, desde, ip) {
   const c = await model.porId(id, ambito);
   if (!c) throw NO_ESTA();
   if (await model.facturaFueraDe(id, ambito)) throw COMPARTIDO();
-  if (c.baja_desde) throw new AppError(`Este colaborador ya tiene la baja desde ${c.baja_desde}`, 409, 'CONFLICT');
+  if (c.baja_desde) throw new AppError(`Este colaborador ya tiene la baja desde ${mesEscrito(c.baja_desde)}`, 409, 'CONFLICT');
 
   await enTransaccion(async (db) => {
     await model.darDeBaja(db, id, desde);

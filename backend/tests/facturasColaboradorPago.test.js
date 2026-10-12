@@ -170,12 +170,16 @@ describe('facturas de colaboradores (#202) · marcar pagada', () => {
     const res = await pagar('adminA', datos([F.laura]));
     expect(res.status).toBe(409);
     expect(res.body.error).toContain('Ya está pagada');
+    // Con varias, en plural.
+    const dos = await pagar('adminA', datos([F.laura, F.ana]));
+    expect(dos.status).toBe(409);
+    expect(dos.body.error).toContain('Ya están pagadas');
   });
 
   it('solo se paga una factura recibida', async () => {
     const res = await pagar('adminA', datos([F.sinSubir]));
     expect(res.status).toBe(409);
-    expect(res.body.error).toContain('Solo se paga una factura recibida');
+    expect(res.body.error).toContain('Solo se pagan facturas recibidas, y esta no lo está');
     expect((await fila(F.sinSubir)).pagada_at).toBeNull();
   });
 

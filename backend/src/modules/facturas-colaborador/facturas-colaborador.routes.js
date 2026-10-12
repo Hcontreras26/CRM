@@ -28,12 +28,14 @@ const recibir = (campo) => (req, res, next) => {
   multer({ storage: multer.memoryStorage(), limits: { fileSize: TOPE_BYTES, files: 1, fields: 4, fieldSize: 10_000, parts: 6 } })
     .single(campo)(req, res, (err) => {
       if (!err) return next();
-      if (err.code === 'LIMIT_FILE_SIZE') return next(new AppError('El archivo pasa de 10 MB', 400, 'FILE_TOO_LARGE'));
+      // «El justificante…» cuando es el del pago: «el archivo» se leía como el de la factura.
+      const que = campo === 'justificante' ? 'El justificante' : 'El archivo';
+      if (err.code === 'LIMIT_FILE_SIZE') return next(new AppError(`${que} pasa de 10 MB`, 400, 'FILE_TOO_LARGE'));
       // El desglose por proyecto es el campo más largo: si pasa del límite, decirlo, no «el archivo».
       if (err.code === 'LIMIT_FIELD_VALUE') {
-        return next(new AppError('El desglose es demasiado largo: acorta los encargos o júntalos en menos líneas', 400, 'VALIDATION_ERROR'));
+        return next(new AppError('El desglose es demasiado largo: acorta los encargos o júntalos en menos', 400, 'VALIDATION_ERROR'));
       }
-      return next(new AppError('No se pudo leer el archivo', 400, 'INVALID_FILE'));
+      return next(new AppError(`No se pudo leer ${que === 'El justificante' ? 'el justificante' : 'el archivo'}`, 400, 'INVALID_FILE'));
     });
 };
 const recibirArchivo = recibir('archivo');
@@ -74,7 +76,7 @@ const veOGestiona = async (req, res, next) => {
     for (const accion of ['ver_todas', 'gestionar']) {
       if (await resolvePermission(userId, role, customRoleId ?? null, 'facturas_colaborador', accion)) return next();
     }
-    next(new AppError('No tienes permiso para esta accion', 403, 'FORBIDDEN'));
+    next(new AppError('No tienes permiso para esta acción', 403, 'FORBIDDEN'));
   } catch (err) { next(err); }
 };
 

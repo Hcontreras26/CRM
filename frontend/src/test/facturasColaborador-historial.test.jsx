@@ -31,8 +31,8 @@ describe('el historial de la ficha', () => {
         ],
       },
     });
-    expect(texto).toContain('CEDIA: 600,00 € acordados, sin cómo cobra → 600,00 € acordados, Fijo 600,00 € · IVA 21 % · IRPF 15 %');
-    expect(texto).toContain('Ictess: 250,00 € acordados, sin cómo cobra → 250,00 € acordados, Por proyecto a 30,00 €/h · IVA 21 % · IRPF 15 %');
+    expect(texto).toContain('CEDIA: 600,00 € acordados, sin forma de cobro → 600,00 € acordados, fijo de 600,00 € · IVA 21 % · IRPF 15 %');
+    expect(texto).toContain('Ictess: 250,00 € acordados, sin forma de cobro → 250,00 € acordados, por proyecto a 30,00 €/h · IVA 21 % · IRPF 15 %');
     expect(texto).not.toContain('#1');
     expect(texto).toContain('por Manuel Casas');
   });
@@ -44,8 +44,8 @@ describe('el historial de la ficha', () => {
       empresas: { antes: [igual, { issuer_id: 2, importe_acordado: 250, ...sinCobro }], despues: [igual, { issuer_id: 3, importe_acordado: null, ...sinCobro }] },
     });
     expect(texto).toContain('NIF: — → 12345678Z');
-    expect(texto).toContain('añade Lateral (sin acordado, sin cómo cobra)');
-    expect(texto).toContain('quita Ictess');
+    expect(texto).toContain('se añade Lateral (sin importe acordado, sin forma de cobro)');
+    expect(texto).toContain('se quita Ictess');
     expect(texto).not.toContain('CEDIA');
   });
 });

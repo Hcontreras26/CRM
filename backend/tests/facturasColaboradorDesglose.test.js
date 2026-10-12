@@ -139,10 +139,10 @@ describe('el cálculo del desglose', () => {
     const casos = [
       [{ modalidad: 'hora', tarifa_hora: 22, iva_pct: 0, irpf_pct: 0 }, {}, 'Escribe las horas'],
       [{ modalidad: 'hora', tarifa_hora: 22, iva_pct: 0, irpf_pct: 0 }, { horas: '-3' }, 'Horas inválidas'],
-      [p, { lineas: '[]' }, 'al menos una línea'],
+      [p, { lineas: '[]' }, 'al menos un encargo'],
       [p, { lineas: 'no es json' }, 'no se pudo leer'],
-      [p, { lineas: JSON.stringify([{ concepto: '', horas: 2 }]) }, 'Escribe el encargo en la línea 1'],
-      [p, { lineas: JSON.stringify([{ concepto: 'x', horas: 2, project_id: 999 }]) }, 'Ese campus no es de esta empresa en la línea 1'],
+      [p, { lineas: JSON.stringify([{ concepto: '', horas: 2 }]) }, 'Escribe qué hiciste en el encargo 1'],
+      [p, { lineas: JSON.stringify([{ concepto: 'x', horas: 2, project_id: 999 }]) }, 'Ese campus no es de esta empresa en el encargo 1'],
     ];
     for (const [cobro, entrada, texto] of casos) {
       expect(() => desglose(cobro, entrada, [7]), texto).toThrow(texto);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from '@phosphor-icons/react';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
@@ -9,7 +9,7 @@ import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import {
   AREAS, AREA_ES, FORMAS_PAGO, FORMA_PAGO_ES, MODALIDADES, MODALIDAD_ES, diaDelPago, empresaCorta, euros, facturasColaboradorApi,
-  fechaHora, normalizarImporte,
+  fechaHora, mesEscrito, normalizarImporte,
   type Area, type Colaborador, type DesgloseDeFactura, type EmpresaDelColaborador, type EmpresaDelGrupo, type FormaPago,
   type LineaRegistro, type Modalidad,
 } from '../api/facturasColaborador.api';
@@ -80,6 +80,8 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
   ));
   const cambiar = (id: number, campo: keyof FormEmpresa, valor: string) =>
     setMarcadas((m) => ({ ...m, [id]: { ...m[id], [campo]: valor } }));
+  // Lo de las empresas que se desmarcan, por si se vuelven a marcar.
+  const guardadas = useRef<Record<number, FormEmpresa>>({});
   const [usuarios, setUsuarios] = useState<UsuarioColaborador[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +146,7 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
       <form onSubmit={guardar} className="space-y-4" noValidate>
         {soloSusEmpresas && (
           <p className="rounded-md bg-info-soft text-info-soft-foreground px-3 py-2 text-secundario">
-            También factura a otras empresas: sus datos, su baja y su alta los cambia el super admin.
+            También factura a otras empresas del grupo: sus datos, su baja y su alta solo los cambia el super admin.
             Tú puedes cambiar lo de tu empresa (si factura a ella y lo acordado).
           </p>
         )}
@@ -176,21 +178,27 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
               const f = marcadas[e.id];
               return (
                 <div key={e.id} className={on ? 'rounded-md border border-border p-2 space-y-2' : ''}>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm min-w-0 flex-1">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <label className="flex items-center gap-2 text-sm min-w-0 flex-1 self-center">
                       <input type="checkbox" checked={on} onChange={() => setMarcadas((m) => {
                         const n = { ...m };
-                        if (on) delete n[e.id]; else n[e.id] = { ...VACIA };
+                        // Al desmarcarla se guarda lo que tenía, y al volver a marcarla se recupera:
+                        // un doble clic en el nombre la desmarcaba y la volvía a marcar en blanco, y
+                        // lo acordado y cómo cobra se perdían sin que se notara (prueba a mano del 12/10).
+                        if (on) { guardadas.current[e.id] = m[e.id]; delete n[e.id]; } else n[e.id] = guardadas.current[e.id] ?? { ...VACIA };
                         return n;
                       })} />
                       <span className="truncate">{e.razon_social}</span>
                     </label>
                     {on && (
-                      <div className="w-40 flex-none">
-                        <input aria-label={`Importe acordado con ${e.razon_social}`} inputMode="decimal" placeholder="€/mes (opcional)"
+                      // Con su título, como las demás casillas: con «600» dentro no se sabía qué era
+                      // (y al lado está «Fijo €/mes», que también puede llevar 600).
+                      <label className="w-44 flex-none space-y-1">
+                        <span className="text-xs text-muted-foreground">Acordado €/mes (opcional)</span>
+                        <input aria-label={`Importe acordado con ${e.razon_social}`} inputMode="decimal" placeholder="Sin acordado"
                           value={f.acordado} onChange={(ev) => cambiar(e.id, 'acordado', ev.target.value)}
                           className={inputClass} />
-                      </div>
+                      </label>
                     )}
                   </div>
                   {on && (
@@ -238,7 +246,7 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
 
         <fieldset disabled={soloSusEmpresas} className="space-y-4 disabled:opacity-60">
         <FilaCampos>
-          <Field label="Desde qué mes" htmlFor="col-alta" hint="Vacío: desde ya">
+          <Field label="Desde qué mes" htmlFor="col-alta" hint="Si lo dejas vacío, desde este mes">
             <input id="col-alta" type="month" value={altaDesde} onChange={(e) => setAltaDesde(e.target.value)} className={inputClass} />
           </Field>
           <Field label="Su usuario del CRM" hint="Solo si lo tiene: entonces ve «Mi factura»">
@@ -273,7 +281,7 @@ export function BajaDialog({ colaborador, alCerrar, alGuardar }: {
     setGuardando(true);
     try {
       await facturasColaboradorApi.darDeBaja(colaborador.id, desde);
-      toast({ title: `${colaborador.nombre}, de baja desde ${desde}` });
+      toast({ title: `${colaborador.nombre}, de baja desde ${mesEscrito(desde)}` });
       alGuardar();
     } catch (err) {
       toast({ title: 'No se pudo dar de baja', description: errorDe(err), variant: 'destructive' });
@@ -304,7 +312,7 @@ export function AltaDialog({ colaborador, alCerrar, alGuardar }: {
     setGuardando(true);
     try {
       await facturasColaboradorApi.volverDeAlta(colaborador.id, desde);
-      toast({ title: `${colaborador.nombre}, de alta otra vez desde ${desde}` });
+      toast({ title: `${colaborador.nombre}, de alta otra vez desde ${mesEscrito(desde)}` });
       alGuardar();
     } catch (err) {
       toast({ title: 'No se pudo dar de alta', description: errorDe(err), variant: 'destructive' });
@@ -336,7 +344,8 @@ export function AnularDialog({ facturaId, quien, alCerrar, alGuardar }: {
     setGuardando(true);
     try {
       await facturasColaboradorApi.anular(facturaId, motivo.trim());
-      toast({ title: 'Factura anulada', description: 'Se le manda un enlace nuevo para subirla otra vez.' });
+      // «Se crea», no «se le manda»: con los correos apagados no sale ningún correo.
+      toast({ title: 'Factura anulada', description: 'Se ha creado un enlace nuevo para que la suba otra vez.' });
       alGuardar();
     } catch (err) {
       toast({ title: 'No se pudo anular', description: errorDe(err), variant: 'destructive' });
@@ -346,7 +355,7 @@ export function AnularDialog({ facturaId, quien, alCerrar, alGuardar }: {
     <Dialogo titulo={`Anular la factura · ${quien}`} alCerrar={alCerrar}>
       <div className="space-y-4">
         <p className="text-secundario text-muted-foreground">
-          El archivo no se borra: queda marcado como anulado. Al colaborador le llega un enlace nuevo para subirla otra vez.
+          El archivo no se borra: queda marcado como anulado. Se crea un enlace nuevo para que el colaborador la suba otra vez.
         </p>
         <Field label="Motivo" htmlFor="anular-motivo" required>
           <textarea id="anular-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3}
@@ -392,7 +401,7 @@ export function PagarDialog({ facturas, alCerrar, alGuardar }: {
       toast({ title: facturas.length === 1 ? 'Factura pagada' : `${facturas.length} facturas pagadas` });
       alGuardar();
     } catch (err) {
-      toast({ title: 'No se pudo marcar pagada', description: errorDe(err), variant: 'destructive' });
+      toast({ title: 'No se pudo marcar como pagada', description: errorDe(err), variant: 'destructive' });
     } finally { setGuardando(false); }
   }
 
@@ -423,7 +432,7 @@ export function PagarDialog({ facturas, alCerrar, alGuardar }: {
         </Field>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={alCerrar}>Cancelar</Button>
-          <Button onClick={guardar} disabled={guardando || !fecha}>{guardando ? 'Guardando…' : 'Marcar pagada'}</Button>
+          <Button onClick={guardar} disabled={guardando || !fecha}>{guardando ? 'Guardando…' : facturas.length === 1 ? 'Marcar pagada' : 'Marcar pagadas'}</Button>
         </div>
       </div>
     </Dialogo>
@@ -440,7 +449,7 @@ export function DeshacerPagoDialog({ facturaId, quien, alCerrar, alGuardar }: {
     setGuardando(true);
     try {
       await facturasColaboradorApi.deshacerPago(facturaId, motivo.trim());
-      toast({ title: 'Pago deshecho', description: 'Vuelve a «por pagar».' });
+      toast({ title: 'Pago deshecho', description: 'La factura vuelve a «Por pagar».' });
       alGuardar();
     } catch (err) {
       toast({ title: 'No se pudo deshacer el pago', description: errorDe(err), variant: 'destructive' });
@@ -469,27 +478,32 @@ export function DeshacerPagoDialog({ facturaId, quien, alCerrar, alGuardar }: {
 
 const EVENTO: Record<string, string> = {
   alta: 'Alta en la lista', baja: 'Baja de la lista', cambio: 'Cambio en la ficha',
-  enviado: 'Correo enviado', no_enviado: 'No se pudo enviar', abierto: 'Enlace abierto',
+  enviado: 'Enlace enviado por correo', no_enviado: 'No se pudo enviar el correo', abierto: 'Enlace abierto',
   recibida: 'Factura recibida', acuse: 'Acuse enviado', recordatorio: 'Recordatorio enviado',
   anulada: 'Factura anulada', reenviado: 'Enlace nuevo', caducado: 'Enlace caducado',
   pagada: 'Factura pagada', pago_deshecho: 'Pago deshecho', aviso_pago: 'Aviso de pago enviado',
 };
 
 const CAMPO: Record<string, string> = {
-  nombre: 'nombre', email: 'correo', nif: 'NIF', area: 'área', notas: 'notas', user_id: 'usuario', alta_desde: 'desde',
+  nombre: 'nombre', email: 'correo', nif: 'NIF', area: 'área', notas: 'notas', user_id: 'usuario del CRM', alta_desde: 'alta desde',
 };
 const valor = (k: string, v: unknown) => {
   if (v === null || v === undefined || v === '') return '—';
   if (k === 'area') return AREA_ES[v as Area] || String(v);
-  if (k === 'alta_desde') return String(v).slice(0, 7);
+  if (k === 'alta_desde') return mesEscrito(String(v));
+  // Su usuario del CRM: si lo tiene, no el número interno («usuario: 12 → 15»).
+  if (k === 'user_id') return 'con usuario';
   return String(v);
 };
 /** Lo de una empresa en la ficha: lo acordado y cómo cobra (segunda parte), con su IVA e IRPF. */
 const deLaEmpresa = (e: any) => {
-  const acordado = e.importe_acordado === null || e.importe_acordado === undefined ? 'sin acordado' : `${euros(e.importe_acordado)} acordados`;
-  if (!e.modalidad) return `${acordado}, sin cómo cobra`;
-  const cuanto = e.modalidad === 'fijo' ? euros(e.importe_fijo) : `a ${euros(e.tarifa_hora)}/h`;
-  return `${acordado}, ${MODALIDAD_ES[e.modalidad as Modalidad]} ${cuanto} · IVA ${e.iva_pct} % · IRPF ${e.irpf_pct} %`;
+  const acordado = e.importe_acordado === null || e.importe_acordado === undefined ? 'sin importe acordado' : `${euros(e.importe_acordado)} acordados`;
+  if (!e.modalidad) return `${acordado}, sin forma de cobro`;
+  // En minúscula, que va a mitad de frase: «…, fijo de 600,00 €» / «…, por hora a 22,00 €/h».
+  const como = e.modalidad === 'fijo'
+    ? `fijo de ${euros(e.importe_fijo)}`
+    : `${MODALIDAD_ES[e.modalidad as Modalidad].toLowerCase()} a ${euros(e.tarifa_hora)}/h`;
+  return `${acordado}, ${como} · IVA ${e.iva_pct} % · IRPF ${e.irpf_pct} %`;
 };
 
 /**
@@ -506,11 +520,13 @@ function cambiosDe(d: Record<string, any>, nombreDe: (id: number) => string) {
       return ids.map((id) => {
         const a = antes.find((e) => Number(e.issuer_id) === id);
         const b = despues.find((e) => Number(e.issuer_id) === id);
-        if (!a) return `añade ${nombreDe(id)} (${deLaEmpresa(b)})`;
-        if (!b) return `quita ${nombreDe(id)}`;
+        if (!a) return `se añade ${nombreDe(id)} (${deLaEmpresa(b)})`;
+        if (!b) return `se quita ${nombreDe(id)}`;
         return deLaEmpresa(a) === deLaEmpresa(b) ? null : `${nombreDe(id)}: ${deLaEmpresa(a)} → ${deLaEmpresa(b)}`;
       }).filter(Boolean).join(' · ') || null;
     }
+    // De un usuario a otro: «con usuario → con usuario» no diría nada.
+    if (k === 'user_id' && c?.antes && c?.despues) return 'usuario del CRM: cambia a otro';
     return `${CAMPO[k] || k}: ${valor(k, c?.antes)} → ${valor(k, c?.despues)}`;
   }).filter(Boolean).join(' · ');
 }
@@ -542,7 +558,7 @@ function detalleDe(l: LineaRegistro, nombreDe: (id: number) => string) {
   const antes = d.antes as { fecha?: string; forma_pago?: FormaPago } | undefined;
   if (antes?.fecha) partes.push(`era ${(antes.forma_pago && FORMA_PAGO_ES[antes.forma_pago]) || 'pago'} del ${diaDelPago(antes.fecha)}`);
   if (d.motivo) partes.push(`«${d.motivo}»`);
-  if (d.desde) partes.push(`desde ${String(d.desde).slice(0, 7)}`);
+  if (d.desde) partes.push(`desde ${mesEscrito(String(d.desde))}`);
   if (d.para) partes.push(`a ${d.para}`);
   if (l.evento === 'cambio') return [cambiosDe(d, nombreDe), l.usuario_nombre ? `por ${l.usuario_nombre}` : null, l.ip ? ipCorta(l.ip) : null].filter(Boolean).join(' · ');
   if (l.usuario_nombre) partes.push(`por ${l.usuario_nombre}`);
@@ -606,7 +622,7 @@ export function RegistroDialog({ titulo, cargar, cargarDesglose, empresas = [], 
 }) {
   const nombreDe = (id: number) => {
     const e = empresas.find((x) => x.id === id);
-    return e ? empresaCorta(e.razon_social) : `empresa ${id}`;
+    return e ? empresaCorta(e.razon_social) : 'otra empresa';
   };
   const [lineas, setLineas] = useState<LineaRegistro[] | null>(null);
   const [desglose, setDesglose] = useState<DesgloseDeFactura | null>(null);
@@ -624,7 +640,7 @@ export function RegistroDialog({ titulo, cargar, cargarDesglose, empresas = [], 
     <Dialogo titulo={titulo} alCerrar={alCerrar} ancho="max-w-2xl">
       {desglose && desglose.lineas.length > 0 && <DesgloseDeLaFactura d={desglose} />}
       {!lineas ? <p className="text-muted-foreground">Cargando…</p>
-        : lineas.length === 0 ? <p className="text-muted-foreground">Todavía no hay nada.</p>
+        : lineas.length === 0 ? <p className="text-muted-foreground">Todavía no hay movimientos.</p>
           : (
             <ol className="space-y-2 border-l-2 border-border pl-4">
               {lineas.map((l) => (

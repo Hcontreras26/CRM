@@ -13,7 +13,7 @@ import { Button } from '@/shared/components/ui/button';
 import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import {
-  AREAS, AREA_ES, ESTADO, FORMA_PAGO_ES, euros, diaDelPago, diaMes, empresaCorta, facturasColaboradorApi, fechaHora, primeraMayuscula,
+  AREAS, AREA_ES, ESTADO, FORMA_PAGO_ES, euros, diaDelPago, diaMes, empresaCorta, facturasColaboradorApi, fechaHora, mesEscrito, primeraMayuscula,
   type Area, type Colaborador, type EmpresaDelGrupo, type EstadoFactura, type FacturaDelMes, type Mes,
   urlDelArchivo,
 } from '../api/facturasColaborador.api';
@@ -198,7 +198,7 @@ function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: n
     try {
       await facturasColaboradorApi.bajarZip(periodo, deLaEmpresa.id, deLaEmpresa.razon_social);
     } catch (err) {
-      toast({ title: 'No se pudo bajar el ZIP', description: errorDe(err), variant: 'destructive' });
+      toast({ title: 'No se pudo descargar el ZIP', description: errorDe(err), variant: 'destructive' });
     } finally { setBajando(false); }
   }
 
@@ -257,7 +257,7 @@ function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: n
         </div>
         <Button variant="outline" size="sm" className="ml-auto" onClick={bajarZip} disabled={!issuerId || bajando}
           aria-label="Descargar el ZIP del mes"
-          title={issuerId ? 'Descargar el ZIP: las recibidas del mes y su resumen.xlsx, para el gestor' : 'Elige una empresa: el ZIP es de una empresa y un mes'}>
+          title={issuerId ? 'Descargar el ZIP: las facturas recibidas del mes y un Excel con el resumen, para la gestoría' : 'Elige una empresa: el ZIP es de una empresa y un mes'}>
           <FileZip size={13} className="mr-1.5" /> {bajando ? 'Preparando…' : 'ZIP'}
         </Button>
         <Button variant="outline" size="sm" onClick={cargar} disabled={cargando}>
@@ -273,8 +273,14 @@ function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: n
           </div>
         )}
         {!datos || datos.facturas.length === 0 ? (
-          <EmptyState icon={FileText} title={cargando ? 'Cargando…' : 'Nada en este mes'}
-            description="El último día del mes, a las 10:00, se prepara el mes con los colaboradores activos." />
+          // Con un filtro de área o de estado, lo que no hay es eso, no el mes entero.
+          (estado || area) ? (
+            <EmptyState icon={FileText} title={cargando ? 'Cargando…' : 'No hay facturas con estos filtros'}
+              description={cargando ? undefined : 'Prueba con otra área u otro estado.'} />
+          ) : (
+            <EmptyState icon={FileText} title={cargando ? 'Cargando…' : 'Nada en este mes'}
+              description="El último día del mes, a las 10:00, se prepara el mes con los colaboradores activos." />
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-tabla">
@@ -436,8 +442,15 @@ function Colaboradores({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; emp
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         {lista.length === 0 ? (
-          <EmptyState icon={UsersThree} title={cargando ? 'Cargando…' : 'Todavía no hay colaboradores'}
-            description="Da de alta a quien factura al grupo cada mes: soporte, desarrollo, WordPress, SEO, contenido…" />
+          // Si se está buscando o se miran los de baja, no es que no haya ninguno.
+          (q.trim() || estado !== 'activos') ? (
+            <EmptyState icon={UsersThree}
+              title={cargando ? 'Cargando…' : q.trim() ? 'Nadie coincide con la búsqueda' : estado === 'de_baja' ? 'No hay colaboradores de baja' : 'Todavía no hay colaboradores'}
+              description={undefined} />
+          ) : (
+            <EmptyState icon={UsersThree} title={cargando ? 'Cargando…' : 'Todavía no hay colaboradores'}
+              description="Da de alta a quien factura al grupo cada mes: soporte, desarrollo, WordPress, SEO, contenido…" />
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-tabla">
@@ -464,8 +477,8 @@ function Colaboradores({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; emp
                     <td className="px-3 py-2">
                       {/* Una baja de un mes que no ha llegado: sigue activo hasta entonces. */}
                       {c.activo && !c.baja_desde && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-success-soft text-success-soft-foreground">Activo</span>}
-                      {c.activo && c.baja_desde && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-warning-soft text-warning-soft-foreground whitespace-nowrap">Activo · baja desde {c.baja_desde}</span>}
-                      {!c.activo && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-destructive-soft text-destructive-soft-foreground whitespace-nowrap">Baja desde {c.baja_desde}</span>}
+                      {c.activo && c.baja_desde && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-warning-soft text-warning-soft-foreground whitespace-nowrap">Activo · baja desde {mesEscrito(c.baja_desde)}</span>}
+                      {!c.activo && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-destructive-soft text-destructive-soft-foreground whitespace-nowrap">Baja desde {mesEscrito(c.baja_desde)}</span>}
                     </td>
                     <td className="px-3 py-2">
                       {/* Iconos, como en «Del mes»: con la columna Correo, los botones con texto no cabían en un portátil. */}
