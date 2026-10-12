@@ -23,7 +23,7 @@ type Mapa = Record<string, boolean>;
 const iguales = (a: Mapa, b: Mapa) => CLAVES.every(({ clave }) => !!a[clave] === !!b[clave]);
 
 interface Props {
-  /** `admin`, `gestor`… o `custom:<id>`. */
+  /** `admin`, `colaborador` o `custom:<id>`. */
   roleKey: string;
   onGuardado?: () => void;
 }

@@ -75,7 +75,8 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     'field_defs.view': false,  'field_defs.edit': false,
     'channels.view': true,   'channels.edit': false,
     'roles.view': false,  'roles.edit': false,
-    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
+    // Sin tablero (Diego, 09/10: «las gestoras no tienen tareas»): ni menú ni API.
+    'tasks.view_all': false, 'tasks.view_own': false, 'tasks.create': false, 'tasks.assign': false, 'tasks.edit': false, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): no las ve.
     'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.subir': false,
   },
@@ -103,7 +104,8 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     'field_defs.view': false,  'field_defs.edit': false,
     'channels.view': true,   'channels.edit': false,
     'roles.view': false,  'roles.edit': false,
-    'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
+    // Sin tablero (Diego, 09/10: «las gestoras no tienen tareas»): ni menú ni API.
+    'tasks.view_all': false, 'tasks.view_own': false, 'tasks.create': false, 'tasks.assign': false, 'tasks.edit': false, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): no las ve.
     'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.subir': false,
   },
