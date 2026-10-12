@@ -451,6 +451,8 @@ describe('facturas de colaboradores (#202) · el ZIP del mes', () => {
     await libro.xlsx.load(await zip.file('resumen.xlsx').async('nodebuffer'));
     const deLaura = [2, 3].map((n) => libro.getWorksheet('Resumen').getRow(n).values.slice(1)).find((r) => r[0] === `${MARCA} laura`);
     expect(deLaura[7].toISOString()).toBe('2026-06-01T12:44:00.000Z');
+    // Y la fecha de su archivo dentro del ZIP, también en hora de Madrid (antes, en UTC: 10:44).
+    expect(zip.file(nombre('laura')).date.toISOString()).toBe('2026-06-01T12:44:00.000Z');
   });
 
   it('una razón social con «’» o «Ł» no rompe la descarga', async () => {

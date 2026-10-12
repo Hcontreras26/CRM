@@ -25,12 +25,21 @@ const LAURA = {
 const abrir = () => render(<ColaboradorDialog colaborador={LAURA} empresas={EMPRESAS} alCerrar={() => {}} alGuardar={() => {}} />);
 
 describe('la ficha del colaborador', () => {
-  it('lo acordado lleva su título, y sin valor dice «Sin acordado» (no una cifra)', () => {
+  it('lo acordado lleva su título al lado, y sin valor dice «Opcional» (no una cifra)', () => {
     abrir();
-    expect(screen.getAllByText('Acordado €/mes (opcional)')).toHaveLength(2);
+    expect(screen.getAllByText('Acordado €/mes')).toHaveLength(2);
     const ictess = screen.getByLabelText(`Importe acordado con ${EMPRESAS[1].razon_social}`);
     expect(ictess.value).toBe('250');
-    expect(ictess.placeholder).toBe('Sin acordado');
+    expect(ictess.placeholder).toBe('Opcional');
+  });
+
+  it('las casillas de importes y porcentajes no las rellena el navegador por su cuenta', () => {
+    // Prueba a mano del 12/10: Edge autocompletaba tarifa, IVA e IRPF con valores de otras veces.
+    abrir();
+    // Y Edge ofrecía su «Información guardada» en el NIF: tampoco en los datos de la persona.
+    for (const etiqueta of [/Importe acordado con/, /Importe fijo con/, /IVA % con/, /IRPF % con/, /^Nombre/, /^Correo/, /^NIF/, /^Notas/]) {
+      for (const casilla of screen.getAllByLabelText(etiqueta)) expect(casilla.getAttribute('autocomplete'), String(etiqueta)).toBe('off');
+    }
   });
 
   it('desmarcar una empresa y volver a marcarla (un doble clic en su nombre) no la deja en blanco', () => {

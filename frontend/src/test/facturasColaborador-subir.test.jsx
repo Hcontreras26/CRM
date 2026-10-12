@@ -54,6 +54,27 @@ describe('subir la factura · lo acordado y el desglose', () => {
     expect(screen.getByText(/Ya está puesto el total de tu desglose/)).toBeTruthy();
   });
 
+  it('con algo puesto, recargar o cerrar la página avisa antes; sin nada, no molesta', () => {
+    // Prueba a mano del 12/10: al recargar se perdía todo sin aviso.
+    abrir(factura({ cobro: cobro({ modalidad: 'fijo', importe_fijo: 600 }) }));
+    const recargar = () => { const e = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; };
+    // El importe lo puso el CRM (636,00): eso solo no cuenta.
+    expect(recargar()).toBe(false);
+    fireEvent.change(screen.getByLabelText(/Número de tu factura/), { target: { value: 'F-1' } });
+    expect(recargar()).toBe(true);
+  });
+
+  it('una vez recibida, recargar ya no avisa (aunque quede lo que se puso)', () => {
+    // Prueba a mano del 12/10: tras «Factura recibida», F5 seguía preguntando.
+    const f = factura({ cobro: cobro({ modalidad: 'fijo', importe_fijo: 600 }) });
+    const { rerender } = render(<SubirFactura factura={f} alSubir={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/Número de tu factura/), { target: { value: 'F-1' } });
+    const recargar = () => { const e = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; };
+    expect(recargar()).toBe(true);
+    rerender(<SubirFactura factura={{ ...f, estado: 'recibida', recibida: { subida_at: '2026-10-12T15:29:00Z', numero_recepcion: 'REC-2026-09-0001', importe: 636, numero_factura: 'F-1', archivo: 'f.pdf', total: 636, cuadra: true } }} alSubir={vi.fn()} />);
+    expect(recargar()).toBe(false);
+  });
+
   it('sin desglose, como en la primera parte: con lo acordado ya puesto', () => {
     abrir(factura({ cobro: null }));
     expect(importe().value).toBe('600');

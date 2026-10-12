@@ -267,7 +267,11 @@ export default function ListaDeFacturas({ vista, empresas, empresa }: {
  * desglose, cuántas horas y cuánto dinero (la base, sin IVA ni IRPF) de
  * colaboradores se va a cada campus. Sin líneas en el mes, no se pinta.
  */
-export function CostePorCampus({ periodo, issuerId }: { periodo: string; issuerId?: string }) {
+export function CostePorCampus({ periodo, issuerId, recargar }: {
+  periodo: string; issuerId?: string;
+  /** Cambia cada vez que se recarga la lista del mes: entonces se pide otra vez el coste. */
+  recargar?: unknown;
+}) {
   const [filas, setFilas] = useState<CosteDeCampus[]>([]);
   useEffect(() => {
     // Solo la respuesta de la empresa y el mes de ahora: al cambiar deprisa, una vieja no pisa a la nueva.
@@ -276,7 +280,7 @@ export function CostePorCampus({ periodo, issuerId }: { periodo: string; issuerI
       .then((r) => { if (vigente) setFilas(r.data.campus); })
       .catch(() => { if (vigente) setFilas([]); });
     return () => { vigente = false; };
-  }, [periodo, issuerId]);
+  }, [periodo, issuerId, recargar]);
   if (!filas.length) return null;
   // Con todas las empresas, cada fila dice de cuál es: son por empresa (Diego, 10/10).
   const conEmpresa = !issuerId;

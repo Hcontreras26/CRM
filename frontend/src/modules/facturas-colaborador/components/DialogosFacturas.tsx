@@ -153,15 +153,15 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
         <fieldset disabled={soloSusEmpresas} className="space-y-4 disabled:opacity-60">
         <FilaCampos>
           <Field label="Nombre" htmlFor="col-nombre" required>
-            <input id="col-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
+            <input autoComplete="off" id="col-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
           </Field>
           <Field label="Correo" htmlFor="col-email" required hint="Al que le llega el enlace de cada mes">
-            <input id="col-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+            <input autoComplete="off" id="col-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
           </Field>
         </FilaCampos>
         <FilaCampos>
           <Field label="NIF" htmlFor="col-nif" hint="Opcional">
-            <input id="col-nif" value={nif} onChange={(e) => setNif(e.target.value)} className={inputClass} />
+            <input autoComplete="off" id="col-nif" value={nif} onChange={(e) => setNif(e.target.value)} className={inputClass} />
           </Field>
           <Field label="Área">
             <Select<Area> value={area} onChange={setArea} ariaLabel="Área"
@@ -178,8 +178,8 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
               const f = marcadas[e.id];
               return (
                 <div key={e.id} className={on ? 'rounded-md border border-border p-2 space-y-2' : ''}>
-                  <div className="flex flex-wrap items-end gap-3">
-                    <label className="flex items-center gap-2 text-sm min-w-0 flex-1 self-center">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm min-w-0 flex-1">
                       <input type="checkbox" checked={on} onChange={() => setMarcadas((m) => {
                         const n = { ...m };
                         // Al desmarcarla se guarda lo que tenía, y al volver a marcarla se recupera:
@@ -191,13 +191,13 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
                       <span className="truncate">{e.razon_social}</span>
                     </label>
                     {on && (
-                      // Con su título, como las demás casillas: con «600» dentro no se sabía qué era
-                      // (y al lado está «Fijo €/mes», que también puede llevar 600).
-                      <label className="w-44 flex-none space-y-1">
-                        <span className="text-xs text-muted-foreground">Acordado €/mes (opcional)</span>
-                        <input aria-label={`Importe acordado con ${e.razon_social}`} inputMode="decimal" placeholder="Sin acordado"
+                      // Donde estaba, al lado del nombre, pero con su título en la misma línea: con «600»
+                      // dentro no se sabía qué era (y debajo está «Fijo €/mes», que también puede llevar 600).
+                      <label className="flex flex-none items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Acordado €/mes</span>
+                        <input aria-label={`Importe acordado con ${e.razon_social}`} inputMode="decimal" autoComplete="off" placeholder="Opcional"
                           value={f.acordado} onChange={(ev) => cambiar(e.id, 'acordado', ev.target.value)}
-                          className={inputClass} />
+                          className={`${inputClass} w-40`} />
                       </label>
                     )}
                   </div>
@@ -213,26 +213,26 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
                       {f.modalidad === 'fijo' ? (
                         <label className="space-y-1">
                           <span className="text-xs text-muted-foreground">Fijo €/mes (base)</span>
-                          <input aria-label={`Importe fijo con ${e.razon_social}`} inputMode="decimal"
+                          <input aria-label={`Importe fijo con ${e.razon_social}`} inputMode="decimal" autoComplete="off"
                             value={f.fijo} onChange={(ev) => cambiar(e.id, 'fijo', ev.target.value)} className={inputClass} />
                         </label>
                       ) : (
                         <label className="space-y-1">
                           <span className="text-xs text-muted-foreground">Tarifa €/h</span>
-                          <input aria-label={`Tarifa por hora con ${e.razon_social}`} inputMode="decimal"
+                          <input aria-label={`Tarifa por hora con ${e.razon_social}`} inputMode="decimal" autoComplete="off"
                             disabled={!f.modalidad}
                             value={f.tarifa} onChange={(ev) => cambiar(e.id, 'tarifa', ev.target.value)} className={inputClass} />
                         </label>
                       )}
                       <label className="space-y-1">
                         <span className="text-xs text-muted-foreground">IVA %</span>
-                        <input aria-label={`IVA % con ${e.razon_social}`} inputMode="decimal"
+                        <input aria-label={`IVA % con ${e.razon_social}`} inputMode="decimal" autoComplete="off"
                           disabled={!f.modalidad}
                           value={f.iva} onChange={(ev) => cambiar(e.id, 'iva', ev.target.value)} className={inputClass} />
                       </label>
                       <label className="space-y-1">
                         <span className="text-xs text-muted-foreground">IRPF %</span>
-                        <input aria-label={`IRPF % con ${e.razon_social}`} inputMode="decimal"
+                        <input aria-label={`IRPF % con ${e.razon_social}`} inputMode="decimal" autoComplete="off"
                           disabled={!f.modalidad}
                           value={f.irpf} onChange={(ev) => cambiar(e.id, 'irpf', ev.target.value)} className={inputClass} />
                       </label>
@@ -256,7 +256,7 @@ export function ColaboradorDialog({ colaborador, empresas, alCerrar, alGuardar }
         </FilaCampos>
 
         <Field label="Notas" htmlFor="col-notas">
-          <textarea id="col-notas" value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} className={`${inputClass} h-auto py-2`} />
+          <textarea autoComplete="off" id="col-notas" value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} className={`${inputClass} h-auto py-2`} />
         </Field>
         </fieldset>
 
@@ -358,7 +358,7 @@ export function AnularDialog({ facturaId, quien, alCerrar, alGuardar }: {
           El archivo no se borra: queda marcado como anulado. Se crea un enlace nuevo para que el colaborador la suba otra vez.
         </p>
         <Field label="Motivo" htmlFor="anular-motivo" required>
-          <textarea id="anular-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3}
+          <textarea autoComplete="off" id="anular-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3}
             placeholder="Por ejemplo: subió la de agosto" className={`${inputClass} h-auto py-2`} />
         </Field>
         <div className="flex justify-end gap-2">
@@ -424,7 +424,7 @@ export function PagarDialog({ facturas, alCerrar, alGuardar }: {
           </Field>
         </FilaCampos>
         <Field label="Referencia" htmlFor="pago-referencia" hint="Opcional: la de la transferencia, por ejemplo">
-          <input id="pago-referencia" value={referencia} maxLength={100} onChange={(e) => setReferencia(e.target.value)} className={inputClass} />
+          <input autoComplete="off" id="pago-referencia" value={referencia} maxLength={100} onChange={(e) => setReferencia(e.target.value)} className={inputClass} />
         </Field>
         <Field label="Justificante" htmlFor="pago-justificante" hint="Opcional: PDF o foto (JPG, PNG), hasta 10 MB">
           <input id="pago-justificante" type="file" accept="application/pdf,image/jpeg,image/png"
@@ -462,7 +462,7 @@ export function DeshacerPagoDialog({ facturaId, quien, alCerrar, alGuardar }: {
           La factura vuelve a «por pagar». La fecha, la forma y la referencia del pago quedan en el registro.
         </p>
         <Field label="Motivo" htmlFor="deshacer-motivo" required>
-          <textarea id="deshacer-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3}
+          <textarea autoComplete="off" id="deshacer-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3}
             placeholder="Por ejemplo: la transferencia era de otra factura" className={`${inputClass} h-auto py-2`} />
         </Field>
         <div className="flex justify-end gap-2">

@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { CheckCircle, Copy, FilePdf, Plus, Trash, UploadSimple, WarningCircle } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import { Button } from '@/shared/components/ui/button';
@@ -64,6 +64,19 @@ export default function SubirFactura({ factura, alSubir }: {
   const [enviando, setEnviando] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
+
+  // Recargar o cerrar la página con la factura a medias lo borra todo: el navegador
+  // avisa antes (Diana, prueba a mano del 12/10). Solo con algo puesto por la persona:
+  // lo que rellena el CRM solo (el total del desglose, lo acordado) no cuenta.
+  const aMedias = archivo !== null || numero.trim() !== '' || horas.trim() !== '' || tocado
+    || lineas.some((l) => l.concepto.trim() !== '' || l.horas.trim() !== '');
+  useEffect(() => {
+    // Ya recibida (o anulada o caducada) no queda nada que perder: sin aviso.
+    if (!aMedias || enviando || f.recibida || ['anulada', 'caducado'].includes(f.estado)) return undefined;
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [aMedias, enviando, f.recibida, f.estado]);
 
   const importeNum = Number(normalizarImporte(importe));
   // Con desglose, lo acordado se compara con la base; sin él, con el importe (como en la primera parte).
@@ -231,7 +244,7 @@ export default function SubirFactura({ factura, alSubir }: {
             <div className="flex flex-wrap items-end gap-3 text-sm">
               <div className="w-32">
                 <label htmlFor={`${uid}-horas`} className="text-xs text-muted-foreground">Horas del mes</label>
-                <input id={`${uid}-horas`} inputMode="decimal" value={horas} onChange={(e) => setHoras(e.target.value)} className={inputClass} />
+                <input id={`${uid}-horas`} inputMode="decimal" autoComplete="off" value={horas} onChange={(e) => setHoras(e.target.value)} className={inputClass} />
               </div>
               <span className="pb-2 text-muted-foreground">× {euros(f.cobro.tarifa_hora)}/h = <strong className="text-foreground tabular-nums">{euros(calculo.base)}</strong></span>
             </div>
@@ -243,7 +256,7 @@ export default function SubirFactura({ factura, alSubir }: {
                 <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_11rem_6rem_auto] gap-2 items-end">
                   <div>
                     <label htmlFor={`${uid}-linea-${i}`} className="text-xs text-muted-foreground">Encargo {i + 1}</label>
-                    <input id={`${uid}-linea-${i}`} value={l.concepto} maxLength={200} onChange={(e) => cambiarLinea(i, 'concepto', e.target.value)}
+                    <input autoComplete="off" id={`${uid}-linea-${i}`} value={l.concepto} maxLength={200} onChange={(e) => cambiarLinea(i, 'concepto', e.target.value)}
                       className={inputClass} />
                   </div>
                   <div>
@@ -253,7 +266,7 @@ export default function SubirFactura({ factura, alSubir }: {
                   </div>
                   <div>
                     <label htmlFor={`${uid}-horas-${i}`} className="text-xs text-muted-foreground">Horas</label>
-                    <input id={`${uid}-horas-${i}`} inputMode="decimal" value={l.horas} onChange={(e) => cambiarLinea(i, 'horas', e.target.value)}
+                    <input id={`${uid}-horas-${i}`} inputMode="decimal" autoComplete="off" value={l.horas} onChange={(e) => cambiarLinea(i, 'horas', e.target.value)}
                       className={inputClass} />
                   </div>
                   <Button type="button" variant="ghost" size="sm" title="Quitar la línea" aria-label={`Quitar la línea ${i + 1}`}
@@ -288,13 +301,13 @@ export default function SubirFactura({ factura, alSubir }: {
             ? 'Ya está puesto el total de tu desglose: cámbialo si tu factura dice otro importe'
             : 'Se rellena solo con el total de tu desglose')
             : noCoincide ? undefined : (f.importe_acordado !== null ? 'Ya está puesto lo acordado: cámbialo si tu factura dice otro importe' : undefined)}>
-          <input id={`${uid}-importe`} inputMode="decimal" value={importe}
+          <input id={`${uid}-importe`} inputMode="decimal" autoComplete="off" value={importe}
             onChange={(e) => { setTocado(true); setEscrito(e.target.value); }}
             // Texto y no una cifra de ejemplo: el «600,00» gris se leía como si fuera lo acordado.
             placeholder="Escribe el importe de tu factura" className={inputClass} />
         </Field>
         <Field label="Número de tu factura" htmlFor={`${uid}-numero`} required>
-          <input id={`${uid}-numero`} value={numero} onChange={(e) => setNumero(e.target.value)}
+          <input autoComplete="off" id={`${uid}-numero`} value={numero} onChange={(e) => setNumero(e.target.value)}
             placeholder="Escribe el número de tu factura" maxLength={60} className={inputClass} />
         </Field>
       </FilaCampos>

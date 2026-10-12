@@ -159,6 +159,8 @@ function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: n
   // enlace del primero ya no valía.
   const [reenviando, setReenviando] = useState<number | null>(null);
 
+  // Cuántas veces se ha cargado el mes: el coste por campus se vuelve a pedir con cada una.
+  const [vueltas, setVueltas] = useState(0);
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
@@ -166,6 +168,7 @@ function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: n
         periodo, issuerId: issuerId ? Number(issuerId) : undefined, estado: estado || undefined, area: area || undefined,
       });
       setDatos(r.data);
+      setVueltas((v) => v + 1);
     } catch (err) {
       toast({ title: 'No se pudo cargar el mes', description: errorDe(err), variant: 'destructive' });
     } finally { setCargando(false); }
@@ -364,7 +367,9 @@ function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: n
         )}
       </div>
 
-      <CostePorCampus periodo={periodo} issuerId={issuerId} />
+      {/* Con la lista del mes: al anular, pagar o «Actualizar», el coste se vuelve a pedir
+          (antes se quedaba con las cifras viejas, también las de una factura ya anulada). */}
+      <CostePorCampus periodo={periodo} issuerId={issuerId} recargar={vueltas} />
 
       {anular && (
         <AnularDialog facturaId={anular.id} quien={`${anular.colaborador_nombre} · ${anular.empresa}`}
@@ -428,7 +433,7 @@ function Colaboradores({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; emp
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="w-64 flex-none">
-          <input aria-label="Buscar por nombre o correo" placeholder="Buscar por nombre o correo" value={q}
+          <input autoComplete="off" aria-label="Buscar por nombre o correo" placeholder="Buscar por nombre o correo" value={q}
             onChange={(e) => setQ(e.target.value)} className={inputClass} />
         </div>
         <div className="w-40 flex-none">

@@ -120,6 +120,16 @@ describe('Enviadas, Por pagar, Pagadas, Historial, el coste por campus y el ZIP,
     expect(screen.getByLabelText('Empresa')).toBeTruthy();
   });
 
+  it('al recargar «Del mes» (anular, pagar, «Actualizar») el coste por campus se pide otra vez', async () => {
+    // Prueba a mano del 12/10: tras anular una factura, el coste seguía contándola.
+    cabecera.value = { activeIssuerId: null, isAllProjects: true, activeProject: { id: null } };
+    abrir('/finanzas/facturas-colaboradores?periodo=2026-09');
+    await waitFor(() => expect(api.costePorCampus).toHaveBeenCalled());
+    const antes = api.costePorCampus.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: /Actualizar/ }));
+    await waitFor(() => expect(api.costePorCampus.mock.calls.length).toBeGreaterThan(antes));
+  });
+
   it('«Del mes» con un campus de Ictess: el coste por campus y el ZIP son de Ictess, sin elegir nada', async () => {
     cabecera.value = { activeIssuerId: null, isAllProjects: false, activeProject: { id: 3, sociedad_emisora_id: 9 } };
     abrir('/finanzas/facturas-colaboradores?periodo=2026-09');

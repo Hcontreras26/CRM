@@ -508,7 +508,9 @@ export async function zipDelMes(user, periodo, issuerId) {
     let nombre = f.archivo_key.split('/').pop();
     if (usados.has(nombre)) nombre = nombre.replace(/(\.[^.]+)?$/, `_${f.numero_recepcion}$1`);
     usados.add(nombre);
-    zip.file(nombre, await leerArchivo(f.archivo_key));
+    // La fecha de cada archivo dentro del ZIP: cuándo se subió, en hora de Madrid como el resumen.
+    // JSZip guarda la hora tal cual en UTC y Windows la enseña como local: salía 4 o 6 horas de más.
+    zip.file(nombre, await leerArchivo(f.archivo_key), { date: horaDeMadrid(f.subida_at) });
   }
 
   const libro = new ExcelJS.Workbook();
@@ -532,7 +534,7 @@ export async function zipDelMes(user, periodo, issuerId) {
       diferencia: num(f.diferencia), subida: horaDeMadrid(f.subida_at), numero_recepcion: f.numero_recepcion,
     });
   }
-  zip.file('resumen.xlsx', Buffer.from(await libro.xlsx.writeBuffer()));
+  zip.file('resumen.xlsx', Buffer.from(await libro.xlsx.writeBuffer()), { date: horaDeMadrid(new Date()) });
 
   return {
     nombre: `facturas-colaboradores_${periodo.slice(0, 7)}_${empresaCorta(empresa)}.zip`,
