@@ -4,6 +4,7 @@
 // reinicio no lo manda dos veces.
 import { sendEmail } from '../../shared/services/brevo.service.js';
 import { logger } from '../../shared/utils/logger.js';
+import { query } from '../../shared/config/db.js';
 import {
   correo, parrafo, boton, nota, seccion, esc, enlace,
 } from '../../shared/services/email-plantilla.service.js';
@@ -36,7 +37,7 @@ export const correosActivos = () => {
  * Todos los correos de tareas salen por aquí. Apagado, el correo se arma
  * entero y se registra (para y asunto), pero no se llama a Brevo.
  */
-export async function despacharCorreo({ to, subject, htmlContent, textContent, tags, clave }) {
+export async function despacharCorreo({ to, subject, htmlContent, textContent, tags, clave, marca = null }) {
   if (!correosActivos()) {
     logger.info({ to: to[0]?.email, subject, clave }, 'Correo de tareas registrado sin enviar (TAREAS_CORREOS_ACTIVOS apagado)');
     return { sent: false, simulated: true };
@@ -48,11 +49,32 @@ export async function despacharCorreo({ to, subject, htmlContent, textContent, t
     textContent,
     tags,
     clave,
+    // Con la marca del campus de la tarea (Diego, 12/10: «no responder ISEIH, desde el
+    // branding»): sale por su cuenta de Brevo y su «no responder» si los tiene, y con su
+    // nombre de remitente. Sin campus, el del CRM.
+    projectId: marca?.id ?? null,
+    fromName: marca?.nombre ?? undefined,
   });
 }
 
+/**
+ * La marca del campus de una tarea: logo y nombre para la cabecera, y el proyecto por el
+ * que sale el correo. Una tarea sin campus (o de un proyecto propio) va con la del CRM.
+ */
+export async function marcaDeTarea(tarea) {
+  if (!tarea?.project_id) return null;
+  try {
+    const { rows: [p] } = await query(
+      'SELECT id, nombre, slug, logo_url, emoji FROM projects WHERE id = $1', [tarea.project_id]);
+    return p || null;
+  } catch (err) {
+    logger.warn({ err: err.message, taskId: tarea.id }, 'Correo de tareas: no se pudo leer la marca del campus');
+    return null;
+  }
+}
+
 /** El correo «te han asignado una tarea». */
-export function armarCorreoAsignada({ persona, tarea, quien }) {
+export function armarCorreoAsignada({ persona, tarea, quien, marca = null }) {
   const datos = [
     `Prioridad: <strong>${esc(PRIORIDADES[tarea.priority] || tarea.priority)}</strong>`,
     tarea.due_date ? `Fecha límite: <strong>${esc(fechaCorta(tarea.due_date))}</strong>` : null,
@@ -62,6 +84,7 @@ export function armarCorreoAsignada({ persona, tarea, quien }) {
   ].filter(Boolean).join('<br>');
 
   const { htmlContent, textContent } = correo({
+    proyecto: marca || {},
     titulo: 'Tienes una tarea nueva',
     saludo: persona.nombre,
     resumen: `${quien?.nombre || 'Alguien'} te ha asignado «${tarea.title}»`,
@@ -76,8 +99,10 @@ export function armarCorreoAsignada({ persona, tarea, quien }) {
 }
 
 export async function enviarCorreoAsignada({ persona, tarea, quien }) {
-  const c = armarCorreoAsignada({ persona, tarea, quien });
+  const marca = await marcaDeTarea(tarea);
+  const c = armarCorreoAsignada({ persona, tarea, quien, marca });
   return despacharCorreo({
+    marca,
     to: [{ email: persona.email, name: persona.nombre }],
     subject: c.asunto,
     htmlContent: c.htmlContent,
@@ -88,8 +113,9 @@ export async function enviarCorreoAsignada({ persona, tarea, quien }) {
 }
 
 /** El correo «tarea devuelta para corrección». */
-export function armarCorreoDevuelta({ persona, tarea, quien, comentario }) {
+export function armarCorreoDevuelta({ persona, tarea, quien, comentario, marca = null }) {
   const { htmlContent, textContent } = correo({
+    proyecto: marca || {},
     titulo: 'Tarea devuelta para corrección',
     saludo: persona.nombre,
     resumen: `${quien?.nombre || 'Administración'} ha devuelto la tarea «${tarea.title}»`,
@@ -104,8 +130,10 @@ export function armarCorreoDevuelta({ persona, tarea, quien, comentario }) {
 }
 
 export async function enviarCorreoDevuelta({ persona, tarea, quien, comentario }) {
-  const c = armarCorreoDevuelta({ persona, tarea, quien, comentario });
+  const marca = await marcaDeTarea(tarea);
+  const c = armarCorreoDevuelta({ persona, tarea, quien, comentario, marca });
   return despacharCorreo({
+    marca,
     to: [{ email: persona.email, name: persona.nombre }],
     subject: c.asunto,
     htmlContent: c.htmlContent,
@@ -116,8 +144,9 @@ export async function enviarCorreoDevuelta({ persona, tarea, quien, comentario }
 }
 
 /** El correo «tarea aprobada / cerrada». */
-export function armarCorreoCerrada({ persona, tarea, quien }) {
+export function armarCorreoCerrada({ persona, tarea, quien, marca = null }) {
   const { htmlContent, textContent } = correo({
+    proyecto: marca || {},
     titulo: 'Tarea aprobada y cerrada',
     saludo: persona.nombre,
     resumen: `${quien?.nombre || 'Administración'} ha marcado «${tarea.title}» como Hecha`,
@@ -132,8 +161,10 @@ export function armarCorreoCerrada({ persona, tarea, quien }) {
 }
 
 export async function enviarCorreoCerrada({ persona, tarea, quien }) {
-  const c = armarCorreoCerrada({ persona, tarea, quien });
+  const marca = await marcaDeTarea(tarea);
+  const c = armarCorreoCerrada({ persona, tarea, quien, marca });
   return despacharCorreo({
+    marca,
     to: [{ email: persona.email, name: persona.nombre }],
     subject: c.asunto,
     htmlContent: c.htmlContent,
@@ -145,8 +176,9 @@ export async function enviarCorreoCerrada({ persona, tarea, quien }) {
 }
 
 /** El correo «nuevo comentario en tu tarea». */
-export function armarCorreoComentario({ persona, tarea, quien, comentario }) {
+export function armarCorreoComentario({ persona, tarea, quien, comentario, marca = null }) {
   const { htmlContent, textContent } = correo({
+    proyecto: marca || {},
     titulo: 'Nuevo comentario en tu tarea',
     saludo: persona.nombre,
     resumen: `${quien?.nombre || 'Un compañero'} comentó en «${tarea.title}»`,
@@ -161,8 +193,10 @@ export function armarCorreoComentario({ persona, tarea, quien, comentario }) {
 }
 
 export async function enviarCorreoComentario({ persona, tarea, quien, comentario, commentId }) {
-  const c = armarCorreoComentario({ persona, tarea, quien, comentario });
+  const marca = await marcaDeTarea(tarea);
+  const c = armarCorreoComentario({ persona, tarea, quien, comentario, marca });
   return despacharCorreo({
+    marca,
     to: [{ email: persona.email, name: persona.nombre }],
     subject: c.asunto,
     htmlContent: c.htmlContent,
