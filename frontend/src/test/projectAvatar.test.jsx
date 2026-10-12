@@ -75,6 +75,15 @@ describe('ProjectAvatar component', () => {
     expect(screen.getByText('IC')).toBeInTheDocument();
   });
 
+  it('con soloIniciales (Configuración › Proyectos), las iniciales aunque tenga emoji', () => {
+    const project = { id: 5, nombre: 'ISEIH', emoji: '🎓', logo_url: 'https://r2.dev/roto.png' };
+    const { container } = render(<ProjectAvatar project={project} size="lg" soloIniciales />);
+    fireEvent.error(container.querySelector('img'));
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByText('EI')).toBeInTheDocument();
+    expect(screen.queryByText('🎓')).toBeNull();
+  });
+
   it('muestra emoji si no hay logo pero sí emoji', () => {
     const project = { id: 4, nombre: 'Campus Virtual', emoji: '🎓' };
     render(<ProjectAvatar project={project} size="lg" />);

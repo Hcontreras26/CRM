@@ -45,7 +45,12 @@ export function resolverLogoSrc(project, theme = 'light') {
   return getLocalLogo(project?.slug, theme);
 }
 
-export function ProjectAvatar({ project, size = 'md' }) {
+/**
+ * `soloIniciales`: sin logo, las iniciales aunque el proyecto tenga emoji. Lo usa
+ * Configuración › Proyectos (Diego, #222: «un marcador con la inicial del campus»);
+ * el menú lateral y el selector siguen enseñando el emoji.
+ */
+export function ProjectAvatar({ project, size = 'md', soloIniciales = false }) {
   // Fuera de ThemeProvider (una prueba suelta), claro por defecto.
   const theme = useOptionalTheme();
 
@@ -90,7 +95,7 @@ export function ProjectAvatar({ project, size = 'md' }) {
     );
   }
 
-  if (project?.emoji) {
+  if (project?.emoji && !soloIniciales) {
     return (
       <div className={`${dim} rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 ${size === 'lg' ? 'text-2xl' : size === 'sm' ? 'text-base' : 'text-lg'}`}>
         {project.emoji}

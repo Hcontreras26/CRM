@@ -51,7 +51,7 @@ export default function ProjectsTab() {
           {projects.map((p) => (
             <div key={p.id} className="bg-card rounded-lg border border-border overflow-hidden hover:border-foreground/20 transition-colors">
               <div className="p-5 flex items-start gap-4">
-                <ProjectAvatar project={p} size="lg" />
+                <ProjectAvatar project={p} size="lg" soloIniciales />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-sm truncate">{p.nombre}</p>
