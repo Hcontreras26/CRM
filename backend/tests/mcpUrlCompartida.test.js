@@ -302,6 +302,8 @@ describe('los correos de alertas (el de verdad, parado por el freno)', () => {
       para: [{ email: 'diego@vigila.test' }], maxFallos: 5, hasta: '2026-10-13T00:35:00Z',
       persona: { nombre: 'Tony', conexion: 'Claude de Tony', prefijo: 'crm_mcp_ab' },
     });
-    expect(html()).toMatch(/13 de octubre, 02:35<\/strong> \(hora de Madrid\)/);
+    // El enlace entre fecha y hora depende de la versión de ICU de Node («, » en local, «a las» en
+    // la CI): lo que se comprueba es la hora de Madrid (00:35 UTC → 02:35) y la zona escrita.
+    expect(html()).toMatch(/13 de octubre[^<]{0,12}02:35<\/strong> \(hora de Madrid\)/);
   });
 });
