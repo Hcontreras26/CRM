@@ -1,4 +1,5 @@
 import { query } from '../../shared/config/db.js';
+import { decodificarEntidades } from '../../shared/utils/entidadesHtml.js';
 
 // Mapping default basado en Fono (scraper-based) — funciona out-of-the-box
 // para cualquier WP-Elementor educativo sin tocar ACF. Se aplica automáticamente
@@ -174,10 +175,17 @@ function numeroOSiNo(v, siFalta = null) {
 }
 
 export async function upsertProductFromWc({ projectId, wcId, data }) {
+  // El nombre llega codificado para HTML —«Coaching &amp; Liderazgo»— y así
+  // salía en el filtro de cursos de Ingresos (#234). Se guarda con la letra.
+  const nombreTalCual = data.nombre;
+  data.nombre = decodificarEntidades(data.nombre);
   // 1) Por wc_product_id. 2) Fallback por nombre exacto (caso CPT que choca con WC).
   let existing = await findProductByWcId(projectId, wcId);
   if (!existing) {
-    const byName = await findProductByExactName(projectId, data.nombre);
+    // Con el nombre limpio y, si no aparece, con el de antes: los guardados
+    // antes del arreglo siguen con la entidad, y sin esto se duplicarían.
+    const byName = await findProductByExactName(projectId, data.nombre)
+      || (nombreTalCual !== data.nombre ? await findProductByExactName(projectId, nombreTalCual) : null);
     if (byName) existing = byName;
   }
   const meta = data.meta || {};
@@ -272,7 +280,9 @@ export async function upsertProductFromWc({ projectId, wcId, data }) {
 }
 
 // Upsert categoría WC → product_categories. Devuelve id local.
-export async function upsertCategoryByWcId(projectId, wcCategoryId, nombre, parentLocalId) {
+export async function upsertCategoryByWcId(projectId, wcCategoryId, nombreTalCual, parentLocalId) {
+  // Con la letra, no con la entidad: WooCommerce manda «Salud &amp; Bienestar» (#234).
+  const nombre = decodificarEntidades(nombreTalCual);
   // Buscar primero por external_id+source (idempotente entre re-syncs)
   const externalId = String(wcCategoryId);
   const ex = await query(
@@ -291,13 +301,14 @@ export async function upsertCategoryByWcId(projectId, wcCategoryId, nombre, pare
   // Fallback: por nombre+parent (compat con categorías legacy sin external_id)
   const byName = await query(
     `SELECT id FROM product_categories
-     WHERE project_id = $1 AND nombre = $2 AND parent_id IS NOT DISTINCT FROM $3 LIMIT 1`,
-    [projectId, nombre, parentLocalId]
+     WHERE project_id = $1 AND nombre = ANY($2::text[]) AND parent_id IS NOT DISTINCT FROM $3 LIMIT 1`,
+    // Tambien con el nombre de antes: las guardadas antes del #234 llevan la entidad.
+    [projectId, [nombre, nombreTalCual], parentLocalId]
   );
   if (byName.rows[0]) {
     await query(
-      `UPDATE product_categories SET source = 'wc', external_id = $1, updated_at = NOW() WHERE id = $2`,
-      [externalId, byName.rows[0].id]
+      `UPDATE product_categories SET source = 'wc', external_id = $1, nombre = $3, updated_at = NOW() WHERE id = $2`,
+      [externalId, byName.rows[0].id, nombre]
     );
     return byName.rows[0].id;
   }
