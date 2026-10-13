@@ -1,5 +1,4 @@
-import client from '@/shared/api/client';
-import { API_BASE_URL } from '@/shared/api/client';
+import client, { API_BASE_URL, getAccessToken } from '@/shared/api/client';
 
 /** El enlace del archivo: el de R2 ya viene entero; el del disco del servidor, relativo a la API. */
 export const urlDelArchivo = (url: string) => (url.startsWith('/') ? `${API_BASE_URL}${url}` : url);
@@ -20,7 +19,46 @@ export type EstadoFactura = 'sin_enviar' | 'enviado' | 'abierto' | 'recibida' | 
 
 export interface EmpresaDelGrupo { id: number; razon_social: string; nif: string }
 
-export interface EmpresaDelColaborador { issuer_id: number; razon_social: string; importe_acordado: number | string | null }
+// Cómo cobra de cada empresa (#202, segunda parte, «Añadido 01/10 (tarde)»).
+export const MODALIDADES = ['fijo', 'hora', 'proyecto'] as const;
+export type Modalidad = typeof MODALIDADES[number];
+export const MODALIDAD_ES: Record<Modalidad, string> = { fijo: 'Fijo', hora: 'Por hora', proyecto: 'Por proyecto' };
+
+// Cómo se le paga (segunda parte, «Marcar pagada»): las del CRM que sirven para pagar a una persona.
+export const FORMAS_PAGO = ['transferencia', 'bizum', 'paypal', 'efectivo', 'otro'] as const;
+export type FormaPago = typeof FORMAS_PAGO[number];
+export const FORMA_PAGO_ES: Record<FormaPago, string> = {
+  transferencia: 'Transferencia', bizum: 'Bizum', paypal: 'PayPal', efectivo: 'Efectivo', otro: 'Otra',
+};
+// Las pestañas de la segunda parte: «Del mes · Enviadas · Por pagar · Pagadas · Historial».
+export type VistaDeFacturas = 'enviadas' | 'por_pagar' | 'pagadas' | 'historial';
+
+/** El desglose de una factura, para administración. Sin desglose: `lineas` vacías y `cuadra` null. */
+export interface DesgloseDeFactura {
+  importe: number | null; base: number | null; iva: number | null; irpf: number | null;
+  total: number | null; horas: number | null; cuadra: boolean | null;
+  lineas: { orden: number; concepto: string; project_id: number | null; campus: string | null; horas: number | null; tarifa: number | null; importe: number }[];
+}
+
+/** Coste por campus del mes, por empresa: horas y base de las líneas del desglose. `project_id` null = toda la empresa. */
+export interface CosteDeCampus {
+  issuer_id: number; empresa: string;
+  project_id: number | null; campus: string | null; horas: number | null; importe: number; facturas: number;
+}
+
+/** «2026-06-05» → «05/06», como «transferencia del 05/10» en la definición. */
+export const diaDelPago = (dia: string | null | undefined) => (dia ? `${dia.slice(8, 10)}/${dia.slice(5, 7)}` : '—');
+
+/** Cómo cobra: sin modalidad, las fichas de la primera parte. Los números llegan como texto de la base. */
+export interface ComoCobra {
+  modalidad: Modalidad | null;
+  importe_fijo: number | string | null;
+  tarifa_hora: number | string | null;
+  iva_pct: number | string | null;
+  irpf_pct: number | string | null;
+}
+
+export interface EmpresaDelColaborador extends ComoCobra { issuer_id: number; razon_social: string; importe_acordado: number | string | null }
 
 export interface Colaborador {
   id: number;
@@ -46,7 +84,11 @@ export interface ColaboradorEnvio {
   area: Area;
   notas?: string | null;
   alta_desde?: string | null;
-  empresas: { issuer_id: number; importe_acordado: number | null }[];
+  empresas: {
+    issuer_id: number; importe_acordado: number | null;
+    modalidad: Modalidad | null; importe_fijo: number | null; tarifa_hora: number | null;
+    iva_pct: number | null; irpf_pct: number | null;
+  }[];
 }
 
 export interface FacturaDelMes {
@@ -71,6 +113,16 @@ export interface FacturaDelMes {
   motivo_anulacion: string | null;
   nombre_original: string | null;
   tamano: number | null;
+  /** El desglose (segunda parte). `cuadra` null = subida sin desglose. */
+  base: string | null;
+  total: string | null;
+  horas: string | null;
+  cuadra: boolean | null;
+  /** El pago, que no se mezcla con el estado de la factura. */
+  pagada_at: string | null; // AAAA-MM-DD
+  forma_pago: FormaPago | null;
+  referencia_pago: string | null;
+  con_justificante: boolean;
   estado: EstadoFactura;
 }
 
@@ -104,10 +156,52 @@ export interface FacturaDelColaborador {
   };
   importe_acordado: number | null;
   caduca_at: string | null;
+  /** Cómo cobra de esta empresa (segunda parte). null: se sube sin desglose. */
+  cobro: null | {
+    modalidad: Modalidad; importe_fijo: number | null; tarifa_hora: number | null;
+    iva_pct: number; irpf_pct: number; concepto: string;
+  };
+  /** Los campus de la empresa de la factura, para el proyecto de cada línea (solo si cobra por proyecto). */
+  campus?: { id: number; nombre: string }[];
   recibida: null | {
     subida_at: string; numero_recepcion: string; importe: number | null; numero_factura: string | null; archivo: string | null;
+    /** Lo que calculó el CRM; `cuadra` null = subida sin desglose. */
+    total: number | null; cuadra: boolean | null;
   };
+  /** El estado del pago (segunda parte): la fecha y la forma. */
+  pago: null | { pagada_at: string; forma_pago: FormaPago | null };
   enlace?: string | null;
+}
+
+/** El desglose tal como lo manda el formulario: las horas o las líneas (JSON). */
+export interface DesgloseEnvio { horas?: string; lineas?: string }
+
+/** Una línea del desglose por proyecto, tal como se escribe. */
+export interface LineaForm { concepto: string; project_id: string; horas: string }
+
+/**
+ * El desglose calculado en la pantalla, solo para enseñarlo: el que cuenta es
+ * el del servidor (desglose.js), con las mismas reglas.
+ */
+export function calcularDesglose(cobro: NonNullable<FacturaDelColaborador['cobro']>, horas: string, lineas: LineaForm[]) {
+  // En céntimos enteros y con las horas a dos decimales, igual que desglose.js:
+  // con decimales, 16,275 € salía 16,27 y la pantalla y el servidor no coincidían.
+  const aC = (n: number) => Math.round(n * 100);
+  // Las horas, sin separador de miles y con dos decimales como mucho (si no, el servidor las rechaza).
+  const horasC = (t: string) => {
+    const s = t.trim();
+    if (!/^\d+([.,]\d{1,2})?$/.test(s)) return 0;
+    const n = Number(s.replace(',', '.'));
+    return n > 0 ? aC(n) : 0;
+  };
+  const tarifaC = aC(cobro.tarifa_hora ?? 0);
+  const por = (hC: number) => Math.round((hC * tarifaC) / 100);
+  const baseC = cobro.modalidad === 'fijo' ? aC(cobro.importe_fijo ?? 0)
+    : cobro.modalidad === 'hora' ? por(horasC(horas))
+      : lineas.reduce((s, l) => s + por(horasC(l.horas)), 0);
+  const ivaC = Math.round((baseC * aC(cobro.iva_pct)) / 10000);
+  const irpfC = Math.round((baseC * aC(cobro.irpf_pct)) / 10000);
+  return { base: baseC / 100, iva: ivaC / 100, irpf: irpfC / 100, total: (baseC + ivaC - irpfC) / 100 };
 }
 
 type R<T> = Promise<{ success: boolean; data: T; error?: string; message?: string }>;
@@ -122,11 +216,13 @@ const query = (f: Record<string, unknown>) => {
 };
 
 /** El formulario de subida: archivo, importe y número de factura. */
-const subida = (archivo: File, importe: string, numeroFactura: string) => {
+const subida = (archivo: File, importe: string, numeroFactura: string, desglose: DesgloseEnvio = {}) => {
   const fd = new FormData();
   fd.append('archivo', archivo);
   fd.append('importe', importe);
   fd.append('numero_factura', numeroFactura);
+  if (desglose.horas !== undefined) fd.append('horas', desglose.horas);
+  if (desglose.lineas !== undefined) fd.append('lineas', desglose.lineas);
   return fd;
 };
 
@@ -146,18 +242,63 @@ export const facturasColaboradorApi = {
     client.get(`${BASE}/mes${query(f)}`) as R<Mes>,
   archivo: (id: number) => client.get(`${BASE}/facturas/${id}/archivo`) as R<{ url: string; nombre: string | null }>,
   registroDeLaFactura: (id: number) => client.get(`${BASE}/facturas/${id}/registro`) as R<LineaRegistro[]>,
+  desgloseDeLaFactura: (id: number) => client.get(`${BASE}/facturas/${id}/desglose`) as R<DesgloseDeFactura>,
   anular: (id: number, motivo: string) => client.post(`${BASE}/facturas/${id}/anular`, { motivo }) as R<{ anulada: number; nueva: number }>,
   reenviar: (id: number) => client.post(`${BASE}/facturas/${id}/reenviar`, {}) as R<{ id: number }>,
 
+  // ── El pago (segunda parte): una o varias, con el justificante si se quiere ──
+  pagar: (ids: number[], datos: { fecha: string; forma_pago: FormaPago; referencia_pago?: string }, justificante?: File | null) => {
+    const fd = new FormData();
+    fd.append('ids', ids.join(','));
+    fd.append('fecha', datos.fecha);
+    fd.append('forma_pago', datos.forma_pago);
+    if (datos.referencia_pago) fd.append('referencia_pago', datos.referencia_pago);
+    if (justificante) fd.append('justificante', justificante);
+    return client.post(`${BASE}/facturas/pagar`, fd) as R<{ pagadas: number[] }>;
+  },
+  deshacerPago: (id: number, motivo: string) =>
+    client.post(`${BASE}/facturas/${id}/deshacer-pago`, { motivo }) as R<{ id: number }>,
+  justificante: (id: number) => client.get(`${BASE}/facturas/${id}/justificante`) as R<{ url: string }>,
+
+  // ── Enviadas, Por pagar, Pagadas e Historial, y el coste por campus (segunda parte) ──
+  vista: (f: { vista: VistaDeFacturas; issuerId?: string; colaboradorId?: string; periodo?: string; estado?: string }) =>
+    client.get(`${BASE}/facturas${query(f)}`) as R<{ vista: VistaDeFacturas; resumen: { total: number; importe: number; pendiente: number }; facturas: FacturaDelMes[] }>,
+  /**
+   * El ZIP del mes de una empresa, como descarga. Con su propio fetch, como el
+   * diploma de Certifex: `client` lee como texto lo que no es JSON y el ZIP se rompía.
+   */
+  bajarZip: async (periodo: string, issuerId: number, razonSocial: string) => {
+    const t = getAccessToken();
+    const r = await fetch(`${API_BASE_URL}${BASE}/zip${query({ periodo, issuerId })}`, {
+      credentials: 'include',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d?.error || 'No se pudo preparar la descarga. Inténtalo de nuevo.');
+    }
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `facturas-colaboradores_${periodo}_${empresaCorta(razonSocial)}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revocar en el mismo turno deja a algún navegador sin llegar a leer el blob (como en Certifex).
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  },
+  costePorCampus: (periodo: string, issuerId?: string) =>
+    client.get(`${BASE}/coste-por-campus${query({ periodo, issuerId })}`) as R<{ periodo: string; mes: string; campus: CosteDeCampus[] }>,
+
   // ── El enlace del colaborador (sin usuario) ──
   verEnlace: (token: string) => client.get(`${BASE}/enlace/${token}`) as R<FacturaDelColaborador>,
-  subirPorEnlace: (token: string, archivo: File, importe: string, numeroFactura: string) =>
-    client.post(`${BASE}/enlace/${token}`, subida(archivo, importe, numeroFactura)) as R<FacturaDelColaborador>,
+  subirPorEnlace: (token: string, archivo: File, importe: string, numeroFactura: string, desglose?: DesgloseEnvio) =>
+    client.post(`${BASE}/enlace/${token}`, subida(archivo, importe, numeroFactura, desglose)) as R<FacturaDelColaborador>,
 
   // ── «Mi factura» (colaborador con usuario) ──
   mias: () => client.get(`${BASE}/mias`) as R<FacturaDelColaborador[]>,
-  subirMia: (id: number, archivo: File, importe: string, numeroFactura: string) =>
-    client.post(`${BASE}/mias/${id}`, subida(archivo, importe, numeroFactura)) as R<FacturaDelColaborador>,
+  subirMia: (id: number, archivo: File, importe: string, numeroFactura: string, desglose?: DesgloseEnvio) =>
+    client.post(`${BASE}/mias/${id}`, subida(archivo, importe, numeroFactura, desglose)) as R<FacturaDelColaborador>,
   archivoMio: (id: number) => client.get(`${BASE}/mias/${id}/archivo`) as R<{ url: string; nombre: string | null }>,
 };
 
@@ -171,6 +312,12 @@ export const empresaCorta = (razonSocial: string) => String(razonSocial || '').t
 
 /** Solo la primera letra en mayúscula: «Septiembre de 2026», no «Septiembre De 2026» (lo que hace `capitalize`). */
 export const primeraMayuscula = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+/** «2026-09» o «2026-09-01» → «septiembre de 2026»: para que no se vea «2026-09» en los textos. */
+export const mesEscrito = (v: string | null | undefined) => {
+  if (!v) return '—';
+  const [a, m] = String(v).split('-').map(Number);
+  return new Date(a, m - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+};
 
 /**
  * El importe tal como lo escribe la persona, a número (texto con punto decimal).

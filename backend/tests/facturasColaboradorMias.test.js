@@ -150,6 +150,16 @@ describe('facturas de colaboradores (#202) · «Mi factura»', () => {
     expect(res.body.data.url).toMatch(/firma=15min$/);
   });
 
+  it('ve el estado del pago de cada mes, sin el justificante ni quién lo marcó (segunda parte)', async () => {
+    const antes = (await request.get(`${API}/mias`).set(como('laura'))).body.data[0];
+    expect(antes.pago).toBeNull();
+    await q(`UPDATE facturas_colaborador SET pagada_at = '2026-09-05', forma_pago = 'transferencia',
+              justificante = 'facturas-colaborador/pagos/secreto.pdf', referencia_pago = 'TRF-1' WHERE id = $1`, [deLaura]);
+    const res = await request.get(`${API}/mias`).set(como('laura'));
+    expect(res.body.data[0].pago).toEqual({ pagada_at: '2026-09-05', forma_pago: 'transferencia' });
+    expect(JSON.stringify(res.body)).not.toContain('secreto.pdf');
+  });
+
   it('con el rol colaborador, lo de administración da 403', async () => {
     for (const ruta of ['/mes?periodo=2026-08', '/colaboradores', '/empresas', `/facturas/${deLaura}/archivo`]) {
       expect((await request.get(`${API}${ruta}`).set(como('laura'))).status, ruta).toBe(403);
