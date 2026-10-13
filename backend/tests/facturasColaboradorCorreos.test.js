@@ -30,6 +30,13 @@ import { runFacturasColaborador, enMadrid } from '../src/jobs/facturasColaborado
  *   cd backend && npx vitest run tests/facturasColaboradorCorreos.test.js
  */
 
+// R2 «configurado» con valores de prueba: así almacen.js (revisión del 10/10) usa el
+// R2 simulado de arriba también en la CI, que no tiene R2. El camino del disco lo
+// prueba facturasColaboradorRevision.test.js.
+process.env.CLOUDFLARE_R2_ACCOUNT_ID = 'cuenta-de-prueba';
+process.env.CLOUDFLARE_R2_ACCESS_KEY = 'clave-de-prueba';
+process.env.CLOUDFLARE_R2_BUCKET = 'cubo-de-prueba';
+
 const request = supertest(app);
 const MARCA = `FCCOR${Date.now().toString(36)}`;
 const PERIODO = '2026-07-01';
@@ -172,6 +179,8 @@ describe('facturas de colaboradores (#202) · correos encendidos', () => {
       .field('importe', '600').field('numero_factura', 'F-2026-07').attach('archivo', PDF, 'factura-julio.pdf');
     expect(res.status, JSON.stringify(res.body)).toBe(201);
 
+    // Sale justo después de responder (revisión del 10/10): se espera a que llegue.
+    await vi.waitFor(() => expect(correosA(laura.email)).toHaveLength(1));
     const [c] = correosA(laura.email);
     expect(c.subject).toBe(`Factura recibida · julio 2026 · ${CORTA}`);
     expect(c.htmlContent).toContain(res.body.data.recibida.numero_recepcion);
