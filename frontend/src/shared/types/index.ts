@@ -50,6 +50,9 @@ export interface Project {
   webhook_api_key?: string;
   lead_columns?: Array<{ key: string; label: string; visible: boolean }>;
   lead_base_fields_config?: Record<string, { required?: boolean; visible?: boolean }>;
+  /** La empresa (sociedad emisora) del campus. La traen `/auth/me` y el login. */
+  sociedad_emisora_id?: number | null;
+  sociedad_nombre?: string | null;
 }
 
 export interface User {

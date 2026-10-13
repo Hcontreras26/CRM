@@ -13,6 +13,12 @@ const projectAssignmentSchema = z.object({
   recibeLeads: z.boolean().optional().default(false),
 });
 
+// Las empresas enteras de un admin (#220): ids de `invoice_issuers`, la sociedad
+// emisora de cada campus. Que existan lo mira el servicio contra la base.
+const empresaIdsSchema = z.array(z.number().int().positive()).max(50).optional();
+
+const tieneCampus = (d) => d.projectIds?.length > 0 || d.projects?.length > 0;
+
 export const createUserSchema = z.object({
   nombre: z.string().min(2, 'Nombre minimo 2 caracteres').max(200),
   email: z.string().email('Email invalido').transform((v) => v.toLowerCase().trim()),
@@ -25,12 +31,26 @@ export const createUserSchema = z.object({
   projectIds: z.array(z.number().int().positive()).optional().default([]),
   // Nuevo: lista con flag recibe_leads por proyecto.
   projects: z.array(projectAssignmentSchema).optional(),
+  // Empresas ENTERAS de un admin, también los campus que se creen (#220). Solo
+  // las da el super admin: lo comprueba el controlador.
+  empresaIds: empresaIdsSchema,
 }).refine(
-  (d) => !['admin', 'gestor'].includes(d.role)
-    || (d.projectIds?.length > 0 || d.projects?.length > 0),
+  (d) => d.role !== 'gestor' || tieneCampus(d),
   {
-    message: 'Un admin o un gestor sin proyectos no ve nada: asigna al menos uno',
+    message: 'Una gestora sin campus no ve nada: elige al menos uno',
     path: ['projectIds'],
+  }
+).refine(
+  (d) => d.role !== 'admin' || tieneCampus(d) || d.empresaIds?.length > 0,
+  {
+    message: 'Un admin sin campus ni empresa no ve nada: marca un campus o una empresa entera',
+    path: ['projectIds'],
+  }
+).refine(
+  (d) => !(d.empresaIds?.length > 0) || d.role === 'admin',
+  {
+    message: 'Solo un admin puede tener una empresa entera',
+    path: ['empresaIds'],
   }
 );
 
@@ -54,7 +74,10 @@ export const createUserSchema = z.object({
  * O sea:
  *
  *   admin    sin proyectos -> 403 en cada endpoint con projectId. Es un alta
- *                             que parece buena y no sirve para nada.
+ *                             que parece buena y no sirve para nada. SALVO que
+ *                             tenga una empresa entera (#220, Diego 10/10): sus
+ *                             campus le llegan por ahi, los de hoy al guardarlo
+ *                             y los que se creen despues.
  *   gestor   sin proyectos -> ademas no ve ningun prospecto y nunca entra en
  *                             el reparto: las dos cosas van por `user_projects`.
  *   soporte  sin proyectos -> funciona. Pasa por encima del filtro.
@@ -92,6 +115,8 @@ export const updateUserSchema = z.object({
   usa_whatsapp: z.boolean().optional(),
   projectIds: z.array(z.number().int().positive()).optional(),
   projects: z.array(projectAssignmentSchema).optional(),
+  // Las empresas enteras (#220). Una lista vacía las quita; sus campus se quedan.
+  empresaIds: empresaIdsSchema,
   // Teléfono del gestor (WhatsApp): usado por el widget y para contacto.
   whatsapp_phone: z.string().max(30).nullable().optional().or(z.literal('')),
   whatsapp_display_name: z.string().max(120).nullable().optional().or(z.literal('')),
