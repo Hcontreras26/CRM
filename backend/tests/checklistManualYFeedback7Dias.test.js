@@ -62,3 +62,18 @@ describe('el correo de feedback sale solo tras 7 días sin interacción', () => 
     expect(srv).not.toMatch(/pedirFeedback\(leadId, 'descarte'/);
   });
 });
+
+// Diego, 13/10: «en ACADEMIA IA aparecen atrasados de muy atrás». La ficha
+// decía «hace 31 días» de un paso que ya cubrió un contacto; la cola, 3 días.
+describe('la ficha no da por vencido un paso que ya cubrió un contacto', () => {
+  it('con contacto no vence; sin contacto y con fecha pasada, sí', async () => {
+    filas = [
+      { id: 1, orden: 2, estado: 'pendiente', hecho: false, con_contacto: true, dias_de_retraso: 31 },
+      { id: 2, orden: 4, estado: 'pendiente', hecho: false, con_contacto: false, dias_de_retraso: 3 },
+      { id: 3, orden: 5, estado: 'pendiente', hecho: false, con_contacto: false, dias_de_retraso: -2 },
+      { id: 4, orden: 1, estado: 'hecho', hecho: true, con_contacto: false, dias_de_retraso: 40 },
+    ];
+    const pasos = await proceso.pasosDeLead(3676);
+    expect(pasos.map((p) => [p.id, p.vencido])).toEqual([[1, false], [2, true], [3, false], [4, false]]);
+  });
+});
