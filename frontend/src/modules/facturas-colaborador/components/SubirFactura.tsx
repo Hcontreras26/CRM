@@ -7,7 +7,7 @@ import FilaCampos from '@/shared/components/ui/FilaCampos';
 import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import {
-  calcularDesglose, euros, normalizarImporte,
+  avisoDelPdf, calcularDesglose, euros, normalizarImporte,
   type DesgloseEnvio, type FacturaDelColaborador, type LineaForm,
 } from '../api/facturasColaborador.api';
 
@@ -19,6 +19,11 @@ import {
   acordado ya puesto) y el número de factura. Si el importe no coincide con lo
   acordado, se hace notar y se deja enviar. Con desglose (segunda parte), el
   importe viene con su total y lo acordado se compara con la base.
+
+  Si cuadra lo dice el PDF (corrección de Diego del 13/10): el servidor lee su
+  total al subirlo y lo compara con lo escrito. Antes de enviar no se sabe, así
+  que aquí ya no se avisa de «no cuadra» comparando con el desglose; después de
+  enviar, sí se dice qué pone el PDF si no es lo escrito, o que no se pudo leer.
 */
 
 const TOPE = 10 * 1024 * 1024;
@@ -83,8 +88,9 @@ export default function SubirFactura({ factura, alSubir }: {
   const comparado = calculo ? calculo.base : (importe.trim() !== '' ? importeNum : NaN);
   const noCoincide = f.importe_acordado !== null && Number.isFinite(comparado) && (!calculo || calculo.base > 0)
     && Math.abs(comparado - f.importe_acordado) > 0.005;
-  // «Si no cuadra, se avisa y se deja enviar»: queda marcada «No cuadra».
-  const noCuadra = calculo !== null && importe.trim() !== ''
+  // Si cambió a mano el total sugerido, solo se le recuerda cuánto da su desglose. Ya no es
+  // «no cuadra»: lo que cuenta es que lo escrito sea lo que pone su PDF (Diego, 13/10).
+  const otroQueElDesglose = calculo !== null && calculo.total > 0 && importe.trim() !== ''
     && Number.isFinite(importeNum) && Math.abs(importeNum - calculo.total) > 0.005;
 
   function elegir(a: File | null | undefined) {
@@ -150,6 +156,8 @@ export default function SubirFactura({ factura, alSubir }: {
 
   // ── Estados en los que ya no se sube nada ──
   if (f.estado === 'recibida' && f.recibida) {
+    // Lo que dice el PDF frente a lo escrito (13/10): si no cuadra o no se pudo leer, se dice claro.
+    const aviso = avisoDelPdf(f.recibida);
     return (
       <div className="space-y-4">
         {cabecera}
@@ -160,11 +168,9 @@ export default function SubirFactura({ factura, alSubir }: {
             <p className="text-secundario">
               {f.recibida.archivo} · {euros(f.recibida.importe)} · n.º {f.recibida.numero_factura}
             </p>
-            {f.recibida.cuadra === false && (
-              <p className="text-secundario">No cuadra con el desglose ({euros(f.recibida.total)}): administración lo revisará.</p>
-            )}
           </div>
         </div>
+        {aviso && <Aviso neutro={f.recibida.cuadra === null}>{aviso}</Aviso>}
       </div>
     );
   }
@@ -319,9 +325,9 @@ export default function SubirFactura({ factura, alSubir }: {
             : <>El importe no coincide con lo acordado ({euros(f.importe_acordado)}). Puedes enviarla igual.</>}
         </p>
       )}
-      {noCuadra && calculo && (
-        <p className="rounded-md bg-warning-soft text-warning-soft-foreground px-3 py-2 text-secundario">
-          El total de tu factura no cuadra con el desglose ({euros(calculo.total)}). Puedes enviarla igual: quedará marcada «No cuadra».
+      {otroQueElDesglose && calculo && (
+        <p className="text-secundario text-muted-foreground">
+          Tu desglose da {euros(calculo.total)}. Escribe el total que pone tu factura: es lo que se compara con el PDF.
         </p>
       )}
       {error && (
@@ -342,9 +348,10 @@ export default function SubirFactura({ factura, alSubir }: {
   );
 }
 
-function Aviso({ children }: { children: React.ReactNode }) {
+/** Neutro: lo que no es un fallo suyo (el PDF no se pudo leer), sin el tono de aviso. */
+function Aviso({ children, neutro = false }: { children: React.ReactNode; neutro?: boolean }) {
   return (
-    <div className="rounded-lg bg-warning-soft text-warning-soft-foreground p-4 flex gap-3">
+    <div role="status" className={`rounded-lg p-4 flex gap-3 ${neutro ? 'bg-muted text-foreground' : 'bg-warning-soft text-warning-soft-foreground'}`}>
       <WarningCircle size={22} weight="fill" className="shrink-0" />
       <p>{children}</p>
     </div>

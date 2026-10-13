@@ -21,6 +21,7 @@ import {
   AltaDialog, AnularDialog, BajaDialog, ColaboradorDialog, DeshacerPagoDialog, PagarDialog, RegistroDialog, esMes,
 } from '../components/DialogosFacturas';
 import ListaDeFacturas, { CostePorCampus } from '../components/ListaDeFacturas';
+import EtiquetaDelPdf from '../components/EtiquetaDelPdf';
 
 /**
  * Finanzas › Facturas de colaboradores (#202).
@@ -307,16 +308,8 @@ function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: n
                     </td>
                     <td className="px-2 py-2">
                       <Pildora estado={f.estado} />
-                      {/* El desglose no da su total: se dejó enviar y queda marcada (segunda parte). */}
-                      {f.cuadra === false && f.estado !== 'anulada' && (
-                        // Debajo, como «Pagada»: al lado no cabía la tabla en un portátil.
-                        <div className="mt-0.5">
-                          <span title={`El desglose da ${euros(f.total)}`}
-                            className="rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap bg-warning-soft text-warning-soft-foreground">
-                            No cuadra
-                          </span>
-                        </div>
-                      )}
+                      {/* El PDF dice otra cifra que la escrita, o no se pudo leer (13/10): se dejó enviar y queda marcada. */}
+                      <EtiquetaDelPdf f={f} />
                       {f.numero_recepcion && (
                         <div className="text-xs text-muted-foreground mt-0.5 whitespace-nowrap">{f.numero_recepcion}<br />{fechaHora(f.subida_at)}</div>
                       )}
@@ -386,8 +379,8 @@ function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: n
       {registro && (
         <RegistroDialog titulo={`Registro · ${registro.colaborador_nombre} · ${registro.empresa}`}
           cargar={cargarRegistro} alCerrar={() => setRegistro(null)}
-          // Con desglose (cuadra no es null), arriba del registro (segunda parte).
-          cargarDesglose={registro.cuadra === null ? undefined : cargarDesglose} />
+          // Recibida: arriba del registro, el PDF frente a lo escrito y, si lo hay, el desglose.
+          cargarDesglose={registro.subida_at ? cargarDesglose : undefined} />
       )}
     </div>
   );

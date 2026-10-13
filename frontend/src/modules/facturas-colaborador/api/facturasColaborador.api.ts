@@ -33,10 +33,15 @@ export const FORMA_PAGO_ES: Record<FormaPago, string> = {
 // Las pestañas de la segunda parte: «Del mes · Enviadas · Por pagar · Pagadas · Historial».
 export type VistaDeFacturas = 'enviadas' | 'por_pagar' | 'pagadas' | 'historial';
 
-/** El desglose de una factura, para administración. Sin desglose: `lineas` vacías y `cuadra` null. */
+/**
+ * El desglose de una factura, para administración. Sin desglose: `lineas` vacías.
+ * Y los dos importes que deciden si cuadra (13/10): el escrito y el del PDF;
+ * `cuadra` null = no se pudo leer el PDF.
+ */
 export interface DesgloseDeFactura {
   importe: number | null; base: number | null; iva: number | null; irpf: number | null;
   total: number | null; horas: number | null; cuadra: boolean | null;
+  importe_pdf: number | null; es_pdf: boolean;
   lineas: { orden: number; concepto: string; project_id: number | null; campus: string | null; horas: number | null; tarifa: number | null; importe: number }[];
 }
 
@@ -113,11 +118,14 @@ export interface FacturaDelMes {
   motivo_anulacion: string | null;
   nombre_original: string | null;
   tamano: number | null;
-  /** El desglose (segunda parte). `cuadra` null = subida sin desglose. */
+  /** El desglose (segunda parte). */
   base: string | null;
   total: string | null;
   horas: string | null;
+  /** Si el total del PDF es lo escrito (13/10); null = no se pudo leer el PDF (o es una foto). */
   cuadra: boolean | null;
+  importe_pdf: string | null;
+  mime: string | null;
   /** El pago, que no se mezcla con el estado de la factura. */
   pagada_at: string | null; // AAAA-MM-DD
   forma_pago: FormaPago | null;
@@ -165,8 +173,10 @@ export interface FacturaDelColaborador {
   campus?: { id: number; nombre: string }[];
   recibida: null | {
     subida_at: string; numero_recepcion: string; importe: number | null; numero_factura: string | null; archivo: string | null;
-    /** Lo que calculó el CRM; `cuadra` null = subida sin desglose. */
-    total: number | null; cuadra: boolean | null;
+    /** Lo que calculó el CRM con el desglose (null sin él). */
+    total: number | null;
+    /** Lo que pone el PDF y si cuadra con lo escrito (13/10); `cuadra` null = no se pudo leer. */
+    importe_pdf?: number | null; cuadra: boolean | null; es_pdf?: boolean;
   };
   /** El estado del pago (segunda parte): la fecha y la forma. */
   pago: null | { pagada_at: string; forma_pago: FormaPago | null };
@@ -349,6 +359,31 @@ const FORMATO_EUROS = {
 
 export const euros = (n: number | string | null | undefined) =>
   n === null || n === undefined || n === '' ? '—' : `${Number(n).toLocaleString('es-ES', FORMATO_EUROS)} €`;
+
+/*
+  Lo que dice el PDF frente a lo escrito (corrección de Diego del 13/10: «el
+  monto es que coincida el PDF y lo que se escribió de factura ahí»).
+*/
+
+/** «PDF: 650,00 € · escrito: 636,00 €». */
+export const pdfFrenteAEscrito = (importePdf: number | string | null | undefined, escrito: number | string | null | undefined) =>
+  `PDF: ${euros(importePdf)} · escrito: ${euros(escrito)}`;
+
+/**
+ * El aviso al colaborador una vez subida: si no cuadra, qué dice el PDF y qué
+ * escribió; si no se pudo leer, que lo revisará administración; si cuadra, nada.
+ */
+export function avisoDelPdf(r: { importe: number | null; importe_pdf?: number | null; cuadra: boolean | null; es_pdf?: boolean }): string | null {
+  if (r.cuadra === true) return null;
+  if (r.cuadra === false) {
+    // Sin importe del PDF es una subida de antes del 13/10 (se comparaba con el desglose): ya no se dice nada.
+    if (r.importe_pdf === null || r.importe_pdf === undefined) return null;
+    return `El PDF dice ${euros(r.importe_pdf)} y has escrito ${euros(r.importe)}. La hemos recibido igual; si te equivocaste, avisa a administración.`;
+  }
+  return r.es_pdf === false
+    ? 'No hemos podido leer el importe de la foto; lo revisará administración.'
+    : 'No hemos podido leer el importe del PDF; lo revisará administración.';
+}
 
 export const fechaHora = (iso: string | null | undefined) => {
   if (!iso) return '—';

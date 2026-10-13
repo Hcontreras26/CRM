@@ -11,8 +11,11 @@ import { conceptoSugerido } from './facturas.emails.js';
     líneas da la base.
 
   El CRM añade el IVA y resta la retención de IRPF, según la ficha del
-  colaborador, y compara el resultado con el total de su factura. Si no
-  cuadra, se avisa y se deja enviar: la factura queda marcada «No cuadra».
+  colaborador. El total sirve para sugerirle el importe y la base, para
+  compararla con lo acordado. Ya NO decide si la factura cuadra: desde la
+  corrección de Diego del 13/10 («el monto es que coincida el PDF y lo que se
+  escribió de factura ahí»), cuadra cuando el total del PDF es el importe
+  escrito. Eso lo mira importePdf.js.
 
   La tarifa es la de su ficha: el colaborador no la cambia. Todo se calcula
   aquí, en el servidor; lo que calcule la pantalla es solo para enseñarlo.
@@ -20,7 +23,7 @@ import { conceptoSugerido } from './facturas.emails.js';
 
 const MAX_LINEAS = 30;
 // Todo en céntimos enteros: con decimales, 16,275 € salía 16,27 (el medio céntimo se
-// redondeaba hacia abajo) y una factura bien hecha quedaba «No cuadra».
+// redondeaba hacia abajo) y el total sugerido no era el de su factura.
 /** A centésimas enteras: 7,5 → 750; 21,7 → 2170 (horas, tarifas, importes y porcentajes). */
 const aCentesimas = (n) => Math.round(Number(n) * 100);
 /** a × b, los dos en centésimas, al céntimo; el medio céntimo, hacia arriba. */
@@ -108,6 +111,3 @@ export function calcularDesglose({ cobro, area, periodo, entrada = {}, campus = 
     horas: conHoras.length ? conHoras.reduce((s, l) => s + l.horasC, 0) / 100 : null,
   };
 }
-
-/** ¿Cuadra el total de su factura con el del desglose? (al céntimo) */
-export const cuadra = (importe, desglose) => Math.abs(Number(importe) - desglose.total) < 0.005;
