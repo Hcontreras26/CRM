@@ -30,12 +30,22 @@ export async function findAll({ projectId, projectIds = null, estado, search, pa
   const { rows: cnt } = await query(`SELECT COUNT(*) FROM matriculas m LEFT JOIN leads l ON l.id = m.lead_id ${where}`, params);
   const total = parseInt(cnt[0].count);
   const { rows } = await query(
-    `SELECT m.*, l.nombre as lead_nombre, l.email as lead_email, l.telefono as lead_telefono,
-            c.importe_total, c.producto_contratado, u.nombre as validated_by_nombre
+    `SELECT m.*,
+            -- La persona: la del prospecto y, si aún no está vinculada, la del
+            -- formulario (contrato de la #198: persona { nombre, email, telefono }).
+            COALESCE(l.nombre, m.datos_admision->>'nombre') as lead_nombre,
+            COALESCE(l.email, m.datos_admision->>'email') as lead_email,
+            COALESCE(l.telefono, m.datos_admision->>'telefono') as lead_telefono,
+            c.importe_total, c.producto_contratado, u.nombre as validated_by_nombre,
+            -- Las columnas de Diego (#199): curso, campus y fecha de llegada.
+            COALESCE(m.datos_admision->>'curso_solicitado', c.producto_contratado) as curso,
+            p.nombre as campus_nombre,
+            COALESCE(m.webhook_received_at, m.created_at) as recibida_at
      FROM matriculas m
      LEFT JOIN leads l ON l.id = m.lead_id
      LEFT JOIN conversions c ON c.id = m.conversion_id
      LEFT JOIN users u ON u.id = m.validated_by
+     LEFT JOIN projects p ON p.id = m.project_id
      ${where}
      -- Primero lo que pide acción (Solicitud y Datos validados) y después por
      -- fecha de llegada (#199, ideas de Diego del 01/10).

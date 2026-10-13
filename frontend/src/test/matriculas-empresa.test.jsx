@@ -81,6 +81,35 @@ describe('el listado sigue a la cabecera', () => {
     expect(await etiqueta('Rechazada')).toContain('bg-destructive-soft');
   });
 
+  it('las columnas de Diego: Persona · Curso · Campus · Recibida · Estado · Documentos · Venta', async () => {
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    get.mockResolvedValue({ ...VACIA, data: [
+      { id: 1, estado: 'solicitud_admision', lead_nombre: 'María López', lead_email: 'maria@x.es', curso: 'Máster en Psicología',
+        campus_nombre: 'Psiko Aprende', recibida_at: '2026-10-01T09:12:00Z', conversion_id: null,
+        documentos: { dni_frente: true, dni_dorso: false, foto: false, titulo: false, firma: false } },
+      { id: 2, estado: 'validada', lead_nombre: 'Hugo Pascual', curso: 'Máster en Logopedia', campus_nombre: 'Fono Aprende',
+        recibida_at: '2026-09-28T10:00:00Z', conversion_id: 44, documentos: { dni_frente: true, titulo: true, firma: true } },
+    ] });
+    abrir();
+    await screen.findAllByText('María López');
+    const cabeceras = screen.getAllByRole('columnheader').map((th) => th.textContent);
+    expect(cabeceras.slice(0, 7)).toEqual(['Persona', 'Curso', 'Campus', 'Recibida', 'Estado', 'Documentos', 'Venta']);
+    expect(screen.getAllByText('Máster en Psicología').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Psiko Aprende').length).toBeGreaterThan(0);
+    // Documentos: los cinco de Diego, con su nombre al pasar el ratón; una marca
+    // en el que llegó y un hueco en los que faltan.
+    const recibido = screen.getAllByLabelText('DNI (delante): recibido')[0];
+    expect(recibido.querySelector('[data-marca="recibido"]')).not.toBeNull();
+    for (const falta of ['DNI (detrás): falta', 'Foto: falta', 'Título: falta', 'Firma: falta']) {
+      const icono = screen.getAllByLabelText(falta)[0];
+      expect(icono.querySelector('[data-marca]')).toBeNull();
+      expect(icono.className).toContain('border-dashed');
+    }
+    // Venta: el enlace si la hay; si no, «Sin venta».
+    expect(screen.getAllByText('Sin venta').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Ver venta' })[0].getAttribute('href')).toBe('/finanzas/ventas/44');
+  });
+
   it('sin matrículas ni filtros: el texto de Diego para empezar', async () => {
     cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
     abrir();

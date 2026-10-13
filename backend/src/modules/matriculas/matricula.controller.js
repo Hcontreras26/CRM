@@ -19,7 +19,7 @@ export async function list(req, res, next) {
       limit: parseInt(req.query.limit) || 50,
     });
     const stats = await model.getStats(ambito);
-    res.json({ success: true, data: data.matriculas.map(conDocumentosFirmados), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats });
+    res.json({ success: true, data: data.matriculas.map((m) => conQueDocumentos(conDocumentosFirmados(m))), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats });
   } catch (err) { next(err); }
 }
 
@@ -101,6 +101,23 @@ function conDocumentosFirmados(m) {
     if (m[claves[tipo]]) salida[campos[tipo]] = urlFirmada(m.id, tipo);
   }
   return salida;
+}
+
+/**
+ * Qué documentos han llegado, sí o no, para los iconos de la lista (#199): los
+ * cinco de Diego, con los nombres del contrato de la #198. `dni_dorso` y `foto`
+ * aún no tienen dónde guardarse (llegan con el webhook de la #198), así que de
+ * momento siempre faltan.
+ */
+function conQueDocumentos(m) {
+  if (!m) return m;
+  return {
+    ...m,
+    documentos: {
+      dni_frente: !!m.dni_doc_key, dni_dorso: !!m.dni_dorso_key, foto: !!m.foto_key,
+      titulo: !!m.titulo_doc_key, firma: !!m.firma_key,
+    },
+  };
 }
 
 export async function uploadDoc(req, res, next) {

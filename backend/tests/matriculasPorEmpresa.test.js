@@ -8,6 +8,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const EMPRESAS = { 8: [1, 2, 3], 9: [4] };   // CEDIA, ICTESS
 const CAMPUS = { 34: [1, 2, 3] };            // Mireia, admin de CEDIA
 const consultas = [];
+const filas = { value: [] };   // lo que devuelve la consulta de la lista
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'secreto-de-pruebas';
 
 vi.mock('../src/shared/config/db.js', () => ({
   getClient: vi.fn(),
@@ -21,6 +23,7 @@ vi.mock('../src/shared/config/db.js', () => ({
     consultas.push({ sql, params });
     if (sql.includes('COUNT(*) FROM matriculas')) return { rows: [{ count: '0' }] };
     if (sql.includes('as pendientes')) return { rows: [{ total: 0, pendientes: 0, validadas: 0, rechazadas: 0 }] };
+    if (sql.includes('LIMIT')) return { rows: filas.value };
     return { rows: [] };
   }),
 }));
@@ -41,7 +44,7 @@ async function listar(user, query = {}) {
 /** Las consultas de matrículas (la lista, su cuenta y las cifras), sin las del ámbito. */
 const deMatriculas = () => consultas.filter((c) => c.sql.includes('matriculas'));
 
-beforeEach(() => { consultas.length = 0; });
+beforeEach(() => { consultas.length = 0; filas.value = []; });
 
 describe('el listado de Matrículas sigue a la cabecera', () => {
   it('con una empresa (CEDIA): solo sus campus, en la lista y en las cifras', async () => {
@@ -99,6 +102,22 @@ describe('el listado de Matrículas sigue a la cabecera', () => {
     const lista = deMatriculas().find((c) => c.sql.includes('LIMIT'));
     expect(lista.sql.replace(/\s+/g, ' ')).toContain(
       "ORDER BY CASE WHEN m.estado IN ('solicitud_admision', 'datos_validados') THEN 0 ELSE 1 END, COALESCE(m.webhook_received_at, m.created_at) DESC");
+  });
+
+  it('las columnas de Diego: el curso, el campus y la fecha de llegada salen de la consulta', async () => {
+    await listar(MANUEL, {});
+    const lista = deMatriculas().find((c) => c.sql.includes('LIMIT')).sql.replace(/\s+/g, ' ');
+    expect(lista).toContain("COALESCE(m.datos_admision->>'curso_solicitado', c.producto_contratado) as curso");
+    expect(lista).toContain('p.nombre as campus_nombre');
+    expect(lista).toContain('COALESCE(m.webhook_received_at, m.created_at) as recibida_at');
+    // La persona del formulario, si aún no hay prospecto vinculado (contrato de la #198).
+    expect(lista).toContain("COALESCE(l.nombre, m.datos_admision->>'nombre') as lead_nombre");
+  });
+
+  it('cada fila dice cuáles de los cinco documentos de Diego han llegado, con los nombres del contrato de la #198', async () => {
+    filas.value = [{ id: 1, dni_doc_key: 'matriculas/1/dni.jpg', titulo_doc_key: null, firma_key: null }];
+    const { salida } = await listar(MANUEL, {});
+    expect(salida.data[0].documentos).toEqual({ dni_frente: true, dni_dorso: false, foto: false, titulo: false, firma: false });
   });
 
   it('el estado y la búsqueda siguen funcionando con la empresa', async () => {

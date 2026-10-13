@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, lazy, Suspense } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import client from '@/shared/api/client';
 import PageHeader from '@/shared/components/ui/PageHeader';
@@ -7,7 +7,8 @@ import usePermission from '@/shared/hooks/usePermission';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import Select from '@/shared/components/ui/Select';
-import { GraduationCap, Eye, PlugsConnected, Certificate, ChatText, SealCheck } from '@phosphor-icons/react';
+import { GraduationCap, Eye, PlugsConnected, Certificate, ChatText, SealCheck, IdentificationCard, Camera, Scroll, Signature, CheckCircle } from '@phosphor-icons/react';
+import { formatDateTime } from '@/shared/lib/format';
 import { toast } from '@/shared/hooks/useToast';
 import PromptDialog from '@/shared/components/ui/PromptDialog';
 import WebhooksTab from '../components/WebhooksTab';
@@ -44,6 +45,50 @@ const ESTADO_COLOR = {
   validada: 'bg-success-soft text-success-soft-foreground border-success/30',
   rechazada: 'bg-destructive-soft text-destructive-soft-foreground border-destructive/30',
 };
+
+// Los documentos de una matrícula, con los nombres del contrato de la #198 y en
+// el orden de Diego (#199): «DNI por las dos caras, foto, título, firma». Los
+// cinco siempre; `dni_dorso` y `foto` faltan hasta que el webhook los reciba.
+const DOCUMENTOS = [
+  { clave: 'dni_frente', nombre: 'DNI (delante)', Icono: IdentificationCard },
+  { clave: 'dni_dorso', nombre: 'DNI (detrás)', Icono: IdentificationCard },
+  { clave: 'foto', nombre: 'Foto', Icono: Camera },
+  { clave: 'titulo', nombre: 'Título', Icono: Scroll },
+  { clave: 'firma', nombre: 'Firma', Icono: Signature },
+];
+
+/**
+ * Un icono por documento (Diego: «con una marca si ha llegado o un hueco si
+ * falta. Pasando el ratón, el nombre del documento»).
+ */
+function Documentos({ documentos }: { documentos?: Record<string, boolean> }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {DOCUMENTOS.map(({ clave, nombre, Icono }) => {
+        const llego = !!documentos?.[clave];
+        const texto = `${nombre}: ${llego ? 'recibido' : 'falta'}`;
+        return (
+          <span key={clave} title={texto} aria-label={texto} role="img"
+            className={`relative inline-flex h-6 w-6 items-center justify-center rounded-md border ${llego
+              ? 'border-success/30 bg-success-soft text-success-soft-foreground'
+              : 'border-dashed border-border text-muted-foreground/60'}`}>
+            <Icono size={13} weight={llego ? 'fill' : 'regular'} />
+            {llego && (
+              <CheckCircle size={11} weight="fill" data-marca="recibido"
+                className="absolute -right-1.5 -top-1.5 rounded-full bg-card text-success" />
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/** La venta, si la hay; si no, «Sin venta» (#199). */
+function Venta({ conversionId }: { conversionId?: number | null }) {
+  if (!conversionId) return <span className="text-muted-foreground">Sin venta</span>;
+  return <Link to={`/finanzas/ventas/${conversionId}`} className="text-primary underline-offset-2 hover:underline">Ver venta</Link>;
+}
 
 export default function MatriculasPage() {
   const { activeProject, activeIssuerId, activeIssuer } = useProjectContext() as {
@@ -287,12 +332,15 @@ export default function MatriculasPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-[11px] uppercase text-muted-foreground">
                   <tr>
-                    <th className="text-left px-4 py-2.5 font-bold">Lead</th>
-                    <th className="text-left px-4 py-2.5 font-bold">DNI</th>
-                    <th className="text-left px-4 py-2.5 font-bold">Producto</th>
-                    <th className="text-right px-4 py-2.5 font-bold">Importe</th>
+                    {/* Las columnas de Diego (#199): Persona · Curso · Campus · Recibida · Estado · Documentos · Venta */}
+                    <th className="text-left px-4 py-2.5 font-bold">Persona</th>
+                    <th className="text-left px-4 py-2.5 font-bold">Curso</th>
+                    <th className="text-left px-4 py-2.5 font-bold">Campus</th>
+                    <th className="text-left px-4 py-2.5 font-bold">Recibida</th>
                     <th className="text-center px-4 py-2.5 font-bold">Estado</th>
-                    <th className="px-4 py-2.5"></th>
+                    <th className="text-left px-4 py-2.5 font-bold">Documentos</th>
+                    <th className="text-left px-4 py-2.5 font-bold">Venta</th>
+                    <th className="px-4 py-2.5"><span className="sr-only">Ver</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -302,12 +350,14 @@ export default function MatriculasPage() {
                         <div className="font-semibold">{m.lead_nombre || '—'}</div>
                         <div className="text-xs text-muted-foreground">{m.lead_email}</div>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs">{m.dni || '—'}</td>
-                      <td className="px-4 py-3 text-xs">{m.producto_contratado || '—'}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{Number(m.importe_total || 0).toFixed(2)} €</td>
+                      <td className="px-4 py-3 text-xs">{m.curso || '—'}</td>
+                      <td className="px-4 py-3 text-xs">{m.campus_nombre || '—'}</td>
+                      <td className="px-4 py-3 text-xs tabular-nums whitespace-nowrap">{formatDateTime(m.recibida_at)}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${ESTADO_COLOR[m.estado]}`}>{ESTADO_LABEL[m.estado]}</span>
                       </td>
+                      <td className="px-4 py-3"><Documentos documentos={m.documentos} /></td>
+                      <td className="px-4 py-3 text-xs"><Venta conversionId={m.conversion_id} /></td>
                       <td className="px-4 py-3 text-right">
                         <button
                           onClick={() => setDetail(m)}
@@ -330,13 +380,17 @@ export default function MatriculasPage() {
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${ESTADO_COLOR[m.estado]}`}>{ESTADO_LABEL[m.estado]}</span>
-                      <span className="text-sm font-bold tabular-nums">{Number(m.importe_total || 0).toFixed(2)} €</span>
+                      <span className="text-[11px] text-muted-foreground tabular-nums">{formatDateTime(m.recibida_at)}</span>
                     </div>
                     <p className="text-sm font-semibold truncate">{m.lead_nombre || '—'}</p>
                     <p className="text-[11px] text-muted-foreground truncate">{m.lead_email}</p>
                     <p className="text-[11px] text-muted-foreground truncate">
-                      {m.producto_contratado || 'Sin producto'}{m.dni ? ` · ${m.dni}` : ''}
+                      {m.curso || 'Sin curso'}{m.campus_nombre ? ` · ${m.campus_nombre}` : ''}
                     </p>
+                    <div className="flex items-center gap-3 text-[11px] pt-0.5">
+                      <Documentos documentos={m.documentos} />
+                      <Venta conversionId={m.conversion_id} />
+                    </div>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <button
