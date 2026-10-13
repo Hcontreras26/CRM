@@ -303,6 +303,7 @@ Fuente de verdad del esquema. Cada archivo en `backend/migrations/` es un SQL ej
 | 198 | 198_facturas_colaborador.sql | Facturas de colaboradores (#202, Diana): colaboradores, sus empresas e importe acordado, la factura de cada mes con su enlace y el registro (solo añadir). Se puede pasar dos veces. |
 | 199 | 199_certifex_solicitudes_diploma.sql | Certifex · Diplomas (#272): las solicitudes de diploma que avisa Certifex desde Moodle, lo revisado a mano antes de aprobar («Editar») y el aviso «ha terminado la formación». Se puede pasar dos veces. |
 | 200 | 200_widget_idiomas.sql | Widget de WhatsApp en varios idiomas: `project_widget_config.traducciones` (inglés, francés y portugués; el español sigue en `welcome_text` y `message_template`) y arregla el «¡Hablamos?» guardado por defecto. Se puede pasar dos veces. |
+| 204 | 204_egresos_por_empresa.sql | Egresos por empresa (#227): `expenses.issuer_id` para los gastos de toda una empresa sin campus, con CHECK «campus o empresa». No mueve datos. La misma 204 en CRM-ISEIE. Se puede pasar dos veces. |
 
 > **09/10/2026, comprobado contra el catálogo de producción:** aplicadas hasta la **195**. La 193–195
 > (tablas del tablero de Hugo, #210, y el rol `colaborador`) están, pero vacías y sin pantalla: el

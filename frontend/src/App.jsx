@@ -92,7 +92,8 @@ const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPa
 const AIChatPage = lazy(() => import('./modules/ai-chat/pages/AIChatPage'));
 const SettingsPage = lazy(() => import('./modules/settings/pages/SettingsPage'));
 const AccountingDashboardPage = lazy(() => import('./modules/accounting/pages/AccountingDashboardPage'));
-const ExpensesPage = lazy(() => import('./modules/accounting/pages/ExpensesPage'));
+// Egresos: su propio módulo, la misma pantalla que en CRM-ISEIE (#227).
+const ExpensesPage = lazy(() => import('./modules/expenses/pages/ExpensesPage'));
 const IncomePage = lazy(() => import('./modules/accounting/pages/IncomePage'));
 const IntegrationsPage = lazy(() => import('./modules/accounting/pages/IntegrationsPage'));
 const PendienteFacturarPage = lazy(() => import('./modules/accounting/pages/PendienteFacturarPage'));

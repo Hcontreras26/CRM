@@ -53,8 +53,10 @@ frontend:
 
 ### Le falta a ISEIH
 
-- **`expenses` y `accounts-payable` como módulos propios** de frontend (las
-  páginas existen dentro de `accounting`, pero la estructura no coincide).
+- **`accounts-payable` como módulo propio** de frontend (la página existe
+  dentro de `accounting`, pero la estructura no coincide). **Egresos ya está
+  emparejado (#227, 13/10):** el mismo módulo `expenses` en los dos CRM, backend
+  y frontend, en `/api/expenses` (con `/api/accounting/expenses` como alias).
 - **`/leads/dashboard-summary`** y su hook `useDashboardSummary`.
 - **2 columnas en `products`**: `brochure_url` e `image_key`.
 - `EnrollSequenceModal` integrado en la ficha del lead.
