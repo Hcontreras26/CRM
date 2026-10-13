@@ -214,20 +214,29 @@ export function AuthProvider({ children }) {
   }, [projects]);
 
   const isAuthenticated = !!user;
-  const activeProject =
-    activeProjectId === ALL_PROJECTS_ID
+
+  // UN SOLO CAMPUS, Y SE VE DIRECTAMENTE (#220). Con uno no hay «todos» ni
+  // empresa que sumar: el selector ya no ofrecia «Todos los proyectos», pero si
+  // en ese navegador se habia quedado guardado (-1, o una empresa) de cuando la
+  // persona tenia mas, entraba a la vista global de un solo campus. Se ignora
+  // lo guardado sin borrarlo: si mañana le dan otro, vuelve a valer.
+  const unSoloCampus = projects.length === 1;
+  const activeProject = unSoloCampus
+    ? projects[0]
+    : activeProjectId === ALL_PROJECTS_ID
       ? ALL_PROJECTS_PSEUDO
       : projects.find((p) => p.id === activeProjectId) || projects[0] || null;
-  const isAllProjects = activeProjectId === ALL_PROJECTS_ID;
+  const isAllProjects = !unSoloCampus && activeProjectId === ALL_PROJECTS_ID;
+  const issuerEfectivo = unSoloCampus ? null : activeIssuerId;
 
   // La sociedad elegida, con sus campus. Si se queda sin ninguno —porque
   // cambiaron las asignaciones— sigue siendo la elegida y con la lista vacia:
   // la pantalla tiene que poder decir «no tiene campus asignados» en vez de
   // pintar una tabla vacia.
-  const activeIssuer = activeIssuerId === null ? null : (() => {
-    const campus = projects.filter((p) => Number(p.sociedad_emisora_id) === activeIssuerId);
+  const activeIssuer = issuerEfectivo === null ? null : (() => {
+    const campus = projects.filter((p) => Number(p.sociedad_emisora_id) === issuerEfectivo);
     return {
-      id: activeIssuerId,
+      id: issuerEfectivo,
       nombre: campus[0]?.sociedad_nombre || 'Sociedad',
       campus,
     };
@@ -253,7 +262,7 @@ export function AuthProvider({ children }) {
       activeProjectId: activeProject?.id || null,
       isAllProjects,
       activeIssuer,
-      activeIssuerId,
+      activeIssuerId: issuerEfectivo,
       switchIssuer,
       isAuthenticated,
       loading,
