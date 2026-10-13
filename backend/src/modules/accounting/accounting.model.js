@@ -1,106 +1,6 @@
 import { comoLista } from '../../shared/utils/ambito.js';
 import { query } from '../../shared/config/db.js';
-
-// ============================================================
-// EXPENSES (egresos)
-// ============================================================
-
-export async function createExpense(data, userId) {
-  const { rows } = await query(
-    `INSERT INTO expenses (
-        project_id, concepto, importe, fecha, categoria, notas, registrado_por,
-        comprobante_url, comprobante_key, comprobante_mime, comprobante_size_bytes,
-        source_payable_id, source_stripe_payout_id
-     )
-     VALUES ($1, $2, $3, COALESCE($4, CURRENT_DATE), $5, $6, $7, $8, $9, $10, $11, $12, $13)
-     RETURNING *`,
-    [
-      data.project_id || null, data.concepto, data.importe, data.fecha, data.categoria, data.notas, userId,
-      data.comprobante_url || null, data.comprobante_key || null, data.comprobante_mime || null, data.comprobante_size_bytes || null,
-      data.source_payable_id || null, data.source_stripe_payout_id || null,
-    ]
-  );
-  return rows[0];
-}
-
-export async function findBySourcePayableId(payableId) {
-  const { rows } = await query(`SELECT * FROM expenses WHERE source_payable_id = $1`, [payableId]);
-  return rows[0] || null;
-}
-export async function findBySourceStripePayoutId(payoutId) {
-  const { rows } = await query(`SELECT * FROM expenses WHERE source_stripe_payout_id = $1`, [payoutId]);
-  return rows[0] || null;
-}
-
-export async function findExpenseById(id) {
-  const { rows } = await query(
-    `SELECT e.*, p.nombre as proyecto_nombre, u.nombre as registrado_por_nombre
-     FROM expenses e
-     LEFT JOIN projects p ON p.id = e.project_id
-     LEFT JOIN users u ON u.id = e.registrado_por
-     WHERE e.id = $1`,
-    [id]
-  );
-  return rows[0] || null;
-}
-
-export async function listExpenses({ projectId, projectIds = null, categoria, from, to, page, limit }) {
-  const conditions = [];
-  const params = [];
-  let idx = 1;
-
-  // Una EMPRESA son sus campus: `comoLista` deja los dos casos --un proyecto
-  // o una sociedad-- en una sola lista, que es lo que entiende `= ANY`.
-  const idsGasto = comoLista(projectId, projectIds);
-  if (idsGasto) { conditions.push(`e.project_id = ANY($${idx++}::int[])`); params.push(idsGasto); }
-  if (categoria) { conditions.push(`e.categoria = $${idx++}`); params.push(categoria); }
-  if (from) { conditions.push(`e.fecha >= $${idx++}`); params.push(from); }
-  if (to) { conditions.push(`e.fecha <= $${idx++}`); params.push(to); }
-
-  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
-  const offset = (page - 1) * limit;
-
-  const { rows: countRows } = await query(`SELECT COUNT(*) FROM expenses e ${where}`, params);
-  const total = parseInt(countRows[0].count);
-
-  const { rows } = await query(
-    `SELECT e.*, p.nombre as proyecto_nombre, u.nombre as registrado_por_nombre
-     FROM expenses e
-     LEFT JOIN projects p ON p.id = e.project_id
-     LEFT JOIN users u ON u.id = e.registrado_por
-     ${where}
-     ORDER BY e.fecha DESC, e.id DESC
-     LIMIT $${idx++} OFFSET $${idx++}`,
-    [...params, limit, offset]
-  );
-
-  return { expenses: rows, total, page, limit, totalPages: Math.ceil(total / limit) };
-}
-
-export async function updateExpense(id, fields) {
-  const allowed = [
-    'project_id', 'concepto', 'importe', 'fecha', 'categoria', 'notas',
-    'comprobante_url', 'comprobante_key', 'comprobante_mime', 'comprobante_size_bytes',
-  ];
-  const sets = [];
-  const params = [];
-  let idx = 1;
-  for (const k of allowed) {
-    if (fields[k] !== undefined) {
-      sets.push(`${k} = $${idx++}`);
-      params.push(fields[k]);
-    }
-  }
-  if (!sets.length) return null;
-  sets.push(`updated_at = NOW()`);
-  params.push(id);
-  const { rows } = await query(`UPDATE expenses SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, params);
-  return rows[0];
-}
-
-export async function deleteExpense(id) {
-  await query(`DELETE FROM expenses WHERE id = $1`, [id]);
-}
+import { condicionDeAmbito } from '../expenses/expense.model.js';
 
 // ============================================================
 // DASHBOARD ACCOUNTING
@@ -158,9 +58,10 @@ export async function getDashboardStats({ projectId, projectIds = null, from, to
     params
   );
 
-  // Egresos
-  // Un gasto sin proyecto es de la casa: cuenta en todos los ambitos.
-  const expProjFilter = ids ? 'AND (e.project_id = ANY($1::int[]) OR e.project_id IS NULL)' : '';
+  // Egresos. Que gasto entra en el ambito lo decide el modulo de egresos
+  // (`condicionDeAmbito`): los del campus, los de su EMPRESA y los generales.
+  // La misma regla que su listado, para que las dos pantallas den la misma cifra.
+  const expProjFilter = ids ? `AND ${condicionDeAmbito('e', 1)}` : '';
   const { rows: egresosRows } = await query(
     `SELECT
        COALESCE(SUM(e.importe), 0) AS total_egresos,
@@ -221,10 +122,10 @@ export async function getDashboardStats({ projectId, projectIds = null, from, to
     trendParams
   );
   const { rows: egresosTrend } = await query(
-    `SELECT to_char(date_trunc('month', fecha), 'YYYY-MM') AS mes,
-            COALESCE(SUM(importe), 0) AS total
-     FROM expenses
-     WHERE fecha >= CURRENT_DATE - INTERVAL '12 months' ${ids ? 'AND (expenses.project_id = ANY($1::int[]) OR expenses.project_id IS NULL)' : ''}
+    `SELECT to_char(date_trunc('month', e.fecha), 'YYYY-MM') AS mes,
+            COALESCE(SUM(e.importe), 0) AS total
+     FROM expenses e
+     WHERE e.fecha >= CURRENT_DATE - INTERVAL '12 months' ${expProjFilter}
      GROUP BY 1
      ORDER BY 1`,
     trendParams

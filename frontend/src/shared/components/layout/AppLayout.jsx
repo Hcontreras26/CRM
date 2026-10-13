@@ -301,7 +301,8 @@ const NEW_ACTIONS = {
   '/captacion': { url: '/captacion?new=1', label: 'formulario' },
   '/captacion/webhooks': { url: '/captacion/webhooks?new=1', label: 'webhook' },
   '/secuencias-email': { url: '/secuencias-email?new=1', label: 'secuencia' },
-  '/accounting/expenses': { url: '/accounting/expenses?new=1', label: 'egreso' },
+  // Egresos vive en /finanzas/egresos: /accounting/expenses no existe en este CRM (#227).
+  '/finanzas/egresos': { url: '/finanzas/egresos?new=1', label: 'egreso' },
   '/accounting/payable': { url: '/accounting/payable?new=1', label: 'cuenta por pagar' },
 };
 

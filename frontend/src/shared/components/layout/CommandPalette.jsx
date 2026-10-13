@@ -60,7 +60,7 @@ const SECTIONS = [
   { label: 'Contabilidad', to: '/accounting', icon: Calculator },
   { label: 'Ingresos', to: '/accounting/income', icon: CurrencyEur, keywords: 'revenue facturacion' },
   { label: 'Conversiones y pagos', to: '/revenue', icon: CurrencyEur, keywords: 'pagos ventas' },
-  { label: 'Egresos', to: '/accounting/expenses', icon: Receipt, keywords: 'gastos costes' },
+  { label: 'Egresos', to: '/finanzas/egresos', icon: Receipt, keywords: 'gastos costes' },
   { label: 'Cuentas por cobrar', to: '/accounting/receivable', icon: Wallet, keywords: 'cobros pendientes' },
   { label: 'Cuentas por pagar', to: '/accounting/payable', icon: Wallet, keywords: 'pagos pendientes' },
   { label: 'Stripe', to: '/stripe', icon: CreditCard, keywords: 'mrr churn suscripciones saas ia', projectType: 'ia' },

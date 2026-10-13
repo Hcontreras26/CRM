@@ -1,5 +1,6 @@
 import { comoLista } from '../../shared/utils/ambito.js';
 import { query, getClient } from '../../shared/config/db.js';
+import * as expenseService from '../expenses/expense.service.js';
 import { logger } from '../../shared/utils/logger.js';
 
 function buildFilters({ projectId, projectIds = null, estado, from, to }) {
@@ -115,33 +116,25 @@ export async function addPayment(payableId, data, userId) {
     await c.query('COMMIT');
 
     // Hook B↔C: si la cuenta quedó saldada al 100%, generar el Expense.
-    // Idempotente vía source_payable_id UNIQUE (migration 082). No bloquea
-    // el pago si falla — el pago ya está commiteado.
+    // Lo crea el servicio de egresos, igual que en CRM-ISEIE (#227): idempotente
+    // por source_payable_id (UNIQUE, migración 082). No bloquea el pago si
+    // falla — el pago ya está commiteado.
     if (estado === 'pagado') {
       try {
-        const { rows: existing } = await query(
-          `SELECT id FROM expenses WHERE source_payable_id = $1`, [payableId]
+        const { rows: full } = await query(
+          `SELECT project_id, concepto, categoria, importe_total FROM accounts_payable WHERE id = $1`,
+          [payableId]
         );
-        if (!existing[0]) {
-          const { rows: full } = await query(
-            `SELECT project_id, concepto, categoria, importe_total FROM accounts_payable WHERE id = $1`,
-            [payableId]
-          );
-          if (full[0]) {
-            await query(
-              `INSERT INTO expenses (project_id, concepto, importe, fecha, categoria, source_payable_id)
-               VALUES ($1, $2, $3, COALESCE($4::date, CURRENT_DATE), $5, $6)`,
-              [
-                full[0].project_id,
-                full[0].concepto || `Pago cuenta por pagar #${payableId}`,
-                Number(full[0].importe_total),
-                data.fecha_pago || null,
-                full[0].categoria || 'proveedores',
-                payableId,
-              ]
-            );
-            logger.info({ payableId }, 'payable saldada al 100% → expense generado');
-          }
+        if (full[0]) {
+          await expenseService.createFromPayable({
+            projectId: full[0].project_id,
+            importe: Number(full[0].importe_total),
+            fecha: data.fecha_pago || new Date().toISOString().slice(0, 10),
+            concepto: full[0].concepto,
+            categoria: full[0].categoria || 'proveedores',
+            payableId,
+          });
+          logger.info({ payableId }, 'payable saldada al 100% → expense generado');
         }
       } catch (hookErr) {
         logger.warn({ err: hookErr.message, payableId }, 'addPayment: no se pudo crear expense desde payable (no bloqueante)');
