@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { GraduationCap, Plus, X, Warning, Trash, CheckCircle, Copy, ArrowsClockwise, Key, UserMinus, Bank, MagnifyingGlass, PencilSimple } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -9,8 +9,12 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import BuscadorEnLista from '@/shared/components/ui/BuscadorEnLista';
 import Entregables from '../components/Entregables';
+import CampoCobraDesde from '../components/CampoCobraDesde';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
-import { lasQueYaRigen, laQueDuerme, cursosParaElAlta, avisoDelAlta, type CursoDelAlta, type CursoQueFallo } from '../lib/colaboraciones';
+import {
+  lasQueYaRigen, laQueDuerme, cursosParaElAlta, avisoDelAlta, type CursoDelAlta, type CursoQueFallo,
+  cobraDesdeActual, hayQueMandarCobraDesde, confirmacionCobraDesde, avisoCobraDesde,
+} from '../lib/colaboraciones';
 import { tutoresApi, type Tutor, type Colaboracion, type AjustesTutores } from '../api/tutores.api';
 import { avisoCambioCorreo } from '@/modules/users/api/users.api';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '@/modules/users/lib/credenciales';
@@ -121,6 +125,11 @@ export default function TutoresPage() {
   const [busca, setBusca] = useState('');
   const [popupClave, setPopupClave] = useState(false);
   const [popupPago, setPopupPago] = useState(false);
+  // «Cobra desde» en Editar tutor (Diego, 13/10): la fecha de inicio de TODAS
+  // sus colaboraciones activas. `tocado` importa: sin el, guardar el IBAN de un
+  // tutor con fechas distintas las igualaria todas a la mas antigua.
+  const [cobraDesde, setCobraDesde] = useState('');
+  const [cobraDesdeTocado, setCobraDesdeTocado] = useState(false);
   const [claveNueva, setClaveNueva] = useState('');
   const [claveRepetida, setClaveRepetida] = useState('');
   const [claveCopiada, setClaveCopiada] = useState(false);
@@ -210,6 +219,15 @@ export default function TutoresPage() {
     const r = await tutoresApi.colaboraciones(t.id);
     setColabs(r.success ? (r.data || []) : []);
   }, []);
+
+  // Lo que hay hoy: el valor inicial del campo es la fecha mas temprana de sus
+  // colaboraciones activas. Se rellena al abrir, y si las colaboraciones llegan
+  // con el dialogo ya abierto, tambien — mientras nadie haya tocado el campo.
+  const cobraActual = useMemo(() => cobraDesdeActual(colabs), [colabs]);
+  useEffect(() => {
+    if (!popupPago) { setCobraDesdeTocado(false); return; }
+    if (!cobraDesdeTocado) setCobraDesde(cobraActual.desde || '');
+  }, [popupPago, cobraActual.desde, cobraDesdeTocado]);
 
   function elegir(t: Tutor) { setElegido(t); cargarColabs(t); }
 
@@ -343,6 +361,11 @@ export default function TutoresPage() {
         const aviso = await avisoCambioCorreo(elegido.id).catch(() => null);
         if (!window.confirm(confirmacionCambioCorreo(elegido.nombre || 'este tutor', elegido.email || '—', email, aviso))) return;
       }
+      // Igualar fechas distintas se pregunta antes: es mover dinero de varios
+      // cursos a la vez.
+      const mandaFecha = hayQueMandarCobraDesde(cobraDesde, cobraDesdeTocado, cobraActual);
+      const pregunta = mandaFecha ? confirmacionCobraDesde(cobraDesde, cobraActual) : null;
+      if (pregunta && !window.confirm(pregunta)) return;
       const r = await tutoresApi.guardarPerfil(elegido.id, {
         // El nombre y el correo solo se mandan si han cambiado: el correo es la
         // credencial y tocarlo por costumbre echaria a alguien de su cuenta.
@@ -354,7 +377,28 @@ export default function TutoresPage() {
         iban: String(f.get('iban') || '').replace(/\s+/g, '').toUpperCase(),
       });
       if (!r?.success) throw new Error('no');
-      toast({ title: 'Datos guardados' });
+
+      // «Cobra desde», despues del perfil y por su propia puerta: lo puede
+      // tocar quien gestiona colaboraciones, no el tutor. Si falla, los datos
+      // ya estan guardados y se dice asi, sin mezclarlo.
+      if (mandaFecha) {
+        try {
+          const rc = await tutoresApi.cambiarCobraDesde(elegido.id, cobraDesde);
+          if (!rc?.success || !rc.data) throw new Error('no se pudo cambiar la fecha');
+          const a = avisoCobraDesde(rc.data);
+          toast({ ...a, description: `Datos guardados. ${a.description}` });
+        } catch (err) {
+          toast({
+            title: 'Datos guardados, pero la fecha no',
+            description: (err as { message?: string })?.message || 'Vuelve a intentarlo.',
+            variant: 'destructive',
+            duration: 0,
+          });
+        }
+        await cargarColabs(elegido);
+      } else {
+        toast({ title: 'Datos guardados' });
+      }
       setPopupPago(false);
       await cargar();
     } catch (err) {
@@ -944,6 +988,13 @@ export default function TutoresPage() {
                   Se guarda sin espacios. Vaciar un campo lo borra; el resto no se toca.
                 </p>
               </div>
+
+              <CampoCobraDesde
+                colabs={colabs}
+                valor={cobraDesde}
+                onCambio={(v) => { setCobraDesde(v); setCobraDesdeTocado(true); }}
+                aplicaDesde={ajustes?.aplica_desde}
+              />
             </div>
 
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-border">

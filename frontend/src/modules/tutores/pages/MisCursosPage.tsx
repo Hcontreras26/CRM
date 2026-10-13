@@ -216,7 +216,9 @@ export default function MisCursosPage() {
       {/* La cuenta que tiene que hacer para facturar. Estaba solo en la pantalla
           de quien paga, que es justo quien no la necesita. Diego, 14/09: «el
           tutor debe ver ese cuadro de él y sus recaudos». */}
-      <LoQueFactura base={pendiente} titulo="Lo que tienes que facturar" />
+      {/* Con el mes ya pagado dice «Todo pagado» en vez de no enseñar nada,
+          que parecia un fallo: le paso a Sara en septiembre (Diego, 13/10). */}
+      <LoQueFactura base={pendiente} titulo="Lo que tienes que facturar" comisiones={comisiones} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="bg-card border border-border rounded-lg p-4">
