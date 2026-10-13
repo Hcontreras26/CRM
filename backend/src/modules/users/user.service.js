@@ -3,6 +3,7 @@ import * as mcpModel from '../mcp/mcp.model.js';
 import bcrypt from 'bcrypt';
 import { AppError } from '../../shared/utils/AppError.js';
 import * as userModel from './user.model.js';
+import * as empresas from './user.empresas.js';
 import { revokeAllUserTokens, logActivity } from '../auth/auth.model.js';
 import { sendWelcomeUserEmail, sendCorreoCambiadoEmail, sendEmail } from '../../shared/services/brevo.service.js';
 import { notifyUsers } from '../notifications/notifications.service.js';
@@ -186,12 +187,17 @@ export async function getById(id) {
   if (!user) throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
 
   const projects = await userModel.getUserProjects(id);
-  return { ...user, projects };
+  const empresa_ids = await empresas.empresasDelUsuario(id);
+  return { ...user, projects, empresa_ids };
 }
 
-export async function create({ nombre, email, role, roles_extra, projectIds, projects }) {
+export async function create({ nombre, email, role, roles_extra, projectIds, projects, empresaIds }, { porUserId = null } = {}) {
   const existing = await userModel.findByEmail(email);
   if (existing) throw new AppError('Ya existe un usuario con ese email', 409, 'EMAIL_EXISTS');
+  // La empresa entera (#220): que exista y que la migracion este, ANTES de
+  // crear nada. El esquema ya ha comprobado que solo la lleva un admin.
+  const empresaIdsOk = empresaIds?.length ? empresaIds : [];
+  await empresas.comprobarEmpresas(empresaIdsOk);
 
   // Password temporal (el usuario lo cambiara via set-password)
   const tempPassword = crypto.randomBytes(16).toString('hex');
@@ -212,11 +218,14 @@ export async function create({ nombre, email, role, roles_extra, projectIds, pro
     roles_extra,
     projectIds,
     projects,
+    empresaIds: empresaIdsOk,
+    porUserId,
     setPasswordToken: tokenHash,
     setPasswordExpires: expires,
   });
 
   const userProjects = await userModel.getUserProjects(user.id);
+  const empresa_ids = await empresas.empresasDelUsuario(user.id);
 
   // Envio de email Brevo (async - no bloquea la respuesta)
   const baseUrl = process.env.CRM_BASE_URL || 'http://localhost:5173/crm';
@@ -233,10 +242,10 @@ export async function create({ nombre, email, role, roles_extra, projectIds, pro
   }
 
   // Retorna el token raw en respuesta para test/desarrollo
-  return { ...user, projects: userProjects, setPasswordToken: rawToken };
+  return { ...user, projects: userProjects, empresa_ids, setPasswordToken: rawToken };
 }
 
-export async function update(id, data) {
+export async function update(id, data, { porUserId = null } = {}) {
   const user = await userModel.findById(id);
   if (!user) throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
 
@@ -244,9 +253,23 @@ export async function update(id, data) {
     throw new AppError('No se puede editar al superadmin', 403, 'CANNOT_EDIT_SUPERADMIN');
   }
 
-  const updated = await userModel.update(id, data);
+  // Las empresas enteras (#220). Solo para un admin —contra el rol con el que
+  // se va a quedar, no el que tenia—. Quitarlas todas sin la migracion
+  // aplicada no es un error: no habia nada que quitar.
+  const cambios = { ...data };
+  if (cambios.empresaIds?.length) {
+    if ((cambios.role ?? user.role) !== 'admin') {
+      throw new AppError('Solo un admin puede tener una empresa entera', 400, 'VALIDATION_ERROR');
+    }
+    await empresas.comprobarEmpresas(cambios.empresaIds);
+  } else if (cambios.empresaIds !== undefined && !(await empresas.existeTablaEmpresas())) {
+    delete cambios.empresaIds;
+  }
+
+  const updated = await userModel.update(id, { ...cambios, porUserId });
   const projects = await userModel.getUserProjects(id);
-  return { ...updated, projects };
+  const empresa_ids = await empresas.empresasDelUsuario(id);
+  return { ...updated, projects, empresa_ids };
 }
 
 export async function setPassword(id, password, { porUserId = null, ip = null } = {}) {

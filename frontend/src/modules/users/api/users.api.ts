@@ -42,6 +42,17 @@ export interface CrmUser {
    * tocar y dice por que, en vez de dejar apagar algo que no se va a guardar.
    */
   usa_whatsapp?: boolean | null;
+  /**
+   * Las empresas ENTERAS de un admin (#220): le llegan también los campus que
+   * se creen en ellas. `null` = falta la migración 203, no «ninguna».
+   */
+  empresa_ids?: number[] | null;
+}
+
+/** Una empresa del grupo: la sociedad emisora de los campus. */
+export interface Empresa {
+  id: number;
+  razon_social: string;
 }
 
 export interface ListUsersParams {
@@ -91,6 +102,8 @@ function normalizeUser(raw: any): CrmUser {
     gestor_colaboraciones: !!raw.gestor_colaboraciones,
     // Sin `!!`: hace falta distinguir «apagado» de «todavia no hay columna».
     usa_whatsapp: raw.usa_whatsapp ?? null,
+    // Igual que arriba: null si la migración 203 no está, para no fingir.
+    empresa_ids: Array.isArray(raw.empresa_ids) ? raw.empresa_ids.map(Number) : null,
   };
 }
 
@@ -120,6 +133,8 @@ export interface CreateUserPayload {
   /** Roles de MAS. Solo suman permisos; el principal sigue siendo `role`. */
   roles_extra?: UserRole[];
   projects: ProjectAssignment[];
+  /** Empresas enteras (#220). Solo lo acepta el servidor de un super admin. */
+  empresaIds?: number[];
 }
 
 export interface CreateUserResult {
@@ -162,6 +177,8 @@ export interface UpdateUserPayload {
   editar_fechas_factura?: boolean;
   /** WhatsApp del CRM (#128). */
   usa_whatsapp?: boolean;
+  /** Empresas enteras (#220). Lista vacía = quitarlas; sus campus se quedan. Solo super admin. */
+  empresaIds?: number[];
 }
 
 export async function updateUser(id: number, payload: UpdateUserPayload): Promise<CrmUser> {
@@ -188,6 +205,17 @@ export async function reactivateUser(id: number): Promise<void> {
 export async function setUserPassword(id: number, password: string, confirmPassword: string): Promise<void> {
   const res = await client.patch(`/users/${id}/password`, { password, confirmPassword });
   if (!res.success) throw new Error(res.error || 'No se pudo cambiar la contraseña');
+}
+
+/**
+ * Las empresas del grupo, para la casilla «todos los campus de esta empresa»
+ * (#220). Salen todas, también las que aún no tienen campus: un admin se puede
+ * dar de alta antes que el primero.
+ */
+export async function listEmpresas(): Promise<Empresa[]> {
+  const res = await client.get('/projects/sociedades');
+  if (!res.success) throw new Error(res.error || 'No se pudieron cargar las empresas');
+  return (res.data || []).map((e: any) => ({ id: Number(e.id), razon_social: e.razon_social }));
 }
 
 /** Si cambiarle el correo a alguien puede dejarle sin prospectos de Make (#248). */

@@ -143,6 +143,11 @@ export const HERRAMIENTAS = [
         ? 'Solo tus propios prospectos, ventas y facturas dentro de tus campus.'
         : 'Todos los datos de tus campus.',
       proyectos: ambito.proyectos,
+      // Con un solo campus no hay nada que elegir (#220): se dice para que
+      // Claude no pregunte «¿de qué campus?» ni pase ids en cada consulta.
+      ...(ambito.proyectos.length === 1 ? {
+        campus_unico: `Solo tienes un campus, ${ambito.proyectos[0].nombre}: todas las consultas van sobre él sin indicar proyecto_id ni sociedad_id.`,
+      } : {}),
     }),
   },
   {
