@@ -35,7 +35,14 @@ export async function create(req, res, next) {
     if (!parsed.success) {
       throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
     }
-    const user = await userService.create(parsed.data);
+    // La empresa entera (#220), solo el super admin. Crear y editar usuarios
+    // sigue como estaba —esto no lo amplia ni lo recorta—, pero dar una empresa
+    // es dar los campus que se creen mañana, y eso no lo decide un admin, ni
+    // para otro ni para si mismo. Se mira el rol del token, no la pantalla.
+    if (parsed.data.empresaIds?.length && req.user?.role !== 'superadmin') {
+      throw new AppError('Solo un superadmin puede dar una empresa entera', 403, 'FORBIDDEN');
+    }
+    const user = await userService.create(parsed.data, { porUserId: req.user?.userId ?? null });
     res.status(201).json({ success: true, data: user });
   } catch (err) { next(err); }
 }
@@ -54,6 +61,11 @@ export async function update(req, res, next) {
     if (email !== undefined && req.user?.role !== 'superadmin') {
       throw new AppError('Solo un superadmin puede cambiar el correo de otro usuario', 403, 'FORBIDDEN');
     }
+    // Las empresas enteras (#220), lo mismo: solo el super admin, y también
+    // para quitarlas (una lista vacía).
+    if (resto.empresaIds !== undefined && req.user?.role !== 'superadmin') {
+      throw new AppError('Solo un superadmin puede dar o quitar una empresa entera', 403, 'FORBIDDEN');
+    }
     // Como estaba ANTES, para saber si pierde el acceso a WhatsApp.
     const antes = await userService.getById(id).catch(() => null);
     // El correo va primero: si choca con el de otro (409), no se guarda nada a medias.
@@ -65,7 +77,7 @@ export async function update(req, res, next) {
       })
       : null;
     const user = Object.keys(resto).length
-      ? await userService.update(id, resto)
+      ? await userService.update(id, resto, { porUserId: req.user?.userId ?? null })
       : await userService.getById(id);
 
     // Si el cambio de rol le quita WhatsApp, se le desvincula el numero — pero

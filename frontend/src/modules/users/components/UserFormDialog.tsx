@@ -5,7 +5,7 @@ import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
 import { avatarColorFor, getInitials, inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
-import type { AvisoCambioCorreo, CrmUser, ProjectAssignment } from '../api/users.api';
+import type { AvisoCambioCorreo, CrmUser, Empresa, ProjectAssignment } from '../api/users.api';
 import { ASSIGNABLE_ROLES } from '../lib/usersUi';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '../lib/credenciales';
 import ProjectSelector from './ProjectSelector';
@@ -23,6 +23,11 @@ export interface UserFormValues {
   usa_whatsapp: boolean;
   /** Con un correo nuevo: mandarle el enlace para poner contraseña allí (#246). */
   reenviarEnlace: boolean;
+  /**
+   * Empresas enteras de un admin (#220). `undefined` = no se tocan: quien edita
+   * no es super admin, o no hay migración. Vacía = quitarlas (sus campus se quedan).
+   */
+  empresaIds?: number[];
 }
 
 interface Props {
@@ -35,6 +40,13 @@ interface Props {
   canChangeEmail: boolean;
   /** Antes de guardar un correo nuevo: si recibe prospectos por Make (#248). */
   onCheckEmail: () => Promise<AvisoCambioCorreo | null>;
+  /**
+   * Las empresas del grupo, para dar una entera a un admin (#220). Solo llegan
+   * si quien edita es super admin: si no, la casilla no se pinta.
+   */
+  empresas?: Empresa[];
+  /** La migración 203 aún no está: la casilla sale apagada y se dice por qué. */
+  faltaMigracionEmpresas?: boolean;
   loading: boolean;
   onClose: () => void;
   onSubmit: (values: UserFormValues) => void | Promise<void>;
@@ -45,6 +57,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function UserFormDialog({
   user, projects, canResetPassword, canChangeEmail, loading, onClose, onSubmit, onCheckEmail, onResetPassword,
+  empresas, faltaMigracionEmpresas = false,
 }: Props) {
   const esEdicion = !!user;
 
@@ -62,6 +75,10 @@ export default function UserFormDialog({
   const alternarRolExtra = (r: UserRole) => setRolesExtra((prev) =>
     prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
   const [seleccionados, setSeleccionados] = useState<ProjectAssignment[]>(user?.projects ?? []);
+  // Las empresas enteras (#220). Diego, 10/10: «Un admin puede tener los
+  // proyectos futuros, pero de SU empresa: mayormente los admin son por empresa».
+  const puedeDarEmpresas = !!empresas && !faltaMigracionEmpresas;
+  const [empresasEnteras, setEmpresasEnteras] = useState<number[]>(user?.empresa_ids ?? []);
   const [telefono, setTelefono] = useState(user?.whatsapp_phone ?? '');
   const [facturaManager, setFacturaManager] = useState(!!user?.factura_manager);
   const [editarFechas, setEditarFechas] = useState(!!user?.editar_fechas_factura);
@@ -82,6 +99,30 @@ export default function UserFormDialog({
       : [...prev, { projectId, recibeLeads: role === 'gestor' }]);
   }
 
+  /** Marcar o quitar de golpe los campus de una empresa (#220). */
+  function marcarVarios(projectIds: number[], marcar: boolean) {
+    setSeleccionados((prev) => {
+      if (!marcar) return prev.filter((p) => !projectIds.includes(p.projectId));
+      const nuevos = projectIds
+        .filter((id) => !prev.some((p) => p.projectId === id))
+        .map((projectId) => ({ projectId, recibeLeads: role === 'gestor' }));
+      return [...prev, ...nuevos];
+    });
+  }
+
+  /**
+   * La casilla de la empresa entera. Al marcarla se marcan ya sus campus de
+   * hoy —es lo que va a guardar el servidor, y así se ve—. Al quitarla, NO se
+   * desmarcan: conserva lo que tiene y solo deja de recibir los nuevos.
+   */
+  function alternarEmpresa(issuerId: number) {
+    const entera = empresasEnteras.includes(issuerId);
+    setEmpresasEnteras((prev) => (entera ? prev.filter((x) => x !== issuerId) : [...prev, issuerId]));
+    if (!entera) {
+      marcarVarios(projects.filter((p) => Number(p.sociedad_emisora_id) === issuerId).map((p) => p.id), true);
+    }
+  }
+
   function alternarRecibeLeads(projectId: number) {
     setSeleccionados((prev) => prev.map((p) => p.projectId === projectId
       ? { ...p, recibeLeads: !p.recibeLeads }
@@ -100,8 +141,17 @@ export default function UserFormDialog({
         toast({ title: 'Email inválido', description: 'Revisa el formato del email.', variant: 'destructive' });
         return;
       }
-      if (seleccionados.length === 0) {
-        toast({ title: 'Falta el proyecto', description: 'Asigna al menos un proyecto.', variant: 'destructive' });
+      // Un admin con una empresa entera ya tiene de dónde le llegan campus,
+      // aunque esa empresa aún no tenga ninguno (#220).
+      const conEmpresa = role === 'admin' && puedeDarEmpresas && empresasEnteras.length > 0;
+      if (seleccionados.length === 0 && !conEmpresa) {
+        toast({
+          title: 'Falta el proyecto',
+          description: role === 'admin' && puedeDarEmpresas
+            ? 'Marca al menos un campus o una empresa entera.'
+            : 'Asigna al menos un proyecto.',
+          variant: 'destructive',
+        });
         return;
       }
     }
@@ -130,6 +180,9 @@ export default function UserFormDialog({
       editar_fechas_factura: facturaManager && editarFechas,
       usa_whatsapp: usaWhatsapp,
       reenviarEnlace: cambiaCorreo && reenviarEnlace,
+      // Solo si quien edita puede darlas. Para otro rol que no sea admin, se
+      // mandan vacías: una gestora no tiene empresas enteras.
+      ...(puedeDarEmpresas ? { empresaIds: role === 'admin' ? empresasEnteras : [] } : {}),
     });
   }
 
@@ -327,7 +380,12 @@ export default function UserFormDialog({
                 role={role}
                 onToggle={alternarProyecto}
                 onToggleRecibeLeads={alternarRecibeLeads}
+                onSetMany={marcarVarios}
                 required={!esEdicion}
+                empresas={empresas}
+                empresasEnteras={empresasEnteras}
+                onToggleEmpresa={empresas ? alternarEmpresa : undefined}
+                faltaMigracionEmpresas={faltaMigracionEmpresas}
               />
             )}
 
