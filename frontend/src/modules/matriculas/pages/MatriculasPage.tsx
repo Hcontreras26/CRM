@@ -161,7 +161,7 @@ export default function MatriculasPage() {
     }
     try {
       await client.post(`/matriculas/${m.id}/estado`, { estado, motivo_rechazo: null });
-      toast({ title: 'Validada' });
+      toast({ title: estado === 'datos_validados' ? 'Datos validados' : 'Matrícula validada' });
       load();
       if (detail?.id === m.id) setDetail(null);
     } catch (err) { toast({ title: 'Error', description: err?.data?.error, variant: 'destructive' }); }

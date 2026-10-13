@@ -6,14 +6,22 @@ import { saveLocal, getLocal, deleteLocal } from '../../shared/services/localSto
 import { urlFirmada, firmaValida } from '../../shared/utils/firmaDeDocumento.js';
 import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
 
+const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function list(req, res, next) {
   try {
     // Un campus, una empresa (issuerId) o «Todos», siempre dentro de los campus
     // de quien mira (#199, como el resto del CRM).
     const ambito = await proyectosDelAmbito(req);
+    const fecha = (v) => (FECHA.test(v || '') ? v : undefined);
     const data = await model.findAll({
       ...ambito,
       estado: req.query.estado,
+      // Los filtros de Diego (#199): campus, curso y fechas (AAAA-MM-DD).
+      campusId: parseInt(req.query.campusId) || undefined,
+      curso: typeof req.query.curso === 'string' && req.query.curso.trim() ? req.query.curso.trim() : undefined,
+      desde: fecha(req.query.desde),
+      hasta: fecha(req.query.hasta),
       search: req.query.search,
       page: parseInt(req.query.page) || 1,
       limit: parseInt(req.query.limit) || 50,
@@ -50,7 +58,7 @@ export async function update(req, res, next) {
     if (!parsed.success) throw new AppError('Datos invalidos', 400, 'VALIDATION_ERROR');
     const updated = await model.update(parseInt(req.params.id), parsed.data);
     if (!updated) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
-    res.json({ success: true, data: conDocumentosFirmados(updated) });
+    res.json({ success: true, data: conDocumentosFirmados(await model.findById(updated.id)) });
   } catch (err) { next(err); }
 }
 
@@ -75,7 +83,7 @@ export async function setEstado(req, res, next) {
     }
     const updated = await model.setEstado(parseInt(req.params.id), parsed.data.estado, req.user.userId, parsed.data.motivo_rechazo);
     if (!updated) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
-    res.json({ success: true, data: conDocumentosFirmados(updated) });
+    res.json({ success: true, data: conDocumentosFirmados(await model.findById(updated.id)) });
   } catch (err) { next(err); }
 }
 
@@ -138,7 +146,9 @@ export async function uploadDoc(req, res, next) {
     const updated = await model.update(m.id, { [keyMap[tipo]]: key, [urlMap[tipo]]: url });
     // Firmada tambien aqui: la ficha pinta esta respuesta tal cual, y sin firma
     // «Ver documento» daria 403 justo despues de subirlo.
-    res.json({ success: true, data: conDocumentosFirmados(updated) });
+    // Releída con su prospecto: la ficha pinta esta respuesta tal cual, y sin el
+    // JOIN se quedaba sin nombre después de subir (#199).
+    res.json({ success: true, data: conDocumentosFirmados(await model.findById(updated.id)) });
   } catch (err) { next(err); }
 }
 

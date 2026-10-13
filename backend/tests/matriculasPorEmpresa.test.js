@@ -120,6 +120,34 @@ describe('el listado de Matrículas sigue a la cabecera', () => {
     expect(salida.data[0].documentos).toEqual({ dni_frente: true, dni_dorso: false, foto: false, titulo: false, firma: false });
   });
 
+  it('los filtros de Diego: campus, curso y fechas (el día, en hora de Madrid), sumados a la empresa', async () => {
+    await listar(MANUEL, { issuerId: '8', campusId: '2', curso: ' Máster en Logopedia ', desde: '2026-10-01', hasta: '2026-10-12' });
+    const lista = deMatriculas().find((c) => c.sql.includes('LIMIT'));
+    const sql = lista.sql.replace(/\s+/g, ' ');
+    expect(sql).toContain('m.project_id = ANY($1::int[])');
+    expect(sql).toContain('m.project_id = $2');
+    expect(sql).toContain("COALESCE(m.datos_admision->>'curso_solicitado', c.producto_contratado) = $3");
+    expect(sql).toContain("(COALESCE(m.webhook_received_at, m.created_at) AT TIME ZONE 'Europe/Madrid')::date >= $4::date");
+    expect(sql).toContain("(COALESCE(m.webhook_received_at, m.created_at) AT TIME ZONE 'Europe/Madrid')::date <= $5::date");
+    expect(lista.params.slice(0, 5)).toEqual([[1, 2, 3], 2, 'Máster en Logopedia', '2026-10-01', '2026-10-12']);
+    // La cuenta del total lleva los mismos filtros, y por eso también la venta (el curso puede salir de ahí).
+    const cuenta = deMatriculas().find((c) => c.sql.includes('SELECT COUNT(*) FROM matriculas'));
+    expect(cuenta.sql).toContain('LEFT JOIN conversions c');
+    expect(cuenta.params).toEqual(lista.params.slice(0, 5));
+  });
+
+  it('una fecha mal escrita no filtra (ni llega a la base)', async () => {
+    await listar(MANUEL, { desde: '1/10/2026', hasta: "2026-10-12'; DROP TABLE x" });
+    const lista = deMatriculas().find((c) => c.sql.includes('LIMIT'));
+    expect(lista.sql).not.toContain('Europe/Madrid');
+  });
+
+  it('buscar «50%_\\» busca eso tal cual, no como comodines (revisión de la #250)', async () => {
+    await listar(MANUEL, { search: '50%_\\' });
+    const lista = deMatriculas().find((c) => c.sql.includes('LIMIT'));
+    expect(lista.params).toContain('%50\\%\\_\\\\%');
+  });
+
   it('el estado y la búsqueda siguen funcionando con la empresa', async () => {
     await listar(MANUEL, { issuerId: '8', estado: 'validada', search: 'ana' });
     const lista = deMatriculas().find((c) => c.sql.includes('LIMIT'));

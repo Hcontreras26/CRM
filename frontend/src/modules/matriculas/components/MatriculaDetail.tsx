@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
-import { CheckCircle, XCircle, Clock, Upload, X } from '@phosphor-icons/react';
+import { CheckCircle, XCircle, Upload, X } from '@phosphor-icons/react';
 
 interface Matricula {
   id: number;
@@ -107,14 +107,25 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
             <div className="p-3 bg-destructive-soft rounded-lg text-xs text-destructive-soft-foreground"><strong>Motivo:</strong> {m.motivo_rechazo}</div>
           )}
 
+          {/* Las acciones de Diego (#199), según el estado: en Solicitud, «Validar
+              datos»; en Datos validados o Pendiente, «Validar matrícula»; en
+              cualquiera, «Rechazar», que pide el motivo. */}
           {onEstado && (
           <div className="flex justify-end gap-2 pt-3 border-t border-border">
-            {m.estado !== 'validada' && (
+            {m.estado === 'solicitud_admision' && (
+              <button
+                onClick={() => onEstado(m, 'datos_validados')}
+                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-success hover:bg-success text-success-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-success/40"
+              >
+                <CheckCircle size={14} weight="bold" /> Validar datos
+              </button>
+            )}
+            {(m.estado === 'datos_validados' || m.estado === 'pendiente') && (
               <button
                 onClick={() => onEstado(m, 'validada')}
                 className="flex items-center gap-1 h-9 px-3 rounded-lg bg-success hover:bg-success text-success-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-success/40"
               >
-                <CheckCircle size={14} weight="bold" /> Validar
+                <CheckCircle size={14} weight="bold" /> Validar matrícula
               </button>
             )}
             {m.estado !== 'rechazada' && (
@@ -123,14 +134,6 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
                 className="flex items-center gap-1 h-9 px-3 rounded-lg bg-destructive hover:bg-destructive text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-destructive/40"
               >
                 <XCircle size={14} weight="bold" /> Rechazar
-              </button>
-            )}
-            {m.estado !== 'pendiente' && (
-              <button
-                onClick={() => onEstado(m, 'pendiente')}
-                className="flex items-center gap-1 h-9 px-3 rounded-lg bg-warning hover:bg-warning text-warning-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-warning/40"
-              >
-                <Clock size={14} weight="bold" /> Pendiente
               </button>
             )}
           </div>

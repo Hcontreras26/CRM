@@ -13,21 +13,34 @@ function alcance(projectId, projectIds, params) {
   return `m.project_id = ANY($${params.length}::int[])`;
 }
 
-export async function findAll({ projectId, projectIds = null, estado, search, page = 1, limit = 50 }) {
+/** El curso de una matrícula: el del formulario o, si no viene, el de su venta. */
+const CURSO = "COALESCE(m.datos_admision->>'curso_solicitado', c.producto_contratado)";
+/** El día de llegada, en hora de Madrid. */
+const DIA_DE_LLEGADA = "(COALESCE(m.webhook_received_at, m.created_at) AT TIME ZONE 'Europe/Madrid')::date";
+
+export async function findAll({ projectId, projectIds = null, estado, search, campusId, curso, desde, hasta, page = 1, limit = 50 }) {
   const params = [];
   const conditions = [alcance(projectId, projectIds, params)];
   let idx = params.length + 1;
   if (estado) { conditions.push(`m.estado = $${idx++}`); params.push(estado); }
+  // Los filtros de Diego (#199): curso, campus y fechas. El campus se suma al
+  // ámbito, así que uno que no es tuyo no devuelve nada.
+  if (campusId) { conditions.push(`m.project_id = $${idx++}`); params.push(campusId); }
+  if (curso) { conditions.push(`${CURSO} = $${idx++}`); params.push(curso); }
+  if (desde) { conditions.push(`${DIA_DE_LLEGADA} >= $${idx++}::date`); params.push(desde); }
+  if (hasta) { conditions.push(`${DIA_DE_LLEGADA} <= $${idx++}::date`); params.push(hasta); }
   // Recortado, igual que en leads: un espacio pegado al nombre vaciaba la lista.
+  // Y `%`, `_` y `\` se buscan tal cual (revisión de la #250).
   const termino = typeof search === 'string' ? search.trim() : '';
   if (termino) {
     conditions.push(`(l.nombre ILIKE $${idx} OR l.email ILIKE $${idx} OR m.dni ILIKE $${idx})`);
-    params.push(`%${termino}%`);
+    params.push(`%${termino.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`);
     idx++;
   }
   const where = 'WHERE ' + conditions.join(' AND ');
   const offset = (page - 1) * limit;
-  const { rows: cnt } = await query(`SELECT COUNT(*) FROM matriculas m LEFT JOIN leads l ON l.id = m.lead_id ${where}`, params);
+  const { rows: cnt } = await query(
+    `SELECT COUNT(*) FROM matriculas m LEFT JOIN leads l ON l.id = m.lead_id LEFT JOIN conversions c ON c.id = m.conversion_id ${where}`, params);
   const total = parseInt(cnt[0].count);
   const { rows } = await query(
     `SELECT m.*,
@@ -38,7 +51,7 @@ export async function findAll({ projectId, projectIds = null, estado, search, pa
             COALESCE(l.telefono, m.datos_admision->>'telefono') as lead_telefono,
             c.importe_total, c.producto_contratado, u.nombre as validated_by_nombre,
             -- Las columnas de Diego (#199): curso, campus y fecha de llegada.
-            COALESCE(m.datos_admision->>'curso_solicitado', c.producto_contratado) as curso,
+            ${CURSO} as curso,
             p.nombre as campus_nombre,
             COALESCE(m.webhook_received_at, m.created_at) as recibida_at
      FROM matriculas m
