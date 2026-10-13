@@ -37,7 +37,10 @@ export async function findAll({ projectId, projectIds = null, estado, search, pa
      LEFT JOIN conversions c ON c.id = m.conversion_id
      LEFT JOIN users u ON u.id = m.validated_by
      ${where}
-     ORDER BY m.created_at DESC
+     -- Primero lo que pide acción (Solicitud y Datos validados) y después por
+     -- fecha de llegada (#199, ideas de Diego del 01/10).
+     ORDER BY CASE WHEN m.estado IN ('solicitud_admision', 'datos_validados') THEN 0 ELSE 1 END,
+              COALESCE(m.webhook_received_at, m.created_at) DESC, m.id DESC
      LIMIT $${idx++} OFFSET $${idx++}`,
     [...params, limit, offset]
   );
@@ -116,6 +119,7 @@ export async function getStats({ projectId, projectIds = null }) {
   const { rows } = await query(
     `SELECT
        COUNT(*) as total,
+       COUNT(*) FILTER (WHERE estado = 'solicitud_admision') as solicitudes,
        COUNT(*) FILTER (WHERE estado = 'pendiente') as pendientes,
        COUNT(*) FILTER (WHERE estado = 'validada') as validadas,
        COUNT(*) FILTER (WHERE estado = 'rechazada') as rechazadas

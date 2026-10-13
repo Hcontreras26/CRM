@@ -49,7 +49,7 @@ describe('el listado sigue a la cabecera', () => {
     await waitFor(() => expect(get).toHaveBeenCalled());
     expect(pedido().get('projectId')).toBeNull();
     expect(pedido().get('issuerId')).toBeNull();
-    expect(await screen.findByText('Sin matrículas')).toBeTruthy();
+    expect(await screen.findByText('Aún no ha llegado ninguna solicitud')).toBeTruthy();
   });
 
   it('con un campus: ese campus, como antes', async () => {
@@ -58,6 +58,46 @@ describe('el listado sigue a la cabecera', () => {
     await waitFor(() => expect(get).toHaveBeenCalled());
     expect(pedido().get('projectId')).toBe('3');
     expect(await screen.findByText('0 matrículas en ISEIH')).toBeTruthy();
+  });
+
+  it('arriba, la cifra de Solicitudes', async () => {
+    cabecera.value = { activeIssuerId: 7, activeIssuer: { nombre: 'CEDIA' }, activeProject: { id: -1 } };
+    get.mockResolvedValue({ ...VACIA, stats: { ...VACIA.stats, total: 9, solicitudes: 4 } });
+    abrir();
+    const tarjeta = (await screen.findByText('Solicitudes')).parentElement;
+    expect(tarjeta.textContent).toContain('4');
+  });
+
+  it('cada estado con su color del tema: Solicitud azul, Datos validados cian (no hay índigo), y los demás', async () => {
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    const estados = ['solicitud_admision', 'datos_validados', 'pendiente', 'validada', 'rechazada'];
+    get.mockResolvedValue({ ...VACIA, data: estados.map((estado, i) => ({ id: i + 1, estado, lead_nombre: `P${i}` })) });
+    abrir();
+    const etiqueta = async (texto) => (await screen.findAllByText(texto))[0].className;
+    expect(await etiqueta('Solicitud admisión')).toContain('bg-info-soft');
+    expect(await etiqueta('Datos validados')).toContain('bg-primary/10');
+    expect(await etiqueta('Pendiente')).toContain('bg-warning-soft');
+    expect(await etiqueta('Validada')).toContain('bg-success-soft');
+    expect(await etiqueta('Rechazada')).toContain('bg-destructive-soft');
+  });
+
+  it('sin matrículas ni filtros: el texto de Diego para empezar', async () => {
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    abrir();
+    expect(await screen.findByText('Aún no ha llegado ninguna solicitud')).toBeTruthy();
+    expect(screen.getByText('Conecta el formulario de admisión en la pestaña Webhooks de admisión.')).toBeTruthy();
+  });
+
+  it('con filtros y sin resultados: lo dice, y «Quitar filtros» los quita', async () => {
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    abrir();
+    await screen.findByText('Aún no ha llegado ninguna solicitud');
+    fireEvent.change(screen.getByLabelText('Buscar matrículas'), { target: { value: 'nadie' } });
+    expect(await screen.findByText('Ninguna matrícula con estos filtros')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar filtros' }));
+    await screen.findByText('Aún no ha llegado ninguna solicitud');
+    expect(pedido().get('search')).toBeNull();
+    expect(screen.getByLabelText('Buscar matrículas').value).toBe('');
   });
 
   it('los webhooks, sin un campus elegido, piden elegirlo en vez de buscar el del «proyecto −1»', async () => {

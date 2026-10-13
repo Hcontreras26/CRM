@@ -88,6 +88,19 @@ describe('el listado de Matrículas sigue a la cabecera', () => {
     expect(deMatriculas()).toHaveLength(0);
   });
 
+  it('las cifras cuentan también las Solicitudes (lo que acaba de llegar)', async () => {
+    await listar(MANUEL, { issuerId: '8' });
+    const cifras = deMatriculas().find((c) => c.sql.includes('as pendientes'));
+    expect(cifras.sql).toMatch(/FILTER \(WHERE estado = 'solicitud_admision'\) as solicitudes/);
+  });
+
+  it('primero lo que pide acción (Solicitud y Datos validados), después por fecha de llegada', async () => {
+    await listar(MANUEL, {});
+    const lista = deMatriculas().find((c) => c.sql.includes('LIMIT'));
+    expect(lista.sql.replace(/\s+/g, ' ')).toContain(
+      "ORDER BY CASE WHEN m.estado IN ('solicitud_admision', 'datos_validados') THEN 0 ELSE 1 END, COALESCE(m.webhook_received_at, m.created_at) DESC");
+  });
+
   it('el estado y la búsqueda siguen funcionando con la empresa', async () => {
     await listar(MANUEL, { issuerId: '8', estado: 'validada', search: 'ana' });
     const lista = deMatriculas().find((c) => c.sql.includes('LIMIT'));

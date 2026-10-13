@@ -32,17 +32,14 @@ const ESTADO_LABEL = {
   validada: 'Validada',
   rechazada: 'Rechazada',
 };
-// CINCO ESTADOS, CINCO ASPECTOS. Tres son semánticos de libro —pendiente,
-// validada, rechazada—. Los otros dos son pasos de un recorrido y no dicen si
-// algo va bien o mal; antes eran sky e indigo, que no significan nada.
-//
-// Ahora: lo que acaba de llegar y nadie ha tocado se pinta neutro, y lo que ya
-// avanzó un paso se pinta como información. Si los dos cayeran en `info` —que
-// es lo que hizo la sustitución automática— dejarían de distinguirse, y esta
-// tabla existe justamente para distinguirlos.
+// CINCO ESTADOS, CINCO ASPECTOS, con los colores del tema (#32: nada de
+// colores sueltos). Diego, ideas del #199 (01/10): Solicitud azul, Datos
+// validados índigo, Pendiente ámbar, Validada verde, Rechazada roja. El tema no
+// tiene índigo, así que Datos validados va en el principal (cian): sigue
+// distinguiéndose de Solicitud, que es lo que importa en esta tabla.
 const ESTADO_COLOR = {
-  solicitud_admision: 'bg-muted text-muted-foreground border-border',
-  datos_validados: 'bg-info-soft text-info-soft-foreground border-info/30',
+  solicitud_admision: 'bg-info-soft text-info-soft-foreground border-info/30',
+  datos_validados: 'bg-primary/10 text-primary border-primary/30',
   pendiente: 'bg-warning-soft text-warning-soft-foreground border-warning/30',
   validada: 'bg-success-soft text-success-soft-foreground border-success/30',
   rechazada: 'bg-destructive-soft text-destructive-soft-foreground border-destructive/30',
@@ -79,7 +76,7 @@ export default function MatriculasPage() {
   const verConsultas = tieneRol('superadmin', 'admin', 'soporte');
   const vistaCert = params.get('vista') === 'consultas' || !verEmisiones ? 'consultas' : 'emisiones';
   const [data, setData] = useState([]);
-  const [stats, setStats] = useState<{ total: number; pendientes: number; validadas: number; rechazadas: number }>({ total: 0, pendientes: 0, validadas: 0, rechazadas: 0 });
+  const [stats, setStats] = useState<{ total: number; solicitudes: number; pendientes: number; validadas: number; rechazadas: number }>({ total: 0, solicitudes: 0, pendientes: 0, validadas: 0, rechazadas: 0 });
   const [loading, setLoading] = useState(true);
   const [filterEstado, setFilterEstado] = useState('');
   const [search, setSearch] = useState('');
@@ -96,7 +93,7 @@ export default function MatriculasPage() {
       if (res.success) {
         setData(res.data || []);
         const s = (res.stats || {}) as Partial<typeof stats>;
-        setStats({ total: s.total ?? 0, pendientes: s.pendientes ?? 0, validadas: s.validadas ?? 0, rechazadas: s.rechazadas ?? 0 });
+        setStats({ total: s.total ?? 0, solicitudes: s.solicitudes ?? 0, pendientes: s.pendientes ?? 0, validadas: s.validadas ?? 0, rechazadas: s.rechazadas ?? 0 });
       }
     } catch (err) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -226,9 +223,11 @@ export default function MatriculasPage() {
             description="Cada webhook de admisión se conecta al formulario de un campus. Elige uno arriba para ver o crear el suyo." />
         )
       ) : <>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
         {[
           { label: 'Total', value: stats.total, color: '#64748b' },
+          // Lo que acaba de llegar del formulario de admisión (#199).
+          { label: 'Solicitudes', value: stats.solicitudes, color: '#2563eb' },
           { label: 'Pendientes', value: stats.pendientes, color: '#d97706' },
           { label: 'Validadas', value: stats.validadas, color: '#059669' },
           { label: 'Rechazadas', value: stats.rechazadas, color: '#dc2626' },
@@ -267,7 +266,20 @@ export default function MatriculasPage() {
 
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {loading ? <SkeletonTable rows={5} columns={6} /> : data.length === 0 ? (
-          <EmptyState icon={GraduationCap} title="Sin matrículas" description="Aparece aquí cuando se crea una matrícula desde una conversión" />
+          // Los textos de Diego (#199): sin filtros, cómo empezar; con filtros,
+          // decirlo y dejar quitarlos.
+          filterEstado || search.trim() ? (
+            <EmptyState icon={GraduationCap} title="Ninguna matrícula con estos filtros" description={undefined}
+              action={(
+                <button type="button" onClick={() => { setFilterEstado(''); setSearch(''); }}
+                  className="h-9 px-3 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40">
+                  Quitar filtros
+                </button>
+              )} />
+          ) : (
+            <EmptyState icon={GraduationCap} title="Aún no ha llegado ninguna solicitud"
+              description="Conecta el formulario de admisión en la pestaña Webhooks de admisión." />
+          )
         ) : (
           <>
             {/* Desktop table */}
