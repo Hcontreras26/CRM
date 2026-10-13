@@ -7,6 +7,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import {
   altaTutorSchema, perfilSchema, colaboracionSchema,
   editarColaboracionSchema, ajustesSchema, calcularSchema, liquidarSchema,
+  cobraDesdeSchema,
   busquedaDeTutorSchema,
 } from './tutor.validation.js';
 import { proyectosDelAmbito, veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
@@ -232,6 +233,28 @@ export async function editarColaboracion(req, res, next) {
     }
 
     res.json({ success: true, data: await model.actualizarColaboracion(id, d) });
+  } catch (err) { next(err); }
+}
+
+// PATCH /api/tutores/:id/cobra-desde
+//
+// La misma fecha de inicio para todas sus colaboraciones activas. Diego, 13/10:
+// «ni me deja poner la fecha de inicio del tutor». Mismos permisos que editar
+// una colaboracion, mas el recorte por campus de su ficha (#245): mover fechas
+// es mover dinero.
+//
+// Va aparte de /perfil a proposito: el perfil lo puede tocar el propio tutor,
+// y la fecha desde la que cobra no.
+//
+// No genera comisiones: eso sigue siendo «Calcular» en Comisiones.
+export async function cambiarCobraDesde(req, res, next) {
+  try {
+    await exigirGestion(req);
+    const id = parseInt(req.params.id);
+    if (!Number.isInteger(id)) throw new AppError('Tutor no valido', 400, 'VALIDATION_ERROR');
+    await exigirTutorDeMisCampus(req, id);
+    const d = valida(cobraDesdeSchema, req.body);
+    res.json({ success: true, data: await model.cambiarCobraDesde(id, d.desde) });
   } catch (err) { next(err); }
 }
 
