@@ -69,7 +69,7 @@ const CAMPOS_ENLACE = `
   c.nombre AS colaborador_nombre, c.email AS colaborador_email, c.area, c.nif AS colaborador_nif,
   ii.razon_social, ii.nif AS empresa_nif, ii.direccion, ii.cp, ii.ciudad, ii.pais, ii.logo_url,
   ce.modalidad, ce.importe_fijo, ce.tarifa_hora, ce.iva_pct, ce.irpf_pct,
-  f.base, f.iva, f.irpf, f.total, f.horas, f.cuadra,
+  f.base, f.iva, f.irpf, f.total, f.horas, f.cuadra, f.importe_pdf, f.mime,
   to_char(f.pagada_at, 'YYYY-MM-DD') AS pagada_at, f.pagada_por, f.forma_pago, f.referencia_pago, f.justificante`;
 
 /** La fila de un enlace, por la huella de su token. */
@@ -239,18 +239,19 @@ export async function siguienteRecepcion(db, periodo) {
 }
 
 export async function guardarSubida(db, id, datos) {
-  // Sin desglose (ficha sin modalidad): base, IVA, IRPF, total, horas y cuadra, vacíos.
+  // Sin desglose (ficha sin modalidad): base, IVA, IRPF, total y horas, vacíos.
+  // `importe_pdf` y `cuadra` van siempre: salen del PDF, no del desglose (13/10).
   const d = datos.desglose;
   await db.query(
     `UPDATE facturas_colaborador
         SET subida_at = NOW(), numero_recepcion = $2, importe = $3, numero_factura = $4,
             archivo_key = $5, nombre_original = $6, mime = $7, tamano = $8, sha256 = $9,
-            base = $10, iva = $11, irpf = $12, total = $13, horas = $14, cuadra = $15
+            base = $10, iva = $11, irpf = $12, total = $13, horas = $14, cuadra = $15, importe_pdf = $16
       WHERE id = $1`,
     [id, datos.numeroRecepcion, datos.importe, datos.numeroFactura,
       datos.archivoKey, datos.nombreOriginal, datos.mime, datos.tamano, datos.sha256,
       d?.base ?? null, d?.iva ?? null, d?.irpf ?? null, d?.total ?? null, d?.horas ?? null,
-      d ? datos.cuadra : null],
+      datos.cuadra ?? null, datos.importePdf ?? null],
   );
   for (const l of d?.lineas ?? []) {
     await db.query(
@@ -322,7 +323,7 @@ export async function lineasDe(facturaId) {
 /** Para administración: una factura, si es de una empresa que se ve. */
 export async function porId(id, issuerIds, db = pool) {
   const { rows } = await db.query(
-    `SELECT ${CAMPOS_ENLACE}, f.archivo_key, f.mime, f.tamano
+    `SELECT ${CAMPOS_ENLACE}, f.archivo_key, f.tamano
        FROM facturas_colaborador f
        JOIN colaboradores c ON c.id = f.colaborador_id
        JOIN invoice_issuers ii ON ii.id = f.issuer_id
@@ -363,8 +364,9 @@ const FILA_DE_LISTA = `SELECT f.id, f.colaborador_id, f.issuer_id, to_char(f.per
                    THEN COALESCE(f.base, f.importe) - f.importe_esperado END AS diferencia,
               f.numero_factura, f.numero_recepcion, f.subida_at, f.enviado_at, f.abierto_at,
               f.caduca_at, f.anulada_at, f.motivo_anulacion, f.nombre_original, f.tamano,
-              -- El desglose (segunda parte): cuadra null = subida sin desglose.
-              f.base, f.total, f.horas, f.cuadra,
+              -- El desglose (segunda parte) y el PDF (13/10): cuadra = el total del PDF
+              -- es lo escrito; null = no se pudo leer el PDF (no es «No cuadra»).
+              f.base, f.total, f.horas, f.cuadra, f.importe_pdf, f.mime,
               -- El pago, que no se mezcla con el estado de la factura.
               to_char(f.pagada_at, 'YYYY-MM-DD') AS pagada_at, f.forma_pago, f.referencia_pago,
               (f.justificante IS NOT NULL) AS con_justificante,

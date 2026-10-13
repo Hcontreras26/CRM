@@ -11,12 +11,13 @@ import {
   type CosteDeCampus, type EmpresaDelGrupo, type EstadoFactura, type FacturaDelMes, type VistaDeFacturas,
 } from '../api/facturasColaborador.api';
 import { DeshacerPagoDialog, PagarDialog, RegistroDialog, errorDe, esMes } from './DialogosFacturas';
+import EtiquetaDelPdf from './EtiquetaDelPdf';
 
 /*
   Las pestañas de la segunda parte (#202, «Añadido 01/10 (tarde)»):
   Enviadas · Por pagar (con el total pendiente) · Pagadas · Historial,
   filtrables por colaborador, empresa, mes y estado. El estado de la factura
-  (recibida, no cuadra, anulada) y el del pago (por pagar, pagada con su fecha)
+  (recibida, no cuadra o PDF sin leer, anulada) y el del pago (por pagar, pagada con su fecha)
   no se mezclan: van en columnas distintas.
 */
 
@@ -196,12 +197,8 @@ export default function ListaDeFacturas({ vista, empresas, empresa }: {
                     <td className="px-2 py-2 whitespace-nowrap">{nombreDelMes(f.periodo)}</td>
                     <td className="px-2 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${ESTADO[f.estado].clase}`}>{ESTADO[f.estado].rotulo}</span>
-                      {f.cuadra === false && f.estado !== 'anulada' && (
-                        <div className="mt-0.5">
-                          <span title={`El desglose da ${euros(f.total)}`}
-                            className="rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap bg-warning-soft text-warning-soft-foreground">No cuadra</span>
-                        </div>
-                      )}
+                      {/* «No cuadra» (el PDF dice otra cifra que la escrita) o «PDF sin leer» (13/10). */}
+                      <EtiquetaDelPdf f={f} />
                       {f.numero_recepcion && (
                         <div className="text-xs text-muted-foreground mt-0.5 whitespace-nowrap">{f.numero_recepcion}<br />{fechaHora(f.subida_at)}</div>
                       )}
@@ -255,8 +252,8 @@ export default function ListaDeFacturas({ vista, empresas, empresa }: {
       {registro && (
         <RegistroDialog titulo={`Registro · ${registro.colaborador_nombre} · ${registro.empresa}`}
           cargar={cargarRegistro} alCerrar={() => setRegistro(null)}
-          // Con desglose (cuadra no es null), arriba del registro (segunda parte).
-          cargarDesglose={registro.cuadra === null ? undefined : cargarDesglose} />
+          // Recibida: arriba del registro, el PDF frente a lo escrito y, si lo hay, el desglose.
+          cargarDesglose={registro.subida_at ? cargarDesglose : undefined} />
       )}
     </div>
   );

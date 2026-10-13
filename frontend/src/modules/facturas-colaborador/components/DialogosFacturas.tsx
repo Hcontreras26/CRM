@@ -545,8 +545,15 @@ function detalleDe(l: LineaRegistro, nombreDe: (id: number) => string) {
   if (d.importe !== undefined && d.importe !== null) partes.push(euros(d.importe as number));
   if (d.numero_factura) partes.push(`n.º ${d.numero_factura}`);
   if (d.numero_recepcion) partes.push(String(d.numero_recepcion));
-  // El desglose y el pago (segunda parte).
-  if (d.cuadra === false) partes.push(`no cuadra (el desglose da ${euros(d.total as number)})`);
+  // Lo que dice el PDF (13/10): lo leído, o que no se pudo leer; y si cuadra con lo escrito.
+  if ('importe_pdf' in d) {
+    if (d.importe_pdf === null) partes.push('PDF sin leer');
+    else partes.push(`PDF: ${euros(d.importe_pdf as number)}${d.cuadra === false ? ', no cuadra' : ''}`);
+  } else if (d.cuadra === false) {
+    // Las subidas de antes del 13/10, cuando se comparaba con el desglose.
+    partes.push(`no cuadra (el desglose da ${euros(d.total as number)})`);
+  }
+  // El pago (segunda parte).
   if (d.forma_pago) partes.push(`${FORMA_PAGO_ES[d.forma_pago as FormaPago] || d.forma_pago} del ${diaDelPago(String(d.fecha))}`);
   if (d.referencia_pago) partes.push(`ref. ${d.referencia_pago}`);
   if (d.justificante) partes.push(`justificante ${d.justificante}`);
@@ -568,22 +575,35 @@ function detalleDe(l: LineaRegistro, nombreDe: (id: number) => string) {
 
 /**
  * El desglose de una factura, arriba del registro (segunda parte): «Administración lo ve
- * todo». Las líneas que declaró el colaborador y lo que calculó el CRM con su IVA e IRPF.
+ * todo». Primero los dos importes que deciden si cuadra (corrección de Diego del 13/10):
+ * el que escribió el colaborador y el que pone el PDF. Debajo, si lo hay, las líneas que
+ * declaró y lo que calculó el CRM con su IVA e IRPF.
  */
 function DesgloseDeLaFactura({ d }: { d: DesgloseDeFactura }) {
+  const conLineas = d.lineas.length > 0;
   return (
     <div className="mb-4 rounded-lg border border-border">
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-border text-sm">
-        <strong>Desglose</strong>
+        <strong>{conLineas ? 'Importe y desglose' : 'Importe'}</strong>
         {d.cuadra === false && (
-          <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-warning-soft text-warning-soft-foreground">
-            No cuadra: su factura dice {euros(d.importe)}
-          </span>
+          <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-warning-soft text-warning-soft-foreground">No cuadra</span>
         )}
         {d.cuadra === true && (
-          <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-success-soft text-success-soft-foreground">Cuadra con su factura</span>
+          <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-success-soft text-success-soft-foreground">Cuadra con el PDF</span>
+        )}
+        {d.cuadra === null && (
+          <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-muted text-muted-foreground">{d.es_pdf ? 'PDF sin leer' : 'Foto sin leer'}</span>
         )}
       </div>
+      <dl className={`grid grid-cols-2 gap-x-4 gap-y-0.5 px-3 py-2 text-sm tabular-nums ${conLineas ? 'border-b border-border' : ''}`}>
+        <dt className="text-muted-foreground">Escrito por el colaborador</dt><dd className="text-right">{euros(d.importe)}</dd>
+        <dt className="text-muted-foreground">{d.es_pdf ? 'Lo que pone el PDF' : 'Lo que pone el archivo'}</dt>
+        <dd className="text-right">
+          {d.importe_pdf !== null ? euros(d.importe_pdf)
+            : <span className="text-muted-foreground">{d.es_pdf ? 'no se pudo leer' : 'es una foto: no se lee'}</span>}
+        </dd>
+      </dl>
+      {conLineas && (<>
       <table className="w-full text-tabla">
         <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
@@ -607,15 +627,16 @@ function DesgloseDeLaFactura({ d }: { d: DesgloseDeFactura }) {
         <dt className="text-muted-foreground">Base</dt><dd className="text-right">{euros(d.base)}</dd>
         <dt className="text-muted-foreground">IVA</dt><dd className="text-right">{euros(d.iva)}</dd>
         <dt className="text-muted-foreground">IRPF</dt><dd className="text-right">{d.irpf ? `−${euros(d.irpf)}` : euros(d.irpf)}</dd>
-        <dt className="font-semibold">Total</dt><dd className="text-right font-semibold">{euros(d.total)}</dd>
+        <dt className="font-semibold">Total del desglose</dt><dd className="text-right font-semibold">{euros(d.total)}</dd>
       </dl>
+      </>)}
     </div>
   );
 }
 
 export function RegistroDialog({ titulo, cargar, cargarDesglose, empresas = [], alCerrar }: {
   titulo: string; cargar: () => Promise<LineaRegistro[]>; alCerrar: () => void;
-  /** Si la factura tiene desglose, se enseña arriba del registro. */
+  /** Si la factura está recibida: lo escrito frente al PDF y, si lo hay, el desglose, arriba del registro. */
   cargarDesglose?: () => Promise<DesgloseDeFactura>;
   /** Para nombrar las empresas en el historial de una ficha («CEDIA» y no «#1»). */
   empresas?: EmpresaDelGrupo[];
@@ -638,7 +659,7 @@ export function RegistroDialog({ titulo, cargar, cargarDesglose, empresas = [], 
   }, [cargarDesglose]);
   return (
     <Dialogo titulo={titulo} alCerrar={alCerrar} ancho="max-w-2xl">
-      {desglose && desglose.lineas.length > 0 && <DesgloseDeLaFactura d={desglose} />}
+      {desglose && <DesgloseDeLaFactura d={desglose} />}
       {!lineas ? <p className="text-muted-foreground">Cargando…</p>
         : lineas.length === 0 ? <p className="text-muted-foreground">Todavía no hay movimientos.</p>
           : (

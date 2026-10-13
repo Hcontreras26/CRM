@@ -6,7 +6,7 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import SubirFactura from '../components/SubirFactura';
 import {
-  ESTADO, FORMA_PAGO_ES, diaDelPago, euros, facturasColaboradorApi, primeraMayuscula, type FacturaDelColaborador, urlDelArchivo,
+  ESTADO, FORMA_PAGO_ES, avisoDelPdf, diaDelPago, euros, facturasColaboradorApi, primeraMayuscula, type FacturaDelColaborador, urlDelArchivo,
 } from '../api/facturasColaborador.api';
 
 /**
@@ -93,6 +93,14 @@ export default function MiFacturaPage() {
                   </Button>
                 )}
               </div>
+              {/* Lo que dice el PDF frente a lo escrito (Diego, 13/10): si no cuadra o no se pudo leer. */}
+              {m.recibida && avisoDelPdf(m.recibida) && (
+                <p role="status" className={`border-t border-border px-4 py-2 text-secundario ${
+                  m.recibida.cuadra === false ? 'bg-warning-soft text-warning-soft-foreground' : 'bg-muted text-foreground'
+                }`}>
+                  {avisoDelPdf(m.recibida)}
+                </p>
+              )}
               {/* Montado aunque esté cerrado: al abrir otro mes (o «Cerrar») no se pierde lo que
                   ya había puesto —el archivo, el número, las horas—. Diana, prueba a mano del 12/10. */}
               {!m.recibida && m.estado !== 'anulada' && m.estado !== 'caducado' && (
@@ -100,8 +108,10 @@ export default function MiFacturaPage() {
                   <SubirFactura
                     factura={m}
                     alSubir={async (archivo, importe, numero, desglose) => {
-                      await facturasColaboradorApi.subirMia(m.id!, archivo, importe, numero, desglose);
-                      toast({ title: 'Factura enviada', description: `${primeraMayuscula(m.mes)} · ${m.empresa.razon_social}` });
+                      const r = await facturasColaboradorApi.subirMia(m.id!, archivo, importe, numero, desglose);
+                      // Si el PDF no dice lo escrito, o no se pudo leer, se dice ya (y queda debajo del mes).
+                      const aviso = r?.data?.recibida ? avisoDelPdf(r.data.recibida) : null;
+                      toast({ title: 'Factura enviada', description: aviso || `${primeraMayuscula(m.mes)} · ${m.empresa.razon_social}` });
                       setAbierta(null);
                       await cargar();
                     }}

@@ -34,11 +34,13 @@ describe('subir la factura · lo acordado y el desglose', () => {
     expect(screen.queryByText(/no cuadra/)).toBeNull();
   });
 
-  it('si lo cambia a mano, se queda lo suyo y se avisa de que no cuadra', () => {
+  it('si lo cambia a mano, se queda lo suyo y solo se le recuerda cuánto da el desglose (sin «no cuadra»)', () => {
+    // Desde el 13/10 cuadra si lo escrito es lo que pone el PDF: el desglose es una sugerencia.
     abrir(factura({ cobro: cobro({ modalidad: 'fijo', importe_fijo: 600 }) }));
     fireEvent.change(importe(), { target: { value: '600' } });
     expect(importe().value).toBe('600');
-    expect(screen.getByText(/no cuadra con el desglose \(636,00 €\)/)).toBeTruthy();
+    expect(screen.getByText(/Tu desglose da 636,00 €\. Escribe el total que pone tu factura/)).toBeTruthy();
+    expect(screen.queryByText(/no cuadra/i)).toBeNull();
   });
 
   it('con desglose y sin horas todavía: no dice «ya puesto», y ninguna casilla lleva una cifra de ejemplo', () => {

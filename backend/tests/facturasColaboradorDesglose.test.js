@@ -8,15 +8,18 @@ vi.mock('../src/shared/services/r2.service.js', () => ({
 }));
 
 import supertest from 'supertest';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import app from '../src/app.js';
 import pool from '../src/shared/config/db.js';
 import { uploadToR2 } from '../src/shared/services/r2.service.js';
 import { prepararMes } from '../src/modules/facturas-colaborador/facturas.service.js';
-import { calcularDesglose, cuadra } from '../src/modules/facturas-colaborador/desglose.js';
+import { calcularDesglose } from '../src/modules/facturas-colaborador/desglose.js';
 
 /**
  * Facturas de colaboradores (#202, segunda parte) · el desglose al subir la
  * factura: fijo, por hora y por proyecto, con IVA e IRPF, y «No cuadra».
+ * Desde la corrección de Diego del 13/10, cuadra si el total del PDF es lo
+ * escrito (el desglose ya no decide): los PDF se hacen aquí con pdf-lib.
  *
  * Su mes es junio de 2026 y sus colaboradores solo están activos ese mes: los
  * otros ficheros (julio, agosto, septiembre) corren a la vez y no se cruzan.
@@ -45,13 +48,22 @@ let campusDeOtra;
 const C = {};       // colaboradores por clave
 const enlace = {};  // clave → token en claro
 
-const subir = (clave, campos) => {
-  const r = request.post(`${API}/enlace/${enlace[clave]}`).attach('archivo', PDF, 'factura.pdf');
+/** Un PDF de verdad con este texto, para que el servidor lea su total. */
+async function pdfCon(...lineas) {
+  const doc = await PDFDocument.create();
+  const pagina = doc.addPage();
+  const letra = await doc.embedFont(StandardFonts.Helvetica);
+  lineas.forEach((l, i) => pagina.drawText(l, { x: 50, y: 760 - i * 20, size: 11, font: letra }));
+  return Buffer.from(await doc.save());
+}
+
+const subir = (clave, campos, archivo = PDF) => {
+  const r = request.post(`${API}/enlace/${enlace[clave]}`).attach('archivo', archivo, 'factura.pdf');
   for (const [k, v] of Object.entries(campos)) r.field(k, v);
   return r;
 };
 const fila = (clave) => one(
-  `SELECT base::float, iva::float, irpf::float, total::float, horas::float, cuadra, subida_at
+  `SELECT base::float, iva::float, irpf::float, total::float, horas::float, cuadra, importe_pdf::float, subida_at
      FROM facturas_colaborador WHERE colaborador_id = $1 AND periodo = $2`, [C[clave].id, PERIODO]);
 
 beforeAll(async () => {
@@ -153,11 +165,10 @@ describe('el cálculo del desglose', () => {
     expect(desglose({ modalidad: null }, {})).toBeNull();
   });
 
-  it('el medio céntimo, hacia arriba: una factura bien hecha no sale «No cuadra» por un céntimo', () => {
-    // 5 h × 21,70 = 108,50; IRPF 15 % = 16,275 → 16,28 (con decimales salía 16,27 y no cuadraba con 115,01).
+  it('el medio céntimo, hacia arriba: el total sugerido es el de una factura bien hecha', () => {
+    // 5 h × 21,70 = 108,50; IRPF 15 % = 16,275 → 16,28 (con decimales salía 16,27 y el total, 115,02, no era el de su factura).
     const h = desglose({ modalidad: 'hora', tarifa_hora: 21.7, iva_pct: 21, irpf_pct: 15 }, { horas: '5' });
     expect(h).toMatchObject({ base: 108.5, iva: 22.79, irpf: 16.28, total: 115.01 });
-    expect(cuadra(115.01, h)).toBe(true);
     expect(desglose({ modalidad: 'fijo', importe_fijo: 158.5, iva_pct: 21, irpf_pct: 0 }, {}).iva).toBe(33.29);
     expect(desglose({ modalidad: 'proyecto', tarifa_hora: 22.33, iva_pct: 0, irpf_pct: 0 },
       { lineas: JSON.stringify([{ concepto: 'x', horas: '1,5' }]) }).lineas[0].importe).toBe(33.5);
@@ -178,10 +189,10 @@ describe('el cálculo del desglose', () => {
       .toThrow('demasiado grande');
   });
 
-  it('cuadra al céntimo', () => {
-    const d = { total: 419.76 };
-    expect(cuadra(419.76, d)).toBe(true);
-    expect(cuadra(419.75, d)).toBe(false);
+  it('el total, al céntimo: base + IVA − IRPF', () => {
+    const d = desglose({ modalidad: 'hora', tarifa_hora: 22, iva_pct: 21, irpf_pct: 15 }, { horas: '18' });
+    expect(d.total).toBe(419.76);
+    expect(d.total).toBe(Math.round((d.base + d.iva - d.irpf) * 100) / 100);
   });
 });
 
@@ -209,11 +220,14 @@ describe('facturas de colaboradores (#202) · el desglose al subir', () => {
     expect(uploadToR2).not.toHaveBeenCalled();
   });
 
-  it('por hora y cuadra: se guardan la base, el IVA, el IRPF, el total y su línea', async () => {
-    const res = await subir('horas', { importe: '419,76', numero_factura: 'F-H-06', horas: '18' });
+  it('por hora y cuadra con el PDF: se guardan la base, el IVA, el IRPF, el total, su línea y lo que dice el PDF', async () => {
+    const res = await subir('horas', { importe: '419,76', numero_factura: 'F-H-06', horas: '18' },
+      await pdfCon('Factura F-H-06', 'Base imponible 396,00 €', 'Total IVA 83,16 €', 'Total factura: 419,76 €'));
     expect(res.status, JSON.stringify(res.body)).toBe(201);
-    expect(res.body.data.recibida).toMatchObject({ total: 419.76, cuadra: true });
-    expect(await fila('horas')).toMatchObject({ base: 396, iva: 83.16, irpf: 59.4, total: 419.76, horas: 18, cuadra: true });
+    expect(res.body.data.recibida).toMatchObject({ total: 419.76, importe_pdf: 419.76, cuadra: true });
+    expect(await fila('horas')).toMatchObject({
+      base: 396, iva: 83.16, irpf: 59.4, total: 419.76, horas: 18, importe_pdf: 419.76, cuadra: true,
+    });
     const lineas = await q(
       `SELECT concepto, horas::float, tarifa::float, importe::float FROM facturas_colaborador_lineas
         WHERE factura_id = (SELECT id FROM facturas_colaborador WHERE colaborador_id = $1 AND periodo = $2)`,
@@ -221,17 +235,18 @@ describe('facturas de colaboradores (#202) · el desglose al subir', () => {
     expect(lineas).toEqual([{ concepto: 'Servicios de SEO · junio 2026', horas: 18, tarifa: 22, importe: 396 }]);
   });
 
-  it('si no cuadra, se avisa, se deja enviar y queda marcada «No cuadra» (y en el registro)', async () => {
-    // Fijo 600 con 21 % y 15 %: el total son 636, no 600.
-    const res = await subir('fijo', { importe: '600', numero_factura: 'F-F-06' });
+  it('si el PDF dice otra cifra, se deja enviar y queda marcada «No cuadra» (y en el registro)', async () => {
+    // Fijo 600 con 21 % y 15 %: escribe 636, que es el total del desglose, pero su PDF dice 650.
+    // Antes eso cuadraba (se comparaba con el desglose); desde el 13/10 manda el PDF.
+    const res = await subir('fijo', { importe: '636', numero_factura: 'F-F-06' }, await pdfCon('Total a pagar 650,00 €'));
     expect(res.status, JSON.stringify(res.body)).toBe(201);
-    expect(res.body.data.recibida).toMatchObject({ total: 636, cuadra: false });
-    expect(await fila('fijo')).toMatchObject({ base: 600, total: 636, cuadra: false });
+    expect(res.body.data.recibida).toMatchObject({ total: 636, importe_pdf: 650, cuadra: false });
+    expect(await fila('fijo')).toMatchObject({ base: 600, total: 636, importe_pdf: 650, cuadra: false });
     const reg = await one(
       `SELECT detalle FROM facturas_colaborador_registro
         WHERE evento = 'recibida' AND factura_id = (SELECT id FROM facturas_colaborador WHERE colaborador_id = $1 AND periodo = $2)`,
       [C.fijo.id, PERIODO]);
-    expect(reg.detalle).toMatchObject({ modalidad: 'fijo', base: 600, total: 636, cuadra: false, importe: 600 });
+    expect(reg.detalle).toMatchObject({ modalidad: 'fijo', base: 600, total: 636, importe_pdf: 650, cuadra: false, importe: 636 });
   });
 
   it('un desglose demasiado largo da un mensaje claro (no «no se pudo leer el archivo») y no sube nada', async () => {
@@ -262,9 +277,9 @@ describe('facturas de colaboradores (#202) · el desglose al subir', () => {
         { concepto: 'Landing de la feria', project_id: campus.id, horas: '7,5' },
         { concepto: 'SEO del blog', project_id: null, horas: '4' },
       ]),
-    });
+    }, await pdfCon('Subtotal 345,00 EUR', 'TOTAL 345,00 EUR'));
     expect(res.status, JSON.stringify(res.body)).toBe(201);
-    expect(await fila('proyecto')).toMatchObject({ base: 345, total: 345, horas: 11.5, cuadra: true });
+    expect(await fila('proyecto')).toMatchObject({ base: 345, total: 345, horas: 11.5, importe_pdf: 345, cuadra: true });
     const lineas = await q(
       `SELECT orden, concepto, project_id, horas::float, importe::float FROM facturas_colaborador_lineas
         WHERE factura_id = (SELECT id FROM facturas_colaborador WHERE colaborador_id = $1 AND periodo = $2) ORDER BY orden`,
@@ -275,10 +290,10 @@ describe('facturas de colaboradores (#202) · el desglose al subir', () => {
     ]);
   });
 
-  it('sin modalidad se sube como en la primera parte: sin desglose ni «cuadra»', async () => {
-    const res = await subir('sin', { importe: '600', numero_factura: 'F-S-06' });
+  it('sin modalidad se sube como en la primera parte, sin desglose; y el PDF se lee igual', async () => {
+    const res = await subir('sin', { importe: '600', numero_factura: 'F-S-06' }, await pdfCon('Importe total 600.00 EUR'));
     expect(res.status, JSON.stringify(res.body)).toBe(201);
-    expect(res.body.data.recibida).toMatchObject({ total: null, cuadra: null });
-    expect(await fila('sin')).toMatchObject({ base: null, total: null, cuadra: null });
+    expect(res.body.data.recibida).toMatchObject({ total: null, importe_pdf: 600, cuadra: true });
+    expect(await fila('sin')).toMatchObject({ base: null, total: null, importe_pdf: 600, cuadra: true });
   });
 });

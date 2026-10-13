@@ -10,7 +10,8 @@ import { logger } from '../../shared/utils/logger.js';
 import { correosActivos, empresaCorta, enviarCorreoDelMes, enviarAcuse, enviarAvisoDePago, urlDelEnlace, conceptoSugerido } from './facturas.emails.js';
 import { notifyUsers } from '../notifications/notifications.service.js';
 import { enUtf8 } from '../whatsapp/media.service.js';
-import { calcularDesglose, cuadra } from './desglose.js';
+import { calcularDesglose } from './desglose.js';
+import { leerImporteDelPdf, cuadraConElPdf } from './importePdf.js';
 
 /*
   Facturas de colaboradores (#202) · el mes, el enlace y la subida.
@@ -228,9 +229,13 @@ function paraElColaborador(f) {
       importe: f.importe === null ? null : Number(f.importe),
       numero_factura: f.numero_factura,
       archivo: f.nombre_original,
-      // Lo que calculó el CRM; `cuadra` null = subida sin desglose.
+      // Lo que calculó el CRM con el desglose (null sin él), para enseñarlo.
       total: num(f.total),
+      // Lo que pone el PDF y si cuadra con lo escrito (corrección de Diego del
+      // 13/10). `cuadra` null = no se pudo leer el PDF (o es una foto): no es «No cuadra».
+      importe_pdf: num(f.importe_pdf),
       cuadra: f.cuadra ?? null,
+      es_pdf: f.mime === 'application/pdf',
     } : null,
     // El estado del pago («Mi factura», ficha de Diego del 07/10): la fecha y la
     // forma, nada más (ni el justificante ni quién lo marcó).
@@ -318,13 +323,19 @@ async function guardarFactura(f, { archivo, importe, numeroFactura, desglose: en
   if (!tipo) throw new AppError('El archivo tiene que ser un PDF o una foto JPG o PNG', 400, 'INVALID_FILE_TYPE');
 
   // El desglose, según cómo cobra de esta empresa (segunda parte). Se comprueba
-  // antes de subir nada a R2. Si no cuadra con su total, se guarda igual y
-  // queda marcada «No cuadra».
+  // antes de subir nada a R2. Se guarda para enseñarlo y para lo acordado, pero
+  // ya no decide si cuadra.
   const desglose = calcularDesglose({
     cobro: f, area: f.area, periodo: f.periodo, entrada,
     campus: f.modalidad === 'proyecto' ? (await model.campusDeLaEmpresa(f.issuer_id)).map((p) => p.id) : [],
   });
-  const cuadraConSuTotal = desglose ? cuadra(importe, desglose) : null;
+
+  // «El monto es que coincida el PDF y lo que se escribió de factura ahí» (Diego,
+  // 13/10): cuadra si el total del PDF es el importe escrito. Se lee aquí, fuera
+  // de la transacción y antes de R2, con su tope de tiempo. Si no se puede leer
+  // (escaneado, roto, o una foto), null: se guarda igual, «No se pudo leer el PDF».
+  const importePdf = tipo.mime === 'application/pdf' ? await leerImporteDelPdf(archivo.buffer, importe) : null;
+  const cuadraConElPdfSubido = cuadraConElPdf(importe, importePdf);
 
   const sha256 = crypto.createHash('sha256').update(archivo.buffer).digest('hex');
   const nombre = nombreDelArchivo({
@@ -352,16 +363,18 @@ async function guardarFactura(f, { archivo, importe, numeroFactura, desglose: en
     const numeroRecepcion = await model.siguienteRecepcion(db, f.periodo);
     await model.guardarSubida(db, f.id, {
       numeroRecepcion, importe, numeroFactura, archivoKey, nombreOriginal,
-      mime: tipo.mime, tamano: archivo.size, sha256, desglose, cuadra: cuadraConSuTotal,
+      mime: tipo.mime, tamano: archivo.size, sha256, desglose, importePdf, cuadra: cuadraConElPdfSubido,
     });
     await anotar(db, {
       facturaId: f.id, evento: 'recibida', ip, userId,
       detalle: {
         archivo: nombreOriginal, tamano: archivo.size, importe,
         numero_factura: numeroFactura, numero_recepcion: numeroRecepcion,
+        // Lo leído del PDF, o null si no se pudo leer; y si cuadra con lo escrito.
+        importe_pdf: importePdf, cuadra: cuadraConElPdfSubido,
         ...(desglose ? {
           modalidad: f.modalidad, base: desglose.base, iva: desglose.iva, irpf: desglose.irpf,
-          total: desglose.total, horas: desglose.horas, cuadra: cuadraConSuTotal,
+          total: desglose.total, horas: desglose.horas,
         } : {}),
       },
     });
@@ -544,15 +557,18 @@ export async function zipDelMes(user, periodo, issuerId) {
 
 /**
  * El desglose de una factura, para administración («Administración lo ve todo»):
- * las líneas (encargo, campus, horas, tarifa e importe) y lo que calculó el CRM.
- * Sin desglose (subida sin modalidad), las líneas van vacías y `cuadra` es null.
+ * las líneas (encargo, campus, horas, tarifa e importe) y lo que calculó el CRM,
+ * y los dos importes que deciden si cuadra: el escrito y el del PDF (13/10).
+ * Sin desglose (subida sin modalidad), las líneas van vacías. `cuadra` null =
+ * no se pudo leer el PDF.
  */
 export async function desgloseDeFactura(user, id) {
   const f = await model.porId(id, await ambitoDe(user));
   if (!f) throw NO_ESTA();
   return {
     importe: num(f.importe), base: num(f.base), iva: num(f.iva), irpf: num(f.irpf),
-    total: num(f.total), horas: num(f.horas), cuadra: f.cuadra ?? null,
+    total: num(f.total), horas: num(f.horas),
+    importe_pdf: num(f.importe_pdf), cuadra: f.cuadra ?? null, es_pdf: f.mime === 'application/pdf',
     lineas: await model.lineasDe(id),
   };
 }
