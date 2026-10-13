@@ -4,6 +4,8 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import { query } from '../../shared/config/db.js';
 import { comoLista, SIN_PRUEBAS } from '../../shared/utils/ambito.js';
+// Lo facturado tiene UNA definición y vive en los informes (#224).
+import { IMPORTE_FACTURADO, FACTURA_QUE_CUENTA } from '../reports/report.model.js';
 
 /**
  * Registra una venta — flujo orquestado:
@@ -255,10 +257,38 @@ const SIN_ASIGNAR = `(c.producto_contratado_id IS NULL
     AND (${NOMBRE_LIMPIO} IS NULL OR ${NOMBRE_LIMPIO} ~* 'pendiente de registrar'))`;
 
 /**
- * Top programas vendidos — agrupado por producto. Usado en dashboards (inicial + finanzas).
+ * Top programas vendidos — agrupado por producto. Usado en Ventas («Cursos
+ * vendidos») y en Finanzas · Ingresos.
+ *
+ * LA MISMA REGLA QUE LAS TARJETAS DE VENTAS (#225, Diego 10/10). Antes esta
+ * consulta contaba TODAS las fichas —con mensualidades y con ventas sin ningún
+ * cobro— mientras las tarjetas de arriba (`filtrosVentas`) solo cuentan ventas
+ * con algún cobro y sin mensualidades. En ISEIE, septiembre: tarjetas 54 ·
+ * 37.050 €, «Cursos vendidos» 55 · 40.525,20 € y Claude 56 · 40.725,20 €. Tres
+ * cifras para la misma pregunta.
+ *
+ * Ahora:
+ *   · `productos` y `totales` son las ventas CON algún cobro: lo mismo que las
+ *     tarjetas, céntimo a céntimo.
+ *   · `sinCobro` son las que aún no tienen ningún cobro. Diego: «se enseñan
+ *     aparte, como "ventas sin cobro (en proformas)"; cuando se cobran pasan a
+ *     contar como venta». Cobradas + sin cobro = lo que dice Claude.
+ *   · `sinAsignar` (ventas que no dicen qué programa) va DENTRO de `totales`.
+ *     La tarjeta sumaba solo las filas del ranking y esa venta se perdía: es la
+ *     de 200 € que faltaba entre «Cursos vendidos» (55) y Claude (56).
+ *   · `totales` se calcula en el servidor y sin LIMIT. La tarjeta sumaba las
+ *     filas que le llegaban, y el controlador corta en 50: con un año entero
+ *     el total se quedaba corto sin avisar.
+ *
+ * El cobrado sale de los apuntes (`conversion_payments`), como en las
+ * tarjetas, y no de `importe_pagado`, que declara de más.
+ *
  * @param {{ projectId?: number|null, limit?: number, days?: number|null }} opts
  *   days=null → all-time. days=30 → últimos 30 días.
- * @returns {{ productos: Array, sinAsignar: { ventas, facturado, cobrado } }}
+ * @returns {{ productos: Array, sinAsignar: { ventas, facturado, cobrado },
+ *             totales: { ventas, facturado, cobrado }, sinCobro: { ventas, importe } }}
+ *   (`facturado` aquí es lo VENDIDO, el importe de la venta: el nombre se
+ *   queda por no romper a quien ya lo lee.)
  */
 export async function getTopProducts({ projectId, projectIds = null, limit = 10, days = null, from = null, to = null, responsableId = null } = {}) {
   const params = [];
@@ -266,26 +296,46 @@ export async function getTopProducts({ projectId, projectIds = null, limit = 10,
   const listaTop = comoLista(projectId, projectIds);
   if (listaTop) { params.push(listaTop); where.push(`c.project_id = ANY($${params.length}::int[])`); }
   else where.push(SIN_PRUEBAS('c.project_id'));
-  if (responsableId) { params.push(responsableId); where.push(`l.responsable_id = $${params.length}`); }
+  // Por gestora, mirando el reparto —igual que las tarjetas—, y con SU parte
+  // del importe: una venta atendida entre dos es media para cada una.
+  let PESO = '1';
+  if (responsableId) {
+    params.push(responsableId);
+    where.push(`EXISTS (SELECT 1 FROM conversion_reparto rx
+                         WHERE rx.conversion_id = c.id AND rx.vendedora_id = $${params.length})`);
+    PESO = `COALESCE((SELECT r.peso FROM conversion_reparto r
+                       WHERE r.conversion_id = c.id AND r.vendedora_id = $${params.length}), 1)`;
+  }
   if (days) { params.push(days); where.push(`c.fecha_conversion >= (CURRENT_DATE - ($${params.length}::int))`); }
   // Rango de fechas explícito (tiene prioridad de uso desde el frontend: hoy/semana/mes/personalizado).
   if (from) { params.push(from); where.push(`c.fecha_conversion >= $${params.length}::date`); }
   if (to) { params.push(to); where.push(`c.fecha_conversion <= $${params.length}::date`); }
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const needsLeadJoin = !!responsableId;
+  // Una ficha marcada como mensualidad no es una venta nueva.
+  where.push('NOT c.es_mensualidad');
+  const whereSql = `WHERE ${where.join(' AND ')}`;
   const join = `FROM conversions c
-     LEFT JOIN products p ON p.id = c.producto_contratado_id
-     ${needsLeadJoin ? 'LEFT JOIN leads l ON l.id = c.lead_id' : ''}`;
+     LEFT JOIN products p ON p.id = c.producto_contratado_id`;
+  const COBRADO_C = `(SELECT COALESCE(SUM(cp.importe), 0)
+                        FROM conversion_payments cp WHERE cp.conversion_id = c.id)`;
 
-  // Las fichas sin programa se cuentan aparte y ANTES del LIMIT: si se filtraran
-  // despues, quitar la fila de «pendiente de registrar» dejaria el ranking con
-  // un puesto menos de los pedidos.
-  const { rows: [hueco] } = await query(
-    `SELECT COUNT(*)::int AS ventas,
-            COALESCE(SUM(c.importe_total), 0)::numeric AS facturado,
-            COALESCE(SUM(c.importe_pagado), 0)::numeric AS cobrado
-     ${join}
-     ${whereSql}${whereSql ? ' AND' : 'WHERE'} ${SIN_ASIGNAR}`,
+  // Los totales, el hueco sin programa y lo que aún no tiene cobro, de una vez
+  // y ANTES del LIMIT: si se filtraran despues, quitar la fila de «pendiente de
+  // registrar» dejaria el ranking con un puesto menos de los pedidos.
+  const { rows: [t] } = await query(
+    `SELECT COUNT(*) FILTER (WHERE x.con_cobro)::int AS ventas,
+            COALESCE(SUM(x.importe) FILTER (WHERE x.con_cobro), 0)::numeric AS facturado,
+            COALESCE(SUM(x.cobrado) FILTER (WHERE x.con_cobro), 0)::numeric AS cobrado,
+            COUNT(*) FILTER (WHERE x.con_cobro AND x.sin_asignar)::int AS hueco_ventas,
+            COALESCE(SUM(x.importe) FILTER (WHERE x.con_cobro AND x.sin_asignar), 0)::numeric AS hueco_facturado,
+            COALESCE(SUM(x.cobrado) FILTER (WHERE x.con_cobro AND x.sin_asignar), 0)::numeric AS hueco_cobrado,
+            COUNT(*) FILTER (WHERE NOT x.con_cobro)::int AS sin_cobro_ventas,
+            COALESCE(SUM(x.importe) FILTER (WHERE NOT x.con_cobro), 0)::numeric AS sin_cobro_importe
+       FROM (SELECT c.importe_total * ${PESO} AS importe,
+                    ${COBRADO_C} * ${PESO} AS cobrado,
+                    EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = c.id) AS con_cobro,
+                    ${SIN_ASIGNAR} AS sin_asignar
+             ${join}
+             ${whereSql}) x`,
     params
   );
 
@@ -296,11 +346,13 @@ export async function getTopProducts({ projectId, projectIds = null, limit = 10,
        -- Manda el producto del CATALOGO; si no lo tiene, el texto libre limpio.
        ${PRODUCTO} AS producto,
        COUNT(*)::int AS ventas,
-       COALESCE(SUM(c.importe_total), 0)::numeric AS facturado,
-       COALESCE(SUM(c.importe_pagado), 0)::numeric AS cobrado,
+       COALESCE(SUM(c.importe_total * ${PESO}), 0)::numeric AS facturado,
+       COALESCE(SUM(${COBRADO_C} * ${PESO}), 0)::numeric AS cobrado,
        MAX(c.fecha_conversion) AS ultima_venta
      ${join}
-     ${whereSql}${whereSql ? ' AND' : 'WHERE'} NOT ${SIN_ASIGNAR}
+     ${whereSql}
+       AND EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = c.id)
+       AND NOT ${SIN_ASIGNAR}
      GROUP BY ${PRODUCTO}, c.producto_contratado_id, p.nombre
      ORDER BY ventas DESC, facturado DESC
      LIMIT $${params.length}`,
@@ -316,10 +368,129 @@ export async function getTopProducts({ projectId, projectIds = null, limit = 10,
       ultima_venta: r.ultima_venta,
     })),
     sinAsignar: {
-      ventas: hueco.ventas,
-      facturado: Number(hueco.facturado),
-      cobrado: Number(hueco.cobrado),
+      ventas: t.hueco_ventas,
+      facturado: Number(t.hueco_facturado),
+      cobrado: Number(t.hueco_cobrado),
     },
+    totales: {
+      ventas: t.ventas,
+      facturado: Number(t.facturado),
+      cobrado: Number(t.cobrado),
+    },
+    sinCobro: {
+      ventas: t.sin_cobro_ventas,
+      importe: Number(t.sin_cobro_importe),
+    },
+  };
+}
+
+/**
+ * LO FACTURADO, para el Dashboard (#224).
+ *
+ * Diego, 10/10: «el Dashboard cuenta lo FACTURADO, también en el bloque del
+ * equipo, porque hay ventas sin gestora que tienen que facturarse». Antes el
+ * bloque del equipo y «Productos vendidos · Mes» medían cosas distintas (con
+ * CEDIA, 1–3 oct: 1.145 € · 4 ventas contra 3.195 € · 5 ventas) y el bloque se
+ * dejaba fuera lo que no era de ninguna gestora.
+ *
+ * QUÉ ES «FACTURADO»: la definición que ya tenía el CRM, la de los informes
+ * (`IMPORTE_FACTURADO` y `FACTURA_QUE_CUENTA` en report.model.js), no una
+ * nueva. Total de la factura con IVA, por fecha de EMISIÓN; facturas normales
+ * y abonos (que restan); ni proformas, ni borradores, ni anuladas; y solo las
+ * que cuelgan de una venta, porque es la venta la que dice de quién es y qué
+ * se vendió. Es lo mismo que la columna «Facturado» del informe de asesoras, y
+ * lo que cuenta Facturación, el módulo que la auditoría da por fiable.
+ *
+ * UNA SOLA CONSULTA PARA LAS DOS CIFRAS. Las filas por gestora y las filas por
+ * producto salen de la misma CTE (`fac`), así que suman lo mismo por
+ * construcción, no por casualidad:
+ *
+ *   gestoras + sin_gestora  =  total  =  productos + sin_producto
+ *
+ * «Sin gestora» es la parte de las ventas que no tienen vendedora ni
+ * responsable (`conversion_reparto` con `vendedora_id` NULL). Con el reparto,
+ * una venta compartida se reparte por su peso y nunca se cuenta dos veces.
+ * Ojo: nada de JOIN a `user_projects` aquí, que multiplica las sumas.
+ *
+ * «VENTAS» = ventas con alguna factura (no abono) emitida en el periodo. Una
+ * venta con tres facturas de cuotas en el mismo mes es una venta.
+ *
+ * @param {{ projectId?, projectIds?, from?, to?, responsableId? }} opts
+ *   `responsableId`: solo la parte de esa gestora (una gestora ve lo suyo).
+ */
+export async function getFacturado({ projectId = null, projectIds = null, from = null, to = null, responsableId = null } = {}) {
+  const params = [];
+  const w = [FACTURA_QUE_CUENTA];
+  const lista = comoLista(projectId, projectIds);
+  if (lista) { params.push(lista); w.push(`c.project_id = ANY($${params.length}::int[])`); }
+  else w.push(SIN_PRUEBAS('c.project_id'));
+  if (from) { params.push(from); w.push(`i.fecha_emision >= $${params.length}::date`); }
+  if (to) { params.push(to); w.push(`i.fecha_emision <= $${params.length}::date`); }
+  let soloGestora = '';
+  if (responsableId) { params.push(responsableId); soloGestora = `WHERE r.vendedora_id = $${params.length}`; }
+
+  const CTE = `WITH fac AS (
+      SELECT i.conversion_id,
+             SUM(${IMPORTE_FACTURADO}) AS facturado,
+             BOOL_OR(i.tipo = 'normal') AS con_factura
+        FROM invoices i
+        JOIN conversions c ON c.id = i.conversion_id
+       WHERE ${w.join(' AND ')}
+       GROUP BY i.conversion_id
+    ),
+    rep AS (
+      SELECT f.conversion_id, f.facturado, f.con_factura, r.vendedora_id, r.peso
+        FROM fac f
+        JOIN conversion_reparto r ON r.conversion_id = f.conversion_id
+       ${soloGestora}
+    )`;
+
+  const [{ rows: porGestora }, { rows: porProducto }] = await Promise.all([
+    query(
+      `${CTE}
+       SELECT rep.vendedora_id AS user_id, u.nombre,
+              COALESCE(SUM(rep.facturado * rep.peso), 0)::numeric AS facturado,
+              COALESCE(SUM(rep.peso) FILTER (WHERE rep.con_factura), 0)::float8 AS ventas
+         FROM rep
+         LEFT JOIN users u ON u.id = rep.vendedora_id
+        GROUP BY rep.vendedora_id, u.nombre
+        ORDER BY facturado DESC, u.nombre`,
+      params
+    ),
+    query(
+      `${CTE}
+       SELECT c.producto_contratado_id AS product_id,
+              ${PRODUCTO} AS producto,
+              ${SIN_ASIGNAR} AS sin_asignar,
+              COALESCE(SUM(rep.facturado * rep.peso), 0)::numeric AS facturado,
+              COALESCE(SUM(rep.peso) FILTER (WHERE rep.con_factura), 0)::float8 AS ventas
+         FROM rep
+         JOIN conversions c ON c.id = rep.conversion_id
+         LEFT JOIN products p ON p.id = c.producto_contratado_id
+        GROUP BY c.producto_contratado_id, ${PRODUCTO}, ${SIN_ASIGNAR}, p.nombre
+        ORDER BY facturado DESC, ventas DESC`,
+      params
+    ),
+  ]);
+
+  const cent = (v) => Math.round((Number(v) || 0) * 100) / 100;
+  const suma = (filas) => filas.reduce((s, f) => ({
+    facturado: s.facturado + Number(f.facturado || 0),
+    ventas: s.ventas + Number(f.ventas || 0),
+  }), { facturado: 0, ventas: 0 });
+  // El reparto deja pesos como 0,5: con dos decimales basta, igual que el dinero.
+  const fila = (f) => ({ facturado: cent(f.facturado), ventas: cent(f.ventas) });
+
+  const gestoras = porGestora.filter((f) => f.user_id != null);
+  const productos = porProducto.filter((f) => !f.sin_asignar);
+
+  return {
+    desde: from, hasta: to,
+    total: fila(suma(porGestora)),
+    gestoras: gestoras.map((f) => ({ user_id: f.user_id, nombre: f.nombre, ...fila(f) })),
+    sin_gestora: fila(suma(porGestora.filter((f) => f.user_id == null))),
+    productos: productos.map((f) => ({ product_id: f.product_id, producto: f.producto, ...fila(f) })),
+    sin_producto: fila(suma(porProducto.filter((f) => f.sin_asignar))),
   };
 }
 
@@ -337,7 +508,10 @@ const SIN_TILDES = (expr) =>
                       'aaaaaeeeeiiiiooooouuuunAAAAAEEEEIIIIOOOOOUUUUNcC')`;
 
 
-function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, search }, startIdx = 1) {
+// `sinCobro = true` da lo contrario de la segunda regla: las ventas del mismo
+// filtro que aún NO tienen ningún cobro. Es la cifra que va al lado de las
+// tarjetas como «sin cobro (en proformas)» (#225).
+function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, search }, startIdx = 1, { sinCobro = false } = {}) {
   const cond = [];
   const params = [];
   let idx = startIdx;
@@ -365,7 +539,7 @@ function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, 
   // una ficha marcada como mensualidad no es una venta nueva, y una venta sin
   // ningun cobro es una proforma que el cliente no llego a pagar.
   cond.push('NOT cv.es_mensualidad');
-  cond.push('EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = cv.id)');
+  cond.push(`${sinCobro ? 'NOT ' : ''}EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = cv.id)`);
   return { where: 'WHERE ' + cond.join(' AND '), params, idx };
 }
 
@@ -409,6 +583,41 @@ const COBRADO_CUOTAS = `(SELECT COALESCE(SUM(cp.importe), 0)
                   WHERE p0.conversion_id = cp.conversion_id
                     AND (p0.fecha < cp.fecha OR (p0.fecha = cp.fecha AND p0.id < cp.id))))`;
 
+/*
+  VENTAS SIN COBRO (EN PROFORMAS). #225, Diego 10/10: «las ventas sin ningún
+  cobro se enseñan aparte, como "ventas sin cobro (en proformas)": salen de
+  las proformas sin cobrar, y cuando se cobran pasan a contar como venta».
+
+  Mismo filtro que las tarjetas —periodo, campus, gestora, búsqueda, sin
+  mensualidades— con la regla del cobro dada la vuelta. Así las tres cifras
+  de la pantalla se explican solas:
+
+      tarjetas (con cobro)  +  sin cobro  =  lo que dice Claude (MCP)
+
+  En ISEIE, septiembre: 54 · 37.050 € + 2 · 3.675 € (#676 y #675) = 56 · 40.725 €.
+
+  Se cuentan las VENTAS, no las facturas proforma: una venta sin cobro puede
+  no tener aún su proforma emitida, y si se contaran las proformas la suma de
+  arriba dejaría de cuadrar. `con_proforma` dice cuántas ya la tienen.
+*/
+async function ventasSinCobro(filtros = {}) {
+  const { where, params, idx } = filtrosVentas(filtros, 1, { sinCobro: true });
+  const { PESO } = pesoDe(filtros.responsableId, params, idx);
+  const { rows: [s] } = await query(
+    `SELECT COUNT(*)::int AS ventas,
+            COALESCE(SUM(cv.importe_total * ${PESO}), 0) AS importe,
+            COUNT(*) FILTER (WHERE EXISTS (
+              SELECT 1 FROM invoices i
+               WHERE i.conversion_id = cv.id AND i.tipo = 'proforma'
+                 AND i.estado <> 'cancelada'))::int AS con_proforma
+       FROM conversions cv
+       LEFT JOIN leads l ON l.id = cv.lead_id
+       ${where}`,
+    params
+  );
+  return { ventas: s.ventas, importe: Number(s.importe), con_proforma: s.con_proforma };
+}
+
 // Resumen consolidado que acompana a la vista general de Ventas.
 export async function getResumenVentas(filtros = {}) {
   const { where, params, idx } = filtrosVentas(filtros);
@@ -449,12 +658,17 @@ export async function getResumenVentas(filtros = {}) {
     params
   );
 
+  const sinCobro = await ventasSinCobro(filtros);
+
   return {
     ventas: r.ventas,
     clientes: r.clientes,
     asesoras: r.asesoras,
     importe: Number(r.importe),
     cobrado: Number(r.cobrado),
+    // Las que aún no tienen ningún cobro, aparte (#225). NO entran en las
+    // cifras de arriba: cuando se cobran, pasan a contar como venta.
+    sin_cobro: sinCobro,
     // De lo cobrado, cuanto abrio la venta y cuanto son cuotas del plan (#100).
     cobrado_matricula: Number(r.cobrado_matricula),
     cobrado_cuotas: Number(r.cobrado_cuotas),

@@ -112,7 +112,11 @@ function corto(nombre: string | null) {
  * Con MENOS DE TRES no se dibuja el podio: dos cajones y un hueco parecen una
  * avería. Con una o dos personas sale una línea y ya.
  */
-function Podio({ filas, compacto }: { filas: FilaRanking[]; compacto: boolean }) {
+function Podio({ filas, compacto, importe = (f) => f.cobrado }: {
+  filas: FilaRanking[]; compacto: boolean;
+  /** Qué cifra se enseña: lo cobrado (por defecto) o lo facturado (Dashboard). */
+  importe?: (f: FilaRanking) => number;
+}) {
   const tres = filas.slice(0, 3);
   if (!tres.length) return null;
 
@@ -124,7 +128,7 @@ function Podio({ filas, compacto }: { filas: FilaRanking[]; compacto: boolean })
             <span className="w-4 shrink-0 text-right font-bold tabular-nums text-muted-foreground">{f.puesto}</span>
             <span className="truncate font-medium">{corto(f.nombre)}</span>
             <span className="ml-auto shrink-0 tabular-nums">
-              <strong>{euros(f.cobrado)}</strong>
+              <strong>{euros(importe(f))}</strong>
               <span className="text-muted-foreground"> · {numero(f.ventas)} {f.ventas === 1 ? 'venta' : 'ventas'}</span>
             </span>
           </li>
@@ -159,7 +163,7 @@ function Podio({ filas, compacto }: { filas: FilaRanking[]; compacto: boolean })
           <span className="max-w-full truncate text-center text-normal font-semibold" title={f.nombre || ''}>
             {corto(f.nombre)}
           </span>
-          <span className="text-secundario font-semibold tabular-nums">{euros(f.cobrado)}</span>
+          <span className="text-secundario font-semibold tabular-nums">{euros(importe(f))}</span>
           <span className="text-secundario tabular-nums text-muted-foreground">
             {numero(f.ventas)} {f.ventas === 1 ? 'venta' : 'ventas'}
           </span>
@@ -183,6 +187,25 @@ function Podio({ filas, compacto }: { filas: FilaRanking[]; compacto: boolean })
  * tasas del 8 % --que es lo normal aquí-- una barra sobre 100 es una raya que
  * no se ve, y entonces no compara nada.
  */
+/** Lo que devuelve `/ventas/facturado` (#224). */
+interface Facturado {
+  total: { facturado: number; ventas: number };
+  gestoras: Array<{ user_id: number; nombre: string | null; facturado: number; ventas: number }>;
+  sin_gestora: { facturado: number; ventas: number };
+}
+
+/**
+ * El mes en curso, del día 1 a hoy, en fecha LOCAL. Es exactamente el «Mes» de
+ * la tarjeta «Productos vendidos» (`rangeFor('mes')`): mismo periodo y misma
+ * consulta, así que las dos cifras no pueden salir distintas.
+ */
+function mesEnCurso() {
+  const hoy = new Date();
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { from: iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), to: iso(hoy) };
+}
+
 function anchoTasa(v: number, tope: number) {
   if (!(tope > 0)) return 0;
   return Math.max(2, Math.min(100, Math.round((Number(v) || 0) * 100 / tope)));
@@ -191,28 +214,88 @@ function anchoTasa(v: number, tope: number) {
 export default function ComoVoy({
   gestoraId = null,
   compacto = false,
+  medida = 'cobrado',
 }: {
   /** Para que un jefe pueda mirar el de una gestora concreta. */
   gestoraId?: number | null;
   /** En una lista hay menos sitio que en el panel. */
   compacto?: boolean;
+  /**
+   * Qué cuenta el bloque DEL EQUIPO (lo que ve quien manda).
+   *
+   * · 'cobrado' (por defecto): el ranking de gestoras, que va por lo cobrado
+   *   desde el 08/10. Es lo que se ve en Prospectos y Clientes.
+   * · 'facturado': el Dashboard. Diego, 10/10 (#224): «el Dashboard cuenta lo
+   *   FACTURADO, también en el bloque del equipo, porque hay ventas sin
+   *   gestora que tienen que facturarse». Sale de `/ventas/facturado`, la
+   *   misma consulta que «Productos vendidos», y lleva la fila «Sin gestora»
+   *   para que el bloque sume el total.
+   *
+   * Lo que ve una gestora de sí misma (su puesto) no cambia: va por lo cobrado.
+   */
+  medida?: 'cobrado' | 'facturado';
 }) {
   const { activeProject, activeIssuerId } = useProjectContext();
   const [d, setD] = useState<Puesto | null>(null);
+  const [fact, setFact] = useState<Facturado | null>(null);
   const [abierto, setAbierto] = useState(false);
+  const porFacturado = medida === 'facturado';
 
   useEffect(() => {
     let vivo = true;
     const p = ponerAmbito(new URLSearchParams(), { activeIssuerId, activeProject });
     if (gestoraId) p.set('gestoraId', String(gestoraId));
+    // Con lo facturado, el MISMO mes que la tarjeta de productos.
+    if (porFacturado) { const m = mesEnCurso(); p.set('from', m.from); p.set('to', m.to); }
     client.get(`/informes/mi-puesto?${p.toString()}`)
       .then((r: any) => { if (vivo) setD(r?.success ? r.data : null); })
       // Sin ruido: esto acompaña a la pantalla, no es la pantalla.
       .catch(() => { if (vivo) setD(null); });
     return () => { vivo = false; };
-  }, [activeProject?.id, activeIssuerId, gestoraId]);
+  }, [activeProject?.id, activeIssuerId, gestoraId, porFacturado]);
 
   const esJefe = Array.isArray(d?.tabla);
+
+  // Lo facturado del equipo, solo para quien manda y solo en el Dashboard.
+  useEffect(() => {
+    if (!porFacturado || !esJefe) { setFact(null); return undefined; }
+    let vivo = true;
+    const p = ponerAmbito(new URLSearchParams(), { activeIssuerId, activeProject });
+    const m = mesEnCurso();
+    p.set('from', m.from); p.set('to', m.to);
+    client.get(`/ventas/facturado?${p.toString()}`)
+      .then((r: any) => { if (vivo) setFact(r?.success ? r.data : null); })
+      .catch(() => { if (vivo) setFact(null); });
+    return () => { vivo = false; };
+  }, [porFacturado, esJefe, activeProject?.id, activeIssuerId]);
+
+  /*
+    El ranking POR LO FACTURADO: las gestoras de lo facturado, con los
+    prospectos y la tasa de `mi-puesto` al lado. Quien tiene prospectos pero
+    nada facturado sale con 0: está en el equipo aunque este mes no facture.
+  */
+  const filasFacturado = useMemo<FilaRanking[] | null>(() => {
+    if (!fact) return null;
+    const tabla = d?.tabla || [];
+    const ids = new Set<number>([...fact.gestoras.map((g) => g.user_id), ...tabla.map((x) => x.user_id)]);
+    const filas = [...ids].map((id) => {
+      const g = fact.gestoras.find((x) => x.user_id === id);
+      const x = tabla.find((y) => y.user_id === id);
+      return {
+        puesto: 0,
+        user_id: id,
+        nombre: g?.nombre ?? x?.nombre ?? null,
+        leads: x?.leads ?? 0,
+        ventas: g?.ventas ?? 0,
+        vendido: x?.vendido ?? 0,
+        cobrado: x?.cobrado ?? 0,
+        facturado: g?.facturado ?? 0,
+        tasa: x?.tasa ?? 0,
+      };
+    }).sort((a, b) => b.facturado - a.facturado || b.ventas - a.ventas);
+    filas.forEach((f, i) => { f.puesto = i + 1; });
+    return filas;
+  }, [fact, d]);
   const equipo = useMemo(() => {
     const t = d?.tabla || [];
     return {
@@ -249,8 +332,19 @@ export default function ComoVoy({
             <p className="flex items-baseline gap-2">
               <Users size={compacto ? 15 : 18} weight="duotone" className="translate-y-0.5 text-primary" />
               <span className={compacto ? 'text-normal' : 'text-seccion'}>
-                El equipo este mes: <strong>{euros(equipo.cobrado)}</strong> cobrados
-                {' · '}{numero(equipo.ventas)} {equipo.ventas === 1 ? 'venta' : 'ventas'}
+                {fact ? (
+                  // EL TOTAL, con lo que no es de ninguna gestora dentro: es
+                  // la misma cifra que «Productos vendidos · Mes».
+                  <>
+                    El equipo este mes: <strong>{euros(fact.total.facturado)}</strong> facturados
+                    {' · '}{numero(fact.total.ventas)} {fact.total.ventas === 1 ? 'venta' : 'ventas'}
+                  </>
+                ) : (
+                  <>
+                    El equipo este mes: <strong>{euros(equipo.cobrado)}</strong> cobrados
+                    {' · '}{numero(equipo.ventas)} {equipo.ventas === 1 ? 'venta' : 'ventas'}
+                  </>
+                )}
               </span>
             </p>
             <p className="text-secundario tabular-nums text-muted-foreground">
@@ -260,7 +354,11 @@ export default function ComoVoy({
           </div>
 
           {/* Las tres primeras, siempre a la vista. */}
-          <Podio filas={d.tabla || []} compacto={compacto} />
+          <Podio
+            filas={filasFacturado || d.tabla || []}
+            compacto={compacto}
+            importe={filasFacturado ? (f) => f.facturado : undefined}
+          />
 
           {/* El ranking entero, plegado. Abierto de serie ocupa media pantalla
               en una lista que ya es larga. */}
@@ -282,20 +380,23 @@ export default function ComoVoy({
                   <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                     <th className="py-1 pr-2 font-semibold">#</th>
                     <th className="py-1 pr-2 font-semibold">Gestora</th>
-                    <th className="py-1 pr-2 text-right font-semibold">Cobrado</th>
-                    <th className="py-1 pr-2 text-right font-semibold">Ventas</th>
+                    <th className="py-1 pr-2 text-right font-semibold">{filasFacturado ? 'Facturado' : 'Cobrado'}</th>
+                    <th
+                      className="py-1 pr-2 text-right font-semibold"
+                      title={filasFacturado ? 'Ventas con alguna factura emitida este mes' : undefined}
+                    >Ventas</th>
                     <th className="py-1 pr-2 text-right font-semibold">Prospectos</th>
                     <th className="py-1 text-right font-semibold">Tasa</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(d.tabla || []).map((f) => {
+                  {(filasFacturado || d.tabla || []).map((f) => {
                     const suya = f.user_id === undefined ? false : f.puesto === d.puesto;
                     return (
                       <tr key={f.user_id} className={`border-t border-border/60 ${suya ? 'font-semibold' : ''}`}>
                         <td className="py-1 pr-2 tabular-nums text-muted-foreground">{f.puesto}</td>
                         <td className="py-1 pr-2 truncate">{f.nombre || '—'}</td>
-                        <td className="py-1 pr-2 text-right font-semibold tabular-nums">{euros(f.cobrado)}</td>
+                        <td className="py-1 pr-2 text-right font-semibold tabular-nums">{euros(filasFacturado ? f.facturado : f.cobrado)}</td>
                         <td className="py-1 pr-2 text-right tabular-nums">{numero(f.ventas)}</td>
                         <td className="py-1 pr-2 text-right tabular-nums text-muted-foreground">{f.leads}</td>
                         {/* La tasa, comparada con la media del equipo: es lo
@@ -309,7 +410,30 @@ export default function ComoVoy({
                       </tr>
                     );
                   })}
-                  {(d.tabla || []).length === 0 && (
+                  {/* SIN GESTORA y el TOTAL (#224): con ellas el bloque suma lo
+                      mismo que «Productos vendidos». Antes lo que no era de
+                      nadie no salía en ninguna fila. */}
+                  {fact && (fact.sin_gestora.ventas > 0 || fact.sin_gestora.facturado !== 0) && (
+                    <tr className="border-t border-border/60 text-muted-foreground">
+                      <td className="py-1 pr-2">—</td>
+                      <td className="py-1 pr-2 italic">Sin gestora</td>
+                      <td className="py-1 pr-2 text-right font-semibold tabular-nums">{euros(fact.sin_gestora.facturado)}</td>
+                      <td className="py-1 pr-2 text-right tabular-nums">{numero(fact.sin_gestora.ventas)}</td>
+                      <td className="py-1 pr-2" />
+                      <td className="py-1" />
+                    </tr>
+                  )}
+                  {fact && (
+                    <tr className="border-t-2 border-border font-semibold">
+                      <td className="py-1 pr-2" />
+                      <td className="py-1 pr-2">Total</td>
+                      <td className="py-1 pr-2 text-right tabular-nums">{euros(fact.total.facturado)}</td>
+                      <td className="py-1 pr-2 text-right tabular-nums">{numero(fact.total.ventas)}</td>
+                      <td className="py-1 pr-2" />
+                      <td className="py-1" />
+                    </tr>
+                  )}
+                  {(filasFacturado || d.tabla || []).length === 0 && !fact && (
                     <tr><td colSpan={6} className="py-2 text-muted-foreground">
                       Nadie con prospectos, ventas ni cobros este mes.
                     </td></tr>
