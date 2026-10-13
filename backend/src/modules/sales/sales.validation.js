@@ -57,3 +57,13 @@ export const createSaleSchema = z.object({
   },
   { message: 'Pago fraccionado requiere ≥2 cuotas que sumen el importe_total', path: ['installments'] }
 );
+
+// GET /api/ventas/facturado — lo facturado del Dashboard (#224). El periodo es
+// opcional: sin fechas es todo el historico, que es lo que pinta «Programas
+// mas vendidos». Una fecha mal escrita es un 400, no un periodo inventado.
+const FECHA = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha con formato AAAA-MM-DD');
+export const facturadoQuerySchema = z.object({
+  from: FECHA.optional(),
+  to: FECHA.optional(),
+  responsableId: z.coerce.number().int().positive().optional(),
+}).passthrough();

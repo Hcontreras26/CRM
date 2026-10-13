@@ -18,7 +18,7 @@ function ScrollToTop() {
 
 function DocumentTitle() {
   const { pathname } = useLocation();
-  const { activeProject: project } = useProjectContext();
+  const { activeProject: project, activeIssuer } = useProjectContext();
   useEffect(() => {
     const base = 'MultiCRM';
     // El nombre sale del mismo sitio que usa la cabecera: una pantalla no
@@ -26,13 +26,19 @@ function DocumentTitle() {
     const route = tituloDeRuta(pathname);
     // «Sin proyecto» es el hueco de cuando no hay ninguno (la página del enlace
     // del colaborador, sin sesión): no es un nombre que poner en la pestaña.
-    const proj = project?.id ? project.nombre : null;
+    //
+    // CON UNA EMPRESA ELEGIDA manda la empresa (#224). El proyecto activo es
+    // entonces el pseudo-proyecto -1, que se llama «Todos los proyectos», y la
+    // pestaña decía eso con CEDIA puesta. La cabecera del Dashboard ya ponía
+    // la empresa: la pestaña dice lo mismo que la cabecera.
+    const proj = activeIssuer?.nombre
+      || (project?.id ? project.nombre : null);
     // Formato: "Prospectos · Psiko Aprende — MultiCRM"
     if (route && proj) document.title = `${route} · ${proj} — ${base}`;
     else if (route) document.title = `${route} — ${base}`;
     else if (proj) document.title = `${proj} — ${base}`;
     else document.title = base;
-  }, [pathname, project?.id, project?.nombre]);
+  }, [pathname, project?.id, project?.nombre, activeIssuer?.nombre]);
   return null;
 }
 
