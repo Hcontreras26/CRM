@@ -25,6 +25,13 @@ import { prepararMes } from '../src/modules/facturas-colaborador/facturas.servic
  *   cd backend && npx vitest run tests/facturasColaboradorMias.test.js
  */
 
+// R2 «configurado» con valores de prueba: así almacen.js (revisión del 10/10) usa el
+// R2 simulado de arriba también en la CI, que no tiene R2. El camino del disco lo
+// prueba facturasColaboradorRevision.test.js.
+process.env.CLOUDFLARE_R2_ACCOUNT_ID = 'cuenta-de-prueba';
+process.env.CLOUDFLARE_R2_ACCESS_KEY = 'clave-de-prueba';
+process.env.CLOUDFLARE_R2_BUCKET = 'cubo-de-prueba';
+
 const request = supertest(app);
 const MARCA = `FCMIA_${Date.now().toString(36)}`;
 // Agosto: cada fichero de pruebas prepara su propio mes (se ejecutan a la vez).
@@ -141,6 +148,16 @@ describe('facturas de colaboradores (#202) · «Mi factura»', () => {
     const res = await request.get(`${API}/mias/${deLaura}/archivo`).set(como('laura'));
     expect(res.status).toBe(200);
     expect(res.body.data.url).toMatch(/firma=15min$/);
+  });
+
+  it('ve el estado del pago de cada mes, sin el justificante ni quién lo marcó (segunda parte)', async () => {
+    const antes = (await request.get(`${API}/mias`).set(como('laura'))).body.data[0];
+    expect(antes.pago).toBeNull();
+    await q(`UPDATE facturas_colaborador SET pagada_at = '2026-09-05', forma_pago = 'transferencia',
+              justificante = 'facturas-colaborador/pagos/secreto.pdf', referencia_pago = 'TRF-1' WHERE id = $1`, [deLaura]);
+    const res = await request.get(`${API}/mias`).set(como('laura'));
+    expect(res.body.data[0].pago).toEqual({ pagada_at: '2026-09-05', forma_pago: 'transferencia' });
+    expect(JSON.stringify(res.body)).not.toContain('secreto.pdf');
   });
 
   it('con el rol colaborador, lo de administración da 403', async () => {

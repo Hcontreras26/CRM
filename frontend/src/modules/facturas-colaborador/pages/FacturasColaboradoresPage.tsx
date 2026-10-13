@@ -1,21 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ArrowClockwise, ClockCounterClockwise, FileText, LockKey, PaperPlaneTilt, PencilSimple, Plus, Prohibit, UserMinus, UserPlus, UsersThree,
+  ArrowClockwise, ArrowCounterClockwise, ClockCounterClockwise, CurrencyEur, FileText, FileZip, LockKey, PaperPlaneTilt, PencilSimple, Plus, Prohibit,
+  Receipt, UserMinus, UserPlus, UsersThree,
 } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import usePermission from '@/shared/hooks/usePermission';
+import { useProjectContext } from '@/contexts/ProjectContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import {
-  AREAS, AREA_ES, ESTADO, euros, diaMes, empresaCorta, facturasColaboradorApi, fechaHora, primeraMayuscula,
+  AREAS, AREA_ES, ESTADO, FORMA_PAGO_ES, euros, diaDelPago, diaMes, empresaCorta, facturasColaboradorApi, fechaHora, mesEscrito, primeraMayuscula,
   type Area, type Colaborador, type EmpresaDelGrupo, type EstadoFactura, type FacturaDelMes, type Mes,
   urlDelArchivo,
 } from '../api/facturasColaborador.api';
-import { AltaDialog, AnularDialog, BajaDialog, ColaboradorDialog, RegistroDialog, esMes } from '../components/DialogosFacturas';
+import {
+  AltaDialog, AnularDialog, BajaDialog, ColaboradorDialog, DeshacerPagoDialog, PagarDialog, RegistroDialog, esMes,
+} from '../components/DialogosFacturas';
+import ListaDeFacturas, { CostePorCampus } from '../components/ListaDeFacturas';
 
 /**
  * Finanzas › Facturas de colaboradores (#202).
@@ -28,7 +33,22 @@ import { AltaDialog, AnularDialog, BajaDialog, ColaboradorDialog, RegistroDialog
  *
  * El admin ve lo de las empresas de sus campus; el super admin, todo. Lo
  * decide el servidor: aquí solo se pinta lo que llega.
+ *
+ * Sigue a la empresa de la cabecera (Diego, 10/10: «son por EMPRESA, no por
+ * campus»): con una empresa elegida, la suya; con un campus, la de ese campus;
+ * con «Todos los proyectos», todas las que ve cada uno.
  */
+
+/** La empresa de la cabecera, o null con «Todos los proyectos». */
+function useEmpresaDeLaCabecera(): number | null {
+  const { activeIssuerId, activeProject, isAllProjects } = useProjectContext() as {
+    activeIssuerId: number | null; isAllProjects: boolean;
+    activeProject: { sociedad_emisora_id?: number | null } | null;
+  };
+  if (activeIssuerId) return activeIssuerId;
+  if (isAllProjects) return null;
+  return activeProject?.sociedad_emisora_id ? Number(activeProject.sociedad_emisora_id) : null;
+}
 
 /**
  * El mes que se abre: el último preparado. El último día del mes ya es ese mes
@@ -56,15 +76,21 @@ export default function FacturasColaboradoresPage() {
   const { can } = usePermission();
   const veElMes = can('facturas_colaborador.ver_todas');
   const gestiona = can('facturas_colaborador.gestionar');
-  const pedida = params.get('vista') === 'colaboradores' ? 'colaboradores' : 'mes';
-  const vista = pedida === 'mes' && !veElMes ? 'colaboradores' : pedida === 'colaboradores' && !gestiona ? 'mes' : pedida;
+  // «Del mes · Enviadas · Por pagar · Pagadas · Historial» (segunda parte) y la lista de colaboradores.
+  const DE_FACTURAS = ['enviadas', 'por_pagar', 'pagadas', 'historial'] as const;
+  type Vista = 'mes' | 'colaboradores' | typeof DE_FACTURAS[number];
+  const enLaDireccion = params.get('vista');
+  const pedida: Vista = enLaDireccion === 'colaboradores' || (DE_FACTURAS as readonly string[]).includes(enLaDireccion ?? '')
+    ? enLaDireccion as Vista : 'mes';
+  const vista: Vista = pedida !== 'colaboradores' && !veElMes ? 'colaboradores' : pedida === 'colaboradores' && !gestiona ? 'mes' : pedida;
+  const empresa = useEmpresaDeLaCabecera();
 
   useEffect(() => {
     if (!veElMes && !gestiona) return;
     facturasColaboradorApi.empresas().then((r) => setEmpresas(r.data)).catch(() => setEmpresas([]));
   }, [veElMes, gestiona]);
 
-  const cambiar = (v: 'mes' | 'colaboradores') => {
+  const cambiar = (v: Vista) => {
     const n = new URLSearchParams(params);
     if (v === 'mes') n.delete('vista'); else n.set('vista', v);
     setParams(n, { replace: true });
@@ -83,13 +109,15 @@ export default function FacturasColaboradoresPage() {
     );
   }
 
-  const pestanas = ([['mes', 'Del mes', veElMes], ['colaboradores', 'Colaboradores', gestiona]] as const)
-    .filter(([, , puede]) => puede);
+  const pestanas = ([
+    ['mes', 'Del mes', veElMes], ['enviadas', 'Enviadas', veElMes], ['por_pagar', 'Por pagar', veElMes],
+    ['pagadas', 'Pagadas', veElMes], ['historial', 'Historial', veElMes], ['colaboradores', 'Colaboradores', gestiona],
+  ] as const).filter(([, , puede]) => puede);
 
   return (
     <div className="p-4 sm:p-6 space-y-4">
       {cabecera}
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {pestanas.map(([clave, rotulo]) => (
           <button key={clave} type="button" aria-pressed={vista === clave} onClick={() => cambiar(clave)}
             className={`h-8 px-3 rounded-md border text-xs font-medium transition-colors ${
@@ -99,30 +127,40 @@ export default function FacturasColaboradoresPage() {
           </button>
         ))}
       </div>
-      {vista === 'mes' ? <DelMes empresas={empresas} /> : <Colaboradores empresas={empresas} />}
+      {vista === 'mes' ? <DelMes empresas={empresas} empresa={empresa} />
+        : vista === 'colaboradores' ? <Colaboradores empresas={empresas} empresa={empresa} />
+          : <ListaDeFacturas key={vista} vista={vista} empresas={empresas} empresa={empresa} />}
     </div>
   );
 }
 
 /* ─────────────────────────── Del mes ─────────────────────────── */
 
-function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
+function DelMes({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: number | null }) {
   const [params, setParams] = useSearchParams();
   const periodo = params.get('periodo') || mesPorDefecto();
-  const [issuerId, setIssuerId] = useState('');
+  // Con una empresa en la cabecera, esa: el desplegable no le lleva la contraria.
+  const [elegida, setIssuerId] = useState('');
+  const issuerId = empresa ? String(empresa) : elegida;
   const [estado, setEstado] = useState<'' | EstadoFactura>('');
   const [area, setArea] = useState<'' | Area>('');
   const [datos, setDatos] = useState<Mes | null>(null);
   const [cargando, setCargando] = useState(true);
   const [anular, setAnular] = useState<FacturaDelMes | null>(null);
   const [registro, setRegistro] = useState<FacturaDelMes | null>(null);
+  const [pagar, setPagar] = useState<FacturaDelMes | null>(null);
+  const [deshacer, setDeshacer] = useState<FacturaDelMes | null>(null);
   const { can } = usePermission();
   const puedeAnular = can('facturas_colaborador.anular');
+  // «Marcar pagada»: solo un admin (segunda parte).
+  const puedePagar = can('facturas_colaborador.pagar');
   const puedeReenviar = can('facturas_colaborador.gestionar');
   // La fila que se está reenviando: un segundo clic mandaba otro correo y el
   // enlace del primero ya no valía.
   const [reenviando, setReenviando] = useState<number | null>(null);
 
+  // Cuántas veces se ha cargado el mes: el coste por campus se vuelve a pedir con cada una.
+  const [vueltas, setVueltas] = useState(0);
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
@@ -130,6 +168,7 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
         periodo, issuerId: issuerId ? Number(issuerId) : undefined, estado: estado || undefined, area: area || undefined,
       });
       setDatos(r.data);
+      setVueltas((v) => v + 1);
     } catch (err) {
       toast({ title: 'No se pudo cargar el mes', description: errorDe(err), variant: 'destructive' });
     } finally { setCargando(false); }
@@ -152,6 +191,29 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
     }
   }
 
+  // El ZIP del mes es de una empresa («facturas-colaboradores_2026-09_CEDIA.zip»).
+  const [bajando, setBajando] = useState(false);
+  async function bajarZip() {
+    // Con una empresa en la cabecera, el ZIP es de esa (y el botón ya está activo).
+    const deLaEmpresa = empresas.find((e) => String(e.id) === issuerId);
+    if (!deLaEmpresa || bajando) return;
+    setBajando(true);
+    try {
+      await facturasColaboradorApi.bajarZip(periodo, deLaEmpresa.id, deLaEmpresa.razon_social);
+    } catch (err) {
+      toast({ title: 'No se pudo descargar el ZIP', description: errorDe(err), variant: 'destructive' });
+    } finally { setBajando(false); }
+  }
+
+  async function verJustificante(f: FacturaDelMes) {
+    try {
+      const r = await facturasColaboradorApi.justificante(f.id);
+      window.open(urlDelArchivo(r.data.url), '_blank', 'noopener');
+    } catch (err) {
+      toast({ title: 'No se pudo abrir el justificante', description: errorDe(err), variant: 'destructive' });
+    }
+  }
+
   async function reenviar(f: FacturaDelMes) {
     if (reenviando) return;
     setReenviando(f.id);
@@ -170,18 +232,24 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
     () => facturasColaboradorApi.registroDeLaFactura(registro!.id).then((r) => r.data),
     [registro],
   );
+  const cargarDesglose = useCallback(
+    () => facturasColaboradorApi.desgloseDeLaFactura(registro!.id).then((r) => r.data),
+    [registro],
+  );
 
   const r = datos?.resumen;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
-        <div className="w-52 flex-none">
+        <div className="w-48 flex-none">
           <input type="month" aria-label="Mes" value={periodo} onChange={(e) => esMes(e.target.value) && ponerPeriodo(e.target.value)} className={inputClass} />
         </div>
-        <div className="w-56 flex-none">
-          <Select<string> value={issuerId} onChange={setIssuerId} ariaLabel="Empresa"
-            options={[{ value: '', label: 'Todas las empresas' }, ...empresas.map((e) => ({ value: String(e.id), label: e.razon_social }))]} />
-        </div>
+        {!empresa && (
+          <div className="w-52 flex-none">
+            <Select<string> value={issuerId} onChange={setIssuerId} ariaLabel="Empresa"
+              options={[{ value: '', label: 'Todas las empresas' }, ...empresas.map((e) => ({ value: String(e.id), label: e.razon_social }))]} />
+          </div>
+        )}
         <div className="w-44 flex-none">
           <Select<'' | Area> value={area} onChange={setArea} ariaLabel="Área"
             options={[{ value: '', label: 'Todas las áreas' }, ...AREAS.map((a) => ({ value: a, label: AREA_ES[a] }))]} />
@@ -190,7 +258,12 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
           <Select<'' | EstadoFactura> value={estado} onChange={setEstado} ariaLabel="Estado"
             options={[{ value: '', label: 'Todos los estados' }, ...(Object.keys(ESTADO) as EstadoFactura[]).map((e) => ({ value: e, label: ESTADO[e].rotulo }))]} />
         </div>
-        <Button variant="outline" size="sm" onClick={cargar} disabled={cargando} className="ml-auto">
+        <Button variant="outline" size="sm" className="ml-auto" onClick={bajarZip} disabled={!issuerId || bajando}
+          aria-label="Descargar el ZIP del mes"
+          title={issuerId ? 'Descargar el ZIP: las facturas recibidas del mes y un Excel con el resumen, para la gestoría' : 'Elige una empresa: el ZIP es de una empresa y un mes'}>
+          <FileZip size={13} className="mr-1.5" /> {bajando ? 'Preparando…' : 'ZIP'}
+        </Button>
+        <Button variant="outline" size="sm" onClick={cargar} disabled={cargando}>
           <ArrowClockwise size={13} weight="bold" className="mr-1.5" /> {cargando ? 'Cargando…' : 'Actualizar'}
         </Button>
       </div>
@@ -203,8 +276,14 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
           </div>
         )}
         {!datos || datos.facturas.length === 0 ? (
-          <EmptyState icon={FileText} title={cargando ? 'Cargando…' : 'Nada en este mes'}
-            description="El último día del mes, a las 10:00, se prepara el mes con los colaboradores activos." />
+          // Con un filtro de área o de estado, lo que no hay es eso, no el mes entero.
+          (estado || area) ? (
+            <EmptyState icon={FileText} title={cargando ? 'Cargando…' : 'No hay facturas con estos filtros'}
+              description={cargando ? undefined : 'Prueba con otra área u otro estado.'} />
+          ) : (
+            <EmptyState icon={FileText} title={cargando ? 'Cargando…' : 'Nada en este mes'}
+              description="El último día del mes, a las 10:00, se prepara el mes con los colaboradores activos." />
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-tabla">
@@ -222,23 +301,42 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
                     <td className="px-2 py-2">{AREA_ES[f.area]}</td>
                     <td className="px-2 py-2 whitespace-nowrap" title={f.empresa}>{empresaCorta(f.empresa)}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{euros(f.importe_esperado)}</td>
-                    <td className="px-2 py-2 text-xs text-muted-foreground"><div className="max-w-[8rem] truncate" title={f.email}>{f.email}</div></td>
+                    <td className="px-2 py-2 text-xs text-muted-foreground"><div className="max-w-[6.5rem] truncate" title={f.email}>{f.email}</div></td>
                     <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">
                       {f.abierto_at ? <>Abierto<br />{diaMes(f.abierto_at)}</> : f.enviado_at ? <>Enviado<br />{diaMes(f.enviado_at)}</> : '—'}
                     </td>
                     <td className="px-2 py-2">
                       <Pildora estado={f.estado} />
+                      {/* El desglose no da su total: se dejó enviar y queda marcada (segunda parte). */}
+                      {f.cuadra === false && f.estado !== 'anulada' && (
+                        // Debajo, como «Pagada»: al lado no cabía la tabla en un portátil.
+                        <div className="mt-0.5">
+                          <span title={`El desglose da ${euros(f.total)}`}
+                            className="rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap bg-warning-soft text-warning-soft-foreground">
+                            No cuadra
+                          </span>
+                        </div>
+                      )}
                       {f.numero_recepcion && (
                         <div className="text-xs text-muted-foreground mt-0.5 whitespace-nowrap">{f.numero_recepcion}<br />{fechaHora(f.subida_at)}</div>
                       )}
                       {f.motivo_anulacion && <div className="text-xs text-muted-foreground mt-0.5">«{f.motivo_anulacion}»</div>}
+                      {/* El pago, que no se mezcla con el estado de la factura (segunda parte). */}
+                      {f.pagada_at && (
+                        <div className="mt-0.5">
+                          <span title={`${f.forma_pago ? FORMA_PAGO_ES[f.forma_pago] : 'Pago'}${f.referencia_pago ? ` · ref. ${f.referencia_pago}` : ''}`}
+                            className="rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap bg-success-soft text-success-soft-foreground">
+                            Pagada {diaDelPago(f.pagada_at)}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{euros(f.importe)}</td>
                     <td className={`px-2 py-2 text-right tabular-nums ${f.diferencia && Number(f.diferencia) !== 0 ? 'text-warning-soft-foreground font-semibold' : ''}`}>
                       {f.diferencia === null ? '—' : euros(f.diferencia)}
                     </td>
                     <td className="px-2 py-2">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end gap-0.5">
                         {f.nombre_original && (
                           <Button variant="ghost" size="sm" className="px-2" title="Ver el archivo" aria-label="Ver el archivo" onClick={() => verArchivo(f)}><FileText size={15} /></Button>
                         )}
@@ -247,7 +345,16 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
                           <Button variant="ghost" size="sm" className="px-2" title="Reenviar el enlace" aria-label="Reenviar el enlace"
                             disabled={reenviando !== null} onClick={() => reenviar(f)}><PaperPlaneTilt size={15} /></Button>
                         )}
-                        {puedeAnular && !f.anulada_at && (
+                        {puedePagar && f.subida_at && !f.anulada_at && !f.pagada_at && (
+                          <Button variant="ghost" size="sm" className="px-2" title="Marcar pagada" aria-label="Marcar pagada" onClick={() => setPagar(f)}><CurrencyEur size={15} /></Button>
+                        )}
+                        {f.pagada_at && f.con_justificante && (
+                          <Button variant="ghost" size="sm" className="px-2" title="Ver el justificante" aria-label="Ver el justificante" onClick={() => verJustificante(f)}><Receipt size={15} /></Button>
+                        )}
+                        {puedePagar && f.pagada_at && (
+                          <Button variant="ghost" size="sm" className="px-2" title="Deshacer el pago" aria-label="Deshacer el pago" onClick={() => setDeshacer(f)}><ArrowCounterClockwise size={15} /></Button>
+                        )}
+                        {puedeAnular && !f.anulada_at && !f.pagada_at && (
                           <Button variant="ghost" size="sm" className="px-2" title="Anular" aria-label="Anular" onClick={() => setAnular(f)}><Prohibit size={15} /></Button>
                         )}
                       </div>
@@ -260,13 +367,27 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
         )}
       </div>
 
+      {/* Con la lista del mes: al anular, pagar o «Actualizar», el coste se vuelve a pedir
+          (antes se quedaba con las cifras viejas, también las de una factura ya anulada). */}
+      <CostePorCampus periodo={periodo} issuerId={issuerId} recargar={vueltas} />
+
       {anular && (
         <AnularDialog facturaId={anular.id} quien={`${anular.colaborador_nombre} · ${anular.empresa}`}
           alCerrar={() => setAnular(null)} alGuardar={() => { setAnular(null); void cargar(); }} />
       )}
+      {pagar && (
+        <PagarDialog facturas={[{ id: pagar.id, quien: `${pagar.colaborador_nombre} · ${empresaCorta(pagar.empresa)}`, importe: pagar.importe }]}
+          alCerrar={() => setPagar(null)} alGuardar={() => { setPagar(null); void cargar(); }} />
+      )}
+      {deshacer && (
+        <DeshacerPagoDialog facturaId={deshacer.id} quien={`${deshacer.colaborador_nombre} · ${empresaCorta(deshacer.empresa)}`}
+          alCerrar={() => setDeshacer(null)} alGuardar={() => { setDeshacer(null); void cargar(); }} />
+      )}
       {registro && (
         <RegistroDialog titulo={`Registro · ${registro.colaborador_nombre} · ${registro.empresa}`}
-          cargar={cargarRegistro} alCerrar={() => setRegistro(null)} />
+          cargar={cargarRegistro} alCerrar={() => setRegistro(null)}
+          // Con desglose (cuadra no es null), arriba del registro (segunda parte).
+          cargarDesglose={registro.cuadra === null ? undefined : cargarDesglose} />
       )}
     </div>
   );
@@ -274,7 +395,7 @@ function DelMes({ empresas }: { empresas: EmpresaDelGrupo[] }) {
 
 /* ─────────────────────────── Colaboradores ─────────────────────────── */
 
-function Colaboradores({ empresas }: { empresas: EmpresaDelGrupo[] }) {
+function Colaboradores({ empresas, empresa }: { empresas: EmpresaDelGrupo[]; empresa: number | null }) {
   const [estado, setEstado] = useState<'activos' | 'de_baja' | 'todos'>('activos');
   const [q, setQ] = useState('');
   const [lista, setLista] = useState<Colaborador[]>([]);
@@ -287,12 +408,13 @@ function Colaboradores({ empresas }: { empresas: EmpresaDelGrupo[] }) {
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const r = await facturasColaboradorApi.colaboradores({ estado, q: q.trim() || undefined });
+      // Con una empresa en la cabecera, solo quienes le facturan.
+      const r = await facturasColaboradorApi.colaboradores({ estado, q: q.trim() || undefined, issuerId: empresa ?? undefined });
       setLista(r.data);
     } catch (err) {
       toast({ title: 'No se pudo cargar la lista', description: errorDe(err), variant: 'destructive' });
     } finally { setCargando(false); }
-  }, [estado, q]);
+  }, [estado, q, empresa]);
 
   useEffect(() => {
     const t = setTimeout(() => { void cargar(); }, 250);
@@ -311,7 +433,7 @@ function Colaboradores({ empresas }: { empresas: EmpresaDelGrupo[] }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="w-64 flex-none">
-          <input aria-label="Buscar por nombre o correo" placeholder="Buscar por nombre o correo" value={q}
+          <input autoComplete="off" aria-label="Buscar por nombre o correo" placeholder="Buscar por nombre o correo" value={q}
             onChange={(e) => setQ(e.target.value)} className={inputClass} />
         </div>
         <div className="w-40 flex-none">
@@ -325,8 +447,15 @@ function Colaboradores({ empresas }: { empresas: EmpresaDelGrupo[] }) {
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         {lista.length === 0 ? (
-          <EmptyState icon={UsersThree} title={cargando ? 'Cargando…' : 'Todavía no hay colaboradores'}
-            description="Da de alta a quien factura al grupo cada mes: soporte, desarrollo, WordPress, SEO, contenido…" />
+          // Si se está buscando o se miran los de baja, no es que no haya ninguno.
+          (q.trim() || estado !== 'activos') ? (
+            <EmptyState icon={UsersThree}
+              title={cargando ? 'Cargando…' : q.trim() ? 'Nadie coincide con la búsqueda' : estado === 'de_baja' ? 'No hay colaboradores de baja' : 'Todavía no hay colaboradores'}
+              description={undefined} />
+          ) : (
+            <EmptyState icon={UsersThree} title={cargando ? 'Cargando…' : 'Todavía no hay colaboradores'}
+              description="Da de alta a quien factura al grupo cada mes: soporte, desarrollo, WordPress, SEO, contenido…" />
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-tabla">
@@ -353,8 +482,8 @@ function Colaboradores({ empresas }: { empresas: EmpresaDelGrupo[] }) {
                     <td className="px-3 py-2">
                       {/* Una baja de un mes que no ha llegado: sigue activo hasta entonces. */}
                       {c.activo && !c.baja_desde && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-success-soft text-success-soft-foreground">Activo</span>}
-                      {c.activo && c.baja_desde && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-warning-soft text-warning-soft-foreground whitespace-nowrap">Activo · baja desde {c.baja_desde}</span>}
-                      {!c.activo && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-destructive-soft text-destructive-soft-foreground whitespace-nowrap">Baja desde {c.baja_desde}</span>}
+                      {c.activo && c.baja_desde && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-warning-soft text-warning-soft-foreground whitespace-nowrap">Activo · baja desde {mesEscrito(c.baja_desde)}</span>}
+                      {!c.activo && <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-destructive-soft text-destructive-soft-foreground whitespace-nowrap">Baja desde {mesEscrito(c.baja_desde)}</span>}
                     </td>
                     <td className="px-3 py-2">
                       {/* Iconos, como en «Del mes»: con la columna Correo, los botones con texto no cabían en un portátil. */}
@@ -380,7 +509,7 @@ function Colaboradores({ empresas }: { empresas: EmpresaDelGrupo[] }) {
       )}
       {baja && <BajaDialog colaborador={baja} alCerrar={() => setBaja(null)} alGuardar={() => { setBaja(null); void cargar(); }} />}
       {vuelve && <AltaDialog colaborador={vuelve} alCerrar={() => setVuelve(null)} alGuardar={() => { setVuelve(null); void cargar(); }} />}
-      {historial && <RegistroDialog titulo={`Historial · ${historial.nombre}`} cargar={cargarHistorial} alCerrar={() => setHistorial(null)} />}
+      {historial && <RegistroDialog titulo={`Historial · ${historial.nombre}`} cargar={cargarHistorial} empresas={empresas} alCerrar={() => setHistorial(null)} />}
     </div>
   );
 }

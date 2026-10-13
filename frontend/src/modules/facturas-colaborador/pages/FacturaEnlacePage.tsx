@@ -38,8 +38,8 @@ export default function FacturaEnlacePage() {
         ) : (
           <SubirFactura
             factura={factura}
-            alSubir={async (archivo, importe, numero) => {
-              const r = await facturasColaboradorApi.subirPorEnlace(token, archivo, importe, numero);
+            alSubir={async (archivo, importe, numero, desglose) => {
+              const r = await facturasColaboradorApi.subirPorEnlace(token, archivo, importe, numero, desglose);
               setFactura(r.data);
             }}
           />
