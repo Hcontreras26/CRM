@@ -242,10 +242,13 @@ export async function marcarUsoDesbloqueo(tokenId) {
  * Comprueba un código para una conexión.
  *
  * Devuelve { resultado } con uno de:
- *   'ok'            desbloqueada; trae `caducaMaxAt`
- *   'incorrecto'    no vale (mal escrito, caducado, usado o de otra persona); trae `quedan`
- *   'bloqueada'     acaba de llegar al tope de fallos; trae `hasta`
- *   'ya_bloqueada'  estaba bloqueada de antes; trae `hasta`
+ *   'ok'               desbloqueada; trae `caducaMaxAt`
+ *   'de_otra_persona'  es un código vigente, pero de OTRA persona: la URL se está
+ *                      usando por quien no es su dueño; trae `urlDe` y `codigoDe`
+ *                      ({ id, nombre }). No suma fallo
+ *   'incorrecto'       no vale (mal escrito, caducado o usado); trae `quedan`
+ *   'bloqueada'        acaba de llegar al tope de fallos; trae `hasta`
+ *   'ya_bloqueada'     estaba bloqueada de antes; trae `hasta`
  *
  * El código se marca usado con un UPDATE ... RETURNING: dos peticiones a la vez
  * con el mismo código no pueden usarlo las dos.
@@ -276,6 +279,38 @@ export async function intentarDesbloqueo({ userId, tokenId, codigo }) {
     );
     await query(`UPDATE mcp_tokens SET fallos_codigo = 0 WHERE id = $1`, [tokenId]);
     return { resultado: 'ok', caducaMaxAt: rows[0].caduca_max_at };
+  }
+
+  // ¿Es un código bueno, pero de OTRA persona? (Diego, 13/10.) La alerta «de
+  // madrugada» de Tony del 13/10 era Yolanda con la URL de Tony en su Claude:
+  // sacó sus propios códigos en el panel y los probó con esa URL, y solo veía
+  // «el código no vale», sin saber por qué. Los códigos son por persona y la URL
+  // también: aquí se le dice de quién es la URL y que use la suya, y se avisa de
+  // que esa URL está compartida.
+  //
+  // NO suma a `fallos_codigo`, y es a propósito. Ese contador está para parar a
+  // quien prueba códigos a ciegas, y esto no lo es: el código existe, está
+  // vigente y lo sacó una persona con acceso al CRM. Sumarlo bloquearía al DUEÑO
+  // de la URL (Tony) 15 minutos por el error de otra persona, que es peor que el
+  // propio error. Tampoco abre la puerta a probar sin límite: un código inventado
+  // no es de nadie y sigue sumando como siempre. Y el código no se gasta: sigue
+  // valiendo para la URL de quien lo sacó, que es justo lo que se le pide hacer.
+  const { rows: [ajeno] } = await query(
+    `SELECT c.user_id AS codigo_de, uc.nombre AS codigo_de_nombre, ut.nombre AS url_de_nombre
+       FROM mcp_codigos c
+       JOIN users uc ON uc.id = c.user_id
+       JOIN users ut ON ut.id = $1
+      WHERE c.codigo_hash = $2 AND c.user_id <> $1
+        AND c.usado_at IS NULL AND c.anulado_at IS NULL AND c.caduca_at > NOW()
+      LIMIT 1`,
+    [userId, huellaCodigo(codigo)]
+  );
+  if (ajeno) {
+    return {
+      resultado: 'de_otra_persona',
+      urlDe: { id: userId, nombre: ajeno.url_de_nombre },
+      codigoDe: { id: ajeno.codigo_de, nombre: ajeno.codigo_de_nombre },
+    };
   }
 
   // Fallo: se suma y, al llegar al tope, se bloquea y se pone el contador a cero.

@@ -5,6 +5,7 @@ import { webhookLeadSchema, listLeadsSchema, quickCountsSchema, revisarLeadSchem
 import * as dupQueue from './dup-queue.service.js';
 import * as leadProducts from './lead-products.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
+import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import { tieneRol } from '../../shared/utils/roles.js';
 import { leadsToWasapiCsv, leadsToWasapiXlsx, detectCountry } from '../../shared/utils/wasapiCsv.js';
 
@@ -306,6 +307,25 @@ export async function getById(req, res, next) {
   } catch (err) { next(err); }
 }
 
+/*
+  «Todos» o una EMPRESA en el Dashboard: la lista de campus en UNA peticion
+  (#224). Antes el navegador pedia stats y today por cada campus —con CEDIA,
+  catorce peticiones— y no pintaba nada hasta que llegaba la ultima.
+
+  Siempre dentro de lo suyo, como `proyectosDelAmbito`: lo que no sea de la
+  persona se cae de la lista, y si no queda ninguno es una lista que no casa
+  con nada, nunca «todos».
+*/
+async function campusPedidos(req) {
+  const ids = String(req.query.projectIds || '').split(',')
+    .map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0);
+  if (!ids.length) return null;
+  if (veTodoElCrm(req.user)) return ids;
+  const mios = await campusDeLaPersona(req.user?.userId);
+  const quedan = ids.filter((id) => mios.includes(id));
+  return quedan.length ? quedan : [-1];
+}
+
 export async function today(req, res, next) {
   try {
     const projectId = req.query.projectId ? parseInt(req.query.projectId) : null;
@@ -313,6 +333,7 @@ export async function today(req, res, next) {
       userId: req.user.userId,
       role: req.user.role,
       projectId: projectId && !isNaN(projectId) ? projectId : null,
+      projectIds: await campusPedidos(req),
     });
     res.json({ success: true, data });
   } catch (err) { next(err); }
@@ -320,8 +341,9 @@ export async function today(req, res, next) {
 
 export async function stats(req, res, next) {
   try {
+    const lista = await campusPedidos(req);
     const projectId = parseInt(req.query.projectId);
-    if (isNaN(projectId)) throw new AppError('projectId requerido', 400, 'MISSING_PROJECT');
+    if (!lista && isNaN(projectId)) throw new AppError('projectId requerido', 400, 'MISSING_PROJECT');
     // Aceptamos los mismos filtros que el listado para que los chips de stats
     // reflejen el subconjunto filtrado, no el total global.
     const opts = {
@@ -334,7 +356,7 @@ export async function stats(req, res, next) {
     };
     // SEGURIDAD: gestor solo ve sus propios stats, ignoramos responsableId del query.
     if (req.user.role === 'gestor') opts.responsableId = req.user.userId;
-    const data = await leadService.getStats(projectId, opts);
+    const data = await leadService.getStats(lista || projectId, opts);
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }
