@@ -335,6 +335,17 @@ const fechaHoraCorreo = (d) => new Date(d).toLocaleString('es-ES', {
   timeZone: zonaCorreos(), day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
 });
 const fechaCorreo = (d) => new Date(d).toLocaleDateString('es-ES', { timeZone: zonaCorreos(), day: 'numeric', month: 'long' });
+/**
+ * «hora de Madrid», para poner junto a las horas (Diego, 13/10): la alerta de
+ * madrugada decía «a las 02:20» sin decir de dónde, y quien la lee puede estar
+ * en otro país. Con otra APP_TIMEZONE, su ciudad («America/Bogota» → «hora de
+ * Bogota»); sin ciudad («UTC»), «hora UTC».
+ */
+const zonaDeLasHoras = () => {
+  const zona = zonaCorreos();
+  if (!zona.includes('/')) return `hora ${zona}`;
+  return `hora de ${zona.split('/').pop().replace(/_/g, ' ')}`;
+};
 const letraPequena = (texto) => plantilla.parrafo(
   `<span style="font-size:13px;line-height:20px;color:#71717a">${plantilla.esc(texto)}</span>`);
 
@@ -420,7 +431,7 @@ export async function sendMcpBloqueoEmail({ para, persona, hasta, maxFallos }) {
     resumen: `${persona.nombre} falló el código ${maxFallos} veces seguidas`,
     bloques: [
       P.parrafo(`La conexión <strong>${P.esc(conexion)}</strong> de <strong>${P.esc(persona.nombre)}</strong> ha fallado el código de desbloqueo <strong>${P.esc(maxFallos)} veces seguidas</strong>.`),
-      P.nota(`Queda bloqueada hasta el <strong>${P.esc(fechaHoraCorreo(hasta))}</strong>: hasta entonces no da datos ni acepta códigos.`),
+      P.nota(`Queda bloqueada hasta el <strong>${P.esc(fechaHoraCorreo(hasta))}</strong> (${P.esc(zonaDeLasHoras())}): hasta entonces no da datos ni acepta códigos.`),
       P.parrafo('Puede ser un despiste. Si no has sido tú, revoca esa URL: alguien podría tenerla.'),
       P.boton({ texto: 'Ir a Conexión → MCP', url: P.enlace('conexion/mcp') }),
     ],
@@ -457,25 +468,62 @@ export async function sendMcpCaducidadEmail({ persona, urls, enlace }) {
 }
 
 /**
+ * «8 consultas, 0 con datos (todas bloqueadas por el código)» (Diego, 13/10).
+ * La alerta de madrugada solo decía «N consultas», y no es lo mismo que Claude
+ * se llevara datos a que el código lo parara todo. Una alerta sin el desglose
+ * (de antes del cambio) se queda en «N consultas».
+ */
+function consultasDeMadrugada(d) {
+  const n = Number(d.consultas) || 0;
+  const consultas = `${n} consulta${n === 1 ? '' : 's'}`;
+  if (d.con_datos === undefined || d.con_datos === null) return consultas;
+  const datos = Number(d.con_datos) || 0;
+  const bloqueadas = Number(d.bloqueadas) || 0;
+  const desbloqueos = Number(d.desbloqueos) || 0;
+  const sin = n - datos;
+  if (sin <= 0) return n === 1 ? `${consultas}, con datos` : `${consultas}, todas con datos`;
+  const base = `${consultas}, ${datos} con datos`;
+  if (bloqueadas === sin) {
+    if (datos === 0) return `${base} (${n === 1 ? 'bloqueada' : 'todas bloqueadas'} por el código)`;
+    return `${base} (${sin === 1 ? 'la otra, bloqueada' : `las otras ${sin}, bloqueadas`} por el código)`;
+  }
+  const resto = [];
+  if (bloqueadas) resto.push(`${bloqueadas} bloqueada${bloqueadas === 1 ? '' : 's'} por el código`);
+  if (desbloqueos) resto.push(`${desbloqueos} para desbloquear`);
+  const otras = sin - bloqueadas - desbloqueos;
+  if (otras > 0) resto.push(`${otras} con otro error`);
+  return `${base} (${resto.join(', ')})`;
+}
+
+/**
  * MCP de Claude (#195): las alertas de una vuelta, todas en un correo, para
- * quien vigila (MCP_AVISO_EMAIL o los super admin).
+ * quien vigila (MCP_AVISO_EMAIL o los super admin). También la de URL
+ * compartida (Diego, 13/10), que sale sola y en el momento.
  */
 export async function sendMcpAlertasEmail({ para, alertas, enlace }) {
   const P = plantilla;
   const hora = (d) => new Date(d).toLocaleString('es-ES', { timeZone: zonaCorreos(), day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  // Diego, 13/10: cada hora, con su zona («hora de Madrid»).
+  const zona = P.esc(zonaDeLasHoras());
   const TITULOS = {
     rafaga: 'Ráfaga de consultas', ip_nueva: 'Red nueva', cliente_nuevo: 'Cliente nuevo',
-    fallos_desbloqueo: 'Fallos de desbloqueo', madrugada: 'De madrugada',
+    fallos_desbloqueo: 'Fallos de desbloqueo', madrugada: 'De madrugada', url_compartida: 'URL compartida',
   };
   const texto = (a) => {
     const quien = `<strong>${P.esc(a.persona.nombre)}</strong>${a.persona.email ? ` (${P.esc(a.persona.email)})` : ''}`;
     const d = a.detalle || {};
     switch (a.tipo) {
-      case 'rafaga': return `${quien} hizo ${P.esc(d.consultas)} consultas en ${P.esc(d.minutos)} minutos (hasta las ${P.esc(hora(d.hasta))}).`;
+      case 'rafaga': return `${quien} hizo ${P.esc(d.consultas)} consultas en ${P.esc(d.minutos)} minutos (hasta las ${P.esc(hora(d.hasta))}, ${zona}).`;
       case 'ip_nueva': return `${quien} consultó desde ${P.esc(d.red)} (${P.esc((d.ips || []).join(', '))}), desde donde no lo había hecho antes.`;
       case 'cliente_nuevo': return `${quien} consultó con «${P.esc(d.cliente)}», que no había usado antes.`;
       case 'fallos_desbloqueo': return `${quien} falló el código ${P.esc(d.fallos)} veces en la última hora.`;
-      case 'madrugada': return `${quien} hizo ${P.esc(d.consultas)} consultas entre las ${P.esc(hora(d.primera))} y las ${P.esc(hora(d.ultima))} (franja ${P.esc(d.franja)}).`;
+      case 'madrugada': return `${quien} hizo ${P.esc(consultasDeMadrugada(d))}, entre las ${P.esc(hora(d.primera))} y las ${P.esc(hora(d.ultima))} (${zona}; franja ${P.esc(d.franja)}).`;
+      case 'url_compartida': {
+        const url = d.conexion ? `<strong>${P.esc(d.conexion)}</strong>${d.prefijo ? ` (${P.esc(d.prefijo)}…)` : ''}` : 'la URL del MCP';
+        const otra = `<strong>${P.esc(d.usada_por)}</strong>${d.usada_por_email ? ` (${P.esc(d.usada_por_email)})` : ''}`;
+        return `La URL ${url} de ${quien} la está usando ${otra}: a las ${P.esc(hora(d.cuando))} (${zona}) probó en ella un código de desbloqueo suyo. `
+          + 'No vale (un código solo sirve con la URL de quien lo sacó) y no cuenta como fallo. A su Claude se le ha dicho que use su propia URL.';
+      }
       default: return quien;
     }
   };

@@ -18,7 +18,10 @@ import jwt from 'jsonwebtoken';
  */
 
 // El correo de bloqueo no sale de verdad: se comprueba que se pide.
-const correos = vi.hoisted(() => ({ sendMcpBloqueoEmail: vi.fn(async () => ({ sent: true })) }));
+const correos = vi.hoisted(() => ({
+  sendMcpBloqueoEmail: vi.fn(async () => ({ sent: true })),
+  sendMcpAlertasEmail: vi.fn(async () => ({ sent: true })),
+}));
 vi.mock('../src/shared/services/brevo.service.js', async (original) => ({ ...(await original()), ...correos }));
 
 const { default: pool } = await import('../src/shared/config/db.js');
@@ -85,6 +88,7 @@ beforeAll(async () => {
 }, 60000);
 
 afterAll(async () => {
+  await q(`DELETE FROM mcp_alertas WHERE user_id = ANY($1::int[])`, [ids.users]);
   await q(`DELETE FROM mcp_auditoria WHERE user_id = ANY($1::int[])`, [ids.users]);
   await q(`DELETE FROM mcp_tokens WHERE connector_id IN (SELECT id FROM project_connectors WHERE project_id = ANY($1::int[]))`, [ids.projects]);
   await q(`DELETE FROM project_connectors WHERE project_id = ANY($1::int[])`, [ids.projects]);
@@ -100,6 +104,7 @@ afterAll(async () => {
 beforeEach(() => {
   process.env.MCP_CODIGO_OBLIGATORIO = 'true';
   correos.sendMcpBloqueoEmail.mockClear();
+  correos.sendMcpAlertasEmail.mockClear();
 });
 
 const tokenIdDe = async (tok) => (await q(
@@ -201,9 +206,19 @@ describe('el código', () => {
     expect((await llamar(TOKEN_ANA_2, 'desbloquear', { codigo: nuevo })).ok).toBe(true);
   });
 
-  it('el código de otra persona no vale', async () => {
+  it('el código de otra persona no vale, y lo dice (Diego, 13/10): no suma fallo y avisa', async () => {
     const deAna = await pedirCodigo(ANA);
-    expect((await llamar(TOKEN_LUIS, 'desbloquear', { codigo: deAna })).ok).toBe(false);
+    const r = await llamar(TOKEN_LUIS, 'desbloquear', { codigo: deAna });
+    expect(r.ok).toBe(false);
+    expect(r.texto).toContain(`esta URL del MCP es de ${MARCA} LUIS; usa tu propia URL`);
+    const [t] = await q(`SELECT fallos_codigo FROM mcp_tokens WHERE id = $1`, [await tokenIdDe(TOKEN_LUIS)]);
+    expect(t.fallos_codigo).toBe(0);
+    await vi.waitFor(async () => {
+      const [a] = await q(`SELECT detalle FROM mcp_alertas WHERE tipo = 'url_compartida' AND user_id = $1`, [LUIS.id]);
+      expect(a.detalle.usada_por_id).toBe(ANA.id);
+    });
+    // Y el código no se gasta: sigue valiendo para la URL de Ana.
+    expect((await llamar(TOKEN_ANA_2, 'desbloquear', { codigo: deAna })).ok).toBe(true);
   });
 
   it('nunca se guarda el código en la auditoría', async () => {
@@ -242,8 +257,8 @@ describe('caducidad del desbloqueo', () => {
 });
 
 describe('se bloquea al quinto fallo', () => {
-  // Una conexión nueva: la de antes ya lleva un fallo (el código de Ana), y los
-  // fallos se acumulan hasta acertar.
+  // Una conexión nueva, para contar los fallos desde cero (se acumulan hasta
+  // acertar). El código de Ana en la URL de Luis ya no suma (Diego, 13/10).
   let TOKEN_FALLOS;
   beforeAll(async () => { TOKEN_FALLOS = (await token(LUIS, 'Para fallar')).token; });
 
