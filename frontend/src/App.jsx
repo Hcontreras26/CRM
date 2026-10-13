@@ -171,7 +171,11 @@ const SuiteDashCrmPreviewPage = IS_TESTEO2_BASE ? lazy(() => import('./modules/s
 // misma puerta que las demas pantallas de previsualizacion —desarrollo y
 // /testeo—, que es donde hay que poder mirarlo. En produccion sigue fuera, y
 // Vite elimina la rama entera al construir.
-const DevComponentsPage = UI_PREVIEW_ENABLED
+//
+// Y en /testeo2: el menú enseña «Las 22 primitivas» allí también (`previewOnly`
+// mira /testeo2), y sin la ruta la entrada acababa en «Página no encontrada»
+// (#226). Sigue sin entrar en producción.
+const DevComponentsPage = (UI_PREVIEW_ENABLED || IS_TESTEO2_BASE)
   ? lazy(() => import('./modules/dev/pages/DevComponentsPage'))
   : null;
 

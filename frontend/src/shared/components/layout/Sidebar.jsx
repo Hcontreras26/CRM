@@ -91,7 +91,12 @@ const IS_REDESIGN_NAV_ENABLED = import.meta.env.DEV
 // Quién tiene tablero de tareas: el mismo `ROLES_TAREAS` que el backend.
 const ROLES_TAREAS = ['superadmin', 'admin', 'colaborador'];
 
-const NAV_SECTIONS = [
+// Ninguna entrada puede llevar a «Página no encontrada» (#226). Diego, 10/10:
+// lo que no existe se marca «Próximamente» (sin enlace, `comingSoon: true`); lo
+// que existe, que funcione y esté en el menú. Lo vigila
+// `test/menuSinRutasRotas.test.jsx`: cada `to` tiene su <Route> en App.jsx, o
+// lleva `comingSoon`. Las de `href` salen a otra compilación y no cuentan.
+export const NAV_SECTIONS = [
   {
     label: 'Testeo',
     icon: Flask,
@@ -216,7 +221,10 @@ const NAV_SECTIONS = [
     icon: Megaphone,
     items: [
       { label: 'Meta Ads', to: '/meta-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'] },
-      { label: 'Google Ads', to: '/google-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], comingSoon: true, statusTag: 'Próx.' },
+      // `comingSoon` no hacía nada aquí: el menú solo miraba la lista de la beta,
+      // así que fuera de ella Google Ads era un enlace a /google-ads, que no
+      // tiene pantalla, y acababa en «Página no encontrada» (#226).
+      { label: 'Google Ads', to: '/google-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], comingSoon: true },
     ],
   },
   {
@@ -494,10 +502,47 @@ function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permi
   return true;
 }
 
+/**
+ * Una entrada del menú que todavía no lleva a ninguna parte (#226).
+ *
+ * Diego, 10/10: lo que no existe, «Próximamente» y sin enlace. Es un <div> y
+ * no un enlace: no navega, el tabulador no se para en ella y no hay forma de
+ * acabar en «Página no encontrada». La etiqueta dice siempre «Próximamente»:
+ * antes salía «Próx.» o el `statusTag` —«Pruebas»—, y «Pruebas» es otra cosa,
+ * esa SÍ se abre.
+ *
+ * El mismo aspecto que en CRM-ISEIE. `compacta` es la de dentro de un grupo,
+ * que va sin icono y en letra más pequeña, como sus hermanas.
+ */
+export function EntradaProximamente({ label, icon: Icon, collapsed = false, compacta = false }) {
+  return (
+    <div
+      aria-disabled="true"
+      data-proximamente=""
+      title={`${label} — Próximamente`}
+      aria-label={`${label} — Próximamente`}
+      className={cn(
+        'relative flex items-center text-muted-foreground/50 cursor-not-allowed select-none',
+        compacta ? 'gap-2 px-3 py-1.5 rounded-lg text-[12px]' : 'rounded-md text-[13px]',
+        !compacta && (collapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-1.5'),
+      )}
+    >
+      {!compacta && Icon && <Icon size={18} weight="regular" />}
+      {!collapsed && (
+        <>
+          <span className="truncate">{label}</span>
+          <span className="ml-auto text-[9px] uppercase tracking-wider bg-muted/60 text-muted-foreground/70 px-1.5 py-0.5 rounded">Próximamente</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, projectType, soloColab, permisos, labelOverrides, onNavigate, collapsed, onExpandSidebar }) {
   const visible = children
     .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos))  // `role` ya llega como lista
-    .map((c) => ({ ...c, comingSoon: !isBetaAllowed(c.to) }));
+    // Lo marcado en el propio menú cuenta, no solo la lista de la beta (#226).
+    .map((c) => ({ ...c, comingSoon: c.comingSoon || !isBetaAllowed(c.to) }));
   const location = useLocation();
   const hasActiveChild = visible.some((c) => !c.comingSoon && (location.pathname === c.to || location.pathname.startsWith(c.to + '/')));
   // En BETA: si TODO el grupo está coming-soon lo mantenemos visible (deshabilitado)
@@ -546,14 +591,7 @@ function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, pro
         <div className="ml-4 mt-0.5 pl-4 border-l border-border space-y-0.5">
           {visible.map((child) => (
             child.comingSoon ? (
-              <div
-                key={child.to}
-                title={child.statusTag ? `${applyLabel(child.label, labelOverrides)} — ${child.statusTag}` : 'Próximamente'}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] text-muted-foreground/50 cursor-not-allowed select-none"
-              >
-                <span className="truncate">{applyLabel(child.label, labelOverrides)}</span>
-                <span className="ml-auto text-[9px] uppercase tracking-wider bg-muted/60 text-muted-foreground/70 px-1.5 py-0.5 rounded">{child.statusTag || 'Próximamente'}</span>
-              </div>
+              <EntradaProximamente key={child.to} label={applyLabel(child.label, labelOverrides)} compacta />
             ) : (
               <NavLink
                 key={child.to}
@@ -665,29 +703,15 @@ function ExternalPanelItem({ panel, collapsed, onClick }) {
  */
 const MOSTRAR_SUBTITULOS = import.meta.env.MODE !== 'production';
 
-function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, onClick, collapsed, featured }) {
+// Exportada para la prueba del menú (#226): una entrada marcada no puede ser un enlace.
+export function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, onClick, collapsed, featured, comingSoon: marcadaProximamente }) {
   const displayLabel = applyLabel(label, labelOverrides);
   const location = useLocation();
-  const comingSoon = !href && !isBetaAllowed(to);
+  // La marca del propio menú (`comingSoon: true`) o la lista de la beta. Antes
+  // solo contaba la beta, y Google Ads, marcada, seguía siendo un enlace (#226).
+  const comingSoon = !href && (marcadaProximamente || !isBetaAllowed(to));
   if (comingSoon) {
-    return (
-      <div
-        title={`${displayLabel} — Próximamente`}
-        aria-label={`${displayLabel} — Próximamente`}
-        className={cn(
-          'relative flex items-center rounded-md text-[13px] text-muted-foreground/50 cursor-not-allowed select-none',
-          collapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-1.5'
-        )}
-      >
-        <Icon size={18} weight="regular" />
-        {!collapsed && (
-          <>
-            <span className="truncate">{displayLabel}</span>
-            <span className="ml-auto text-[9px] uppercase tracking-wider bg-muted/60 text-muted-foreground/70 px-1.5 py-0.5 rounded">Próximamente</span>
-          </>
-        )}
-      </div>
-    );
+    return <EntradaProximamente label={displayLabel} icon={Icon} collapsed={collapsed} />;
   }
   if (href) {
     const hrefPath = href.replace(/\/$/, '');
