@@ -5,6 +5,7 @@ import { HERRAMIENTAS } from './mcp.tools.js';
 import * as model from './mcp.model.js';
 import { z } from 'zod';
 import * as desbloqueo from './mcp.desbloqueo.js';
+import * as alertas from './mcp.alertas.js';
 import { protegerDatos, recortarFilas } from './mcp.privacidad.js';
 import { MENSAJE_APAGADO } from './mcp.interruptor.js';
 
@@ -170,6 +171,17 @@ function registrarDesbloquear(server, { ambito, tokenId, origen }) {
           return { content: [{ type: 'text', text:
             `Desbloqueado. Ya puedes consultar el CRM. Se vuelve a bloquear tras ${inactividadMin / 60} h sin uso `
             + `o, como muy tarde, a las ${horaLocal(r.caducaMaxAt)}.` }] };
+        }
+        if (r.resultado === 'de_otra_persona') {
+          // Diego, 13/10: un error propio, para que Claude sepa qué decir, y
+          // la alerta de «URL compartida» a quien vigila. No cuenta como fallo.
+          error = 'CODIGO_DE_OTRA_PERSONA';
+          alertas.alertarUrlCompartida({ tokenId, urlDe: r.urlDe, usadaPor: r.codigoDe });
+          return { isError: true, content: [{ type: 'text', text:
+            `Ese código es de otra persona: esta URL del MCP es de ${r.urlDe.nombre}; usa tu propia URL. `
+            + 'Cada persona tiene su URL y sus códigos, y un código solo vale con la URL de quien lo sacó. '
+            + 'Pide a la persona que conecte su Claude con SU URL (CRM → Conexión → MCP; la pone en Claude, en Configuración → Conectores) '
+            + 'y use allí su código. Este intento no cuenta como fallo.' }] };
         }
         if (r.resultado === 'incorrecto') {
           error = 'CODIGO_INCORRECTO';
