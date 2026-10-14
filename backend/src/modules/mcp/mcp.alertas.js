@@ -57,6 +57,9 @@ export const ERROR_CODIGO_DE_OTRA_PERSONA = 'CODIGO_DE_OTRA_PERSONA';
 export const BARRERA_DEL_CODIGO = [
   'Esta conexión con el CRM necesita desbloquearse',
   'Esta conexión está bloqueada hasta',
+  // #326: un Claude conectado que el dueño aún no ha autorizado, o que rechazó.
+  'Esta conexión de Claude está pendiente de autorizar',
+  'El dueño de esta URL ha rechazado esta conexión',
 ];
 
 /** «160.79.106.175» → «160.79.106.*»; IPv6, los tres primeros grupos. */
@@ -203,7 +206,8 @@ async function madrugada(cfg, ultimo, max) {
             to_char(MIN(a.created_at AT TIME ZONE '${TZ()}'), 'YYYY-MM-DD') AS noche
        FROM mcp_auditoria a
       WHERE a.id > $1 AND a.id <= $2 AND a.user_id IS NOT NULL
-        AND a.herramienta <> 'desbloquear_panel'
+        -- Clics en el panel, no consultas de Claude (#326: autorizar o rechazar un Claude).
+        AND a.herramienta NOT IN ('desbloquear_panel', 'conexion_autorizada', 'conexion_rechazada')
         -- «0-6» es de 0 a 6; «22-6» cruza la medianoche: de 22 a 24 O de 0 a 6.
         AND (CASE WHEN $3::int < $4::int
                   THEN EXTRACT(HOUR FROM a.created_at AT TIME ZONE '${TZ()}') >= $3::int

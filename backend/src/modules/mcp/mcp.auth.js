@@ -1,5 +1,7 @@
 import { construirAmbito, huella, pareceToken, puedeUsarMcp } from './mcp.acceso.js';
 import * as model from './mcp.model.js';
+import * as conexiones from './mcp.conexiones.js';
+import * as desbloqueo from './mcp.desbloqueo.js';
 
 /**
  * La puerta del MCP: el token personal, de una de estas dos formas:
@@ -40,11 +42,38 @@ export function urlPersonal(req, _res, next) {
   next();
 }
 
+/**
+ * 401 que hace que Claude se conecte (#326): con la dirección de los datos del
+ * recurso, claude.ai y Claude Desktop abren el inicio de sesión (mcp.oauth.js)
+ * y vuelven con la llave de SU conexión. Probado el 13/10 con Claude Desktop.
+ */
+function pedirConexion(req, res, mensaje) {
+  if (req.mcpTokenDeUrl) {
+    const prefijo = String(req.get('x-forwarded-prefix') || '').replace(/\/+$/, '');
+    const datos = `${req.protocol}://${req.get('host')}/.well-known/oauth-protected-resource${prefijo}/api/mcp/u/${req.mcpTokenDeUrl}`;
+    res.set('WWW-Authenticate', `Bearer realm="crm-mcp", resource_metadata="${datos}"`);
+  } else {
+    res.set('WWW-Authenticate', 'Bearer realm="crm-mcp"');
+  }
+  return rechazar(res, 401, mensaje);
+}
+
 export async function verificarTokenMcp(req, res, next) {
   try {
     const cabecera = req.headers.authorization || '';
-    const token = req.mcpTokenDeUrl
-      || (cabecera.startsWith('Bearer ') ? cabecera.slice(7).trim() : null);
+    const bearer = cabecera.startsWith('Bearer ') ? cabecera.slice(7).trim() : null;
+
+    // Un Claude conectado por el inicio de sesión trae la llave de SU conexión
+    // (#326). Tiene que ser de esta misma URL y la URL tiene que seguir viva.
+    if (conexiones.pareceLlaveDeConexion(bearer)) {
+      const c = await conexiones.buscarPorLlave(bearer);
+      if (!c || (req.mcpTokenDeUrl && huella(req.mcpTokenDeUrl) !== c.token_hash)) {
+        return pedirConexion(req, res, 'Esta conexión de Claude ya no vale: la URL se anuló o caducó. Vuelve a conectar Claude con tu URL del CRM.');
+      }
+      return seguir(req, res, next, { token_id: c.token_id, user_id: c.user_id, connector_id: c.connector_id }, c);
+    }
+
+    const token = req.mcpTokenDeUrl || bearer;
     if (!pareceToken(token)) {
       res.set('WWW-Authenticate', 'Bearer realm="crm-mcp"');
       return rechazar(res, 401, req.mcpTokenDeUrl
@@ -58,6 +87,23 @@ export async function verificarTokenMcp(req, res, next) {
       return rechazar(res, 401, 'Token MCP no válido, caducado o revocado.');
     }
 
+    // Con el código obligatorio, la llave de la URL sola ya no da datos (#326):
+    // si no, quien tenga la URL entraría con el desbloqueo de su dueño. Claude
+    // tiene que conectarse y que el dueño autorice esa conexión.
+    if (desbloqueo.config().obligatorio) {
+      return pedirConexion(req, res, req.mcpTokenDeUrl
+        ? 'Conéctate primero: Claude tiene que iniciar sesión con esta URL y el dueño autorizar la conexión en el CRM → Conexión → MCP.'
+        : 'Usa tu URL personal del CRM (Conexión → MCP) en el conector de Claude: la llave sola ya no da datos.');
+    }
+    return seguir(req, res, next, vivo, null);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Lo común: la persona sigue activa y con acceso, y su ámbito de hoy. */
+async function seguir(req, res, next, vivo, conexion) {
+  try {
     const user = await model.findUserById(vivo.user_id);
     if (!puedeUsarMcp(user)) {
       return rechazar(res, 403, 'Tu usuario no tiene acceso al MCP del CRM.');
@@ -73,7 +119,8 @@ export async function verificarTokenMcp(req, res, next) {
       if (limite.ids) proyectos = proyectos.filter((p) => limite.ids.includes(Number(p.id)));
     }
     const origen = { ip: req.ip, cliente: req.headers['user-agent'] || null };
-    req.mcp = { ambito: construirAmbito(user, proyectos), tokenId: vivo.token_id, origen };
+    req.mcp = { ambito: construirAmbito(user, proyectos), tokenId: vivo.token_id, conexion, origen };
+    if (conexion) conexiones.marcarUso(conexion.id).catch(() => {});
     // Desde dónde (#194). req.ip ya viene del X-Forwarded-For de nginx
     // (`trust proxy`); el cliente es el User-Agent: «Claude-User» desde
     // Claude Desktop o claude.ai, «claude-code/…» desde Claude Code.
