@@ -3,7 +3,7 @@ import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
 import { veTodoElCrm } from '../../shared/utils/ambito.js';
 import { listarEmisionesSchema, decisionesSchema, emitirSchema, cursosSchema, mensajeDeValidacion } from './certifex.validation.js';
-import { config, urlPublica, certifex, recorrer } from './certifex.cliente.js';
+import { config, urlPublica, direccionPublica, certifex, recorrer } from './certifex.cliente.js';
 import { alcanceDe, centrosPermitidos, acotar, exigirCentro, exigirMatriculas, exigirExpedientes } from './certifex.alcance.js';
 import { datosPara, emitirMatriculas } from './certifex.emision.js';
 
@@ -54,7 +54,10 @@ export async function estado(req, res, next) {
     }
     const alcance = await centrosPermitidos(req.user, yo.centros);
     const centros = alcance && Array.isArray(yo.centros) ? yo.centros.filter((c) => alcance.has(String(c).toUpperCase())) : yo.centros;
-    res.json({ success: true, data: { conectado: true, nombre: yo.nombre, centros, urlPublica: urlPublica() } });
+    // Un enlace local no llega a la pantalla: sin direccion publica, urlPublica va a null
+    // y el panel dice por que (Certifex#96).
+    const dir = direccionPublica(yo);
+    res.json({ success: true, data: { conectado: true, nombre: yo.nombre, centros, urlPublica: dir.url, direccionPublica: { ok: dir.ok, motivos: dir.motivos } } });
   } catch (err) { next(err); }
 }
 

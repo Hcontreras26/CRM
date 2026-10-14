@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { MagnifyingGlass } from '@phosphor-icons/react';
+import { LinkBreak, MagnifyingGlass } from '@phosphor-icons/react';
 import StatusDot from '@/shared/components/ui/StatusDot';
 import { cn } from '@/shared/lib/utils';
-import { emisionesApi, type CampusCertifex, type Candidato } from '../api/certifex.api';
+import { emisionesApi, type CampusCertifex, type Candidato, type ConexionCertifex } from '../api/certifex.api';
 
 /**
  * Piezas de Certifex compartidas entre Emisiones y Diplomas: el logo de cada campus,
@@ -176,3 +176,25 @@ export function Buscador({ id, valor, alCambiar, placeholder, autoFocus }: { id:
   );
 }
 
+/**
+ * Aviso de que los enlaces a Certifex no abrirían desde fuera (Certifex#96): el 12/10, el
+ * Certifex de pruebas escuchaba en 127.0.0.1 y «Ver diploma» llevaba a una página que no
+ * abre. Ver el PDF sigue funcionando (lo trae el servidor del CRM); lo que no sale es
+ * el enlace directo, ni el aviso al alumno, que lo llevaría.
+ */
+export function AvisoDireccionPublica({ conexion }: { conexion: ConexionCertifex | null }) {
+  const d = conexion?.conectado ? conexion.direccionPublica : undefined;
+  if (!d || d.ok) return null;
+  return (
+    <div role="status" className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground">
+      <LinkBreak size={18} weight="bold" className="mt-0.5 flex-none" aria-hidden />
+      <div>
+        <p className="font-medium">Los enlaces a Certifex no abren desde fuera</p>
+        <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-xs">
+          {d.motivos.map((m) => <li key={m}>{m}</li>)}
+        </ul>
+        <p className="mt-1 text-xs">Mientras tanto no se enseñan enlaces directos ni salen avisos al alumno. «Ver PDF» sí funciona.</p>
+      </div>
+    </div>
+  );
+}

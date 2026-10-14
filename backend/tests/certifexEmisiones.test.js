@@ -67,7 +67,10 @@ describe('conexion', () => {
     respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE', 'ISEIH'] } });
     const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
     expect(r.status).toBe(200);
-    expect(r.body.data).toEqual({ conectado: true, nombre: 'CRM', centros: ['ISEIE', 'ISEIH'], urlPublica: 'https://certifex.test' });
+    expect(r.body.data).toEqual({
+      conectado: true, nombre: 'CRM', centros: ['ISEIE', 'ISEIH'], urlPublica: 'https://certifex.test',
+      direccionPublica: { ok: true, motivos: [] },
+    });
     expect(JSON.stringify(r.body)).not.toContain(CLAVE);
     // La clave va en la cabecera, y la URL se monta bien aunque acabe en barra.
     expect(pedidas[0].url).toBe('https://certifex.test/api/crm/v1/yo');
@@ -278,6 +281,52 @@ describe('ver el titulo emitido', () => {
     respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE'] } });
     const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
     expect(r.body.data.urlPublica).toBe('https://certifex.test');
+  });
+});
+
+describe('nunca un enlace local (Certifex#96)', () => {
+  // El 12/10 el Certifex de pruebas escuchaba en 127.0.0.1:3017: «Ver diploma» llevaba a una
+  // pagina que no abre. Desde el servidor si vale (el PDF se trae por aqui); enlazarlo, no.
+  const conEntorno = async (vars, fn) => {
+    const antes = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, vars);
+    try { await fn(); } finally {
+      for (const [k, v] of Object.entries(antes)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    }
+  };
+
+  it('si el CRM enlaza Certifex en una direccion local, no la da y dice por que', async () => {
+    respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE'] } });
+    await conEntorno({ CERTIFEX_PUBLICO_URL: 'http://127.0.0.1:3017', NODE_ENV: 'production' }, async () => {
+      const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
+      expect(r.body.data.urlPublica).toBeNull();
+      expect(r.body.data.direccionPublica.ok).toBe(false);
+      expect(r.body.data.direccionPublica.motivos.join(' ')).toMatch(/127.0.0.1:3017.*CERTIFEX_PUBLICO_URL/);
+    });
+  });
+
+  it('si es Certifex el que no tiene direccion publica, se pasa su motivo', async () => {
+    respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE'], direccionPublica: { ok: false, base: null, motivo: 'La dirección pública de Certifex (VERIFICAR_BASE_URL) es local.' } } });
+    const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
+    expect(r.body.data.urlPublica).toBe('https://certifex.test');
+    expect(r.body.data.direccionPublica).toEqual({ ok: false, motivos: ['La dirección pública de Certifex (VERIFICAR_BASE_URL) es local.'] });
+  });
+
+  it('en desarrollo, localhost vale', async () => {
+    respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE'] } });
+    await conEntorno({ CERTIFEX_PUBLICO_URL: 'http://localhost:8787', NODE_ENV: 'development' }, async () => {
+      const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
+      expect(r.body.data.urlPublica).toBe('http://localhost:8787');
+      expect(r.body.data.direccionPublica.ok).toBe(true);
+    });
+  });
+
+  it('reconoce las direcciones que solo abren desde el servidor', async () => {
+    const { esDireccionLocal } = await import('../src/modules/certifex/certifex.cliente.js');
+    for (const u of ['http://localhost:8787', 'http://127.0.0.1:3017', 'http://10.1.2.3', 'http://192.168.0.9', 'http://172.18.0.2:80', 'http://[::1]:3000', 'no-es-url']) {
+      expect(esDireccionLocal(u), u).toBe(true);
+    }
+    for (const u of ['https://certifex.tech', 'http://72.60.90.135', 'https://172.32.0.1']) expect(esDireccionLocal(u), u).toBe(false);
   });
 });
 
