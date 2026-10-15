@@ -22,8 +22,18 @@ const model = {
 };
 vi.mock('../src/modules/mcp/mcp.model.js', () => model);
 
+// #326: `/token` ya no devuelve la llave de la URL, sino la de una conexión
+// nueva de ese Claude (pendiente hasta que el dueño la autoriza).
+const LLAVE_CONEXION = `crm_mcc_${'c'.repeat(43)}`;
+const LLAVE_RENOVADA = `crm_mcc_${'d'.repeat(43)}`;
+const conexiones = {
+  crear: vi.fn(async () => ({ id: 9, llave: LLAVE_CONEXION, estado: 'pendiente' })),
+  renovarLlave: vi.fn(async (id) => (id === 9 ? { id: 9, llave: LLAVE_RENOVADA } : null)),
+};
+vi.mock('../src/modules/mcp/mcp.conexiones.js', () => conexiones);
+
 const { huella } = await import('../src/modules/mcp/mcp.acceso.js');
-const { default: oauth, secretoDe, vueltaPermitida } = await import('../src/modules/mcp/mcp.oauth.js');
+const { default: oauth, secretoDe, vueltaPermitida, sellar } = await import('../src/modules/mcp/mcp.oauth.js');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -37,6 +47,8 @@ const verificador = crypto.randomBytes(32).toString('base64url');
 const reto = crypto.createHash('sha256').update(verificador).digest('base64url');
 
 beforeEach(() => {
+  conexiones.crear.mockClear();
+  conexiones.renovarLlave.mockClear();
   model.findTokenVivo.mockReset();
   model.findUserById.mockReset();
   model.findTokenVivo.mockImplementation(async (h) => (h === huella(LLAVE) ? { token_id: 7, user_id: 2, connector_id: null } : null));
@@ -91,14 +103,34 @@ describe('el recorrido entero', () => {
       grant_type: 'authorization_code', code: codigo, code_verifier: verificador, redirect_uri: VUELTA, client_id: 'crm-x',
     });
     expect(t.status).toBe(200);
-    expect(t.body.access_token).toBe(LLAVE);
+    // #326: la llave de una conexión nueva de este Claude, nunca la de la URL.
+    expect(t.body.access_token).toBe(LLAVE_CONEXION);
+    expect(t.body.access_token).not.toBe(LLAVE);
+    expect(conexiones.crear).toHaveBeenCalledWith({ secreto: LLAVE, vuelta: VUELTA });
     expect(t.body.token_type).toBe('Bearer');
 
-    // Y el refresco devuelve la misma llave mientras siga viva.
+    // Y el refresco da la llave de ESA conexión (la misma, ver mcp.conexiones.js) mientras la URL siga viva.
     const r = await request(app).post('/api/mcp/oauth/token').type('form').send({
       grant_type: 'refresh_token', refresh_token: t.body.refresh_token,
     });
-    expect(r.body.access_token).toBe(LLAVE);
+    expect(r.body.access_token).toBe(LLAVE_RENOVADA);
+    expect(conexiones.renovarLlave).toHaveBeenCalledWith(9);
+    expect(conexiones.crear).toHaveBeenCalledTimes(1);
+  });
+
+  it('un refresco de antes de la #326 (sin conexión) crea una conexión nueva, que queda pendiente', async () => {
+    const viejo = sellar({ t: 'refresco', s: LLAVE, exp: Date.now() + 60000 });
+    const r = await request(app).post('/api/mcp/oauth/token').type('form').send({ grant_type: 'refresh_token', refresh_token: viejo });
+    expect(r.status).toBe(200);
+    expect(r.body.access_token).toBe(LLAVE_CONEXION);
+    expect(conexiones.crear).toHaveBeenCalledWith({ secreto: LLAVE, vuelta: '' });
+  });
+
+  it('el refresco de una conexión que ya no existe: hay que volver a conectar', async () => {
+    const huerfano = sellar({ t: 'refresco', s: LLAVE, x: 99, exp: Date.now() + 60000 });
+    const r = await request(app).post('/api/mcp/oauth/token').type('form').send({ grant_type: 'refresh_token', refresh_token: huerfano });
+    expect(r.status).toBe(400);
+    expect(r.body.error).toBe('invalid_grant');
   });
 
   it('sin el verificador PKCE correcto no se canjea', async () => {
