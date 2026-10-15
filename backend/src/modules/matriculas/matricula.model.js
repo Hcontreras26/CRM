@@ -136,6 +136,18 @@ export async function remove(id) {
   await query(`DELETE FROM matriculas WHERE id = $1`, [id]);
 }
 
+/** Los cursos que hay en el ámbito, para el filtro «Curso» de la pantalla (#199). */
+export async function getCursos({ projectId, projectIds = null }) {
+  const params = [];
+  const where = alcance(projectId, projectIds, params);
+  const { rows } = await query(
+    `SELECT DISTINCT ${CURSO} AS curso
+       FROM matriculas m LEFT JOIN conversions c ON c.id = m.conversion_id
+      WHERE ${where} AND ${CURSO} IS NOT NULL
+      ORDER BY 1`, params);
+  return rows.map((r) => r.curso);
+}
+
 export async function getStats({ projectId, projectIds = null }) {
   const params = [];
   const where = alcance(projectId, projectIds, params);

@@ -6,9 +6,22 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import usePermission from '@/shared/hooks/usePermission';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
-import Select from '@/shared/components/ui/Select';
+import BarraFiltros from '@/shared/components/ui/BarraFiltros';
+import MatriculasFiltros, { SIN_FILTROS, type Filtros } from '../components/MatriculasFiltros';
 import { GraduationCap, Eye, PlugsConnected, Certificate, ChatText, SealCheck, IdentificationCard, Camera, Scroll, Signature, CheckCircle } from '@phosphor-icons/react';
-import { formatDateTime } from '@/shared/lib/format';
+/**
+ * La fecha de llegada, en HORA DE MADRID (Diana, 15/10): el filtro «Recibida»
+ * cuenta el día en Madrid, y si la columna enseñara la hora de quien mira, desde
+ * fuera de España una matrícula de «11 oct» entraría en «desde el 12».
+ */
+function enHoraDeMadrid(fecha: string | null | undefined): string {
+  if (!fecha) return '—';
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('es-ES', {
+    timeZone: 'Europe/Madrid', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
 import { toast } from '@/shared/hooks/useToast';
 import PromptDialog from '@/shared/components/ui/PromptDialog';
 import WebhooksTab from '../components/WebhooksTab';
@@ -91,9 +104,10 @@ function Venta({ conversionId }: { conversionId?: number | null }) {
 }
 
 export default function MatriculasPage() {
-  const { activeProject, activeIssuerId, activeIssuer } = useProjectContext() as {
+  const { activeProject, activeIssuerId, activeIssuer, projects } = useProjectContext() as {
     activeProject: { id?: number | null; nombre?: string } | null;
     activeIssuerId: number | null; activeIssuer: { nombre?: string } | null;
+    projects: Array<{ id: number; nombre?: string; sociedad_emisora_id?: number | null }> | null;
   };
   // El listado va por campus, por empresa o con «Todos» (#199: «por empresa y con
   // "Todos los proyectos", como el resto del CRM»). Los webhooks no: se montan
@@ -123,27 +137,44 @@ export default function MatriculasPage() {
   const [data, setData] = useState([]);
   const [stats, setStats] = useState<{ total: number; solicitudes: number; pendientes: number; validadas: number; rechazadas: number }>({ total: 0, solicitudes: 0, pendientes: 0, validadas: 0, rechazadas: 0 });
   const [loading, setLoading] = useState(true);
-  const [filterEstado, setFilterEstado] = useState('');
+  // Los filtros de Diego (#199): estado, curso, campus y fechas, en el desplegable
+  // «Filtros» como en Prospectos; el buscador, arriba.
+  const [filtros, setFiltros] = useState<Filtros>(SIN_FILTROS);
   const [search, setSearch] = useState('');
+  const [cursos, setCursos] = useState<string[]>([]);
+  const hayFiltros = !!(search.trim() || filtros.estado || filtros.curso || filtros.campusId || filtros.desde || filtros.hasta);
+  const quitarFiltros = () => { setFiltros(SIN_FILTROS); setSearch(''); };
+  // Los campus entre los que se puede filtrar: los de la empresa elegida, o todos
+  // los tuyos con «Todos». Con un campus en la cabecera no hay nada que elegir.
+  const campusDelAmbito = campusElegido ? []
+    : (projects || []).filter((p) => p.id > 0 && (!activeIssuerId || Number(p.sociedad_emisora_id) === Number(activeIssuerId)));
   const [detail, setDetail] = useState(null);
   const [rechazoTarget, setRechazoTarget] = useState(null);
+
+  // Al cambiar la cabecera, el campus filtrado puede dejar de ser de este ámbito.
+  useEffect(() => { setFiltros((f) => (f.campusId ? { ...f, campusId: '' } : f)); }, [activeIssuerId, activeProject?.id]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = ponerAmbito(new URLSearchParams(), { activeIssuerId, activeProject });
-      if (filterEstado) params.set('estado', filterEstado);
+      if (filtros.estado) params.set('estado', filtros.estado);
+      if (filtros.curso) params.set('curso', filtros.curso);
+      if (filtros.campusId) params.set('campusId', filtros.campusId);
+      if (filtros.desde) params.set('desde', filtros.desde);
+      if (filtros.hasta) params.set('hasta', filtros.hasta);
       if (search.trim()) params.set('search', search.trim());
       const res = await client.get(`/matriculas?${params}`);
       if (res.success) {
         setData(res.data || []);
+        setCursos(Array.isArray(res.cursos) ? res.cursos : []);
         const s = (res.stats || {}) as Partial<typeof stats>;
         setStats({ total: s.total ?? 0, solicitudes: s.solicitudes ?? 0, pendientes: s.pendientes ?? 0, validadas: s.validadas ?? 0, rechazadas: s.rechazadas ?? 0 });
       }
     } catch (err) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally { setLoading(false); }
-  }, [activeIssuerId, activeProject?.id, filterEstado, search]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeIssuerId, activeProject?.id, filtros, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -284,39 +315,27 @@ export default function MatriculasPage() {
         ))}
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        <input
-          type="search"
-          placeholder="Buscar nombre/email/DNI..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          aria-label="Buscar matrículas"
-          className="flex-1 min-w-[200px] h-9 px-3 rounded-lg border border-border bg-card text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/40"
-        />
-        <Select<string>
-          value={filterEstado}
-          onChange={setFilterEstado}
-          options={[
-            { value: '', label: 'Todos los estados' },
-            { value: 'solicitud_admision', label: 'Solicitud admisión' },
-            { value: 'datos_validados', label: 'Datos validados' },
-            { value: 'pendiente', label: 'Pendientes' },
-            { value: 'validada', label: 'Validadas' },
-            { value: 'rechazada', label: 'Rechazadas' },
-          ]}
-          ariaLabel="Filtrar por estado"
-          className="w-48"
-        />
-      </div>
+      {/* Como en Prospectos: arriba el buscador, «Limpiar» y «Actualizar»; el
+          resto de filtros, en el desplegable «Filtros» con sus píldoras. */}
+      <BarraFiltros
+        busqueda={search}
+        onBusqueda={setSearch}
+        placeholder="Buscar por nombre, email o DNI"
+        hayFiltros={hayFiltros}
+        onLimpiar={quitarFiltros}
+        onActualizar={load}
+        actualizando={loading}
+      />
+      <MatriculasFiltros filtros={filtros} onCambio={setFiltros} cursos={cursos} campus={campusDelAmbito} />
 
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         {loading ? <SkeletonTable rows={5} columns={6} /> : data.length === 0 ? (
           // Los textos de Diego (#199): sin filtros, cómo empezar; con filtros,
           // decirlo y dejar quitarlos.
-          filterEstado || search.trim() ? (
+          hayFiltros ? (
             <EmptyState icon={GraduationCap} title="Ninguna matrícula con estos filtros" description={undefined}
               action={(
-                <button type="button" onClick={() => { setFilterEstado(''); setSearch(''); }}
+                <button type="button" onClick={quitarFiltros}
                   className="h-9 px-3 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40">
                   Quitar filtros
                 </button>
@@ -336,7 +355,7 @@ export default function MatriculasPage() {
                     <th className="text-left px-4 py-2.5 font-bold">Persona</th>
                     <th className="text-left px-4 py-2.5 font-bold">Curso</th>
                     <th className="text-left px-4 py-2.5 font-bold">Campus</th>
-                    <th className="text-left px-4 py-2.5 font-bold">Recibida</th>
+                    <th className="text-left px-4 py-2.5 font-bold">Recibida <span className="font-medium normal-case">(hora de Madrid)</span></th>
                     <th className="text-center px-4 py-2.5 font-bold">Estado</th>
                     <th className="text-left px-4 py-2.5 font-bold">Documentos</th>
                     <th className="text-left px-4 py-2.5 font-bold">Venta</th>
@@ -352,7 +371,7 @@ export default function MatriculasPage() {
                       </td>
                       <td className="px-4 py-3 text-xs">{m.curso || '—'}</td>
                       <td className="px-4 py-3 text-xs">{m.campus_nombre || '—'}</td>
-                      <td className="px-4 py-3 text-xs tabular-nums whitespace-nowrap">{formatDateTime(m.recibida_at)}</td>
+                      <td className="px-4 py-3 text-xs tabular-nums whitespace-nowrap">{enHoraDeMadrid(m.recibida_at)}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${ESTADO_COLOR[m.estado]}`}>{ESTADO_LABEL[m.estado]}</span>
                       </td>
@@ -380,7 +399,7 @@ export default function MatriculasPage() {
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${ESTADO_COLOR[m.estado]}`}>{ESTADO_LABEL[m.estado]}</span>
-                      <span className="text-[11px] text-muted-foreground tabular-nums">{formatDateTime(m.recibida_at)}</span>
+                      <span className="text-[11px] text-muted-foreground tabular-nums">{enHoraDeMadrid(m.recibida_at)}</span>
                     </div>
                     <p className="text-sm font-semibold truncate">{m.lead_nombre || '—'}</p>
                     <p className="text-[11px] text-muted-foreground truncate">{m.lead_email}</p>

@@ -93,7 +93,7 @@ describe('el listado sigue a la cabecera', () => {
     abrir();
     await screen.findAllByText('María López');
     const cabeceras = screen.getAllByRole('columnheader').map((th) => th.textContent);
-    expect(cabeceras.slice(0, 7)).toEqual(['Persona', 'Curso', 'Campus', 'Recibida', 'Estado', 'Documentos', 'Venta']);
+    expect(cabeceras.slice(0, 7)).toEqual(['Persona', 'Curso', 'Campus', 'Recibida (hora de Madrid)', 'Estado', 'Documentos', 'Venta']);
     expect(screen.getAllByText('Máster en Psicología').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Psiko Aprende').length).toBeGreaterThan(0);
     // Documentos: los cinco de Diego, con su nombre al pasar el ratón; una marca
@@ -110,6 +110,16 @@ describe('el listado sigue a la cabecera', () => {
     expect(screen.getAllByRole('link', { name: 'Ver venta' })[0].getAttribute('href')).toBe('/finanzas/ventas/44');
   });
 
+  it('«Recibida» en hora de Madrid, la misma con la que filtra el servidor, se mire desde donde se mire', async () => {
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    // 22:13 UTC del 11/10: en Venezuela, 11 oct a las 18:13; en Madrid, 12 oct a las 00:13.
+    get.mockResolvedValue({ ...VACIA, data: [{ id: 1, estado: 'pendiente', lead_nombre: 'Juan Martínez', recibida_at: '2026-10-11T22:13:00Z' }] });
+    abrir();
+    await screen.findAllByText('Juan Martínez');
+    expect(screen.getAllByText(/12 oct 2026, 0?0:13/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/11 oct 2026/)).toBeNull();
+  });
+
   it('sin matrículas ni filtros: el texto de Diego para empezar', async () => {
     cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
     abrir();
@@ -121,12 +131,60 @@ describe('el listado sigue a la cabecera', () => {
     cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
     abrir();
     await screen.findByText('Aún no ha llegado ninguna solicitud');
-    fireEvent.change(screen.getByLabelText('Buscar matrículas'), { target: { value: 'nadie' } });
+    fireEvent.change(screen.getByLabelText('Buscar por nombre, email o DNI'), { target: { value: 'nadie' } });
     expect(await screen.findByText('Ninguna matrícula con estos filtros')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Quitar filtros' }));
     await screen.findByText('Aún no ha llegado ninguna solicitud');
     expect(pedido().get('search')).toBeNull();
-    expect(screen.getByLabelText('Buscar matrículas').value).toBe('');
+    expect(screen.getByLabelText('Buscar por nombre, email o DNI').value).toBe('');
+  });
+
+  it('el desplegable «Filtros», como en Prospectos: estado, curso, campus de la empresa y fechas', async () => {
+    cabecera.value = {
+      activeIssuerId: 7, activeIssuer: { nombre: 'CEDIA' }, activeProject: { id: -1 },
+      projects: [
+        { id: 1, nombre: 'Psiko Aprende', sociedad_emisora_id: 7 },
+        { id: 3, nombre: 'Fono Aprende', sociedad_emisora_id: 7 },
+        { id: 2, nombre: 'ISEIH', sociedad_emisora_id: 9 },
+      ],
+    };
+    get.mockResolvedValue({ ...VACIA, cursos: ['Máster en Logopedia', 'Máster en Psicología Clínica'] });
+    abrir();
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Filtros/ }));
+    // El campus: solo los de la empresa de la cabecera.
+    const campus = screen.getByLabelText('Campus');
+    expect([...campus.options].map((o) => o.textContent)).toEqual(['Todos los campus', 'Psiko Aprende', 'Fono Aprende']);
+    // Los cursos, los que manda el servidor.
+    await waitFor(() => expect([...screen.getByLabelText('Curso').options].map((o) => o.value)).toContain('Máster en Logopedia'));
+
+    fireEvent.change(screen.getByLabelText('Estado'), { target: { value: 'pendiente' } });
+    fireEvent.change(screen.getByLabelText('Curso'), { target: { value: 'Máster en Logopedia' } });
+    fireEvent.change(screen.getByLabelText('Campus'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Recibida desde'), { target: { value: '2026-10-01' } });
+    fireEvent.change(screen.getByLabelText('Recibida hasta'), { target: { value: '2026-10-12' } });
+    await waitFor(() => expect(pedido().get('hasta')).toBe('2026-10-12'));
+    expect(pedido().get('issuerId')).toBe('7');
+    expect(pedido().get('estado')).toBe('pendiente');
+    expect(pedido().get('curso')).toBe('Máster en Logopedia');
+    expect(pedido().get('campusId')).toBe('3');
+    expect(pedido().get('desde')).toBe('2026-10-01');
+
+    // El botón cuenta los filtros puestos, y cada píldora se quita con su ✕.
+    expect(screen.getByRole('button', { name: /Filtros/ }).textContent).toContain('4');
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar el filtro Fono Aprende' }));
+    await waitFor(() => expect(pedido().get('campusId')).toBeNull());
+    expect(pedido().get('curso')).toBe('Máster en Logopedia');
+  });
+
+  it('con un campus en la cabecera no hay campus que elegir', async () => {
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: 3, nombre: 'ISEIH' },
+      projects: [{ id: 1, nombre: 'Psiko Aprende', sociedad_emisora_id: 7 }, { id: 3, nombre: 'ISEIH', sociedad_emisora_id: 9 }] };
+    abrir();
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: /Filtros/ }));
+    expect(screen.queryByLabelText('Campus')).toBeNull();
+    expect(screen.getByLabelText('Curso')).toBeTruthy();
   });
 
   it('los webhooks, sin un campus elegido, piden elegirlo en vez de buscar el del «proyecto −1»', async () => {

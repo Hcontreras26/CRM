@@ -27,7 +27,9 @@ export async function list(req, res, next) {
       limit: parseInt(req.query.limit) || 50,
     });
     const stats = await model.getStats(ambito);
-    res.json({ success: true, data: data.matriculas.map((m) => conQueDocumentos(conDocumentosFirmados(m))), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats });
+    // Los cursos del ámbito, para el desplegable «Curso» de los filtros.
+    const cursos = await model.getCursos(ambito);
+    res.json({ success: true, data: data.matriculas.map((m) => conQueDocumentos(conDocumentosFirmados(m))), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats, cursos });
   } catch (err) { next(err); }
 }
 

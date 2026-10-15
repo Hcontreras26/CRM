@@ -24,6 +24,7 @@ vi.mock('../src/shared/config/db.js', () => ({
     if (sql.includes('COUNT(*) FROM matriculas')) return { rows: [{ count: '0' }] };
     if (sql.includes('as pendientes')) return { rows: [{ total: 0, pendientes: 0, validadas: 0, rechazadas: 0 }] };
     if (sql.includes('LIMIT')) return { rows: filas.value };
+    if (sql.includes('SELECT DISTINCT')) return { rows: [{ curso: 'Máster en Logopedia' }, { curso: 'Máster en Psicología' }] };
     return { rows: [] };
   }),
 }));
@@ -47,12 +48,12 @@ const deMatriculas = () => consultas.filter((c) => c.sql.includes('matriculas'))
 beforeEach(() => { consultas.length = 0; filas.value = []; });
 
 describe('el listado de Matrículas sigue a la cabecera', () => {
-  it('con una empresa (CEDIA): solo sus campus, en la lista y en las cifras', async () => {
+  it('con una empresa (CEDIA): solo sus campus, en la lista, en las cifras y en los cursos del filtro', async () => {
     const { salida, error } = await listar(MANUEL, { issuerId: '8' });
     expect(error).toBeNull();
     expect(salida.success).toBe(true);
     const q = deMatriculas();
-    expect(q).toHaveLength(3);
+    expect(q).toHaveLength(4);   // la lista, su cuenta, las cifras y los cursos
     for (const { sql, params } of q) {
       expect(sql).toContain('m.project_id = ANY($1::int[])');
       expect(params[0]).toEqual([1, 2, 3]);
@@ -74,14 +75,14 @@ describe('el listado de Matrículas sigue a la cabecera', () => {
   it('una admin de CEDIA con «Todos»: sus campus, no todo el CRM', async () => {
     const { error } = await listar(MIREIA, {});
     expect(error).toBeNull();
-    expect(deMatriculas()).toHaveLength(3);
+    expect(deMatriculas()).toHaveLength(4);   // la lista, su cuenta, las cifras y los cursos
     for (const { params } of deMatriculas()) expect(params[0]).toEqual([1, 2, 3]);
   });
 
   it('una admin de CEDIA que pide ICTESS cambiando la dirección: nada', async () => {
     const { error } = await listar(MIREIA, { issuerId: '9' });
     expect(error).toBeNull();
-    expect(deMatriculas()).toHaveLength(3);
+    expect(deMatriculas()).toHaveLength(4);   // la lista, su cuenta, las cifras y los cursos
     for (const { params } of deMatriculas()) expect(params[0]).toEqual([-1]);
   });
 
@@ -134,6 +135,13 @@ describe('el listado de Matrículas sigue a la cabecera', () => {
     const cuenta = deMatriculas().find((c) => c.sql.includes('SELECT COUNT(*) FROM matriculas'));
     expect(cuenta.sql).toContain('LEFT JOIN conversions c');
     expect(cuenta.params).toEqual(lista.params.slice(0, 5));
+  });
+
+  it('la respuesta trae los cursos del ámbito, para el desplegable «Curso»', async () => {
+    const { salida } = await listar(MANUEL, { issuerId: '8' });
+    expect(salida.cursos).toEqual(['Máster en Logopedia', 'Máster en Psicología']);
+    const cursos = deMatriculas().find((c) => c.sql.includes('SELECT DISTINCT'));
+    expect(cursos.params[0]).toEqual([1, 2, 3]);
   });
 
   it('una fecha mal escrita no filtra (ni llega a la base)', async () => {
