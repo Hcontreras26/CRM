@@ -8,8 +8,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'secreto-de-pruebas';
 
-const model = { findById: vi.fn(), update: vi.fn(), setEstado: vi.fn() };
+const model = { findById: vi.fn(), update: vi.fn(), setEstado: vi.fn(), registrarEvento: vi.fn(), historial: vi.fn(), remove: vi.fn() };
 vi.mock('../src/modules/matriculas/matricula.model.js', () => model);
+// Los campus de cada persona, para la comprobación del ámbito: Mireia es admin de CEDIA (campus 1).
+vi.mock('../src/shared/config/db.js', () => ({
+  getClient: vi.fn(),
+  query: vi.fn(async (sql, params = []) => (
+    sql.includes('FROM user_projects WHERE user_id = $1 AND active = true')
+      ? { rows: (({ 34: [1] })[params[0]] || []).map((project_id) => ({ project_id })) }
+      : { rows: [] })),
+}));
 vi.mock('../src/shared/services/localStorage.service.js', () => ({
   getLocal: vi.fn(), saveLocal: vi.fn(async () => {}), deleteLocal: vi.fn(),
 }));
@@ -33,6 +41,7 @@ beforeEach(() => {
   // Lo que devuelve un UPDATE … RETURNING *: la fila sin el nombre del prospecto.
   model.update.mockResolvedValue({ id: 5, project_id: 1 });
   model.setEstado.mockResolvedValue({ id: 5, project_id: 1, estado: 'datos_validados' });
+  model.historial.mockResolvedValue([]);
 });
 
 describe('los campos vacíos de la ficha', () => {
@@ -66,6 +75,79 @@ describe('la ficha no se queda sin nombre', () => {
       params: { id: '5', tipo: 'dni' },
       file: { originalname: 'dni.jpg', buffer: Buffer.from('x') },
     });
+    expect(salida.data.lead_nombre).toBe('María López');
+  });
+});
+
+// El historial completo: cada cambio, con quién y cuándo (ideas de Diego del 01/10:
+// «Recibida por el formulario el 01/10 a las 09:12», «Datos validados por Mireia…»).
+describe('el historial de cada matrícula', () => {
+  it('cada cambio de estado queda apuntado, con quién', async () => {
+    await llamar(ctrl.setEstado, { params: { id: '5' }, body: { estado: 'datos_validados', motivo_rechazo: null } });
+    expect(model.registrarEvento).toHaveBeenCalledWith({ matriculaId: 5, evento: 'estado', estado: 'datos_validados', motivo: null, userId: 2 });
+  });
+
+  it('un rechazo queda con su motivo', async () => {
+    model.setEstado.mockResolvedValue({ id: 5, project_id: 1, estado: 'rechazada' });
+    await llamar(ctrl.setEstado, { params: { id: '5' }, body: { estado: 'rechazada', motivo_rechazo: 'El DNI no se lee' } });
+    expect(model.registrarEvento).toHaveBeenCalledWith(expect.objectContaining({ evento: 'estado', estado: 'rechazada', motivo: 'El DNI no se lee' }));
+  });
+
+  it('cada documento subido queda apuntado, y si sustituye a otro', async () => {
+    model.findById.mockResolvedValue({ ...CON_NOMBRE, dni_doc_key: 'matriculas/1/viejo.jpg' });
+    await llamar(ctrl.uploadDoc, { params: { id: '5', tipo: 'dni' }, file: { originalname: 'dni.jpg', buffer: Buffer.from('x') } });
+    expect(model.registrarEvento).toHaveBeenCalledWith({ matriculaId: 5, evento: 'documento', documento: 'dni', reemplazo: true, userId: 2 });
+  });
+
+  it('la ficha trae el historial', async () => {
+    model.historial.mockResolvedValue([{ evento: 'recibida', creado_at: '2026-10-01T07:12:00Z' }]);
+    const { salida } = await llamar(ctrl.getById, { params: { id: '5' } });
+    expect(salida.data.historial).toEqual([{ evento: 'recibida', creado_at: '2026-10-01T07:12:00Z' }]);
+  });
+});
+
+// Los cinco documentos de Diego: también el DNI por detrás y la foto (migración 207).
+describe('el DNI por detrás y la foto', () => {
+  it.each([['dni_dorso', 'dni_dorso_key', 'dni_dorso_url'], ['foto', 'foto_key', 'foto_url']])('%s se puede subir', async (tipo, clave, url) => {
+    const { error } = await llamar(ctrl.uploadDoc, { params: { id: '5', tipo }, file: { originalname: 'x.png', buffer: Buffer.from('x') } });
+    expect(error).toBeNull();
+    const guardado = model.update.mock.calls[0][1];
+    expect(guardado[clave]).toMatch(new RegExp(`^matriculas/1/m-5-${tipo}-[0-9a-f]+\.png$`));
+    expect(guardado[url]).toMatch(new RegExp(`^/api/matriculas/5/doc/${tipo}`));
+  });
+
+  it('la ficha los firma igual que los demás', async () => {
+    model.findById.mockResolvedValue({ ...CON_NOMBRE, foto_key: 'matriculas/1/foto.png', dni_dorso_key: 'matriculas/1/dorso.pdf' });
+    const { salida } = await llamar(ctrl.getById, { params: { id: '5' } });
+    expect(salida.data.foto_url).toMatch(/^\/api\/matriculas\/5\/doc\/foto\?exp=\d+&sig=/);
+    expect(salida.data.documentos_formato).toEqual({ dni_dorso: 'pdf', foto: 'imagen' });
+  });
+});
+
+// Cada uno, solo las de sus campus: antes, sabiendo el número, se abría o se
+// validaba una matrícula de otro campus.
+describe('la ficha, solo dentro de tus campus', () => {
+  const MIREIA = { userId: 34, role: 'admin' };
+  const DE_ICTESS = { ...CON_NOMBRE, project_id: 4 };
+
+  it.each([
+    ['abrirla', 'getById', {}],
+    ['guardar campos', 'update', { body: { notas: 'x' } }],
+    ['cambiar el estado', 'setEstado', { body: { estado: 'validada', motivo_rechazo: null } }],
+    ['subir un documento', 'uploadDoc', { params: { id: '5', tipo: 'dni' }, file: { originalname: 'a.jpg', buffer: Buffer.from('x') } }],
+    ['borrarla', 'remove', {}],
+  ])('una admin de CEDIA no puede %s en una de ICTESS: 403 y nada cambia', async (_que, fn, extra) => {
+    model.findById.mockResolvedValue(DE_ICTESS);
+    const { error } = await llamar(ctrl[fn], { user: MIREIA, params: { id: '5' }, ...extra });
+    expect(error?.statusCode).toBe(403);
+    expect(model.update).not.toHaveBeenCalled();
+    expect(model.setEstado).not.toHaveBeenCalled();
+    expect(model.remove).not.toHaveBeenCalled();
+  });
+
+  it('en una de su campus, sí', async () => {
+    const { error, salida } = await llamar(ctrl.getById, { user: MIREIA, params: { id: '5' } });
+    expect(error).toBeNull();
     expect(salida.data.lead_nombre).toBe('María López');
   });
 });

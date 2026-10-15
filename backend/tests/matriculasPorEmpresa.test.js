@@ -24,6 +24,7 @@ vi.mock('../src/shared/config/db.js', () => ({
     if (sql.includes('COUNT(*) FROM matriculas')) return { rows: [{ count: '0' }] };
     if (sql.includes('as pendientes')) return { rows: [{ total: 0, pendientes: 0, validadas: 0, rechazadas: 0 }] };
     if (sql.includes('LIMIT')) return { rows: filas.value };
+    if (sql.includes('INSERT INTO matriculas (')) return { rows: [{ id: 77 }] };
     if (sql.includes('SELECT DISTINCT')) return { rows: [{ curso: 'Máster en Logopedia' }, { curso: 'Máster en Psicología' }] };
     return { rows: [] };
   }),
@@ -161,5 +162,20 @@ describe('el listado de Matrículas sigue a la cabecera', () => {
     const lista = deMatriculas().find((c) => c.sql.includes('LIMIT'));
     expect(lista.sql).toContain('m.estado = $2');
     expect(lista.params.slice(0, 3)).toEqual([[1, 2, 3], 'validada', '%ana%']);
+  });
+});
+
+// El historial empieza al crearse la matrícula (#199): por un formulario (el
+// webhook de admisión o los formularios del CRM) es «recibida»; a mano, «creada».
+describe('el historial empieza al crearse', () => {
+  const modelo = () => import('../src/modules/matriculas/matricula.model.js');
+  const eventos = () => consultas.filter((c) => c.sql.includes('INSERT INTO matriculas_eventos'));
+
+  it.each([['webhook', 'recibida'], ['form', 'recibida'], ['manual', 'creada']])('con source %s: «%s»', async (source, evento) => {
+    const { create } = await modelo();
+    await create({ project_id: 1, source, user_id: source === 'manual' ? 2 : null });
+    expect(eventos()).toHaveLength(1);
+    expect(eventos()[0].params.slice(0, 2)).toEqual([77, evento]);
+    expect(eventos()[0].params[6]).toBe(source === 'manual' ? 2 : null);
   });
 });

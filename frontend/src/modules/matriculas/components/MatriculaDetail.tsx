@@ -58,16 +58,45 @@ interface Props {
 
 /**
  * Los documentos, en el orden de Diego: «DNI por las dos caras, foto, título,
- * firma». `tipo` es el de la ruta del servidor; el DNI de detrás y la foto aún
- * no tienen dónde guardarse (llegan con el webhook de la #198).
+ * firma». `tipo` es el de la ruta del servidor (el DNI de detrás y la foto,
+ * desde la migración 207).
  */
-const DOCUMENTOS: Array<{ clave: string; nombre: string; tipo?: string; campo?: string }> = [
+const DOCUMENTOS: Array<{ clave: string; nombre: string; tipo: string; campo: string }> = [
   { clave: 'dni_frente', nombre: 'DNI (delante)', tipo: 'dni', campo: 'dni_doc_url' },
-  { clave: 'dni_dorso', nombre: 'DNI (detrás)' },
-  { clave: 'foto', nombre: 'Foto' },
+  { clave: 'dni_dorso', nombre: 'DNI (detrás)', tipo: 'dni_dorso', campo: 'dni_dorso_url' },
+  { clave: 'foto', nombre: 'Foto', tipo: 'foto', campo: 'foto_url' },
   { clave: 'titulo', nombre: 'Título', tipo: 'titulo', campo: 'titulo_doc_url' },
   { clave: 'firma', nombre: 'Firma', tipo: 'firma', campo: 'firma_url' },
 ];
+const NOMBRE_DOC: Record<string, string> = Object.fromEntries(DOCUMENTOS.map((d) => [d.tipo, d.nombre]));
+
+interface Evento {
+  evento: 'recibida' | 'creada' | 'estado' | 'documento';
+  estado?: string | null;
+  motivo?: string | null;
+  documento?: string | null;
+  reemplazo?: boolean;
+  usuario?: string | null;
+  creado_at: string;
+}
+
+/**
+ * Una línea del historial, como en las ideas de Diego: «Recibida por el
+ * formulario el 01/10 a las 09:12», «Datos validados por Mireia el 01/10 a las
+ * 11:40»…
+ */
+function lineaDelHistorial(e: Evento): string {
+  const quien = e.usuario ? ` por ${e.usuario}` : '';
+  const cuando = ` el ${enHoraDeMadrid(e.creado_at)}`;
+  if (e.evento === 'recibida') return `Recibida por el formulario${cuando}`;
+  if (e.evento === 'creada') return `Creada a mano${quien}${cuando}`;
+  if (e.evento === 'documento') {
+    const doc = NOMBRE_DOC[e.documento || ''] || 'Documento';
+    return `${doc} ${e.reemplazo ? 'reemplazado' : 'subido'}${quien}${cuando}`;
+  }
+  const estado = ESTADO_LABEL[e.estado || ''] || e.estado || 'Cambio de estado';
+  return `${estado}${quien}${cuando}${e.motivo ? `. Motivo: ${e.motivo}` : ''}`;
+}
 
 const CAMPO = 'mt-1 w-full h-9 px-3 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
 
@@ -157,15 +186,9 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
     { etiqueta: 'Teléfono', valor: m.lead_telefono || delFormulario(m, 'telefono') },
   ];
 
-  // El historial con lo que hay: la llegada y el último cambio de estado (quién
-  // y cuándo). Un registro de cada cambio es parte del contrato de la #198.
-  const historial: string[] = [];
-  if (m.recibida_at) {
-    historial.push(`${m.source === 'webhook' ? 'Recibida por el formulario' : 'Creada a mano'} el ${enHoraDeMadrid(m.recibida_at)}`);
-  }
-  if (m.validated_at && m.estado && m.estado !== 'solicitud_admision') {
-    historial.push(`${ESTADO_LABEL[m.estado] || m.estado}${m.validated_by_nombre ? ` por ${m.validated_by_nombre}` : ''} el ${enHoraDeMadrid(m.validated_at)}`);
-  }
+  // El historial: cada cosa que le ha pasado, con quién y cuándo (lo guarda el
+  // servidor en matriculas_eventos, migración 207).
+  const historial = (Array.isArray(m.historial) ? (m.historial as Evento[]) : []).map(lineaDelHistorial);
 
   return (
     <Portal>
@@ -221,10 +244,10 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Documentos</h3>
               <div className="grid grid-cols-2 gap-3">
                 {DOCUMENTOS.map(({ clave, nombre, tipo, campo }) => {
-                  const guardada = campo ? (m[campo] as string | undefined) : undefined;
+                  const guardada = m[campo] as string | undefined;
                   const url = guardada ? urlDelDocumento(guardada) : undefined;
-                  const formato = tipo ? m.documentos_formato?.[tipo] : undefined;
-                  const fallo = tipo ? fallidos[tipo] : false;
+                  const formato = m.documentos_formato?.[tipo];
+                  const fallo = fallidos[tipo];
                   return (
                     <div key={clave} className="border border-border rounded-xl p-2.5 space-y-2">
                       <p className="text-[11px] font-bold uppercase text-muted-foreground">{nombre}</p>
@@ -236,22 +259,21 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
                             <span className="flex h-full flex-col items-center justify-center gap-1 text-muted-foreground text-xs"><FilePdf size={28} />PDF</span>
                           ) : (
                             <img src={url} alt={nombre} className="h-full w-full object-cover"
-                              onError={() => tipo && setFallidos((f) => ({ ...f, [tipo]: true }))} />
+                              onError={() => setFallidos((f) => ({ ...f, [tipo]: true }))} />
                           )}
                         </button>
                       ) : fallo ? (
                         <p className="text-xs text-destructive">No se pudo abrir {conArticulo(nombre)}. Vuelve a intentarlo; si sigue, súbelo de nuevo.</p>
                       ) : (
-                        <p className="text-xs text-muted-foreground">{tipo ? 'Falta' : 'Falta · llega con el formulario de admisión'}</p>
+                        <p className="text-xs text-muted-foreground">Falta</p>
                       )}
-                      {tipo && (
-                        <label className="block cursor-pointer">
-                          <input type="file" className="hidden" accept="image/*,application/pdf" onChange={e => handleUpload(tipo, e.target.files?.[0])} />
-                          <span className="flex items-center justify-center gap-1 px-2 py-1 rounded bg-muted text-[11px] font-bold hover:bg-muted/70">
-                            <Upload size={12} /> {uploading === tipo ? 'Subiendo…' : url ? 'Reemplazar' : 'Subir'}
-                          </span>
-                        </label>
-                      )}
+                      <label className="block cursor-pointer">
+                        <input type="file" className="hidden" accept="image/*,application/pdf" aria-label={`Subir ${nombre}`}
+                          onChange={e => handleUpload(tipo, e.target.files?.[0])} />
+                        <span className="flex items-center justify-center gap-1 px-2 py-1 rounded bg-muted text-[11px] font-bold hover:bg-muted/70">
+                          <Upload size={12} /> {uploading === tipo ? 'Subiendo…' : url ? 'Reemplazar' : 'Subir'}
+                        </span>
+                      </label>
                     </div>
                   );
                 })}

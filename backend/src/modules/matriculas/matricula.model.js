@@ -109,7 +109,39 @@ export async function create(data) {
      data.estado || (data.source === 'webhook' ? 'solicitud_admision' : 'pendiente'),
      data.source === 'webhook' ? new Date() : null]
   );
+  // El historial empieza aquí: llegó por un formulario (el webhook de admisión o
+  // los formularios del CRM, que crean la matrícula por esta misma función) o se
+  // creó a mano.
+  if (rows[0]) {
+    await registrarEvento({
+      matriculaId: rows[0].id,
+      evento: ['webhook', 'form'].includes(data.source) ? 'recibida' : 'creada',
+      userId: data.user_id || null,
+    });
+  }
   return rows[0];
+}
+
+/**
+ * Una línea del historial de una matrícula (#199). No se borra ni se edita.
+ * `evento`: 'recibida', 'creada', 'estado' o 'documento'.
+ */
+export async function registrarEvento({ matriculaId, evento, estado = null, motivo = null, documento = null, reemplazo = false, userId = null }) {
+  await query(
+    `INSERT INTO matriculas_eventos (matricula_id, evento, estado, motivo, documento, reemplazo, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [matriculaId, evento, estado, motivo, documento, reemplazo, userId]);
+}
+
+/** El historial de una matrícula, del más antiguo al más reciente, con el nombre de quien lo hizo. */
+export async function historial(matriculaId) {
+  const { rows } = await query(
+    `SELECT e.evento, e.estado, e.motivo, e.documento, e.reemplazo, e.creado_at, u.nombre AS usuario
+       FROM matriculas_eventos e
+       LEFT JOIN users u ON u.id = e.user_id
+      WHERE e.matricula_id = $1
+      ORDER BY e.creado_at, e.id`, [matriculaId]);
+  return rows;
 }
 
 export async function findByDedupe(projectId, dedupeKey) {
@@ -119,7 +151,9 @@ export async function findByDedupe(projectId, dedupeKey) {
 }
 
 export async function update(id, fields) {
-  const allowed = ['dni', 'titulo', 'notas', 'dni_doc_url', 'dni_doc_key', 'titulo_doc_url', 'titulo_doc_key', 'firma_url', 'firma_key'];
+  const allowed = ['dni', 'titulo', 'notas', 'dni_doc_url', 'dni_doc_key', 'titulo_doc_url', 'titulo_doc_key', 'firma_url', 'firma_key',
+    // El DNI por detrás y la foto (#199, migración 207).
+    'dni_dorso_url', 'dni_dorso_key', 'foto_url', 'foto_key'];
   const sets = []; const params = []; let idx = 1;
   for (const k of allowed) {
     if (fields[k] !== undefined) { sets.push(`${k} = $${idx++}`); params.push(fields[k]); }

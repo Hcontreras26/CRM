@@ -22,6 +22,13 @@ const FICHA = {
   dni_doc_url: '/api/matriculas/1/doc/dni?exp=1&sig=a', documentos_formato: { dni: 'imagen' },
   titulo_doc_url: '/api/matriculas/1/doc/titulo?exp=1&sig=b',
   datos_admision: { documento_tipo: 'DNI', documento: '11111111A', fecha_nacimiento: '1995-04-12', direccion: 'Calle 1, Madrid', pais: 'España', estudios: 'Grado' },
+  historial: [
+    { evento: 'recibida', creado_at: '2026-10-01T07:12:00Z' },
+    { evento: 'estado', estado: 'datos_validados', usuario: 'Mireia', creado_at: '2026-10-01T09:40:00Z' },
+    { evento: 'documento', documento: 'dni_dorso', reemplazo: false, usuario: 'Mireia', creado_at: '2026-10-02T08:00:00Z' },
+    { evento: 'documento', documento: 'dni', reemplazo: true, usuario: 'Ana', creado_at: '2026-10-03T08:00:00Z' },
+    { evento: 'estado', estado: 'rechazada', motivo: 'El título no se lee', usuario: 'Mireia', creado_at: '2026-10-04T08:00:00Z' },
+  ],
 };
 
 const abrir = (matricula = FICHA, onEstado = vi.fn()) => {
@@ -94,9 +101,12 @@ describe('la ficha en panel lateral, como la de los prospectos', () => {
 
   it('documentos: miniatura, visor grande y «Reemplazar»; el aviso si no abre', async () => {
     abrir();
-    // Los cinco de Diego, con «Reemplazar» en los que hay y «Falta» en los demás.
+    // Los cinco de Diego, todos con su botón: «Reemplazar» en los que hay y «Subir» en los que faltan.
     expect(screen.getAllByText('Reemplazar').length).toBe(2);
-    expect(screen.getAllByText(/llega con el formulario/).length).toBe(2);
+    expect(screen.getAllByText('Subir').length).toBe(3);
+    expect(screen.getByLabelText('Subir DNI (detrás)')).toBeTruthy();
+    expect(screen.getByLabelText('Subir Foto')).toBeTruthy();
+    expect(screen.queryByText(/llega con el formulario/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Ver DNI (delante)' }));
     expect(screen.getByRole('dialog', { name: 'Visor: DNI (delante)' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar visor' }));
@@ -126,8 +136,12 @@ describe('la ficha en panel lateral, como la de los prospectos', () => {
     expect(screen.getByText('Ana')).toBeTruthy();
   });
 
-  it('historial: cuándo llegó por el formulario, en hora de Madrid', async () => {
+  it('historial: cada cosa que le ha pasado, con quién y cuándo, en hora de Madrid', async () => {
     abrir();
     expect(screen.getByText(/Recibida por el formulario el 01 oct 2026, 0?9:12/)).toBeTruthy();
+    expect(screen.getByText(/Datos validados por Mireia el 01 oct 2026, 11:40/)).toBeTruthy();
+    expect(screen.getByText(/DNI \(detrás\) subido por Mireia el 02 oct 2026/)).toBeTruthy();
+    expect(screen.getByText(/DNI \(delante\) reemplazado por Ana el 03 oct 2026/)).toBeTruthy();
+    expect(screen.getByText(/Rechazada por Mireia el 04 oct 2026, 10:00\. Motivo: El título no se lee/)).toBeTruthy();
   });
 });

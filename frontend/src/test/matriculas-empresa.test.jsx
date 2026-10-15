@@ -68,14 +68,14 @@ describe('el listado sigue a la cabecera', () => {
     expect(tarjeta.textContent).toContain('4');
   });
 
-  it('cada estado con su color del tema: Solicitud azul, Datos validados cian (no hay índigo), y los demás', async () => {
+  it('cada estado con su color del tema: Solicitud azul, Datos validados índigo (del tema), y los demás', async () => {
     cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
     const estados = ['solicitud_admision', 'datos_validados', 'pendiente', 'validada', 'rechazada'];
     get.mockResolvedValue({ ...VACIA, data: estados.map((estado, i) => ({ id: i + 1, estado, lead_nombre: `P${i}` })) });
     abrir();
     const etiqueta = async (texto) => (await screen.findAllByText(texto))[0].className;
     expect(await etiqueta('Solicitud admisión')).toContain('bg-info-soft');
-    expect(await etiqueta('Datos validados')).toContain('bg-primary/10');
+    expect(await etiqueta('Datos validados')).toContain('bg-indigo-soft');
     expect(await etiqueta('Pendiente')).toContain('bg-warning-soft');
     expect(await etiqueta('Validada')).toContain('bg-success-soft');
     expect(await etiqueta('Rechazada')).toContain('bg-destructive-soft');

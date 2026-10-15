@@ -106,6 +106,13 @@
     --info-soft: 214 100% 97%;              /* blue-50 */
     --info-soft-foreground: 224 76% 48%;    /* blue-700 · 6,2:1 */
 
+    /* Índigo: el de «Datos validados» en Matrículas (#199, Diego: «Solicitud
+       azul, Datos validados índigo»). Del tema, como los demás (#32). */
+    --indigo: 243 75% 59%;                  /* indigo-600 · blanco encima 6,3:1 */
+    --indigo-foreground: 0 0% 100%;
+    --indigo-soft: 226 100% 97%;            /* indigo-50 */
+    --indigo-soft-foreground: 245 58% 51%;  /* indigo-700 */
+
     /* El peligro NO estrena variable: ya existe --destructive y tener dos
        rojos es justo el problema que esto viene a quitar. Solo se le añade
        la pareja suave que le faltaba. */
@@ -168,6 +175,11 @@
     --info-foreground: 226 57% 21%;         /* blue-950 */
     --info-soft: 226 57% 21%;               /* blue-950 */
     --info-soft-foreground: 213 94% 68%;    /* blue-400 · 5,8:1 */
+
+    --indigo: 234 89% 74%;                  /* indigo-400 · texto oscuro encima */
+    --indigo-foreground: 244 47% 20%;       /* indigo-950 */
+    --indigo-soft: 244 47% 20%;             /* indigo-950 */
+    --indigo-soft-foreground: 234 89% 74%;  /* indigo-400 */
 
     --destructive-soft: 0 75% 15%;             /* red-950 */
     --destructive-soft-foreground: 0 91% 71%;  /* red-400 */

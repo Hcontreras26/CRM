@@ -13,12 +13,11 @@ export const ESTADO_LABEL: Record<string, string> = {
 
 // CINCO ESTADOS, CINCO ASPECTOS, con los colores del tema (#32: nada de
 // colores sueltos). Diego, ideas del #199 (01/10): Solicitud azul, Datos
-// validados índigo, Pendiente ámbar, Validada verde, Rechazada roja. El tema no
-// tiene índigo, así que Datos validados va en el principal (cian): sigue
-// distinguiéndose de Solicitud, que es lo que importa en esta tabla.
+// validados índigo, Pendiente ámbar, Validada verde, Rechazada roja. El índigo
+// se añadió al tema para esto (index.css, tailwind.config.js).
 export const ESTADO_COLOR: Record<string, string> = {
   solicitud_admision: 'bg-info-soft text-info-soft-foreground border-info/30',
-  datos_validados: 'bg-primary/10 text-primary border-primary/30',
+  datos_validados: 'bg-indigo-soft text-indigo-soft-foreground border-indigo/30',
   pendiente: 'bg-warning-soft text-warning-soft-foreground border-warning/30',
   validada: 'bg-success-soft text-success-soft-foreground border-success/30',
   rechazada: 'bg-destructive-soft text-destructive-soft-foreground border-destructive/30',

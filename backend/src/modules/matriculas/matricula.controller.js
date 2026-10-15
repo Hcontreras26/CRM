@@ -4,7 +4,31 @@ import { createSchema, updateSchema, setEstadoSchema } from './matricula.validat
 import { AppError } from '../../shared/utils/AppError.js';
 import { saveLocal, getLocal, deleteLocal } from '../../shared/services/localStorage.service.js';
 import { urlFirmada, firmaValida } from '../../shared/utils/firmaDeDocumento.js';
-import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
+import { proyectosDelAmbito, veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
+
+/**
+ * Los documentos de una matrícula y sus columnas. Los cinco de Diego (#199):
+ * «DNI por las dos caras, foto, título, firma» (el DNI de detrás y la foto,
+ * desde la migración 207).
+ */
+const TIPOS_DOC = ['dni', 'dni_dorso', 'foto', 'titulo', 'firma'];
+const CLAVE = { dni: 'dni_doc_key', dni_dorso: 'dni_dorso_key', foto: 'foto_key', titulo: 'titulo_doc_key', firma: 'firma_key' };
+const URL_DOC = { dni: 'dni_doc_url', dni_dorso: 'dni_dorso_url', foto: 'foto_url', titulo: 'titulo_doc_url', firma: 'firma_url' };
+
+/**
+ * La matrícula, si es de un campus de quien la pide (#199, como el resto del
+ * CRM). Antes, sabiendo el número, se abría, se validaba o se le subía un
+ * documento a una de otro campus. Super admin y soporte, todas (`veTodoElCrm`).
+ */
+async function matriculaDeMiAmbito(req) {
+  const m = await model.findById(parseInt(req.params.id));
+  if (!m) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
+  if (!veTodoElCrm(req.user)) {
+    const mios = await campusDeLaPersona(req.user?.userId);
+    if (!mios.includes(Number(m.project_id))) throw new AppError('No tienes acceso a esa matrícula', 403, 'FORBIDDEN');
+  }
+  return m;
+}
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -35,9 +59,9 @@ export async function list(req, res, next) {
 
 export async function getById(req, res, next) {
   try {
-    const m = await model.findById(parseInt(req.params.id));
-    if (!m) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
-    res.json({ success: true, data: conDocumentosFirmados(m) });
+    const m = await matriculaDeMiAmbito(req);
+    // Con su historial (#199): la llegada y cada cambio, con quién y cuándo.
+    res.json({ success: true, data: { ...conDocumentosFirmados(m), historial: await model.historial(m.id) } });
   } catch (err) { next(err); }
 }
 
@@ -49,7 +73,7 @@ export async function create(req, res, next) {
       const exists = await model.findByConversion(parsed.data.conversion_id);
       if (exists) throw new AppError('Ya existe matricula para esta conversion', 409, 'DUPLICATE');
     }
-    const created = await model.create(parsed.data);
+    const created = await model.create({ ...parsed.data, user_id: req.user?.userId || null });
     res.status(201).json({ success: true, data: created });
   } catch (err) { next(err); }
 }
@@ -58,6 +82,7 @@ export async function update(req, res, next) {
   try {
     const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError('Datos invalidos', 400, 'VALIDATION_ERROR');
+    await matriculaDeMiAmbito(req);
     const updated = await model.update(parseInt(req.params.id), parsed.data);
     if (!updated) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
     res.json({ success: true, data: conDocumentosFirmados(await model.findById(updated.id)) });
@@ -66,11 +91,10 @@ export async function update(req, res, next) {
 
 export async function remove(req, res, next) {
   try {
-    const m = await model.findById(parseInt(req.params.id));
-    if (!m) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
-    if (m.dni_doc_key) { try { await deleteLocal(m.dni_doc_key); } catch {} }
-    if (m.titulo_doc_key) { try { await deleteLocal(m.titulo_doc_key); } catch {} }
-    if (m.firma_key) { try { await deleteLocal(m.firma_key); } catch {} }
+    const m = await matriculaDeMiAmbito(req);
+    for (const tipo of TIPOS_DOC) {
+      if (m[CLAVE[tipo]]) { try { await deleteLocal(m[CLAVE[tipo]]); } catch {} }
+    }
     await model.remove(m.id);
     res.json({ success: true });
   } catch (err) { next(err); }
@@ -83,13 +107,17 @@ export async function setEstado(req, res, next) {
     if (parsed.data.estado === 'rechazada' && !parsed.data.motivo_rechazo) {
       throw new AppError('motivo_rechazo requerido al rechazar', 400, 'MOTIVO_REQUIRED');
     }
+    await matriculaDeMiAmbito(req);
     const updated = await model.setEstado(parseInt(req.params.id), parsed.data.estado, req.user.userId, parsed.data.motivo_rechazo);
     if (!updated) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
+    // Cada cambio, en el historial (#199): el estado nuevo, quién y, si es un rechazo, el motivo.
+    await model.registrarEvento({
+      matriculaId: updated.id, evento: 'estado', estado: parsed.data.estado,
+      motivo: parsed.data.estado === 'rechazada' ? parsed.data.motivo_rechazo : null, userId: req.user.userId,
+    });
     res.json({ success: true, data: conDocumentosFirmados(await model.findById(updated.id)) });
   } catch (err) { next(err); }
 }
-
-const TIPOS_DOC = ['dni', 'titulo', 'firma'];
 
 /**
  * Las direcciones de los documentos, FIRMADAS Y CON CADUCIDAD.
@@ -104,8 +132,8 @@ const TIPOS_DOC = ['dni', 'titulo', 'firma'];
  */
 function conDocumentosFirmados(m) {
   if (!m) return m;
-  const campos = { dni: 'dni_doc_url', titulo: 'titulo_doc_url', firma: 'firma_url' };
-  const claves = { dni: 'dni_doc_key', titulo: 'titulo_doc_key', firma: 'firma_key' };
+  const campos = URL_DOC;
+  const claves = CLAVE;
   const salida = { ...m };
   // Si cada documento es un PDF o una imagen, para que la ficha sepa con qué
   // visor abrirlo (#199). Sale de la extensión con la que se guardó.
@@ -122,9 +150,7 @@ function conDocumentosFirmados(m) {
 
 /**
  * Qué documentos han llegado, sí o no, para los iconos de la lista (#199): los
- * cinco de Diego, con los nombres del contrato de la #198. `dni_dorso` y `foto`
- * aún no tienen dónde guardarse (llegan con el webhook de la #198), así que de
- * momento siempre faltan.
+ * cinco de Diego, con los nombres del contrato de la #198.
  */
 function conQueDocumentos(m) {
   if (!m) return m;
@@ -142,17 +168,18 @@ export async function uploadDoc(req, res, next) {
     const tipo = req.params.tipo;
     if (!TIPOS_DOC.includes(tipo)) throw new AppError('Tipo invalido', 400, 'INVALID_TYPE');
     if (!req.file) throw new AppError('Archivo requerido', 400, 'FILE_REQUIRED');
-    const m = await model.findById(parseInt(req.params.id));
-    if (!m) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
+    const m = await matriculaDeMiAmbito(req);
     const ext = (req.file.originalname.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const keyMap = { dni: 'dni_doc_key', titulo: 'titulo_doc_key', firma: 'firma_key' };
-    const urlMap = { dni: 'dni_doc_url', titulo: 'titulo_doc_url', firma: 'firma_url' };
+    const keyMap = CLAVE;
+    const urlMap = URL_DOC;
     const oldKey = m[keyMap[tipo]];
     if (oldKey) { try { await deleteLocal(oldKey); } catch {} }
     const key = `matriculas/${m.project_id}/m-${m.id}-${tipo}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
     await saveLocal(key, req.file.buffer);
     const url = `/api/matriculas/${m.id}/doc/${tipo}?v=${Date.now()}`;
     const updated = await model.update(m.id, { [keyMap[tipo]]: key, [urlMap[tipo]]: url });
+    // En el historial: qué documento y si sustituye a otro (#199).
+    await model.registrarEvento({ matriculaId: m.id, evento: 'documento', documento: tipo, reemplazo: !!oldKey, userId: req.user?.userId || null });
     // Firmada tambien aqui: la ficha pinta esta respuesta tal cual, y sin firma
     // «Ver documento» daria 403 justo despues de subirlo.
     // Releída con su prospecto: la ficha pinta esta respuesta tal cual, y sin el
@@ -184,7 +211,7 @@ export async function getDoc(req, res, next) {
       throw new AppError('Enlace no valido o caducado', 403, 'FIRMA_INVALIDA');
     }
     const m = await model.findById(id);
-    const keyMap = { dni: 'dni_doc_key', titulo: 'titulo_doc_key', firma: 'firma_key' };
+    const keyMap = CLAVE;
     if (!m || !m[keyMap[tipo]]) return res.status(404).end();
     const ext = m[keyMap[tipo]].split('.').pop().toLowerCase();
     const mime = ext === 'pdf' ? 'application/pdf' : (ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg'));
