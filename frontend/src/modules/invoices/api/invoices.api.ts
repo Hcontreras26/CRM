@@ -49,7 +49,7 @@ export interface CreateInvoiceBody {
   ivaIncluido?: boolean;
   leyendaIva?: string | null;
   notas?: string;
-  metodoPago: 'transferencia' | 'tarjeta' | 'tarjeta_stripe' | 'efectivo' | 'bizum' | 'paypal' | 'fraccionado' | 'otro';
+  metodoPago: 'transferencia' | 'deposito' | 'tarjeta' | 'tarjeta_stripe' | 'efectivo' | 'bizum' | 'paypal' | 'fraccionado' | 'otro';
   /** Empresa o particular. Decide el rótulo del cliente en el PDF. */
   clienteTipo?: 'empresa' | 'particular';
   piePago?: string;
@@ -299,7 +299,7 @@ export const invoicesApi = {
   send: (id: number, email?: string) => client.post(`/invoices/${id}/send`, email ? { email } : {}),
   markPaid: (id: number, fechaPago?: string) => client.post(`/invoices/${id}/mark-paid`, fechaPago ? { fechaPago } : {}),
   // «Cobrada» en una proforma: apunta el cobro en la venta y la proforma pasa a factura.
-  cobrarProforma: (id: number, body: { importe: number; fecha: string; metodo?: string | null; notas?: string | null }) =>
+  cobrarProforma: (id: number, body: { importe: number; fecha: string; metodo?: string | null; notas?: string | null; referencia?: string | null }) =>
     client.post<Invoice>(`/invoices/${id}/cobrar-proforma`, body),
   cancel: (id: number) => client.post(`/invoices/${id}/cancel`, {}),
   // Eliminar factura + liberar su número (errores de carga) — admin/superadmin.

@@ -57,7 +57,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
   const [items, setItems] = useState<InvoiceItem[]>(defaultItems);
   const [notas, setNotas] = useState(defaultNotas || '');
   // Método y pie
-  const [metodoPago, setMetodoPago] = useState<'transferencia' | 'tarjeta' | 'tarjeta_stripe' | 'efectivo' | 'bizum' | 'paypal' | 'fraccionado' | 'otro'>('transferencia');
+  const [metodoPago, setMetodoPago] = useState<'transferencia' | 'deposito' | 'tarjeta' | 'tarjeta_stripe' | 'efectivo' | 'bizum' | 'paypal' | 'fraccionado' | 'otro'>('transferencia');
   const [piePago, setPiePago] = useState('');
   // Emisor (multi-empresa)
   const [issuers, setIssuers] = useState<import('../api/invoices.api').Issuer[]>([]);
@@ -245,6 +245,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
                 <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value as 'transferencia')}
                   className="w-full h-9 px-2 rounded border border-border bg-background text-sm">
                   <option value="transferencia">Transferencia bancaria</option>
+                  <option value="deposito">Depósito bancario</option>
                   <option value="tarjeta">Tarjeta</option>
                   <option value="tarjeta_stripe">Tarjeta (Stripe)</option>
                   <option value="efectivo">Efectivo</option>

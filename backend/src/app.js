@@ -51,6 +51,7 @@ import installationModule from './modules/installation/index.js';
 import projectChannelsModule from './modules/project-channels/index.js';
 import permissionsModule from './modules/permissions/index.js';
 import connectorsModule from './modules/connectors/index.js';
+import webhooksSalientesModule from './modules/webhooks-salientes/index.js';
 import makeModule from './modules/make/index.js';
 import messagesModule from './modules/messages/index.js';
 import statusModule from './modules/status/index.js';
@@ -80,6 +81,7 @@ import { startMcpVigilanciaScheduler } from './jobs/mcpVigilanciaScheduler.js';
 import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js';
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
+import { startWebhooksSalientesScheduler } from './jobs/webhooksSalientesScheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
 import { startTasksDailySummaryScheduler } from './jobs/tasksDailySummaryJob.js';
 import { startFacturasColaboradorScheduler } from './jobs/facturasColaboradorJob.js';
@@ -191,6 +193,9 @@ const ALL_MODULES = [
   { name: 'project-channels', mod: projectChannelsModule },
   { name: 'permissions', mod: permissionsModule },
   { name: 'connectors', mod: connectorsModule },
+  // Conexión → «Webhook de transferencias» (Diego, 15/10): avisa a fuera de
+  // los cobros por transferencia o depósito bancario. Migración 206.
+  { name: 'webhooks-salientes', mod: webhooksSalientesModule },
   { name: 'make', mod: makeModule },
   { name: 'messages', mod: messagesModule },
   { name: 'registro', mod: registroModule },
@@ -346,6 +351,7 @@ if (process.env.NODE_ENV !== 'test') {
     startMcpRotacionScheduler();
     startMcpVigilanciaScheduler();
     startCorreoEntranteScheduler();
+    startWebhooksSalientesScheduler();
     if (tareasActivas()) startTasksDailySummaryScheduler();
     if (facturasColaboradorActivas()) startFacturasColaboradorScheduler();
     recuperarAdjuntosDeWhatsapp();

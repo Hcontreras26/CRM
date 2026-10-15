@@ -2,11 +2,15 @@ import { query, getClient } from '../../shared/config/db.js';
 
 export async function listByConversion(conversionId) {
   // Se añade la factura emitida por el pago de cada cuota (por payment_id) para
-  // poder verla desde el plan de cuotas.
+  // poder verla desde el plan de cuotas. Y el método y la referencia de su
+  // cobro, que es lo que enseña «Editar pago» (una cuota saldada con un abono
+  // no siempre tiene su propio `metodo`).
   const { rows } = await query(
-    `SELECT ci.*, f.id AS factura_id, f.codigo AS factura_codigo, f.estado AS factura_estado
+    `SELECT ci.*, f.id AS factura_id, f.codigo AS factura_codigo, f.estado AS factura_estado,
+            cp.metodo AS pago_metodo, cp.referencia AS pago_referencia
        FROM conversion_installments ci
        LEFT JOIN invoices f ON f.payment_id = ci.payment_id AND f.tipo <> 'proforma' AND f.estado <> 'cancelada'
+       LEFT JOIN conversion_payments cp ON cp.id = ci.payment_id
       WHERE ci.conversion_id = $1 ORDER BY ci.numero ASC`,
     [conversionId]
   );
@@ -76,7 +80,8 @@ export async function update(id, data) {
   return rows[0];
 }
 
-export async function markPaid(id, { fecha_cobro, importe_cobrado, metodo, notas }) {
+// `referencia`: la del banco en una transferencia o un depósito (migración 206).
+export async function markPaid(id, { fecha_cobro, importe_cobrado, metodo, notas, referencia }) {
   const c = await getClient();
   try {
     await c.query('BEGIN');
@@ -86,9 +91,9 @@ export async function markPaid(id, { fecha_cobro, importe_cobrado, metodo, notas
     if (inst.fecha_cobro) { await c.query('ROLLBACK'); throw new Error('Cuota ya cobrada'); }
     // Crear payment
     const { rows: payRows } = await c.query(
-      `INSERT INTO conversion_payments (conversion_id, importe, fecha, notas, metodo)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [inst.conversion_id, importe_cobrado || inst.importe_previsto, fecha_cobro, notas || `Cuota ${inst.numero}`, metodo || null]
+      `INSERT INTO conversion_payments (conversion_id, importe, fecha, notas, metodo, referencia)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [inst.conversion_id, importe_cobrado || inst.importe_previsto, fecha_cobro, notas || `Cuota ${inst.numero}`, metodo || null, referencia || null]
     );
     // Actualizar conversion importe_pagado
     await c.query(
@@ -112,10 +117,16 @@ export async function markPaid(id, { fecha_cobro, importe_cobrado, metodo, notas
   }
 }
 
-// Edita un pago YA registrado (fecha_cobro / importe_cobrado).
+// Edita un pago YA registrado (fecha_cobro / importe_cobrado / metodo).
 // Mantiene en sync el conversion_payment correspondiente y el importe_pagado
 // de la conversión (suma/resta el diff de importe).
-export async function editPaid(id, { fecha_cobro, importe_cobrado }) {
+//
+// EL MÉTODO TAMBIÉN (15/10). El diálogo «Editar pago» enseñaba el desplegable
+// de la forma de pago, pero no se mandaba ni se guardaba: cambiarlo no hacía
+// nada y nadie se enteraba. Ahora se guarda en la cuota y en su cobro, y se
+// devuelve `metodo_antes` para que el webhook de transferencias (206) sepa si
+// el cobro acaba de pasar A transferencia o depósito.
+export async function editPaid(id, { fecha_cobro, importe_cobrado, metodo, referencia }) {
   const c = await getClient();
   try {
     await c.query('BEGIN');
@@ -127,12 +138,23 @@ export async function editPaid(id, { fecha_cobro, importe_cobrado }) {
     const newImporte = importe_cobrado !== undefined ? Number(importe_cobrado) : Number(inst.importe_cobrado);
     const newFecha = fecha_cobro || inst.fecha_cobro;
     const diff = newImporte - Number(inst.importe_cobrado);
+    // El método que vale es el del COBRO: una cuota saldada con un abono tiene
+    // `payment_id` pero no siempre su propio `metodo`.
+    let metodoAntes = inst.metodo || null;
+    if (inst.payment_id) {
+      const { rows: pg } = await c.query('SELECT metodo FROM conversion_payments WHERE id = $1', [inst.payment_id]);
+      metodoAntes = pg[0]?.metodo || metodoAntes;
+    }
+    const newMetodo = metodo !== undefined ? (metodo || null) : metodoAntes;
 
     // Actualizar conversion_payment vinculado
     if (inst.payment_id) {
       await c.query(
-        `UPDATE conversion_payments SET importe = $1, fecha = $2 WHERE id = $3`,
-        [newImporte, newFecha, inst.payment_id]
+        `UPDATE conversion_payments
+            SET importe = $1, fecha = $2, metodo = $4,
+                referencia = CASE WHEN $5::boolean THEN $6 ELSE referencia END
+          WHERE id = $3`,
+        [newImporte, newFecha, inst.payment_id, newMetodo, referencia !== undefined, referencia || null]
       );
     }
     // Ajustar importe_pagado de la conversión si cambió el monto
@@ -145,12 +167,12 @@ export async function editPaid(id, { fecha_cobro, importe_cobrado }) {
     // Actualizar cuota
     const { rows } = await c.query(
       `UPDATE conversion_installments
-         SET fecha_cobro = $1, importe_cobrado = $2, updated_at = NOW()
+         SET fecha_cobro = $1, importe_cobrado = $2, metodo = $4, updated_at = NOW()
        WHERE id = $3 RETURNING *`,
-      [newFecha, newImporte, id]
+      [newFecha, newImporte, id, newMetodo]
     );
     await c.query('COMMIT');
-    return rows[0];
+    return { ...rows[0], metodo_antes: metodoAntes };
   } catch (err) {
     await c.query('ROLLBACK');
     throw err;

@@ -928,7 +928,7 @@ async function numerarBorrador(invoiceId) {
 // Si había borrador → se numera tal cual. Si no había factura → se crea emitida
 // con los datos de la conversión + lo que el lead tenga (faltantes = '—').
 // Los datos incompletos NO bloquean la numeración, solo enviar/descargar.
-const METODOS_PAGO_VALIDOS = ['transferencia', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro'];
+const METODOS_PAGO_VALIDOS = ['transferencia', 'deposito', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro'];
 
 // Datos fiscales del cliente + snapshot de la conversión, para armar la factura.
 async function _convDataParaFactura(conversionId) {
