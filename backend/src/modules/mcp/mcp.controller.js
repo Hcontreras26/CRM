@@ -7,7 +7,8 @@ import {
 } from './mcp.acceso.js';
 import { HERRAMIENTAS } from './mcp.tools.js';
 import * as desbloqueo from './mcp.desbloqueo.js';
-import { accesoSchema, actividadSchema, crearTokenSchema, idSchema, interruptorSchema } from './mcp.validation.js';
+import { accesoSchema, actividadSchema, crearTokenSchema, decisionSchema, idSchema, interruptorSchema } from './mcp.validation.js';
+import * as conexiones from './mcp.conexiones.js';
 import * as interruptorModel from './mcp.interruptor.js';
 import * as actividadModel from './mcp.actividad.js';
 
@@ -59,11 +60,14 @@ export async function estado(req, res, next) {
         // Código de desbloqueo (#192): si hace falta y cuánto dura cada cosa.
         // `resumen`: el estado actual en una línea, de todas sus URLs, para el
         // recuadro «Código para Claude».
+        // Sin horas desde la #326: el desbloqueo ya no caduca.
         codigo: {
-          ...(({ obligatorio, minutosCodigo, inactividadMin, maximoMin }) =>
-            ({ obligatorio, minutosCodigo, inactividadMin, maximoMin }))(desbloqueo.config()),
+          ...(({ obligatorio, minutosCodigo }) => ({ obligatorio, minutosCodigo }))(desbloqueo.config()),
           resumen: desbloqueo.resumenParaElPanel(urls, estados),
         },
+        // #326: el super admin puede rechazar cualquier Claude conectado.
+        conexionesDelEquipo: user.role === 'superadmin' && desbloqueo.config().obligatorio
+          ? await conexiones.delEquipo(user.id) : null,
       },
     });
   } catch (err) { next(err); }
@@ -178,6 +182,10 @@ export async function desbloquearUrl(req, res, next) {
     }
     const r = await desbloqueo.desbloquearDesdePanel({ userId: user.id, tokenId: id });
     if (r.resultado === 'no_encontrada') throw new AppError('URL no encontrada', 404, 'NOT_FOUND');
+    // #326: desbloquea los Claude autorizados de esa URL; sin ninguno, no hay qué.
+    if (r.resultado === 'sin_autorizadas') {
+      throw new AppError('Esta URL no tiene ningún Claude autorizado. Conecta Claude con ella y autoriza la conexión primero.', 409, 'MCP_SIN_CONEXIONES');
+    }
     const ok = r.resultado === 'ok';
     await model.registrarAuditoria({
       userId: user.id, tokenId: id, herramienta: 'desbloquear_panel', parametros: null,
@@ -188,7 +196,33 @@ export async function desbloquearUrl(req, res, next) {
     }
     logger.info({ userId: user.id, tokenId: id }, 'MCP: URL desbloqueada desde el panel');
     const estado = (await desbloqueo.estadoParaElPanel([id])).get(id) || null;
-    res.json({ success: true, data: { id, caducaMaxAt: r.caducaMaxAt, codigo: estado } });
+    res.json({ success: true, data: { id, cuantas: r.cuantas, codigo: estado } });
+  } catch (err) { next(err); }
+}
+
+/**
+ * PATCH /api/mcp/panel/conexiones/:id — autorizar o rechazar un Claude
+ * conectado a una URL (#326). El dueño, los suyos; el super admin solo puede
+ * rechazar los de otras personas. Queda en la Actividad.
+ */
+export async function decidirConexion(req, res, next) {
+  try {
+    const { id } = validar(idSchema, req.params);
+    const { decision } = validar(decisionSchema, req.body);
+    const quien = await personaActual(req);
+    const r = await conexiones.decidir({ id, quien, decision });
+    if (r.error === 'no_encontrada') throw new AppError('Conexión no encontrada', 404, 'NOT_FOUND');
+    if (r.error === 'no_es_tuya') {
+      throw new AppError(decision === 'autorizar'
+        ? 'Solo el dueño de la URL puede autorizar sus conexiones de Claude.'
+        : 'Solo el dueño de la URL o el super admin pueden rechazar esta conexión.', 403, 'FORBIDDEN');
+    }
+    await model.registrarAuditoria({
+      userId: quien.id, tokenId: r.conexion.token_id,
+      herramienta: decision === 'autorizar' ? 'conexion_autorizada' : 'conexion_rechazada',
+      parametros: { conexion: id, de: r.conexion.user_id }, ok: true, duracionMs: 0,
+    });
+    res.json({ success: true, data: r.conexion });
   } catch (err) { next(err); }
 }
 

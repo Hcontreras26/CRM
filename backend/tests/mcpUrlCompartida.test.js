@@ -22,6 +22,8 @@ import request from 'supertest';
  */
 
 const TOKEN = 'crm_mcp_' + 't'.repeat(43);
+// #326: Claude manda la llave de SU conexión (autorizada), no la de la URL.
+const LLAVE_CONEXION = 'crm_mcc_' + 'c'.repeat(43);
 const TONY = { id: 7, nombre: 'Tony', role: 'admin', active: true, email: 'tony@ejemplo.test' };
 const YOLANDA = { id: 9, nombre: 'Yolanda', email: 'yolanda@ejemplo.test' };
 
@@ -75,8 +77,10 @@ app.use(express.json());
 app.use(mcp.prefix, mcp.router);
 app.use(errorHandler);
 
+const { huella } = await import('../src/modules/mcp/mcp.acceso.js');
 const usarHerramienta = (name, args = {}) => request(app).post(`/api/mcp/u/${TOKEN}`)
   .set('Accept', 'application/json, text/event-stream')
+  .set('Authorization', `Bearer ${LLAVE_CONEXION}`)
   .send({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } });
 
 /**
@@ -105,7 +109,11 @@ beforeEach(() => {
   query.mockImplementation(async (sql, params) => {
     sqls.push([sql, params]);
     if (/FROM mcp_interruptor/.test(sql)) return { rows: [{ apagado: false }] };
-    if (/EXISTS \(SELECT 1 FROM mcp_desbloqueos/.test(sql)) return { rows: [base.estado] };
+    // #326: el bloqueo es de la URL; el desbloqueo, de la conexión de Claude.
+    if (/AS bloqueado\s+FROM mcp_tokens t WHERE t\.id = \$1/.test(sql)) return { rows: [base.estado] };
+    if (/FROM mcp_conexiones x\s+JOIN mcp_tokens t/.test(sql)) {
+      return { rows: [{ id: 5, token_id: 2, user_id: 7, estado: 'autorizada', desbloqueada_at: null, connector_id: null, token_hash: huella(TOKEN) }] };
+    }
     if (/UPDATE mcp_codigos SET usado_at/.test(sql)) return { rows: [] };
     if (/FROM mcp_codigos c/.test(sql)) return { rows: base.ajeno ? [base.ajeno] : [] };
     if (FALLO.test(sql)) return { rows: [{ fallos_codigo: 1, bloqueado_hasta: null, bloqueado: false }] };
@@ -224,7 +232,8 @@ describe('la alerta de madrugada', () => {
     process.env.MCP_ALERTA_MADRUGADA = '0-6';
     await alertas.revisar();
     const [sql] = sqls.find(([s]) => /AS noche/.test(s));
-    expect(sql).toMatch(/a\.herramienta <> 'desbloquear_panel'/);
+    // #326: tampoco autorizar o rechazar un Claude, que también son clics en el panel.
+    expect(sql).toMatch(/a\.herramienta NOT IN \('desbloquear_panel', 'conexion_autorizada', 'conexion_rechazada'\)/);
   });
 
   it('cuenta aparte las que dieron datos y las que paró el código', async () => {

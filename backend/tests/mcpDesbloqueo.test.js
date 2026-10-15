@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import express from 'express';
 import supertest from 'supertest';
 import jwt from 'jsonwebtoken';
@@ -28,6 +28,7 @@ const { default: pool } = await import('../src/shared/config/db.js');
 const { default: mcp } = await import('../src/modules/mcp/index.js');
 const { default: conectores } = await import('../src/modules/connectors/index.js');
 const { errorHandler } = await import('../src/shared/middleware/errorHandler.js');
+const conexiones = await import('../src/modules/mcp/mcp.conexiones.js');
 
 const app = express();
 app.use(express.json());
@@ -65,11 +66,31 @@ async function pedirCodigo(u) {
   return r.body.data.codigo;
 }
 
+// #326: con el código obligatorio, la URL sola ya no da datos: Claude se
+// conecta (inicio de sesión, `/token`) y manda la llave de SU conexión. Aquí
+// cada URL tiene «su Claude» de siempre, autorizado por su dueño, como si
+// hubiera pasado por el inicio de sesión. Las pruebas de la #326 están al final.
+const CLAUDE_AI = 'https://claude.ai/api/mcp/auth_callback';
+const llaves = new Map();
+async function conectarClaude(tok, { autorizar = true } = {}) {
+  const c = await conexiones.crear({ secreto: tok, vuelta: CLAUDE_AI });
+  if (autorizar) await q(`UPDATE mcp_conexiones SET estado = 'autorizada', decidida_at = NOW() WHERE id = $1`, [c.id]);
+  return c;
+}
+async function llaveDe(tok) {
+  if (!llaves.has(tok)) llaves.set(tok, (await conectarClaude(tok)).llave);
+  return llaves.get(tok);
+}
+
 let idRpc = 0;
-async function llamar(tok, name, args = {}) {
-  const r = await request.post(`/api/mcp/u/${tok}`)
+async function rpc(tok, cuerpo, llave) {
+  return request.post(`/api/mcp/u/${tok}`)
     .set('Accept', 'application/json, text/event-stream')
-    .send({ jsonrpc: '2.0', id: ++idRpc, method: 'tools/call', params: { name, arguments: args } });
+    .set('Authorization', `Bearer ${llave || await llaveDe(tok)}`)
+    .send({ jsonrpc: '2.0', id: ++idRpc, ...cuerpo });
+}
+async function llamar(tok, name, args = {}, llave = null) {
+  const r = await rpc(tok, { method: 'tools/call', params: { name, arguments: args } }, llave);
   expect(r.status).toBe(200);
   return { ok: !r.body.result.isError, texto: r.body.result.content[0].text };
 }
@@ -88,6 +109,7 @@ beforeAll(async () => {
 }, 60000);
 
 afterAll(async () => {
+  await q(`DELETE FROM admin_notifications WHERE type = 'mcp_conexion_nueva' AND target_user_ids && $1::int[]`, [ids.users]);
   await q(`DELETE FROM mcp_alertas WHERE user_id = ANY($1::int[])`, [ids.users]);
   await q(`DELETE FROM mcp_auditoria WHERE user_id = ANY($1::int[])`, [ids.users]);
   await q(`DELETE FROM mcp_tokens WHERE connector_id IN (SELECT id FROM project_connectors WHERE project_id = ANY($1::int[]))`, [ids.projects]);
@@ -118,9 +140,7 @@ describe('con el interruptor apagado, todo sigue como antes', () => {
   });
 
   it('y «desbloquear» ni aparece: Claude ve las mismas herramientas que antes', async () => {
-    const lista = async () => (await request.post(`/api/mcp/u/${TOKEN_LUIS}`)
-      .set('Accept', 'application/json, text/event-stream')
-      .send({ jsonrpc: '2.0', id: ++idRpc, method: 'tools/list' })).body.result.tools.map((t) => t.name);
+    const lista = async () => (await rpc(TOKEN_LUIS, { method: 'tools/list' })).body.result.tools.map((t) => t.name);
     process.env.MCP_CODIGO_OBLIGATORIO = 'false';
     expect(await lista()).not.toContain('desbloquear');
     process.env.MCP_CODIGO_OBLIGATORIO = 'true';
@@ -187,7 +207,7 @@ describe('el código', () => {
   it('un código ya usado no vale', async () => {
     const codigo = await pedirCodigo(ANA);
     expect((await llamar(TOKEN_ANA_2, 'desbloquear', { codigo })).ok).toBe(true);
-    await q(`DELETE FROM mcp_desbloqueos WHERE token_id = $1`, [await tokenIdDe(TOKEN_ANA_2)]);
+    await q(`UPDATE mcp_conexiones SET desbloqueada_at = NULL WHERE token_id = $1`, [await tokenIdDe(TOKEN_ANA_2)]);
     const r = await llamar(TOKEN_ANA_2, 'desbloquear', { codigo });
     expect(r.ok).toBe(false);
     expect(r.texto).toMatch(/no vale/);
@@ -228,30 +248,28 @@ describe('el código', () => {
   });
 });
 
-describe('caducidad del desbloqueo', () => {
-  it('tras el tiempo sin uso se vuelve a cerrar', async () => {
+describe('sin caducidad por horas (Carlos, 13/10; #326)', () => {
+  it('desbloqueado, sigue dando datos aunque pasen horas sin usarlo y más de las 9 h de antes', async () => {
     const id = await tokenIdDe(TOKEN_ANA);
+    expect((await llamar(TOKEN_ANA, 'desbloquear', { codigo: await pedirCodigo(ANA) })).ok).toBe(true);
+    await q(`UPDATE mcp_conexiones SET desbloqueada_at = NOW() - INTERVAL '3 days', last_used_at = NOW() - INTERVAL '3 days' WHERE token_id = $1`, [id]);
     expect((await llamar(TOKEN_ANA, 'mis_proyectos')).ok).toBe(true);
-    await q(`UPDATE mcp_desbloqueos SET ultimo_uso_at = NOW() - INTERVAL '121 minutes' WHERE token_id = $1`, [id]);
-    expect((await llamar(TOKEN_ANA, 'mis_proyectos')).ok).toBe(false);
   });
 
-  it('y al llegar al máximo, aunque se use seguido', async () => {
-    const id = await tokenIdDe(TOKEN_ANA);
-    expect((await llamar(TOKEN_ANA, 'desbloquear', { codigo: await pedirCodigo(ANA) })).ok).toBe(true);
-    await q(`UPDATE mcp_desbloqueos SET caduca_max_at = NOW() - INTERVAL '1 second' WHERE token_id = $1`, [id]);
-    expect((await llamar(TOKEN_ANA, 'mis_proyectos')).ok).toBe(false);
+  it('y Claude lo dice al desbloquear: no volverá a pedir el código', async () => {
+    const r = await llamar(TOKEN_ANA, 'desbloquear', { codigo: await pedirCodigo(ANA) });
+    expect(r.texto).toBe('Desbloqueado. Ya puedes consultar el CRM. No volverá a pedir el código mientras esta conexión de Claude siga autorizada.');
   });
 
-  it('los tiempos salen del .env', async () => {
-    const id = await tokenIdDe(TOKEN_ANA);
-    expect((await llamar(TOKEN_ANA, 'desbloquear', { codigo: await pedirCodigo(ANA) })).ok).toBe(true);
-    await q(`UPDATE mcp_desbloqueos SET ultimo_uso_at = NOW() - INTERVAL '30 minutes' WHERE token_id = $1`, [id]);
-    process.env.MCP_DESBLOQUEO_INACTIVIDAD_MIN = '20';
+  it('las variables de antes del .env ya no cuentan', async () => {
+    process.env.MCP_DESBLOQUEO_INACTIVIDAD_MIN = '1';
+    process.env.MCP_DESBLOQUEO_MAX_MIN = '1';
     try {
-      expect((await llamar(TOKEN_ANA, 'mis_proyectos')).ok).toBe(false);
+      await q(`UPDATE mcp_conexiones SET desbloqueada_at = NOW() - INTERVAL '1 hour' WHERE token_id = $1`, [await tokenIdDe(TOKEN_ANA)]);
+      expect((await llamar(TOKEN_ANA, 'mis_proyectos')).ok).toBe(true);
     } finally {
       delete process.env.MCP_DESBLOQUEO_INACTIVIDAD_MIN;
+      delete process.env.MCP_DESBLOQUEO_MAX_MIN;
     }
   });
 });
@@ -289,14 +307,16 @@ describe('se bloquea al quinto fallo', () => {
   });
 });
 
-// ─── Diego, 05/10 (#192): los dos tiempos de cada URL y «Desbloquear desde aquí» ───
+// ─── El panel: el estado de cada URL y «Desbloquear desde aquí» (#192; #326) ───
 
 const panelDe = async (u) => (await request.get('/api/mcp/panel').set('Authorization', `Bearer ${jwtDe(u)}`)).body.data;
 const desbloquearDesdeAqui = (u, id) => request.post(`/api/mcp/panel/tokens/${id}/desbloquear`)
   .set('Authorization', `Bearer ${jwtDe(u)}`).send({});
+const decidir = (u, id, decision) => request.patch(`/api/mcp/panel/conexiones/${id}`)
+  .set('Authorization', `Bearer ${jwtDe(u)}`).send({ decision });
 const hhmm = /\d{2}:\d{2}/;
 
-describe('cuándo volverá a pedir el código, por cada URL (los cuatro estados)', () => {
+describe('el estado de cada URL en el panel, sin horas (#326)', () => {
   let U; let TOK; let ID;
   beforeAll(async () => {
     U = await persona('ESTADOS', 'admin');
@@ -305,34 +325,23 @@ describe('cuándo volverá a pedir el código, por cada URL (los cuatro estados)
   });
   const suEstado = async () => (await panelDe(U)).tokens.find((t) => t.id === ID).codigo;
 
-  it('sin desbloquear: «Pedirá el código en la próxima consulta»', async () => {
-    expect(await suEstado()).toMatchObject({ estado: 'sin_desbloquear', texto: 'Pedirá el código en la próxima consulta' });
+  it('sin ningún Claude conectado: lo dice', async () => {
+    expect(await suEstado()).toMatchObject({ estado: 'sin_desbloquear', texto: 'Ningún Claude conectado todavía con esta URL', conexiones: [] });
   });
 
-  it('desbloqueada: a qué hora lo pedirá, con la hora de Madrid', async () => {
+  it('con su Claude autorizado y sin código: pedirá el código en la próxima consulta', async () => {
+    await llaveDe(TOK);
+    const e = await suEstado();
+    expect(e).toMatchObject({ estado: 'sin_desbloquear', texto: '1 Claude autorizado (pedirá el código en la próxima consulta)' });
+    expect(e.conexiones).toHaveLength(1);
+    expect(e.conexiones[0]).toMatchObject({ cliente: 'claude', estado: 'autorizada', desbloqueada: false });
+  });
+
+  it('desbloqueado: sin ninguna hora, porque ya no caduca', async () => {
     expect((await llamar(TOK, 'desbloquear', { codigo: await pedirCodigo(U) })).ok).toBe(true);
     const e = await suEstado();
-    expect(e.estado).toBe('desbloqueada');
-    // Recién desbloqueada manda la inactividad (2 h), que es antes que el máximo (9 h).
-    // «mañana» si cae en otro día: después de las 22:00 de Madrid, las 2 h ya son mañana.
-    expect(e.texto).toMatch(/^Pedirá el código (mañana )?a las \d{2}:\d{2} si pasan 2 h sin usarla \(como muy tarde, (mañana )?a las \d{2}:\d{2}\)$/);
-    const [d] = await q(`SELECT ultimo_uso_at + INTERVAL '120 minutes' AS a FROM mcp_desbloqueos WHERE token_id = $1`, [ID]);
-    expect(new Date(e.hasta).getTime()).toBe(new Date(d.a).getTime());
-    const madrid = new Date(d.a).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-    expect(e.texto).toContain(`a las ${madrid} si pasan`);
-  });
-
-  it('desbloqueada cerca del máximo: manda el máximo (la menor de las dos)', async () => {
-    await q(`UPDATE mcp_desbloqueos SET caduca_max_at = NOW() + INTERVAL '30 minutes' WHERE token_id = $1`, [ID]);
-    const e = await suEstado();
-    expect(e.texto).toMatch(/^Pedirá el código (mañana )?a las \d{2}:\d{2}$/);
-    const [d] = await q(`SELECT caduca_max_at FROM mcp_desbloqueos WHERE token_id = $1`, [ID]);
-    expect(new Date(e.hasta).getTime()).toBe(new Date(d.caduca_max_at).getTime());
-  });
-
-  it('si la hora ya pasó, vuelve a «en la próxima consulta»', async () => {
-    await q(`UPDATE mcp_desbloqueos SET ultimo_uso_at = NOW() - INTERVAL '121 minutes' WHERE token_id = $1`, [ID]);
-    expect((await suEstado()).estado).toBe('sin_desbloquear');
+    expect(e).toMatchObject({ estado: 'desbloqueada', hasta: null, texto: '1 Claude autorizado y desbloqueado' });
+    expect(e.texto).not.toMatch(hhmm);
   });
 
   it('bloqueada por códigos falsos: «Bloqueada hasta las HH:MM»', async () => {
@@ -348,14 +357,14 @@ describe('cuándo volverá a pedir el código, por cada URL (los cuatro estados)
     const p = await panelDe(U);
     expect(p.tokens.find((t) => t.id === ID).codigo).toBeNull();
     expect(p.codigo.resumen).toBeNull();
+    expect(p.codigo).not.toHaveProperty('inactividadMin');
   });
 
   it('«Código para Claude», con una sola URL: el estado actual de esa URL', async () => {
-    expect((await llamar(TOK, 'desbloquear', { codigo: await pedirCodigo(U) })).ok).toBe(true);
     const { resumen } = (await panelDe(U)).codigo;
     expect(resumen.total).toBe(1);
     expect(resumen.una).toMatchObject({ id: ID, nombre: 'Estados', estado: 'desbloqueada' });
-    expect(resumen.texto).toMatch(hhmm);
+    expect(resumen.texto).toBe('1 Claude autorizado y desbloqueado');
   });
 });
 
@@ -365,14 +374,13 @@ describe('«Código para Claude» con varias URLs: el estado actual de todas, en
     const abierta = await token(V, 'Abierta');
     const bloqueada = await token(V, 'Bloqueada');
     await token(V, 'Cerrada');
+    await llaveDe(abierta.token);
     expect((await desbloquearDesdeAqui(V, abierta.id)).status).toBe(200);
     await q(`UPDATE mcp_tokens SET bloqueado_hasta = NOW() + INTERVAL '15 minutes' WHERE id = $1`, [bloqueada.id]);
     const { resumen } = (await panelDe(V)).codigo;
     expect(resumen.total).toBe(3);
     expect(resumen.una).toBeNull();
-    expect(resumen.texto).toMatch(
-      /^Tus 3 URLs: 1 desbloqueada \(pedirá el código (mañana )?a las \d{2}:\d{2}\), 1 bloqueada \(hasta (mañana a )?las \d{2}:\d{2}\), 1 cerrada \(pedirá el código en la próxima consulta\)$/
-    );
+    expect(resumen.texto).toBe('Tus 3 URLs: 1 desbloqueada, 1 bloqueada, 1 cerrada');
   });
 
   it('cuenta también las URLs de las conexiones de Claude', async () => {
@@ -382,7 +390,7 @@ describe('«Código para Claude» con varias URLs: el estado actual de todas, en
       .send({ project_id: ids.projects[0], type: 'mcp', label: `${MARCA} Mixta`, alcance: 'campus' });
     expect(cx.status).toBe(201);
     const { resumen } = (await panelDe(W)).codigo;
-    expect(resumen.texto).toBe('Tus 2 URLs: 2 cerradas (pedirán el código en la próxima consulta)');
+    expect(resumen.texto).toBe('Tus 2 URLs: 2 cerradas');
   });
 });
 
@@ -406,12 +414,10 @@ describe('«Desbloquear desde aquí» (opción 3 de Diego)', () => {
     expect((await llamar(TOK, 'mis_proyectos')).ok).toBe(true);
   });
 
-  it('con las mismas reglas: 9 h como máximo', async () => {
-    const [d] = await q(
-      `SELECT EXTRACT(EPOCH FROM (caduca_max_at - desbloqueado_at))::int AS s, codigo_id FROM mcp_desbloqueos WHERE token_id = $1`, [ID]
-    );
-    expect(d.s).toBe(540 * 60);
-    expect(d.codigo_id).toBeNull();
+  it('desbloquea sin código y sin caducidad (#326)', async () => {
+    const [c] = await q(`SELECT desbloqueada_at, codigo_id FROM mcp_conexiones WHERE token_id = $1 AND estado = 'autorizada'`, [ID]);
+    expect(c.desbloqueada_at).toBeTruthy();
+    expect(c.codigo_id).toBeNull();
   });
 
   it('queda en la Actividad', async () => {
@@ -420,6 +426,19 @@ describe('«Desbloquear desde aquí» (opción 3 de Diego)', () => {
     );
     // Sin IP ni cliente: el navegador no es un Claude y la vigilancia no debe tomarlo por uno nuevo.
     expect(f).toEqual({ ok: true, ip: null, cliente: null });
+  });
+
+  it('un Claude pendiente de autorizar no se desbloquea con el botón (#326)', async () => {
+    const pendiente = await conectarClaude(TOK, { autorizar: false });
+    expect((await desbloquearDesdeAqui(U, ID)).status).toBe(200);
+    expect((await llamar(TOK, 'mis_proyectos', {}, pendiente.llave)).texto).toMatch(/pendiente de autorizar/);
+  });
+
+  it('una URL sin ningún Claude autorizado: 409 y lo explica (#326)', async () => {
+    const t = await token(U, 'Sin Claude');
+    const r = await desbloquearDesdeAqui(U, t.id);
+    expect(r.status).toBe(409);
+    expect(r.body.error || r.body.message).toMatch(/ningún Claude autorizado/);
   });
 
   it('la URL de otra persona, no: 404 y sigue cerrada', async () => {
@@ -437,6 +456,7 @@ describe('«Desbloquear desde aquí» (opción 3 de Diego)', () => {
 
   it('bloqueada por códigos falsos, no: hay que esperar', async () => {
     const t = await token(U, 'Bloqueada');
+    await llaveDe(t.token);
     await q(`UPDATE mcp_tokens SET bloqueado_hasta = NOW() + INTERVAL '15 minutes' WHERE id = $1`, [t.id]);
     const r = await desbloquearDesdeAqui(U, t.id);
     expect(r.status).toBe(409);
@@ -465,8 +485,8 @@ describe('una gestora con acceso, en «Tu URL personal»', () => {
     await q(`UPDATE users SET usa_mcp = true WHERE id = $1`, [G.id]);
     const t = await token(G, 'Portátil');
     const suya = async () => (await panelDe(G)).tokens.find((x) => x.id === t.id).codigo;
-    expect((await suya()).estado).toBe('sin_desbloquear');
     expect((await llamar(t.token, 'mis_proyectos')).ok).toBe(false);
+    expect((await suya()).estado).toBe('sin_desbloquear');
     expect((await desbloquearDesdeAqui(G, t.id)).status).toBe(200);
     expect((await suya()).estado).toBe('desbloqueada');
     expect((await llamar(t.token, 'mis_proyectos')).ok).toBe(true);
@@ -474,7 +494,7 @@ describe('una gestora con acceso, en «Tu URL personal»', () => {
 });
 
 describe('en «Conexiones de Claude» (mcp_mio de cada conexión)', () => {
-  it('trae cuándo caduca la URL y cuándo volverá a pedir el código, y el botón la desbloquea', async () => {
+  it('trae cuándo caduca la URL, su estado y sus Claude, y el botón la desbloquea', async () => {
     const U = await persona('CONEXION', 'admin');
     const auth = { Authorization: `Bearer ${jwtDe(U)}` };
     const cx = await request.post('/api/connectors').set(auth)
@@ -485,9 +505,171 @@ describe('en «Conexiones de Claude» (mcp_mio de cada conexión)', () => {
 
     const antes = await mia();
     expect(antes.expires_at).toBeTruthy();
-    expect(antes.codigo).toMatchObject({ estado: 'sin_desbloquear' });
+    expect(antes.codigo).toMatchObject({ estado: 'sin_desbloquear', conexiones: [] });
 
+    // Su Claude se conecta (aquí directo en la base: la URL del conector solo se enseña al crearla).
+    await q(
+      `INSERT INTO mcp_conexiones (token_id, user_id, llave_hash, llave_semilla, cliente, estado, decidida_at)
+       VALUES ($1, $2, encode(sha256($3::bytea), 'hex'), 'prueba', 'claude', 'autorizada', NOW())`,
+      [antes.id, U.id, `crm_mcc_${MARCA}_${'x'.repeat(40)}`]
+    );
     expect((await desbloquearDesdeAqui(U, antes.id)).status).toBe(200);
-    expect((await mia()).codigo.estado).toBe('desbloqueada');
+    const despues = await mia();
+    expect(despues.codigo.estado).toBe('desbloqueada');
+    expect(despues.codigo.conexiones).toHaveLength(1);
+  });
+});
+
+// ─── #326 (13/10): cada Claude conectado, con el permiso de su dueño ───
+
+describe('#326 · la URL sola ya no da datos: Claude tiene que conectarse', () => {
+  it('sin llave de conexión: 401 con la dirección del inicio de sesión, para que Claude se conecte', async () => {
+    const r = await request.post(`/api/mcp/u/${TOKEN_ANA}`)
+      .set('Accept', 'application/json, text/event-stream')
+      .send({ jsonrpc: '2.0', id: ++idRpc, method: 'tools/list' });
+    expect(r.status).toBe(401);
+    expect(r.headers['www-authenticate']).toContain(`resource_metadata="http://127.0.0.1`);
+    expect(r.headers['www-authenticate']).toContain('/.well-known/oauth-protected-resource/api/mcp/u/crm_mcp_');
+    expect(r.body.error.message).toMatch(/Conéctate primero/);
+  });
+
+  it('con la llave de la URL en la cabecera, tampoco', async () => {
+    const r = await request.post(`/api/mcp/u/${TOKEN_ANA}`).set('Authorization', `Bearer ${TOKEN_ANA}`)
+      .set('Accept', 'application/json, text/event-stream')
+      .send({ jsonrpc: '2.0', id: ++idRpc, method: 'tools/list' });
+    expect(r.status).toBe(401);
+  });
+
+  it('la llave de una conexión con OTRA URL en la dirección, no', async () => {
+    const r = await rpc(TOKEN_ANA, { method: 'tools/list' }, await llaveDe(TOKEN_LUIS));
+    expect(r.status).toBe(401);
+  });
+
+  it('con el código apagado, todo sigue como antes: la URL sola vale', async () => {
+    process.env.MCP_CODIGO_OBLIGATORIO = 'false';
+    const r = await request.post(`/api/mcp/u/${TOKEN_ANA}`)
+      .set('Accept', 'application/json, text/event-stream')
+      .send({ jsonrpc: '2.0', id: ++idRpc, method: 'tools/call', params: { name: 'mis_proyectos', arguments: {} } });
+    expect(r.status).toBe(200);
+    expect(r.body.result.isError).toBeFalsy();
+  });
+});
+
+describe('#326 · un Claude nuevo queda pendiente hasta que el dueño lo autoriza', () => {
+  let U; let TOK; let ID; let MIO; let INTRUSO;
+  beforeAll(async () => {
+    U = await persona('DUENA', 'admin');
+    TOK = (await token(U, 'Su portátil')).token;
+    ID = await tokenIdDe(TOK);
+  });
+
+  it('su primer Claude: pendiente, sin datos, y le llega un aviso a la campana', async () => {
+    MIO = await conectarClaude(TOK, { autorizar: false });
+    expect(MIO.estado).toBe('pendiente');
+    const r = await llamar(TOK, 'mis_proyectos', {}, MIO.llave);
+    expect(r.ok).toBe(false);
+    expect(r.texto).toMatch(/pendiente de autorizar/);
+    const [n] = await q(
+      `SELECT title, link_path, target_user_ids FROM admin_notifications WHERE type = 'mcp_conexion_nueva' AND target_user_ids = ARRAY[$1::int] ORDER BY id DESC LIMIT 1`, [U.id]
+    );
+    expect(n).toMatchObject({ title: 'Un Claude pide conectarse con tu URL', link_path: '/conexion/mcp' });
+  });
+
+  it('con el código bueno, aún pendiente: lo acepta pero sigue sin datos y dice que falta autorizar', async () => {
+    const d = await llamar(TOK, 'desbloquear', { codigo: await pedirCodigo(U) }, MIO.llave);
+    expect(d.ok).toBe(true);
+    expect(d.texto).toMatch(/Falta un paso: esta conexión de Claude está pendiente de autorizar/);
+    expect((await llamar(TOK, 'mis_proyectos', {}, MIO.llave)).ok).toBe(false);
+  });
+
+  it('el panel lo enseña debajo de su URL, pendiente', async () => {
+    const e = (await panelDe(U)).tokens.find((t) => t.id === ID).codigo;
+    expect(e.estado).toBe('pendiente');
+    expect(e.texto).toBe('1 Claude pendiente de autorizar');
+    expect(e.conexiones[0]).toMatchObject({ id: MIO.id, estado: 'pendiente' });
+  });
+
+  it('otra persona no puede autorizarlo; el super admin tampoco (solo rechazar)', async () => {
+    const S = await persona('SUPER', 'superadmin');
+    expect((await decidir(LUIS, MIO.id, 'autorizar')).status).toBe(403);
+    expect((await decidir(S, MIO.id, 'autorizar')).status).toBe(403);
+  });
+
+  it('la dueña lo autoriza y ya hay datos, sin volver a pedir el código', async () => {
+    expect((await decidir(U, MIO.id, 'autorizar')).status).toBe(200);
+    expect((await llamar(TOK, 'mis_proyectos', {}, MIO.llave)).ok).toBe(true);
+    const [a] = await q(`SELECT herramienta FROM mcp_auditoria WHERE token_id = $1 AND herramienta LIKE 'conexion_%' ORDER BY id DESC LIMIT 1`, [ID]);
+    expect(a.herramienta).toBe('conexion_autorizada');
+  });
+
+  it('LA URL SE CUELA: otro Claude con la misma URL queda pendiente y sin datos, aunque la URL esté desbloqueada', async () => {
+    INTRUSO = await conectarClaude(TOK, { autorizar: false });
+    expect((await llamar(TOK, 'mis_proyectos', {}, MIO.llave)).ok).toBe(true);
+    const r = await llamar(TOK, 'mis_proyectos', {}, INTRUSO.llave);
+    expect(r.ok).toBe(false);
+    expect(r.texto).toMatch(/pendiente de autorizar/);
+  });
+
+  it('y aunque consiga un código bueno de la dueña, sigue sin datos', async () => {
+    expect((await llamar(TOK, 'desbloquear', { codigo: await pedirCodigo(U) }, INTRUSO.llave)).ok).toBe(true);
+    expect((await llamar(TOK, 'mis_proyectos', {}, INTRUSO.llave)).ok).toBe(false);
+  });
+
+  it('la dueña lo rechaza: el intruso queda fuera y su Claude sigue funcionando', async () => {
+    expect((await decidir(U, INTRUSO.id, 'rechazar')).status).toBe(200);
+    const r = await llamar(TOK, 'mis_proyectos', {}, INTRUSO.llave);
+    expect(r.ok).toBe(false);
+    expect(r.texto).toMatch(/ha rechazado esta conexión/);
+    expect((await llamar(TOK, 'desbloquear', { codigo: await pedirCodigo(U) }, INTRUSO.llave)).ok).toBe(false);
+    expect((await llamar(TOK, 'mis_proyectos', {}, MIO.llave)).ok).toBe(true);
+    // Rechazado, ya no sale en el panel.
+    const e = (await panelDe(U)).tokens.find((t) => t.id === ID).codigo;
+    expect(e.conexiones.map((c) => c.id)).toEqual([MIO.id]);
+  });
+
+  it('el super admin puede rechazar el Claude de otra persona, y lo ve en su lista', async () => {
+    const otro = await conectarClaude(TOK, { autorizar: false });
+    const S = await persona('SUPER2', 'superadmin');
+    const lista = (await panelDe(S)).conexionesDelEquipo;
+    expect(lista.map((c) => c.id)).toContain(otro.id);
+    expect((await decidir(S, otro.id, 'rechazar')).status).toBe(200);
+    expect((await llamar(TOK, 'mis_proyectos', {}, otro.llave)).ok).toBe(false);
+  });
+
+  it('el refresco de Claude devuelve la MISMA llave: una consulta en marcha no se queda sin conexión', async () => {
+    const renovada = await conexiones.renovarLlave(MIO.id);
+    expect(renovada).toEqual({ id: MIO.id, llave: MIO.llave });
+    expect((await llamar(TOK, 'mis_proyectos', {}, renovada.llave)).ok).toBe(true);
+  });
+
+  it('revocar la URL corta todos sus Claude', async () => {
+    await request.delete(`/api/mcp/panel/tokens/${ID}`).set('Authorization', `Bearer ${jwtDe(U)}`);
+    expect((await rpc(TOK, { method: 'tools/list' }, MIO.llave)).status).toBe(401);
+    // Y el refresco ya no da llave.
+    expect(await conexiones.renovarLlave(MIO.id)).toBeNull();
+  });
+});
+
+describe('#326 · MCP_CONEXIONES_EXISTENTES_APROBADAS (lo decide Diego al desplegar)', () => {
+  afterEach(() => { delete process.env.MCP_CONEXIONES_EXISTENTES_APROBADAS; });
+
+  it('encendido: la PRIMERA conexión de una URL que ya existía entra autorizada; las demás, pendientes', async () => {
+    process.env.MCP_CONEXIONES_EXISTENTES_APROBADAS = 'true';
+    const t = await token(ANA, 'De antes');
+    await q(`UPDATE mcp_tokens SET anterior_a_conexiones = true WHERE id = $1`, [t.id]);
+    expect((await conectarClaude(t.token, { autorizar: false })).estado).toBe('autorizada');
+    expect((await conectarClaude(t.token, { autorizar: false })).estado).toBe('pendiente');
+  });
+
+  it('encendido, pero una URL nueva: pendiente', async () => {
+    process.env.MCP_CONEXIONES_EXISTENTES_APROBADAS = 'true';
+    const t = await token(ANA, 'Nueva');
+    expect((await conectarClaude(t.token, { autorizar: false })).estado).toBe('pendiente');
+  });
+
+  it('apagado (por defecto): pendiente siempre', async () => {
+    const t = await token(ANA, 'De antes, apagado');
+    await q(`UPDATE mcp_tokens SET anterior_a_conexiones = true WHERE id = $1`, [t.id]);
+    expect((await conectarClaude(t.token, { autorizar: false })).estado).toBe('pendiente');
   });
 });

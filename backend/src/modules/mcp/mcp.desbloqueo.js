@@ -4,6 +4,7 @@ import { logger } from '../../shared/utils/logger.js';
 import { sendMcpBloqueoEmail } from '../../shared/services/brevo.service.js';
 import { destinatariosVigilancia } from './mcp.alertas.js';
 import { enteroEnv, siNoEnv } from './mcp.config.js';
+import * as conexiones from './mcp.conexiones.js';
 
 /**
  * Código de desbloqueo del MCP (#192): un segundo factor además de la URL.
@@ -12,14 +13,14 @@ import { enteroEnv, siNoEnv } from './mcp.config.js';
  * llama a `desbloquear(codigo)` y, hasta entonces, ninguna herramienta da
  * datos.
  *
- * A QUÉ SE ATA. Investigado el 03/10 (comentario en la #192): en Claude Desktop
- * y claude.ai el conector comparte UNA sesión MCP entre todos los chats, así
- * que el CRM no ve cuándo empieza una conversación. El desbloqueo se ata a la
- * CONEXIÓN (el token) y caduca por inactividad, con un máximo absoluto. Una
- * sola regla para todos los clientes: 2 h sin uso y máximo 9 h.
+ * A QUÉ SE ATA (#326, 13/10). A cada Claude conectado (mcp.conexiones.js), no
+ * a la URL: otro Claude con la misma URL no queda desbloqueado. Y SIN
+ * caducidad por horas (Carlos: tenía que meter el código varias veces al día):
+ * vale mientras la conexión siga autorizada y la URL viva. Antes eran 2 h sin
+ * uso y 9 h como máximo, por URL (`mcp_desbloqueos`, que ya no se usa).
  *
- * Las horas se comparan siempre con NOW() de Postgres, no con el reloj de Node:
- * así no hay dos relojes que puedan no coincidir.
+ * Los fallos y el bloqueo de 15 minutos siguen siendo de la URL: quien prueba
+ * códigos a ciegas la bloquea para todas sus conexiones.
  */
 
 /** Se lee en cada llamada: cambiar el .env y reiniciar basta, y las pruebas pueden tocarlo. */
@@ -29,8 +30,6 @@ export function config() {
     // lo usa. Se enciende cuando el panel ya explica cómo pedir el código.
     obligatorio: siNoEnv('MCP_CODIGO_OBLIGATORIO', false),
     minutosCodigo: enteroEnv('MCP_CODIGO_MINUTOS', 10),
-    inactividadMin: enteroEnv('MCP_DESBLOQUEO_INACTIVIDAD_MIN', 120),
-    maximoMin: enteroEnv('MCP_DESBLOQUEO_MAX_MIN', 540),
     maxFallos: enteroEnv('MCP_CODIGO_MAX_FALLOS', 5),
     bloqueoMin: enteroEnv('MCP_CODIGO_BLOQUEO_MIN', 15),
   };
@@ -68,6 +67,15 @@ export const MENSAJE_SIN_DESBLOQUEAR =
   + '«Desbloquear desde aquí» en el CRM → Conexión → MCP, junto a su URL, y después vuelve a consultar. '
   + 'Si la tienes, pide a la persona el código de CRM → Conexión → MCP → «Código para Claude» y llama a «desbloquear» con él.';
 
+// #326: cada Claude conectado a una URL espera a que el dueño lo autorice.
+export const MENSAJE_PENDIENTE =
+  'Esta conexión de Claude está pendiente de autorizar: es la primera vez que este Claude se conecta con esta URL. '
+  + 'Pide a la persona que la autorice en el CRM → Conexión → MCP, debajo de su URL, y después vuelve a consultar. '
+  + 'Si no es la persona dueña de la URL, no podrá autorizarla.';
+export const MENSAJE_RECHAZADA =
+  'El dueño de esta URL ha rechazado esta conexión de Claude: no puede consultar el CRM. '
+  + 'Cada persona tiene que conectar Claude con SU propia URL (CRM → Conexión → MCP).';
+
 const ZONA = () => process.env.APP_TIMEZONE || 'Europe/Madrid';
 
 /** «16:55», con la hora de Madrid. */
@@ -75,7 +83,7 @@ export const horaLocal = (fecha) => new Date(fecha).toLocaleTimeString('es-ES', 
   hour: '2-digit', minute: '2-digit', timeZone: ZONA(),
 });
 
-/** «las 16:55», o «mañana a las 00:40» si cae en otro día (el máximo son 9 h). */
+/** «las 16:55», o «mañana a las 00:40» si cae en otro día. */
 function cuando(fecha) {
   const dia = (d) => new Date(d).toLocaleDateString('es-ES', { timeZone: ZONA() });
   return `${dia(fecha) === dia(Date.now()) ? '' : 'mañana '}a las ${horaLocal(fecha)}`;
@@ -101,117 +109,98 @@ export async function crearCodigo(userId) {
   return { codigo, caducaAt: rows[0].caduca_at, minutos: minutosCodigo };
 }
 
-/** Si la conexión está bloqueada o desbloqueada AHORA. */
+/** Si la URL está bloqueada por códigos falsos AHORA. El desbloqueo es de cada conexión (#326). */
 export async function estadoDeLaConexion(tokenId) {
-  const { inactividadMin } = config();
   const { rows } = await query(
     `SELECT t.bloqueado_hasta,
-            (t.bloqueado_hasta IS NOT NULL AND t.bloqueado_hasta > NOW()) AS bloqueado,
-            EXISTS (SELECT 1 FROM mcp_desbloqueos d
-                     WHERE d.token_id = t.id
-                       AND d.caduca_max_at > NOW()
-                       AND d.ultimo_uso_at > NOW() - make_interval(mins => $2::int)) AS desbloqueado
+            (t.bloqueado_hasta IS NOT NULL AND t.bloqueado_hasta > NOW()) AS bloqueado
        FROM mcp_tokens t WHERE t.id = $1`,
-    [tokenId, inactividadMin]
+    [tokenId]
   );
-  return rows[0] || { bloqueado: false, desbloqueado: false, bloqueado_hasta: null };
+  return rows[0] || { bloqueado: false, bloqueado_hasta: null };
 }
 
+/** «1 Claude», «2 Claude»… para los textos del panel. */
+const claudes = (n) => `${n} Claude`;
+
 /**
- * Cuándo volverá a pedir el código cada URL, para el panel (#192, Diego 05/10).
+ * El estado de cada URL para el panel (#192, Diego 05/10; #326, 13/10).
  *
- * Devuelve un Map tokenId → { estado, hasta, texto } con uno de:
+ * Devuelve un Map tokenId → { estado, hasta, texto, conexiones } con uno de:
  *   'bloqueada'        por códigos falsos; `hasta` = bloqueado_hasta
- *   'desbloqueada'     `hasta` = la menor de último uso + inactividad y el máximo
- *   'sin_desbloquear'  sin desbloqueo, o ya pasó: lo pide en la próxima consulta
- * Con el código apagado, el Map va vacío: no se enseña nada.
- *
- * La cuenta es la misma que la de `estadoDeLaConexion` (desbloqueada si esa
- * menor hora aún no ha llegado), y se hace aquí para no repetirla en el frontal.
+ *   'pendiente'        algún Claude conectado espera a que lo autorices
+ *   'desbloqueada'     algún Claude autorizado ya metió el código
+ *   'sin_desbloquear'  ningún Claude conectado, o los autorizados aún sin código
+ * `conexiones`: cada Claude conectado con esta URL (sin los rechazados), para
+ * autorizarlo o rechazarlo debajo de la URL. Ya no hay horas: el desbloqueo no
+ * caduca (Carlos, 13/10). Con el código apagado, el Map va vacío.
  */
 export async function estadoParaElPanel(tokenIds) {
-  const { obligatorio, inactividadMin } = config();
+  const { obligatorio } = config();
   const ids = (tokenIds || []).map(Number).filter(Number.isInteger);
   if (!obligatorio || !ids.length) return new Map();
   const { rows } = await query(
     `SELECT t.id, t.bloqueado_hasta,
-            (t.bloqueado_hasta IS NOT NULL AND t.bloqueado_hasta > NOW()) AS bloqueado,
-            d.caduca_max_at,
-            LEAST(d.ultimo_uso_at + make_interval(mins => $2::int), d.caduca_max_at) AS pide_a,
-            (d.token_id IS NOT NULL
-              AND LEAST(d.ultimo_uso_at + make_interval(mins => $2::int), d.caduca_max_at) > NOW()) AS desbloqueado
+            (t.bloqueado_hasta IS NOT NULL AND t.bloqueado_hasta > NOW()) AS bloqueado
        FROM mcp_tokens t
-       LEFT JOIN mcp_desbloqueos d ON d.token_id = t.id
       WHERE t.id = ANY($1::int[])`,
-    [ids, inactividadMin]
+    [ids]
   );
-  const horas = inactividadMin % 60 === 0 ? `${inactividadMin / 60} h` : `${inactividadMin} min`;
+  const porUrl = await conexiones.deLasUrls(ids);
   return new Map(rows.map((r) => {
+    const lista = porUrl.get(r.id) || [];
+    const pendientes = lista.filter((c) => c.estado === 'pendiente').length;
+    const abiertas = lista.filter((c) => c.estado === 'autorizada' && c.desbloqueada).length;
+    const cerradas = lista.filter((c) => c.estado === 'autorizada' && !c.desbloqueada).length;
+    const base = { conexiones: lista };
     if (r.bloqueado) {
-      return [r.id, { estado: 'bloqueada', hasta: r.bloqueado_hasta, texto: `Bloqueada hasta ${cuando(r.bloqueado_hasta).replace(/^a /, '')}` }];
+      return [r.id, { ...base, estado: 'bloqueada', hasta: r.bloqueado_hasta, texto: `Bloqueada hasta ${cuando(r.bloqueado_hasta).replace(/^a /, '')}` }];
     }
-    if (r.desbloqueado) {
-      // Si la hora sale del máximo, usarla no la alarga; si sale de la
-      // inactividad, cada consulta la empuja, como mucho hasta el máximo.
-      const porMaximo = new Date(r.pide_a).getTime() >= new Date(r.caduca_max_at).getTime();
-      return [r.id, {
-        estado: 'desbloqueada',
-        hasta: r.pide_a,
-        texto: porMaximo
-          ? `Pedirá el código ${cuando(r.pide_a)}`
-          : `Pedirá el código ${cuando(r.pide_a)} si pasan ${horas} sin usarla (como muy tarde, ${cuando(r.caduca_max_at)})`,
-      }];
+    if (!lista.length) {
+      return [r.id, { ...base, estado: 'sin_desbloquear', hasta: null, texto: 'Ningún Claude conectado todavía con esta URL' }];
     }
-    return [r.id, { estado: 'sin_desbloquear', hasta: null, texto: 'Pedirá el código en la próxima consulta' }];
+    const partes = [];
+    if (abiertas) partes.push(`${claudes(abiertas)} autorizado y desbloqueado${abiertas === 1 ? '' : 's'}`);
+    if (cerradas) partes.push(`${claudes(cerradas)} autorizado${cerradas === 1 ? '' : 's'} (pedirá el código en la próxima consulta)`);
+    if (pendientes) partes.push(`${claudes(pendientes)} pendiente${pendientes === 1 ? '' : 's'} de autorizar`);
+    const estado = pendientes ? 'pendiente' : abiertas ? 'desbloqueada' : 'sin_desbloquear';
+    return [r.id, { ...base, estado, hasta: null, texto: partes.join(' · ') }];
   }));
 }
 
 /**
  * «El estado actual en una línea» para «Código para Claude» (#192, Diego 05/10).
  *
- * El estado es de cada URL, y un admin puede tener varias (una por conexión).
- * Con una sola, la línea es la suya (`una`, con su botón). Con varias, un
- * resumen de todas, sin elegir ninguna por la persona: «Tus 3 URLs: 1
- * desbloqueada (pedirá el código a las 16:15), 2 cerradas». El detalle de cada
- * una está en la tabla. null con el código apagado o sin URLs.
+ * Con una sola URL, la línea es la suya (`una`, con su botón). Con varias, un
+ * resumen de todas, sin elegir ninguna por la persona. null con el código
+ * apagado o sin URLs.
  */
 export function resumenParaElPanel(urls, estados) {
   const conEstado = (urls || []).filter((u) => estados.get(u.id)).map((u) => ({ ...u, ...estados.get(u.id) }));
   if (!conEstado.length) return null;
   if (conEstado.length === 1) return { total: 1, una: conEstado[0], texto: conEstado[0].texto };
-  const de = (estado) => conEstado.filter((u) => u.estado === estado);
-  const primera = (lista) => lista.map((u) => u.hasta).sort((a, b) => new Date(a) - new Date(b))[0];
+  const de = (estado) => conEstado.filter((u) => u.estado === estado).length;
   const partes = [];
-  const desbloqueadas = de('desbloqueada');
-  if (desbloqueadas.length) {
-    partes.push(desbloqueadas.length === 1
-      ? `1 desbloqueada (pedirá el código ${cuando(desbloqueadas[0].hasta)})`
-      : `${desbloqueadas.length} desbloqueadas (la primera pedirá el código ${cuando(primera(desbloqueadas))})`);
-  }
-  const bloqueadas = de('bloqueada');
-  if (bloqueadas.length) {
-    partes.push(bloqueadas.length === 1
-      ? `1 bloqueada (hasta ${cuando(bloqueadas[0].hasta).replace(/^a /, '')})`
-      : `${bloqueadas.length} bloqueadas`);
-  }
-  const cerradas = de('sin_desbloquear');
-  if (cerradas.length) partes.push(`${cerradas.length} cerrada${cerradas.length === 1 ? '' : 's'} (pedirá${cerradas.length === 1 ? '' : 'n'} el código en la próxima consulta)`);
+  if (de('pendiente')) partes.push(`${de('pendiente')} con un Claude pendiente de autorizar`);
+  if (de('desbloqueada')) partes.push(`${de('desbloqueada')} desbloqueada${de('desbloqueada') === 1 ? '' : 's'}`);
+  if (de('bloqueada')) partes.push(`${de('bloqueada')} bloqueada${de('bloqueada') === 1 ? '' : 's'}`);
+  if (de('sin_desbloquear')) partes.push(`${de('sin_desbloquear')} cerrada${de('sin_desbloquear') === 1 ? '' : 's'}`);
   return { total: conEstado.length, una: null, texto: `Tus ${conEstado.length} URLs: ${partes.join(', ')}` };
 }
 
 /**
  * «Desbloquear desde aquí» (#192, Diego 05/10, opción 3): la persona, que ya ha
- * entrado al CRM, desbloquea SU URL desde el panel. Sirve aunque su Claude no
- * vea `desbloquear` (claude.ai guarda la lista de herramientas al conectar).
- * Las mismas reglas que con el código: 2 h sin uso y 9 h como máximo.
+ * entrado al CRM, desbloquea SU URL desde el panel, sin código. Desde la #326
+ * desbloquea los Claude AUTORIZADOS de esa URL; los pendientes, no: primero hay
+ * que autorizarlos. Sin caducidad por horas.
  *
  * Devuelve { resultado } con uno de:
- *   'ok'            trae `caducaMaxAt`
- *   'no_encontrada' no existe, es de otra persona, está revocada o caducada
- *   'ya_bloqueada'  bloqueada por códigos falsos: se espera a `hasta`
+ *   'ok'              trae `cuantas`
+ *   'sin_autorizadas' no hay ningún Claude autorizado en esa URL
+ *   'no_encontrada'   no existe, es de otra persona, está revocada o caducada
+ *   'ya_bloqueada'    bloqueada por códigos falsos: se espera a `hasta`
  */
 export async function desbloquearDesdePanel({ userId, tokenId }) {
-  const { maximoMin } = config();
   const { rows: [t] } = await query(
     `SELECT id, (bloqueado_hasta IS NOT NULL AND bloqueado_hasta > NOW()) AS bloqueado, bloqueado_hasta
        FROM mcp_tokens
@@ -220,29 +209,18 @@ export async function desbloquearDesdePanel({ userId, tokenId }) {
   );
   if (!t) return { resultado: 'no_encontrada' };
   if (t.bloqueado) return { resultado: 'ya_bloqueada', hasta: t.bloqueado_hasta };
-  const { rows } = await query(
-    `INSERT INTO mcp_desbloqueos (token_id, user_id, codigo_id, desbloqueado_at, ultimo_uso_at, caduca_max_at)
-     VALUES ($1, $2, NULL, NOW(), NOW(), NOW() + make_interval(mins => $3::int))
-     ON CONFLICT (token_id) DO UPDATE
-       SET codigo_id = NULL, desbloqueado_at = NOW(), ultimo_uso_at = NOW(),
-           caduca_max_at = EXCLUDED.caduca_max_at, user_id = EXCLUDED.user_id
-     RETURNING caduca_max_at`,
-    [tokenId, userId, maximoMin]
-  );
+  const cuantas = await conexiones.desbloquearAutorizadasDeLaUrl(tokenId);
+  if (!cuantas) return { resultado: 'sin_autorizadas' };
   await query(`UPDATE mcp_tokens SET fallos_codigo = 0 WHERE id = $1`, [tokenId]);
-  return { resultado: 'ok', caducaMaxAt: rows[0].caduca_max_at };
-}
-
-/** Cada consulta con la conexión desbloqueada alarga la inactividad (no el máximo). */
-export async function marcarUsoDesbloqueo(tokenId) {
-  await query(`UPDATE mcp_desbloqueos SET ultimo_uso_at = NOW() WHERE token_id = $1`, [tokenId]);
+  return { resultado: 'ok', cuantas };
 }
 
 /**
- * Comprueba un código para una conexión.
+ * Comprueba un código para un Claude conectado (`conexionId`, #326): el código
+ * bueno desbloquea ESA conexión, sin caducidad por horas.
  *
  * Devuelve { resultado } con uno de:
- *   'ok'               desbloqueada; trae `caducaMaxAt`
+ *   'ok'               desbloqueada
  *   'de_otra_persona'  es un código vigente, pero de OTRA persona: la URL se está
  *                      usando por quien no es su dueño; trae `urlDe` y `codigoDe`
  *                      ({ id, nombre }). No suma fallo
@@ -253,8 +231,8 @@ export async function marcarUsoDesbloqueo(tokenId) {
  * El código se marca usado con un UPDATE ... RETURNING: dos peticiones a la vez
  * con el mismo código no pueden usarlo las dos.
  */
-export async function intentarDesbloqueo({ userId, tokenId, codigo }) {
-  const { maxFallos, bloqueoMin, maximoMin } = config();
+export async function intentarDesbloqueo({ userId, tokenId, conexionId, codigo }) {
+  const { maxFallos, bloqueoMin } = config();
 
   const estado = await estadoDeLaConexion(tokenId);
   if (estado.bloqueado) return { resultado: 'ya_bloqueada', hasta: estado.bloqueado_hasta };
@@ -268,17 +246,9 @@ export async function intentarDesbloqueo({ userId, tokenId, codigo }) {
   );
 
   if (usado[0]) {
-    const { rows } = await query(
-      `INSERT INTO mcp_desbloqueos (token_id, user_id, codigo_id, desbloqueado_at, ultimo_uso_at, caduca_max_at)
-       VALUES ($1, $2, $3, NOW(), NOW(), NOW() + make_interval(mins => $4::int))
-       ON CONFLICT (token_id) DO UPDATE
-         SET codigo_id = EXCLUDED.codigo_id, desbloqueado_at = NOW(), ultimo_uso_at = NOW(),
-             caduca_max_at = EXCLUDED.caduca_max_at, user_id = EXCLUDED.user_id
-       RETURNING caduca_max_at`,
-      [tokenId, userId, usado[0].id, maximoMin]
-    );
+    await conexiones.desbloquear(conexionId, usado[0].id);
     await query(`UPDATE mcp_tokens SET fallos_codigo = 0 WHERE id = $1`, [tokenId]);
-    return { resultado: 'ok', caducaMaxAt: rows[0].caduca_max_at };
+    return { resultado: 'ok' };
   }
 
   // ¿Es un código bueno, pero de OTRA persona? (Diego, 13/10.) La alerta «de

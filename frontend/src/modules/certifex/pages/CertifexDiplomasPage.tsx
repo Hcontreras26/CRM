@@ -24,7 +24,7 @@ import {
   type CambiosSolicitud, type CampusCertifex, type CatalogoDelCampus, type ConexionCertifex, type CursoCertifex, type Diploma, type FiltroAviso,
   type PestanaDiplomas, type ProgramaDelCrm, type ProgramaOficial, type ResultadoAprobarEmitir, type ResumenDiplomas, type Solicitud, type Terminado,
 } from '../api/certifex.api';
-import { Avance, Buscador, EnElCrmEtiqueta, Etiqueta, Pestana } from '../components/piezas';
+import { Avance, AvisoDireccionPublica, Buscador, EnElCrmEtiqueta, Etiqueta, Pestana } from '../components/piezas';
 
 /**
  * Certifex · Diplomas (#272): lo que los alumnos piden desde Moodle y los diplomas ya
@@ -385,6 +385,8 @@ export default function CertifexDiplomasPage() {
   const [trabajando, setTrabajando] = useState(false);
   const [lote, setLote] = useState<{ hechas: number; total: number } | null>(null);
   const [fallos, setFallos] = useState<Fallo[]>([]);
+  // En un lote con fallos, lo que SÍ se emitió, con su número: el aviso cuenta cada una (Certifex#96).
+  const [hechos, setHechos] = useState<{ quien: string; nexpediente: string }[]>([]);
   // Emitidos sin programa del CRM (con lo de Moodle): no es un fallo, pero se dice.
   const [notas, setNotas] = useState<Fallo[]>([]);
   const [correoApagado, setCorreoApagado] = useState(false);
@@ -554,6 +556,7 @@ export default function CertifexDiplomasPage() {
   async function ejecutar(fn: () => Promise<void>, titulo: string) {
     setTrabajando(true);
     setFallos([]);
+    setHechos([]);
     setNotas([]);
     try { await fn(); } catch (e) { toast({ title: titulo, description: (e as Error).message, variant: 'destructive' }); }
     finally { setTrabajando(false); setLote(null); recargar(); }
@@ -568,6 +571,7 @@ export default function CertifexDiplomasPage() {
     setTrabajando(true);
     setErrorDialogo(null);
     setFallos([]);
+    setHechos([]);
     setNotas([]);
     try {
       await fn();
@@ -580,6 +584,10 @@ export default function CertifexDiplomasPage() {
     }
   }
 
+  const emitidasDe = (res: ResultadoAprobarEmitir[]) => res
+    .filter((r) => r.ok && r.nexpediente)
+    .map((r) => ({ quien: nombre(r.matriculaId), nexpediente: r.nexpediente! }));
+
   const anotarPrograma = (res: ResultadoAprobarEmitir[]) => setNotas(res
     .filter((r) => r.ok && r.sinPrograma)
     .map((r) => ({ quien: nombre(r.matriculaId), error: r.sinPrograma! })));
@@ -591,6 +599,7 @@ export default function CertifexDiplomasPage() {
     anotarPrograma(res);
     const ok = res.filter((r) => r.ok).length;
     setFallos(res.filter((r) => !r.ok).map((r) => ({ quien: nombre(r.matriculaId), error: r.error ?? 'Error' })));
+    setHechos(emitidasDe(res));
     toast({
       title: `${ok} ${ok === 1 ? 'diploma emitido' : 'diplomas emitidos'}`,
       description: ok ? 'Quedan pendientes de aviso: revisa el PDF y envíalo al alumno.' : 'Ninguno se ha podido emitir: el motivo, en pantalla.',
@@ -605,6 +614,7 @@ export default function CertifexDiplomasPage() {
     anotarPrograma(res);
     const ok = res.filter((r) => r.ok).length;
     setFallos(res.filter((r) => !r.ok).map((r) => ({ quien: nombre(r.matriculaId), error: r.error ?? 'Error' })));
+    setHechos(emitidasDe(res));
     toast(ok
       ? { title: `${ok} ${ok === 1 ? 'diploma emitido' : 'diplomas emitidos'}`, description: res.length > ok ? `Quedan pendientes de aviso. ${res.length - ok} sin emitir: el motivo, en pantalla.` : 'Quedan pendientes de aviso.' }
       : { title: 'No se ha emitido ninguno', description: 'El motivo de cada uno, en pantalla.', variant: 'destructive' });
@@ -661,6 +671,10 @@ export default function CertifexDiplomasPage() {
   });
 
   async function copiarEnlace(d: Diploma) {
+    if (!d.verificarUrl) {
+      toast({ title: 'Sin enlace público', description: 'Certifex no tiene una dirección que abra desde fuera: el enlace no funcionaría. Mira el aviso de arriba.', variant: 'destructive' });
+      return;
+    }
     const ok = await copyToClipboard(d.verificarUrl);
     toast(ok ? { title: 'Enlace de verificación copiado', description: d.verificarUrl } : { title: 'No se pudo copiar', description: d.verificarUrl, variant: 'destructive' });
   }
@@ -701,7 +715,7 @@ export default function CertifexDiplomasPage() {
         revocadoEn: fechaExcel(d.revocacion?.en),
         revocadoPor: d.revocacion?.por ?? '',
         motivoRevocacion: d.revocacion?.motivo ?? '',
-        verificar: d.verificarUrl,
+        verificar: d.verificarUrl ?? '',
       });
       const deTerminado = (c: Terminado): FilaX => ({
         alumno: c.titular.nombre ?? '',
@@ -825,6 +839,9 @@ export default function CertifexDiplomasPage() {
       {/* La salud del enlace con cada Moodle (latido diario del plugin). */}
       <SaludCampus campus={campus} />
 
+      {/* Certifex en una dirección local: sus enlaces no abrirían (Certifex#96). */}
+      <AvisoDireccionPublica conexion={conexion} />
+
       {/* Contadores: del campus elegido, o de todos. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <KpiCard icon={HourglassMedium} iconBg="bg-info-soft text-info-soft-foreground" label="Por decidir" value={resumen ? resumen.pendientes.toLocaleString('es') : '…'} />
@@ -852,7 +869,7 @@ export default function CertifexDiplomasPage() {
             <span className="font-medium text-destructive-soft-foreground">
               {fallos.length} {fallos.length === 1 ? 'no se ha podido completar' : 'no se han podido completar'}
             </span>
-            <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setFallos([])}>Cerrar</button>
+            <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => { setFallos([]); setHechos([]); }}>Cerrar</button>
           </div>
           <ul className="space-y-1">
             {fallos.slice(0, 12).map((f, i) => (
@@ -860,6 +877,19 @@ export default function CertifexDiplomasPage() {
             ))}
           </ul>
           {fallos.length > 12 && <p className="mt-1 text-xs text-muted-foreground">y {fallos.length - 12} más.</p>}
+          {hechos.length > 0 && (
+            <div className="mt-2 border-t border-destructive/20 pt-2">
+              <p className="mb-1 text-xs font-medium text-foreground">
+                {hechos.length} {hechos.length === 1 ? 'sí se ha emitido' : 'sí se han emitido'} (pendientes de enviar al alumno):
+              </p>
+              <ul className="space-y-1">
+                {hechos.slice(0, 12).map((h) => (
+                  <li key={h.nexpediente} className="text-xs"><span className="font-medium">{h.quien}:</span> <span className="font-mono text-muted-foreground">{h.nexpediente}</span></li>
+                ))}
+              </ul>
+              {hechos.length > 12 && <p className="mt-1 text-xs text-muted-foreground">y {hechos.length - 12} más.</p>}
+            </div>
+          )}
         </div>
       )}
 
@@ -1214,7 +1244,7 @@ export default function CertifexDiplomasPage() {
                           )}
                           {/* Revocado, Certifex ya no sirve su PDF (404): solo el enlace, que dice «revocado». */}
                           {pestana === 'enviados' && <IconoAccion etiqueta="Ver PDF" onClick={() => setVisor({ d, enviable: !d.aviso && delCrm(d) })}><FilePdf size={15} /></IconoAccion>}
-                          <IconoAccion etiqueta="Copiar enlace de verificación" onClick={() => copiarEnlace(d)}><LinkSimple size={15} /></IconoAccion>
+                          <IconoAccion etiqueta={d.verificarUrl ? 'Copiar enlace de verificación' : 'Sin enlace público: Certifex no tiene una dirección que abra desde fuera'} disabled={!d.verificarUrl} onClick={() => copiarEnlace(d)}><LinkSimple size={15} /></IconoAccion>
                           {pestana === 'enviados' && (
                             <>
                               <IconoAccion etiqueta="Corregir nombre" disabled={trabajando} onClick={() => abrir({ tipo: 'corregir', d })}><PencilSimple size={15} /></IconoAccion>

@@ -85,7 +85,7 @@ export function exportLeadsCSV(leads: Lead[], filename: string): void {
       l.notas || '',
       l.created_at ? new Date(l.created_at).toLocaleDateString('es-ES') : '',
       l.last_interaction_at ? new Date(l.last_interaction_at).toLocaleDateString('es-ES') : '',
-      l.next_reminder_at ? new Date(l.next_reminder_at).toLocaleDateString('es-ES') : '',
+      l.next_reminder_at ? (soloFecha(l.next_reminder_at)?.toLocaleDateString('es-ES') ?? '') : '',
     ]),
   ];
   const csv = rows.map((r) => r.map((v: unknown) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');

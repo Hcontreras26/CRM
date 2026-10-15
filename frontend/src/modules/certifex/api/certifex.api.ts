@@ -49,8 +49,13 @@ export interface ConexionCertifex {
   conectado: boolean;
   nombre?: string;
   centros?: string[];
-  /** La web pública de Certifex: verificación y diploma de cada título. */
+  /** La web pública de Certifex: verificación y diploma de cada título. Null si no es pública. */
   urlPublica?: string | null;
+  /**
+   * ¿Los enlaces a Certifex abren desde fuera? Si no (una dirección local como 127.0.0.1),
+   * los motivos, para avisar en el panel (Certifex#96).
+   */
+  direccionPublica?: { ok: boolean; motivos: string[] };
   error?: string;
 }
 
@@ -326,8 +331,9 @@ export interface Diploma {
   emitidaPor: string | null;
   revocada: boolean;
   revocacion: { en: string | null; motivo: string | null; por: string | null } | null;
-  verificarUrl: string;
-  diplomaUrl: string;
+  /** Null si Certifex no tiene dirección pública (`sinEnlaces` en la lista dice por qué). */
+  verificarUrl: string | null;
+  diplomaUrl: string | null;
   aviso: { resultado: ResultadoAviso; en: string; por: string } | null;
   /** Lo emitió este CRM («persona (CRM …)»). Lo emitido fuera no está «pendiente de aviso». */
   emitidoEnCrm?: boolean;

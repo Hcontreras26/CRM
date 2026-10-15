@@ -44,7 +44,7 @@ const { default: supertest } = await import('supertest');
 const { default: app } = await import('../src/app.js');
 const { default: pool } = await import('../src/shared/config/db.js');
 const { diaDe } = await import('../src/modules/certifex/certifex.diplomas.js');
-const { horasDeTexto, encaja } = await import('../src/modules/certifex/certifex.programa.js');
+const { horasDeTexto, encaja, modalidadDe, programaValido } = await import('../src/modules/certifex/certifex.programa.js');
 
 const request = supertest(app);
 // Ids de matricula altos y unicos por ejecucion, para no chocar con nada sembrado.
@@ -568,6 +568,8 @@ describe('el programa oficial de la formacion vendida', () => {
     const prod = async (nombre, horas) => (await pool.query(
       `INSERT INTO products (project_id, nombre, horas, num_modulos) VALUES ($1, $2, $3, 2) RETURNING id`, [proyecto.id, nombre, horas])).rows[0].id;
     const p1 = await prod('Programa IA Experto', '1.500 horas');
+    // La modalidad del catálogo va al diploma (Certifex#96).
+    await pool.query(`UPDATE products SET modalidad = '  Semipresencial ' WHERE id = $1`, [p1]);
     const p2 = await prod('Programa IA Experto Avanzado', '200 h');
     const p3 = await prod('Programa IA Experto (2ª edición)', '100 h');
     productos = [p1, p2, p3];
@@ -602,6 +604,13 @@ describe('el programa oficial de la formacion vendida', () => {
 
   it('las horas salen del texto del catalogo, sin adivinar', () => {
     // El numero que va delante de h/horas, con separador de miles de cualquier pais.
+    // La modalidad que se manda a Certifex (#96): texto corto y limpio, o nada.
+    expect(modalidadDe('  Online   en directo ')).toBe('Online en directo');
+    expect(modalidadDe('')).toBeNull();
+    expect(modalidadDe(null)).toBeNull();
+    expect(modalidadDe('x'.repeat(61))).toBeNull();
+    expect(programaValido({ horas: 10, modulos: [], modalidad: 'Presencial' })).toEqual({ horas: 10, modulos: [], modalidad: 'Presencial' });
+    expect(programaValido({ horas: 10, modulos: [], modalidad: 7 })).toEqual({ horas: 10, modulos: [] });
     expect(horasDeTexto('1.500 horas')).toBe(1500);
     expect(horasDeTexto('1,500 horas')).toBe(1500);
     expect(horasDeTexto('1 500 horas')).toBe(1500);
@@ -640,7 +649,7 @@ describe('el programa oficial de la formacion vendida', () => {
     // Todo estaba guardado en el CRM: no hace falta preguntar a Certifex por ellas.
     expect(pedidas.map((p) => p.ruta)).toEqual(['/decisiones', '/emitir']);
     const items = pedidas[1].cuerpo.items;
-    expect(items[0]).toEqual({ matriculaId: ids.conVenta, programa: { horas: 1500, modulos: [{ titulo: 'Fundamentos de IA', horas: 800 }, { titulo: 'Modelos de lenguaje', horas: 700 }] } });
+    expect(items[0]).toEqual({ matriculaId: ids.conVenta, programa: { horas: 1500, modulos: [{ titulo: 'Fundamentos de IA', horas: 800 }, { titulo: 'Modelos de lenguaje', horas: 700 }], modalidad: 'Semipresencial' } });
     expect(items[1]).toEqual({ matriculaId: ids.sinVenta });
     expect(items[2]).toEqual({ matriculaId: ids.doble });
     const [a, b, c] = r.body.data.resultados;
