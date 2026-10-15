@@ -85,3 +85,34 @@ export function cuandoVence(iso?: string | null): { texto: string; urgente: bool
   if (dias === 1) return { texto: 'mañana', urgente: false };
   return { texto: `en ${dias}d`, urgente: false };
 }
+
+/**
+ * «vie, 16 oct»: el día de un recordatorio, que es un DATE —sin hora ni zona—.
+ *
+ * Diego, 15/10 (gestoras de ISEIE): «los pongo con fecha de mañana y todos me
+ * los pone con fecha de hoy». En la base estaban bien; la ficha los pintaba con
+ * `new Date('2026-10-16')`, que es medianoche UTC: en Caracas o Bogotá, el 15 a
+ * las 20:00.
+ */
+export function formatDia(iso?: string | null): string {
+  const d = soloFecha(iso);
+  return d ? d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' }) : '--';
+}
+
+/**
+ * Si un día (DATE) ya pasó: antes de hoy. Hoy todavía no está vencido, como en
+ * el servidor (`fecha_recordatorio < CURRENT_DATE`). Antes se comparaba con
+ * `new Date()`, y un recordatorio de mañana salía en rojo desde las 20:00 de hoy
+ * en Latinoamérica.
+ */
+export function yaPaso(iso?: string | null): boolean {
+  if (!iso) return false;
+  // Solo el día («2026-10-16», lo que manda el servidor): por días enteros.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) {
+    const n = diasHasta(iso);
+    return n !== null && n < 0;
+  }
+  // Con hora: el momento exacto, como antes.
+  const t = new Date(iso).getTime();
+  return !Number.isNaN(t) && t < Date.now();
+}
