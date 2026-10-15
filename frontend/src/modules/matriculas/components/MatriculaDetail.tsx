@@ -92,7 +92,10 @@ function lineaDelHistorial(e: Evento): string {
   if (e.evento === 'creada') return `Creada a mano${quien}${cuando}`;
   if (e.evento === 'documento') {
     const doc = NOMBRE_DOC[e.documento || ''] || 'Documento';
-    return `${doc} ${e.reemplazo ? 'reemplazado' : 'subido'}${quien}${cuando}`;
+    // «Foto subida», «Firma reemplazada»; «DNI subido», «Título reemplazado».
+    const femenino = e.documento === 'foto' || e.documento === 'firma';
+    const hecho = e.reemplazo ? (femenino ? 'reemplazada' : 'reemplazado') : (femenino ? 'subida' : 'subido');
+    return `${doc} ${hecho}${quien}${cuando}`;
   }
   const estado = ESTADO_LABEL[e.estado || ''] || e.estado || 'Cambio de estado';
   return `${estado}${quien}${cuando}${e.motivo ? `. Motivo: ${e.motivo}` : ''}`;

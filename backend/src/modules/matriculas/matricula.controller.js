@@ -20,6 +20,18 @@ const URL_DOC = { dni: 'dni_doc_url', dni_dorso: 'dni_dorso_url', foto: 'foto_ur
  * CRM). Antes, sabiendo el número, se abría, se validaba o se le subía un
  * documento a una de otro campus. Super admin y soporte, todas (`veTodoElCrm`).
  */
+/**
+ * La ficha tal como la pinta la pantalla: con su prospecto, sus documentos
+ * firmados y su historial (#199). Todas las respuestas de la ficha (abrirla,
+ * guardar, cambiar el estado, subir un documento) devuelven esto: la pantalla
+ * pinta la respuesta tal cual, y sin el historial se quedaba en «Sin
+ * movimientos» después de subir un documento (prueba a mano del 15/10).
+ */
+async function fichaCompleta(id, yaLeida = null) {
+  const m = yaLeida || await model.findById(id);
+  return { ...conDocumentosFirmados(m), historial: await model.historial(id) };
+}
+
 async function matriculaDeMiAmbito(req) {
   const m = await model.findById(parseInt(req.params.id));
   if (!m) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
@@ -61,7 +73,7 @@ export async function getById(req, res, next) {
   try {
     const m = await matriculaDeMiAmbito(req);
     // Con su historial (#199): la llegada y cada cambio, con quién y cuándo.
-    res.json({ success: true, data: { ...conDocumentosFirmados(m), historial: await model.historial(m.id) } });
+    res.json({ success: true, data: await fichaCompleta(m.id, m) });
   } catch (err) { next(err); }
 }
 
@@ -85,7 +97,7 @@ export async function update(req, res, next) {
     await matriculaDeMiAmbito(req);
     const updated = await model.update(parseInt(req.params.id), parsed.data);
     if (!updated) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
-    res.json({ success: true, data: conDocumentosFirmados(await model.findById(updated.id)) });
+    res.json({ success: true, data: await fichaCompleta(updated.id) });
   } catch (err) { next(err); }
 }
 
@@ -115,7 +127,7 @@ export async function setEstado(req, res, next) {
       matriculaId: updated.id, evento: 'estado', estado: parsed.data.estado,
       motivo: parsed.data.estado === 'rechazada' ? parsed.data.motivo_rechazo : null, userId: req.user.userId,
     });
-    res.json({ success: true, data: conDocumentosFirmados(await model.findById(updated.id)) });
+    res.json({ success: true, data: await fichaCompleta(updated.id) });
   } catch (err) { next(err); }
 }
 
@@ -184,7 +196,7 @@ export async function uploadDoc(req, res, next) {
     // «Ver documento» daria 403 justo despues de subirlo.
     // Releída con su prospecto: la ficha pinta esta respuesta tal cual, y sin el
     // JOIN se quedaba sin nombre después de subir (#199).
-    res.json({ success: true, data: conDocumentosFirmados(await model.findById(updated.id)) });
+    res.json({ success: true, data: await fichaCompleta(updated.id) });
   } catch (err) { next(err); }
 }
 

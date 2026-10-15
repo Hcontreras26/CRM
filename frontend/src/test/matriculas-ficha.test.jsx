@@ -28,6 +28,8 @@ const FICHA = {
     { evento: 'documento', documento: 'dni_dorso', reemplazo: false, usuario: 'Mireia', creado_at: '2026-10-02T08:00:00Z' },
     { evento: 'documento', documento: 'dni', reemplazo: true, usuario: 'Ana', creado_at: '2026-10-03T08:00:00Z' },
     { evento: 'estado', estado: 'rechazada', motivo: 'El título no se lee', usuario: 'Mireia', creado_at: '2026-10-04T08:00:00Z' },
+    { evento: 'documento', documento: 'foto', reemplazo: false, usuario: 'Ana', creado_at: '2026-10-05T08:00:00Z' },
+    { evento: 'documento', documento: 'firma', reemplazo: true, usuario: 'Ana', creado_at: '2026-10-06T08:00:00Z' },
   ],
 };
 
@@ -143,5 +145,8 @@ describe('la ficha en panel lateral, como la de los prospectos', () => {
     expect(screen.getByText(/DNI \(detrás\) subido por Mireia el 02 oct 2026/)).toBeTruthy();
     expect(screen.getByText(/DNI \(delante\) reemplazado por Ana el 03 oct 2026/)).toBeTruthy();
     expect(screen.getByText(/Rechazada por Mireia el 04 oct 2026, 10:00\. Motivo: El título no se lee/)).toBeTruthy();
+    // En femenino lo que es femenino (prueba a mano del 15/10: «Foto subido»).
+    expect(screen.getByText(/^Foto subida por Ana el 05 oct 2026/)).toBeTruthy();
+    expect(screen.getByText(/^Firma reemplazada por Ana el 06 oct 2026/)).toBeTruthy();
   });
 });

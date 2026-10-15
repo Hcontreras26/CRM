@@ -151,3 +151,21 @@ describe('la ficha, solo dentro de tus campus', () => {
     expect(salida.data.lead_nombre).toBe('María López');
   });
 });
+
+// Prueba a mano del 15/10: al subir un documento, la ficha se quedaba en «Sin
+// movimientos», porque la respuesta no traía el historial y la pantalla la pinta tal cual.
+describe('todas las respuestas de la ficha traen su historial', () => {
+  const HISTORIAL = [{ evento: 'recibida', creado_at: '2026-10-01T07:12:00Z' }, { evento: 'documento', documento: 'dni_dorso', creado_at: '2026-10-15T23:18:00Z' }];
+  beforeEach(() => { model.historial.mockResolvedValue(HISTORIAL); });
+
+  it.each([
+    ['subir un documento', 'uploadDoc', { params: { id: '5', tipo: 'dni_dorso' }, file: { originalname: 'd.png', buffer: Buffer.from('x') } }],
+    ['guardar campos', 'update', { params: { id: '5' }, body: { notas: 'x' } }],
+    ['cambiar el estado', 'setEstado', { params: { id: '5' }, body: { estado: 'validada', motivo_rechazo: null } }],
+  ])('después de %s', async (_que, fn, req) => {
+    const { salida, error } = await llamar(ctrl[fn], req);
+    expect(error).toBeNull();
+    expect(salida.data.historial).toEqual(HISTORIAL);
+    expect(salida.data.lead_nombre).toBe('María López');
+  });
+});
