@@ -9,19 +9,7 @@ import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import BarraFiltros from '@/shared/components/ui/BarraFiltros';
 import MatriculasFiltros, { SIN_FILTROS, type Filtros } from '../components/MatriculasFiltros';
 import { GraduationCap, Eye, PlugsConnected, Certificate, ChatText, SealCheck, IdentificationCard, Camera, Scroll, Signature, CheckCircle } from '@phosphor-icons/react';
-/**
- * La fecha de llegada, en HORA DE MADRID (Diana, 15/10): el filtro «Recibida»
- * cuenta el día en Madrid, y si la columna enseñara la hora de quien mira, desde
- * fuera de España una matrícula de «11 oct» entraría en «desde el 12».
- */
-function enHoraDeMadrid(fecha: string | null | undefined): string {
-  if (!fecha) return '—';
-  const d = new Date(fecha);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('es-ES', {
-    timeZone: 'Europe/Madrid', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
-}
+import { ESTADO_LABEL, ESTADO_COLOR, enHoraDeMadrid } from '../lib/estados';
 import { toast } from '@/shared/hooks/useToast';
 import PromptDialog from '@/shared/components/ui/PromptDialog';
 import WebhooksTab from '../components/WebhooksTab';
@@ -38,26 +26,6 @@ const CertifexConsultasPage = lazy(() => import('@/modules/certifex/pages/Certif
 // Diplomas (#272): lo que el alumno pide desde Moodle y los diplomas emitidos. Misma
 // regla que Certificaciones: en desarrollo, solo en pruebas, y solo administración.
 const CertifexDiplomasPage = lazy(() => import('@/modules/certifex/pages/CertifexDiplomasPage'));
-
-const ESTADO_LABEL = {
-  solicitud_admision: 'Solicitud admisión',
-  datos_validados: 'Datos validados',
-  pendiente: 'Pendiente',
-  validada: 'Validada',
-  rechazada: 'Rechazada',
-};
-// CINCO ESTADOS, CINCO ASPECTOS, con los colores del tema (#32: nada de
-// colores sueltos). Diego, ideas del #199 (01/10): Solicitud azul, Datos
-// validados índigo, Pendiente ámbar, Validada verde, Rechazada roja. El tema no
-// tiene índigo, así que Datos validados va en el principal (cian): sigue
-// distinguiéndose de Solicitud, que es lo que importa en esta tabla.
-const ESTADO_COLOR = {
-  solicitud_admision: 'bg-info-soft text-info-soft-foreground border-info/30',
-  datos_validados: 'bg-primary/10 text-primary border-primary/30',
-  pendiente: 'bg-warning-soft text-warning-soft-foreground border-warning/30',
-  validada: 'bg-success-soft text-success-soft-foreground border-success/30',
-  rechazada: 'bg-destructive-soft text-destructive-soft-foreground border-destructive/30',
-};
 
 // Los documentos de una matrícula, con los nombres del contrato de la #198 y en
 // el orden de Diego (#199): «DNI por las dos caras, foto, título, firma». Los

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Funnel, CaretDown, X } from '@phosphor-icons/react';
+import { ESTADO_LABEL } from '../lib/estados';
 
 /**
  * Los filtros de Matrículas (#199): «estado, curso, campus y fechas, en el
@@ -15,13 +16,7 @@ import { Funnel, CaretDown, X } from '@phosphor-icons/react';
  * sale con la fecha de ayer.
  */
 
-export const ESTADOS: Record<string, string> = {
-  solicitud_admision: 'Solicitud admisión',
-  datos_validados: 'Datos validados',
-  pendiente: 'Pendiente',
-  validada: 'Validada',
-  rechazada: 'Rechazada',
-};
+const ESTADOS = ESTADO_LABEL;
 
 export interface Filtros {
   estado: string;

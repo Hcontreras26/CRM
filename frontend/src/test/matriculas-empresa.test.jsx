@@ -13,7 +13,7 @@ const { cabecera, get } = vi.hoisted(() => ({ cabecera: { value: {} }, get: vi.f
 
 vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => cabecera.value }));
 vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: () => true, tieneRol: () => true }) }));
-vi.mock('@/shared/api/client', () => ({ default: { get, post: vi.fn(), patch: vi.fn() } }));
+vi.mock('@/shared/api/client', () => ({ default: { get, post: vi.fn(), patch: vi.fn() }, API_BASE_URL: '/crm/api' }));
 
 import MatriculasPage from '@/modules/matriculas/pages/MatriculasPage';
 

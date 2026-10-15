@@ -107,9 +107,16 @@ function conDocumentosFirmados(m) {
   const campos = { dni: 'dni_doc_url', titulo: 'titulo_doc_url', firma: 'firma_url' };
   const claves = { dni: 'dni_doc_key', titulo: 'titulo_doc_key', firma: 'firma_key' };
   const salida = { ...m };
+  // Si cada documento es un PDF o una imagen, para que la ficha sepa con qué
+  // visor abrirlo (#199). Sale de la extensión con la que se guardó.
+  const formatos = {};
   for (const tipo of TIPOS_DOC) {
-    if (m[claves[tipo]]) salida[campos[tipo]] = urlFirmada(m.id, tipo);
+    if (m[claves[tipo]]) {
+      salida[campos[tipo]] = urlFirmada(m.id, tipo);
+      formatos[tipo] = /\.pdf$/i.test(m[claves[tipo]]) ? 'pdf' : 'imagen';
+    }
   }
+  salida.documentos_formato = formatos;
   return salida;
 }
 

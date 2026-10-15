@@ -71,13 +71,23 @@ export async function findAll({ projectId, projectIds = null, estado, search, ca
 }
 
 export async function findById(id) {
+  // La ficha (#199): lo de la lista, más la gestora del prospecto y quién validó.
   const { rows } = await query(
-    `SELECT m.*, l.nombre as lead_nombre, l.email as lead_email,
-            c.importe_total, c.producto_contratado, u.nombre as validated_by_nombre
+    `SELECT m.*,
+            COALESCE(l.nombre, m.datos_admision->>'nombre') as lead_nombre,
+            COALESCE(l.email, m.datos_admision->>'email') as lead_email,
+            COALESCE(l.telefono, m.datos_admision->>'telefono') as lead_telefono,
+            c.importe_total, c.producto_contratado, u.nombre as validated_by_nombre,
+            ${CURSO} as curso,
+            p.nombre as campus_nombre,
+            COALESCE(m.webhook_received_at, m.created_at) as recibida_at,
+            g.id as gestora_id, g.nombre as gestora_nombre
      FROM matriculas m
      LEFT JOIN leads l ON l.id = m.lead_id
      LEFT JOIN conversions c ON c.id = m.conversion_id
      LEFT JOIN users u ON u.id = m.validated_by
+     LEFT JOIN projects p ON p.id = m.project_id
+     LEFT JOIN users g ON g.id = l.responsable_id
      WHERE m.id = $1`, [id]);
   return rows[0] || null;
 }
