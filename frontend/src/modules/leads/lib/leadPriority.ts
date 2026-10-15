@@ -1,6 +1,7 @@
 // Calcula la prioridad visual de un lead segun su estado, recordatorios y dias inactivos.
 // Resultado: { tone, label, dotClass, borderClass }
 import type { Lead } from '@/shared/types';
+import { yaPaso } from '@/shared/lib/fechas';
 
 export type Priority = 'overdue' | 'urgent' | 'fresh' | 'inProgress' | 'won' | 'lost' | 'normal';
 
@@ -71,8 +72,8 @@ export function getLeadPriority(lead: Partial<Lead> | null | undefined): Priorit
 
   // Recordatorio vencido tiene prioridad maxima
   if (lead.next_reminder_at) {
-    const due = new Date(lead.next_reminder_at);
-    if (!isNaN(due.getTime()) && due < new Date()) return 'overdue';
+    // Un DATE: vence cuando su día ya pasó, no a las 20:00 del anterior (15/10).
+    if (yaPaso(lead.next_reminder_at)) return 'overdue';
   }
 
   // Estados terminales
