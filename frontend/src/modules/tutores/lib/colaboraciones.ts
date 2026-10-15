@@ -106,3 +106,134 @@ export function avisoDelAlta(entraYa: boolean, asignados: number, fallidos: Curs
     duration: 0,
   };
 }
+
+// ── «Cobra desde» en Editar tutor (Diego, 13/10) ────────────────────────────
+//
+// Diego, al abrir «Editar tutor»: «ni me deja poner la fecha de inicio del
+// tutor». Carlos queria «colocar fecha de ingreso en el CRM y poder cambiarla a
+// más antes para que cuadren». El campo pone esa fecha en TODAS sus
+// colaboraciones activas; estas son las cuentas que lo rodean.
+
+/** Lo minimo de una colaboracion para saber desde cuando cobra. */
+interface TramoDelTutor { activa: boolean; vigente_desde: string }
+
+export interface CobraDesdeActual {
+  /** La mas temprana de sus colaboraciones activas: el valor inicial del campo. */
+  desde: string | null;
+  /** Cuantas formaciones activas empiezan en cada fecha, de la mas antigua a la mas nueva. */
+  grupos: Array<{ desde: string; formaciones: number }>;
+  /** Si no todas empiezan el mismo dia. */
+  distintas: boolean;
+}
+
+const aCastellano = (f: string) => {
+  const [a, m, d] = String(f).slice(0, 10).split('-');
+  return d && m && a ? `${d}/${m}/${a}` : String(f);
+};
+
+export function cobraDesdeActual(colabs: TramoDelTutor[]): CobraDesdeActual {
+  const cuenta = new Map<string, number>();
+  for (const c of colabs || []) {
+    if (!c.activa || !c.vigente_desde) continue;
+    const f = String(c.vigente_desde).slice(0, 10);
+    cuenta.set(f, (cuenta.get(f) || 0) + 1);
+  }
+  const grupos = [...cuenta.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([desde, formaciones]) => ({ desde, formaciones }));
+  return { desde: grupos[0]?.desde ?? null, grupos, distintas: grupos.length > 1 };
+}
+
+/**
+ * El texto de ayuda con lo que hay hoy. Con fechas distintas hay que decirlo:
+ * guardar las pone TODAS en la misma, y quien no lo sepa iguala sin querer un
+ * curso que empezo mas tarde.
+ *
+ *   «Ahora: 3 formaciones desde 20/10/2025, 1 desde 01/08/2026»
+ */
+export function textoCobraDesdeActual(actual: CobraDesdeActual): string | null {
+  const { grupos } = actual;
+  if (!grupos.length) return null;
+  if (grupos.length === 1) {
+    const n = grupos[0].formaciones;
+    return `Ahora: ${n === 1 ? 'su formación activa cobra' : `sus ${n} formaciones activas cobran`} desde ${aCastellano(grupos[0].desde)}.`;
+  }
+  const partes = grupos.map((g, i) => (i === 0
+    ? `${g.formaciones} ${g.formaciones === 1 ? 'formación' : 'formaciones'} desde ${aCastellano(g.desde)}`
+    : `${g.formaciones} desde ${aCastellano(g.desde)}`));
+  return `Ahora: ${partes.join(', ')}.`;
+}
+
+/**
+ * Si al guardar «Editar tutor» hay que mandar la fecha.
+ *
+ * Solo si se TOCO el campo. El valor inicial es la fecha mas temprana, asi que
+ * con fechas distintas, guardar el nombre o el IBAN sin mirar la fecha las
+ * igualaria todas a la mas antigua y le regalaria meses a algun curso. Tocado
+ * y con la misma fecha si se manda cuando habia distintas: es la forma de
+ * decir «todas desde aqui».
+ */
+export function hayQueMandarCobraDesde(valor: string, tocado: boolean, actual: CobraDesdeActual): boolean {
+  if (!tocado || !/^\d{4}-\d{2}-\d{2}$/.test(valor) || !actual.grupos.length) return false;
+  return valor !== actual.desde || actual.distintas;
+}
+
+/** La pregunta antes de igualar fechas distintas. */
+export function confirmacionCobraDesde(valor: string, actual: CobraDesdeActual): string | null {
+  if (!actual.distintas) return null;
+  const n = actual.grupos.reduce((s, g) => s + g.formaciones, 0);
+  return `Sus formaciones empiezan en fechas distintas. Al guardar, las ${n} pasan a cobrar desde el ${aCastellano(valor)}.\n\n¿Seguir?`;
+}
+
+/** Lo que vuelve del servidor, en lo minimo que hace falta para el aviso. */
+interface ResultadoDelCambio {
+  desde: string;
+  total: number;
+  cambiadas: Array<{ formacion: string }>;
+  noCambiadas: Array<{ formacion: string; motivo: string }>;
+  sinCambio: number;
+}
+
+/**
+ * El aviso al guardar: cuantas formaciones se cambiaron. Si alguna no se pudo,
+ * en rojo, cual y por que, y no se va solo — es algo que hay que mirar.
+ */
+export function avisoCobraDesde(r: ResultadoDelCambio) {
+  const fecha = aCastellano(r.desde);
+  const n = r.cambiadas.length;
+  const calcular = 'Pulsa Calcular en Comisiones para añadir las que falten.';
+  if (!r.total) {
+    return {
+      title: 'No tiene formaciones activas',
+      description: 'No había ninguna fecha que cambiar.',
+      variant: 'default' as const, duration: 4000,
+    };
+  }
+  const yaEstaban = r.sinCambio
+    ? ` ${r.sinCambio === 1 ? 'Otra ya tenía' : `Otras ${r.sinCambio} ya tenían`} esa fecha.` : '';
+  if (!r.noCambiadas.length) {
+    if (!n) {
+      return {
+        title: `Ya cobraba desde el ${fecha}`,
+        description: 'No había nada que cambiar.',
+        variant: 'default' as const, duration: 4000,
+      };
+    }
+    return {
+      title: `Cobra desde el ${fecha}`,
+      description: `${n} ${n === 1 ? 'formación cambiada' : 'formaciones cambiadas'}.${yaEstaban} ${calcular}`,
+      variant: 'default' as const, duration: 6000,
+    };
+  }
+  const m = r.noCambiadas.length;
+  return {
+    title: `Cobra desde el ${fecha}: ${n} ${n === 1 ? 'cambiada' : 'cambiadas'}, ${m} no`,
+    description: [
+      r.noCambiadas.map((x) => `«${x.formacion}»: ${x.motivo}`).join(' · '),
+      yaEstaban.trim(),
+      n ? calcular : '',
+    ].filter(Boolean).join(' '),
+    variant: 'destructive' as const,
+    duration: 0,
+  };
+}

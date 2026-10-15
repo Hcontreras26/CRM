@@ -19,6 +19,10 @@ export async function ambitoDe(user) {
 
 const NO_ESTA = () => new AppError('Colaborador no encontrado', 404, 'NOT_FOUND');
 
+/** «2026-09» → «septiembre de 2026», para los mensajes (no «2026-09»). */
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const mesEscrito = (v) => { const [a, m] = String(v).split('-').map(Number); return `${MESES[m - 1]} de ${a}`; };
+
 function comprobarEmpresas(empresas, ambito) {
   const repetidas = new Set();
   for (const e of empresas) {
@@ -46,7 +50,7 @@ async function comprobarUsuario(userId) {
  * otra, o lo daría de baja para todas.
  */
 const COMPARTIDO = () => new AppError(
-  'Este colaborador también factura a otras empresas: sus datos, su baja y su alta los cambia el super admin. Tú puedes cambiar lo de tu empresa.',
+  'Este colaborador también factura a otras empresas del grupo: sus datos, su baja y su alta solo los cambia el super admin. Tú puedes cambiar lo que es de tu empresa: si le factura y lo acordado.',
   403, 'FORBIDDEN',
 );
 
@@ -93,7 +97,7 @@ export async function crear(user, datos, ip) {
 
   const id = await enTransaccion(async (db) => {
     const nuevo = await model.insertar(db, datos, user.userId);
-    for (const e of datos.empresas) await model.ponerEmpresa(db, nuevo, e.issuer_id, e.importe_acordado);
+    for (const e of datos.empresas) await model.ponerEmpresa(db, nuevo, e);
     await model.anotar(db, {
       colaboradorId: nuevo, evento: 'alta', userId: user.userId, ip,
       detalle: {
@@ -143,12 +147,12 @@ export async function editar(user, id, cambios, ip) {
       // como estaban, aunque no las vea.
       const todas = await model.empresasDe(id, db);
       const mias = ambito ? todas.filter((e) => ambito.includes(e.issuer_id)) : todas;
-      const nuevas = new Map(cambios.empresas.map((e) => [e.issuer_id, e.importe_acordado ?? null]));
+      const nuevas = new Map(cambios.empresas.map((e) => [e.issuer_id, e]));
 
       for (const e of mias) {
         if (!nuevas.has(e.issuer_id)) await model.quitarEmpresa(db, id, e.issuer_id);
       }
-      for (const [issuerId, importe] of nuevas) await model.ponerEmpresa(db, id, issuerId, importe);
+      for (const e of nuevas.values()) await model.ponerEmpresa(db, id, e);
 
       const despues = await model.empresasDe(id, db);
       if (!despues.length) {
@@ -172,7 +176,7 @@ export async function darDeBaja(user, id, desde, ip) {
   const c = await model.porId(id, ambito);
   if (!c) throw NO_ESTA();
   if (await model.facturaFueraDe(id, ambito)) throw COMPARTIDO();
-  if (c.baja_desde) throw new AppError(`Este colaborador ya tiene la baja desde ${c.baja_desde}`, 409, 'CONFLICT');
+  if (c.baja_desde) throw new AppError(`Este colaborador ya tiene la baja desde ${mesEscrito(c.baja_desde)}`, 409, 'CONFLICT');
 
   await enTransaccion(async (db) => {
     await model.darDeBaja(db, id, desde);

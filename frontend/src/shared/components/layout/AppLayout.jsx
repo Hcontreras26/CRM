@@ -65,6 +65,11 @@ const ALL_PROJECTS_OK = [
   /^\/ai-chat$/,
   /^\/tareas(?:\/.*)?$/,
   /^\/prueba_ui(?:_[a-z]+)?$/,
+  // Facturas de colaboradores (#202). Diego, 10/10: «son por EMPRESA, no por
+  // campus». Con «Todos los proyectos», todas las empresas que ve cada uno; y
+  // «Mi factura» son las del propio colaborador, a todas sus empresas.
+  /^\/finanzas\/facturas-colaboradores$/,
+  /^\/mi-factura$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -243,6 +248,12 @@ const CON_SOCIEDAD_OK = [
   // porque cada uno pertenece a un proyecto y «la nomina de CEDIA» no existe.
   /^\/finanzas\/nominas$/,
   /^\/finanzas\/ventas\/\d+$/,
+  // Facturas de colaboradores (#202). Diego, 10/10: «las facturas de
+  // colaboradores son por EMPRESA, no por campus»: las factura la sociedad
+  // (`issuer_id`), y la pantalla sigue a la empresa de la cabecera. «Mi
+  // factura» no depende de la cabecera: son las del propio colaborador.
+  /^\/finanzas\/facturas-colaboradores$/,
+  /^\/mi-factura$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {
@@ -294,7 +305,8 @@ const NEW_ACTIONS = {
   '/captacion': { url: '/captacion?new=1', label: 'formulario' },
   '/captacion/webhooks': { url: '/captacion/webhooks?new=1', label: 'webhook' },
   '/secuencias-email': { url: '/secuencias-email?new=1', label: 'secuencia' },
-  '/accounting/expenses': { url: '/accounting/expenses?new=1', label: 'egreso' },
+  // Egresos vive en /finanzas/egresos: /accounting/expenses no existe en este CRM (#227).
+  '/finanzas/egresos': { url: '/finanzas/egresos?new=1', label: 'egreso' },
   '/accounting/payable': { url: '/accounting/payable?new=1', label: 'cuenta por pagar' },
 };
 

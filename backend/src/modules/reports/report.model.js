@@ -930,9 +930,15 @@ const FEC_VENTA = `(SELECT i.fecha_emision FROM invoices i
   · A cada gestora, su parte (`conversion_reparto`: la vendedora, o si no la
     responsable del cliente; en una venta compartida, su porcentaje).
   · Una factura que no cuelga de ninguna venta no cuenta: no tiene gestora.
+
+  Y ES LO QUE CUENTA EL DASHBOARD desde el 10/10 (#224). Diego: «el Dashboard
+  cuenta lo FACTURADO, también en el bloque del equipo, porque hay ventas sin
+  gestora que tienen que facturarse». Por eso se exporta: `getFacturado`
+  (sales.service.js) la importa de aquí en vez de escribir otra. Una sola
+  definición; si se cambia esta línea, cambian el informe y el Dashboard a la vez.
 */
-const IMPORTE_FACTURADO = 'i.total';
-const FACTURA_QUE_CUENTA = `i.tipo IN ('normal', 'rectificativa')
+export const IMPORTE_FACTURADO = 'i.total';
+export const FACTURA_QUE_CUENTA = `i.tipo IN ('normal', 'rectificativa')
           AND i.estado NOT IN ('cancelada', 'borrador') AND i.numero IS NOT NULL`;
 
 export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraId, base }) {

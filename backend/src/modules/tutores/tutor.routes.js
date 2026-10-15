@@ -48,6 +48,8 @@ router.get('/', ctrl.listar);
 router.post('/', ctrl.alta);
 router.get('/:id', ctrl.ficha);
 router.patch('/:id/perfil', ctrl.guardarPerfil);
+// «Cobra desde»: la fecha de inicio de todas sus colaboraciones activas.
+router.patch('/:id/cobra-desde', ctrl.cambiarCobraDesde);
 // Quien lleva las colaboraciones tambien resuelve las claves y las bajas.
 router.post('/:id/contrasena', ctrl.cambiarContrasena);
 router.post('/:id/reactivar', ctrl.reactivarTutor);

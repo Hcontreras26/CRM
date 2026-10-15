@@ -5,12 +5,14 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import SubirFactura from '../components/SubirFactura';
-import { ESTADO, euros, facturasColaboradorApi, primeraMayuscula, type FacturaDelColaborador, urlDelArchivo } from '../api/facturasColaborador.api';
+import {
+  ESTADO, FORMA_PAGO_ES, avisoDelPdf, diaDelPago, euros, facturasColaboradorApi, primeraMayuscula, type FacturaDelColaborador, urlDelArchivo,
+} from '../api/facturasColaborador.api';
 
 /**
  * «Mi factura» (#202): el colaborador con usuario en el CRM ve sus meses, su
  * enlace y el estado de cada factura, y la sube desde aquí. Solo lo suyo: lo
- * comprueba el servidor. (El estado del pago llega con la segunda parte.)
+ * comprueba el servidor. Y el estado del pago de cada mes (segunda parte).
  */
 export default function MiFacturaPage() {
   const [meses, setMeses] = useState<FacturaDelColaborador[]>([]);
@@ -47,7 +49,7 @@ export default function MiFacturaPage() {
       {meses.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title={cargando ? 'Cargando…' : 'Todavía no tienes ningún mes'}
+          title={cargando ? 'Cargando…' : 'Todavía no tienes facturas que subir'}
           description="El último día de cada mes aparece aquí el mes que tienes que facturar."
         />
       ) : (
@@ -66,6 +68,14 @@ export default function MiFacturaPage() {
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${ESTADO[m.estado].clase}`}>
                   {m.estado === 'recibida' || m.estado === 'anulada' || m.estado === 'caducado' ? ESTADO[m.estado].rotulo : 'Pendiente'}
                 </span>
+                {/* El pago, aparte del estado de la factura: «Pagada 05/10 · Transferencia» o «Por pagar». */}
+                {m.recibida && (m.pago ? (
+                  <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-success-soft text-success-soft-foreground">
+                    Pagada {diaDelPago(m.pago.pagada_at)}{m.pago.forma_pago ? ` · ${FORMA_PAGO_ES[m.pago.forma_pago]}` : ''}
+                  </span>
+                ) : (
+                  <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-warning-soft text-warning-soft-foreground">Por pagar</span>
+                ))}
                 {m.recibida && (
                   <Button variant="outline" size="sm" onClick={() => verArchivo(m.id!)}>
                     <FileText size={13} className="mr-1.5" /> Ver archivo
@@ -83,13 +93,25 @@ export default function MiFacturaPage() {
                   </Button>
                 )}
               </div>
-              {abierta === m.id && !m.recibida && (
-                <div className="border-t border-border p-4">
+              {/* Lo que dice el PDF frente a lo escrito (Diego, 13/10): si no cuadra o no se pudo leer. */}
+              {m.recibida && avisoDelPdf(m.recibida) && (
+                <p role="status" className={`border-t border-border px-4 py-2 text-secundario ${
+                  m.recibida.cuadra === false ? 'bg-warning-soft text-warning-soft-foreground' : 'bg-muted text-foreground'
+                }`}>
+                  {avisoDelPdf(m.recibida)}
+                </p>
+              )}
+              {/* Montado aunque esté cerrado: al abrir otro mes (o «Cerrar») no se pierde lo que
+                  ya había puesto —el archivo, el número, las horas—. Diana, prueba a mano del 12/10. */}
+              {!m.recibida && m.estado !== 'anulada' && m.estado !== 'caducado' && (
+                <div className={abierta === m.id ? 'border-t border-border p-4' : 'hidden'}>
                   <SubirFactura
                     factura={m}
-                    alSubir={async (archivo, importe, numero) => {
-                      await facturasColaboradorApi.subirMia(m.id!, archivo, importe, numero);
-                      toast({ title: 'Factura enviada', description: `${m.mes} · ${m.empresa.razon_social}` });
+                    alSubir={async (archivo, importe, numero, desglose) => {
+                      const r = await facturasColaboradorApi.subirMia(m.id!, archivo, importe, numero, desglose);
+                      // Si el PDF no dice lo escrito, o no se pudo leer, se dice ya (y queda debajo del mes).
+                      const aviso = r?.data?.recibida ? avisoDelPdf(r.data.recibida) : null;
+                      toast({ title: 'Factura enviada', description: aviso || `${primeraMayuscula(m.mes)} · ${m.empresa.razon_social}` });
                       setAbierta(null);
                       await cargar();
                     }}

@@ -19,6 +19,7 @@ import tutoresModule from './modules/tutores/index.js';
 import notificationsModule from './modules/notifications/index.js';
 import metaAdsModule from './modules/meta-ads/index.js';
 import accountingModule from './modules/accounting/index.js';
+import expensesModule from './modules/expenses/index.js';
 import integrationsModule from './modules/integrations/index.js';
 import stripePaymentsModule from './modules/stripe-payments/index.js';
 import invoicesModule from './modules/invoices/index.js';
@@ -159,6 +160,9 @@ const ALL_MODULES = [
   { name: 'notifications', mod: notificationsModule },
   { name: 'meta-ads', mod: metaAdsModule },
   { name: 'accounting', mod: accountingModule },
+  // Egresos, su propio modulo e igual que en CRM-ISEIE (#227). Va DESPUES de
+  // `accounting`: su alias /api/accounting/expenses cuelga de ese prefijo.
+  { name: 'expenses', mod: expensesModule },
   { name: 'integrations', mod: integrationsModule },
   { name: 'stripe-payments', mod: stripePaymentsModule },
   { name: 'invoices', mod: invoicesModule },

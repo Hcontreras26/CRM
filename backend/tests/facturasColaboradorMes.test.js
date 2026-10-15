@@ -27,6 +27,13 @@ import { prepararMes, huella } from '../src/modules/facturas-colaborador/factura
  *   cd backend && npx vitest run tests/facturasColaboradorMes.test.js
  */
 
+// R2 «configurado» con valores de prueba: así almacen.js (revisión del 10/10) usa el
+// R2 simulado de arriba también en la CI, que no tiene R2. El camino del disco lo
+// prueba facturasColaboradorRevision.test.js.
+process.env.CLOUDFLARE_R2_ACCOUNT_ID = 'cuenta-de-prueba';
+process.env.CLOUDFLARE_R2_ACCESS_KEY = 'clave-de-prueba';
+process.env.CLOUDFLARE_R2_BUCKET = 'cubo-de-prueba';
+
 const request = supertest(app);
 const MARCA = `FCMES_${Date.now().toString(36)}`;
 const PERIODO = '2026-09-01';
@@ -211,11 +218,17 @@ describe('facturas de colaboradores (#202) · el enlace', () => {
   });
 
   it('a administración le llega el aviso en la campana: al admin de esa empresa y al super admin', async () => {
-    const aviso = await one(
-      `SELECT title, link_path, target_user_ids FROM admin_notifications
-        WHERE type = 'factura_colaborador' AND (metadata->>'factura_id')::int = $1`,
-      [await filaViva(C.laura, E.A)],
-    );
+    // Sale justo después de responder (revisión del 10/10): se espera a que esté.
+    const id = await filaViva(C.laura, E.A);
+    const aviso = await vi.waitFor(async () => {
+      const a = await one(
+        `SELECT title, link_path, target_user_ids FROM admin_notifications
+          WHERE type = 'factura_colaborador' AND (metadata->>'factura_id')::int = $1`,
+        [id],
+      );
+      expect(a).toBeTruthy();
+      return a;
+    });
     expect(aviso.title).toBe(`Factura recibida: ${MARCA} Laura`);
     expect(aviso.link_path).toBe('/finanzas/facturas-colaboradores?periodo=2026-09');
     expect(aviso.target_user_ids).toEqual(expect.arrayContaining([U.adminA.id, U.super.id]));
@@ -260,6 +273,16 @@ describe('facturas de colaboradores (#202) · administración', () => {
     const res = await request.get(`${API}/mes?periodo=2026-09`).set(como('super'));
     const mias = res.body.data.facturas.filter((f) => f.colaborador_nombre.startsWith(MARCA));
     expect(mias.map((f) => f.estado).sort()).toEqual(['caducado', 'recibida', 'sin_enviar']);
+  });
+
+  it('con una empresa en la cabecera solo llegan sus facturas (Diego, 10/10: «son por EMPRESA»)', async () => {
+    for (const k of ['A', 'B']) {
+      const res = await request.get(`${API}/mes?periodo=2026-09&issuerId=${E[k].id}`).set(como('super'));
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      const mias = res.body.data.facturas.filter((f) => f.colaborador_nombre.startsWith(MARCA));
+      expect(mias.length).toBeGreaterThan(0);
+      expect(new Set(mias.map((f) => f.empresa))).toEqual(new Set([`${MARCA} Empresa ${k}`]));
+    }
   });
 
   it('el archivo se abre con un enlace firmado, y no el de otra empresa', async () => {

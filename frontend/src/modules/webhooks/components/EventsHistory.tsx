@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import client from '@/shared/api/client';
 import { CheckCircle, WarningCircle, Eye, ArrowsClockwise } from '@phosphor-icons/react';
 
@@ -86,10 +87,14 @@ export default function EventsHistory({ webhookId }: { webhookId: number }) {
                     </td>
                     <td className="px-3 py-2">
                       {e.result_id ? (
-                        <a href={`${(import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '')}/${e.result_type === 'lead' ? 'leads' : 'matriculas'}/${e.result_id}`}
+                        // La ficha del prospecto vive en `/prospectos/:id` desde que las
+                        // rutas pasaron al español. La matricula no tiene ficha propia y
+                        // se lleva a la lista. `/leads/:id` y `/matriculas/:id` daban
+                        // «Pagina no encontrada».
+                        <Link to={e.result_type === 'lead' ? `/prospectos/${e.result_id}` : '/clientes/matriculas'}
                            className="text-primary hover:underline">
                           {e.result_type} #{e.result_id}
-                        </a>
+                        </Link>
                       ) : e.error_message ? (
                         <span className="text-red-500 text-[11px] truncate max-w-xs inline-block" title={e.error_message}>
                           {e.error_message.slice(0, 50)}

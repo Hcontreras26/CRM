@@ -25,6 +25,40 @@ export function urlPublica() {
   return ((process.env.CERTIFEX_PUBLICO_URL || process.env.CERTIFEX_API_URL || '').trim().replace(/\/+$/, '')) || null;
 }
 
+/** ¿Una direccion que solo abre desde el propio servidor o su red (localhost, 127.x, IP privada)? */
+export function esDireccionLocal(url) {
+  let h;
+  try { h = new URL(url).hostname.toLowerCase().replace(/^\[|\]$/g, ''); } catch { return true; }
+  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  if (h === '::1' || h === '::' || h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd')) return true;
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return a === 127 || a === 10 || a === 0 || (a === 169 && b === 254) || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
+/**
+ * La web publica de Certifex, solo si de verdad es publica, con el motivo si no
+ * (Certifex#96). El 12/10 el Certifex de pruebas escuchaba en 127.0.0.1:3017 y el panel
+ * ensenaba enlaces que no abrian: un enlace local no puede llegar nunca a la pantalla.
+ * Desde el servidor si vale (el PDF se trae por aqui); lo que se mira es lo que se enlaza.
+ *
+ * `yo` es la respuesta de Certifex a `/yo`: su `direccionPublica` dice si SUS enlaces
+ * (los de `/diplomas`, los QR y los correos) abren desde fuera.
+ */
+export function direccionPublica(yo) {
+  const motivos = [];
+  const desarrollo = ['development', 'test'].includes(String(process.env.NODE_ENV || '').toLowerCase());
+  const pub = urlPublica();
+  if (pub && esDireccionLocal(pub) && !desarrollo) {
+    motivos.push(`El CRM enlaza Certifex en ${pub}, que solo abre desde el servidor: define CERTIFEX_PUBLICO_URL con su dominio público.`);
+  }
+  if (yo?.direccionPublica && yo.direccionPublica.ok === false) {
+    motivos.push(yo.direccionPublica.motivo || 'Certifex no tiene una dirección pública: sus enlaces y sus avisos al alumno no saldrían.');
+  }
+  return { url: motivos.length && pub && esDireccionLocal(pub) && !desarrollo ? null : pub, ok: motivos.length === 0, motivos };
+}
+
 /**
  * Una llamada a la API de Certifex. Los errores salen con un mensaje que la pantalla
  * puede ensenar tal cual; la clave no aparece nunca en un log.

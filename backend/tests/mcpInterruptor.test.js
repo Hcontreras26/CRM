@@ -37,6 +37,8 @@ const modelo = vi.hoisted(() => ({
 vi.mock('../src/modules/mcp/mcp.model.js', async (original) => ({ ...(await original()), ...modelo }));
 
 const { default: mcp } = await import('../src/modules/mcp/index.js');
+const { huella } = await import('../src/modules/mcp/mcp.acceso.js');
+const LLAVE_CONEXION = 'crm_mcc_' + 'k'.repeat(43);
 const { errorHandler } = await import('../src/shared/middleware/errorHandler.js');
 
 const app = express();
@@ -78,6 +80,10 @@ beforeEach(() => {
     if (/INSERT INTO mcp_interruptor/.test(sql)) {
       Object.assign(fila, { apagado: params[0], cambiado_por: params[1], cambiado_at: new Date(), motivo: params[2] });
       return { rows: [], rowCount: 1 };
+    }
+    // #326: con el código obligatorio, Claude llega con la llave de su conexión.
+    if (/FROM mcp_conexiones x\s+JOIN mcp_tokens t/.test(sql)) {
+      return { rows: [{ id: 3, token_id: 9, user_id: 2, estado: 'autorizada', desbloqueada_at: null, connector_id: null, token_hash: huella(TOKEN) }] };
     }
     return { rows: [], rowCount: 0 };
   });
@@ -138,7 +144,8 @@ describe('el botón del super admin', () => {
     const antes = process.env.MCP_CODIGO_OBLIGATORIO;
     process.env.MCP_CODIGO_OBLIGATORIO = '1';
     try {
-      const nombres = async () => (await llamarMcp()).body.result.tools.map((t) => t.name);
+      // #326: con el código obligatorio, la URL sola ya no vale: va con la llave de la conexión.
+      const nombres = async () => (await llamarMcp().set('Authorization', `Bearer ${LLAVE_CONEXION}`)).body.result.tools.map((t) => t.name);
       expect(await nombres()).toContain('desbloquear');
       await pulsar(1, true);
       expect(await nombres()).not.toContain('desbloquear');

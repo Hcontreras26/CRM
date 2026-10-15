@@ -18,6 +18,9 @@ router.get('/por-asesora', roleGuard('admin', 'superadmin'), salesController.ven
 router.get('/por-cliente', salesController.ventasPorCliente);
 // Este se queda abierto: lo pinta el dashboard de todos los roles.
 router.get('/top-products', salesController.topProducts);
+// Lo facturado del Dashboard (#224): bloque del equipo y «Productos vendidos».
+// Abierto como top-products: el controlador recorta a la gestora a lo suyo.
+router.get('/facturado', salesController.facturado);
 
 // GET /api/sales/gestores-stats — ventas + metas por gestor del periodo.
 // Solo admin: son las cifras y las metas de TODO el equipo.

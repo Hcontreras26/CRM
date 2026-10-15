@@ -18,7 +18,7 @@ function ScrollToTop() {
 
 function DocumentTitle() {
   const { pathname } = useLocation();
-  const { activeProject: project } = useProjectContext();
+  const { activeProject: project, activeIssuer } = useProjectContext();
   useEffect(() => {
     const base = 'MultiCRM';
     // El nombre sale del mismo sitio que usa la cabecera: una pantalla no
@@ -26,13 +26,19 @@ function DocumentTitle() {
     const route = tituloDeRuta(pathname);
     // «Sin proyecto» es el hueco de cuando no hay ninguno (la página del enlace
     // del colaborador, sin sesión): no es un nombre que poner en la pestaña.
-    const proj = project?.id ? project.nombre : null;
+    //
+    // CON UNA EMPRESA ELEGIDA manda la empresa (#224). El proyecto activo es
+    // entonces el pseudo-proyecto -1, que se llama «Todos los proyectos», y la
+    // pestaña decía eso con CEDIA puesta. La cabecera del Dashboard ya ponía
+    // la empresa: la pestaña dice lo mismo que la cabecera.
+    const proj = activeIssuer?.nombre
+      || (project?.id ? project.nombre : null);
     // Formato: "Prospectos · Psiko Aprende — MultiCRM"
     if (route && proj) document.title = `${route} · ${proj} — ${base}`;
     else if (route) document.title = `${route} — ${base}`;
     else if (proj) document.title = `${proj} — ${base}`;
     else document.title = base;
-  }, [pathname, project?.id, project?.nombre]);
+  }, [pathname, project?.id, project?.nombre, activeIssuer?.nombre]);
   return null;
 }
 
@@ -86,7 +92,8 @@ const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPa
 const AIChatPage = lazy(() => import('./modules/ai-chat/pages/AIChatPage'));
 const SettingsPage = lazy(() => import('./modules/settings/pages/SettingsPage'));
 const AccountingDashboardPage = lazy(() => import('./modules/accounting/pages/AccountingDashboardPage'));
-const ExpensesPage = lazy(() => import('./modules/accounting/pages/ExpensesPage'));
+// Egresos: su propio módulo, la misma pantalla que en CRM-ISEIE (#227).
+const ExpensesPage = lazy(() => import('./modules/expenses/pages/ExpensesPage'));
 const IncomePage = lazy(() => import('./modules/accounting/pages/IncomePage'));
 const IntegrationsPage = lazy(() => import('./modules/accounting/pages/IntegrationsPage'));
 const PendienteFacturarPage = lazy(() => import('./modules/accounting/pages/PendienteFacturarPage'));
@@ -171,7 +178,11 @@ const SuiteDashCrmPreviewPage = IS_TESTEO2_BASE ? lazy(() => import('./modules/s
 // misma puerta que las demas pantallas de previsualizacion —desarrollo y
 // /testeo—, que es donde hay que poder mirarlo. En produccion sigue fuera, y
 // Vite elimina la rama entera al construir.
-const DevComponentsPage = UI_PREVIEW_ENABLED
+//
+// Y en /testeo2: el menú enseña «Las 22 primitivas» allí también (`previewOnly`
+// mira /testeo2), y sin la ruta la entrada acababa en «Página no encontrada»
+// (#226). Sigue sin entrar en producción.
+const DevComponentsPage = (UI_PREVIEW_ENABLED || IS_TESTEO2_BASE)
   ? lazy(() => import('./modules/dev/pages/DevComponentsPage'))
   : null;
 

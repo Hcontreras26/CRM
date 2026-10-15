@@ -253,7 +253,13 @@ export async function pasosDeLead(leadId) {
     dias_de_retraso: Number(r.dias_de_retraso),
     // Un paso vence solo si no esta hecho ni saltado. Uno hecho tarde ya no
     // urge: urge el siguiente.
-    vencido: !r.hecho && r.estado === 'pendiente' && Number(r.dias_de_retraso) > 0,
+    //
+    // Ni uno que ya cubrio un CONTACTO (Diego, 13/10: «en ACADEMIA IA aparecen
+    // atrasados de muy atrás»). Desde la checklist manual (09/10) ese paso sigue
+    // «por hacer» para que la gestora lo tache, pero la cola ya no lo cuenta: la
+    // ficha decia «se le debia haber escrito hace 31 dias» de un paso del 12/09
+    // de alguien contactado el 08/10, mientras la cola decia 3 dias.
+    vencido: !r.hecho && r.estado === 'pendiente' && !r.con_contacto && Number(r.dias_de_retraso) > 0,
   }));
 }
 
