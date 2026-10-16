@@ -46,13 +46,13 @@ async function campus(clave) {
   C[clave] = p.id;
 }
 
-async function cuenta(clave) {
+async function cuenta(clave, moneda = 'EUR') {
   const actId = `act_${idDeMeta()}`;
   const a = await uno(
     `INSERT INTO meta_ad_accounts (project_id, ad_account_id, access_token_enc, ad_account_nombre, currency,
                                    last_sync_status, last_synced_at, last_sync_error, backfill_done)
-     VALUES ($1, $2, $3, $4, 'EUR', 'ok', '2026-10-15 09:00+00', $5, true) RETURNING id`,
-    [C[clave], actId, SECRETO, `Cuenta ${clave} ${marca}`, `error con ${SECRETO}`]
+     VALUES ($1, $2, $3, $4, $6, 'ok', '2026-10-15 09:00+00', $5, true) RETURNING id`,
+    [C[clave], actId, SECRETO, `Cuenta ${clave} ${marca}`, `error con ${SECRETO}`, moneda]
   );
   ids.cuentas.push(a.id);
   return actId;
@@ -103,7 +103,7 @@ async function prospecto(campusClave, utm, { venta = null, dia = '2026-09-10' } 
  *   AJENO   una cuenta que el admin de la prueba no tiene.
  */
 beforeAll(async () => {
-  for (const k of ['PSIKO', 'ICTESS', 'ISEIE', 'SINMETA', 'AJENO']) await campus(k);
+  for (const k of ['PSIKO', 'ICTESS', 'ISEIE', 'SINMETA', 'AJENO', 'MONEDAS']) await campus(k);
 
   const psiko = await cuenta('PSIKO');
   await campana('PROMO', 'PSIKO', psiko, `Promo Psiko ${marca}`, [['2026-09-05', 100], ['2026-09-20', 50], ['2026-08-31', 999]]);
@@ -129,6 +129,14 @@ beforeAll(async () => {
   // campaña no cuentan para ella (serían datos ajenos al ámbito).
   await prospecto('AJENO', K.PROMO, { venta: 5000 });
   await prospecto('PSIKO', K.ISEIE, { venta: 3000 });
+
+  // Un campus con una cuenta en euros y otra en dólares, con una venta
+  // atribuida: el gasto suma monedas distintas.
+  const enEuros = await cuenta('MONEDAS', 'EUR');
+  const enDolares = await cuenta('MONEDAS', 'USD');
+  await campana('EUROS', 'MONEDAS', enEuros, `En euros ${marca}`, [['2026-09-10', 100]]);
+  await campana('DOLARES', 'MONEDAS', enDolares, `En dólares ${marca}`, [['2026-09-10', 50]]);
+  await prospecto('MONEDAS', K.EUROS, { venta: 900 });
 }, 60000);
 
 afterAll(async () => {
@@ -240,6 +248,24 @@ describe('resumen_publicidad', () => {
   it('un periodo al revés se rechaza, no da 0 de todo', async () => {
     const e = await resumen(admin('PSIKO'), { desde: '2026-09-30', hasta: '2026-09-01' }).catch((x) => x);
     expect(e.code).toBe('MCP_PERIODO_AL_REVES');
+  });
+});
+
+describe('monedas distintas', () => {
+  it('con cuentas en euros y en dólares, avisa y no da un coste por venta que mezcle monedas', async () => {
+    const r = await herramienta('resumen_publicidad').ejecutar(admin('MONEDAS'), SEPTIEMBRE);
+    const fila = r.campus.find((c) => c.campus_id === C.MONEDAS);
+    expect(fila.monedas.sort()).toEqual(['EUR', 'USD']);
+    expect(fila.aviso_monedas).toMatch(/monedas distintas \(EUR, USD\)|monedas distintas \(USD, EUR\)/);
+    expect(fila).toMatchObject({ atribucion: 'por_campaña', ventas_atribuidas: 1, coste_por_venta: null });
+    expect(r.aviso_monedas).toMatch(/monedas distintas/);
+    expect(r.totales.coste_por_venta).toBeNull();
+  });
+
+  it('con una sola moneda no hay aviso', async () => {
+    const r = await herramienta('resumen_publicidad').ejecutar(admin('PSIKO'), SEPTIEMBRE);
+    expect(r.aviso_monedas).toBeUndefined();
+    expect(r.campus[0].aviso_monedas).toBeUndefined();
   });
 });
 
