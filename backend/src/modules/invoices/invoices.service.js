@@ -202,7 +202,8 @@ async function datosDelBanco(inv) {
 export async function generatePDF(invoiceId, { preliminar = false, vistaGestor = false, enEuros = false } = {}) {
   const inv = await model.findById(invoiceId);
   if (!inv) throw new Error('Factura no encontrada');
-  inv.banco = inv.metodo_pago === 'transferencia' ? await datosDelBanco(inv) : null;
+  // Por transferencia o por depósito bancario (15/10): en los dos se paga a la cuenta.
+  inv.banco = ['transferencia', 'deposito'].includes(inv.metodo_pago) ? await datosDelBanco(inv) : null;
   // COPIA DE GESTIÓN de un cobro por Stripe: el alumno recibe la factura por el
   // BRUTO (lo que pagó) y gestión necesita el NETO liquidado (bruto − comisión).
   // Se sustituyen los importes solo para este PDF; en la base de datos no se toca
@@ -428,6 +429,7 @@ export async function generatePDF(invoiceId, { preliminar = false, vistaGestor =
   y -= 30;
   const metodoLabels = {
     transferencia: 'Transferencia bancaria',
+    deposito: 'Depósito bancario',
     tarjeta: 'Tarjeta',
     tarjeta_stripe: 'Tarjeta',   // forma de pago = Tarjeta; Stripe es el ORIGEN, no el método
     efectivo: 'Efectivo',
@@ -530,7 +532,7 @@ export function rotuloNombreCliente(inv) {
 }
 
 const METODO_LABELS = {
-  transferencia: 'Transferencia bancaria', tarjeta: 'Tarjeta', tarjeta_stripe: 'Tarjeta',
+  transferencia: 'Transferencia bancaria', deposito: 'Depósito bancario', tarjeta: 'Tarjeta', tarjeta_stripe: 'Tarjeta',
   efectivo: 'Efectivo', bizum: 'Bizum', paypal: 'PayPal', fraccionado: 'Pago fraccionado', otro: 'Otro',
 };
 
@@ -861,7 +863,7 @@ export async function generarFacturaDePago(projectId, paymentId, userId, { forza
   la factura sale de emitirFacturaDePago, como desde la cola. No se salta el
   orden de la cola porque no gasta numero: el de la proforma ya estaba puesto.
 */
-export async function cobrarProforma(invoiceId, { importe, fecha, metodo, notas }, user) {
+export async function cobrarProforma(invoiceId, { importe, fecha, metodo, notas, referencia }, user) {
   const prof = await model.findById(invoiceId);
   if (!prof) throw new AppError('Esa proforma no existe', 404, 'NOT_FOUND');
   if (prof.tipo !== 'proforma') {
@@ -887,7 +889,9 @@ export async function cobrarProforma(invoiceId, { importe, fecha, metodo, notas 
 
   // Import dinamico: conversion.service ya importa este modulo de la misma forma.
   const conversionService = await import('../conversions/conversion.service.js');
-  const { payment } = await conversionService.addPayment(prof.conversion_id, { importe, fecha, metodo, notas });
+  // Con `userId`: si es por transferencia o depósito, el webhook (206) dice quién lo apuntó.
+  const { payment } = await conversionService.addPayment(
+    prof.conversion_id, { importe, fecha, metodo, notas, referencia }, { userId: user.userId });
   const inv = await model.emitirFacturaDePago(
     prof.conversion_id, { paymentId: payment.id, importe: Number(payment.importe) }, user.userId);
   if (!inv || inv.id !== prof.id) {

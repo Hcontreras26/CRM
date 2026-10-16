@@ -509,6 +509,9 @@ export default function ComisionesTutoresPage() {
                         base={suyas
                           .filter((x) => x.estado !== 'revertida' && x.estado !== 'pagada')
                           .reduce((a, x) => a + Number(x.importe), 0)}
+                        // Con el mes ya pagado dice «Todo pagado», en vez de
+                        // quedarse en blanco y parecer un fallo (Diego, 13/10).
+                        comisiones={suyas}
                       />
                     </div>
                   )}

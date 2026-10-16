@@ -43,6 +43,7 @@ describe('plantillas sin la migracion 122', () => {
     const sql = query.mock.calls[0][0];
     // Ni siquiera siendo admin: una plantilla personal es de quien la escribio.
     expect(sql).toContain("t.ambito = 'compartida' OR t.owner_id = $2");
-    expect(query.mock.calls[0][1]).toEqual([1, 3]);
+    // El tercero son los campus de la empresa (5cc92569, 15/09): sin empresa puesta, null.
+    expect(query.mock.calls[0][1]).toEqual([1, 3, null]);
   });
 });

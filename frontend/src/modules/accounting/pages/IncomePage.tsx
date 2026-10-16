@@ -10,6 +10,8 @@ import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import { CurrencyEur, ArrowRight, Receipt, CheckCircle, Plus, GraduationCap, CaretDown, User, Users, Robot } from '@phosphor-icons/react';
 import usePermission from '@/shared/hooks/usePermission';
 import { formatDate } from '@/shared/lib/format';
+// Los nombres de curso guardados antes del #234 llevan «&amp;»: se enseñan con la letra.
+import { decodificarEntidades } from '@/shared/lib/entidadesHtml';
 // Las metas son mensuales: el mes que toque segun el filtro de fechas. Misma
 // funcion que usa SalesPage, para que las dos pantallas digan el mismo mes.
 import { mesDe } from '@/modules/sales/components/FiltroPeriodo';
@@ -467,11 +469,13 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
                 className="h-9 px-3 rounded-md border border-border bg-card text-sm font-medium min-w-[200px] max-w-[320px]"
               >
                 <option value="all">— Todos los cursos —</option>
-                {cursos.map((c) => <option key={c} value={c}>{c}</option>)}
+                {cursos.map((c) => <option key={c} value={c}>{decodificarEntidades(c)}</option>)}
               </select>
             </>
           )}
-          <RangoRapido valor={rango} alElegir={(r) => setRango(r)} />
+          {/* Aqui habia OTRO RangoRapido, ademas del de la fila «Rápido:»: salian
+              dos filas de «Hoy · Ayer · …» en Ingresos y en Ventas, que es esta
+              misma pantalla (#223, #234). Queda el de su fila. */}
           <label className="text-xs font-semibold text-muted-foreground">Desde:</label>
           <input type="date" value={rango.from} onChange={(e) => setRango((v) => ({ ...v, from: e.target.value }))}
             className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
@@ -712,7 +716,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
                         <td className="px-3 py-1.5 whitespace-nowrap">{formatDate(q.fecha)}</td>
                         <td className="px-3 py-1.5">{q.cliente || 'Sin nombre'}</td>
                         <td className="px-3 py-1.5 hidden md:table-cell max-w-[280px] truncate"
-                          title={q.producto || ''}>{q.producto || '—'}</td>
+                          title={decodificarEntidades(q.producto) || ''}>{decodificarEntidades(q.producto) || '—'}</td>
                         <td className="px-3 py-1.5 whitespace-nowrap text-muted-foreground">
                           {formatDate(q.fecha_de_la_venta)}
                         </td>
@@ -796,7 +800,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
                       )}
                     </td>
                     <td className="px-4 py-3 font-semibold">{r.cliente || 'Sin nombre'}</td>
-                    <td className="px-4 py-3">{r.producto || '—'}</td>
+                    <td className="px-4 py-3">{decodificarEntidades(r.producto) || '—'}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{fmt(r.total)}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-success">{fmt(r.pagado)}</td>
                     <td className="px-4 py-3 text-xs whitespace-nowrap">
@@ -836,7 +840,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2"><Tipo tipo={r.tipo} compartida={r.compartida} /><span className="font-semibold truncate">{r.cliente || 'Sin nombre'}</span></div>
-                    <div className="text-xs text-muted-foreground truncate">{r.producto || '—'}</div>
+                    <div className="text-xs text-muted-foreground truncate">{decodificarEntidades(r.producto) || '—'}</div>
                   </div>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${
                     r.estado === 'pagado' ? 'bg-success-soft text-success-soft-foreground' :

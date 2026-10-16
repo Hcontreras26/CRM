@@ -5,6 +5,25 @@ import * as seqModel from '../email-sequences/sequence.model.js';
 import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
 import * as leadModel from '../leads/lead.model.js';
+import { dispararCobro } from '../webhooks-salientes/webhooks-salientes.service.js';
+
+/**
+ * SE HA APUNTADO (O CAMBIADO) UN COBRO: el único sitio desde el que
+ * conversiones avisa al webhook de transferencias (Diego, 15/10; migración 206).
+ *
+ * Lo llaman los cuatro caminos que apuntan un cobro a mano —el alta de la venta
+ * con su primer pago, el abono, la proforma «Cobrada» (que entra por
+ * `addPayment`) y la cuota cobrada— y la edición de una cuota que pasa A
+ * transferencia o depósito. Siempre después del COMMIT, y sin esperar: el envío
+ * va por detrás, como la factura y la comisión.
+ *
+ * Qué sale y qué no lo decide `dispararCobro` con la forma de pago GUARDADA:
+ * solo transferencia y depósito. Tarjeta, Stripe, efectivo, Bizum o PayPal,
+ * nunca. Los cobros de Stripe ni pasan por aquí: entran por el modelo.
+ */
+export function cobroApuntado(paymentId, { userId = null, metodo } = {}) {
+  dispararCobro(paymentId, { userId, metodo });
+}
 
 async function triggerSequences(triggerEvent, leadId, projectId) {
   try {
@@ -133,6 +152,10 @@ export async function create(data, userId) {
   // Auto-factura del abono inicial: factura SOLO el monto pagado (no el total).
   if (conv._initial_payment_id) {
     autoInvoice(conv.id, userId, { paymentId: conv._initial_payment_id, importe: conv._initial_payment_importe });
+    // Si el primer pago fue por transferencia o depósito, el webhook (206).
+    // Una venta con forma de pago transferencia y NADA pagado no avisa: aún
+    // no ha entrado dinero; avisará el cobro cuando llegue.
+    cobroApuntado(conv._initial_payment_id, { userId, metodo: conv._initial_payment_metodo });
   }
 
   return conv;
@@ -251,7 +274,8 @@ export async function update(id, fields) {
   return updated;
 }
 
-export async function addPayment(conversionId, data) {
+// `userId`: quien apunta el cobro (va como `registrado_por` en el webhook).
+export async function addPayment(conversionId, data, { userId = null } = {}) {
   const { permitir_duplicado, ...pago } = data || {};
   const result = await conversionModel.addPayment(conversionId, pago,
     { allowDuplicate: !!permitir_duplicado });
@@ -271,6 +295,9 @@ export async function addPayment(conversionId, data) {
   // Auto-factura al registrar el abono: una factura por ESTE pago (su monto).
   if (result.payment?.id) {
     autoInvoice(conversionId, null, { paymentId: result.payment.id, importe: Number(result.payment.importe) });
+    // Transferencia o depósito: el webhook (206). Aquí entran el abono y la
+    // proforma «Cobrada».
+    cobroApuntado(result.payment.id, { userId, metodo: result.payment.metodo });
   }
   return result;
 }

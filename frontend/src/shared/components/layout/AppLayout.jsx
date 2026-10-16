@@ -7,6 +7,8 @@ import { List, X } from '@phosphor-icons/react';
 import { cn } from '@/shared/lib/utils';
 import { toast } from '@/shared/hooks/useToast';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { soloEsColaborador } from '@/shared/lib/roles';
 import NeedsProjectBanner from '@/shared/components/ui/NeedsProjectBanner';
 
 // Rutas que SÍ funcionan en modo "Todos los proyectos" (vista global).
@@ -58,10 +60,16 @@ const ALL_PROJECTS_OK = [
   /^\/certifex\/consultas$/,
   /^\/certifex\/emisiones$/,
   /^\/clientes\/matriculas\/certificaciones$/,
+  /^\/clientes\/matriculas\/diplomas$/,
   /^\/status$/,
   /^\/ai-chat$/,
   /^\/tareas(?:\/.*)?$/,
   /^\/prueba_ui(?:_[a-z]+)?$/,
+  // Facturas de colaboradores (#202). Diego, 10/10: «son por EMPRESA, no por
+  // campus». Con «Todos los proyectos», todas las empresas que ve cada uno; y
+  // «Mi factura» son las del propio colaborador, a todas sus empresas.
+  /^\/finanzas\/facturas-colaboradores$/,
+  /^\/mi-factura$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -193,6 +201,7 @@ const CON_SOCIEDAD_OK = [
   /^\/certifex\/consultas$/,
   /^\/certifex\/emisiones$/,
   /^\/clientes\/matriculas\/certificaciones$/,
+  /^\/clientes\/matriculas\/diplomas$/,
   /^\/status$/,
   /^\/registro$/,
   /^\/mensajes$/,
@@ -235,6 +244,12 @@ const CON_SOCIEDAD_OK = [
   // porque cada uno pertenece a un proyecto y «la nomina de CEDIA» no existe.
   /^\/finanzas\/nominas$/,
   /^\/finanzas\/ventas\/\d+$/,
+  // Facturas de colaboradores (#202). Diego, 10/10: «las facturas de
+  // colaboradores son por EMPRESA, no por campus»: las factura la sociedad
+  // (`issuer_id`), y la pantalla sigue a la empresa de la cabecera. «Mi
+  // factura» no depende de la cabecera: son las del propio colaborador.
+  /^\/finanzas\/facturas-colaboradores$/,
+  /^\/mi-factura$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {
@@ -286,8 +301,10 @@ const NEW_ACTIONS = {
   '/captacion': { url: '/captacion?new=1', label: 'formulario' },
   '/captacion/webhooks': { url: '/captacion/webhooks?new=1', label: 'webhook' },
   '/secuencias-email': { url: '/secuencias-email?new=1', label: 'secuencia' },
-  '/accounting/expenses': { url: '/accounting/expenses?new=1', label: 'egreso' },
-  '/accounting/payable': { url: '/accounting/payable?new=1', label: 'cuenta por pagar' },
+  // Egresos vive en /finanzas/egresos: /accounting/expenses no existe en este CRM (#227).
+  '/finanzas/egresos': { url: '/finanzas/egresos?new=1', label: 'egreso' },
+  // Las rutas en inglés (/accounting/…) no existen en este CRM: llevaban a «no encontrada».
+  '/finanzas/por-pagar': { url: '/finanzas/por-pagar?new=1', label: 'cuenta por pagar' },
 };
 
 // Navegación rápida G + tecla
@@ -297,11 +314,15 @@ const G_TARGETS = {
   c: '/clientes',
   p: '/productos',
   r: '/informes',
-  a: '/accounting',
+  a: '/finanzas',
   s: '/configuracion',
 };
 
 export default function AppLayout() {
+  const { user } = useAuth();
+  // Quien es solo colaborador no tiene WhatsApp ni mensajes: el servidor le
+  // responde 403, y estos avisos preguntaban cada pocos segundos (QA del 07/10).
+  const esSoloColaborador = soloEsColaborador(user);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === '1'; } catch { return false; }
@@ -494,10 +515,12 @@ export default function AppLayout() {
       <Suspense fallback={null}>
         <OfflineBanner />
       </Suspense>
-      <Suspense fallback={null}>
-        <AvisoDeLlamada />
-        <AvisoDeMensaje />
-      </Suspense>
+      {!esSoloColaborador && (
+        <Suspense fallback={null}>
+          <AvisoDeLlamada />
+          <AvisoDeMensaje />
+        </Suspense>
+      )}
     </div>
     </CabeceraProvider>
   );

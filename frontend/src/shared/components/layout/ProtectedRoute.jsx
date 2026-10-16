@@ -21,7 +21,8 @@ function tutorPuede(pathname) {
 
 // Lo unico que abre un colaborador (#210, fase 5). El corte de verdad esta en
 // el servidor (`verifyToken`), que le responde 403 en todo lo demas.
-const RUTAS_DEL_COLABORADOR = ['/tareas', '/preferencias', '/perfil', '/set-password'];
+// «Mi factura» (#202): su factura del mes, y nada más de Finanzas.
+const RUTAS_DEL_COLABORADOR = ['/tareas', '/mi-factura', '/preferencias', '/perfil', '/set-password'];
 
 function colaboradorPuede(pathname) {
   return RUTAS_DEL_COLABORADOR.some((p) => pathname === p || pathname.startsWith(p + '/'));

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { verifyToken, roleGuard } from '../../shared/middleware/auth.js';
+import { verifyToken, roleGuard, soloRoles } from '../../shared/middleware/auth.js';
 import * as ctrl from './permissions.controller.js';
 
 const router = Router();
@@ -19,6 +19,12 @@ router.delete('/custom-roles/:id', roleGuard('superadmin'), ctrl.deleteCustomRol
 // Permisos por usuario — admin ve/edita, superadmin todo
 router.get('/users/:userId/permissions', roleGuard('admin', 'superadmin'), ctrl.getUserPermissions);
 router.put('/users/:userId/permissions', roleGuard('admin', 'superadmin'), ctrl.saveUserPermissions);
+
+// Permisos de Tareas por rol (#210): los cambian el superadmin y el admin
+// (Hugo, 09/10). `soloRoles` y no `roleGuard`, que dejaría pasar también a
+// soporte.
+router.get('/role-permissions/:roleKey', soloRoles('superadmin', 'admin'), ctrl.getRolePermissions);
+router.put('/role-permissions/:roleKey', soloRoles('superadmin', 'admin'), ctrl.saveRolePermissions);
 
 // Vistas por rol (sidebar/dashboard/landing)
 router.get('/role-views/:roleKey', ctrl.getRoleView);

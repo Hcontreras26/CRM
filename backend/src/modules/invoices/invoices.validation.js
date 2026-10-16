@@ -54,7 +54,7 @@ export const createInvoiceSchema = z.object({
   // eso reventaba con «Expected string, received null» y no se podia emitir la
   // factura. El modelo ya guardaba `data.leyendaIva || null` sin problema.
   leyendaIva: z.string().optional().nullable(),
-  metodoPago: z.enum(['transferencia', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro']),
+  metodoPago: z.enum(['transferencia', 'deposito', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro']),
   piePago: z.string().optional(),
   issuerId: z.number().int().positive().optional(),
   // Moneda de la factura (opcional). Importes manuales en esa divisa, SIN conversión
@@ -115,13 +115,16 @@ export const updateConfigSchema = z.object({
   projectId: z.number().int().positive(),
   piePagoDefault: z.string().optional(),
   serieDefault: z.string().max(10).optional(),
-  metodoDefault: z.enum(['transferencia', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro']).optional(),
+  metodoDefault: z.enum(['transferencia', 'deposito', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro']).optional(),
 });
 
 // «Cobrada» en una proforma: el cobro que se apunta en la venta.
 export const cobrarProformaSchema = z.object({
   importe: z.coerce.number().positive('El importe tiene que ser mayor que 0'),
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha: YYYY-MM-DD'),
-  metodo: z.enum(['transferencia', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'otro']).optional().nullable(),
+  // 'deposito' (15/10): con 'transferencia', dispara el webhook de transferencias (206).
+  metodo: z.enum(['transferencia', 'deposito', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'otro']).optional().nullable(),
   notas: z.string().max(500).optional().nullable(),
+  // La referencia del banco (nº de operación), si la hay.
+  referencia: z.string().trim().max(120).optional().nullable(),
 });

@@ -14,6 +14,7 @@ interface Props {
 const METODOS = [
   { value: '', label: '— Sin especificar —' },
   { value: 'transferencia', label: 'Transferencia' },
+  { value: 'deposito', label: 'Depósito bancario' },
   { value: 'tarjeta', label: 'Tarjeta' },
   { value: 'efectivo', label: 'Efectivo' },
   { value: 'paypal', label: 'PayPal' },

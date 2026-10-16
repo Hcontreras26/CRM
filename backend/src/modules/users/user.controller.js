@@ -35,7 +35,14 @@ export async function create(req, res, next) {
     if (!parsed.success) {
       throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
     }
-    const user = await userService.create(parsed.data);
+    // La empresa entera (#220), solo el super admin. Crear y editar usuarios
+    // sigue como estaba —esto no lo amplia ni lo recorta—, pero dar una empresa
+    // es dar los campus que se creen mañana, y eso no lo decide un admin, ni
+    // para otro ni para si mismo. Se mira el rol del token, no la pantalla.
+    if (parsed.data.empresaIds?.length && req.user?.role !== 'superadmin') {
+      throw new AppError('Solo un superadmin puede dar una empresa entera', 403, 'FORBIDDEN');
+    }
+    const user = await userService.create(parsed.data, { porUserId: req.user?.userId ?? null });
     res.status(201).json({ success: true, data: user });
   } catch (err) { next(err); }
 }
@@ -54,6 +61,11 @@ export async function update(req, res, next) {
     if (email !== undefined && req.user?.role !== 'superadmin') {
       throw new AppError('Solo un superadmin puede cambiar el correo de otro usuario', 403, 'FORBIDDEN');
     }
+    // Las empresas enteras (#220), lo mismo: solo el super admin, y también
+    // para quitarlas (una lista vacía).
+    if (resto.empresaIds !== undefined && req.user?.role !== 'superadmin') {
+      throw new AppError('Solo un superadmin puede dar o quitar una empresa entera', 403, 'FORBIDDEN');
+    }
     // Como estaba ANTES, para saber si pierde el acceso a WhatsApp.
     const antes = await userService.getById(id).catch(() => null);
     // El correo va primero: si choca con el de otro (409), no se guarda nada a medias.
@@ -65,7 +77,7 @@ export async function update(req, res, next) {
       })
       : null;
     const user = Object.keys(resto).length
-      ? await userService.update(id, resto)
+      ? await userService.update(id, resto, { porUserId: req.user?.userId ?? null })
       : await userService.getById(id);
 
     // Si el cambio de rol le quita WhatsApp, se le desvincula el numero — pero
@@ -123,8 +135,21 @@ export async function setPassword(req, res, next) {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
+    // El super admin, a cualquiera. El admin, solo a un TUTOR de sus campus (Diego,
+    // 09/10, #246: «sí, y admin»). A nadie más: ni a una gestora ni a otro admin.
     if (req.user?.role !== 'superadmin') {
-      throw new AppError('Solo un superadmin puede cambiar la contraseña de otro usuario', 403, 'FORBIDDEN');
+      if (req.user?.role !== 'admin') {
+        throw new AppError('Solo un superadmin puede cambiar la contraseña de otro usuario', 403, 'FORBIDDEN');
+      }
+      const destino = await userModel.findById(id);
+      if (!destino || destino.role !== 'tutor') {
+        throw new AppError('Un admin solo puede cambiar la contraseña de un tutor', 403, 'FORBIDDEN');
+      }
+      const { campusDeLaPersona } = await import('../../shared/utils/ambito.js');
+      const { tieneAlgunCampus } = await import('../tutores/tutor.model.js');
+      if (!(await tieneAlgunCampus(id, await campusDeLaPersona(req.user.userId)))) {
+        throw new AppError('Tutor no encontrado', 404, 'NOT_FOUND');
+      }
     }
     const parsed = adminSetPasswordSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
@@ -246,6 +271,12 @@ const AVISOS = [
     detalle: 'Cuando alguien te asigna una tarea del tablero.' },
   { aviso: 'tareas_del_dia', titulo: 'Tus tareas de hoy',
     detalle: 'Cada mañana, si tienes tareas que vencen hoy o ya vencidas.' },
+  { aviso: 'tarea_devuelta', titulo: 'Tarea devuelta',
+    detalle: 'Cuando revisan una tarea tuya y la devuelven, con lo que falta.' },
+  { aviso: 'tarea_cerrada', titulo: 'Tarea aprobada',
+    detalle: 'Cuando aprueban una tarea tuya y pasa a «Hecha».' },
+  { aviso: 'tarea_comentario', titulo: 'Comentario en tu tarea',
+    detalle: 'Cuando alguien comenta en una tarea que tienes asignada.' },
 ];
 
 export async function misAvisos(req, res, next) {

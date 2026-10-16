@@ -928,7 +928,7 @@ async function numerarBorrador(invoiceId) {
 // Si había borrador → se numera tal cual. Si no había factura → se crea emitida
 // con los datos de la conversión + lo que el lead tenga (faltantes = '—').
 // Los datos incompletos NO bloquean la numeración, solo enviar/descargar.
-const METODOS_PAGO_VALIDOS = ['transferencia', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro'];
+const METODOS_PAGO_VALIDOS = ['transferencia', 'deposito', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro'];
 
 // Datos fiscales del cliente + snapshot de la conversión, para armar la factura.
 async function _convDataParaFactura(conversionId) {
@@ -1098,13 +1098,19 @@ export async function emitirFacturaDePago(conversionId, { paymentId, importe, sa
   // mano y luego se asocia el pago de Stripe). Si ya hay una factura de esta venta por
   // ese mismo importe y sin pago vinculado, se le engancha este pago en vez de emitir
   // otra: así queda vinculada y NO se duplica el importe facturado.
+  //
+  // Pero solo si ESTE cobro es el suyo (13/10, ver HUERFANA_ES_DE): una venta a
+  // plazos tiene varios cobros del mismo importe, y la factura del pago inicial no
+  // puede quedarse con la cuota de la semana siguiente.
   const { rows: huerfana } = await query(
-    `SELECT * FROM invoices
-      WHERE conversion_id = $1 AND payment_id IS NULL
-        AND tipo = 'normal' AND estado <> 'cancelada'
-        AND ABS(total - $2::numeric) < 0.01
-      ORDER BY id LIMIT 1`,
-    [conversionId, monto]
+    `SELECT h.* FROM invoices h
+       JOIN conversion_payments cp ON cp.id = $3
+      WHERE h.conversion_id = $1 AND h.payment_id IS NULL
+        AND h.tipo = 'normal' AND h.estado <> 'cancelada'
+        AND ABS(h.total - $2::numeric) < 0.01
+        AND ${HUERFANA_ES_DE('h', 'cp')}
+      ORDER BY h.id LIMIT 1`,
+    [conversionId, monto, paymentId]
   );
   if (huerfana[0]) {
     const { rows: upd } = await query(
@@ -1989,13 +1995,40 @@ export async function listProformasPendientes(projectId) {
   Si el CRM la considera suya para engancharla, la cola tiene que considerarla
   suya para no volver a pedirla.
 */
+/*
+  PERO UNA FACTURA HUERFANA CUBRE UN SOLO COBRO (13/10).
+
+  Diego: «esta factura del 12 que fue automatica no salio en facturacion». Mirna
+  Flores, venta 628 de Psiko Aprende: pago inicial de 150 € el 05/10, facturado
+  desde la venta (2026/0177, sin cobro enganchado), y cuota de 150 € por Stripe el
+  12/10. La regla de arriba daba la 0177 por buena para CUALQUIER cobro de 150 €
+  de esa venta, asi que la cuota desaparecia de la cola sin factura. Y «Generar
+  factura» le habria enganchado la 0177 en vez de emitir la suya.
+
+  Ahora la huerfana es de UN cobro: el del mismo importe, todavia sin factura
+  propia, con la fecha mas cercana a la de la factura (a igual distancia, el de id
+  mas bajo). En los dos casos reales sale bien: la 0177 (06/10) va con el cobro del
+  05/10, y la 2026/0004 de la venta 89 (19/07) con el del 19/07, no con los de
+  marzo a junio del mismo importe.
+*/
+const HUERFANA_ES_DE = (h, cp) => `NOT EXISTS (
+        SELECT 1 FROM conversion_payments q
+         WHERE q.conversion_id = ${cp}.conversion_id
+           AND q.id <> ${cp}.id
+           AND ABS(q.importe - ${h}.total) < 0.01
+           AND NOT EXISTS (SELECT 1 FROM invoices iq
+                            WHERE iq.payment_id = q.id AND iq.estado <> 'cancelada')
+           AND (ABS(q.fecha - ${h}.fecha_emision::date), q.id)
+             < (ABS(${cp}.fecha - ${h}.fecha_emision::date), ${cp}.id))`;
+
 const FACTURA_HUERFANA_LO_CUBRE = `AND NOT EXISTS (
         SELECT 1 FROM invoices h
          WHERE h.conversion_id = cp.conversion_id
            AND h.payment_id IS NULL
            AND h.tipo = 'normal'
            AND h.estado <> 'cancelada'
-           AND ABS(h.total - cp.importe) < 0.01)`;
+           AND ABS(h.total - cp.importe) < 0.01
+           AND ${HUERFANA_ES_DE('h', 'cp')})`;
 
 /*
   Y UNA FACTURA QUE YA CUBRE LA VENTA ENTERA, TAMBIEN (06/10).

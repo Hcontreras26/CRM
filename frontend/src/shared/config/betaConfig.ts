@@ -31,13 +31,14 @@ export const BETA_ROUTES: readonly string[] = [
   '/whatsapp',               // WhatsApp: cola, plantillas y el panel del equipo
   '/tutores',                // Tutores: alta, colaboraciones y comisiones
   '/mis-cursos',             // La pantalla del propio tutor
+  '/mi-factura',             // «Mi factura» del colaborador (#202), aprobada en la 2.2.0
+  '/tareas',                 // Equipo de Desarrollo: tablero, «Por revisar» y «Configurar tablero» (#210)
   '/secuencias-email',         // Email de seguimiento
   '/documentos',              // Documentos comerciales
   '/solicitudes-cambio',     // RFC — Solicitud de Cambio (todos los roles)
   '/notificaciones',         // Sistema básico
   '/manual',                 // Manual de usuario
   '/preferencias',            // Mis preferencias
-  '/tareas',                  // Tablero de tareas del equipo (#210, 2.1.0)
   '/perfil',                // Perfil
   '/configuracion',               // Ajustes (gestión de usuarios, proyectos, etc.)
   '/conexion',               // Conexión: MCP de Claude (solo consulta)

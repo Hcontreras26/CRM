@@ -84,6 +84,18 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Consulta desde Certifex', agrupa: false,
     descripcion: 'Un centro quiere inscribir su campus, o alguien escribe desde la web de Certifex',
   },
+  // Un alumno pide su diploma desde Moodle (#272). Alguien de administracion tiene que
+  // revisar el nombre y aprobarlo o rechazarlo en el panel Diplomas.
+  certifex_solicitud: {
+    clase: ACCION, etiqueta: 'Solicitud de diploma', agrupa: false,
+    descripcion: 'Un alumno termina su formación y pide su diploma desde Moodle',
+  },
+  // Moodle da una formacion por terminada y el alumno aun no ha pedido el diploma (#272).
+  // Solo lo cuenta: lo que se aprueba e imprime sale de la solicitud del alumno.
+  certifex_completado: {
+    clase: AVISO, etiqueta: 'Formación terminada sin pedir diploma', agrupa: false,
+    descripcion: 'Moodle da la formación por terminada y el alumno aún no ha pedido su diploma',
+  },
   rfc_created: {
     clase: ACCION, etiqueta: 'Solicitud de cambio', agrupa: false,
     descripcion: 'Alguien pide un cambio y hace falta aprobarlo',
@@ -91,6 +103,11 @@ export const TIPOS = {
   task_asignada: {
     clase: ACCION, etiqueta: 'Tarea asignada', agrupa: false,
     descripcion: 'Cuando te asignan una tarea del equipo',
+  },
+  // Devuelta desde «Por revisar»: hay que hacer lo que dice el comentario.
+  task_devuelta: {
+    clase: ACCION, etiqueta: 'Tarea devuelta', agrupa: false,
+    descripcion: 'Cuando revisan una tarea tuya y la devuelven a «En curso» con lo que falta',
   },
 
   // ── Saber ──
@@ -102,11 +119,28 @@ export const TIPOS = {
     clase: AVISO, etiqueta: 'Comentario en tarea', agrupa: false,
     descripcion: 'Cuando alguien comenta en una tarea que tienes asignada o creaste',
   },
+  // «Cualquier cambio, desde el más mínimo, queda guardado y notificado»
+  // (Diego, WhatsApp 09/10).
+  task_cambio: {
+    clase: AVISO, etiqueta: 'Cambio en tarea', agrupa: false,
+    descripcion: 'Cuando otra persona cambia algo de una tarea que tienes asignada o creaste',
+  },
+  // Facturas de colaboradores (#202): a los admins de esa empresa y al super
+  // admin, cuando un colaborador sube la suya. Propuesta de la definición de
+  // Diego (01/10), que la ficha del 07/10 dice programar.
+  factura_colaborador: {
+    clase: AVISO, etiqueta: 'Factura de colaborador', agrupa: false,
+    descripcion: 'Cuando un colaborador sube su factura del mes',
+  },
   // MCP (#326): un Claude se ha conectado con tu URL y espera a que lo autorices.
   // Si no eres tú, es que la URL se ha colado: hay que rechazarlo.
   mcp_conexion_nueva: {
     clase: ACCION, etiqueta: 'Claude pide conectarse', agrupa: false,
     descripcion: 'Un Claude se ha conectado con tu URL del MCP y espera a que lo autorices',
+  },
+  task_aprobada: {
+    clase: AVISO, etiqueta: 'Tarea aprobada', agrupa: false,
+    descripcion: 'Cuando aprueban una tarea tuya y pasa a «Hecha»',
   },
   venta_automatica: {
     clase: AVISO, etiqueta: 'Venta automática', agrupa: false,
@@ -127,6 +161,12 @@ export const TIPOS = {
   lead: {
     clase: AVISO, etiqueta: 'Prospectos', agrupa: true,
     descripcion: 'Avisos sueltos de prospecto',
+  },
+  // #246 (Diego, 09/10): un tutor cambia su correo desde «Mi perfil». Es el correo
+  // de la factura de su comisión, así que administración tiene que enterarse.
+  tutor_correo_cambiado: {
+    clase: AVISO, etiqueta: 'Correo de tutor cambiado', agrupa: false,
+    descripcion: 'Un tutor cambia su correo desde «Mi perfil»',
   },
 };
 

@@ -117,8 +117,9 @@ describe('el mensaje de este paso', () => {
 
   it('sin plantilla para el paso, dice dónde se escribe una', async () => {
     montar({ pasoClave: 'paso_4' });
-    await waitFor(() => expect(screen.getByText(/no tiene mensaje guardado/)).toBeTruthy());
-    expect(screen.getByText('Escribir uno')).toBeTruthy();
+    // Los textos de aa84d0db (28/09): «Escribir uno» pasó a ser la plantilla propia del paso.
+    await waitFor(() => expect(screen.getByText(/no tiene mensaje de la casa/)).toBeTruthy());
+    expect(screen.getByText(/Escribir una plantilla mía para este paso/)).toBeTruthy();
   });
 
   it('si el CRM no lleva WhatsApp, no enseña un error: no enseña nada', async () => {

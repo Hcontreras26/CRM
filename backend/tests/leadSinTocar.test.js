@@ -34,6 +34,8 @@ vi.mock('../src/modules/notifications/notifications.service.js', () => ({
 }));
 
 const { _internos } = await import('../src/jobs/leadSinTocarScheduler.js');
+// Desde el 10/10 el cuerpo es la plantilla común: { htmlContent, textContent }.
+const html = (l) => _internos.cuerpo(l).htmlContent;
 
 beforeEach(() => {
   consultas.length = 0; enviados.length = 0; campanazos.length = 0;
@@ -79,7 +81,7 @@ describe('una sola vez por prospecto', () => {
     // El aviso es «este lead lleva sin tocar», no «hoy tienes leads sin tocar».
     // Con la fecha dentro se repetiria cada dia por el mismo prospecto, que es
     // acosar a la gestora en vez de avisarla.
-    const cuerpo = _internos.cuerpo({
+    const cuerpo = html({
       id: 42, nombre: 'Marta', gestora: 'Ana',
       fecha_solicitud: new Date(Date.now() - 45 * 60000).toISOString(),
     });
@@ -101,23 +103,32 @@ describe('lo que se le cuenta a la gestora', () => {
 
   it('dice cuanto lleva esperando, no solo que espera', () => {
     // «Entro hace 45 minutos» mueve; «tienes un lead pendiente» no.
-    expect(_internos.cuerpo(lead)).toMatch(/hace 4[45] minutos/);
+    expect(html(lead)).toMatch(/hace 4[45] minutos/);
   });
 
   it('trae el telefono y el correo, para poder actuar sin buscarlos', () => {
-    const c = _internos.cuerpo(lead);
+    const c = html(lead);
     expect(c).toContain('+34600111222');
     expect(c).toContain('marta@ejemplo.com');
   });
 
   it('no revienta si falta el telefono o el proyecto', () => {
-    const c = _internos.cuerpo({ ...lead, telefono: null, proyecto: null, email: null });
+    const c = html({ ...lead, telefono: null, proyecto: null, email: null });
     expect(c).toContain('Marta Ruiz');
     expect(c).not.toContain('null');
   });
 
   it('dice como apagarlo', () => {
-    expect(_internos.cuerpo(lead)).toMatch(/Mis preferencias/);
+    expect(html(lead)).toMatch(/Mis preferencias/);
+  });
+
+  it('va con la plantilla común y la marca del campus del prospecto (Diego, 10/10)', () => {
+    const c = html({ ...lead, proyecto_id: 5, proyecto_slug: 'psiko-aprende', proyecto_logo: null });
+    expect(c).toMatch(/<!DOCTYPE html>/);
+    expect(c).toMatch(/\/projects\/psiko-aprende-light\.png/);
+    expect(c).toMatch(/CRM de Psiko Aprende/);
+    expect(c).toMatch(/\/prospectos\/7/);
+    expect(_internos.cuerpo(lead).textContent).toContain('Marta Ruiz');
   });
 });
 

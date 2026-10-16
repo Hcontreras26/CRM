@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { query } from '../src/shared/config/db.js';
 import { TEMPLATE_VARIABLES, renderTemplate, comoHtml } from '../src/modules/email-templates/email-templates.service.js';
 
@@ -152,11 +153,18 @@ describe('un correo escrito a mano se lee al llegar', () => {
   });
 
   it('las 18 del proceso dejan de ser un parrafo corrido', async () => {
+    // Las 151 y 152 las crean para cada campus que ya existe; en la base nueva de
+    // la CI no hay campus al migrar y no queda ninguna. Por eso se leen también
+    // los textos de las propias migraciones, además de los que haya en la base.
+    const deLasMigraciones = ['151_plantillas_proceso_comercial.sql', '152_plantillas_dia4_y_opiniones.sql']
+      .flatMap((f) => readFileSync(new URL(`../migrations/${f}`, import.meta.url), 'utf8')
+        .split('INSERT INTO ').filter((trozo) => trozo.startsWith('email_templates'))
+        .flatMap((trozo) => [...trozo.matchAll(/\$tpl\$([\s\S]*?)\$tpl\$/g)].map((m) => m[1])));
+    expect(deLasMigraciones.length).toBeGreaterThan(0);
     const { rows } = await query(
       "SELECT body_html FROM email_templates WHERE project_id IS NOT NULL");
-    expect(rows.length).toBeGreaterThan(0);
-    for (const r of rows) {
-      const html = comoHtml(r.body_html);
+    for (const texto of [...deLasMigraciones, ...rows.map((r) => r.body_html)]) {
+      const html = comoHtml(texto);
       expect(html, 'sin <p> llegaria todo en una linea').toContain('<p>');
     }
   });

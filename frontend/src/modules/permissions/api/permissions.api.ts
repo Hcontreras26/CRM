@@ -73,3 +73,20 @@ export async function setRoleView(id: number, view: RoleView): Promise<RoleView>
   // Al guardar la envuelve en `default_view`, que no es como la devuelve el GET.
   return ((res.data as { default_view?: RoleView })?.default_view || view) as RoleView;
 }
+
+/**
+ * Los 8 permisos de Tareas de un rol (`admin`, `gestor`… o `custom:<id>`), como
+ * mandan ahora. Los cambian superadmin y admin (Diego, 08/10, #210).
+ */
+export async function getRolePermissions(roleKey: string): Promise<Record<string, boolean>> {
+  const res = await client.get(`/permissions/role-permissions/${roleKey}`);
+  return ((res.data as { permissions?: Record<string, boolean> })?.permissions || {});
+}
+
+export async function saveRolePermissions(
+  roleKey: string,
+  permissions: Record<string, boolean>,
+): Promise<Record<string, boolean>> {
+  const res = await client.put(`/permissions/role-permissions/${roleKey}`, { permissions });
+  return ((res.data as { permissions?: Record<string, boolean> })?.permissions || permissions);
+}

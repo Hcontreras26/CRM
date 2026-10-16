@@ -3,8 +3,10 @@ import * as mcpModel from '../mcp/mcp.model.js';
 import bcrypt from 'bcrypt';
 import { AppError } from '../../shared/utils/AppError.js';
 import * as userModel from './user.model.js';
+import * as empresas from './user.empresas.js';
 import { revokeAllUserTokens, logActivity } from '../auth/auth.model.js';
-import { sendWelcomeUserEmail, sendCorreoCambiadoEmail } from '../../shared/services/brevo.service.js';
+import { sendWelcomeUserEmail, sendCorreoCambiadoEmail, sendEmail } from '../../shared/services/brevo.service.js';
+import { notifyUsers } from '../notifications/notifications.service.js';
 
 // A LOS TUTORES NO SE LES MANDA NADA. TODAVIA NO.
 //
@@ -25,6 +27,7 @@ import { sendWelcomeUserEmail, sendCorreoCambiadoEmail } from '../../shared/serv
 import { NO_ESCRIBIR_A_TUTORES } from '../../shared/config/frenoTutores.js';
 import { logger } from '../../shared/utils/logger.js';
 import { query } from '../../shared/config/db.js';
+import * as P from '../../shared/services/email-plantilla.service.js';
 
 const BCRYPT_ROUNDS = 12;
 const SET_PASSWORD_EXPIRY_HOURS = 24;
@@ -44,9 +47,14 @@ export async function cambiarCorreo(id, email, { reenviarEnlace = false, porUser
   const nuevo = String(email).trim().toLowerCase();
   const user = await userModel.findById(id);
   if (!user) throw new AppError('Usuario no encontrado', 404, 'NOT_FOUND');
-  // El de un super admin no se cambia desde aquí (#248, decidido con Diana el 06/10).
+  // El de un super admin, solo otro super admin (Diego, 09/10, #246: «sí»). Hasta
+  // entonces no se podía nunca (#248). Se mira quién lo pide en la base, no en el
+  // token: así vale igual desde Usuarios, desde Tutores o desde «Mi perfil».
   if (user.role === 'superadmin') {
-    throw new AppError('No se puede cambiar el correo de un superadmin', 403, 'CANNOT_EDIT_SUPERADMIN');
+    const quien = porUserId ? await userModel.findById(porUserId) : null;
+    if (quien?.role !== 'superadmin') {
+      throw new AppError('Solo otro superadmin puede cambiar el correo de un superadmin', 403, 'CANNOT_EDIT_SUPERADMIN');
+    }
   }
   if (String(user.email).toLowerCase() === nuevo) return { cambiado: false, email: user.email };
 
@@ -114,6 +122,62 @@ export async function cambiarCorreo(id, email, { reenviarEnlace = false, porUser
   return { cambiado: true, email: nuevo, enlaceReenviado: Boolean(rawToken) };
 }
 
+/**
+ * Un tutor ha cambiado su correo desde «Mi perfil» (#246, Diego 09/10: «sí, y debe
+ * mandar notificación»). Es el correo al que va la factura de su comisión, así que
+ * se avisa a administración: los superadmin y los admin de algún campus del tutor,
+ * en la campanita y por correo. Al tutor no se le escribe mientras siga el freno
+ * (NO_ESCRIBIR_A_TUTORES); a administración, sí.
+ */
+export async function avisarCorreoDeTutorCambiado({ tutorId, nombre, de, a }) {
+  const { rows: gente } = await query(
+    `SELECT u.id, u.email, u.nombre FROM users u
+      WHERE u.active AND u.email IS NOT NULL
+        AND (u.role = 'superadmin'
+          OR (u.role = 'admin' AND EXISTS (
+                SELECT 1 FROM user_projects mio JOIN user_projects suyo ON suyo.project_id = mio.project_id
+                 WHERE mio.user_id = u.id AND suyo.user_id = $1)))`,
+    [tutorId]
+  );
+  if (!gente.length) return { avisados: 0 };
+  const titulo = `El tutor ${nombre} cambió su correo`;
+  const texto = `De ${de} a ${a}. Es el correo de la factura de su comisión.`;
+  await notifyUsers({
+    targetUserIds: gente.map((g) => g.id), type: 'tutor_correo_cambiado', title: titulo, message: texto,
+    link_path: '/tutores', metadata: { tutor_id: tutorId, de, a }, triggered_by_user_id: tutorId,
+  });
+  // Con la plantilla común y la marca de su campus (Diego, 10/10: «cada correo
+  // con un formato completo y lindo, y con el branding»). Antes iba en texto plano.
+  const { rows: [marca] } = await query(
+    `SELECT p.id, p.nombre, p.slug, p.logo_url, p.emoji
+       FROM user_projects up JOIN projects p ON p.id = up.project_id AND p.active = true
+      WHERE up.user_id = $1
+      ORDER BY (p.remitente_no_contestar IS NULL), p.id LIMIT 1`,
+    [tutorId]
+  );
+  for (const g of gente) {
+    const { htmlContent, textContent } = P.correo({
+      proyecto: marca || {},
+      titulo: titulo,
+      saludo: g.nombre,
+      resumen: `De ${de} a ${a}`,
+      bloques: [
+        P.parrafo(`El tutor <strong>${P.esc(nombre)}</strong> ha cambiado su correo desde «Mi perfil».`),
+        P.nota(`Antes: <strong>${P.esc(de)}</strong><br>Ahora: <strong>${P.esc(a)}</strong>`),
+        P.parrafo('Es el correo al que va la factura de su comisión. Si no os cuadra, revisadlo en Tutores.'),
+        P.boton({ texto: 'Abrir Tutores', url: P.enlace('/tutores') }),
+      ],
+    });
+    sendEmail({
+      to: g.email, subject: titulo, htmlContent, textContent, projectId: marca?.id ?? null,
+      tags: ['tutor-correo-cambiado'],
+      clave: `tutor-correo-${tutorId}-${g.id}-${a}`,
+    }).catch((err) => logger.error({ err: err.message, a: g.id }, 'Fallo avisando del correo de tutor cambiado'));
+  }
+  logger.info({ tutorId, avisados: gente.length }, 'Correo de tutor cambiado: avisada administración');
+  return { avisados: gente.length };
+}
+
 export async function list(filters) {
   return await userModel.findAll(filters);
 }
@@ -123,12 +187,17 @@ export async function getById(id) {
   if (!user) throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
 
   const projects = await userModel.getUserProjects(id);
-  return { ...user, projects };
+  const empresa_ids = await empresas.empresasDelUsuario(id);
+  return { ...user, projects, empresa_ids };
 }
 
-export async function create({ nombre, email, role, roles_extra, projectIds, projects }) {
+export async function create({ nombre, email, role, roles_extra, projectIds, projects, empresaIds }, { porUserId = null } = {}) {
   const existing = await userModel.findByEmail(email);
   if (existing) throw new AppError('Ya existe un usuario con ese email', 409, 'EMAIL_EXISTS');
+  // La empresa entera (#220): que exista y que la migracion este, ANTES de
+  // crear nada. El esquema ya ha comprobado que solo la lleva un admin.
+  const empresaIdsOk = empresaIds?.length ? empresaIds : [];
+  await empresas.comprobarEmpresas(empresaIdsOk);
 
   // Password temporal (el usuario lo cambiara via set-password)
   const tempPassword = crypto.randomBytes(16).toString('hex');
@@ -149,11 +218,14 @@ export async function create({ nombre, email, role, roles_extra, projectIds, pro
     roles_extra,
     projectIds,
     projects,
+    empresaIds: empresaIdsOk,
+    porUserId,
     setPasswordToken: tokenHash,
     setPasswordExpires: expires,
   });
 
   const userProjects = await userModel.getUserProjects(user.id);
+  const empresa_ids = await empresas.empresasDelUsuario(user.id);
 
   // Envio de email Brevo (async - no bloquea la respuesta)
   const baseUrl = process.env.CRM_BASE_URL || 'http://localhost:5173/crm';
@@ -170,10 +242,10 @@ export async function create({ nombre, email, role, roles_extra, projectIds, pro
   }
 
   // Retorna el token raw en respuesta para test/desarrollo
-  return { ...user, projects: userProjects, setPasswordToken: rawToken };
+  return { ...user, projects: userProjects, empresa_ids, setPasswordToken: rawToken };
 }
 
-export async function update(id, data) {
+export async function update(id, data, { porUserId = null } = {}) {
   const user = await userModel.findById(id);
   if (!user) throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
 
@@ -181,9 +253,23 @@ export async function update(id, data) {
     throw new AppError('No se puede editar al superadmin', 403, 'CANNOT_EDIT_SUPERADMIN');
   }
 
-  const updated = await userModel.update(id, data);
+  // Las empresas enteras (#220). Solo para un admin —contra el rol con el que
+  // se va a quedar, no el que tenia—. Quitarlas todas sin la migracion
+  // aplicada no es un error: no habia nada que quitar.
+  const cambios = { ...data };
+  if (cambios.empresaIds?.length) {
+    if ((cambios.role ?? user.role) !== 'admin') {
+      throw new AppError('Solo un admin puede tener una empresa entera', 400, 'VALIDATION_ERROR');
+    }
+    await empresas.comprobarEmpresas(cambios.empresaIds);
+  } else if (cambios.empresaIds !== undefined && !(await empresas.existeTablaEmpresas())) {
+    delete cambios.empresaIds;
+  }
+
+  const updated = await userModel.update(id, { ...cambios, porUserId });
   const projects = await userModel.getUserProjects(id);
-  return { ...updated, projects };
+  const empresa_ids = await empresas.empresasDelUsuario(id);
+  return { ...updated, projects, empresa_ids };
 }
 
 export async function setPassword(id, password, { porUserId = null, ip = null } = {}) {

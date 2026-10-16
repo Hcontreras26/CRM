@@ -57,13 +57,14 @@ import {
   CopySimple,
   WhatsappLogo,
   ChatText,
-  UsersThree, QrCode, Warning, Key, ListChecks,
+  UsersThree, QrCode, Warning, Key, ListChecks, Kanban, CheckSquare, SlidersHorizontal, Code, Certificate,
   // Los de los encabezados de seccion (#105). Ninguno repite el de una
   // entrada de su propia seccion: si el encabezado lleva el mismo dibujo
   // que una de sus filas, deja de ordenar y pasa a confundir.
   Flask, House, Funnel, Books, ChalkboardTeacher, Bank, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
-import { rolesDe } from '@/shared/lib/roles';
+import usePermission from '@/shared/hooks/usePermission';
+import { rolesDe, soloEsColaborador } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/shared/lib/utils';
@@ -76,7 +77,7 @@ import { toast } from '@/shared/hooks/useToast';
 import { getLocalLogo } from '@/shared/lib/projectLogos';
 import { isBetaAllowed, BETA_MODE, BETA_VERSION } from '@/shared/config/betaConfig';
 import { moduloApagado } from '@/shared/lib/modulos';
-import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
+import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 
 const ProjectSettingsDialog = lazy(() => import('@/modules/settings/components/ProjectSettingsDialog'));
 const NotificationsBell = lazy(() => import('./NotificationsBell'));
@@ -86,7 +87,15 @@ const IS_REDESIGN_NAV_ENABLED = import.meta.env.DEV
 
 // Secciones del sidebar — cada una con label + items.
 // Cada item: roles (omitir=todos) + module (clave en project.modules; omitir=siempre)
-const NAV_SECTIONS = [
+// Quién tiene tablero de tareas: el mismo `ROLES_TAREAS` que el backend.
+const ROLES_TAREAS = ['superadmin', 'admin', 'colaborador'];
+
+// Ninguna entrada puede llevar a «Página no encontrada» (#226). Diego, 10/10:
+// lo que no existe se marca «Próximamente» (sin enlace, `comingSoon: true`); lo
+// que existe, que funcione y esté en el menú. Lo vigila
+// `test/menuSinRutasRotas.test.jsx`: cada `to` tiene su <Route> en App.jsx, o
+// lleva `comingSoon`. Las de `href` salen a otra compilación y no cuentan.
+export const NAV_SECTIONS = [
   {
     label: 'Testeo',
     icon: Flask,
@@ -132,7 +141,7 @@ const NAV_SECTIONS = [
           { label: 'Seguimiento de fin de mes', to: '/prospectos/seguimiento', detail: 'La base que no compró', icon: ArrowCounterClockwise },
           { label: 'Proceso comercial', to: '/prospectos/proceso', detail: 'Los cinco pasos', icon: ListChecks },
           // Sin aprobar para producción (07/10): solo en /testeo.
-          ...(SOLO_EN_PRUEBAS ? [{ label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap }] : []),
+          { label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap },
         ],
       },
       // WhatsApp cuelga de su propia entrada, con lo suyo escalonado debajo: son
@@ -174,8 +183,22 @@ const NAV_SECTIONS = [
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions' },
-      // El tablero (#210) sigue en evaluación: solo en /testeo (07/10).
-      ...(SOLO_EN_PRUEBAS ? [{ label: 'Tareas', to: '/tareas', detail: 'Tablero del equipo', icon: ListChecks, roles: ['superadmin', 'admin', 'gestor', 'soporte', 'project_manager', 'colaborador'] }] : []),
+    ],
+  },
+  // El tablero del equipo (#210 y mejoras del 07/10). Es lo único que ve quien
+  // es solo colaborador. «Por revisar» y «Configurar tablero» se enseñan por
+  // permiso (`permiso`), no por rol: lo que se cambie en Configuración › Roles
+  // manda también aquí.
+  // Aprobada para producción en la 2.2.0 (Diego, 16/10).
+  {
+    label: 'Equipo de Desarrollo',
+    icon: Code,
+    items: [
+      { label: 'Tablero', to: '/tareas', detail: 'Las tareas del equipo, por áreas', icon: Kanban, roles: ROLES_TAREAS },
+      { label: 'Por revisar', to: '/tareas/revisar', detail: 'Aprobar o devolver', icon: CheckSquare, roles: ROLES_TAREAS, permiso: 'tasks.close' },
+      { label: 'Configurar tablero', to: '/tareas/configurar', detail: 'Columnas, áreas y proyectos', icon: SlidersHorizontal, roles: ROLES_TAREAS, permiso: 'tasks.manage' },
+      // «Mi factura» (#202): el colaborador con usuario sube aquí su factura del mes.
+      { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador'] },
     ],
   },
   {
@@ -196,7 +219,10 @@ const NAV_SECTIONS = [
     icon: Megaphone,
     items: [
       { label: 'Meta Ads', to: '/meta-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'] },
-      { label: 'Google Ads', to: '/google-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], comingSoon: true, statusTag: 'Próx.' },
+      // `comingSoon` no hacía nada aquí: el menú solo miraba la lista de la beta,
+      // así que fuera de ella Google Ads era un enlace a /google-ads, que no
+      // tiene pantalla, y acababa en «Página no encontrada» (#226).
+      { label: 'Google Ads', to: '/google-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], comingSoon: true },
     ],
   },
   {
@@ -242,6 +268,8 @@ const NAV_SECTIONS = [
       { label: 'Pendientes de facturar', to: '/finanzas/pendiente-facturar', detail: 'Ventas sin factura', icon: WarningCircle, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
       { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', detail: 'Cobros por Stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'factura_manager' },
+      // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
+      { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'] },
       { label: 'Integraciones', to: '/finanzas/integraciones', detail: 'Servicios conectados', icon: PlugsConnected, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
     ],
   },
@@ -270,6 +298,10 @@ const NAV_SECTIONS = [
       { label: 'Revisión duplicados', to: '/prospectos/revision-duplicados', detail: 'Repetidos por webhook', icon: GitMerge, roles: ['superadmin', 'admin'], module: 'leads' },
       { label: 'Buscar duplicados', to: '/prospectos/duplicados', detail: 'Buscarlos a mano', icon: CopySimple, roles: ['superadmin', 'admin'], module: 'leads' },
       { label: 'Matrículas', to: '/clientes/matriculas', detail: 'Altas en cada curso', icon: GraduationCap, module: 'matriculas' },
+      // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
+      // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin).
+      // Se enciende por configuración, como Certificaciones (VITE_CERTIFEX_PANEL).
+      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'] }] : []),
     ],
   },
   // Conexión (MCP de Claude). Diego: «estará en el menú en la sección de
@@ -287,6 +319,9 @@ const NAV_SECTIONS = [
     items: [
       { label: 'MCP', to: '/conexion/mcp', detail: 'Consultar desde Claude', icon: Robot, accesoMcp: true },
       { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors' },
+      // Diego, 15/10: «un apartado en Conexión para enviar esos datos ÚNICAMENTE
+      // CUANDO SE PONGA DATOS POR TRANSFERENCIA BANCARIA / DEPÓSITO BANCARIO».
+      { label: 'Webhook de transferencias', to: '/conexion/webhook-transferencias', detail: 'Avisar de transferencias y depósitos', icon: Bank, roles: ['superadmin', 'admin'] },
     ],
   },
   {
@@ -468,10 +503,47 @@ function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permi
   return true;
 }
 
+/**
+ * Una entrada del menú que todavía no lleva a ninguna parte (#226).
+ *
+ * Diego, 10/10: lo que no existe, «Próximamente» y sin enlace. Es un <div> y
+ * no un enlace: no navega, el tabulador no se para en ella y no hay forma de
+ * acabar en «Página no encontrada». La etiqueta dice siempre «Próximamente»:
+ * antes salía «Próx.» o el `statusTag` —«Pruebas»—, y «Pruebas» es otra cosa,
+ * esa SÍ se abre.
+ *
+ * El mismo aspecto que en CRM-ISEIE. `compacta` es la de dentro de un grupo,
+ * que va sin icono y en letra más pequeña, como sus hermanas.
+ */
+export function EntradaProximamente({ label, icon: Icon, collapsed = false, compacta = false }) {
+  return (
+    <div
+      aria-disabled="true"
+      data-proximamente=""
+      title={`${label} — Próximamente`}
+      aria-label={`${label} — Próximamente`}
+      className={cn(
+        'relative flex items-center text-muted-foreground/50 cursor-not-allowed select-none',
+        compacta ? 'gap-2 px-3 py-1.5 rounded-lg text-[12px]' : 'rounded-md text-[13px]',
+        !compacta && (collapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-1.5'),
+      )}
+    >
+      {!compacta && Icon && <Icon size={18} weight="regular" />}
+      {!collapsed && (
+        <>
+          <span className="truncate">{label}</span>
+          <span className="ml-auto text-[9px] uppercase tracking-wider bg-muted/60 text-muted-foreground/70 px-1.5 py-0.5 rounded">Próximamente</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, projectType, soloColab, permisos, labelOverrides, onNavigate, collapsed, onExpandSidebar }) {
   const visible = children
     .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos))  // `role` ya llega como lista
-    .map((c) => ({ ...c, comingSoon: !isBetaAllowed(c.to) }));
+    // Lo marcado en el propio menú cuenta, no solo la lista de la beta (#226).
+    .map((c) => ({ ...c, comingSoon: c.comingSoon || !isBetaAllowed(c.to) }));
   const location = useLocation();
   const hasActiveChild = visible.some((c) => !c.comingSoon && (location.pathname === c.to || location.pathname.startsWith(c.to + '/')));
   // En BETA: si TODO el grupo está coming-soon lo mantenemos visible (deshabilitado)
@@ -520,14 +592,7 @@ function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, pro
         <div className="ml-4 mt-0.5 pl-4 border-l border-border space-y-0.5">
           {visible.map((child) => (
             child.comingSoon ? (
-              <div
-                key={child.to}
-                title={child.statusTag ? `${applyLabel(child.label, labelOverrides)} — ${child.statusTag}` : 'Próximamente'}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] text-muted-foreground/50 cursor-not-allowed select-none"
-              >
-                <span className="truncate">{applyLabel(child.label, labelOverrides)}</span>
-                <span className="ml-auto text-[9px] uppercase tracking-wider bg-muted/60 text-muted-foreground/70 px-1.5 py-0.5 rounded">{child.statusTag || 'Próximamente'}</span>
-              </div>
+              <EntradaProximamente key={child.to} label={applyLabel(child.label, labelOverrides)} compacta />
             ) : (
               <NavLink
                 key={child.to}
@@ -639,29 +704,15 @@ function ExternalPanelItem({ panel, collapsed, onClick }) {
  */
 const MOSTRAR_SUBTITULOS = import.meta.env.MODE !== 'production';
 
-function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, onClick, collapsed, featured }) {
+// Exportada para la prueba del menú (#226): una entrada marcada no puede ser un enlace.
+export function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, onClick, collapsed, featured, comingSoon: marcadaProximamente }) {
   const displayLabel = applyLabel(label, labelOverrides);
   const location = useLocation();
-  const comingSoon = !href && !isBetaAllowed(to);
+  // La marca del propio menú (`comingSoon: true`) o la lista de la beta. Antes
+  // solo contaba la beta, y Google Ads, marcada, seguía siendo un enlace (#226).
+  const comingSoon = !href && (marcadaProximamente || !isBetaAllowed(to));
   if (comingSoon) {
-    return (
-      <div
-        title={`${displayLabel} — Próximamente`}
-        aria-label={`${displayLabel} — Próximamente`}
-        className={cn(
-          'relative flex items-center rounded-md text-[13px] text-muted-foreground/50 cursor-not-allowed select-none',
-          collapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-1.5'
-        )}
-      >
-        <Icon size={18} weight="regular" />
-        {!collapsed && (
-          <>
-            <span className="truncate">{displayLabel}</span>
-            <span className="ml-auto text-[9px] uppercase tracking-wider bg-muted/60 text-muted-foreground/70 px-1.5 py-0.5 rounded">Próximamente</span>
-          </>
-        )}
-      </div>
-    );
+    return <EntradaProximamente label={displayLabel} icon={Icon} collapsed={collapsed} />;
   }
   if (href) {
     const hrefPath = href.replace(/\/$/, '');
@@ -673,6 +724,8 @@ function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, o
     return (
       <a
         href={href}
+        target={href.startsWith('http') ? '_blank' : undefined}
+        rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
         onClick={onClick}
         title={collapsed ? displayLabel : undefined}
         aria-label={collapsed ? displayLabel : undefined}
@@ -887,6 +940,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const [newLeadsBadge, setNewLeadsBadge] = useState(0);
   const [spamReportsBadge, setSpamReportsBadge] = useState(0);
   const [msgUnreadBadge, setMsgUnreadBadge] = useState(0);
+  const [tasksReviewBadge, setTasksReviewBadge] = useState(0);
+  const { can } = usePermission();
 
   // Estado de secciones colapsadas (Captación, Catálogo, Finanzas, etc.).
   // Persistido en localStorage. Por defecto, abierto: Principal + la sección
@@ -1002,7 +1057,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   useEffect(() => { setUserMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
-    if (!activeProject?.id) return;
+    if (!activeProject?.id || soloEsColaborador(user)) return;
     let cancelled = false;
     let interval = null;
 
@@ -1041,7 +1096,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
         document.removeEventListener('visibilitychange', onVisibilityChange);
       }
     };
-  }, [activeProject?.id]);
+  }, [activeProject?.id, user]);
 
   // Badge de reportes de spam pendientes — solo superadmin
   useEffect(() => {
@@ -1060,6 +1115,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
 
   // Badge de mensajes no leidos
   useEffect(() => {
+    if (soloEsColaborador(user)) return;
     let cancelled = false;
     async function fetchMsgCount() {
       try {
@@ -1070,7 +1126,23 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
     fetchMsgCount();
     const interval = setInterval(fetchMsgCount, 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+  }, [user]);
+
+  // «Por revisar (n)» en el menú: solo a quien puede cerrar tareas.
+  const puedeRevisar = can('tasks.close');
+  useEffect(() => {
+    if (!puedeRevisar) return;
+    let cancelled = false;
+    async function fetchReviewCount() {
+      try {
+        const res = await client.get('/tasks/review/count');
+        if (!cancelled && res.success) setTasksReviewBadge(res.data?.count || 0);
+      } catch {}
+    }
+    fetchReviewCount();
+    const interval = setInterval(fetchReviewCount, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [puedeRevisar]);
 
   const initials = user?.nombre?.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) || '??';
   // Vanessa y quien lleve las colaboraciones: solo tutores, nada mas.
@@ -1199,7 +1271,9 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       )}>
         {NAV_SECTIONS.map((section, sIdx) => {
           // Filtrar items que el usuario puede ver
-          const visibleItems = section.items.filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
+          const visibleItems = section.items
+            .filter((item) => !item.permiso || can(item.permiso))
+            .filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
           if (visibleItems.length === 0) return null;
           const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
@@ -1231,6 +1305,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                   item.to === '/prospectos' && newLeadsBadge > 0 ? newLeadsBadge
                   : item.to === '/notificaciones' && spamReportsBadge > 0 ? spamReportsBadge
                   : item.to === '/mensajes' && msgUnreadBadge > 0 ? msgUnreadBadge
+                  : item.to === '/tareas/revisar' && tasksReviewBadge > 0 ? tasksReviewBadge
                   : undefined
                 }
                 labelOverrides={activeProject?.sidebar_labels}

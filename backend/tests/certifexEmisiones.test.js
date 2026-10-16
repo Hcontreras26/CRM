@@ -67,7 +67,10 @@ describe('conexion', () => {
     respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE', 'ISEIH'] } });
     const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
     expect(r.status).toBe(200);
-    expect(r.body.data).toEqual({ conectado: true, nombre: 'CRM', centros: ['ISEIE', 'ISEIH'], urlPublica: 'https://certifex.test' });
+    expect(r.body.data).toEqual({
+      conectado: true, nombre: 'CRM', centros: ['ISEIE', 'ISEIH'], urlPublica: 'https://certifex.test',
+      direccionPublica: { ok: true, motivos: [] },
+    });
     expect(JSON.stringify(r.body)).not.toContain(CLAVE);
     // La clave va en la cabecera, y la URL se monta bien aunque acabe en barra.
     expect(pedidas[0].url).toBe('https://certifex.test/api/crm/v1/yo');
@@ -151,6 +154,21 @@ describe('listar', () => {
     expect((await conSesion(request.get('/api/certifex/emisiones/cursos'))).status).toBe(400);
   });
 
+  it('los campus traen la salud del enlace con su Moodle tal cual; un Certifex antiguo, sin ella', async () => {
+    const salud = { cron: 'sin_latido', latidoEn: '2026-10-07T03:00:00Z', avisoEn: null, plugin: '2.7.0', moodle: '4.1.2' };
+    respuesta = () => ({ status: 200, body: [
+      { codigo: 'ISEIE', nombre: 'ISEIE', porDecidir: 3, salud },
+      { codigo: 'PSIKO', nombre: 'Psiko Aprende', porDecidir: 0, salud: { cron: 'ok', latidoEn: '2026-10-09T03:00:00Z', avisoEn: null, plugin: '2.7.0', moodle: '4.3' } },
+      { codigo: 'ANTIGUO', nombre: 'Sin salud', porDecidir: 0 },
+    ] });
+    const r = await conSesion(request.get('/api/certifex/emisiones/centros'));
+    expect(r.status).toBe(200);
+    expect(r.body.data[0].salud).toEqual(salud);
+    expect(r.body.data[1].salud.cron).toBe('ok');
+    expect(r.body.data[2].salud).toBeUndefined();
+    expect(new URL(pedidas[0].url).pathname).toBe('/api/crm/v1/centros');
+  });
+
   it('un filtro raro no llega a Certifex', async () => {
     const r = await conSesion(request.get('/api/certifex/emisiones?estado=todo-emitido'));
     expect(r.status).toBe(400);
@@ -167,13 +185,19 @@ describe('decidir y emitir', () => {
     expect(pedidas[0].cuerpo).toEqual({ decisiones: [{ matriculaId: 7, decision: 'aprobada', decididoPor: 'manuel@empresa.com' }] });
   });
 
-  it('emitir manda las matriculas y el usuario con sesion como emisor', async () => {
-    respuesta = () => ({ status: 200, body: { resultados: [{ matriculaId: 7, ok: true, nexpediente: 'CTF-2026-000001-AAAA' }] } });
+  it('emitir pasa por la emision comun (con el programa del CRM) y el usuario con sesion como emisor', async () => {
+    respuesta = (url) => (url.includes('/candidatos')
+      ? { status: 200, body: { filas: [], total: 0, pagina: 1, tam: 200 } }
+      : { status: 200, body: { resultados: [{ matriculaId: 7, ok: true, nexpediente: 'CTF-2026-000001-AAAA' }] } });
     const r = await conSesion(request.post('/api/certifex/emisiones/emitir')).send({ matriculaIds: [7], emitidaPor: 'otra@persona.test' });
     expect(r.status).toBe(200);
-    expect(r.body.data.resultados[0].nexpediente).toBe('CTF-2026-000001-AAAA');
-    expect(pedidas[0].url).toBe('https://certifex.test/api/crm/v1/emitir');
-    expect(pedidas[0].cuerpo).toEqual({ matriculaIds: [7], emitidaPor: 'manuel@empresa.com' });
+    expect(r.body.data.resultados[0]).toMatchObject({ matriculaId: 7, ok: true, nexpediente: 'CTF-2026-000001-AAAA' });
+    // Primero se busca la matricula para su programa (la misma emision que Diplomas).
+    expect(new URL(pedidas[0].url).pathname).toBe('/api/crm/v1/candidatos');
+    expect(pedidas[1].url).toBe('https://certifex.test/api/crm/v1/emitir');
+    expect(pedidas[1].cuerpo).toEqual({ items: [{ matriculaId: 7 }], emitidaPor: 'manuel@empresa.com' });
+    // Sin la matricula en el CRM ni en Certifex no hay programa: se dice, igual que en Diplomas.
+    expect(r.body.data.resultados[0].sinPrograma).toMatch(/No se encontró la matrícula/);
   });
 
   it('mas de 10 por vez no sale: se divide en tandas (50 pasaban del minuto de nginx)', async () => {
@@ -216,10 +240,93 @@ describe('ver el titulo emitido', () => {
     expect(pedidas).toHaveLength(0);
   });
 
+  it('el A3 de imprenta se pide a la API de Certifex CON la clave, y baja como fichero', async () => {
+    const fetchAntes = globalThis.fetch;
+    let pedida;
+    globalThis.fetch = vi.fn(async (url, opts = {}) => {
+      if (!String(url).startsWith('https://certifex.test/')) return fetchReal(url, opts);
+      pedida = { url: String(url), cabeceras: opts.headers };
+      return new Response(Buffer.from('%PDF-1.7 A3'), { status: 200, headers: { 'Content-Type': 'application/pdf' } });
+    });
+    try {
+      const r = await conSesion(request.get('/api/certifex/emisiones/diploma/ctf-2026-000001-u2lh?formato=imprenta'));
+      expect(r.status).toBe(200);
+      expect(r.headers['content-type']).toContain('application/pdf');
+      expect(r.headers['content-disposition']).toBe('attachment; filename="CTF-2026-000001-U2LH-imprenta-A3.pdf"');
+      expect(r.headers['cache-control']).toContain('no-store');
+      // No es público: va a /api/crm/v1 con la clave en la cabecera, no a /diploma.pdf.
+      expect(pedida.url).toBe('https://certifex.test/api/crm/v1/diplomas/CTF-2026-000001-U2LH/pdf?formato=imprenta');
+      expect(pedida.cabeceras.Authorization).toBe(`Bearer ${CLAVE}`);
+      // Y la clave no vuelve al navegador.
+      expect(JSON.stringify(r.headers)).not.toContain(CLAVE);
+    } finally {
+      globalThis.fetch = fetchAntes;
+    }
+  });
+
+  it('un formato desconocido no sale del CRM', async () => {
+    const r = await conSesion(request.get('/api/certifex/emisiones/diploma/ctf-2026-000001-u2lh?formato=A0'));
+    expect(r.status).toBe(400);
+    expect(pedidas).toHaveLength(0);
+  });
+
+  it('si Certifex no da el A3 (revocado, o su campus no lo tiene), se dice con su mensaje', async () => {
+    respuesta = () => ({ status: 409, body: { error: 'El diploma de este centro no tiene versión de imprenta.' } });
+    const r = await conSesion(request.get('/api/certifex/emisiones/diploma/ctf-2026-000001-u2lh?formato=imprenta'));
+    expect(r.status).toBe(409);
+    expect(JSON.stringify(r.body)).toContain('no tiene versión de imprenta');
+  });
+
   it('el estado trae la web publica, para enlazar la verificacion', async () => {
     respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE'] } });
     const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
     expect(r.body.data.urlPublica).toBe('https://certifex.test');
+  });
+});
+
+describe('nunca un enlace local (Certifex#96)', () => {
+  // El 12/10 el Certifex de pruebas escuchaba en 127.0.0.1:3017: «Ver diploma» llevaba a una
+  // pagina que no abre. Desde el servidor si vale (el PDF se trae por aqui); enlazarlo, no.
+  const conEntorno = async (vars, fn) => {
+    const antes = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, vars);
+    try { await fn(); } finally {
+      for (const [k, v] of Object.entries(antes)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    }
+  };
+
+  it('si el CRM enlaza Certifex en una direccion local, no la da y dice por que', async () => {
+    respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE'] } });
+    await conEntorno({ CERTIFEX_PUBLICO_URL: 'http://127.0.0.1:3017', NODE_ENV: 'production' }, async () => {
+      const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
+      expect(r.body.data.urlPublica).toBeNull();
+      expect(r.body.data.direccionPublica.ok).toBe(false);
+      expect(r.body.data.direccionPublica.motivos.join(' ')).toMatch(/127.0.0.1:3017.*CERTIFEX_PUBLICO_URL/);
+    });
+  });
+
+  it('si es Certifex el que no tiene direccion publica, se pasa su motivo', async () => {
+    respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE'], direccionPublica: { ok: false, base: null, motivo: 'La dirección pública de Certifex (VERIFICAR_BASE_URL) es local.' } } });
+    const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
+    expect(r.body.data.urlPublica).toBe('https://certifex.test');
+    expect(r.body.data.direccionPublica).toEqual({ ok: false, motivos: ['La dirección pública de Certifex (VERIFICAR_BASE_URL) es local.'] });
+  });
+
+  it('en desarrollo, localhost vale', async () => {
+    respuesta = () => ({ status: 200, body: { nombre: 'CRM', centros: ['ISEIE'] } });
+    await conEntorno({ CERTIFEX_PUBLICO_URL: 'http://localhost:8787', NODE_ENV: 'development' }, async () => {
+      const r = await conSesion(request.get('/api/certifex/emisiones/estado'));
+      expect(r.body.data.urlPublica).toBe('http://localhost:8787');
+      expect(r.body.data.direccionPublica.ok).toBe(true);
+    });
+  });
+
+  it('reconoce las direcciones que solo abren desde el servidor', async () => {
+    const { esDireccionLocal } = await import('../src/modules/certifex/certifex.cliente.js');
+    for (const u of ['http://localhost:8787', 'http://127.0.0.1:3017', 'http://10.1.2.3', 'http://192.168.0.9', 'http://172.18.0.2:80', 'http://[::1]:3000', 'no-es-url']) {
+      expect(esDireccionLocal(u), u).toBe(true);
+    }
+    for (const u of ['https://certifex.tech', 'http://72.60.90.135', 'https://172.32.0.1']) expect(esDireccionLocal(u), u).toBe(false);
   });
 });
 

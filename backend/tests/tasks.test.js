@@ -71,12 +71,14 @@ beforeAll(async () => {
   );
 
   await crearPersona('admin', 'admin');
-  await crearPersona('gestora', 'gestor');
-  await crearPersona('otraGestora', 'gestor');
+  await crearPersona('gestora', 'colaborador');
+  await crearPersona('otraGestora', 'colaborador');
   await crearPersona('colaborador', 'colaborador');
   await crearPersona('tutor', 'tutor');
 
-  for (const clave of ['admin', 'gestora', 'otraGestora']) {
+  // Todos en un campus, como en el CRM de verdad: un admin solo asigna a gente
+  // de sus campus (a un colaborador sin campus, solo el superadmin; 09/10).
+  for (const clave of ['admin', 'gestora', 'otraGestora', 'colaborador']) {
     await q('INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2)', [U[clave].id, proyecto.id]);
   }
 });

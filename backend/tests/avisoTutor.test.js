@@ -21,6 +21,9 @@ vi.mock('../src/shared/config/db.js', () => ({
 vi.mock('../src/shared/services/brevo.service.js', () => ({
   sendEmail: vi.fn(async (a) => { enviados.push(a); return { sent: true }; }),
 }));
+// Aquí se prueba el correo para cuando se pueda mandar. El freno del 15/09
+// (NO_ESCRIBIR_A_TUTORES) sigue puesto en el CRM; lo vigila tutoresSinCorreo.test.js.
+vi.mock('../src/shared/config/frenoTutores.js', () => ({ NO_ESCRIBIR_A_TUTORES: false }));
 vi.mock('../src/modules/tutores/tutor.model.js', () => ({
   comisiones: vi.fn(async () => ([{
     alumno: 'María Muñoz', formacion: 'Máster', cobro: '1200.00',
