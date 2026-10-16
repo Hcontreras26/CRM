@@ -173,6 +173,16 @@ describe('actividad_por_comercial', () => {
     expect(r.equipo.toques).toBe(2);
   });
 
+  it('solo «desde»: hasta hoy en Madrid; solo «hasta»: ese día', async () => {
+    const desde = await herramienta.ejecutar(admin('A'), { desde: '2026-09-29' });
+    expect(desde).toMatchObject({ desde: '2026-09-29', hasta: hoyEnMadrid() });
+    // Del 29 en adelante: la llamada de Dayana del 29 y todo lo del 30.
+    expect(fila(desde, 'DAYANA')).toMatchObject({ llamadas: 1, whatsapp: 1, correos: 1 });
+    const hasta = await herramienta.ejecutar(admin('A'), { hasta: '2026-09-29' });
+    expect(hasta).toMatchObject({ desde: '2026-09-29', hasta: '2026-09-29' });
+    expect(fila(hasta, 'DAYANA')).toMatchObject({ llamadas: 1, whatsapp: 0 });
+  });
+
   it('sin fechas, el día de ayer en Madrid', async () => {
     const r = await herramienta.ejecutar(admin('A'), {});
     expect(r).toMatchObject({ desde: ayerEnMadrid(), hasta: ayerEnMadrid() });
