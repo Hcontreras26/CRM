@@ -910,7 +910,7 @@ export async function verFormacion(id) {
 // venta (sin contar las mensualidades, que son cuotas de una venta).
 
 export const AVISO_LEADS_META = 'Los «leads» que da Meta no son fiables: en casi todas las cuentas salen a 0 aunque entran prospectos (#48). '
-  + 'Lo que llegó de verdad al CRM es «prospectos_atribuidos».';
+  + 'Los prospectos que el CRM puede atribuir a una campaña son «prospectos_atribuidos», y son un mínimo: solo los que traen la campaña.';
 
 /** Las cuentas de Meta conectadas a esos campus. Nunca el token ni el error que devolvió Meta. */
 export async function cuentasPublicitarias({ projectIds }) {
