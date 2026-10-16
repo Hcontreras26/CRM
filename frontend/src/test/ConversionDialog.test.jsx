@@ -106,7 +106,7 @@ describe('ConversionDialog — validaciones', () => {
     fireEvent.submit(container.querySelector('form'));
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Producto requerido', variant: 'destructive' }),
+        expect.objectContaining({ title: 'Falta el producto contratado', variant: 'destructive' }),
       );
     });
     expect(createMock).not.toHaveBeenCalled();
@@ -121,7 +121,7 @@ describe('ConversionDialog — validaciones', () => {
     fireEvent.submit(container.querySelector('form'));
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Importe invalido', variant: 'destructive' }),
+        expect.objectContaining({ title: 'Falta el precio', variant: 'destructive' }),
       );
     });
     expect(createMock).not.toHaveBeenCalled();
@@ -135,7 +135,7 @@ describe('ConversionDialog — validaciones', () => {
     fireEvent.submit(container.querySelector('form'));
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Importe pagado invalido', variant: 'destructive' }),
+        expect.objectContaining({ title: 'El pago de hoy no cuadra', variant: 'destructive' }),
       );
     });
     expect(createMock).not.toHaveBeenCalled();
@@ -218,7 +218,7 @@ describe('ConversionDialog — submit', () => {
     fireEvent.submit(container.querySelector('form'));
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Error al registrar conversion', description: 'Lead duplicado' }),
+        expect.objectContaining({ title: 'No se pudo registrar la venta', description: 'Lead duplicado' }),
       );
     });
     expect(onClose).not.toHaveBeenCalled();
@@ -267,5 +267,38 @@ describe('ConversionDialog — payment links derivados', () => {
     render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
     pickProduct('Sin enlaces');
     expect(screen.getByText(/no tiene enlaces configurados/i)).toBeInTheDocument();
+  });
+});
+
+// #106: «Nueva venta» con las piezas comunes. Ningún desplegable del navegador
+// (el descuento y el método del pago inicial lo eran), y cada aviso dice qué
+// falta y dónde.
+describe('ConversionDialog — formato común (#106)', () => {
+  it('no queda ningún desplegable del navegador: el descuento es el del CRM', () => {
+    const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+    expect(container.querySelector('select')).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Descuento' })).toBeInTheDocument();
+  });
+
+  it('el método del pago inicial (con pago parcial) también es el del CRM', () => {
+    const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Parcial$/i }));
+    expect(container.querySelector('select')).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Método del pago inicial' })).toBeInTheDocument();
+  });
+
+  it('los avisos dicen qué falta y dónde ponerlo', async () => {
+    const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+    fireEvent.change(precioBase(container), { target: { value: '500' } });
+    fireEvent.submit(container.querySelector('form'));
+    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Falta el producto contratado',
+      description: expect.stringMatching(/Producto contratado/),
+    })));
+  });
+
+  it('el obligatorio se anuncia como tal (Field compartido)', () => {
+    render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+    expect(screen.getAllByText('(obligatorio)').length).toBeGreaterThanOrEqual(2);
   });
 });

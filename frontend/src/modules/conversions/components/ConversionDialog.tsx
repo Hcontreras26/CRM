@@ -2,6 +2,8 @@
 import { inputClass } from '@/shared/lib/ui';import { useState, useEffect, useMemo, useRef, lazy, Suspense, type FormEvent } from 'react';
 import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
+import Field from '@/shared/components/ui/Field';
+import FilaCampos from '@/shared/components/ui/FilaCampos';
 import { X, Link as LinkIcon, Copy, CheckCircle, Receipt, FileText } from '@phosphor-icons/react';
 import { conversionsApi, type Conversion, type MetodoPago } from '../api/conversions.api';
 import { useProducts } from '@/modules/products/hooks/useProducts';
@@ -396,22 +398,23 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
     // Pago según el modo elegido (evita el bug de "Pagó el total" con valor viejo).
     const pagado = pagoMode === 'total' ? calc.total : pagoMode === 'parcial' ? Number(form.importe_pagado || 0) : 0;
     const prodOk = useMultiItem ? items.some(it => it.descripcion?.trim()) : form.producto_contratado?.trim();
+    // Cada aviso dice qué falta y dónde ponerlo, no solo «requerido» (#106).
     if (!prodOk) {
-      toast({ title: 'Producto requerido', variant: 'destructive' });
+      toast({ title: 'Falta el producto contratado', description: 'Elígelo del catálogo o escribe su nombre en «Producto contratado».', variant: 'destructive' });
       return;
     }
     if (isNaN(importe) || importe <= 0) {
-      toast({ title: 'Importe invalido', description: 'El total debe ser mayor que 0', variant: 'destructive' });
+      toast({ title: 'Falta el precio', description: 'El total tiene que ser mayor que 0: escribe el precio base.', variant: 'destructive' });
       return;
     }
     if (pagado > importe) {
-      toast({ title: 'Importe pagado invalido', description: 'No puede superar el total', variant: 'destructive' });
+      toast({ title: 'El pago de hoy no cuadra', description: `No puede ser mayor que el total (${importe.toFixed(2)} €).`, variant: 'destructive' });
       return;
     }
     // Validar cuotas si es fraccionado
     if (form.metodo_pago === 'fraccionado') {
       if (installments.length < 1) {
-        toast({ title: 'Al menos 1 cuota requerida', variant: 'destructive' });
+        toast({ title: 'Falta el plan de cuotas', description: 'Pon al menos 1 cuota en «Número de cuotas».', variant: 'destructive' });
         return;
       }
       const sumaCuotas = installments.reduce((s, c) => s + Number(c.importe_previsto || 0), 0);
@@ -422,8 +425,14 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
         toast({ title: 'La suma de cuotas no coincide con el pendiente', description: `Cuotas: ${sumaCuotas.toFixed(2)} € — Pendiente a fraccionar: ${objetivo.toFixed(2)} € (total ${importe.toFixed(2)} − ${pagado.toFixed(2)} pagado hoy)`, variant: 'destructive' });
         return;
       }
-      if (installments.some(c => !c.fecha_vencimiento || Number(c.importe_previsto) <= 0)) {
-        toast({ title: 'Revisa importe y fecha de cada cuota', variant: 'destructive' });
+      const mala = installments.findIndex(c => !c.fecha_vencimiento || Number(c.importe_previsto) <= 0);
+      if (mala >= 0) {
+        const c = installments[mala];
+        toast({
+          title: `A la cuota ${mala + 1} le falta ${!c.fecha_vencimiento ? 'la fecha' : 'el importe'}`,
+          description: 'Corrígelo en el plan de cuotas: cada cuota necesita un importe mayor que 0 y su vencimiento.',
+          variant: 'destructive',
+        });
         return;
       }
     }
@@ -501,8 +510,8 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
       }
     } catch (err: any) {
       toast({
-        title: 'Error al registrar conversion',
-        description: err?.data?.error || err?.message || 'Error desconocido',
+        title: 'No se pudo registrar la venta',
+        description: err?.data?.error || err?.message || 'Vuelve a intentarlo; si sigue fallando, avisa a soporte.',
         variant: 'destructive',
       });
     } finally {
@@ -564,18 +573,13 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   aviso de la cola y nada mas: ese es el freno del 14/09. */}
               {numeraAqui ? (
                 <div className="text-left rounded-lg border border-border bg-muted/30 p-3">
-                  <label className="mb-1.5 block px-1 text-secundario">
-                    <span className="font-medium">Número de {queSeEmite}</span>
-                    <input type="number" min="1" value={numero}
+                  <Field label={`Número de ${queSeEmite}`} htmlFor="conversion-numero"
+                    hint={sugerido ? `El siguiente libre es el ${sugerido}. Puedes poner ese u otro.` : undefined}>
+                    <input id="conversion-numero" type="number" min="1" value={numero}
                       onChange={(e) => setNumero(e.target.value)}
-                      className="mt-1 w-full h-9 px-3 rounded-md border border-border bg-background text-sm tabular-nums" />
-                  </label>
-                  {sugerido && (
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      El siguiente libre es el <b>{sugerido}</b>. Puedes poner ese u otro.
-                    </p>
-                  )}
-                  <p className="text-[11px] text-warning-soft-foreground mt-1.5">
+                      className={`${inputClass} tabular-nums`} />
+                  </Field>
+                  <p className="mt-1.5 px-1 text-secundario text-warning-soft-foreground">
                     ⚠ Comprueba la numeración en el Excel de facturación primero. Si hay discrepancia,
                     contacta con soporte; y si hace falta, genera la factura manualmente y avisa.
                   </p>
@@ -633,42 +637,44 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
             {/* MODO 1: Producto único (legacy) */}
             {!useMultiItem && (
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Producto contratado *</label>
+                <div className="flex justify-end">
                   <button type="button"
                     onClick={() => setItems([{ product_id: null, descripcion: form.producto_contratado || '', cantidad: 1, precio_unitario: form.importe_total || '0' }])}
-                    className="text-[10px] text-primary hover:underline">
+                    className="px-1 text-secundario text-primary hover:underline">
                     + Añadir más productos
                   </button>
                 </div>
-                {products.length > 0 ? (
-                  <Select<string>
-                    value={form.producto_contratado}
-                    onChange={(v) => update('producto_contratado', v)}
-                    options={[
-                      { value: '', label: 'Seleccionar o escribir abajo' },
-                      ...products.map(p => ({ value: p.nombre, label: p.nombre })),
-                    ]}
-                    ariaLabel="Producto contratado"
-                  />
-                ) : null}
-                <input
-                  list={products.length > 0 ? 'conversion-products-list' : undefined}
-                  value={form.producto_contratado}
-                  onChange={e => update('producto_contratado', e.target.value)}
-                  placeholder={products.length > 0 ? 'Escribe o selecciona del listado' : 'Nombre del producto/curso'}
-                  className={inputClass}
-                  required={!useMultiItem}
-                  autoComplete="off"
-                />
+                <Field label="Producto contratado" required
+                  hint="Puedes elegir uno del catálogo o escribir un nombre nuevo.">
+                  <div className="space-y-1.5">
+                    {products.length > 0 ? (
+                      <Select<string>
+                        value={form.producto_contratado}
+                        onChange={(v) => update('producto_contratado', v)}
+                        options={[
+                          { value: '', label: 'Seleccionar o escribir abajo' },
+                          ...products.map(p => ({ value: p.nombre, label: p.nombre })),
+                        ]}
+                        ariaLabel="Producto contratado"
+                      />
+                    ) : null}
+                    <input
+                      list={products.length > 0 ? 'conversion-products-list' : undefined}
+                      value={form.producto_contratado}
+                      onChange={e => update('producto_contratado', e.target.value)}
+                      placeholder={products.length > 0 ? 'Escribe o selecciona del listado' : 'Nombre del producto/curso'}
+                      aria-label="Escribir el nombre del producto"
+                      className={inputClass}
+                      required={!useMultiItem}
+                      autoComplete="off"
+                    />
+                  </div>
+                </Field>
                 {products.length > 0 && (
                   <datalist id="conversion-products-list">
                     {products.map(p => <option key={p.id} value={p.nombre} />)}
                   </datalist>
                 )}
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Puedes elegir uno del catálogo o escribir un nombre nuevo.
-                </p>
               </div>
             )}
 
@@ -679,10 +685,13 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   <p className="mb-1.5 px-1 text-tabla uppercase text-muted-foreground">Productos contratados ({items.length})</p>
                   <button type="button"
                     onClick={() => { setItems([]); }}
-                    className="text-[10px] text-muted-foreground hover:text-foreground">Volver a producto único</button>
+                    className="px-1 text-secundario text-muted-foreground hover:text-foreground">Volver a producto único</button>
                 </div>
                 {items.map((it, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                  // En el móvil (6 columnas) la descripción ocupa la fila entera
+                  // y cantidad, precio y quitar van debajo; en pantalla ancha,
+                  // todo en una línea (#106).
+                  <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-2 items-center">
                     <input list="conversion-products-list-multi" value={it.descripcion}
                       onChange={e => {
                         const v = e.target.value;
@@ -690,15 +699,16 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                         setItems(items.map((x, i) => i === idx ? { ...x, descripcion: v, product_id: matched?.id || null, precio_unitario: matched?.precio ? String(matched.precio) : x.precio_unitario } : x));
                       }}
                       placeholder="Descripción / nombre del curso"
-                      className="col-span-6 h-9 px-2 rounded border border-border bg-background text-sm" />
+                      aria-label={`Producto ${idx + 1}`}
+                      className={`${inputClass} col-span-6 min-w-0`} />
                     <input type="number" min="1" value={it.cantidad}
                       onChange={e => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value || 1) } : x))}
-                      title="Cantidad" placeholder="Cant"
-                      className="col-span-2 h-9 px-2 rounded border border-border bg-background text-sm" />
+                      title="Cantidad" placeholder="Cant" aria-label={`Cantidad del producto ${idx + 1}`}
+                      className={`${inputClass} col-span-2 min-w-0`} />
                     <input type="number" step="0.01" min="0" value={it.precio_unitario}
                       onChange={e => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: e.target.value } : x))}
-                      title="Precio unitario" placeholder="€/u"
-                      className="col-span-3 h-9 px-2 rounded border border-border bg-background text-sm" />
+                      title="Precio unitario" placeholder="€/u" aria-label={`Precio unitario del producto ${idx + 1}`}
+                      className={`${inputClass} col-span-3 min-w-0`} />
                     <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))}
                       className="col-span-1 text-muted-foreground hover:text-destructive text-base">×</button>
                   </div>
@@ -709,66 +719,72 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 <button type="button"
                   onClick={() => setItems([...items, { product_id: null, descripcion: '', cantidad: 1, precio_unitario: '0' }])}
                   className="text-xs text-primary hover:underline">+ añadir otro producto</button>
-                <div className="text-[10px] text-muted-foreground italic">
+                <div className="px-1 text-secundario text-muted-foreground">
                   Subtotal: {items.reduce((s, it) => s + Number(it.cantidad || 1) * Number(it.precio_unitario || 0), 0).toFixed(2)} €
                 </div>
               </div>
             )}
 
             {/* DESCUENTO */}
-            <div className="border border-border rounded-md p-3 space-y-2 bg-muted/10">
-              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Descuento</label>
-              <div className="flex flex-wrap items-center gap-3 text-xs">
-                <select value={form.descuento_tipo} onChange={e => update('descuento_tipo', e.target.value as any)}
-                  className="h-7 px-2 rounded border border-border bg-background text-sm">
-                  <option value="none">Sin descuento</option>
-                  <option value="pct">Porcentaje (%)</option>
-                  <option value="monto">Monto fijo (€)</option>
-                </select>
+            <div className="border border-border rounded-md p-3 bg-muted/10">
+              <FilaCampos>
+                <Field label="Descuento">
+                  {/* El desplegable del CRM, como el resto (#106). */}
+                  <Select<'none' | 'pct' | 'monto'>
+                    value={form.descuento_tipo}
+                    onChange={(v) => update('descuento_tipo', v as any)}
+                    ariaLabel="Descuento"
+                    options={[
+                      { value: 'none', label: 'Sin descuento' },
+                      { value: 'pct', label: 'Porcentaje (%)' },
+                      { value: 'monto', label: 'Monto fijo (€)' },
+                    ]}
+                  />
+                </Field>
                 {form.descuento_tipo !== 'none' && (
-                  <div className="inline-flex items-center gap-1">
+                  <Field label={form.descuento_tipo === 'pct' ? 'Porcentaje de descuento (%)' : 'Descuento (€)'}
+                    hint={calc.desc > 0 ? `Se descuentan ${calc.desc.toFixed(2)} €.` : undefined}>
                     <input type="number" min="0" step="0.01" value={form.descuento_valor}
                       onChange={e => update('descuento_valor', e.target.value)}
                       placeholder={form.descuento_tipo === 'pct' ? '10' : '50'}
-                      className="w-20 h-7 px-2 rounded border border-border bg-background text-sm" />
-                    <span>{form.descuento_tipo === 'pct' ? '%' : '€'}</span>
-                    {calc.desc > 0 && <span className="text-success font-semibold ml-1">−{calc.desc.toFixed(2)} €</span>}
-                  </div>
+                      className={inputClass} />
+                  </Field>
                 )}
-              </div>
+              </FilaCampos>
             </div>
 
             {/* IVA */}
-            <div className="border border-border rounded-md p-3 space-y-2 bg-muted/10">
-              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">IVA</label>
-              <div className="flex flex-wrap items-center gap-3 text-xs">
-                <label className="inline-flex items-center gap-1.5">
-                  <input type="checkbox" checked={form.iva_exento} onChange={e => update('iva_exento', e.target.checked as any)} />
-                  Exento (sin IVA)
-                </label>
-                {!form.iva_exento && (
-                  <>
-                    <div className="inline-flex items-center gap-1">
-                      <span>%:</span>
-                      <input type="number" min="0" max="100" step="0.01" value={form.iva_pct}
-                        onChange={e => update('iva_pct', e.target.value)}
-                        className="w-16 h-7 px-2 rounded border border-border bg-background text-sm" />
-                    </div>
-                    <label className="inline-flex items-center gap-1.5">
-                      <input type="checkbox" checked={form.iva_incluido} onChange={e => update('iva_incluido', e.target.checked as any)} />
-                      Precio ya incluye IVA (desglosar)
-                    </label>
-                  </>
-                )}
-              </div>
-              {form.iva_exento && <p className="text-[10px] text-muted-foreground italic">Operación exenta — art. 20 LIVA (servicios educativos)</p>}
+            <div className="border border-border rounded-md p-3 bg-muted/10">
+              <Field label="IVA"
+                hint={form.iva_exento ? 'Operación exenta — art. 20 LIVA (servicios educativos).' : undefined}>
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <label className="inline-flex items-center gap-1.5">
+                    <input type="checkbox" checked={form.iva_exento} onChange={e => update('iva_exento', e.target.checked as any)} />
+                    Exento (sin IVA)
+                  </label>
+                  {!form.iva_exento && (
+                    <>
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>%:</span>
+                        <div className="w-24">
+                          <input type="number" min="0" max="100" step="0.01" value={form.iva_pct}
+                            onChange={e => update('iva_pct', e.target.value)}
+                            aria-label="Porcentaje de IVA"
+                            className={inputClass} />
+                        </div>
+                      </div>
+                      <label className="inline-flex items-center gap-1.5">
+                        <input type="checkbox" checked={form.iva_incluido} onChange={e => update('iva_incluido', e.target.checked as any)} />
+                        Precio ya incluye IVA (desglosar)
+                      </label>
+                    </>
+                  )}
+                </div>
+              </Field>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
-                  {useMultiItem ? 'Subtotal items (auto)' : 'Precio base (EUR) *'}
-                </label>
+            <FilaCampos>
+              <Field label={useMultiItem ? 'Subtotal items (auto)' : 'Precio base (EUR)'} required={!useMultiItem}>
                 <input
                   type="number" step="0.01" min="0"
                   value={useMultiItem ? calc.bruto.toFixed(2) : form.importe_total}
@@ -777,9 +793,9 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   className={inputClass + (useMultiItem ? ' bg-muted text-muted-foreground cursor-not-allowed' : '')}
                   required={!useMultiItem}
                 />
-              </div>
-              <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Pago recibido hoy</label>
+              </Field>
+              <Field label="Pago recibido hoy"
+                hint={pagoMode === 'total' ? `Se registrará el pago completo: ${calc.total.toFixed(2)} €` : undefined}>
                 <div className="flex rounded-lg border border-border overflow-hidden text-xs font-semibold">
                   <button type="button" onClick={() => setPagoMode('none')}
                     className={`flex-1 h-9 ${pagoMode === 'none' ? 'bg-muted text-foreground' : 'bg-card text-muted-foreground hover:bg-muted/50'}`}>Sin pago</button>
@@ -806,31 +822,31 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 </div>
                 {pagoMode === 'parcial' && (
                   <input type="number" step="0.01" min="0" value={form.importe_pagado} onChange={e => update('importe_pagado', e.target.value)}
-                    placeholder="¿Cuánto pagó?" className={inputClass + ' mt-1.5'} autoFocus />
+                    placeholder="¿Cuánto pagó?" aria-label="Cuánto pagó hoy" className={inputClass + ' mt-1.5'} autoFocus />
                 )}
-                {pagoMode === 'total' && (
-                  <p className="text-[10px] text-success-soft-foreground mt-1 font-medium">Se registrará el pago completo: {calc.total.toFixed(2)} €</p>
-                )}
-                {/* Con plan fraccionado, el pago inicial necesita su método real
-                    (la factura de ese pago lo usará; 'fraccionado' es el plan). */}
-                {pagoMode !== 'none' && form.metodo_pago === 'fraccionado' && (
-                  <div className="mt-1.5">
-                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Método del pago inicial</label>
-                    <select value={metodoInicial} onChange={(e) => setMetodoInicial(e.target.value as MetodoPago)}
-                      className={inputClass}>
-                      <option value="tarjeta">Tarjeta</option>
-                      <option value="tarjeta_stripe">Tarjeta (Stripe)</option>
-                      <option value="transferencia">Transferencia</option>
-                      <option value="deposito">Depósito bancario</option>
-                      <option value="efectivo">Efectivo</option>
-                      <option value="bizum">Bizum</option>
-                      <option value="paypal">PayPal</option>
-                      <option value="otro">Otro</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
+              </Field>
+            </FilaCampos>
+            {/* Con plan fraccionado, el pago inicial necesita su método real
+                (la factura de ese pago lo usará; 'fraccionado' es el plan). */}
+            {pagoMode !== 'none' && form.metodo_pago === 'fraccionado' && (
+              <Field label="Método del pago inicial">
+                <Select<MetodoPago>
+                  value={metodoInicial}
+                  onChange={setMetodoInicial}
+                  ariaLabel="Método del pago inicial"
+                  options={[
+                    { value: 'tarjeta', label: 'Tarjeta' },
+                    { value: 'tarjeta_stripe', label: 'Tarjeta (Stripe)' },
+                    { value: 'transferencia', label: 'Transferencia' },
+                    { value: 'deposito', label: 'Depósito bancario' },
+                    { value: 'efectivo', label: 'Efectivo' },
+                    { value: 'bizum', label: 'Bizum' },
+                    { value: 'paypal', label: 'PayPal' },
+                    { value: 'otro', label: 'Otro' },
+                  ] as Array<{ value: MetodoPago; label: string }>}
+                />
+              </Field>
+            )}
 
             {/* DESGLOSE */}
             <div className="border border-primary/30 rounded-md p-3 bg-primary/5 space-y-1 text-sm">
@@ -851,15 +867,14 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   <span>IVA ({form.iva_pct}%){form.iva_incluido ? ' incl.' : ''}</span><span className="tabular-nums">{calc.iva.toFixed(2)} €</span>
                 </div>
               )}
-              {form.iva_exento && <div className="text-[10px] text-muted-foreground italic">Operación exenta de IVA</div>}
+              {form.iva_exento && <div className="text-secundario text-muted-foreground">Operación exenta de IVA</div>}
               <div className="flex justify-between font-bold text-base border-t border-border pt-1 mt-1">
                 <span>TOTAL</span><span className="tabular-nums text-primary">{calc.total.toFixed(2)} €</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Metodo de pago</label>
+            <FilaCampos>
+              <Field label="Método de pago">
                 <Select<MetodoPago>
                   value={form.metodo_pago}
                   onChange={(v) => update('metodo_pago', v)}
@@ -871,15 +886,14 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                     .map(m => ({ value: m.value, label: m.label }))}
                   ariaLabel="Método de pago"
                 />
-              </div>
-              <div>
-                {/* Diego, 14/09: «en conversion la fecha de conversion seria fecha de
-                    pago». Es la fecha en la que entro el dinero, que es la que
-                    usan los informes y la que decide de que mes es la venta. */}
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha de pago</label>
+              </Field>
+              {/* Diego, 14/09: «en conversion la fecha de conversion seria fecha de
+                  pago». Es la fecha en la que entro el dinero, que es la que
+                  usan los informes y la que decide de que mes es la venta. */}
+              <Field label="Fecha de pago">
                 <input type="date" value={form.fecha_conversion} onChange={e => update('fecha_conversion', e.target.value)} className={inputClass} />
-              </div>
-            </div>
+              </Field>
+            </FilaCampos>
 
             {form.metodo_pago === 'fraccionado' && (
               <div className="space-y-3 p-3 rounded-lg bg-warning-soft border border-warning/30">
@@ -891,65 +905,68 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                     <button
                       type="button"
                       onClick={() => { setInstallmentsDirty(false); }}
-                      className="text-[10px] text-warning-soft-foreground underline"
+                      className="text-secundario text-warning-soft-foreground underline"
                     >
                       Recalcular automáticamente
                     </button>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
-                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Número de cuotas</label>
+                <FilaCampos>
+                  <Field label="Número de cuotas">
                     <input
                       type="number" min="1" max="60"
                       value={numCuotas}
                       onChange={e => { setNumCuotas(Math.max(1, Number(e.target.value) || 1)); setInstallmentsDirty(false); }}
                       className={inputClass}
                     />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha primera cuota</label>
+                  </Field>
+                  <Field label="Fecha primera cuota">
                     <input
                       type="date"
                       value={fechaPrimeraCuota}
                       onChange={e => { setFechaPrimeraCuota(e.target.value); setInstallmentsDirty(false); }}
                       className={inputClass}
                     />
-                  </div>
-                </div>
+                  </Field>
+                </FilaCampos>
 
                 {installments.length > 0 && (
                   <div className="space-y-1">
-                    <div className="grid grid-cols-[40px_1fr_140px] gap-2 text-[10px] font-bold uppercase text-muted-foreground px-1">
+                    {/* En el móvil cada cuota va en dos líneas (importe arriba,
+                        vencimiento debajo) y la cabecera sobra: los campos dicen
+                        qué son. En pantalla ancha, una línea por cuota (#106). */}
+                    <div className="hidden sm:grid grid-cols-[40px_1fr_140px] gap-2 text-tabla uppercase text-muted-foreground px-1">
                       <span>#</span>
                       <span>Importe (EUR)</span>
                       <span>Vencimiento</span>
                     </div>
                     {installments.map((c, i) => (
-                      <div key={i} className="grid grid-cols-[40px_1fr_140px] gap-2 items-center">
+                      <div key={i} className="grid grid-cols-[2rem_1fr] sm:grid-cols-[40px_1fr_140px] gap-2 items-center">
                         <span className="text-xs font-mono text-muted-foreground">{i + 1}</span>
                         <input
                           type="number" step="0.01" min="0.01"
                           value={c.importe_previsto}
+                          aria-label={`Importe de la cuota ${i + 1}`}
                           onChange={e => {
                             const next = [...installments];
                             next[i] = { ...next[i], importe_previsto: e.target.value };
                             setInstallments(next);
                             setInstallmentsDirty(true);
                           }}
-                          className={inputClass}
+                          className={`${inputClass} min-w-0`}
                         />
                         <input
                           type="date"
                           value={c.fecha_vencimiento}
+                          aria-label={`Vencimiento de la cuota ${i + 1}`}
                           onChange={e => {
                             const next = [...installments];
                             next[i] = { ...next[i], fecha_vencimiento: e.target.value };
                             setInstallments(next);
                             setInstallmentsDirty(true);
                           }}
-                          className={inputClass}
+                          className={`${inputClass} min-w-0 col-start-2 sm:col-start-auto`}
                         />
                       </div>
                     ))}
@@ -958,7 +975,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                       const diff = Math.round((pendienteFrac - suma) * 100) / 100;
                       const ok = Math.abs(diff) <= 0.05;
                       return (
-                        <div className={`text-[11px] font-medium pt-1 ${ok ? 'text-success-soft-foreground' : 'text-destructive'}`}>
+                        <div className={`text-secundario font-medium pt-1 ${ok ? 'text-success-soft-foreground' : 'text-destructive'}`}>
                           Suma cuotas: {suma.toFixed(2)} € — Pendiente a fraccionar: {pendienteFrac.toFixed(2)} €
                           {pagadoInicial > 0 && <span className="text-muted-foreground"> (total {calc.total.toFixed(2)} € − {pagadoInicial.toFixed(2)} € pagado hoy)</span>}
                           {!ok && ` — Diferencia: ${diff.toFixed(2)} €`}
@@ -968,17 +985,16 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   </div>
                 )}
 
-                <div>
-                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Fecha compromiso de pago pendiente (opcional)</label>
+                <Field label="Fecha compromiso de pago pendiente (opcional)">
                   <input type="date" value={form.fecha_compromiso_pago} onChange={e => update('fecha_compromiso_pago', e.target.value)} className={inputClass} />
-                </div>
+                </Field>
               </div>
             )}
 
             {/* Selector de enlace de pago Stripe (CRM-140) */}
             {(productLinks.length > 0 || form.producto_contratado) && (
               <div className="p-3 rounded-lg bg-info-soft border border-info/30 space-y-2">
-                <div className="flex items-center gap-2 text-[11px] font-bold text-info-soft-foreground">
+                <div className="flex items-center gap-2 text-secundario font-bold text-info-soft-foreground">
                   <LinkIcon size={12} weight="bold" /> Enlace de pago para compartir
                 </div>
                 <Select<string>
@@ -1000,7 +1016,8 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                     value={customLink}
                     onChange={(e) => setCustomLink(e.target.value)}
                     placeholder="https://buy.stripe.com/..."
-                    className={inputClass + ' font-mono text-xs'}
+                    aria-label="Enlace de pago personalizado"
+                    className={inputClass + ' font-mono'}
                   />
                 )}
                 {activeLink && (
@@ -1019,17 +1036,16 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   </div>
                 )}
                 {productLinks.length === 0 && form.producto_contratado && (
-                  <p className="text-[10px] text-info-soft-foreground/70 italic">
+                  <p className="px-1 text-secundario text-info-soft-foreground">
                     Este producto no tiene enlaces configurados. Añádelos editando el producto.
                   </p>
                 )}
               </div>
             )}
 
-            <div>
-              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Notas</label>
-              <textarea value={form.notas_pago} onChange={e => update('notas_pago', e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-border bg-muted/50 text-sm outline-none resize-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Notas sobre el acuerdo..." />
-            </div>
+            <Field label="Notas">
+              <textarea value={form.notas_pago} onChange={e => update('notas_pago', e.target.value)} rows={2} className={`${inputClass} h-auto py-2 resize-none`} placeholder="Notas sobre el acuerdo..." />
+            </Field>
 
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onClose} className="h-9 px-4 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
