@@ -77,7 +77,6 @@ import { toast } from '@/shared/hooks/useToast';
 import { getLocalLogo } from '@/shared/lib/projectLogos';
 import { isBetaAllowed, BETA_MODE, BETA_VERSION } from '@/shared/config/betaConfig';
 import { moduloApagado } from '@/shared/lib/modulos';
-import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 
 const ProjectSettingsDialog = lazy(() => import('@/modules/settings/components/ProjectSettingsDialog'));
@@ -142,7 +141,7 @@ export const NAV_SECTIONS = [
           { label: 'Seguimiento de fin de mes', to: '/prospectos/seguimiento', detail: 'La base que no compró', icon: ArrowCounterClockwise },
           { label: 'Proceso comercial', to: '/prospectos/proceso', detail: 'Los cinco pasos', icon: ListChecks },
           // Sin aprobar para producción (07/10): solo en /testeo.
-          ...(SOLO_EN_PRUEBAS ? [{ label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap }] : []),
+          { label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap },
         ],
       },
       // WhatsApp cuelga de su propia entrada, con lo suyo escalonado debajo: son
@@ -190,9 +189,8 @@ export const NAV_SECTIONS = [
   // es solo colaborador. «Por revisar» y «Configurar tablero» se enseñan por
   // permiso (`permiso`), no por rol: lo que se cambie en Configuración › Roles
   // manda también aquí.
-  // Toda la sección, solo en pruebas hasta que Diego la apruebe (07/10): en
-  // producción no sale ni en el menú ni por la dirección.
-  ...(SOLO_EN_PRUEBAS ? [{
+  // Aprobada para producción en la 2.2.0 (Diego, 16/10).
+  {
     label: 'Equipo de Desarrollo',
     icon: Code,
     items: [
@@ -202,7 +200,7 @@ export const NAV_SECTIONS = [
       // «Mi factura» (#202): el colaborador con usuario sube aquí su factura del mes.
       { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador'] },
     ],
-  }] : []),
+  },
   {
     label: 'Captación',
     icon: Funnel,
@@ -271,7 +269,7 @@ export const NAV_SECTIONS = [
       { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', detail: 'Cobros por Stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'factura_manager' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
-      ...(SOLO_EN_PRUEBAS ? [{ label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'] }] : []),
+      { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'] },
       { label: 'Integraciones', to: '/finanzas/integraciones', detail: 'Servicios conectados', icon: PlugsConnected, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
     ],
   },
