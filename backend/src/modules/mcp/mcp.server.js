@@ -5,6 +5,7 @@ import { HERRAMIENTAS } from './mcp.tools.js';
 import * as model from './mcp.model.js';
 import { z } from 'zod';
 import * as desbloqueo from './mcp.desbloqueo.js';
+import * as alertas from './mcp.alertas.js';
 import { protegerDatos, recortarFilas } from './mcp.privacidad.js';
 import { MENSAJE_APAGADO } from './mcp.interruptor.js';
 
@@ -41,7 +42,7 @@ const RESPUESTA_APAGADO = {
   content: [{ type: 'text', text: `${MENSAJE_APAGADO}. ${ACLARACION_APAGADO}` }],
 };
 
-export function crearServidor({ ambito, tokenId, origen = {}, apagado = false }) {
+export function crearServidor({ ambito, tokenId, conexion = null, origen = {}, apagado = false }) {
   const server = new McpServer(
     { name: 'crm-iseih', version: '1.0.0' },
     {
@@ -76,7 +77,7 @@ export function crearServidor({ ambito, tokenId, origen = {}, apagado = false })
           }
           // Segundo factor (#192): con el interruptor encendido, sin desbloquear
           // no sale ningún dato. Se mira en cada llamada contra la base.
-          const barrera = await barreraDeDesbloqueo(tokenId);
+          const barrera = await barreraDeDesbloqueo(tokenId, conexion);
           if (barrera) {
             ok = false;
             error = barrera;
@@ -120,22 +121,29 @@ export function crearServidor({ ambito, tokenId, origen = {}, apagado = false })
   // Solo con el código obligatorio: si no, Claude ve las mismas herramientas
   // que antes y no se le ofrece una que no sirve. Y nunca con el MCP apagado
   // (#196): viéndola, Claude le pedía a la persona un código que no hace falta.
-  if (desbloqueo.config().obligatorio && !apagado) registrarDesbloquear(server, { ambito, tokenId, origen });
+  if (desbloqueo.config().obligatorio && !apagado) registrarDesbloquear(server, { ambito, tokenId, conexion, origen });
   return server;
 }
 
 /**
  * null si se puede consultar; si no, el mensaje que verá Claude.
- * Con el interruptor apagado no mira nada: el MCP sigue como antes.
+ * Con el código apagado no mira nada: el MCP sigue como antes.
+ *
+ * #326: hace falta las DOS cosas en ESTE Claude conectado: que el dueño de la
+ * URL lo haya autorizado y que se haya desbloqueado con el código (o desde el
+ * panel). Sin caducidad por horas. `conexion` la trae mcp.auth.js, leída de la
+ * base en esta misma petición.
  */
-async function barreraDeDesbloqueo(tokenId) {
+async function barreraDeDesbloqueo(tokenId, conexion) {
   if (!desbloqueo.config().obligatorio) return null;
   const estado = await desbloqueo.estadoDeLaConexion(tokenId);
   if (estado.bloqueado) {
     return `Esta conexión está bloqueada hasta las ${horaLocal(estado.bloqueado_hasta)} por fallar el código demasiadas veces.`;
   }
-  if (!estado.desbloqueado) return desbloqueo.MENSAJE_SIN_DESBLOQUEAR;
-  await desbloqueo.marcarUsoDesbloqueo(tokenId);
+  if (!conexion) return desbloqueo.MENSAJE_SIN_DESBLOQUEAR;
+  if (conexion.estado === 'rechazada') return desbloqueo.MENSAJE_RECHAZADA;
+  if (conexion.estado !== 'autorizada') return desbloqueo.MENSAJE_PENDIENTE;
+  if (!conexion.desbloqueada_at) return desbloqueo.MENSAJE_SIN_DESBLOQUEAR;
   return null;
 }
 
@@ -148,7 +156,7 @@ const { horaLocal } = desbloqueo;
  * con MCP_CODIGO_OBLIGATORIO encendido). NUNCA se guarda el código en la
  * auditoría, ni siquiera el que falla.
  */
-function registrarDesbloquear(server, { ambito, tokenId, origen }) {
+function registrarDesbloquear(server, { ambito, tokenId, conexion, origen }) {
   server.registerTool(
     'desbloquear',
     {
@@ -163,13 +171,36 @@ function registrarDesbloquear(server, { ambito, tokenId, origen }) {
       let ok = false;
       let error = null;
       try {
-        const r = await desbloqueo.intentarDesbloqueo({ userId: ambito.userId, tokenId, codigo });
-        const { inactividadMin } = desbloqueo.config();
+        // Sin conexión (no debería pasar: mcp.auth.js ya no deja entrar con la
+        // llave de la URL sola) no hay nada que desbloquear.
+        if (!conexion) {
+          error = 'SIN_CONEXION';
+          return { isError: true, content: [{ type: 'text', text: desbloqueo.MENSAJE_SIN_DESBLOQUEAR }] };
+        }
+        if (conexion.estado === 'rechazada') {
+          error = 'CONEXION_RECHAZADA';
+          return { isError: true, content: [{ type: 'text', text: desbloqueo.MENSAJE_RECHAZADA }] };
+        }
+        const r = await desbloqueo.intentarDesbloqueo({ userId: ambito.userId, tokenId, conexionId: conexion.id, codigo });
         if (r.resultado === 'ok') {
           ok = true;
-          return { content: [{ type: 'text', text:
-            `Desbloqueado. Ya puedes consultar el CRM. Se vuelve a bloquear tras ${inactividadMin / 60} h sin uso `
-            + `o, como muy tarde, a las ${horaLocal(r.caducaMaxAt)}.` }] };
+          // Sin caducidad por horas (#326): vale mientras este Claude siga
+          // autorizado. Si aún no lo está, el código ya queda puesto.
+          return { content: [{ type: 'text', text: conexion.estado === 'autorizada'
+            ? 'Desbloqueado. Ya puedes consultar el CRM. No volverá a pedir el código mientras esta conexión de Claude siga autorizada.'
+            : 'Código correcto. Falta un paso: esta conexión de Claude está pendiente de autorizar. Pide a la persona que la autorice '
+              + 'en el CRM → Conexión → MCP, debajo de su URL; después ya podrás consultar sin volver a pedir el código.' }] };
+        }
+        if (r.resultado === 'de_otra_persona') {
+          // Diego, 13/10: un error propio, para que Claude sepa qué decir, y
+          // la alerta de «URL compartida» a quien vigila. No cuenta como fallo.
+          error = 'CODIGO_DE_OTRA_PERSONA';
+          alertas.alertarUrlCompartida({ tokenId, urlDe: r.urlDe, usadaPor: r.codigoDe });
+          return { isError: true, content: [{ type: 'text', text:
+            `Ese código es de otra persona: esta URL del MCP es de ${r.urlDe.nombre}; usa tu propia URL. `
+            + 'Cada persona tiene su URL y sus códigos, y un código solo vale con la URL de quien lo sacó. '
+            + 'Pide a la persona que conecte su Claude con SU URL (CRM → Conexión → MCP; la pone en Claude, en Configuración → Conectores) '
+            + 'y use allí su código. Este intento no cuenta como fallo.' }] };
         }
         if (r.resultado === 'incorrecto') {
           error = 'CODIGO_INCORRECTO';

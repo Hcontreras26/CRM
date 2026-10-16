@@ -102,6 +102,12 @@ export const TIPOS = {
     clase: AVISO, etiqueta: 'Comentario en tarea', agrupa: false,
     descripcion: 'Cuando alguien comenta en una tarea que tienes asignada o creaste',
   },
+  // MCP (#326): un Claude se ha conectado con tu URL y espera a que lo autorices.
+  // Si no eres tú, es que la URL se ha colado: hay que rechazarlo.
+  mcp_conexion_nueva: {
+    clase: ACCION, etiqueta: 'Claude pide conectarse', agrupa: false,
+    descripcion: 'Un Claude se ha conectado con tu URL del MCP y espera a que lo autorices',
+  },
   venta_automatica: {
     clase: AVISO, etiqueta: 'Venta automática', agrupa: false,
     descripcion: 'Un cobro de Stripe crea o cierra una venta solo',

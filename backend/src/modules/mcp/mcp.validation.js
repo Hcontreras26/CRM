@@ -30,3 +30,8 @@ export const interruptorSchema = z.object({
   apagado: z.boolean(),
   motivo: z.string().trim().max(300).optional(),
 });
+
+// Autorizar o rechazar un Claude conectado a una URL (#326).
+export const decisionSchema = z.object({
+  decision: z.enum(['autorizar', 'rechazar']),
+});
