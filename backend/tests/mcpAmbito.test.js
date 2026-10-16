@@ -154,6 +154,7 @@ const ARGS = {
   listar_formaciones: { texto: 'máster', pagina: 1, limite: 25 },
   resumen_catalogo: {},
   ver_formacion: { id: 5 },
+  actividad_por_comercial: { desde: '2026-09-30', hasta: '2026-09-30' },
 };
 
 const ejecutarTodas = async (ambito, extra = {}, omitir = []) => {
