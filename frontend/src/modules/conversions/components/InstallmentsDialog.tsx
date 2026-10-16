@@ -13,6 +13,10 @@ interface Installment {
   importe_cobrado?: number | null;
   metodo?: string | null;
   metodo_pago?: string | null;
+  // La forma de pago y la referencia del COBRO de la cuota (una cuota saldada
+  // con un abono no siempre tiene su propio `metodo`).
+  pago_metodo?: string | null;
+  pago_referencia?: string | null;
   concepto?: string | null;
   factura_id?: number | null;
   factura_codigo?: string | null;
@@ -46,6 +50,12 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
   const [payImporte, setPayImporte] = useState<string>('');
   const [payFecha, setPayFecha] = useState<string>('');
   const [payMetodo, setPayMetodo] = useState<string>('transferencia');
+  // Al editar, con qué forma de pago llegó: solo se manda si se cambia. Antes el
+  // desplegable salía en «Editar pago» pero no se guardaba; ahora sí, y cambiar
+  // una cuota A transferencia o depósito avisa al webhook de transferencias.
+  const [payMetodoInicial, setPayMetodoInicial] = useState<string>('');
+  const [payReferencia, setPayReferencia] = useState<string>('');
+  const [payReferenciaInicial, setPayReferenciaInicial] = useState<string>('');
   const [payingNow, setPayingNow] = useState(false);
   // Edicion de una cuota que aun no se ha cobrado: fecha e importe.
   //
@@ -217,6 +227,9 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
     setPayImporte(String(inst.importe_previsto));
     setPayFecha(new Date().toISOString().slice(0, 10));
     setPayMetodo(inst.metodo || 'transferencia');
+    setPayMetodoInicial('');
+    setPayReferencia('');
+    setPayReferenciaInicial('');
   }
 
   function handleEditPaid(inst: Installment) {
@@ -225,7 +238,13 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
     setPayMode('edit');
     setPayImporte(String(inst.importe_cobrado || inst.importe_previsto));
     setPayFecha((inst.fecha_cobro || '').slice(0, 10));
-    setPayMetodo(inst.metodo || 'transferencia');
+    // La del cobro, y si no hay, «Sin indicar»: proponer «transferencia» aquí
+    // la guardaría sin que nadie la eligiera.
+    const metodo = inst.pago_metodo || inst.metodo || '';
+    setPayMetodo(metodo);
+    setPayMetodoInicial(metodo);
+    setPayReferencia(inst.pago_referencia || '');
+    setPayReferenciaInicial(inst.pago_referencia || '');
   }
 
   async function handleUnpay(inst: Installment) {
@@ -254,11 +273,17 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
     }
     setPayingNow(true);
     try {
+      const bancario = payMetodo === 'transferencia' || payMetodo === 'deposito';
+      const referencia = bancario && payReferencia.trim() ? payReferencia.trim() : null;
       if (payMode === 'edit') {
-        await conversionsApi.editPaidInstallment(payingInst.id, { importe_cobrado: importe, fecha_cobro: payFecha });
+        await conversionsApi.editPaidInstallment(payingInst.id, {
+          importe_cobrado: importe, fecha_cobro: payFecha,
+          ...(payMetodo !== payMetodoInicial ? { metodo: payMetodo || null } : {}),
+          ...((referencia || '') !== payReferenciaInicial ? { referencia } : {}),
+        });
         toast({ title: 'Pago actualizado', description: `${importe}€ el ${payFecha}` });
       } else {
-        await conversionsApi.payInstallment(payingInst.id, { importe_cobrado: importe, fecha_cobro: payFecha, metodo: payMetodo });
+        await conversionsApi.payInstallment(payingInst.id, { importe_cobrado: importe, fecha_cobro: payFecha, metodo: payMetodo, referencia });
         toast({ title: 'Cuota cobrada', description: `${importe}€ el ${payFecha}` });
       }
       setPayingInst(null);
@@ -540,7 +565,7 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
             </h4>
             <p className="text-xs text-muted-foreground mb-4">
               {payMode === 'edit'
-                ? 'Cambia importe o fecha. Se actualizará el pago y el total cobrado.'
+                ? 'Cambia importe, fecha o forma de pago. Se actualizará el pago y el total cobrado.'
                 : `Importe previsto: ${formatCurrency(payingInst.importe_previsto)}`}
             </p>
             <div className="space-y-3">
@@ -569,7 +594,9 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                   onChange={(e) => setPayMetodo(e.target.value)}
                   className="w-full h-9 px-3 rounded-md border border-border bg-muted/50 text-sm"
                 >
+                  {payMode === 'edit' && payMetodoInicial === '' && <option value="">— Sin indicar —</option>}
                   <option value="transferencia">Transferencia bancaria</option>
+                  <option value="deposito">Depósito bancario</option>
                   <option value="tarjeta">Tarjeta</option>
                   <option value="tarjeta_stripe">Tarjeta (Stripe)</option>
                   <option value="efectivo">Efectivo</option>
@@ -578,6 +605,17 @@ export default function InstallmentsDialog({ conversion, onClose, onSaved }: Pro
                   <option value="otro">Otro</option>
                 </select>
               </div>
+              {(payMetodo === 'transferencia' || payMetodo === 'deposito') && (
+                <div>
+                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Referencia del banco (opcional)</label>
+                  <input
+                    value={payReferencia} maxLength={120}
+                    onChange={(e) => setPayReferencia(e.target.value)}
+                    placeholder="Nº de operación o concepto"
+                    className="w-full h-9 px-3 rounded-md border border-border bg-muted/50 text-sm"
+                  />
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setPayingInst(null)} disabled={payingNow}

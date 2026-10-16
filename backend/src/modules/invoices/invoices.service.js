@@ -47,12 +47,38 @@ export function getDefaultIvaPct(/* pais */) {
   return 0;
 }
 
+// Lo que suman los conceptos (cantidad × precio), antes de IVA.
+//
+// Las dos claves, como en el PDF. Con solo `precio_unitario`, unos conceptos
+// guardados a la antigua daban subtotal 0 y la factura se guardaba en cero sin
+// avisar de nada — un cero silencioso es peor que un error.
+export function subtotalDeConceptos(items) {
+  return (items || []).reduce((s, it) => s + Number(it.cantidad || 1) * Number(it.precio_unitario ?? it.precio ?? 0), 0);
+}
+
+/*
+  LA FACTURA DE UN COBRO VA POR LO COBRADO: EL IVA, DENTRO (15/10).
+
+  Venta 643 de Psiko Aprende. Stripe cobro 412,25 € y la cola saco la factura
+  2026/0196 exenta, por 412,25. Al corregirla para ponerle el 21 %, la pantalla
+  dejo «El precio ya incluye IVA» sin marcar —una factura exenta lo tiene asi—,
+  y el IVA se sumo ENCIMA: 412,25 + 86,57 = 498,82. Y como la correccion
+  sincroniza el cobro con la factura, el cobro paso a 498,82 € y la venta a
+  498,82 cobrados. Un dinero que el cliente no pago.
+
+  Si lo que se teclea en los conceptos es justo lo cobrado, ese es el bruto que
+  pago el cliente: el IVA va dentro (412,25 = 340,70 + 71,55), nunca encima.
+  Quien quiera otro importe lo teclea distinto, y entonces esto no se mete.
+*/
+export function ivaDentroSiEsLoCobrado({ items, ivaPct, ivaIncluido, cobrado }) {
+  if (ivaIncluido) return true;
+  if (!(Number(ivaPct) > 0) || cobrado == null || !Number.isFinite(Number(cobrado))) return false;
+  return Math.abs(subtotalDeConceptos(items) - Number(cobrado)) <= 0.01;
+}
+
 // Calcula importes con o sin IVA incluido
 export function calcularImportes({ items, ivaPct, ivaIncluido }) {
-  // Las dos claves, como en el PDF. Con solo `precio_unitario`, unos conceptos
-  // guardados a la antigua daban subtotal 0 y la factura se guardaba en cero sin
-  // avisar de nada — un cero silencioso es peor que un error.
-  const subtotal = items.reduce((s, it) => s + Number(it.cantidad || 1) * Number(it.precio_unitario ?? it.precio ?? 0), 0);
+  const subtotal = subtotalDeConceptos(items);
   let baseImponible, ivaImporte, total;
   if (ivaIncluido) {
     // El total ya incluye IVA → desglosar
@@ -176,7 +202,8 @@ async function datosDelBanco(inv) {
 export async function generatePDF(invoiceId, { preliminar = false, vistaGestor = false, enEuros = false } = {}) {
   const inv = await model.findById(invoiceId);
   if (!inv) throw new Error('Factura no encontrada');
-  inv.banco = inv.metodo_pago === 'transferencia' ? await datosDelBanco(inv) : null;
+  // Por transferencia o por depósito bancario (15/10): en los dos se paga a la cuenta.
+  inv.banco = ['transferencia', 'deposito'].includes(inv.metodo_pago) ? await datosDelBanco(inv) : null;
   // COPIA DE GESTIÓN de un cobro por Stripe: el alumno recibe la factura por el
   // BRUTO (lo que pagó) y gestión necesita el NETO liquidado (bruto − comisión).
   // Se sustituyen los importes solo para este PDF; en la base de datos no se toca
@@ -402,6 +429,7 @@ export async function generatePDF(invoiceId, { preliminar = false, vistaGestor =
   y -= 30;
   const metodoLabels = {
     transferencia: 'Transferencia bancaria',
+    deposito: 'Depósito bancario',
     tarjeta: 'Tarjeta',
     tarjeta_stripe: 'Tarjeta',   // forma de pago = Tarjeta; Stripe es el ORIGEN, no el método
     efectivo: 'Efectivo',
@@ -504,7 +532,7 @@ export function rotuloNombreCliente(inv) {
 }
 
 const METODO_LABELS = {
-  transferencia: 'Transferencia bancaria', tarjeta: 'Tarjeta', tarjeta_stripe: 'Tarjeta',
+  transferencia: 'Transferencia bancaria', deposito: 'Depósito bancario', tarjeta: 'Tarjeta', tarjeta_stripe: 'Tarjeta',
   efectivo: 'Efectivo', bizum: 'Bizum', paypal: 'PayPal', fraccionado: 'Pago fraccionado', otro: 'Otro',
 };
 
@@ -835,7 +863,7 @@ export async function generarFacturaDePago(projectId, paymentId, userId, { forza
   la factura sale de emitirFacturaDePago, como desde la cola. No se salta el
   orden de la cola porque no gasta numero: el de la proforma ya estaba puesto.
 */
-export async function cobrarProforma(invoiceId, { importe, fecha, metodo, notas }, user) {
+export async function cobrarProforma(invoiceId, { importe, fecha, metodo, notas, referencia }, user) {
   const prof = await model.findById(invoiceId);
   if (!prof) throw new AppError('Esa proforma no existe', 404, 'NOT_FOUND');
   if (prof.tipo !== 'proforma') {
@@ -861,7 +889,9 @@ export async function cobrarProforma(invoiceId, { importe, fecha, metodo, notas 
 
   // Import dinamico: conversion.service ya importa este modulo de la misma forma.
   const conversionService = await import('../conversions/conversion.service.js');
-  const { payment } = await conversionService.addPayment(prof.conversion_id, { importe, fecha, metodo, notas });
+  // Con `userId`: si es por transferencia o depósito, el webhook (206) dice quién lo apuntó.
+  const { payment } = await conversionService.addPayment(
+    prof.conversion_id, { importe, fecha, metodo, notas, referencia }, { userId: user.userId });
   const inv = await model.emitirFacturaDePago(
     prof.conversion_id, { paymentId: payment.id, importe: Number(payment.importe) }, user.userId);
   if (!inv || inv.id !== prof.id) {
