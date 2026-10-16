@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { X, Key, Info, Lock } from '@phosphor-icons/react';
+import { X, Lock } from '@phosphor-icons/react';
 import type { Project, UserRole } from '@/shared/types';
 import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
+import Field from '@/shared/components/ui/Field';
 import { avatarColorFor, getInitials, inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
 import type { AvisoCambioCorreo, CrmUser, Empresa, ProjectAssignment } from '../api/users.api';
@@ -133,12 +134,12 @@ export default function UserFormDialog({
     e.preventDefault();
     // El backend pide 2 caracteres minimo; validarlo aqui evita el viaje.
     if (nombre.trim().length < 2) {
-      toast({ title: 'Nombre demasiado corto', description: 'Mínimo 2 caracteres.', variant: 'destructive' });
+      toast({ title: 'Nombre demasiado corto', description: 'En «Nombre», al menos 2 caracteres.', variant: 'destructive' });
       return;
     }
     if (!esEdicion) {
       if (!EMAIL_RE.test(email.trim())) {
-        toast({ title: 'Email inválido', description: 'Revisa el formato del email.', variant: 'destructive' });
+        toast({ title: 'Email no válido', description: 'Escríbelo en «Email» como nombre@dominio.com.', variant: 'destructive' });
         return;
       }
       // Un admin con una empresa entera ya tiene de dónde le llegan campus,
@@ -160,7 +161,7 @@ export default function UserFormDialog({
     const correoNuevo = email.trim().toLowerCase();
     if (esEdicion && canChangeEmail && correoNuevo !== user!.email.toLowerCase()) {
       if (!EMAIL_RE.test(correoNuevo)) {
-        toast({ title: 'Email inválido', description: 'Revisa el formato del email.', variant: 'destructive' });
+        toast({ title: 'Email no válido', description: 'Escríbelo en «Email» como nombre@dominio.com.', variant: 'destructive' });
         return;
       }
       const aviso = await onCheckEmail().catch(() => null);
@@ -242,8 +243,7 @@ export default function UserFormDialog({
               </div>
             )}
 
-            <div>
-              <label htmlFor="user-nombre" className="text-xs text-muted-foreground mb-1.5 block px-1">Nombre *</label>
+            <Field label="Nombre" required htmlFor="user-nombre">
               <input
                 id="user-nombre"
                 value={nombre}
@@ -253,11 +253,10 @@ export default function UserFormDialog({
                 className={inputClass}
                 required
               />
-            </div>
+            </Field>
 
             {!esEdicion ? (
-              <div>
-                <label htmlFor="user-email" className="text-xs text-muted-foreground mb-1.5 block px-1">Email *</label>
+              <Field label="Email" required htmlFor="user-email">
                 <input
                   id="user-email"
                   value={email}
@@ -267,24 +266,21 @@ export default function UserFormDialog({
                   className={inputClass}
                   required
                 />
-              </div>
+              </Field>
             ) : canChangeEmail ? (
               <div>
-                <label htmlFor="user-email" className="text-xs text-muted-foreground mb-1.5 block px-1">Email *</label>
-                <input
-                  id="user-email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  type="email"
-                  maxLength={255}
-                  className={inputClass}
-                  required
-                />
-                <p className="text-secundario text-muted-foreground mt-1 px-1 flex items-start gap-1">
-                  <Info size={11} className="mt-px flex-shrink-0" />
-                  Es con lo que entra: al cambiarlo, con el viejo ya no podrá, y se cierran sus sesiones.
-                  Se le avisa por correo en la dirección vieja. Si recibe prospectos por Make, cámbialo también allí.
-                </p>
+                <Field label="Email" required htmlFor="user-email"
+                  hint="Es con lo que entra: al cambiarlo, con el viejo ya no podrá, y se cierran sus sesiones. Se le avisa por correo en la dirección vieja. Si recibe prospectos por Make, cámbialo también allí.">
+                  <input
+                    id="user-email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    maxLength={255}
+                    className={inputClass}
+                    required
+                  />
+                </Field>
                 {/* «Reenviar enlace de acceso» al correo nuevo (#246). A un tutor no le
                     sale ningún correo mientras siga el freno: se dice en vez de esconderlo. */}
                 {cambiaCorreo && (
@@ -311,28 +307,19 @@ export default function UserFormDialog({
                 )}
               </div>
             ) : (
-              <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Email</label>
-                <input value={user!.email} readOnly disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
-                <p className="text-secundario text-muted-foreground mt-1 px-1 flex items-start gap-1">
-                  <Info size={11} className="mt-px flex-shrink-0" />
-                  Solo un superadmin puede cambiar el correo.
-                </p>
-              </div>
+              <Field label="Email" disabled htmlFor="user-email-fijo" hint="Solo un superadmin puede cambiar el correo.">
+                <input id="user-email-fijo" value={user!.email} readOnly disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
+              </Field>
             )}
 
-            <div>
-              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Rol *</label>
+            <Field label="Rol" required hint={ASSIGNABLE_ROLES.find((r) => r.value === role)?.hint}>
               <Select<UserRole>
                 value={role}
                 onChange={setRole}
                 options={ASSIGNABLE_ROLES.map((r) => ({ value: r.value, label: r.label }))}
                 ariaLabel="Rol"
               />
-              <p className="text-secundario text-muted-foreground mt-1 px-1">
-                {ASSIGNABLE_ROLES.find((r) => r.value === role)?.hint}
-              </p>
-            </div>
+            </Field>
 
             {/* Y ADEMÁS. Hay quien lleva prospectos y también da clase: antes
                 había que elegir, y lo que no se eligiera se perdía.
@@ -394,7 +381,7 @@ export default function UserFormDialog({
                 rol, asi que para el las casillas no cambian nada y no se pintan. */}
             {(role === 'gestor' || role === 'soporte') && (
               <div className="rounded-lg border border-border p-3 space-y-2">
-                <p className="text-xs text-muted-foreground px-1">Facturación</p>
+                <p className="text-secundario text-muted-foreground px-1">Facturación</p>
                 <label className="flex items-start gap-2 cursor-pointer px-1">
                   <input
                     type="checkbox"
@@ -459,8 +446,7 @@ export default function UserFormDialog({
             )}
 
             {esEdicion && (
-              <div>
-                <label htmlFor="user-tel" className="text-xs text-muted-foreground mb-1.5 block px-1">Teléfono (WhatsApp)</label>
+              <Field label="Teléfono (WhatsApp)" htmlFor="user-tel" hint="Se usa para el widget de WhatsApp y el contacto del gestor.">
                 <input
                   id="user-tel"
                   value={telefono}
@@ -469,10 +455,7 @@ export default function UserFormDialog({
                   maxLength={30}
                   className={inputClass}
                 />
-                <p className="text-secundario text-muted-foreground mt-1 px-1">
-                  Se usa para el widget de WhatsApp y el contacto del gestor.
-                </p>
-              </div>
+              </Field>
             )}
 
             {esEdicion && !canResetPassword && (
@@ -486,10 +469,8 @@ export default function UserFormDialog({
             )}
 
             {esEdicion && canResetPassword && (
-              <div className="border-t border-border pt-3 mt-1">
-                <label htmlFor="user-pass" className="text-xs font-semibold flex items-center gap-1.5 mb-1.5 px-1">
-                  <Key size={12} weight="bold" /> Reiniciar contraseña
-                </label>
+              <Field label="Reiniciar contraseña" htmlFor="user-pass" className="border-t border-border pt-3 mt-1"
+                hint="Mínimo 8 caracteres, con una mayúscula y un número. Se la comunicas tú al usuario. Al cambiarla se cierran sus sesiones activas.">
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     id="user-pass"
@@ -521,11 +502,7 @@ export default function UserFormDialog({
                     {guardandoPass ? '…' : 'Cambiar'}
                   </button>
                 </div>
-                <p className="text-secundario text-muted-foreground mt-1 px-1">
-                  Mínimo 8 caracteres, con una mayúscula y un número. Se la comunicas tú al usuario.
-                  Al cambiarla se cierran sus sesiones activas.
-                </p>
-              </div>
+              </Field>
             )}
 
             <div className="flex justify-end gap-2 pt-2">

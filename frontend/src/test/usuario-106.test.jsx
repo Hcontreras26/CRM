@@ -1,0 +1,57 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+
+/*
+  «Usuario» (alta y edición) con las piezas comunes (#106): había dos estilos
+  de etiqueta en el mismo diálogo, el asterisco escrito a mano en el texto y
+  las ayudas sueltas debajo. Ahora todo es el Field compartido.
+*/
+
+const avisos = vi.hoisted(() => ({ toast: vi.fn() }));
+vi.mock('@/shared/hooks/useToast', () => ({ toast: avisos.toast }));
+vi.mock('@/shared/components/ui/portal', () => ({ default: ({ children }) => children }));
+
+import UserFormDialog from '@/modules/users/components/UserFormDialog';
+
+const base = {
+  projects: [], canResetPassword: true, canChangeEmail: true, loading: false,
+  onClose: vi.fn(), onSubmit: vi.fn(), onCheckEmail: vi.fn().mockResolvedValue(null), onResetPassword: vi.fn(),
+};
+const usuario = { id: 4, nombre: 'Laura', email: 'laura@empresa.com', role: 'gestor', projects: [] };
+
+describe('Usuario (#106)', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('alta: nombre, email y rol con el Field común, marcados como obligatorios', () => {
+    render(<UserFormDialog {...base} user={null} />);
+    expect(screen.getByLabelText(/^Nombre/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
+    expect(screen.getAllByText('(obligatorio)')).toHaveLength(3);
+    // El asterisco ya no va escrito dentro del texto de la etiqueta.
+    expect(screen.queryByText('Nombre *')).toBeNull();
+  });
+
+  it('todas las etiquetas con el mismo estilo (antes había dos)', () => {
+    const { container } = render(<UserFormDialog {...base} user={usuario} />);
+    const estilos = new Set([...container.querySelectorAll('label[for]')].map((l) => l.className));
+    expect(estilos.size).toBe(1);
+  });
+
+  it('las ayudas van con su campo: la del correo, la del teléfono y la de la contraseña', () => {
+    render(<UserFormDialog {...base} user={usuario} />);
+    const ayudaDe = (campo) => campo.closest('div.min-w-0').textContent;
+    expect(ayudaDe(screen.getByLabelText(/^Email/))).toMatch(/Es con lo que entra/);
+    expect(ayudaDe(screen.getByLabelText('Teléfono (WhatsApp)'))).toMatch(/widget de WhatsApp/);
+    expect(ayudaDe(screen.getByLabelText('Reiniciar contraseña'))).toMatch(/Mínimo 8 caracteres/);
+  });
+
+  it('el aviso del correo dice cómo escribirlo', () => {
+    render(<UserFormDialog {...base} user={null} />);
+    fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: 'Ana Test' } });
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ana@' } });
+    fireEvent.submit(screen.getByLabelText(/^Nombre/).closest('form'));
+    expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Email no válido', description: expect.stringMatching(/nombre@dominio\.com/),
+    }));
+  });
+});
