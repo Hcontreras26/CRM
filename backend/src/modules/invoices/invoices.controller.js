@@ -235,10 +235,21 @@ export async function corregir(req, res, next) {
       throw new AppError('Solo puedes editar tus propias facturas.', 403, 'FORBIDDEN');
     }
     const d = { ...(req.body || {}) };
+    // La factura tal como esta: hace falta para saber de que cobro es y, mas
+    // abajo, para el signo de un abono.
+    const actual = await model.findById(id);
     // Exento → IVA 0. Si no, se recalcula con el pct indicado sobre las líneas.
     if (Array.isArray(d.items)) {
       const exento = d.exento === true || Number(d.ivaPct) === 0;
       const ivaPct = exento ? 0 : (d.ivaPct ?? 0);
+      // La factura de un cobro va por lo cobrado (15/10, venta 643): si los
+      // conceptos suman justo lo cobrado, el IVA va dentro y no encima.
+      if (!d.ivaIncluido && Number(ivaPct) > 0 && actual?.payment_id && actual.tipo === 'normal') {
+        const cobro = await model.cobroDeLaFactura(id);
+        if (service.ivaDentroSiEsLoCobrado({ items: d.items, ivaPct, ivaIncluido: false, cobrado: cobro?.importe })) {
+          d.ivaIncluido = true;
+        }
+      }
       const { baseImponible, ivaImporte, total } = service.calcularImportes({ items: d.items, ivaPct, ivaIncluido: d.ivaIncluido });
       d.baseImponible = baseImponible; d.ivaImporte = ivaImporte; d.total = total; d.ivaPct = ivaPct;
       d.leyendaIva = exento ? (d.leyendaIva || 'Operación exenta de IVA conforme a la normativa aplicable.') : (ivaPct === 0 ? d.leyendaIva : null);
@@ -260,7 +271,6 @@ export async function corregir(req, res, next) {
     // y es lo que se ve en el papel— pero el dato tiene que seguir restando en
     // los informes. Se fuerza aqui y no en la pantalla: asi da igual desde donde
     // llegue la correccion, el signo nunca depende de que el cliente acierte.
-    const actual = await model.findById(id);
     if (actual?.tipo === 'rectificativa') {
       const neg = (n) => -Math.abs(Number(n || 0));
       if (Array.isArray(d.items)) {
