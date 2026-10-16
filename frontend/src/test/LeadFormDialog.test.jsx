@@ -15,8 +15,12 @@ vi.mock('@/contexts/AuthContext', () => ({
   }),
 }));
 
+// La vista de todos los proyectos se pide en una prueba concreta (#106).
+const vista = vi.hoisted(() => ({ todos: false }));
 vi.mock('@/contexts/ProjectContext', () => ({
-  useProjectContext: () => ({ activeProject: { id: 1, nombre: 'Test Project', producto_label: 'Producto' } }),
+  useProjectContext: () => (vista.todos
+    ? { activeProject: { id: -1 }, isAllProjects: true, projects: [{ id: 1, nombre: 'Psiko' }, { id: 2, nombre: 'ISEIH' }] }
+    : { activeProject: { id: 1, nombre: 'Test Project', producto_label: 'Producto' } }),
 }));
 
 vi.mock('@/modules/products/hooks/useProducts', () => ({
@@ -55,7 +59,7 @@ vi.mock('@/modules/leads/components/ProductCombobox', () => ({
 import LeadFormDialog from '@/modules/leads/components/LeadFormDialog';
 
 describe('LeadFormDialog', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { vi.clearAllMocks(); vista.todos = false; });
 
   it('no renderiza nada cuando open=false', () => {
     const onSubmit = vi.fn();
@@ -125,8 +129,33 @@ describe('LeadFormDialog', () => {
 
     await waitFor(() => {
       // Mensaje del schema de Zod
-      expect(screen.getByText(/Email no valido/i)).toBeInTheDocument();
+      expect(screen.getByText(/Email no válido: escríbelo como nombre@dominio.com/i)).toBeInTheDocument();
     });
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+  // #106: el aviso de «forma de contacto» viene del esquema sin campo y no se
+  // pintaba en ningún sitio: al pulsar «Crear» no pasaba nada.
+  it('sin ninguna forma de contacto, dice que falta y no crea', async () => {
+    const onSubmit = vi.fn();
+    const { container } = render(<LeadFormDialog open onClose={vi.fn()} onSubmit={onSubmit} />);
+    fireEvent.input(container.querySelector('input[name="nombre"]'), { target: { value: 'Juan' } });
+    fireEvent.submit(container.querySelector('form'));
+    const aviso = await screen.findByText(/Hace falta al menos una forma de contacto/i);
+    expect(aviso).toHaveAttribute('role', 'alert');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  // #106: con «Todos los proyectos», el proyecto se elige con el desplegable del
+  // CRM; sin elegirlo, se dice debajo en vez de no hacer nada.
+  it('en la vista de todos los proyectos, sin proyecto elegido, lo pide', async () => {
+    vista.todos = true;
+    const onSubmit = vi.fn();
+    const { container } = render(<LeadFormDialog open onClose={vi.fn()} onSubmit={onSubmit} />);
+    expect(container.querySelector('select')).toBeNull();
+    fireEvent.input(container.querySelector('input[name="nombre"]'), { target: { value: 'Juan' } });
+    fireEvent.input(container.querySelector('input[name="telefono"]'), { target: { value: '600123456' } });
+    fireEvent.submit(container.querySelector('form'));
+    expect(await screen.findByText(/Elige el proyecto antes de crear el prospecto/i)).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
