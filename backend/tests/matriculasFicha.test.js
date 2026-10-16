@@ -8,7 +8,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'secreto-de-pruebas';
 
-const model = { findById: vi.fn(), update: vi.fn(), setEstado: vi.fn(), registrarEvento: vi.fn(), historial: vi.fn(), remove: vi.fn() };
+const almacen = vi.hoisted(() => ({ deleteLocal: vi.fn(async () => {}) }));
+const model = { findById: vi.fn(), update: vi.fn(), setEstado: vi.fn(), registrarEvento: vi.fn(), historial: vi.fn(), remove: vi.fn(),
+  conTransaccion: vi.fn(async (fn) => fn('db-falso')) };
 vi.mock('../src/modules/matriculas/matricula.model.js', () => model);
 // Los campus de cada persona, para la comprobación del ámbito: Mireia es admin de CEDIA (campus 1).
 vi.mock('../src/shared/config/db.js', () => ({
@@ -19,7 +21,7 @@ vi.mock('../src/shared/config/db.js', () => ({
       : { rows: [] })),
 }));
 vi.mock('../src/shared/services/localStorage.service.js', () => ({
-  getLocal: vi.fn(), saveLocal: vi.fn(async () => {}), deleteLocal: vi.fn(),
+  getLocal: vi.fn(), saveLocal: vi.fn(async () => {}), deleteLocal: almacen.deleteLocal,
 }));
 
 const { updateSchema, setEstadoSchema } = await import('../src/modules/matriculas/matricula.validation.js');
@@ -84,7 +86,7 @@ describe('la ficha no se queda sin nombre', () => {
 describe('el historial de cada matrícula', () => {
   it('cada cambio de estado queda apuntado, con quién', async () => {
     await llamar(ctrl.setEstado, { params: { id: '5' }, body: { estado: 'datos_validados', motivo_rechazo: null } });
-    expect(model.registrarEvento).toHaveBeenCalledWith({ matriculaId: 5, evento: 'estado', estado: 'datos_validados', motivo: null, userId: 2 });
+    expect(model.registrarEvento).toHaveBeenCalledWith({ matriculaId: 5, evento: 'estado', estado: 'datos_validados', motivo: null, userId: 2, db: 'db-falso' });
   });
 
   it('un rechazo queda con su motivo', async () => {
@@ -96,7 +98,7 @@ describe('el historial de cada matrícula', () => {
   it('cada documento subido queda apuntado, y si sustituye a otro', async () => {
     model.findById.mockResolvedValue({ ...CON_NOMBRE, dni_doc_key: 'matriculas/1/viejo.jpg' });
     await llamar(ctrl.uploadDoc, { params: { id: '5', tipo: 'dni' }, file: { originalname: 'dni.jpg', buffer: Buffer.from('x') } });
-    expect(model.registrarEvento).toHaveBeenCalledWith({ matriculaId: 5, evento: 'documento', documento: 'dni', reemplazo: true, userId: 2 });
+    expect(model.registrarEvento).toHaveBeenCalledWith({ matriculaId: 5, evento: 'documento', documento: 'dni', reemplazo: true, userId: 2, db: 'db-falso' });
   });
 
   it('la ficha trae el historial', async () => {
@@ -112,7 +114,7 @@ describe('el DNI por detrás y la foto', () => {
     const { error } = await llamar(ctrl.uploadDoc, { params: { id: '5', tipo }, file: { originalname: 'x.png', buffer: Buffer.from('x') } });
     expect(error).toBeNull();
     const guardado = model.update.mock.calls[0][1];
-    expect(guardado[clave]).toMatch(new RegExp(`^matriculas/1/m-5-${tipo}-[0-9a-f]+\.png$`));
+    expect(guardado[clave]).toMatch(new RegExp(`^matriculas/1/m-5-${tipo}-[0-9a-f]+\\.png$`));
     expect(guardado[url]).toMatch(new RegExp(`^/api/matriculas/5/doc/${tipo}`));
   });
 
@@ -185,5 +187,33 @@ describe('crear una matrícula, solo en tus campus', () => {
     const { error } = await llamar(ctrl.create, { user: MIREIA, body: { project_id: 1 } });
     expect(error).toBeNull();
     expect(model.create).toHaveBeenCalledWith(expect.objectContaining({ project_id: 1, user_id: 34 }));
+  });
+});
+
+// Revisión independiente del 15/10: el documento viejo no se pierde si falla el guardado.
+describe('reemplazar un documento sin perder el viejo', () => {
+  beforeEach(() => { almacen.deleteLocal.mockClear(); });
+
+  it('si todo va bien, se borra el viejo (después de apuntar el nuevo)', async () => {
+    model.findById.mockResolvedValue({ ...CON_NOMBRE, dni_doc_key: 'matriculas/1/viejo.jpg' });
+    const { error } = await llamar(ctrl.uploadDoc, { params: { id: '5', tipo: 'dni' }, file: { originalname: 'dni.jpg', buffer: Buffer.from('x') } });
+    expect(error).toBeNull();
+    expect(almacen.deleteLocal).toHaveBeenCalledWith('matriculas/1/viejo.jpg');
+  });
+
+  it('si falla el guardado, el viejo se queda y el nuevo se quita', async () => {
+    model.findById.mockResolvedValue({ ...CON_NOMBRE, dni_doc_key: 'matriculas/1/viejo.jpg' });
+    model.conTransaccion.mockRejectedValueOnce(new Error('se cayó la base'));
+    const { error } = await llamar(ctrl.uploadDoc, { params: { id: '5', tipo: 'dni' }, file: { originalname: 'dni.jpg', buffer: Buffer.from('x') } });
+    expect(error?.message).toBe('se cayó la base');
+    expect(almacen.deleteLocal).not.toHaveBeenCalledWith('matriculas/1/viejo.jpg');
+    expect(almacen.deleteLocal).toHaveBeenCalledWith(expect.stringMatching(/^matriculas\/1\/m-5-dni-[0-9a-f]+\.jpg$/));
+  });
+
+  it('el cambio de estado y su historial van en la misma transacción', async () => {
+    await llamar(ctrl.setEstado, { params: { id: '5' }, body: { estado: 'validada', motivo_rechazo: null } });
+    expect(model.conTransaccion).toHaveBeenCalled();
+    expect(model.setEstado.mock.calls[0][4]).toBe('db-falso');
+    expect(model.registrarEvento.mock.calls[0][0].db).toBe('db-falso');
   });
 });

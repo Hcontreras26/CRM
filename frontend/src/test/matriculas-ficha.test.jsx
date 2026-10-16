@@ -110,7 +110,7 @@ describe('la ficha en panel lateral, como la de los prospectos', () => {
     expect(screen.getByLabelText('Subir Foto')).toBeTruthy();
     expect(screen.queryByText(/llega con el formulario/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Ver DNI (delante)' }));
-    expect(screen.getByRole('dialog', { name: 'Visor: DNI (delante)' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Visor: DNI (delante)' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar visor' }));
     expect(screen.queryByRole('dialog', { name: /Visor/ })).toBeNull();
     // Una imagen que no carga: el texto de Diego.
@@ -128,7 +128,7 @@ describe('la ficha en panel lateral, como la de los prospectos', () => {
     get.mockImplementation(async () => ({ success: true, data: conPdf }));
     abrir(conPdf);
     fireEvent.click(screen.getByRole('button', { name: 'Ver DNI (delante)' }));
-    expect(screen.getByTitle('DNI (delante)').tagName).toBe('IFRAME');
+    expect((await screen.findByTitle('DNI (delante)')).tagName).toBe('IFRAME');
   });
 
   it('vínculos: su prospecto, su venta y su gestora', async () => {
@@ -159,5 +159,49 @@ describe('detalles de la ficha', () => {
     abrir(conTitulo);
     fireEvent.error(screen.getByAltText('Título'));
     expect(screen.getByText('No se pudo abrir el título. Vuelve a intentarlo; si sigue, súbelo de nuevo.')).toBeTruthy();
+  });
+});
+
+describe('lo que salió en la revisión de la ficha', () => {
+  it('el visor pide un enlace nuevo antes de abrirse (los firmados caducan a los 15 minutos)', async () => {
+    abrir();
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+    get.mockImplementation(async () => ({ success: true, data: { ...FICHA, dni_doc_url: '/api/matriculas/1/doc/dni?exp=2&sig=nueva' } }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ver DNI (delante)' }));
+    const visor = await screen.findByRole('dialog', { name: 'Visor: DNI (delante)' });
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(visor.querySelector('img').getAttribute('src')).toBe('/crm/api/matriculas/1/doc/dni?exp=2&sig=nueva');
+  });
+
+  it('«Reintentar» vuelve a pedir la ficha y quita el aviso', async () => {
+    abrir();
+    fireEvent.error(screen.getByAltText('DNI (delante)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    await waitFor(() => expect(screen.queryByText(/No se pudo abrir el DNI \(delante\)/)).toBeNull());
+    expect(screen.getByAltText('DNI (delante)')).toBeTruthy();
+  });
+
+  it('con la ventana de «Rechazar» encima, Esc no cierra la ficha', () => {
+    const onClose = vi.fn();
+    render(<MemoryRouter><MatriculaDetail matricula={FICHA} onClose={onClose} onChange={() => {}} onEstado={vi.fn()} pausada /></MemoryRouter>);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('sin ventana encima, Esc la cierra', () => {
+    const onClose = vi.fn();
+    render(<MemoryRouter><MatriculaDetail matricula={FICHA} onClose={onClose} onChange={() => {}} onEstado={vi.fn()} /></MemoryRouter>);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('lo escrito en «A mano» no lo pisa la ficha que llega del servidor', async () => {
+    let soltar;
+    get.mockImplementation(() => new Promise((r) => { soltar = () => r({ success: true, data: { ...FICHA, notas: 'del servidor' } }); }));
+    abrir();
+    fireEvent.change(screen.getByRole('textbox', { name: /Notas/i }), { target: { value: 'lo que escribo' } });
+    soltar();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.getByRole('textbox', { name: /Notas/i }).value).toBe('lo que escribo');
   });
 });

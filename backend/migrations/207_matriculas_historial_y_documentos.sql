@@ -55,7 +55,9 @@ DECLARE r text;
 BEGIN
   FOREACH r IN ARRAY ARRAY['crm_user', 'crm_iseie_user'] LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
-      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON matriculas_eventos TO %I', r);
+      -- Solo leer y añadir: el historial no se edita ni se borra (al borrar la
+      -- matrícula, sus líneas se van en cascada, sin necesitar este permiso).
+      EXECUTE format('GRANT SELECT, INSERT ON matriculas_eventos TO %I', r);
       EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE matriculas_eventos_id_seq TO %I', r);
     END IF;
   END LOOP;

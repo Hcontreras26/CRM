@@ -32,7 +32,7 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'secreto-de-pruebas';
 
 // Los dobles van AQUI y no dentro de un `describe`: `vi.mock` se eleva al
 // principio del fichero, asi que no puede usar nada declarado mas abajo.
-const model = { findById: vi.fn(), update: vi.fn(), registrarEvento: vi.fn(), historial: vi.fn(async () => []) };
+const model = { findById: vi.fn(), update: vi.fn(), registrarEvento: vi.fn(), historial: vi.fn(async () => []), conTransaccion: vi.fn(async (fn) => fn(null)) };
 vi.mock('../src/modules/matriculas/matricula.model.js', () => model);
 vi.mock('../src/shared/services/localStorage.service.js', () => ({
   getLocal: vi.fn(async () => ({ buffer: Buffer.from('imagen') })),

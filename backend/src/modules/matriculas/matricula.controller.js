@@ -65,10 +65,12 @@ export async function list(req, res, next) {
       page: parseInt(req.query.page) || 1,
       limit: parseInt(req.query.limit) || 50,
     });
-    const stats = await model.getStats(ambito);
-    // Los cursos del ámbito, para el desplegable «Curso» de los filtros.
+    // Las cifras, del ámbito y, si se filtra uno, de ese campus (que cuadren con la lista).
+    const stats = await model.getStats({ ...ambito, campusId: parseInt(req.query.campusId) || null });
+    // Los cursos y los campus del ámbito, para los desplegables de los filtros.
     const cursos = await model.getCursos(ambito);
-    res.json({ success: true, data: data.matriculas.map((m) => conQueDocumentos(conDocumentosFirmados(m))), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats, cursos });
+    const campus = await model.getCampus(ambito);
+    res.json({ success: true, data: data.matriculas.map((m) => conQueDocumentos(conDocumentosFirmados(m))), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats, cursos, campus });
   } catch (err) { next(err); }
 }
 
@@ -125,12 +127,16 @@ export async function setEstado(req, res, next) {
       throw new AppError('motivo_rechazo requerido al rechazar', 400, 'MOTIVO_REQUIRED');
     }
     await matriculaDeMiAmbito(req);
-    const updated = await model.setEstado(parseInt(req.params.id), parsed.data.estado, req.user.userId, parsed.data.motivo_rechazo);
-    if (!updated) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
-    // Cada cambio, en el historial (#199): el estado nuevo, quién y, si es un rechazo, el motivo.
-    await model.registrarEvento({
-      matriculaId: updated.id, evento: 'estado', estado: parsed.data.estado,
-      motivo: parsed.data.estado === 'rechazada' ? parsed.data.motivo_rechazo : null, userId: req.user.userId,
+    // El cambio y su línea del historial, juntos o ninguno: el estado nuevo,
+    // quién y, si es un rechazo, el motivo (#199).
+    const updated = await model.conTransaccion(async (db) => {
+      const fila = await model.setEstado(parseInt(req.params.id), parsed.data.estado, req.user.userId, parsed.data.motivo_rechazo, db);
+      if (!fila) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
+      await model.registrarEvento({
+        matriculaId: fila.id, evento: 'estado', estado: parsed.data.estado,
+        motivo: parsed.data.estado === 'rechazada' ? parsed.data.motivo_rechazo : null, userId: req.user.userId, db,
+      });
+      return fila;
     });
     res.json({ success: true, data: await fichaCompleta(updated.id) });
   } catch (err) { next(err); }
@@ -190,13 +196,25 @@ export async function uploadDoc(req, res, next) {
     const keyMap = CLAVE;
     const urlMap = URL_DOC;
     const oldKey = m[keyMap[tipo]];
-    if (oldKey) { try { await deleteLocal(oldKey); } catch {} }
     const key = `matriculas/${m.project_id}/m-${m.id}-${tipo}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
     await saveLocal(key, req.file.buffer);
     const url = `/api/matriculas/${m.id}/doc/${tipo}?v=${Date.now()}`;
-    const updated = await model.update(m.id, { [keyMap[tipo]]: key, [urlMap[tipo]]: url });
-    // En el historial: qué documento y si sustituye a otro (#199).
-    await model.registrarEvento({ matriculaId: m.id, evento: 'documento', documento: tipo, reemplazo: !!oldKey, userId: req.user?.userId || null });
+    // El documento y su línea del historial (qué documento y si sustituye a otro), juntos (#199).
+    let updated;
+    try {
+      updated = await model.conTransaccion(async (db) => {
+        const fila = await model.update(m.id, { [keyMap[tipo]]: key, [urlMap[tipo]]: url }, db);
+        await model.registrarEvento({ matriculaId: m.id, evento: 'documento', documento: tipo, reemplazo: !!oldKey, userId: req.user?.userId || null, db });
+        return fila;
+      });
+    } catch (err) {
+      // No ha quedado apuntado: fuera el archivo nuevo, y el viejo sigue valiendo.
+      try { await deleteLocal(key); } catch {}
+      throw err;
+    }
+    // El viejo se borra solo cuando el nuevo ya está apuntado (antes se borraba
+    // primero, y si fallaba el guardado se perdía el documento).
+    if (oldKey) { try { await deleteLocal(oldKey); } catch {} }
     // Firmada tambien aqui: la ficha pinta esta respuesta tal cual, y sin firma
     // «Ver documento» daria 403 justo despues de subirlo.
     // Releída con su prospecto: la ficha pinta esta respuesta tal cual, y sin el

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import client, { API_BASE_URL } from '@/shared/api/client';
 import Portal from '@/shared/components/ui/portal';
@@ -54,6 +54,8 @@ interface Props {
   onChange: () => void;
   // Sin permiso para editar no llega: la botonera entera desaparece.
   onEstado?: (m: Matricula, estado: string) => void;
+  /** Hay otra ventana encima (la de «Rechazar»): Esc es suyo, no de la ficha. */
+  pausada?: boolean;
 }
 
 /**
@@ -124,30 +126,62 @@ const conArticulo = (nombre: string) => {
   return /^(Foto|Firma)/.test(nombre) ? `la ${nombre.toLowerCase()}` : `el ${nombre.toLowerCase()}`;
 };
 
-export default function MatriculaDetail({ matricula, onClose, onChange, onEstado }: Props) {
+export default function MatriculaDetail({ matricula, onClose, onChange, onEstado, pausada = false }: Props) {
   const [m, setM] = useState<Matricula>(matricula);
+  // Si ya se ha escrito en «A mano», lo que llegue del servidor no lo pisa.
+  const tocado = useRef(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [visor, setVisor] = useState<{ nombre: string; url: string; formato: 'pdf' | 'imagen' } | null>(null);
   const [fallidos, setFallidos] = useState<Record<string, boolean>>({});
 
-  // La ficha completa (gestora, enlaces firmados recién hechos…) al abrirla.
+  /** La ficha completa (gestora, historial y enlaces firmados recién hechos), sin pisar lo escrito a mano. */
+  const conservarLoEscrito = (nueva: Matricula) => setM((antes) => (tocado.current
+    ? { ...nueva, dni: antes.dni, titulo: antes.titulo, notas: antes.notas }
+    : nueva));
+  async function recargar(): Promise<Matricula | null> {
+    try {
+      const res = await client.get(`/matriculas/${matricula.id}`);
+      if (res?.success && (res.data as Matricula)?.id) { conservarLoEscrito(res.data as Matricula); return res.data as Matricula; }
+    } catch { /* se queda con lo que hay */ }
+    return null;
+  }
+
+  // Al abrirla.
   useEffect(() => {
     let vivo = true;
     client.get(`/matriculas/${matricula.id}`)
-      .then((res) => { if (vivo && res?.success && (res.data as Matricula)?.id) setM(res.data as Matricula); })
+      .then((res) => { if (vivo && res?.success && (res.data as Matricula)?.id) conservarLoEscrito(res.data as Matricula); })
       .catch(() => { /* se queda con la de la lista */ });
     return () => { vivo = false; };
   }, [matricula.id]);
 
+  /**
+   * El visor, siempre con un enlace recién firmado: los enlaces duran 15
+   * minutos, y con la ficha abierta más tiempo el de la miniatura ya no vale.
+   */
+  async function abrirVisor(nombre: string, tipo: string, campo: string) {
+    const fresca = await recargar();
+    const guardada = ((fresca || m)[campo] as string | undefined) || '';
+    if (!guardada) return;
+    const formato = (fresca || m).documentos_formato?.[tipo] === 'pdf' ? 'pdf' : 'imagen';
+    setVisor({ nombre, url: urlDelDocumento(guardada), formato });
+  }
+
+  /** «Vuelve a intentarlo»: enlaces nuevos y el documento, otra vez. */
+  async function reintentar(tipo: string) {
+    await recargar();
+    setFallidos((f) => ({ ...f, [tipo]: false }));
+  }
+
   // Cerrar con Esc (primero el visor, si está abierto).
   useEffect(() => {
     const alPulsar = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || pausada) return;
       if (visor) setVisor(null); else onClose();
     };
     document.addEventListener('keydown', alPulsar);
     return () => document.removeEventListener('keydown', alPulsar);
-  }, [visor, onClose]);
+  }, [visor, onClose, pausada]);
 
   async function handleUpload(tipo: string, file?: File) {
     if (!file) return;
@@ -169,7 +203,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
   async function handleSaveCampos() {
     try {
       const res = await client.patch(`/matriculas/${m.id}`, { dni: m.dni || null, titulo: m.titulo || null, notas: m.notas || null });
-      if (res.success) { setM(res.data as Matricula); toast({ title: 'Guardado' }); onChange(); }
+      if (res.success) { tocado.current = false; setM(res.data as Matricula); toast({ title: 'Guardado' }); onChange(); }
     } catch (err: any) { toast({ title: 'Error', description: err?.data?.error, variant: 'destructive' }); }
   }
 
@@ -258,7 +292,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
                     <div key={clave} className="border border-border rounded-xl p-2.5 space-y-2">
                       <p className="text-[11px] font-bold uppercase text-muted-foreground">{nombre}</p>
                       {url && !fallo ? (
-                        <button type="button" onClick={() => setVisor({ nombre, url, formato: formato === 'pdf' ? 'pdf' : 'imagen' })}
+                        <button type="button" onClick={() => abrirVisor(nombre, tipo, campo)}
                           aria-label={`Ver ${nombre}`}
                           className="block w-full h-24 rounded-lg overflow-hidden bg-muted/40 hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/40">
                           {formato === 'pdf' ? (
@@ -269,7 +303,13 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
                           )}
                         </button>
                       ) : fallo ? (
-                        <p className="text-xs text-destructive">No se pudo abrir {conArticulo(nombre)}. Vuelve a intentarlo; si sigue, súbelo de nuevo.</p>
+                        <div className="space-y-1.5">
+                          <p className="text-xs text-destructive">No se pudo abrir {conArticulo(nombre)}. Vuelve a intentarlo; si sigue, súbelo de nuevo.</p>
+                          <button type="button" onClick={() => reintentar(tipo)}
+                            className="w-full px-2 py-1 rounded border border-border text-[11px] font-bold hover:bg-muted">
+                            Reintentar
+                          </button>
+                        </div>
                       ) : (
                         <p className="text-xs text-muted-foreground">Falta</p>
                       )}
@@ -308,7 +348,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Historial</h3>
               {historial.length ? (
                 <ol className="space-y-1.5 text-sm">
-                  {historial.map((h) => <li key={h} className="pl-3 border-l-2 border-border">{h}</li>)}
+                  {historial.map((h, i) => <li key={i} className="pl-3 border-l-2 border-border">{h}</li>)}
                 </ol>
               ) : <p className="text-sm text-muted-foreground">Sin movimientos.</p>}
             </section>
@@ -319,16 +359,16 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
               <div className="grid grid-cols-2 gap-3">
                 <label className="block text-xs">
                   <span className="font-bold uppercase text-muted-foreground">DNI</span>
-                  <input value={m.dni || ''} onChange={e => setM({ ...m, dni: e.target.value })} className={CAMPO} />
+                  <input value={m.dni || ''} onChange={e => { tocado.current = true; setM({ ...m, dni: e.target.value }); }} className={CAMPO} />
                 </label>
                 <label className="block text-xs">
                   <span className="font-bold uppercase text-muted-foreground">Título</span>
-                  <input value={m.titulo || ''} onChange={e => setM({ ...m, titulo: e.target.value })} className={CAMPO} />
+                  <input value={m.titulo || ''} onChange={e => { tocado.current = true; setM({ ...m, titulo: e.target.value }); }} className={CAMPO} />
                 </label>
               </div>
               <label className="block text-xs">
                 <span className="font-bold uppercase text-muted-foreground">Notas</span>
-                <textarea value={m.notas || ''} onChange={e => setM({ ...m, notas: e.target.value })} rows={2}
+                <textarea value={m.notas || ''} onChange={e => { tocado.current = true; setM({ ...m, notas: e.target.value }); }} rows={2}
                   className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
               </label>
               <button onClick={handleSaveCampos}

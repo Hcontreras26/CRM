@@ -72,10 +72,9 @@ function Venta({ conversionId }: { conversionId?: number | null }) {
 }
 
 export default function MatriculasPage() {
-  const { activeProject, activeIssuerId, activeIssuer, projects } = useProjectContext() as {
+  const { activeProject, activeIssuerId, activeIssuer } = useProjectContext() as {
     activeProject: { id?: number | null; nombre?: string } | null;
     activeIssuerId: number | null; activeIssuer: { nombre?: string } | null;
-    projects: Array<{ id: number; nombre?: string; sociedad_emisora_id?: number | null }> | null;
   };
   // El listado va por campus, por empresa o con «Todos» (#199: «por empresa y con
   // "Todos los proyectos", como el resto del CRM»). Los webhooks no: se montan
@@ -83,7 +82,7 @@ export default function MatriculasPage() {
   const campusElegido = !activeIssuerId && activeProject?.id && activeProject.id !== TODOS_LOS_PROYECTOS ? activeProject : null;
   const nombreAmbito = activeIssuerId ? (activeIssuer?.nombre || 'esta empresa')
     : campusElegido ? (campusElegido.nombre || 'este campus') : 'todos los campus';
-  const { can, tieneRol } = usePermission();
+  const { tieneRol } = usePermission();
   const [tab, setTab] = useState('list');
   // Certificaciones tiene dirección propia (/clientes/matriculas/certificaciones):
   // la campana enlaza ahí y no depende del proyecto elegido, porque Certifex va por
@@ -110,22 +109,30 @@ export default function MatriculasPage() {
   const [filtros, setFiltros] = useState<Filtros>(SIN_FILTROS);
   const [search, setSearch] = useState('');
   const [cursos, setCursos] = useState<string[]>([]);
+  // Los campus del filtro, los que da el servidor: los del ámbito (con «Todos»
+  // del CRM entero, sin los de pruebas, que la lista no enseña).
+  const [campusDelServidor, setCampusDelServidor] = useState<Array<{ id: number; nombre?: string }>>([]);
+  // De 50 en 50: «Ver más» pide la página siguiente.
+  const [pagina, setPagina] = useState(1);
+  const [totalDeLaLista, setTotalDeLaLista] = useState(0);
+  const [cargandoMas, setCargandoMas] = useState(false);
   const hayFiltros = !!(search.trim() || filtros.estado || filtros.curso || filtros.campusId || filtros.desde || filtros.hasta);
   const quitarFiltros = () => { setFiltros(SIN_FILTROS); setSearch(''); };
-  // Los campus entre los que se puede filtrar: los de la empresa elegida, o todos
-  // los tuyos con «Todos». Con un campus en la cabecera no hay nada que elegir.
-  const campusDelAmbito = campusElegido ? []
-    : (projects || []).filter((p) => p.id > 0 && (!activeIssuerId || Number(p.sociedad_emisora_id) === Number(activeIssuerId)));
+  // Los campus entre los que se puede filtrar. Con un campus en la cabecera no hay nada que elegir.
+  const campusDelAmbito = campusElegido ? [] : campusDelServidor;
   const [detail, setDetail] = useState(null);
   const [rechazoTarget, setRechazoTarget] = useState(null);
 
   // Al cambiar la cabecera, el campus filtrado puede dejar de ser de este ámbito.
   useEffect(() => { setFiltros((f) => (f.campusId ? { ...f, campusId: '' } : f)); }, [activeIssuerId, activeProject?.id]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  /** La lista: la primera página (pantalla nueva) o, con `mas`, la siguiente añadida debajo. */
+  const load = useCallback(async (mas = false) => {
+    const siguiente = mas === true ? pagina + 1 : 1;
+    if (mas === true) setCargandoMas(true); else setLoading(true);
     try {
       const params = ponerAmbito(new URLSearchParams(), { activeIssuerId, activeProject });
+      params.set('page', String(siguiente));
       if (filtros.estado) params.set('estado', filtros.estado);
       if (filtros.curso) params.set('curso', filtros.curso);
       if (filtros.campusId) params.set('campusId', filtros.campusId);
@@ -134,17 +141,21 @@ export default function MatriculasPage() {
       if (search.trim()) params.set('search', search.trim());
       const res = await client.get(`/matriculas?${params}`);
       if (res.success) {
-        setData(res.data || []);
+        setData((antes) => (siguiente > 1 ? [...antes, ...(res.data || [])] : (res.data || [])));
+        setPagina(siguiente);
+        setTotalDeLaLista(Number((res.pagination as { total?: number } | undefined)?.total) || 0);
         setCursos(Array.isArray(res.cursos) ? res.cursos : []);
+        setCampusDelServidor(Array.isArray(res.campus) ? res.campus : []);
         const s = (res.stats || {}) as Partial<typeof stats>;
         setStats({ total: s.total ?? 0, solicitudes: s.solicitudes ?? 0, pendientes: s.pendientes ?? 0, validadas: s.validadas ?? 0, rechazadas: s.rechazadas ?? 0 });
       }
     } catch (err) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    } finally { setLoading(false); }
-  }, [activeIssuerId, activeProject?.id, filtros, search]); // eslint-disable-line react-hooks/exhaustive-deps
+    } finally { setLoading(false); setCargandoMas(false); }
+  }, [activeIssuerId, activeProject?.id, filtros, search, pagina]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { load(); }, [load]);
+  // Cada vez que cambian la cabecera, los filtros o la búsqueda, desde la primera página.
+  useEffect(() => { load(); }, [activeIssuerId, activeProject?.id, filtros, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // En el móvil la fila de pestañas se desliza y «Diplomas», la última, quedaba fuera de
   // la vista: la activa se trae a la vista al entrar.
@@ -159,10 +170,11 @@ export default function MatriculasPage() {
       return;
     }
     try {
-      await client.post(`/matriculas/${m.id}/estado`, { estado, motivo_rechazo: null });
+      const res = await client.post(`/matriculas/${m.id}/estado`, { estado, motivo_rechazo: null });
       toast({ title: estado === 'datos_validados' ? 'Datos validados' : 'Matrícula validada' });
       load();
-      if (detail?.id === m.id) setDetail(null);
+      // La ficha sigue abierta, con el estado nuevo, sus botones y la línea del historial.
+      if (detail?.id === m.id && res?.data) setDetail(res.data);
     } catch (err) { toast({ title: 'Error', description: err?.data?.error, variant: 'destructive' }); }
   }
 
@@ -171,10 +183,10 @@ export default function MatriculasPage() {
     const m = rechazoTarget;
     setRechazoTarget(null);
     try {
-      await client.post(`/matriculas/${m.id}/estado`, { estado: 'rechazada', motivo_rechazo: motivo });
+      const res = await client.post(`/matriculas/${m.id}/estado`, { estado: 'rechazada', motivo_rechazo: motivo });
       toast({ title: 'Rechazada' });
       load();
-      if (detail?.id === m.id) setDetail(null);
+      if (detail?.id === m.id && res?.data) setDetail(res.data);
     } catch (err) { toast({ title: 'Error', description: err?.data?.error, variant: 'destructive' }); }
   }
 
@@ -186,7 +198,7 @@ export default function MatriculasPage() {
           ? 'Diplomas: lo que piden los alumnos al terminar, y los diplomas emitidos, enviados y revocados'
           : enCertificaciones
           ? 'Certificaciones: quien termina la formación se aprueba aquí, y Certifex emite su título'
-          : `${stats.total || 0} matrículas en ${nombreAmbito}`}
+          : `${stats.total || 0} matrículas en ${campusDelServidor.find((c) => String(c.id) === filtros.campusId)?.nombre || nombreAmbito}`}
       />
 
       <div className="flex overflow-x-auto border-b border-border [&>button]:shrink-0">
@@ -391,13 +403,28 @@ export default function MatriculasPage() {
                 </div>
               ))}
             </div>
+            {/* De 50 en 50: sin esto, con «Todos» las que pasaban de 50 no se veían nunca. */}
+            {data.length < totalDeLaLista && (
+              <div className="flex justify-center border-t border-border p-3">
+                <button type="button" onClick={() => load(true)} disabled={cargandoMas}
+                  className="h-9 px-4 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary/40">
+                  {cargandoMas ? 'Cargando…' : `Ver más (${data.length} de ${totalDeLaLista})`}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
 
       </>}
 
-      {detail && <MatriculaDetail matricula={detail} onClose={() => setDetail(null)} onChange={load} onEstado={can('matriculas.edit') ? handleEstado : undefined} />}
+      {/* Los botones de estado, solo para quien puede usarlos: el servidor deja
+          cambiar el estado a admin y super admin (a la gestora le daba 403). La
+          clave con el estado vuelve a montar la ficha con lo nuevo tras validar. */}
+      {detail && (
+        <MatriculaDetail key={`${detail.id}-${detail.estado}`} matricula={detail} onClose={() => setDetail(null)} onChange={() => load()}
+          onEstado={tieneRol('superadmin', 'admin') ? handleEstado : undefined} pausada={!!rechazoTarget} />
+      )}
       <PromptDialog
         open={!!rechazoTarget}
         title="Rechazar matrícula"

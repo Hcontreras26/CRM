@@ -11,9 +11,19 @@ const consultas = [];
 const filas = { value: [] };   // lo que devuelve la consulta de la lista
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'secreto-de-pruebas';
 
+// La conexión de las transacciones usa la misma consulta falsa (y anota BEGIN, COMMIT y ROLLBACK).
 vi.mock('../src/shared/config/db.js', () => ({
-  getClient: vi.fn(),
-  query: vi.fn(async (sql, params = []) => {
+  getClient: vi.fn(async () => ({ query: (...a) => consultaFalsa(...a), release: vi.fn() })),
+  query: vi.fn(async (...a) => consultaFalsa(...a)),
+}));
+const falla = { evento: false };   // para probar que el historial y el cambio van juntos
+
+async function consultaFalsa(sql, params = []) {
+  {
+    if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) { transaccion.push(sql); return { rows: [] }; }
+    if (sql.includes('INSERT INTO matriculas_eventos') && falla.evento) throw new Error('sin la migración 207');
+    if (sql.includes('FROM projects WHERE NOT COALESCE(es_prueba')) return { rows: [{ id: 1, nombre: 'Psiko Aprende' }] };
+    if (sql.includes('FROM projects WHERE id = ANY')) return { rows: params[0].map((id) => ({ id, nombre: `Campus ${id}` })) };
     if (sql.includes('FROM projects WHERE sociedad_emisora_id = $1')) {
       return { rows: (EMPRESAS[params[0]] || []).map((id) => ({ id })) };
     }
@@ -27,8 +37,9 @@ vi.mock('../src/shared/config/db.js', () => ({
     if (sql.includes('INSERT INTO matriculas (')) return { rows: [{ id: 77 }] };
     if (sql.includes('SELECT DISTINCT')) return { rows: [{ curso: 'Máster en Logopedia' }, { curso: 'Máster en Psicología' }] };
     return { rows: [] };
-  }),
-}));
+  }
+}
+const transaccion = [];
 
 const ctrl = await import('../src/modules/matriculas/matricula.controller.js');
 
@@ -65,11 +76,13 @@ describe('el listado de Matrículas sigue a la cabecera', () => {
     const { salida, error } = await listar(MANUEL, {});
     expect(error).toBeNull();
     expect(salida.success).toBe(true);
+    expect(deMatriculas()).toHaveLength(4);   // la lista, su cuenta, las cifras y los cursos: ninguna sin el límite
     for (const { sql } of deMatriculas()) expect(sql).toContain('NOT IN (SELECT id FROM projects WHERE es_prueba)');
   });
 
   it('con un campus: solo ese', async () => {
     await listar(MANUEL, { projectId: '4' });
+    expect(deMatriculas()).toHaveLength(4);
     for (const { params } of deMatriculas()) expect(params[0]).toEqual([4]);
   });
 
@@ -189,5 +202,37 @@ describe('el buscador busca en la misma persona que enseña la lista', () => {
     expect(sql).toContain("COALESCE(l.nombre, m.datos_admision->>'nombre') ILIKE $");
     expect(sql).toContain("COALESCE(l.email, m.datos_admision->>'email') ILIKE $");
     expect(sql).toContain("m.datos_admision->>'documento' ILIKE $");
+  });
+});
+
+// Revisión independiente del 15/10.
+describe('lo que salió en la revisión (servidor)', () => {
+  beforeEach(() => { transaccion.length = 0; falla.evento = false; });
+
+  it('si no se puede apuntar el historial, la matrícula tampoco se crea (ROLLBACK)', async () => {
+    falla.evento = true;
+    const { create } = await import('../src/modules/matriculas/matricula.model.js');
+    await expect(create({ project_id: 1, source: 'webhook' })).rejects.toThrow('sin la migración 207');
+    expect(transaccion).toEqual(['BEGIN', 'ROLLBACK']);
+  });
+
+  it('si todo va bien, se crea con su historial en la misma transacción (COMMIT)', async () => {
+    const { create } = await import('../src/modules/matriculas/matricula.model.js');
+    await create({ project_id: 1, source: 'webhook' });
+    expect(transaccion).toEqual(['BEGIN', 'COMMIT']);
+  });
+
+  it('con un campus filtrado, las cifras son de ese campus', async () => {
+    await listar(MANUEL, { issuerId: '8', campusId: '2' });
+    const cifras = deMatriculas().find((c) => c.sql.includes('as pendientes'));
+    expect(cifras.sql).toContain('AND m.project_id = $2');
+    expect(cifras.params).toEqual([[1, 2, 3], 2]);
+  });
+
+  it('los campus del filtro: con «Todos» del CRM entero, sin los de pruebas; con una empresa, los suyos', async () => {
+    const todos = await listar(MANUEL, {});
+    expect(todos.salida.campus).toEqual([{ id: 1, nombre: 'Psiko Aprende' }]);
+    const cedia = await listar(MANUEL, { issuerId: '8' });
+    expect(cedia.salida.campus.map((c) => c.id)).toEqual([1, 2, 3]);
   });
 });

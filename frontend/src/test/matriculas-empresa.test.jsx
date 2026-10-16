@@ -9,10 +9,10 @@ import { pathAllowsAll, rutaAceptaSociedad } from '@/shared/components/layout/Ap
  * «Todos» la lista se quedaba cargando: la pantalla no pedía nada sin un campus.
  */
 
-const { cabecera, get } = vi.hoisted(() => ({ cabecera: { value: {} }, get: vi.fn() }));
+const { cabecera, get, roles } = vi.hoisted(() => ({ cabecera: { value: {} }, get: vi.fn(), roles: { value: ['superadmin'] } }));
 
 vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => cabecera.value }));
-vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: () => true, tieneRol: () => true }) }));
+vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: () => true, tieneRol: (...r) => r.some((x) => roles.value.includes(x)) }) }));
 vi.mock('@/shared/api/client', () => ({ default: { get, post: vi.fn(), patch: vi.fn() }, API_BASE_URL: '/crm/api' }));
 
 import MatriculasPage from '@/modules/matriculas/pages/MatriculasPage';
@@ -148,7 +148,9 @@ describe('el listado sigue a la cabecera', () => {
         { id: 2, nombre: 'ISEIH', sociedad_emisora_id: 9 },
       ],
     };
-    get.mockResolvedValue({ ...VACIA, cursos: ['Máster en Logopedia', 'Máster en Psicología Clínica'] });
+    // Los campus del filtro los da el servidor (los del ámbito; con «Todos», sin los de pruebas).
+    get.mockResolvedValue({ ...VACIA, cursos: ['Máster en Logopedia', 'Máster en Psicología Clínica'],
+      campus: [{ id: 1, nombre: 'Psiko Aprende' }, { id: 3, nombre: 'Fono Aprende' }] });
     abrir();
     await waitFor(() => expect(get).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole('button', { name: /Filtros/ }));
@@ -195,5 +197,58 @@ describe('el listado sigue a la cabecera', () => {
     fireEvent.click(screen.getByRole('button', { name: /Webhooks/ }));
     expect(await screen.findByText('Elige un campus')).toBeTruthy();
     expect(get.mock.calls.some(([url]) => url.startsWith('/webhook-tokens'))).toBe(false);
+  });
+});
+
+// Revisión independiente del 15/10.
+describe('lo que salió en la revisión', () => {
+  beforeEach(() => { vi.clearAllMocks(); roles.value = ['superadmin']; get.mockResolvedValue(VACIA); });
+  const fila = { id: 1, estado: 'solicitud_admision', lead_nombre: 'María López', documentos: {} };
+  const conFila = async (url) => (url.startsWith('/matriculas?') ? { ...VACIA, data: [fila] } : { success: true, data: fila });
+
+  it('la gestora no ve los botones de estado (el servidor no la deja: le daba 403)', async () => {
+    roles.value = ['gestor'];
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    get.mockImplementation(conFila);
+    abrir();
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Ver detalle de matrícula' }))[0]);
+    await screen.findByRole('heading', { name: 'María López' });
+    expect(screen.queryByRole('button', { name: /Validar datos/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Rechazar/ })).toBeNull();
+  });
+
+  it('el admin sí los ve', async () => {
+    roles.value = ['admin'];
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    get.mockImplementation(conFila);
+    abrir();
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Ver detalle de matrícula' }))[0]);
+    expect(await screen.findByRole('button', { name: /Validar datos/ })).toBeTruthy();
+  });
+
+  it('«Ver más» pide la página siguiente y la añade debajo', async () => {
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    const pagina = (n) => Array.from({ length: n === 1 ? 50 : 10 }, (_, i) => ({ id: n * 100 + i, estado: 'pendiente', lead_nombre: `P${n}-${i}`, documentos: {} }));
+    get.mockImplementation(async (url) => {
+      const p = Number(new URLSearchParams(url.split('?')[1]).get('page'));
+      return { ...VACIA, data: pagina(p), pagination: { total: 60 } };
+    });
+    abrir();
+    const boton = await screen.findByRole('button', { name: 'Ver más (50 de 60)' });
+    fireEvent.click(boton);
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Ver más/ })).toBeNull());
+    expect(pedido().get('page')).toBe('2');
+    expect(screen.getAllByText('P2-9').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('P1-0').length).toBeGreaterThan(0);
+  });
+
+  it('con un campus filtrado, el subtítulo es el de ese campus', async () => {
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    get.mockResolvedValue({ ...VACIA, stats: { ...VACIA.stats, total: 2 }, campus: [{ id: 3, nombre: 'Fono Aprende' }, { id: 1, nombre: 'Psiko Aprende' }] });
+    abrir();
+    fireEvent.click(await screen.findByRole('button', { name: /Filtros/ }));
+    fireEvent.change(screen.getByLabelText('Campus'), { target: { value: '3' } });
+    expect(await screen.findByText('2 matrículas en Fono Aprende')).toBeTruthy();
+    expect(pedido().get('campusId')).toBe('3');
   });
 });

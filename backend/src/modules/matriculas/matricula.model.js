@@ -1,4 +1,27 @@
-import { query } from '../../shared/config/db.js';
+import { query, getClient } from '../../shared/config/db.js';
+
+/**
+ * Un cambio y su línea del historial, juntos o ninguno (#199): si fallara la
+ * del historial, el cambio no se queda hecho a medias. `fn` recibe la conexión
+ * y la pasa a cada consulta (`db`).
+ */
+export async function conTransaccion(fn) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const r = await fn(client);
+    await client.query('COMMIT');
+    return r;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* la conexión ya se cerró */ }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** La consulta, en la conexión de la transacción si la hay. */
+const consulta = (db, sql, params) => (db ? db.query(sql, params) : query(sql, params));
 import { comoLista, SIN_PRUEBAS } from '../../shared/utils/ambito.js';
 
 /**
@@ -102,8 +125,13 @@ export async function findByConversion(conversionId) {
 }
 
 export async function create(data) {
+  // La matrícula y la primera línea de su historial, juntas (conTransaccion).
+  return conTransaccion((db) => crearConHistorial(data, db));
+}
+
+async function crearConHistorial(data, db) {
   const dedupe = data.dedupe_key || data.dni || null;
-  const { rows } = await query(
+  const { rows } = await consulta(db,
     `INSERT INTO matriculas (project_id, conversion_id, lead_id, dni, titulo, notas, datos_admision, source, dedupe_key, estado, webhook_received_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
     [data.project_id, data.conversion_id || null, data.lead_id || null,
@@ -121,6 +149,7 @@ export async function create(data) {
       matriculaId: rows[0].id,
       evento: ['webhook', 'form'].includes(data.source) ? 'recibida' : 'creada',
       userId: data.user_id || null,
+      db,
     });
   }
   return rows[0];
@@ -130,8 +159,8 @@ export async function create(data) {
  * Una línea del historial de una matrícula (#199). No se borra ni se edita.
  * `evento`: 'recibida', 'creada', 'estado' o 'documento'.
  */
-export async function registrarEvento({ matriculaId, evento, estado = null, motivo = null, documento = null, reemplazo = false, userId = null }) {
-  await query(
+export async function registrarEvento({ matriculaId, evento, estado = null, motivo = null, documento = null, reemplazo = false, userId = null, db = null }) {
+  await consulta(db,
     `INSERT INTO matriculas_eventos (matricula_id, evento, estado, motivo, documento, reemplazo, user_id)
      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [matriculaId, evento, estado, motivo, documento, reemplazo, userId]);
@@ -154,7 +183,7 @@ export async function findByDedupe(projectId, dedupeKey) {
   return rows[0] || null;
 }
 
-export async function update(id, fields) {
+export async function update(id, fields, db = null) {
   const allowed = ['dni', 'titulo', 'notas', 'dni_doc_url', 'dni_doc_key', 'titulo_doc_url', 'titulo_doc_key', 'firma_url', 'firma_key',
     // El DNI por detrás y la foto (#199, migración 207).
     'dni_dorso_url', 'dni_dorso_key', 'foto_url', 'foto_key'];
@@ -165,12 +194,12 @@ export async function update(id, fields) {
   if (!sets.length) return null;
   sets.push(`updated_at = NOW()`);
   params.push(id);
-  const { rows } = await query(`UPDATE matriculas SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, params);
+  const { rows } = await consulta(db, `UPDATE matriculas SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, params);
   return rows[0];
 }
 
-export async function setEstado(id, estado, userId, motivo = null) {
-  const { rows } = await query(
+export async function setEstado(id, estado, userId, motivo = null, db = null) {
+  const { rows } = await consulta(db,
     `UPDATE matriculas
        SET estado = $1, motivo_rechazo = $2,
            validated_by = $3, validated_at = NOW(), updated_at = NOW()
@@ -196,9 +225,24 @@ export async function getCursos({ projectId, projectIds = null }) {
   return rows.map((r) => r.curso);
 }
 
-export async function getStats({ projectId, projectIds = null }) {
+/**
+ * Los campus entre los que se puede filtrar (#199): los del ámbito. Con «Todos»
+ * del CRM entero, sin los de pruebas, que la lista no enseña: elegir uno daba
+ * siempre vacío.
+ */
+export async function getCampus({ projectId, projectIds = null }) {
+  const lista = comoLista(projectId, projectIds);
+  const { rows } = lista
+    ? await query('SELECT id, nombre FROM projects WHERE id = ANY($1::int[]) ORDER BY nombre', [lista])
+    : await query('SELECT id, nombre FROM projects WHERE NOT COALESCE(es_prueba, false) ORDER BY nombre');
+  return rows;
+}
+
+export async function getStats({ projectId, projectIds = null, campusId = null }) {
   const params = [];
-  const where = alcance(projectId, projectIds, params);
+  let where = alcance(projectId, projectIds, params);
+  // Con un campus filtrado, las cifras de ese campus (si no, no cuadraban con la lista).
+  if (campusId) { params.push(campusId); where += ` AND m.project_id = $${params.length}`; }
   const { rows } = await query(
     `SELECT
        COUNT(*) as total,
