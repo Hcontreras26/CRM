@@ -8,7 +8,7 @@ import Select from '@/shared/components/ui/Select';
 import Field from '@/shared/components/ui/Field';
 import FilaCampos from '@/shared/components/ui/FilaCampos';
 import { inputClass } from '@/shared/lib/ui';
-import { Envelope, Plus, Trash, X, Play, Pause, FloppyDisk, FileText } from '@phosphor-icons/react';
+import { Envelope, Plus, Trash, X, Play, Pause, FloppyDisk } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import { emailTemplatesApi, type EmailTemplate } from '@/modules/email-templates/api/templates.api';
 import { lista } from '@/shared/lib/lista';
@@ -73,17 +73,18 @@ export default function EmailSequencesPage() {
       toast({ title: 'Guardado' });
       setEditing(null);
       load();
-    } catch (err: any) { toast({ title: 'No se pudo guardar la secuencia', description: err?.data?.error, variant: 'destructive' }); }
+    } catch (err: any) { toast({ title: 'No se pudo guardar la secuencia', description: err?.data?.error || 'Inténtalo de nuevo en un momento.', variant: 'destructive' }); }
   }
   async function handleToggle(s: EmailSequence): Promise<void> {
     try { await client.patch(`/secuencias-email/${s.id}`, { active: !s.active }); load(); }
-    catch (err: any) { toast({ title: s.active ? 'No se pudo pausar la secuencia' : 'No se pudo reanudar la secuencia', description: err?.data?.error, variant: 'destructive' }); }
+    catch (err: any) { toast({ title: s.active ? 'No se pudo pausar la secuencia' : 'No se pudo reanudar la secuencia', description: err?.data?.error || 'Inténtalo de nuevo en un momento.', variant: 'destructive' }); }
   }
   function handleDelete(s: EmailSequence): void { setPendingDelete(s); }
   async function doDelete(): Promise<void> {
     if (!pendingDelete) return;
     try { await client.delete(`/secuencias-email/${pendingDelete.id}`); load(); }
-    catch { /* silencioso */ }
+    // Antes se callaba: la secuencia seguía en la lista y nadie sabía por qué (#106).
+    catch (err: any) { toast({ title: 'No se pudo eliminar la secuencia', description: err?.data?.error || 'Inténtalo de nuevo en un momento.', variant: 'destructive' }); }
     finally { setPendingDelete(null); }
   }
 
@@ -188,6 +189,24 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
   function addStep(): void { setS({ ...s, steps: [...s.steps, { delay_hours: 24, subject: '', body: '' }] }); }
   function removeStep(i: number): void { setS({ ...s, steps: s.steps.filter((_, idx) => idx !== i) }); }
 
+  // Antes se guardaba sin mirar: una secuencia sin nombre, o un paso sin
+  // plantilla y sin asunto o cuerpo, que sale como un correo vacío. El aviso
+  // dice qué falta y en qué paso (#106).
+  function guardar(): void {
+    const faltan: string[] = [];
+    if (!s.nombre.trim()) faltan.push('el nombre de la secuencia');
+    s.steps.forEach((p, i) => {
+      if (p.template_id != null && p.template_id > 0) return;
+      const sin = [!p.subject?.trim() && 'asunto', !p.body?.trim() && 'cuerpo'].filter(Boolean);
+      if (sin.length) faltan.push(`el ${sin.join(' y el ')} del paso ${i + 1}`);
+    });
+    if (faltan.length) {
+      toast({ title: 'Faltan datos', description: `Falta ${faltan.join(', ')}.`, variant: 'destructive' });
+      return;
+    }
+    onSave(s);
+  }
+
   return (
     <div className="fixed inset-0 !m-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="seq-editor-title" className="bg-card rounded-2xl border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -205,7 +224,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
             clase de campo que el resto del CRM; en el móvil, uno debajo de otro. */}
         <div className="p-5 space-y-4">
           <FilaCampos>
-            <Field label="Nombre de la secuencia" htmlFor="secuencia-nombre">
+            <Field label="Nombre de la secuencia" required htmlFor="secuencia-nombre">
               <input
                 id="secuencia-nombre"
                 value={s.nombre}
@@ -225,7 +244,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
           </FilaCampos>
 
           <div className="space-y-3 pt-2 border-t border-border">
-            <p className="text-xs font-bold uppercase text-muted-foreground">Pasos</p>
+            <p className="px-1 text-tabla uppercase text-muted-foreground">Pasos</p>
             {s.steps.map((step, i) => {
               const usingTemplate = step.template_id != null && step.template_id > 0;
               return (
@@ -255,8 +274,9 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                   )}
                 </div>
                 {templates.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <FileText size={11} className="text-muted-foreground" />
+                  // Con su Field y al tamaño de los demás campos (#106): era un
+                  // desplegable pequeño, con un icono y sin etiqueta.
+                  <Field label="Plantilla" hint={usingTemplate ? 'El asunto y el cuerpo los pone la plantilla.' : undefined}>
                     <Select<number | null>
                       value={step.template_id ?? null}
                       onChange={(v) => updateStep(i, 'template_id', v)}
@@ -265,12 +285,10 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                         ...templates.map(t => ({ value: t.id as number, label: t.name })),
                       ]}
                       ariaLabel={`Plantilla del paso ${i + 1}`}
-                      size="sm"
-                      className="flex-1"
                     />
-                  </div>
+                  </Field>
                 )}
-                <Field label="Asunto" htmlFor={`paso-${i}-asunto`} disabled={usingTemplate}>
+                <Field label="Asunto" required={!usingTemplate} htmlFor={`paso-${i}-asunto`} disabled={usingTemplate}>
                   <input
                     id={`paso-${i}-asunto`}
                     value={step.subject || ''}
@@ -280,7 +298,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                     className={`${inputClass} disabled:opacity-40`}
                   />
                 </Field>
-                <Field label="Cuerpo HTML" htmlFor={`paso-${i}-cuerpo`} disabled={usingTemplate}>
+                <Field label="Cuerpo HTML" required={!usingTemplate} htmlFor={`paso-${i}-cuerpo`} disabled={usingTemplate}>
                   <textarea
                     id={`paso-${i}-cuerpo`}
                     value={step.body || ''}
@@ -313,7 +331,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
             </button>
             <button
               type="button"
-              onClick={() => onSave(s)}
+              onClick={guardar}
               className="flex items-center gap-1 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               <FloppyDisk size={14} weight="bold" /> Guardar
