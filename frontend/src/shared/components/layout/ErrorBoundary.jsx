@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { WarningCircle, ArrowClockwise } from '@phosphor-icons/react';
+import { API_BASE_URL } from '@/shared/api/client';
 
 /**
  * ErrorBoundary global. Captura errores no manejados en cualquier descendiente
@@ -21,10 +22,24 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    // En el futuro: enviar a Sentry / logging service.
-    // Por ahora console.error en producción para tener pista en DevTools.
-     
     console.error('[ErrorBoundary]', error, info?.componentStack);
+    // Y al servidor, que es donde alguien lo puede ver: sin esto una pantalla rota
+    // solo deja rastro en el navegador de quien la sufre (como en CRM-ISEIE).
+    // `API_BASE_URL` y no '/api': aquí la API cuelga de /crm/api o /testeo/api.
+    try {
+      fetch(`${API_BASE_URL}/client-errors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: error?.message || String(error),
+          stack: error?.stack || null,
+          componentStack: info?.componentStack || null,
+          url: window.location.href,
+          userAgent: navigator.userAgent,
+        }),
+        credentials: 'include',
+      }).catch(() => {});
+    } catch { /* que avisar no rompa la pantalla de error */ }
   }
 
   handleReset = () => {

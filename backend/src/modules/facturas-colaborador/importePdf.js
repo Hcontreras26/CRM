@@ -1,7 +1,25 @@
-// La versión 1.1.1, y su lib/ directamente: el index.js de esa versión, al
-// importarlo, intenta leer un PDF de prueba que no viene en el paquete.
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { logger } from '../../shared/utils/logger.js';
+
+/*
+  pdf-parse, la versión 1.1.1, y su lib/ directamente: el index.js de esa
+  versión, al importarlo, intenta leer un PDF de prueba que no viene en el paquete.
+
+  Se carga al leer el primer PDF y no al arrancar (como en ISEIE), igual que JSZip y ExcelJS
+  en el ZIP del mes. Este módulo se importa siempre desde app.js, también en
+  producción con las facturas de colaboradores apagadas: si el paquete faltara
+  en el servidor (un despliegue sin `npm install`), con el import de arriba no
+  arrancaría la API entera. Así arranca igual y el PDF queda «No se pudo leer»
+  (null), que es lo mismo que con un PDF raro.
+*/
+let pdfParseCargado = null;
+function cargarPdfParse() {
+  if (!pdfParseCargado) {
+    pdfParseCargado = import('pdf-parse/lib/pdf-parse.js').then((m) => m.default || m);
+    pdfParseCargado.catch((err) => logger.warn({ err: err.message },
+      'Facturas de colaboradores: falta pdf-parse en el servidor; los PDF quedan «No se pudo leer»'));
+  }
+  return pdfParseCargado;
+}
 
 /*
   El total que pone el PDF de la factura (#202, corrección de Diego del 13/10:
@@ -135,6 +153,7 @@ async function textoDeLaPagina(pagina) {
 export async function textoDelPdf(buffer, { topeMs = TOPE_MS, topePaginas = TOPE_PAGINAS } = {}) {
   let reloj;
   try {
+    const pdfParse = await cargarPdfParse();
     const plazo = new Promise((resolve) => { reloj = setTimeout(() => resolve(null), topeMs); });
     // Una copia: pdf.js puede quedarse con el buffer, y el original aún tiene
     // que ir al almacén, a la huella y al acuse.

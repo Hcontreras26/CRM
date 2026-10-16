@@ -492,7 +492,7 @@ export async function createIssuer(req, res, next) {
     if (!isAdmin(req)) throw new AppError('Solo administradoras pueden añadir empresas', 403, 'FORBIDDEN');
     const parsed = issuerSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'BAD_REQUEST');
-    const iss = await model.createIssuer(parsed.data, req.user?.id);
+    const iss = await model.createIssuer(parsed.data, req.user?.userId);
     res.json({ success: true, data: iss });
   } catch (e) { next(e); }
 }
@@ -619,7 +619,7 @@ export async function getTemplate(req, res, next) {
 export async function createTemplate(req, res, next) {
   try {
     if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
-    res.json({ success: true, data: await model.createTemplate(req.body, req.user?.id) });
+    res.json({ success: true, data: await model.createTemplate(req.body, req.user?.userId) });
   } catch (e) { next(e); }
 }
 export async function updateTemplate(req, res, next) {

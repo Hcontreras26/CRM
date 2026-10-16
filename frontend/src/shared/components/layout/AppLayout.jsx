@@ -303,7 +303,8 @@ const NEW_ACTIONS = {
   '/secuencias-email': { url: '/secuencias-email?new=1', label: 'secuencia' },
   // Egresos vive en /finanzas/egresos: /accounting/expenses no existe en este CRM (#227).
   '/finanzas/egresos': { url: '/finanzas/egresos?new=1', label: 'egreso' },
-  '/accounting/payable': { url: '/accounting/payable?new=1', label: 'cuenta por pagar' },
+  // Las rutas en inglés (/accounting/…) no existen en este CRM: llevaban a «no encontrada».
+  '/finanzas/por-pagar': { url: '/finanzas/por-pagar?new=1', label: 'cuenta por pagar' },
 };
 
 // Navegación rápida G + tecla
@@ -313,7 +314,7 @@ const G_TARGETS = {
   c: '/clientes',
   p: '/productos',
   r: '/informes',
-  a: '/accounting',
+  a: '/finanzas',
   s: '/configuracion',
 };
 
