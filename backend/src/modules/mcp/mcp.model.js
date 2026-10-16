@@ -990,13 +990,8 @@ function periodo(col, { desde, hasta }, params) {
  * Gasto y atribución de cada campaña de esos campus en el periodo. Las
  * campañas sin gasto ni prospectos en el periodo no salen.
  */
-async function metricasDeCampanas({ projectIds, desde, hasta, texto = null }) {
+async function metricasDeCampanas({ projectIds, desde, hasta }) {
   const params = [projectIds];
-  let filtroNombre = '';
-  if (texto) {
-    params.push(`%${comoTexto(texto)}%`);
-    filtroNombre = ` AND ${SIN_TILDES('mc.nombre')} LIKE $${params.length}`;
-  }
   const enGasto = periodo('d.date', { desde, hasta }, params);
   const enProspectos = periodo('l.created_at::date', { desde, hasta }, params);
   const { rows } = await query(
@@ -1005,7 +1000,7 @@ async function metricasDeCampanas({ projectIds, desde, hasta, texto = null }) {
               (SELECT a.currency FROM meta_ad_accounts a
                 WHERE a.project_id = mc.project_id AND a.ad_account_id = mc.ad_account_id LIMIT 1) AS moneda
          FROM meta_campaigns mc
-        WHERE mc.project_id = ANY($1::int[])${filtroNombre}
+        WHERE mc.project_id = ANY($1::int[])
      ),
      gasto AS (
        SELECT d.campaign_id, SUM(d.spend) AS gasto, SUM(d.impressions) AS impresiones,
@@ -1167,10 +1162,10 @@ export async function resumenPublicidad({ projectIds, desde, hasta }) {
   };
 }
 
-export async function campanasPublicitarias({ projectIds, desde, hasta, texto, limite = 50 }) {
+export async function campanasPublicitarias({ projectIds, desde, hasta, limite = 50 }) {
   const [atribuciones, campanas] = await Promise.all([
     atribucionDeLosCampus(projectIds),
-    metricasDeCampanas({ projectIds, desde, hasta, texto }),
+    metricasDeCampanas({ projectIds, desde, hasta }),
   ]);
   const deCampus = new Map(atribuciones.map((a) => [a.campus_id, a]));
   const filas = campanas.slice(0, limite).map((c) => ({

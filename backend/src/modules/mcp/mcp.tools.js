@@ -395,7 +395,6 @@ export const HERRAMIENTAS = [
     entrada: {
       ...AMBITO,
       ...PERIODO,
-      texto: z.string().max(100).optional().describe('Parte del nombre de la campaña'),
       // 100 como máximo: es el tope de filas de cualquier respuesta (#196).
       limite: z.number().int().min(1).max(100).default(50).describe('Máximo de campañas (hasta 100)'),
     },
@@ -403,7 +402,7 @@ export const HERRAMIENTAS = [
       const { projectIds } = acotar(ambito, a);
       soloAdministracion(ambito, 'campanas_publicitarias');
       periodoEnOrden(a);
-      return model.campanasPublicitarias({ projectIds, desde: a.desde, hasta: a.hasta, texto: a.texto, limite: a.limite });
+      return model.campanasPublicitarias({ projectIds, desde: a.desde, hasta: a.hasta, limite: a.limite });
     },
   },
   {

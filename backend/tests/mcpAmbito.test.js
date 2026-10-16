@@ -156,7 +156,7 @@ const ARGS = {
   ver_formacion: { id: 5 },
   cuentas_publicitarias: {},
   resumen_publicidad: { desde: '2026-09-01', hasta: '2026-09-30' },
-  campanas_publicitarias: { desde: '2026-09-01', hasta: '2026-09-30', texto: 'leads', limite: 50 },
+  campanas_publicitarias: { desde: '2026-09-01', hasta: '2026-09-30', limite: 50 },
 };
 
 const ejecutarTodas = async (ambito, extra = {}, omitir = []) => {
@@ -413,13 +413,5 @@ describe('la publicidad (#235: «¿cuánto hemos gastado en Meta y cuánto ha ve
     for (const { sql } of consultas) {
       expect(sql).not.toMatch(/token|last_sync_error|created_by_user_id|\b[a-z]+\.\*/i);
     }
-  });
-
-  it('la búsqueda por nombre trata «%», «_» y «\\» como texto', async () => {
-    consultas.length = 0;
-    await HERRAMIENTAS.find((h) => h.nombre === 'campanas_publicitarias')
-      .ejecutar(ambitoDe('admin'), { texto: '100% Leads_Psiko\\', limite: 50 });
-    const conNombre = consultas.find((c) => /mc\.nombre/.test(c.sql) && /LIKE/.test(c.sql));
-    expect(conNombre.params).toContain('%100\\% leads\\_psiko\\\\%');
   });
 });

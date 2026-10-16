@@ -93,7 +93,7 @@ async function prospecto(campusClave, utm, { venta = null, dia = '2026-09-10' } 
 }
 
 /**
- *   PSIKO   dos campañas: «Promo 0% Psiko» (150 € en septiembre y 999 € el
+ *   PSIKO   dos campañas: «Promo Psiko» (150 € en septiembre y 999 € el
  *           31/08, fuera del periodo) y «Captación 2026 octubre» (30 €).
  *           Tres prospectos: dos con la primera campaña (uno compra 1.200 €)
  *           y uno con «whk_…».
@@ -106,7 +106,7 @@ beforeAll(async () => {
   for (const k of ['PSIKO', 'ICTESS', 'ISEIE', 'SINMETA', 'AJENO']) await campus(k);
 
   const psiko = await cuenta('PSIKO');
-  await campana('PROMO', 'PSIKO', psiko, `Promo 0% Psiko ${marca}`, [['2026-09-05', 100], ['2026-09-20', 50], ['2026-08-31', 999]]);
+  await campana('PROMO', 'PSIKO', psiko, `Promo Psiko ${marca}`, [['2026-09-05', 100], ['2026-09-20', 50], ['2026-08-31', 999]]);
   await campana('CAPTACION', 'PSIKO', psiko, `Captación 2026 octubre ${marca}`, [['2026-09-12', 30]]);
   await prospecto('PSIKO', K.PROMO, { venta: 1200 });
   await prospecto('PSIKO', K.PROMO);
@@ -250,7 +250,7 @@ describe('campanas_publicitarias', () => {
     const r = await campanas(admin('PSIKO'));
     expect(r.campanas.map((c) => c.campaign_id)).toEqual([K.PROMO, K.CAPTACION]);
     expect(r.campanas[0]).toMatchObject({
-      nombre: `Promo 0% Psiko ${marca}`, estado: 'ACTIVE', objetivo: 'OUTCOME_LEADS', presupuesto_diario: 20, moneda: 'EUR',
+      nombre: `Promo Psiko ${marca}`, estado: 'ACTIVE', objetivo: 'OUTCOME_LEADS', presupuesto_diario: 20, moneda: 'EUR',
       gasto: 150, leads_segun_meta: 0, atribucion: 'por_campaña', prospectos_atribuidos: 2, ventas_atribuidas: 1, coste_por_venta: 150,
     });
     expect(r.campanas[1]).toMatchObject({ gasto: 30, prospectos_atribuidos: 0, ventas_atribuidas: 0, coste_por_venta: null });
@@ -261,11 +261,6 @@ describe('campanas_publicitarias', () => {
     const r = await campanas(admin('ICTESS'));
     expect(r.campanas[0]).toMatchObject({ gasto: 70, atribucion: 'no_disponible', ventas_atribuidas: null });
     expect(r.campanas[0].motivo).toMatch(/no traen la campaña de Meta/);
-  });
-
-  it('busca por el nombre con «%» como texto, no como comodín', async () => {
-    const r = await campanas(admin('PSIKO'), { texto: '0%' });
-    expect(r.campanas.map((c) => c.campaign_id)).toEqual([K.PROMO]);
   });
 
   it('nunca da el token ni nada de la cuenta ajena', async () => {
