@@ -1455,6 +1455,26 @@ export async function emitirBorrador(id, patch = {}) {
   }
 }
 
+// Un cobro es «de Stripe» cuando tiene enganchado un cargo de Stripe cobrado:
+// entonces su importe es el que cobro Stripe, dinero real, y nada de la factura
+// lo cambia (15/10, venta 643). Un cobro apuntado a mano no entra aqui aunque
+// diga «tarjeta_stripe»: ese importe lo tecleo una persona.
+const ES_COBRO_DE_STRIPE = (cp) => `EXISTS (
+          SELECT 1 FROM stripe_payments sp
+           WHERE sp.conversion_payment_id = ${cp}.id AND sp.status = 'succeeded')`;
+
+/** El cobro de una factura: su importe y si entro por Stripe. Null si no tiene. */
+export async function cobroDeLaFactura(invoiceId) {
+  const { rows: [r] } = await query(
+    `SELECT cp.id, cp.importe, ${ES_COBRO_DE_STRIPE('cp')} AS de_stripe
+       FROM invoices i
+       JOIN conversion_payments cp ON cp.id = i.payment_id
+      WHERE i.id = $1`,
+    [invoiceId]
+  );
+  return r ? { id: r.id, importe: Number(r.importe), deStripe: !!r.de_stripe } : null;
+}
+
 // Edición COMPLETA de una factura en BORRADOR (solo admin/superadmin vía ruta).
 // Permite cambiar cliente, conceptos, importes, fecha, emisor, moneda… Nunca toca
 // una factura ya emitida (fiscalmente inmutable). Los importes llegan ya
@@ -1538,7 +1558,28 @@ export async function updateBorrador(id, data, { soloBorrador = true } = {}) {
       // cliente aparece el monto corregido (ej.: era 300 y se puso 250, se corrige).
       const nuevoTotal = Number(rows[0].total);
       const viejoTotal = Number(inv.total);
-      if (inv.payment_id && Number.isFinite(nuevoTotal) && Math.abs(nuevoTotal - viejoTotal) > 0.001) {
+      const cambiaElTotal = inv.payment_id && Number.isFinite(nuevoTotal) && Math.abs(nuevoTotal - viejoTotal) > 0.001;
+      // SALVO SI EL COBRO ES DE STRIPE (15/10, venta 643). Ese cobro es lo que
+      // cobro Stripe: dinero real, con el IVA dentro si lo lleva. Una factura no lo
+      // cambia. Antes se sincronizaba igual, y corregir la 2026/0196 para ponerle
+      // el IVA convirtio un cobro de 412,25 € en uno de 498,82 que nadie pago.
+      const { rows: [cobro] } = cambiaElTotal
+        ? await client.query(
+          `SELECT cp.importe, ${ES_COBRO_DE_STRIPE('cp')} AS de_stripe
+             FROM conversion_payments cp WHERE cp.id = $1`, [inv.payment_id])
+        : { rows: [] };
+      if (cambiaElTotal && cobro?.de_stripe) {
+        // Llevar la factura a lo cobrado se puede (es arreglarla); otro importe no.
+        if (Math.abs(nuevoTotal - Number(cobro.importe)) > 0.01) {
+          const eur = (n) => `${Number(n).toFixed(2)} €`;
+          throw new AppError(
+            `Esta factura es de un cobro de Stripe de ${eur(cobro.importe)} y su total tiene que ser ese: `
+            + `es lo que pago el cliente, con el IVA dentro si lo lleva. Con estos cambios saldria de ${eur(nuevoTotal)}. `
+            + 'Si lleva IVA, marca «El precio ya incluye IVA». Si el importe de verdad es otro, '
+            + 'hace falta una factura rectificativa, no cambiar el cobro.',
+            409, 'COBRO_DE_STRIPE');
+        }
+      } else if (cambiaElTotal) {
         await client.query(`UPDATE conversion_payments SET importe = $1 WHERE id = $2`, [nuevoTotal, inv.payment_id]);
         await client.query(`UPDATE conversion_installments SET importe_cobrado = $1 WHERE payment_id = $2 AND fecha_cobro IS NOT NULL`, [nuevoTotal, inv.payment_id]);
         if (inv.conversion_id) {
