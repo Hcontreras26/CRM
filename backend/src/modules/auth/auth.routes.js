@@ -24,7 +24,17 @@ router.post('/refresh', authController.refresh);
 router.post('/logout', verifyToken, authController.logout);
 
 // POST /api/auth/set-password — token unico → establecer contrasena
-router.post('/set-password', authController.setPassword);
+// Intentos de poner la contraseña con el enlace: 8 cada 15 minutos por IP, como en
+// CRM-ISEIE. El enlace lleva un token; sin límite, se podía probar a ciegas.
+const setPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Demasiados intentos. Intenta de nuevo en 15 minutos.', code: 'RATE_LIMITED' },
+});
+
+router.post('/set-password', setPasswordLimiter, authController.setPassword);
 
 // GET /api/auth/me — datos del usuario autenticado + proyectos
 router.get('/me', verifyToken, authController.me);
