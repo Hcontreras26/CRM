@@ -118,8 +118,11 @@ const delFormulario = (m: Matricula, clave: string) => {
   return v === undefined || v === null ? '' : String(v);
 };
 
-/** El artículo de cada documento, para el aviso: «el DNI», «la foto»… */
-const conArticulo = (nombre: string) => (/^(Foto|Firma)/.test(nombre) ? `la ${nombre.toLowerCase()}` : `el ${nombre}`);
+/** El artículo de cada documento, para el aviso: «el DNI (delante)», «el título», «la foto»… */
+const conArticulo = (nombre: string) => {
+  if (nombre.startsWith('DNI')) return `el ${nombre}`;
+  return /^(Foto|Firma)/.test(nombre) ? `la ${nombre.toLowerCase()}` : `el ${nombre.toLowerCase()}`;
+};
 
 export default function MatriculaDetail({ matricula, onClose, onChange, onEstado }: Props) {
   const [m, setM] = useState<Matricula>(matricula);
@@ -272,7 +275,11 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
                       )}
                       <label className="block cursor-pointer">
                         <input type="file" className="hidden" accept="image/*,application/pdf" aria-label={`Subir ${nombre}`}
-                          onChange={e => handleUpload(tipo, e.target.files?.[0])} />
+                          onChange={(e) => {
+                            handleUpload(tipo, e.target.files?.[0]);
+                            // Vacía la casilla: si no, volver a elegir el mismo archivo (tras un error) no hacía nada.
+                            e.target.value = '';
+                          }} />
                         <span className="flex items-center justify-center gap-1 px-2 py-1 rounded bg-muted text-[11px] font-bold hover:bg-muted/70">
                           <Upload size={12} /> {uploading === tipo ? 'Subiendo…' : url ? 'Reemplazar' : 'Subir'}
                         </span>

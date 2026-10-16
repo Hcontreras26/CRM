@@ -169,3 +169,21 @@ describe('todas las respuestas de la ficha traen su historial', () => {
     expect(salida.data.lead_nombre).toBe('María López');
   });
 });
+
+// Revisión final del 15/10: crear también, solo en tus campus.
+describe('crear una matrícula, solo en tus campus', () => {
+  const MIREIA = { userId: 34, role: 'admin' };
+  beforeEach(() => { model.create = vi.fn(async (d) => ({ id: 9, ...d })); model.findByConversion = vi.fn(async () => null); });
+
+  it('una admin de CEDIA no crea una en ICTESS: 403 y no se crea', async () => {
+    const { error } = await llamar(ctrl.create, { user: MIREIA, body: { project_id: 4 } });
+    expect(error?.statusCode).toBe(403);
+    expect(model.create).not.toHaveBeenCalled();
+  });
+
+  it('en su campus, sí, y con quién la crea para el historial', async () => {
+    const { error } = await llamar(ctrl.create, { user: MIREIA, body: { project_id: 1 } });
+    expect(error).toBeNull();
+    expect(model.create).toHaveBeenCalledWith(expect.objectContaining({ project_id: 1, user_id: 34 }));
+  });
+});

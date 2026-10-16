@@ -16,11 +16,6 @@ const CLAVE = { dni: 'dni_doc_key', dni_dorso: 'dni_dorso_key', foto: 'foto_key'
 const URL_DOC = { dni: 'dni_doc_url', dni_dorso: 'dni_dorso_url', foto: 'foto_url', titulo: 'titulo_doc_url', firma: 'firma_url' };
 
 /**
- * La matrícula, si es de un campus de quien la pide (#199, como el resto del
- * CRM). Antes, sabiendo el número, se abría, se validaba o se le subía un
- * documento a una de otro campus. Super admin y soporte, todas (`veTodoElCrm`).
- */
-/**
  * La ficha tal como la pinta la pantalla: con su prospecto, sus documentos
  * firmados y su historial (#199). Todas las respuestas de la ficha (abrirla,
  * guardar, cambiar el estado, subir un documento) devuelven esto: la pantalla
@@ -32,13 +27,21 @@ async function fichaCompleta(id, yaLeida = null) {
   return { ...conDocumentosFirmados(m), historial: await model.historial(id) };
 }
 
+/** ¿Es este campus de quien hace la petición? Super admin y soporte, todos (`veTodoElCrm`). */
+async function esDeMiAmbito(req, projectId) {
+  if (veTodoElCrm(req.user)) return true;
+  return (await campusDeLaPersona(req.user?.userId)).includes(Number(projectId));
+}
+
+/**
+ * La matrícula, si es de un campus de quien la pide (#199, como el resto del
+ * CRM). Antes, sabiendo el número, se abría, se validaba o se le subía un
+ * documento a una de otro campus.
+ */
 async function matriculaDeMiAmbito(req) {
   const m = await model.findById(parseInt(req.params.id));
   if (!m) throw new AppError('Matricula no encontrada', 404, 'NOT_FOUND');
-  if (!veTodoElCrm(req.user)) {
-    const mios = await campusDeLaPersona(req.user?.userId);
-    if (!mios.includes(Number(m.project_id))) throw new AppError('No tienes acceso a esa matrícula', 403, 'FORBIDDEN');
-  }
+  if (!(await esDeMiAmbito(req, m.project_id))) throw new AppError('No tienes acceso a esa matrícula', 403, 'FORBIDDEN');
   return m;
 }
 
@@ -81,6 +84,8 @@ export async function create(req, res, next) {
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError('Datos invalidos', 400, 'VALIDATION_ERROR');
+    // Crear, también solo en tus campus (como abrirla, validarla o subirle algo).
+    if (!(await esDeMiAmbito(req, parsed.data.project_id))) throw new AppError('No tienes acceso a ese campus', 403, 'FORBIDDEN');
     if (parsed.data.conversion_id) {
       const exists = await model.findByConversion(parsed.data.conversion_id);
       if (exists) throw new AppError('Ya existe matricula para esta conversion', 409, 'DUPLICATE');

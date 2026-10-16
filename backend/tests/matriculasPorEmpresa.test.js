@@ -179,3 +179,15 @@ describe('el historial empieza al crearse', () => {
     expect(eventos()[0].params[6]).toBe(source === 'manual' ? 2 : null);
   });
 });
+
+// Revisión final del 15/10: el buscador encuentra a la persona que enseña la lista,
+// también la del formulario cuando aún no hay prospecto.
+describe('el buscador busca en la misma persona que enseña la lista', () => {
+  it('nombre y correo del prospecto o, si no hay, del formulario; y el documento', async () => {
+    await listar(MANUEL, { search: 'Lucía' });
+    const sql = deMatriculas().find((c) => c.sql.includes('LIMIT')).sql.replace(/\s+/g, ' ');
+    expect(sql).toContain("COALESCE(l.nombre, m.datos_admision->>'nombre') ILIKE $");
+    expect(sql).toContain("COALESCE(l.email, m.datos_admision->>'email') ILIKE $");
+    expect(sql).toContain("m.datos_admision->>'documento' ILIKE $");
+  });
+});

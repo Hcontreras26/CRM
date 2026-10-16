@@ -33,7 +33,11 @@ export async function findAll({ projectId, projectIds = null, estado, search, ca
   // Y `%`, `_` y `\` se buscan tal cual (revisión de la #250).
   const termino = typeof search === 'string' ? search.trim() : '';
   if (termino) {
-    conditions.push(`(l.nombre ILIKE $${idx} OR l.email ILIKE $${idx} OR m.dni ILIKE $${idx})`);
+    // La misma persona que enseña la lista: la del prospecto o, si aún no está
+    // vinculada, la del formulario (si no, buscarla daba «Ninguna matrícula»).
+    conditions.push(`(COALESCE(l.nombre, m.datos_admision->>'nombre') ILIKE $${idx}
+      OR COALESCE(l.email, m.datos_admision->>'email') ILIKE $${idx}
+      OR m.dni ILIKE $${idx} OR m.datos_admision->>'documento' ILIKE $${idx})`);
     params.push(`%${termino.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`);
     idx++;
   }

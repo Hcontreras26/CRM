@@ -150,3 +150,14 @@ describe('la ficha en panel lateral, como la de los prospectos', () => {
     expect(screen.getByText(/^Firma reemplazada por Ana el 06 oct 2026/)).toBeTruthy();
   });
 });
+
+// Revisión final del 15/10.
+describe('detalles de la ficha', () => {
+  it('el aviso de un documento que no abre, en minúscula salvo el DNI', async () => {
+    const conTitulo = { ...FICHA, titulo_doc_url: '/api/matriculas/1/doc/titulo?exp=1&sig=b', documentos_formato: { dni: 'imagen', titulo: 'imagen' } };
+    get.mockImplementation(async () => ({ success: true, data: conTitulo }));
+    abrir(conTitulo);
+    fireEvent.error(screen.getByAltText('Título'));
+    expect(screen.getByText('No se pudo abrir el título. Vuelve a intentarlo; si sigue, súbelo de nuevo.')).toBeTruthy();
+  });
+});
