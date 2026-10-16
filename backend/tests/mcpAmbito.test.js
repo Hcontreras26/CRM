@@ -249,6 +249,18 @@ describe('cada consulta va acotada a los campus de la persona', () => {
     }
   });
 
+  it('actividad_por_comercial: a una gestora se le impone su id en los contactos y en los WhatsApp', async () => {
+    // La prueba de arriba deja fuera las consultas de `lead_interactions`;
+    // esta mira las de la actividad (#203).
+    consultas.length = 0;
+    await HERRAMIENTAS.find((h) => h.nombre === 'actividad_por_comercial').ejecutar(ambitoDe('gestor'), ARGS.actividad_por_comercial);
+    expect(consultas.length).toBe(3);
+    for (const { sql, params } of consultas) {
+      expect(sql).toMatch(/li\.created_by = \$\d|m\.enviado_por = \$\d/);
+      expect(params).toContain(7);
+    }
+  });
+
   it('a un admin NO se le impone nadie', async () => {
     await ejecutarTodas(ambitoDe('admin'));
     const conSiete = consultas.filter((c) => (c.params || []).includes(7));
