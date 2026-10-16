@@ -47,12 +47,38 @@ export function getDefaultIvaPct(/* pais */) {
   return 0;
 }
 
+// Lo que suman los conceptos (cantidad × precio), antes de IVA.
+//
+// Las dos claves, como en el PDF. Con solo `precio_unitario`, unos conceptos
+// guardados a la antigua daban subtotal 0 y la factura se guardaba en cero sin
+// avisar de nada — un cero silencioso es peor que un error.
+export function subtotalDeConceptos(items) {
+  return (items || []).reduce((s, it) => s + Number(it.cantidad || 1) * Number(it.precio_unitario ?? it.precio ?? 0), 0);
+}
+
+/*
+  LA FACTURA DE UN COBRO VA POR LO COBRADO: EL IVA, DENTRO (15/10).
+
+  Venta 643 de Psiko Aprende. Stripe cobro 412,25 € y la cola saco la factura
+  2026/0196 exenta, por 412,25. Al corregirla para ponerle el 21 %, la pantalla
+  dejo «El precio ya incluye IVA» sin marcar —una factura exenta lo tiene asi—,
+  y el IVA se sumo ENCIMA: 412,25 + 86,57 = 498,82. Y como la correccion
+  sincroniza el cobro con la factura, el cobro paso a 498,82 € y la venta a
+  498,82 cobrados. Un dinero que el cliente no pago.
+
+  Si lo que se teclea en los conceptos es justo lo cobrado, ese es el bruto que
+  pago el cliente: el IVA va dentro (412,25 = 340,70 + 71,55), nunca encima.
+  Quien quiera otro importe lo teclea distinto, y entonces esto no se mete.
+*/
+export function ivaDentroSiEsLoCobrado({ items, ivaPct, ivaIncluido, cobrado }) {
+  if (ivaIncluido) return true;
+  if (!(Number(ivaPct) > 0) || cobrado == null || !Number.isFinite(Number(cobrado))) return false;
+  return Math.abs(subtotalDeConceptos(items) - Number(cobrado)) <= 0.01;
+}
+
 // Calcula importes con o sin IVA incluido
 export function calcularImportes({ items, ivaPct, ivaIncluido }) {
-  // Las dos claves, como en el PDF. Con solo `precio_unitario`, unos conceptos
-  // guardados a la antigua daban subtotal 0 y la factura se guardaba en cero sin
-  // avisar de nada — un cero silencioso es peor que un error.
-  const subtotal = items.reduce((s, it) => s + Number(it.cantidad || 1) * Number(it.precio_unitario ?? it.precio ?? 0), 0);
+  const subtotal = subtotalDeConceptos(items);
   let baseImponible, ivaImporte, total;
   if (ivaIncluido) {
     // El total ya incluye IVA → desglosar
