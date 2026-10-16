@@ -10,6 +10,12 @@ import { toast } from '@/shared/hooks/useToast';
 import Portal from '@/shared/components/ui/portal';
 
 import FilaCampos from '@/shared/components/ui/FilaCampos';
+import Field from '@/shared/components/ui/Field';
+import Select from '@/shared/components/ui/Select';
+import { inputClass } from '@/shared/lib/ui';
+
+// Las notas y la dirección: la clase común, con la altura que pidan sus filas.
+const textareaClass = `${inputClass} h-auto py-2 resize-none`;
 
 interface Product { id: number; nombre: string; precio?: number | string; moneda?: string }
 interface Project { id: number; nombre?: string }
@@ -291,23 +297,27 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
     if ((mode === 'existing' || mode === 'otra_gestora') && !selectedClient) {
       toast({ title: 'Selecciona un cliente', description: 'Búscalo por nombre, email o teléfono.', variant: 'destructive' }); return;
     }
+    // Cada aviso dice qué falta y dónde ponerlo, no solo «requerido» (#106).
+    const faltaNombre = () => toast({ title: 'Falta el nombre del cliente', description: 'Escríbelo en «Nombre del cliente».', variant: 'destructive' });
     if (mode === 'new') {
-      if (!nombre.trim()) { toast({ title: 'Nombre requerido', variant: 'destructive' }); return; }
+      if (!nombre.trim()) { faltaNombre(); return; }
       if (!email.trim() && !telefono.trim()) {
-        toast({ title: 'Email o teléfono requerido', variant: 'destructive' }); return;
+        toast({ title: 'Falta una forma de contacto', description: 'Pon el email o el teléfono del cliente: al menos uno de los dos.', variant: 'destructive' }); return;
       }
     }
     // Sin gestora basta el nombre: esta venta se registra justo cuando no hay
     // nada mas, y pedir un correo inventado es peor que no pedir nada.
-    if (mode === 'sin_gestora' && !nombre.trim()) {
-      toast({ title: 'Nombre requerido', variant: 'destructive' }); return;
+    if (mode === 'sin_gestora' && !nombre.trim()) { faltaNombre(); return; }
+    if (!productoId) {
+      toast({ title: 'Falta la formación', description: 'Elígela en la lista de «Producto» (puedes buscarla escribiendo encima).', variant: 'destructive' }); return;
     }
-    if (!productoId) { toast({ title: 'Producto requerido', variant: 'destructive' }); return; }
     const totalNum = parseFloat(importeTotal);
-    if (!totalNum || totalNum <= 0) { toast({ title: 'Importe inválido', variant: 'destructive' }); return; }
+    if (!totalNum || totalNum <= 0) {
+      toast({ title: 'Falta el importe total', description: 'Escribe en «Importe total» una cantidad mayor que 0.', variant: 'destructive' }); return;
+    }
     const pagadoNum = importePagado === '' ? totalNum : parseFloat(importePagado);
     if (pagadoNum < 0 || pagadoNum > totalNum) {
-      toast({ title: 'Importe pagado inválido', description: 'Entre 0 y el total', variant: 'destructive' }); return;
+      toast({ title: 'El importe pagado no cuadra', description: `Tiene que estar entre 0 y el importe total (${totalNum.toFixed(2)}). Si lo dejas vacío, se toma el total.`, variant: 'destructive' }); return;
     }
     // Validación específica de cuotas
     if (metodo === 'fraccionado') {
@@ -319,14 +329,14 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
         toast({ title: 'Las cuotas no suman el total', description: `Suma actual: ${installmentsSum.toFixed(2)} · Total: ${totalNum.toFixed(2)}`, variant: 'destructive' });
         return;
       }
-      for (const it of installments) {
+      for (const [i, it] of installments.entries()) {
         const imp = parseFloat(it.importe_previsto);
         if (!isFinite(imp) || imp <= 0) {
-          toast({ title: 'Cuota inválida', description: 'Todas las cuotas necesitan importe > 0', variant: 'destructive' });
+          toast({ title: `A la cuota ${i + 1} le falta el importe`, description: 'Cada cuota necesita un importe mayor que 0. Corrígelo en el plan de cuotas.', variant: 'destructive' });
           return;
         }
         if (!it.fecha_vencimiento) {
-          toast({ title: 'Fecha de cuota faltante', variant: 'destructive' });
+          toast({ title: `A la cuota ${i + 1} le falta la fecha`, description: 'Elige su vencimiento en el plan de cuotas.', variant: 'destructive' });
           return;
         }
       }
@@ -446,20 +456,18 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                 elegido en la barra lateral, preguntarlo otra vez sobra. */}
             {hayQueElegirCampus && (
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
-                  Campus de la venta *
-                </label>
-                <select
-                  value={campus ?? ''}
-                  onChange={(e) => setCampus(e.target.value ? Number(e.target.value) : null)}
-                  className="h-10 w-full rounded-md border border-border bg-card px-2 text-sm"
-                >
-                  <option value="">Elige el campus…</option>
-                  {campusDelAmbito.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                </select>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  La venta es de un campus: de ahí salen su matrícula y su factura.
-                </p>
+                <Field label="Campus de la venta" required
+                  hint="La venta es de un campus: de ahí salen su matrícula y su factura.">
+                  <Select<number | null>
+                    value={campus}
+                    onChange={setCampus}
+                    ariaLabel="Campus de la venta"
+                    options={[
+                      { value: null, label: 'Elige el campus…' },
+                      ...campusDelAmbito.map((c) => ({ value: c.id, label: c.nombre })),
+                    ]}
+                  />
+                </Field>
               </div>
             )}
 
@@ -488,23 +496,24 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               <div className="space-y-3">
                 {!selectedClient ? (
                   <div>
-                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Buscar cliente *</label>
-                    <div className="relative">
-                      <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        autoFocus
-                        value={clientSearch}
-                        onChange={(e) => setClientSearch(e.target.value)}
-                        placeholder="Nombre, email o teléfono…"
-                        className="w-full h-10 pl-9 pr-3 rounded-md border border-border bg-card text-sm"
-                      />
-                    </div>
+                    <Field label="Buscar cliente" required>
+                      <div className="relative">
+                        <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          autoFocus
+                          value={clientSearch}
+                          onChange={(e) => setClientSearch(e.target.value)}
+                          placeholder="Nombre, email o teléfono…"
+                          className={`${inputClass} pl-9`}
+                        />
+                      </div>
+                    </Field>
                     {clientSearch.trim().length > 0 && clientSearch.trim().length < 2 && (
-                      <p className="text-[11px] text-muted-foreground mt-1">Escribe al menos 2 caracteres…</p>
+                      <p className="mt-1 px-1 text-secundario text-muted-foreground">Escribe al menos 2 caracteres…</p>
                     )}
-                    {searching && <p className="text-[11px] text-muted-foreground mt-1">Buscando…</p>}
+                    {searching && <p className="mt-1 px-1 text-secundario text-muted-foreground">Buscando…</p>}
                     {!searching && clientSearch.trim().length >= 2 && clientResults.length === 0 && (
-                      <p className="text-[11px] text-muted-foreground mt-1">
+                      <p className="mt-1 px-1 text-secundario text-muted-foreground">
                         No se encontraron clientes. ¿Quizás es <button type="button" onClick={() => setMode('new')} className="text-primary font-semibold hover:underline">un cliente nuevo</button>?
                       </p>
                     )}
@@ -550,20 +559,21 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               <div className="space-y-3">
                 {!selectedClient ? (
                   <div>
-                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Buscar el prospecto *</label>
-                    <div className="relative">
-                      <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        autoFocus
-                        value={clientSearch}
-                        onChange={(e) => setClientSearch(e.target.value)}
-                        placeholder="Nombre, correo o teléfono…"
-                        className="w-full h-10 pl-9 pr-3 rounded-md border border-border bg-card text-sm"
-                      />
-                    </div>
-                    {searching && <p className="mt-1.5 text-[11px] text-muted-foreground">Buscando…</p>}
+                    <Field label="Buscar el prospecto" required>
+                      <div className="relative">
+                        <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          autoFocus
+                          value={clientSearch}
+                          onChange={(e) => setClientSearch(e.target.value)}
+                          placeholder="Nombre, correo o teléfono…"
+                          className={`${inputClass} pl-9`}
+                        />
+                      </div>
+                    </Field>
+                    {searching && <p className="mt-1 px-1 text-secundario text-muted-foreground">Buscando…</p>}
                     {!searching && clientSearch.trim().length >= 2 && clientResults.length === 0 && (
-                      <p className="mt-1.5 text-[11px] text-muted-foreground">No se encontró ningún prospecto con eso.</p>
+                      <p className="mt-1 px-1 text-secundario text-muted-foreground">No se encontró ningún prospecto con eso.</p>
                     )}
                     {clientResults.length > 0 && (
                       <div className="mt-1.5 border border-border rounded-md max-h-48 overflow-y-auto">
@@ -617,24 +627,18 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                   números de ninguna gestora ni avanza el reparto de prospectos. Con el
                   nombre basta.
                 </p>
-                <div>
-                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Nombre del cliente *</label>
-                  <input value={nombre} onChange={(e) => setNombre(e.target.value)}
-                    className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
-                </div>
+                <Field label="Nombre del cliente" required>
+                  <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
+                </Field>
                 <FilaCampos>
-                  <div>
-                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Email</label>
+                  <Field label="Email">
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                      placeholder="opcional"
-                      className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Teléfono</label>
+                      placeholder="opcional" className={inputClass} />
+                  </Field>
+                  <Field label="Teléfono">
                     <input value={telefono} onChange={(e) => setTelefono(e.target.value)}
-                      placeholder="opcional"
-                      className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
-                  </div>
+                      placeholder="opcional" className={inputClass} />
+                  </Field>
                 </FilaCampos>
               </div>
             )}
@@ -642,57 +646,44 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
             {/* MODO: cliente nuevo */}
             {mode === 'new' && (
               <div className="space-y-3">
-                <div>
-                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Nombre del cliente *</label>
-                  <input value={nombre} onChange={(e) => setNombre(e.target.value)}
-                    className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
-                </div>
+                <Field label="Nombre del cliente" required>
+                  <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
+                </Field>
                 <FilaCampos>
-                  <div>
-                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Email</label>
+                  <Field label="Email" hint="Hace falta el email o el teléfono">
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                      placeholder="correo@ejemplo.com"
-                      className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Teléfono</label>
+                      placeholder="correo@ejemplo.com" className={inputClass} />
+                  </Field>
+                  <Field label="Teléfono" hint="Hace falta el teléfono o el email">
                     <input value={telefono} onChange={(e) => setTelefono(e.target.value)}
-                      placeholder="+34..."
-                      className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
-                  </div>
+                      placeholder="+34..." className={inputClass} />
+                  </Field>
                 </FilaCampos>
-                <p className="text-[11px] text-muted-foreground -mt-1">Requerido al menos uno de los dos.</p>
               </div>
             )}
 
             {/* Datos fiscales (opcionales, común a ambos modos) */}
             <div className="space-y-2">
-              <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
-                  Identificación fiscal <span className="text-muted-foreground/70">(opcional)</span>
-                </label>
+              <Field label="Identificación fiscal (opcional)">
                 <input
                   value={identificacionFiscal}
                   onChange={(e) => setIdentificacionFiscal(e.target.value)}
                   placeholder="NIF / CIF / NIE / Cédula / RFC…"
                   maxLength={50}
-                  className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm"
+                  className={inputClass}
                 />
-              </div>
-              <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
-                  Dirección fiscal <span className="text-muted-foreground/70">(opcional)</span>
-                </label>
+              </Field>
+              <Field label="Dirección fiscal (opcional)"
+                hint="Los dos datos fiscales son para emitir factura. Si no los tienes, déjalos vacíos.">
                 <textarea
                   value={direccionFiscal}
                   onChange={(e) => setDireccionFiscal(e.target.value)}
                   placeholder="Calle, número, piso · Código postal · Ciudad · Provincia · País"
                   maxLength={500}
                   rows={2}
-                  className="w-full px-3 py-2 rounded-md border border-border bg-card text-sm resize-none"
+                  className={textareaClass}
                 />
-              </div>
-              <p className="text-[11px] text-muted-foreground">Para emitir factura. Si no los tienes, déjalos vacíos.</p>
+              </Field>
 
               {/* EL NUMERO DE FACTURA, AQUI.
                   Diego, 25/09: «no veo donde poner la factura aqui la
@@ -702,31 +693,22 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                   14/09. */}
               {(
                 <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
-                  {/* Etiqueta y campo por separado, como el resto de formularios (#106). */}
-                  <label htmlFor="venta-numero-factura" className="mb-1.5 block px-1 text-secundario text-muted-foreground">Número de factura</label>
-                  <input
-                    id="venta-numero-factura"
-                    type="number" min="1" value={numero}
-                    disabled={!pid}
-                    onChange={(e) => setNumero(e.target.value)}
-                    placeholder={pid ? (sugerido || 'automático') : 'elige antes el campus'}
-                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm tabular-nums disabled:opacity-60"
-                  />
-                  {!pid ? (
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      La serie y el número son del campus, así que hace falta elegirlo antes.
-                    </p>
-                  ) : sugerido ? (
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      El siguiente libre es el <b className="tabular-nums">{sugerido}</b>. Puedes poner ese u otro.
-                      Si lo dejas vacío, la venta se queda en la cola de facturación.
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      Si lo dejas vacío, la venta se queda en la cola de facturación.
-                    </p>
-                  )}
-                  <p className="mt-1.5 text-[11px] text-warning-soft-foreground">
+                  <Field label="Número de factura" htmlFor="venta-numero-factura" disabled={!pid}
+                    hint={!pid
+                      ? 'La serie y el número son del campus, así que hace falta elegirlo antes.'
+                      : sugerido
+                        ? `El siguiente libre es el ${sugerido}. Puedes poner ese u otro. Si lo dejas vacío, la venta se queda en la cola de facturación.`
+                        : 'Si lo dejas vacío, la venta se queda en la cola de facturación.'}>
+                    <input
+                      id="venta-numero-factura"
+                      type="number" min="1" value={numero}
+                      disabled={!pid}
+                      onChange={(e) => setNumero(e.target.value)}
+                      placeholder={pid ? (sugerido || 'automático') : 'elige antes el campus'}
+                      className={`${inputClass} tabular-nums disabled:opacity-60`}
+                    />
+                  </Field>
+                  <p className="mt-1.5 px-1 text-secundario text-warning-soft-foreground">
                     Comprueba la numeración en el Excel de facturación antes de emitir.
                   </p>
                 </div>
@@ -736,22 +718,31 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
             {/* Producto + importes (común a ambos modos) */}
             <div className="border-t border-border pt-3 space-y-3">
               <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Producto *</label>
-                <input value={productSearch} onChange={(e) => setProductSearch(e.target.value)}
-                  placeholder="Buscar producto…"
-                  className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm mb-1.5" />
-                <select value={productoId} onChange={(e) => setProductoId(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm">
-                  <option value="">— Selecciona —</option>
-                  {productosFiltrados.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nombre}{p.precio ? ` (${p.precio} ${p.moneda || ''})` : ''}</option>
-                  ))}
-                </select>
+                <Field label="Producto" required>
+                  <div className="space-y-1.5">
+                    <input value={productSearch} onChange={(e) => setProductSearch(e.target.value)}
+                      placeholder="Buscar producto…" aria-label="Buscar producto"
+                      className={inputClass} />
+                    {/* El desplegable del CRM, como el resto (#106, #134). */}
+                    <Select<number | ''>
+                      value={productoId}
+                      onChange={setProductoId}
+                      ariaLabel="Producto"
+                      options={[
+                        { value: '', label: '— Selecciona —' },
+                        ...productosFiltrados.map((p) => ({
+                          value: p.id,
+                          label: `${p.nombre}${p.precio ? ` (${p.precio} ${p.moneda || ''})` : ''}`,
+                        })),
+                      ]}
+                    />
+                  </div>
+                </Field>
                 {/* Que se sepa siempre en que punto esta: la caja de arriba
                     solo filtra, y sin esto un desplegable vacio no dice si no
                     hay formaciones, si no casa la busqueda, o si falta elegir
                     el campus. */}
-                <p className="mt-1 px-1 text-[11px] text-muted-foreground">
+                <p className="mt-1 px-1 text-secundario text-muted-foreground">
                   {!pid
                     ? 'Elige antes el campus: las formaciones son suyas.'
                     : products.length === 0
@@ -765,37 +756,33 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               </div>
 
               <FilaCampos>
-                <div>
-                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Importe total *</label>
+                <Field label="Importe total" required>
                   <input type="number" min="0" step="0.01" value={importeTotal}
-                    onChange={(e) => setImporteTotal(e.target.value)}
-                    className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
-                </div>
-                <div>
-                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Importe pagado</label>
+                    onChange={(e) => setImporteTotal(e.target.value)} className={inputClass} />
+                </Field>
+                {/* «Por defecto: igual al total» iba de texto de ejemplo dentro
+                    del campo y en el móvil salía cortado (#134): va debajo. */}
+                <Field label="Importe pagado"
+                  hint={importeTotal ? `Si lo dejas vacío, se toma el total (${importeTotal}).` : 'Si lo dejas vacío, se toma el total.'}>
                   <input type="number" min="0" step="0.01" value={importePagado}
-                    onChange={(e) => setImportePagado(e.target.value)}
-                    placeholder={`Por defecto: ${importeTotal || 'igual al total'}`}
-                    className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
-                </div>
+                    onChange={(e) => setImportePagado(e.target.value)} className={inputClass} />
+                </Field>
               </FilaCampos>
 
               <FilaCampos>
-                <div>
-                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Método de pago</label>
-                  <select value={metodo} onChange={(e) => setMetodo(e.target.value)}
-                    className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm">
-                    {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">
-                    Fecha de pago *
-                    {isRetroactiva && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-warning-soft text-warning-soft-foreground">Histórica</span>}
-                  </label>
+                <Field label="Método de pago">
+                  <Select<string>
+                    value={metodo}
+                    onChange={setMetodo}
+                    ariaLabel="Método de pago"
+                    options={PAYMENT_METHODS}
+                  />
+                </Field>
+                <Field label="Fecha de pago" required
+                  hint={isRetroactiva ? 'Anterior a hoy: la venta se registra como histórica.' : undefined}>
                   <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} max={today}
-                    className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
-                </div>
+                    className={inputClass} />
+                </Field>
               </FilaCampos>
 
               {/* Cuotas — solo cuando método es fraccionado */}
@@ -810,41 +797,44 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                     </button>
                   </div>
                   <FilaCampos>
-                    <div>
-                      <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">N° de cuotas</label>
+                    <Field label="N° de cuotas">
                       <input type="number" min={2} max={36} value={numCuotas}
                         onChange={(e) => { setNumCuotas(parseInt(e.target.value) || 2); setInstallmentsDirty(false); }}
-                        className="w-full h-9 px-3 rounded-md border border-border bg-card text-sm" />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">1ª fecha de vencimiento</label>
+                        className={inputClass} />
+                    </Field>
+                    <Field label="1ª fecha de vencimiento">
                       <input type="date" value={fechaPrimeraCuota}
                         onChange={(e) => { setFechaPrimeraCuota(e.target.value); setInstallmentsDirty(false); }}
-                        className="w-full h-9 px-3 rounded-md border border-border bg-card text-sm" />
-                    </div>
+                        className={inputClass} />
+                    </Field>
                   </FilaCampos>
                   {installments.length > 0 && (
                     <div className="space-y-1.5">
-                      <div className="grid grid-cols-[40px_1fr_1fr] gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+                      {/* En el móvil cada cuota va en dos líneas (fecha arriba,
+                          importe debajo) y la cabecera sobra: los campos dicen
+                          qué son. En pantalla ancha, una línea por cuota (#106). */}
+                      <div className="hidden sm:grid grid-cols-[40px_1fr_1fr] gap-2 text-tabla uppercase text-muted-foreground px-1">
                         <span>#</span><span>Vencimiento</span><span className="text-right">Importe €</span>
                       </div>
                       {installments.map((it, idx) => (
-                        <div key={idx} className="grid grid-cols-[40px_1fr_1fr] gap-2 items-center">
+                        <div key={idx} className="grid grid-cols-[2rem_1fr] sm:grid-cols-[40px_1fr_1fr] gap-2 items-center">
                           <span className="text-xs text-muted-foreground px-1">{idx + 1}</span>
                           <input type="date" value={it.fecha_vencimiento}
+                            aria-label={`Vencimiento de la cuota ${idx + 1}`}
                             onChange={(e) => {
                               const next = [...installments];
                               next[idx] = { ...next[idx], fecha_vencimiento: e.target.value };
                               setInstallments(next); setInstallmentsDirty(true);
                             }}
-                            className="h-8 px-2 rounded border border-border bg-card text-xs" />
+                            className={`${inputClass} min-w-0`} />
                           <input type="number" min="0" step="0.01" value={it.importe_previsto}
+                            aria-label={`Importe de la cuota ${idx + 1}`}
                             onChange={(e) => {
                               const next = [...installments];
                               next[idx] = { ...next[idx], importe_previsto: e.target.value };
                               setInstallments(next); setInstallmentsDirty(true);
                             }}
-                            className="h-8 px-2 rounded border border-border bg-card text-xs text-right" />
+                            className={`${inputClass} min-w-0 text-right col-start-2 sm:col-start-auto`} />
                         </div>
                       ))}
                       <div className={`text-[11px] text-right pt-1 ${installmentsMismatch ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
@@ -856,12 +846,11 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                 </div>
               )}
 
-              <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Notas (opcional)</label>
+              <Field label="Notas (opcional)">
                 <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2}
                   placeholder="Comentarios sobre la venta…"
-                  className="w-full px-3 py-2 rounded-md border border-border bg-card text-sm resize-none" />
-              </div>
+                  className={textareaClass} />
+              </Field>
             </div>
           </div>
 
