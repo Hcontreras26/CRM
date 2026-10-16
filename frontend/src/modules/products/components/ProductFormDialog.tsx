@@ -1,6 +1,4 @@
-
-import Field from '@/shared/components/ui/Field';
-import { inputClass } from '@/shared/lib/ui';import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { productSchema, PAYMENT_LINK_TYPES } from '../validation/product.schema';
@@ -13,10 +11,16 @@ import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { uploadProductImage, deleteProductImage, getProductImageUrl } from '../api/products.api';
 import { toast } from '@/shared/hooks/useToast';
 import CascadaDeCategorias from '@/modules/product-categories/components/CascadaDeCategorias';
-
+import Field from '@/shared/components/ui/Field';
 import FilaCampos from '@/shared/components/ui/FilaCampos';
+import { inputClass } from '@/shared/lib/ui';
 
-const smallInput = 'w-full h-9 px-3 rounded-lg border border-border bg-muted/50 text-sm outline-none focus:border-primary';
+// Los campos que pueden fallar al validar, con el nombre que se ve en
+// pantalla: el aviso dice EN QUÉ campo está el problema (#106).
+const ETIQUETAS: Record<string, string> = {
+  nombre: 'Nombre', precio: 'Precio', num_modulos: 'Nº módulos',
+  plazas_totales: 'Plazas de la convocatoria', plazas_ocupadas_previas: 'Ya ocupadas antes del CRM',
+};
 
 export default function ProductFormDialog({ open, onClose, product, onSubmit }) {
   useEscapeKey(onClose, open);
@@ -156,7 +160,7 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
       setImageUrl(updated.image_url_signed || null);
       toast({ title: 'Imagen subida' });
     } catch (e: any) {
-      toast({ title: 'Error subiendo imagen', description: e?.response?.data?.error || e.message, variant: 'destructive' });
+      toast({ title: 'No se pudo subir la imagen', description: e?.response?.data?.error || e.message, variant: 'destructive' });
     } finally {
       setImageUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -198,13 +202,23 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
   function validateLinks() {
     const errors = {};
     paymentLinks.forEach((l, i) => {
-      if (!l.label?.trim()) errors[i] = 'Etiqueta requerida';
+      if (!l.label?.trim()) errors[i] = 'Escribe la etiqueta del enlace';
       else {
-        try { new URL(l.url); } catch { errors[i] = 'URL inválida'; }
+        try { new URL(l.url); } catch { errors[i] = 'La URL no es válida: cópiala entera, empezando por https://'; }
       }
     });
     setLinkErrors(errors);
-    return Object.keys(errors).length === 0;
+    const fallan = Object.keys(errors);
+    // El error se pinta junto al enlace, pero puede quedar fuera de la vista:
+    // el aviso dice cuál es (#106).
+    if (fallan.length) {
+      toast({
+        title: 'Revisa los enlaces de pago',
+        description: fallan.map((i) => `Enlace ${Number(i) + 1}: ${errors[i]}`).join(' · '),
+        variant: 'destructive',
+      });
+    }
+    return fallan.length === 0;
   }
 
   async function handleFormSubmit(data) {
@@ -242,15 +256,17 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
         </div>
 
         <form onSubmit={handleSubmit(handleFormSubmit, (errs) => {
-          const msgs = Object.values(errs).map((e: any) => e?.message).filter(Boolean);
+          const msgs = Object.entries(errs)
+            .filter(([, e]: [string, any]) => e?.message)
+            .map(([k, e]: [string, any]) => `${ETIQUETAS[k] || k}: ${e.message}`);
           toast({ title: 'Revisa el formulario', description: msgs.join(' · ') || 'Hay campos inválidos', variant: 'destructive' });
         })} className="space-y-3">
           <FilaCampos>
-            <Field label="Nombre *" error={errors.nombre?.message}>
-              <input {...register('nombre')} placeholder={`Nombre del ${productoLabel.toLowerCase()}`} className={inputClass} />
+            <Field label="Nombre" required error={errors.nombre?.message}>
+              <input {...register('nombre')} aria-label="Nombre" placeholder={`Nombre del ${productoLabel.toLowerCase()}`} className={inputClass} />
             </Field>
             <Field label="SKU / código" error={errors.sku?.message}>
-              <input {...register('sku')} placeholder="opcional" className={inputClass} />
+              <input {...register('sku')} aria-label="SKU / código" placeholder="opcional" className={inputClass} />
             </Field>
           </FilaCampos>
 
@@ -259,12 +275,13 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
               {...register('descripcion')}
               placeholder="Descripción corta..."
               rows={2}
-              className="w-full px-4 py-3 rounded-md border border-border bg-muted/50 text-sm outline-none resize-none focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-card"
+              aria-label="Descripción"
+              className={`${inputClass} h-auto py-2 resize-none`}
             />
           </Field>
 
           <div className="p-3 bg-muted/20 rounded-md border border-border space-y-3">
-            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+            <div className="flex items-center gap-2 text-secundario font-medium text-muted-foreground">
               <Tag size={12} /> Categorización
             </div>
             {/* Se escribe o se baja, y son la misma cosa vista de dos maneras (#2).
@@ -289,8 +306,8 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                 setSubcategoriaSel('');
               }}
             />
-            <div>
-              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Régimen fiscal (IVA)</label>
+            <Field label="Régimen fiscal (IVA)"
+              hint="Déjalo por defecto salvo que el producto tenga un régimen fijo (p. ej. formación exenta de IVA).">
               <Select<string>
                 value={regimenSel}
                 onChange={setRegimenSel}
@@ -300,19 +317,16 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                 ]}
                 ariaLabel="Régimen fiscal"
               />
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Déjalo por defecto salvo que el producto tenga un régimen fijo (p. ej. formación exenta de IVA).
-              </p>
-            </div>
+            </Field>
           </div>
 
           {/* CRM-149: Imagen del producto */}
           <div className="p-3 bg-muted/20 rounded-md border border-border space-y-3">
-            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+            <div className="flex items-center gap-2 text-secundario font-medium text-muted-foreground">
               <ImageIcon size={12} /> Imagen
             </div>
             {!isEdit ? (
-              <p className="text-[11px] text-muted-foreground italic px-1">
+              <p className="text-secundario text-muted-foreground italic px-1">
                 Crea el {productoLabel.toLowerCase()} primero y luego edítalo para añadir la imagen.
               </p>
             ) : (
@@ -357,19 +371,19 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                       if (f) handleImageUpload(f);
                     }}
                   />
-                  <p className="text-[10px] text-muted-foreground">PNG, JPG, WEBP o SVG · máx. 5 MB</p>
+                  <p className="text-secundario text-muted-foreground">PNG, JPG, WEBP o SVG · máx. 5 MB</p>
                 </div>
               </div>
             )}
           </div>
 
           <div className="p-3 bg-muted/20 rounded-md border border-border space-y-3">
-            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+            <div className="flex items-center gap-2 text-secundario font-medium text-muted-foreground">
               <CurrencyEur size={12} /> Precio y venta
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <FilaCampos columnas={3}>
               <Field label="Precio" error={errors.precio?.message}>
-                <input {...register('precio')} type="number" step="0.01" min="0" placeholder="0.00" className={smallInput} />
+                <input {...register('precio')} type="number" step="0.01" min="0" placeholder="0.00" aria-label="Precio" className={inputClass} />
               </Field>
               <Field label="Moneda">
                 <Controller
@@ -391,55 +405,55 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                 />
               </Field>
               <Field label="Duración" hint="ej: 8 sesiones">
-                <input {...register('duracion')} placeholder="opcional" className={smallInput} />
+                <input {...register('duracion')} aria-label="Duración" placeholder="opcional" className={inputClass} />
               </Field>
-            </div>
+            </FilaCampos>
             <Field label="URL de información / landing" error={errors.url_info?.message}>
-              <input {...register('url_info')} placeholder="https://..." className={smallInput} />
+              <input {...register('url_info')} aria-label="URL de información / landing" placeholder="https://..." className={inputClass} />
             </Field>
           </div>
 
           {/* === Datos del programa (importados del scraper / WC) === */}
           <div className="p-3 bg-muted/20 rounded-md border border-border space-y-3">
-            <div className="text-[11px] font-bold uppercase text-muted-foreground">
+            <div className="text-tabla uppercase text-muted-foreground">
               Datos del programa <span className="font-normal normal-case opacity-70">(importados de WP/WC, editables)</span>
             </div>
             <FilaCampos columnas={4}>
               <Field label="Horas">
-                <input {...register('horas')} placeholder="ej: 1500 horas" className={smallInput} />
+                <input {...register('horas')} aria-label="Horas" placeholder="ej: 1500 horas" className={inputClass} />
               </Field>
-              <Field label="Nº módulos">
-                <input {...register('num_modulos')} type="number" min="0" placeholder="ej: 10" className={smallInput} />
+              <Field label="Nº módulos" error={errors.num_modulos?.message}>
+                <input {...register('num_modulos')} type="number" min="0" placeholder="ej: 10" aria-label="Nº módulos" className={inputClass} />
               </Field>
               <Field label="Modalidad">
-                <input {...register('modalidad')} placeholder="Online, Presencial..." className={smallInput} />
+                <input {...register('modalidad')} aria-label="Modalidad" placeholder="Online, Presencial..." className={inputClass} />
               </Field>
               <Field label="Fecha de inicio">
-                <input {...register('fecha_inicio_texto')} placeholder="DD-MM-YYYY" className={smallInput} />
+                <input {...register('fecha_inicio_texto')} aria-label="Fecha de inicio" placeholder="DD-MM-YYYY" className={inputClass} />
               </Field>
             </FilaCampos>
           </div>
 
           {/* === Convocatoria: plazas y cierre (#86) === */}
           <div className="p-3 bg-muted/20 rounded-md border border-border space-y-3">
-            <div className="text-[11px] font-bold uppercase text-muted-foreground">
+            <div className="text-tabla uppercase text-muted-foreground">
               Convocatoria <span className="font-normal normal-case opacity-70">(las plazas salen en las plantillas del proceso comercial)</span>
             </div>
             <FilaCampos columnas={3}>
               <Field label="Plazas de la convocatoria" error={errors.plazas_totales?.message}>
-                <input {...register('plazas_totales')} type="number" min="0" placeholder="en blanco: sin cuenta de plazas" className={smallInput} />
+                <input {...register('plazas_totales')} aria-label="Plazas de la convocatoria" type="number" min="0" placeholder="en blanco: sin cuenta de plazas" className={inputClass} />
               </Field>
               <Field label="Ya ocupadas antes del CRM" error={errors.plazas_ocupadas_previas?.message}>
-                <input {...register('plazas_ocupadas_previas')} type="number" min="0" placeholder="0" className={smallInput} />
+                <input {...register('plazas_ocupadas_previas')} aria-label="Ya ocupadas antes del CRM" type="number" min="0" placeholder="0" className={inputClass} />
               </Field>
               <Field label="Cierre de convocatoria" error={errors.fecha_cierre_convocatoria?.message}>
-                <input {...register('fecha_cierre_convocatoria')} type="date" className={smallInput} />
+                <input {...register('fecha_cierre_convocatoria')} aria-label="Cierre de convocatoria" type="date" className={inputClass} />
               </Field>
             </FilaCampos>
             {/* Las ocupadas y las libres no se teclean: las cuenta el servidor desde
                 las ventas. Se enseñan aquí para que se vea el efecto de lo de arriba. */}
             {product && product.plazas_totales != null && (
-              <div className="text-[11px] text-muted-foreground">
+              <div className="px-1 text-secundario text-muted-foreground">
                 Ahora mismo: <strong className="text-foreground">{product.plazas_ocupadas}</strong> ocupadas
                 {' · '}
                 <strong className={Number(product.plazas_libres) <= 0 ? 'text-destructive' : 'text-foreground'}>
@@ -452,7 +466,7 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
 
           {/* === Secciones extraídas (texto) === */}
           <div className="p-3 bg-muted/20 rounded-md border border-border space-y-3">
-            <div className="text-[11px] font-bold uppercase text-muted-foreground">
+            <div className="text-tabla uppercase text-muted-foreground">
               Contenido del programa <span className="font-normal normal-case opacity-70">(extraído del HTML público — se usa para diplomados/recibos)</span>
             </div>
             {[
@@ -468,9 +482,9 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
               { name: 'profesores_texto', label: 'Profesorado' },
             ].map((f) => (
               <details key={f.name} className="border border-border rounded-md bg-card">
-                <summary className="cursor-pointer px-3 py-2 text-xs font-medium hover:bg-muted/40 flex items-center justify-between">
+                <summary className="cursor-pointer px-3 py-2 text-sm font-medium hover:bg-muted/40 flex items-center justify-between">
                   <span>{f.label}</span>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-secundario text-muted-foreground">
                     {(product?.[f.name]?.length || 0) > 0 ? `${product[f.name].length} chars` : 'vacío'}
                   </span>
                 </summary>
@@ -479,7 +493,8 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                     {...register(f.name as any)}
                     rows={6}
                     placeholder={`Pegado por el scraper. Si está vacío puedes editarlo.`}
-                    className="w-full px-3 py-2 rounded-md border border-border bg-muted/30 text-xs leading-relaxed resize-y font-sans"
+                    aria-label={f.label}
+                    className={`${inputClass} h-auto py-2 resize-y leading-relaxed`}
                   />
                 </div>
               </details>
@@ -489,23 +504,23 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
           {/* Enlaces de pago (CRM-140) — soporta múltiples Stripe Payment Links */}
           <div className="p-3 bg-muted/20 rounded-md border border-border space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+              <div className="flex items-center gap-2 text-secundario font-medium text-muted-foreground">
                 <Link size={12} /> Enlaces de pago Stripe
                 {paymentLinks.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">{paymentLinks.length}</span>
+                  <span className="text-tabla px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">{paymentLinks.length}</span>
                 )}
               </div>
               <button
                 type="button"
                 onClick={addPaymentLink}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-secundario font-semibold"
               >
                 <Plus size={11} weight="bold" /> Añadir enlace
               </button>
             </div>
 
             {paymentLinks.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground italic px-1">
+              <p className="text-secundario text-muted-foreground italic px-1">
                 Sin enlaces. Añade al menos uno (pago completo, fraccionado, etc.) para que los gestores puedan compartirlo en la conversión.
               </p>
             ) : (
@@ -517,7 +532,9 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                         value={link.label}
                         onChange={(e) => updatePaymentLink(idx, { label: e.target.value })}
                         placeholder="Etiqueta (ej: Pago único)"
-                        className={smallInput}
+                        aria-label={`Etiqueta del enlace ${idx + 1}`}
+                        aria-invalid={linkErrors[idx] ? true : undefined}
+                        className={inputClass}
                       />
                       <Select<string>
                         value={link.tipo}
@@ -531,7 +548,9 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                         value={link.url}
                         onChange={(e) => updatePaymentLink(idx, { url: e.target.value })}
                         placeholder="https://buy.stripe.com/..."
-                        className={smallInput + ' flex-1 font-mono text-xs'}
+                        aria-label={`URL del enlace ${idx + 1}`}
+                        aria-invalid={linkErrors[idx] ? true : undefined}
+                        className={`${inputClass} flex-1 min-w-0 font-mono`}
                       />
                       <button
                         type="button"
@@ -543,13 +562,13 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                       </button>
                     </div>
                     {linkErrors[idx] && (
-                      <p className="text-xs text-red-500">{linkErrors[idx]}</p>
+                      <p role="alert" className="px-1 text-secundario text-destructive">{linkErrors[idx]}</p>
                     )}
                   </div>
                 ))}
               </div>
             )}
-            <p className="text-[10px] text-muted-foreground px-1">
+            <p className="text-secundario text-muted-foreground px-1">
               El primer enlace se guarda también como <code className="font-mono">stripe_link</code> por compatibilidad.
             </p>
           </div>

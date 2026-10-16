@@ -11,17 +11,22 @@ export const PAYMENT_LINK_TYPES = [
 export type PaymentLinkType = typeof PAYMENT_LINK_TYPES[number]['value'];
 
 export const paymentLinkSchema = z.object({
-  label: z.string().min(1, 'Etiqueta requerida'),
-  url: z.string().url('URL invalida'),
+  label: z.string().min(1, 'Escribe la etiqueta del enlace'),
+  url: z.string().url('La URL no es válida: cópiala entera, empezando por https://'),
   tipo: z.enum(['completo', 'dos_cuotas', 'tres_cuotas', 'personalizado']),
 });
 
 export type PaymentLink = z.infer<typeof paymentLinkSchema>;
 
+// Sin mensaje propio, zod contesta en inglés y sin decir qué hacer
+// («Invalid input», «Number must be greater than or equal to 0») (#106).
+const MSG_ENTERO = 'Escribe un número entero, 0 o mayor';
+const ENTERO = { errorMap: () => ({ message: MSG_ENTERO }) };
+
 export const productSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   descripcion: z.string().optional().or(z.literal('')),
-  precio: z.coerce.number().nonnegative('Precio debe ser >= 0').optional().or(z.nan()),
+  precio: z.coerce.number().nonnegative('El precio no puede ser negativo').optional().or(z.nan()),
   moneda: z.string().optional().or(z.literal('')),
   stripe_link: z.string().max(500).optional().or(z.literal('')),
   sku: z.string().optional().or(z.literal('')),
@@ -31,13 +36,13 @@ export const productSchema = z.object({
   subcategoria_id: z.union([z.number(), z.string()]).optional().or(z.literal('')),
   // Campos del scraper / WC ricos
   horas: z.string().optional().or(z.literal('')),
-  num_modulos: z.union([z.coerce.number().int().nonnegative(), z.literal(''), z.nan()]).optional(),
+  num_modulos: z.union([z.coerce.number().int(MSG_ENTERO).nonnegative(MSG_ENTERO), z.literal(''), z.nan()], ENTERO).optional(),
   modalidad: z.string().optional().or(z.literal('')),
   fecha_inicio_texto: z.string().optional().or(z.literal('')),
   // Convocatoria (#86). Aquí solo van los dos extremos: las ocupadas y las
   // libres las cuenta el servidor desde las ventas y no se envían nunca.
-  plazas_totales: z.union([z.coerce.number().int().nonnegative(), z.literal(''), z.nan()]).optional(),
-  plazas_ocupadas_previas: z.union([z.coerce.number().int().nonnegative(), z.literal(''), z.nan()]).optional(),
+  plazas_totales: z.union([z.coerce.number().int(MSG_ENTERO).nonnegative(MSG_ENTERO), z.literal(''), z.nan()], ENTERO).optional(),
+  plazas_ocupadas_previas: z.union([z.coerce.number().int(MSG_ENTERO).nonnegative(MSG_ENTERO), z.literal(''), z.nan()], ENTERO).optional(),
   fecha_cierre_convocatoria: z.string().optional().or(z.literal('')),
   presentacion_texto: z.string().optional().or(z.literal('')),
   objetivos_texto: z.string().optional().or(z.literal('')),

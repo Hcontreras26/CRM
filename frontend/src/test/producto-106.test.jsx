@@ -1,0 +1,91 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+
+/*
+  «Producto» (alta y edición) con las piezas comunes (#106): fuera la copia
+  local de la clase de los campos (`smallInput`, otro redondeo y otro foco) y
+  las de las áreas de texto; el régimen fiscal con su Field; y los avisos
+  dicen en qué campo o en qué enlace está el problema, en español.
+*/
+
+const avisos = vi.hoisted(() => ({ toast: vi.fn() }));
+vi.mock('@/shared/hooks/useToast', () => ({ toast: avisos.toast }));
+vi.mock('@/shared/components/ui/portal', () => ({ default: ({ children }) => children }));
+vi.mock('@/shared/hooks/useDialogA11y', () => ({ useEscapeKey: () => {} }));
+vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ({ activeProject: { id: 1, producto_label: 'Curso' } }) }));
+vi.mock('@/shared/api/client', () => ({ default: { get: vi.fn().mockResolvedValue({ success: true, data: [] }) } }));
+vi.mock('@/modules/product-categories/components/CascadaDeCategorias', () => ({ default: () => null }));
+vi.mock('@/modules/products/api/products.api', () => ({
+  uploadProductImage: vi.fn(), deleteProductImage: vi.fn(), getProductImageUrl: vi.fn(),
+}));
+
+import ProductFormDialog from '@/modules/products/components/ProductFormDialog';
+import { productSchema } from '@/modules/products/validation/product.schema';
+
+const abrir = async (onSubmit = vi.fn()) => {
+  const r = render(<ProductFormDialog open onClose={vi.fn()} product={null} onSubmit={onSubmit} />);
+  await act(async () => { await Promise.resolve(); });
+  return r;
+};
+const enviar = async (container) => {
+  await act(async () => { fireEvent.submit(container.querySelector('form')); });
+};
+
+describe('Producto (#106)', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('todos los campos con la clase común y un nombre que dice qué son', async () => {
+    const { container } = await abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Añadir enlace/ }));
+    const campos = [...container.querySelectorAll('input:not([type=file]), textarea')];
+    expect(campos.length).toBeGreaterThan(15);
+    for (const c of campos) {
+      expect(c.className).toMatch(/bg-muted\/50/);
+      expect(c.getAttribute('aria-label')).toBeTruthy();
+    }
+  });
+
+  it('el nombre se marca obligatorio con el Field (no con un asterisco en el texto)', async () => {
+    await abrir();
+    expect(screen.queryByText('Nombre *')).toBeNull();
+    expect(screen.getByText('(obligatorio)')).toBeTruthy();
+  });
+
+  it('el régimen fiscal lleva su Field, con la ayuda debajo', async () => {
+    await abrir();
+    const campo = screen.getByRole('combobox', { name: 'Régimen fiscal' }).closest('div.min-w-0');
+    expect(campo.textContent).toMatch(/Régimen fiscal \(IVA\)/);
+    expect(campo.textContent).toMatch(/Déjalo por defecto/);
+  });
+
+  it('el aviso dice en qué campo está el problema, y en español', async () => {
+    const { container } = await abrir();
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Máster TCC' } });
+    fireEvent.change(screen.getByLabelText('Nº módulos'), { target: { value: '-2' } });
+    await enviar(container);
+    await waitFor(() => expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({
+      description: 'Nº módulos: Escribe un número entero, 0 o mayor',
+    })));
+  });
+
+  it('un enlace de pago mal puesto: dice cuál, junto al enlace y en el aviso', async () => {
+    const onSubmit = vi.fn();
+    const { container } = await abrir(onSubmit);
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Máster TCC' } });
+    fireEvent.click(screen.getByRole('button', { name: /Añadir enlace/ }));
+    await enviar(container);
+    await waitFor(() => expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Revisa los enlaces de pago', description: 'Enlace 1: Escribe la etiqueta del enlace',
+    })));
+    expect(screen.getByRole('alert').textContent).toBe('Escribe la etiqueta del enlace');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('el esquema ya no dice «Invalid input» ni «>= 0»', () => {
+    const r = productSchema.safeParse({ nombre: 'Máster', precio: -1, plazas_totales: -3 });
+    const msgs = r.error.issues.map((i) => i.message);
+    expect(msgs).toContain('El precio no puede ser negativo');
+    expect(msgs).toContain('Escribe un número entero, 0 o mayor');
+    expect(msgs.join(' ')).not.toMatch(/Invalid input|>=/);
+  });
+});
