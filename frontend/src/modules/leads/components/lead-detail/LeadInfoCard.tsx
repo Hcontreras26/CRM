@@ -261,8 +261,8 @@ export default function LeadInfoCard({ lead, onUpdate, onLlamada, onWhatsapp }: 
           <Field label="Teléfono" htmlFor="ficha-telefono">
             <input id="ficha-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} className={inputClass} />
           </Field>
-          <Field label="Canal">
-            <Select<string> value={canal} onChange={setCanal} ariaLabel="Canal" options={CANAL_OPTIONS} />
+          <Field label="Canal" htmlFor="ficha-canal">
+            <Select<string> id="ficha-canal" value={canal} onChange={setCanal} ariaLabel="Canal" options={CANAL_OPTIONS} placeholder={canal} />
           </Field>
           <Field label="Notas" htmlFor="ficha-notas" className="sm:col-span-2">
             <textarea

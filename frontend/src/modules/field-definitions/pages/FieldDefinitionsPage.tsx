@@ -85,11 +85,11 @@ export default function FieldDefinitionsPage() {
   async function save(): Promise<void> {
     if (!editing) return;
     if (!editing.label.trim()) {
-      toast({ title: 'Falta etiqueta', variant: 'destructive' }); return;
+      toast({ title: 'Falta la etiqueta', description: 'Escríbela en «Etiqueta visible»: es lo que se ve en el formulario.', variant: 'destructive' }); return;
     }
     const fieldKey = editing.field_key || toSnake(editing.label);
     if (!/^[a-z][a-z0-9_]*$/.test(fieldKey)) {
-      toast({ title: 'Clave inválida', description: 'Debe empezar con letra minúscula y solo a-z, 0-9, _.', variant: 'destructive' });
+      toast({ title: 'Clave no válida', description: 'En «Clave interna»: empieza por una letra minúscula y usa solo a-z, 0-9 y _.', variant: 'destructive' });
       return;
     }
     try {
@@ -356,8 +356,9 @@ function FieldEditorDialog({ field, onChange, onSave, onClose, isEdit }: FieldEd
             </Field>
           )}
 
-          <Field label="Tipo">
+          <Field label="Tipo" htmlFor="campo-tipo">
             <Select<FieldType>
+              id="campo-tipo"
               value={field.type}
               onChange={(v) => patch({ type: v, options: v === 'select' ? (field.options || { choices: [] }) : null })}
               options={TYPES.map((t) => ({ value: t.v, label: t.label }))}

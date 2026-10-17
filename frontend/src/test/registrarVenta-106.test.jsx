@@ -27,6 +27,14 @@ vi.mock('@/shared/components/ui/portal', () => ({ default: ({ children }) => chi
 
 import RegisterSaleDialog from '@/modules/sales/components/RegisterSaleDialog';
 
+// Las etiquetas de Field (#106) que no apuntan a ningún campo. Las de grupo
+// (varios controles juntos, como «IVA» o «Pago recibido hoy») no tienen a
+// cuál apuntar y se dicen aparte.
+const etiquetasSueltas = (raiz, deGrupo = []) => [...raiz.querySelectorAll('label.mb-1\\.5.block.px-1')]
+  .filter((l) => !deGrupo.some((g) => l.textContent.startsWith(g)))
+  .filter((l) => !l.htmlFor || !raiz.ownerDocument.getElementById(l.htmlFor))
+  .map((l) => l.textContent);
+
 const abrir = async (props = {}) => {
   const r = render(<RegisterSaleDialog open onClose={vi.fn()} project={{ id: 1, nombre: 'Psiko' }} {...props} />);
   await act(async () => { await Promise.resolve(); });
@@ -62,5 +70,13 @@ describe('Registrar venta (#106, #134)', () => {
       title: 'Falta el nombre del cliente',
       description: expect.stringMatching(/Nombre del cliente/),
     }));
+  });
+
+  it('cada etiqueta enlazada a su campo, con cliente existente y con cliente nuevo (#106)', async () => {
+    const { container, unmount } = await abrir();
+    expect(etiquetasSueltas(container)).toEqual([]);
+    unmount();
+    const nuevo = await abrir({ modoInicial: 'new' });
+    expect(etiquetasSueltas(nuevo.container)).toEqual([]);
   });
 });

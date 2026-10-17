@@ -20,9 +20,11 @@ interface Props {
   projectId: number | null | undefined;
   projectLabel?: string;
   onProductCreated?: (p: ProductOption) => void;
+  /** El `id` del botón, para que la etiqueta de un `Field` (`htmlFor`) lo enfoque. */
+  id?: string;
 }
 
-export default function ProductCombobox({ value, onChange, products, projectId, projectLabel = 'Producto', onProductCreated }: Props) {
+export default function ProductCombobox({ value, onChange, products, projectId, projectLabel = 'Producto', onProductCreated, id }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [newOpen, setNewOpen] = useState(false);
@@ -45,8 +47,10 @@ export default function ProductCombobox({ value, onChange, products, projectId, 
   return (
     <div className="relative" ref={ref}>
       <button
+        id={id}
         type="button"
         onClick={() => setOpen(!open)}
+        aria-expanded={open ? 'true' : 'false'}
         className={inputClass + ' flex items-center justify-between text-left'}
       >
         <span className={selected ? '' : 'text-muted-foreground'}>

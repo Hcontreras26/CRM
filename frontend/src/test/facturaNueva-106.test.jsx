@@ -69,7 +69,10 @@ describe('Nueva factura (#106)', () => {
   it('los conceptos se apilan en el móvil y cada casilla dice qué es', async () => {
     const { container } = await abrir();
     const fila = screen.getByRole('textbox', { name: 'Concepto 1' }).parentElement;
-    expect(fila.className).toMatch(/grid-cols-6 sm:grid-cols-12/);
+    // 7 columnas en el móvil: cantidad, precio y subtotal, 2 cada uno (con 1, el
+    // subtotal no cabía a 390 px).
+    expect(fila.className).toMatch(/grid-cols-7 sm:grid-cols-12/);
+    expect([...fila.children].find((h) => h.textContent.includes('0.00')).className).toMatch(/col-span-2 sm:col-span-1/);
     expect(screen.getByRole('spinbutton', { name: 'Cantidad del concepto 1' })).toBeTruthy();
     expect(screen.getByRole('spinbutton', { name: 'Precio unitario del concepto 1' })).toBeTruthy();
     // La cabecera de columnas solo sale cuando cabe.
@@ -91,6 +94,14 @@ describe('Nueva factura (#106)', () => {
     expect(container.querySelector('select')).toBeNull();
     const campus = screen.getByRole('combobox', { name: 'Campus de la factura' });
     expect(document.activeElement).toBe(campus);
+  });
+
+  it('cada etiqueta enlazada a su campo', async () => {
+    const { container } = await abrir();
+    const sueltas = [...container.querySelectorAll('label.mb-1\\.5.block.px-1')]
+      .filter((l) => !l.htmlFor || !document.getElementById(l.htmlFor))
+      .map((l) => l.textContent);
+    expect(sueltas).toEqual([]);
   });
 });
 
@@ -122,5 +133,21 @@ describe('Datos fiscales para la factura (#106)', () => {
     const fila = screen.getByRole('textbox', { name: 'Concepto 1' }).parentElement;
     expect(fila.className).toMatch(/grid-cols-6 sm:grid-cols-12/);
     expect(screen.getByRole('spinbutton', { name: 'Precio del concepto 1' })).toBeTruthy();
+  });
+
+  it('con «Emitir» apagado, dice al lado qué falta (antes el aviso no se veía nunca)', async () => {
+    await abrirDialogo();
+    expect(screen.getByRole('button', { name: /Emitir factura/ })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('status').textContent)
+      .toBe('Para emitirla, falta en «Cliente»: Nombre · NIF / DNI / CIF · Código postal · Dirección fiscal · Ciudad.');
+  });
+
+  it('cada etiqueta enlazada a su campo, también los datos del cliente', async () => {
+    const { container } = await abrirDialogo();
+    const sueltas = [...container.querySelectorAll('label.mb-1\\.5.block.px-1')]
+      .filter((l) => !l.htmlFor || !document.getElementById(l.htmlFor))
+      .map((l) => l.textContent);
+    expect(sueltas).toEqual([]);
+    expect(screen.getByLabelText(/^NIF \/ DNI \/ CIF/).tagName).toBe('INPUT');
   });
 });

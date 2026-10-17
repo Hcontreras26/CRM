@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, FloppyDisk, MagnifyingGlass, User, Buildings, Money } from '@phosphor-icons/react';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -554,11 +554,13 @@ export default function InvoiceCreatePage() {
       {/* Proyecto de la factura — manda sobre cliente/leads, cursos y emisores */}
       {projectOptions.length > 0 && (
         <div className="bg-card border border-border rounded-lg p-4">
-          <Field label="Proyecto"
+          <Field label="Proyecto" htmlFor="factura-proyecto"
             hint="Los clientes, cursos y empresas emisoras se filtran por este proyecto. Solo se listan proyectos de la misma sociedad (no se factura cruzado entre sociedades).">
             <Select<number | null>
+              id="factura-proyecto"
               value={projectId ?? null}
               onChange={(v) => { if (v) setProjectId(v); }}
+              placeholder="Elige el proyecto"
               ariaLabel="Proyecto"
               options={projectOptions.map((p) => ({ value: p.id, label: p.nombre }))}
             />
@@ -569,11 +571,12 @@ export default function InvoiceCreatePage() {
       {/* Emisor */}
       {issuers.length > 0 && (
         <div className="bg-card border border-border rounded-lg p-4">
-          <Field label="Empresa que emite">
+          <Field label="Empresa que emite" htmlFor="factura-empresa">
             {/* Con alias se enseña el alias: dos emisoras pueden compartir razón
                 social y NIF —misma sociedad, distinto logo— y así se distinguen.
                 En la factura siempre sale la razón social real. */}
             <Select<number | null>
+              id="factura-empresa"
               value={issuerId ?? null}
               onChange={(v) => { if (v) setIssuerId(v); }}
               ariaLabel="Empresa que emite"
@@ -641,9 +644,10 @@ export default function InvoiceCreatePage() {
       {esRect && (
         <div className="bg-card border border-border rounded-lg p-4 space-y-3">
           <div>
-            <Field label="Factura a rectificar" required
+            <Field label="Factura a rectificar" required htmlFor="abono-factura"
               hint="El abono copia los datos de la factura original en negativo. Elige de esta sociedad emisora.">
               <Select<number | null>
+                id="abono-factura"
                 value={rectOriginalId ?? null}
                 onChange={setRectOriginalId}
                 ariaLabel="Factura a rectificar"
@@ -697,11 +701,11 @@ export default function InvoiceCreatePage() {
       {/* Cliente */}
       {tipo !== 'contado' && (
         <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-          <Field label="Cliente" hint="Busca por nombre o email para traer sus datos; lo que falte lo completas abajo.">
+          <Field label="Cliente" htmlFor="factura-buscar-cliente" hint="Busca por nombre o email para traer sus datos; lo que falte lo completas abajo.">
             <div className="relative">
               <MagnifyingGlass size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input value={search} onChange={(e) => { setSearch(e.target.value); setLeadId(null); }} onFocus={() => hits.length && setOpenHits(true)}
-                placeholder="Buscar cliente o escribir nombre nuevo…" aria-label="Buscar cliente" className={`${inputClass} pl-8`} />
+              <input id="factura-buscar-cliente" value={search} onChange={(e) => { setSearch(e.target.value); setLeadId(null); }} onFocus={() => hits.length && setOpenHits(true)}
+                placeholder="Buscar cliente o escribir nombre nuevo…" className={`${inputClass} pl-8`} />
               {openHits && hits.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-md shadow-lg max-h-56 overflow-auto">
                   {hits.map((h) => (
@@ -717,9 +721,10 @@ export default function InvoiceCreatePage() {
           {/* Asociar el documento a una venta del cliente (p. ej. proforma de una
               conversión pendiente de pago). El concepto se escribe libre abajo. */}
           {!editId && leadId && leadConvs.length > 0 && (
-            <Field label="Asociar a venta del cliente (opcional)" className="mb-3"
+            <Field label="Asociar a venta del cliente (opcional)" className="mb-3" htmlFor="factura-venta"
               hint="Queda ligada a esa venta y sus pagos; el concepto de la factura puede ser distinto al del producto.">
               <Select<number | ''>
+                id="factura-venta"
                 value={assocConvId}
                 onChange={setAssocConvId}
                 ariaLabel="Asociar a venta del cliente"
@@ -767,7 +772,7 @@ export default function InvoiceCreatePage() {
             móvil sobra: cada línea va en dos filas (el concepto arriba; la
             cantidad, el precio y el subtotal debajo) y los campos dicen qué son
             (#106). */}
-        <div className="hidden sm:grid grid-cols-12 gap-2 items-center px-0.5">
+        <div className="hidden sm:grid grid-cols-12 gap-fila items-center px-0.5">
           <span className="col-span-6 text-tabla uppercase text-muted-foreground">Concepto</span>
           <span className="col-span-2 text-tabla uppercase text-muted-foreground text-center">Cantidad</span>
           <span className="col-span-2 text-tabla uppercase text-muted-foreground text-right">Precio unit.</span>
@@ -776,14 +781,14 @@ export default function InvoiceCreatePage() {
         {items.map((it, idx) => {
           const subtotal = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
           return (
-          <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-2 items-center">
-            <input value={it.descripcion} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, descripcion: e.target.value } : x))} placeholder="Ej: Producto/servicio: servicio académico, [programa]" aria-label={`Concepto ${idx + 1}`} className={`${inputClass} col-span-6 min-w-0`} />
+          <div key={idx} className="grid grid-cols-7 sm:grid-cols-12 gap-fila items-center">
+            <input value={it.descripcion} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, descripcion: e.target.value } : x))} placeholder="Ej: Producto/servicio: servicio académico, [programa]" aria-label={`Concepto ${idx + 1}`} className={`${inputClass} col-span-7 sm:col-span-6 min-w-0`} />
             <input type="number" min="1" value={it.cantidad} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value) } : x))} placeholder="1" aria-label={`Cantidad del concepto ${idx + 1}`} className={`${inputClass} col-span-2 min-w-0 text-center`} />
             <div className="col-span-2 relative min-w-0">
               <input type="number" step="0.01" min="0" value={it.precio_unitario} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: Number(e.target.value) } : x))} placeholder="0,00" aria-label={`Precio unitario del concepto ${idx + 1}`} className={`${inputClass} pr-6 text-right`} />
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">{simboloMoneda}</span>
             </div>
-            <span className="col-span-1 text-sm text-right tabular-nums font-medium">{subtotal.toFixed(2)}&nbsp;{simboloMoneda}</span>
+            <span className="col-span-2 sm:col-span-1 text-sm text-right tabular-nums font-medium">{subtotal.toFixed(2)}&nbsp;{simboloMoneda}</span>
             <button onClick={() => setItems(items.length > 1 ? items.filter((_, i) => i !== idx) : items)} title="Quitar línea" className="col-span-1 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
           </div>
           );
@@ -825,7 +830,7 @@ export default function InvoiceCreatePage() {
       {/* IVA + Pago */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-card border border-border rounded-lg p-4 space-y-2">
-          <Field label="IVA / Régimen fiscal"
+          <Field label="IVA / Régimen fiscal" htmlFor="factura-regimen"
             hint={regimenSel?.coletilla ? `📎 Coletilla: ${regimenSel.coletilla}` : undefined}>
             <div className="space-y-2">
               {regimenSel && (
@@ -837,6 +842,7 @@ export default function InvoiceCreatePage() {
               )}
               {regimenes.length > 0 && (
                 <Select<number | null>
+                  id="factura-regimen"
                   value={regimenId ?? null}
                   onChange={pickRegimen}
                   ariaLabel="IVA / Régimen fiscal"
@@ -857,8 +863,9 @@ export default function InvoiceCreatePage() {
           </Field>
         </div>
         <div className="bg-card border border-border rounded-lg p-4 space-y-3">
-          <Field label="Método de pago">
+          <Field label="Método de pago" htmlFor="factura-metodo">
             <Select<string>
+              id="factura-metodo"
               value={metodoPago}
               onChange={(v) => setMetodoPago(v as 'transferencia')}
               ariaLabel="Método de pago"
@@ -875,10 +882,12 @@ export default function InvoiceCreatePage() {
               ]}
             />
           </Field>
-          <Field label="Moneda">
+          <Field label="Moneda" htmlFor="factura-moneda">
             <Select<string>
+              id="factura-moneda"
               value={moneda}
               onChange={setMoneda}
+              placeholder={moneda}
               ariaLabel="Moneda"
               options={CURRENCIES.map((c) => ({ value: c.code, label: `${c.code} · ${c.label}` }))}
             />
@@ -981,9 +990,12 @@ function enfocarAlAparecer(el: HTMLDivElement | null) {
 }
 
 function CampoTexto({ label, value, onChange, required, full }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; full?: boolean }) {
+  // Un id propio para que la etiqueta enfoque su campo (#106).
+  const id = useId();
   return (
-    <Field label={label} required={required} className={full ? 'sm:col-span-2' : undefined}>
+    <Field label={label} required={required} className={full ? 'sm:col-span-2' : undefined} htmlFor={id}>
       <input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={required && !value ? true : undefined}

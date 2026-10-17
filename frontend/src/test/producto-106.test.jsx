@@ -41,8 +41,11 @@ describe('Producto (#106)', () => {
     expect(campos.length).toBeGreaterThan(15);
     for (const c of campos) {
       expect(c.className).toMatch(/bg-muted\/50/);
-      expect(c.getAttribute('aria-label')).toBeTruthy();
+      // Con su etiqueta enlazada (o, en las filas repetidas, su aria-label).
+      expect(c.labels?.length > 0 || Boolean(c.getAttribute('aria-label')), c.outerHTML.slice(0, 80)).toBe(true);
     }
+    // La clase de antes (`smallInput`) llevaba rounded-lg y otro foco.
+    expect(campos.filter((c) => c.className.includes('rounded-lg'))).toEqual([]);
   });
 
   it('el nombre se marca obligatorio con el Field (no con un asterisco en el texto)', async () => {
@@ -60,7 +63,7 @@ describe('Producto (#106)', () => {
 
   it('el aviso dice en qué campo está el problema, y en español', async () => {
     const { container } = await abrir();
-    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Máster TCC' } });
+    fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: 'Máster TCC' } });
     fireEvent.change(screen.getByLabelText('Nº módulos'), { target: { value: '-2' } });
     await enviar(container);
     await waitFor(() => expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({
@@ -71,7 +74,7 @@ describe('Producto (#106)', () => {
   it('un enlace de pago mal puesto: dice cuál, junto al enlace y en el aviso', async () => {
     const onSubmit = vi.fn();
     const { container } = await abrir(onSubmit);
-    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Máster TCC' } });
+    fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: 'Máster TCC' } });
     fireEvent.click(screen.getByRole('button', { name: /Añadir enlace/ }));
     await enviar(container);
     await waitFor(() => expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({

@@ -456,9 +456,10 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                 elegido en la barra lateral, preguntarlo otra vez sobra. */}
             {hayQueElegirCampus && (
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <Field label="Campus de la venta" required
+                <Field label="Campus de la venta" required htmlFor="venta-campus"
                   hint="La venta es de un campus: de ahí salen su matrícula y su factura.">
                   <Select<number | null>
+                    id="venta-campus"
                     value={campus}
                     onChange={setCampus}
                     ariaLabel="Campus de la venta"
@@ -496,10 +497,11 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               <div className="space-y-3">
                 {!selectedClient ? (
                   <div>
-                    <Field label="Buscar cliente" required>
+                    <Field label="Buscar cliente" required htmlFor="venta-buscar-cliente">
                       <div className="relative">
                         <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <input
+                          id="venta-buscar-cliente"
                           autoFocus
                           value={clientSearch}
                           onChange={(e) => setClientSearch(e.target.value)}
@@ -538,10 +540,10 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                     <UserCheck size={20} weight="duotone" className="text-success flex-shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold truncate">{selectedClient.nombre || '— sin nombre —'}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{selectedClient.email || '—'} {selectedClient.telefono ? `· ${selectedClient.telefono}` : ''}</p>
-                      <p className="text-[11px] text-success-soft-foreground mt-0.5">Cliente seleccionado — se le añadirá una nueva venta.</p>
+                      <p className="text-secundario text-muted-foreground truncate">{selectedClient.email || '—'} {selectedClient.telefono ? `· ${selectedClient.telefono}` : ''}</p>
+                      <p className="text-secundario text-success-soft-foreground mt-0.5">Cliente seleccionado — se le añadirá una nueva venta.</p>
                     </div>
-                    <button type="button" onClick={clearSelectedClient} className="text-[11px] text-muted-foreground hover:text-foreground underline flex-shrink-0">
+                    <button type="button" onClick={clearSelectedClient} className="text-secundario text-muted-foreground hover:text-foreground underline flex-shrink-0">
                       Cambiar
                     </button>
                   </div>
@@ -559,10 +561,11 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               <div className="space-y-3">
                 {!selectedClient ? (
                   <div>
-                    <Field label="Buscar el prospecto" required>
+                    <Field label="Buscar el prospecto" required htmlFor="venta-buscar-prospecto">
                       <div className="relative">
                         <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <input
+                          id="venta-buscar-prospecto"
                           autoFocus
                           value={clientSearch}
                           onChange={(e) => setClientSearch(e.target.value)}
@@ -599,18 +602,18 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                     <UserCheck size={20} weight="duotone" className="text-info flex-shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold truncate">{selectedClient.nombre || '— sin nombre —'}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{selectedClient.email || '—'} {selectedClient.telefono ? `· ${selectedClient.telefono}` : ''}</p>
+                      <p className="text-secundario text-muted-foreground truncate">{selectedClient.email || '—'} {selectedClient.telefono ? `· ${selectedClient.telefono}` : ''}</p>
                       {selectedClient.responsable_nombre ? (
-                        <p className="text-[11px] text-info-soft-foreground mt-0.5">
+                        <p className="text-secundario text-info-soft-foreground mt-0.5">
                           Esta venta será de <strong>{selectedClient.responsable_nombre}</strong>, que es quien lleva el prospecto.
                         </p>
                       ) : (
-                        <p className="text-[11px] text-warning-soft-foreground mt-0.5">
+                        <p className="text-secundario text-warning-soft-foreground mt-0.5">
                           Este prospecto no tiene gestora, así que la venta no será de nadie.
                         </p>
                       )}
                     </div>
-                    <button type="button" onClick={clearSelectedClient} className="text-[11px] text-muted-foreground hover:text-foreground underline flex-shrink-0">
+                    <button type="button" onClick={clearSelectedClient} className="text-secundario text-muted-foreground hover:text-foreground underline flex-shrink-0">
                       Cambiar
                     </button>
                   </div>
@@ -622,21 +625,21 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                 con el nombre solo basta, y avisa de en que se nota. */}
             {mode === 'sin_gestora' && (
               <div className="space-y-3">
-                <p className="rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-[12px] text-warning-soft-foreground">
+                <p className="rounded-md border border-warning/30 bg-warning-soft px-3 py-2 text-secundario text-warning-soft-foreground">
                   Esta venta <strong>no se le asigna a nadie</strong>: no cuenta en los
                   números de ninguna gestora ni avanza el reparto de prospectos. Con el
                   nombre basta.
                 </p>
-                <Field label="Nombre del cliente" required>
-                  <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
+                <Field label="Nombre del cliente" required htmlFor="venta-nombre">
+                  <input id="venta-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
                 </Field>
                 <FilaCampos>
-                  <Field label="Email">
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  <Field label="Email" htmlFor="venta-email">
+                    <input id="venta-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                       placeholder="opcional" className={inputClass} />
                   </Field>
-                  <Field label="Teléfono">
-                    <input value={telefono} onChange={(e) => setTelefono(e.target.value)}
+                  <Field label="Teléfono" htmlFor="venta-telefono">
+                    <input id="venta-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)}
                       placeholder="opcional" className={inputClass} />
                   </Field>
                 </FilaCampos>
@@ -646,16 +649,16 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
             {/* MODO: cliente nuevo */}
             {mode === 'new' && (
               <div className="space-y-3">
-                <Field label="Nombre del cliente" required>
-                  <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
+                <Field label="Nombre del cliente" required htmlFor="venta-nombre">
+                  <input id="venta-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
                 </Field>
                 <FilaCampos>
-                  <Field label="Email" hint="Hace falta el email o el teléfono">
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  <Field label="Email" hint="Hace falta el email o el teléfono" htmlFor="venta-email">
+                    <input id="venta-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                       placeholder="correo@ejemplo.com" className={inputClass} />
                   </Field>
-                  <Field label="Teléfono" hint="Hace falta el teléfono o el email">
-                    <input value={telefono} onChange={(e) => setTelefono(e.target.value)}
+                  <Field label="Teléfono" hint="Hace falta el teléfono o el email" htmlFor="venta-telefono">
+                    <input id="venta-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)}
                       placeholder="+34..." className={inputClass} />
                   </Field>
                 </FilaCampos>
@@ -664,8 +667,9 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
 
             {/* Datos fiscales (opcionales, común a ambos modos) */}
             <div className="space-y-2">
-              <Field label="Identificación fiscal (opcional)">
+              <Field label="Identificación fiscal (opcional)" htmlFor="venta-identificacion">
                 <input
+                  id="venta-identificacion"
                   value={identificacionFiscal}
                   onChange={(e) => setIdentificacionFiscal(e.target.value)}
                   placeholder="NIF / CIF / NIE / Cédula / RFC…"
@@ -673,9 +677,10 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                   className={inputClass}
                 />
               </Field>
-              <Field label="Dirección fiscal (opcional)"
+              <Field label="Dirección fiscal (opcional)" htmlFor="venta-direccion"
                 hint="Los dos datos fiscales son para emitir factura. Si no los tienes, déjalos vacíos.">
                 <textarea
+                  id="venta-direccion"
                   value={direccionFiscal}
                   onChange={(e) => setDireccionFiscal(e.target.value)}
                   placeholder="Calle, número, piso · Código postal · Ciudad · Provincia · País"
@@ -718,13 +723,14 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
             {/* Producto + importes (común a ambos modos) */}
             <div className="border-t border-border pt-3 space-y-3">
               <div>
-                <Field label="Producto" required>
+                <Field label="Producto" required htmlFor="venta-producto">
                   <div className="space-y-1.5">
                     <input value={productSearch} onChange={(e) => setProductSearch(e.target.value)}
                       placeholder="Buscar producto…" aria-label="Buscar producto"
                       className={inputClass} />
                     {/* El desplegable del CRM, como el resto (#106, #134). */}
                     <Select<number | ''>
+                      id="venta-producto"
                       value={productoId}
                       onChange={setProductoId}
                       ariaLabel="Producto"
@@ -756,31 +762,32 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               </div>
 
               <FilaCampos>
-                <Field label="Importe total" required>
-                  <input type="number" min="0" step="0.01" value={importeTotal}
+                <Field label="Importe total" required htmlFor="venta-importe-total">
+                  <input id="venta-importe-total" type="number" min="0" step="0.01" value={importeTotal}
                     onChange={(e) => setImporteTotal(e.target.value)} className={inputClass} />
                 </Field>
                 {/* «Por defecto: igual al total» iba de texto de ejemplo dentro
                     del campo y en el móvil salía cortado (#134): va debajo. */}
-                <Field label="Importe pagado"
+                <Field label="Importe pagado" htmlFor="venta-importe-pagado"
                   hint={importeTotal ? `Si lo dejas vacío, se toma el total (${importeTotal}).` : 'Si lo dejas vacío, se toma el total.'}>
-                  <input type="number" min="0" step="0.01" value={importePagado}
+                  <input id="venta-importe-pagado" type="number" min="0" step="0.01" value={importePagado}
                     onChange={(e) => setImportePagado(e.target.value)} className={inputClass} />
                 </Field>
               </FilaCampos>
 
               <FilaCampos>
-                <Field label="Método de pago">
+                <Field label="Método de pago" htmlFor="venta-metodo">
                   <Select<string>
+                    id="venta-metodo"
                     value={metodo}
                     onChange={setMetodo}
                     ariaLabel="Método de pago"
                     options={PAYMENT_METHODS}
                   />
                 </Field>
-                <Field label="Fecha de pago" required
+                <Field label="Fecha de pago" required htmlFor="venta-fecha"
                   hint={isRetroactiva ? 'Anterior a hoy: la venta se registra como histórica.' : undefined}>
-                  <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} max={today}
+                  <input id="venta-fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} max={today}
                     className={inputClass} />
                 </Field>
               </FilaCampos>
@@ -789,21 +796,21 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               {metodo === 'fraccionado' && (
                 <div className="space-y-3 p-3 rounded-md border border-border bg-muted/20">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Plan de cuotas</span>
+                    <span className="px-1 text-tabla uppercase text-muted-foreground">Plan de cuotas</span>
                     <button type="button"
                       onClick={() => { setInstallmentsDirty(false); }}
-                      className="text-[10px] text-primary hover:underline">
+                      className="text-secundario text-primary hover:underline">
                       Auto-distribuir
                     </button>
                   </div>
                   <FilaCampos>
-                    <Field label="N° de cuotas">
-                      <input type="number" min={2} max={36} value={numCuotas}
+                    <Field label="N° de cuotas" htmlFor="venta-num-cuotas">
+                      <input id="venta-num-cuotas" type="number" min={2} max={36} value={numCuotas}
                         onChange={(e) => { setNumCuotas(parseInt(e.target.value) || 2); setInstallmentsDirty(false); }}
                         className={inputClass} />
                     </Field>
-                    <Field label="1ª fecha de vencimiento">
-                      <input type="date" value={fechaPrimeraCuota}
+                    <Field label="1ª fecha de vencimiento" htmlFor="venta-primera-cuota">
+                      <input id="venta-primera-cuota" type="date" value={fechaPrimeraCuota}
                         onChange={(e) => { setFechaPrimeraCuota(e.target.value); setInstallmentsDirty(false); }}
                         className={inputClass} />
                     </Field>
@@ -813,11 +820,11 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                       {/* En el móvil cada cuota va en dos líneas (fecha arriba,
                           importe debajo) y la cabecera sobra: los campos dicen
                           qué son. En pantalla ancha, una línea por cuota (#106). */}
-                      <div className="hidden sm:grid grid-cols-[40px_1fr_1fr] gap-2 text-tabla uppercase text-muted-foreground px-1">
+                      <div className="hidden sm:grid grid-cols-[40px_1fr_1fr] gap-fila text-tabla uppercase text-muted-foreground px-1">
                         <span>#</span><span>Vencimiento</span><span className="text-right">Importe €</span>
                       </div>
                       {installments.map((it, idx) => (
-                        <div key={idx} className="grid grid-cols-[2rem_1fr] sm:grid-cols-[40px_1fr_1fr] gap-2 items-center">
+                        <div key={idx} className="grid grid-cols-[2rem_1fr] sm:grid-cols-[40px_1fr_1fr] gap-fila items-center">
                           <span className="text-xs text-muted-foreground px-1">{idx + 1}</span>
                           <input type="date" value={it.fecha_vencimiento}
                             aria-label={`Vencimiento de la cuota ${idx + 1}`}
@@ -837,7 +844,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                             className={`${inputClass} min-w-0 text-right col-start-2 sm:col-start-auto`} />
                         </div>
                       ))}
-                      <div className={`text-[11px] text-right pt-1 ${installmentsMismatch ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                      <div className={`text-secundario text-right pt-1 ${installmentsMismatch ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
                         Suma: {installmentsSum.toFixed(2)} € · Total: {(parseFloat(importeTotal) || 0).toFixed(2)} €
                         {installmentsMismatch && ' ⚠ no coinciden'}
                       </div>
@@ -846,8 +853,8 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                 </div>
               )}
 
-              <Field label="Notas (opcional)">
-                <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2}
+              <Field label="Notas (opcional)" htmlFor="venta-notas">
+                <textarea id="venta-notas" value={notas} onChange={(e) => setNotas(e.target.value)} rows={2}
                   placeholder="Comentarios sobre la venta…"
                   className={textareaClass} />
               </Field>

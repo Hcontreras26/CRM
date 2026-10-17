@@ -194,8 +194,9 @@ export default function FieldsTab({ project, onSaved }) {
               <Field label="Etiqueta visible" required htmlFor="nuevo-campo-etiqueta">
                 <input id="nuevo-campo-etiqueta" value={newField.label} onChange={e => setNewField({ ...newField, label: e.target.value })} placeholder="Etiqueta visible" className={inputClass} required />
               </Field>
-              <Field label="Tipo">
+              <Field label="Tipo" htmlFor="nuevo-campo-tipo">
                 <Select
+                  id="nuevo-campo-tipo"
                   value={newField.type}
                   onChange={(v) => setNewField({ ...newField, type: v })}
                   options={FIELD_TYPES.map(t => ({ value: t.v, label: t.label }))}

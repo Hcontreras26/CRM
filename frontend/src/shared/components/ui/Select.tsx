@@ -13,6 +13,8 @@ interface SelectProps<T> {
   ariaLabel?: string;
   disabled?: boolean;
   className?: string;
+  /** El `id` del botón, para que la etiqueta de un `Field` (`htmlFor`) lo enfoque. */
+  id?: string;
 }
 
 export default function Select<T>({
@@ -24,6 +26,7 @@ export default function Select<T>({
   ariaLabel,
   disabled,
   className,
+  id,
 }: SelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState<number>(-1);
@@ -84,8 +87,24 @@ export default function Select<T>({
     }
   }
 
+  // Como el desplegable del navegador: una letra salta a la siguiente opción
+  // que empieza por ella (sin mirar tildes ni mayúsculas). En listas largas
+  // —el catálogo, las facturas, los campus— es como se elige con el teclado.
+  function saltarPorLetra(letra: string): void {
+    const plano = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    const l = plano(letra);
+    const n = options.length;
+    for (let paso = 1; paso <= n; paso++) {
+      const i = ((highlighted < 0 ? -1 : highlighted) + paso) % n;
+      if (plano(options[i].label.replace(/^[^\p{L}\p{N}]+/u, '')).startsWith(l)) { setHighlighted(i); return; }
+    }
+  }
+
   function onListKey(e: ReactKeyboardEvent) {
-    if (e.key === 'ArrowDown') {
+    if (e.key.length === 1 && /[\p{L}\p{N}]/u.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      saltarPorLetra(e.key);
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlighted((h) => Math.min(h + 1, options.length - 1));
     } else if (e.key === 'ArrowUp') {
@@ -116,6 +135,7 @@ export default function Select<T>({
     <div className={cn('relative', className)}>
       <button
         ref={btnRef}
+        id={id}
         type="button"
         role="combobox"
         disabled={disabled}

@@ -4,8 +4,9 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 /*
   «Secuencias de email» con las piezas comunes (#106): la plantilla de cada
   paso con su Field (era un desplegable pequeño, con un icono y sin
-  etiqueta), se valida antes de guardar diciendo qué falta y en qué paso, y
-  los errores ya no se callan ni salen con la descripción vacía.
+  etiqueta), el nombre que falta se dice antes y dónde, y los errores ya no se
+  callan ni salen con la descripción vacía. Lo que se puede guardar no cambia:
+  el servidor solo exige el nombre.
 */
 
 const h = vi.hoisted(() => ({ toast: vi.fn(), get: vi.fn(), post: vi.fn(), del: vi.fn() }));
@@ -35,26 +36,37 @@ describe('Secuencias de email (#106)', () => {
     await esperar();
   };
 
-  it('la plantilla del paso lleva su Field, al tamaño de los demás', async () => {
+  it('la plantilla del paso lleva su Field, al tamaño de los demás y enlazada', async () => {
     await nueva();
     const plantilla = screen.getByRole('combobox', { name: 'Plantilla del paso 1' });
     expect(plantilla.closest('div.min-w-0').textContent).toMatch(/^Plantilla/);
-    expect(plantilla.className).not.toMatch(/\bh-8\b/);
+    // El tamaño de siempre (h-9), no el pequeño (h-7) de antes.
+    expect(plantilla.className).toMatch(/\bh-9\b/);
+    expect(plantilla.className).not.toMatch(/\bh-7\b/);
+    expect(document.querySelector('label[for="paso-0-plantilla"]')).toBeTruthy();
   });
 
-  it('no guarda sin nombre ni un paso vacío, y dice qué falta y dónde', async () => {
+  it('sin nombre no guarda, y dice dónde ponerlo', async () => {
     await nueva();
     fireEvent.click(screen.getByRole('button', { name: /Guardar/ }));
     expect(h.toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Faltan datos',
-      description: 'Falta el nombre de la secuencia, el asunto y el cuerpo del paso 1.',
+      title: 'Falta el nombre de la secuencia',
+      description: 'Escríbelo en «Nombre de la secuencia».',
     }));
     expect(h.post).not.toHaveBeenCalled();
   });
 
-  it('el nombre, y el asunto y el cuerpo de un paso sin plantilla, se marcan obligatorios', async () => {
+  it('con nombre se guarda aunque un paso no tenga asunto ni cuerpo (como antes)', async () => {
+    h.post.mockResolvedValue({ success: true });
     await nueva();
-    expect(screen.getAllByText('(obligatorio)')).toHaveLength(3);
+    fireEvent.change(screen.getByLabelText(/^Nombre de la secuencia/), { target: { value: 'Bienvenida' } });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Guardar/ })); });
+    expect(h.post).toHaveBeenCalledWith('/secuencias-email', expect.objectContaining({ nombre: 'Bienvenida' }));
+  });
+
+  it('solo el nombre se marca obligatorio: es lo único que exige el servidor', async () => {
+    await nueva();
+    expect(screen.getAllByText('(obligatorio)')).toHaveLength(1);
   });
 
   it('si no se puede borrar, lo dice (antes se callaba)', async () => {

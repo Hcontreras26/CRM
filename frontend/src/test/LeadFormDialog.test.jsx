@@ -47,8 +47,9 @@ vi.mock('@/shared/components/ui/portal', () => ({
 
 // ProductCombobox simplificado a input controlado
 vi.mock('@/modules/leads/components/ProductCombobox', () => ({
-  default: ({ value, onChange }) => (
+  default: ({ value, onChange, id }) => (
     <input
+      id={id}
       data-testid="product-combobox"
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
@@ -57,6 +58,14 @@ vi.mock('@/modules/leads/components/ProductCombobox', () => ({
 }));
 
 import LeadFormDialog from '@/modules/leads/components/LeadFormDialog';
+
+// Las etiquetas de Field (#106) que no apuntan a ningún campo. Las de grupo
+// (varios controles juntos, como «IVA» o «Pago recibido hoy») no tienen a
+// cuál apuntar y se dicen aparte.
+const etiquetasSueltas = (raiz, deGrupo = []) => [...raiz.querySelectorAll('label.mb-1\\.5.block.px-1')]
+  .filter((l) => !deGrupo.some((g) => l.textContent.startsWith(g)))
+  .filter((l) => !l.htmlFor || !raiz.ownerDocument.getElementById(l.htmlFor))
+  .map((l) => l.textContent);
 
 describe('LeadFormDialog', () => {
   beforeEach(() => { vi.clearAllMocks(); vista.todos = false; });
@@ -157,5 +166,11 @@ describe('LeadFormDialog', () => {
     fireEvent.submit(container.querySelector('form'));
     expect(await screen.findByText(/Elige el proyecto antes de crear el prospecto/i)).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('cada etiqueta enlazada a su campo (#106)', async () => {
+    const { container } = render(<LeadFormDialog open onClose={vi.fn()} onSubmit={vi.fn()} />);
+    await screen.findAllByText(/Nuevo prospecto/);
+    expect(etiquetasSueltas(container)).toEqual([]);
   });
 });

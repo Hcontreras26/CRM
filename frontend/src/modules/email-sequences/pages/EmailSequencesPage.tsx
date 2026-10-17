@@ -189,19 +189,13 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
   function addStep(): void { setS({ ...s, steps: [...s.steps, { delay_hours: 24, subject: '', body: '' }] }); }
   function removeStep(i: number): void { setS({ ...s, steps: s.steps.filter((_, idx) => idx !== i) }); }
 
-  // Antes se guardaba sin mirar: una secuencia sin nombre, o un paso sin
-  // plantilla y sin asunto o cuerpo, que sale como un correo vacío. El aviso
-  // dice qué falta y en qué paso (#106).
+  // Sin nombre, el servidor la rechaza (es lo único que exige) y el aviso era
+  // genérico. Aquí se dice antes y dónde (#106). Lo demás se guarda como
+  // siempre: un paso sin asunto o sin cuerpo lo rellena el programador de
+  // envíos, así que no se bloquea.
   function guardar(): void {
-    const faltan: string[] = [];
-    if (!s.nombre.trim()) faltan.push('el nombre de la secuencia');
-    s.steps.forEach((p, i) => {
-      if (p.template_id != null && p.template_id > 0) return;
-      const sin = [!p.subject?.trim() && 'asunto', !p.body?.trim() && 'cuerpo'].filter(Boolean);
-      if (sin.length) faltan.push(`el ${sin.join(' y el ')} del paso ${i + 1}`);
-    });
-    if (faltan.length) {
-      toast({ title: 'Faltan datos', description: `Falta ${faltan.join(', ')}.`, variant: 'destructive' });
+    if (!s.nombre) {
+      toast({ title: 'Falta el nombre de la secuencia', description: 'Escríbelo en «Nombre de la secuencia».', variant: 'destructive' });
       return;
     }
     onSave(s);
@@ -233,12 +227,13 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                 className={inputClass}
               />
             </Field>
-            <Field label="Cuándo empieza">
+            <Field label="Cuándo empieza" htmlFor="secuencia-disparador">
               <Select<TriggerEvent>
+                id="secuencia-disparador"
                 value={s.trigger_event}
                 onChange={(v) => setS({ ...s, trigger_event: v })}
                 options={TRIGGERS.map(t => ({ value: t.v, label: t.label }))}
-                ariaLabel="Evento que dispara la secuencia"
+                ariaLabel="Cuándo empieza"
               />
             </Field>
           </FilaCampos>
@@ -276,8 +271,9 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                 {templates.length > 0 && (
                   // Con su Field y al tamaño de los demás campos (#106): era un
                   // desplegable pequeño, con un icono y sin etiqueta.
-                  <Field label="Plantilla" hint={usingTemplate ? 'El asunto y el cuerpo los pone la plantilla.' : undefined}>
+                  <Field label="Plantilla" htmlFor={`paso-${i}-plantilla`} hint={usingTemplate ? 'El asunto y el cuerpo los pone la plantilla.' : undefined}>
                     <Select<number | null>
+                      id={`paso-${i}-plantilla`}
                       value={step.template_id ?? null}
                       onChange={(v) => updateStep(i, 'template_id', v)}
                       options={[
@@ -288,7 +284,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                     />
                   </Field>
                 )}
-                <Field label="Asunto" required={!usingTemplate} htmlFor={`paso-${i}-asunto`} disabled={usingTemplate}>
+                <Field label="Asunto" htmlFor={`paso-${i}-asunto`} disabled={usingTemplate}>
                   <input
                     id={`paso-${i}-asunto`}
                     value={step.subject || ''}
@@ -298,7 +294,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                     className={`${inputClass} disabled:opacity-40`}
                   />
                 </Field>
-                <Field label="Cuerpo HTML" required={!usingTemplate} htmlFor={`paso-${i}-cuerpo`} disabled={usingTemplate}>
+                <Field label="Cuerpo HTML" htmlFor={`paso-${i}-cuerpo`} disabled={usingTemplate}>
                   <textarea
                     id={`paso-${i}-cuerpo`}
                     value={step.body || ''}

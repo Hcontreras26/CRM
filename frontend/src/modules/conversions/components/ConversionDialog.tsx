@@ -400,11 +400,17 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
     const prodOk = useMultiItem ? items.some(it => it.descripcion?.trim()) : form.producto_contratado?.trim();
     // Cada aviso dice qué falta y dónde ponerlo, no solo «requerido» (#106).
     if (!prodOk) {
-      toast({ title: 'Falta el producto contratado', description: 'Elígelo del catálogo o escribe su nombre en «Producto contratado».', variant: 'destructive' });
+      toast(useMultiItem
+        ? { title: 'Falta el producto contratado', description: 'Escribe al menos uno en «Productos contratados».', variant: 'destructive' }
+        : { title: 'Falta el producto contratado', description: 'Elígelo del catálogo o escribe su nombre en «Producto contratado».', variant: 'destructive' });
       return;
     }
     if (isNaN(importe) || importe <= 0) {
-      toast({ title: 'Falta el precio', description: 'El total tiene que ser mayor que 0: escribe el precio base.', variant: 'destructive' });
+      toast(calc.bruto > 0
+        ? { title: 'El total queda en 0', description: 'El descuento se come todo el precio: revisa «Descuento».', variant: 'destructive' }
+        : useMultiItem
+          ? { title: 'Falta el precio', description: 'El total tiene que ser mayor que 0: pon el precio de cada producto en «Productos contratados».', variant: 'destructive' }
+          : { title: 'Falta el precio', description: 'El total tiene que ser mayor que 0: escribe el precio en «Precio base (EUR)».', variant: 'destructive' });
       return;
     }
     if (pagado > importe) {
@@ -644,7 +650,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                     + Añadir más productos
                   </button>
                 </div>
-                <Field label="Producto contratado" required
+                <Field label="Producto contratado" required htmlFor="venta-producto-contratado"
                   hint="Puedes elegir uno del catálogo o escribir un nombre nuevo.">
                   <div className="space-y-1.5">
                     {products.length > 0 ? (
@@ -659,6 +665,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                       />
                     ) : null}
                     <input
+                      id="venta-producto-contratado"
                       list={products.length > 0 ? 'conversion-products-list' : undefined}
                       value={form.producto_contratado}
                       onChange={e => update('producto_contratado', e.target.value)}
@@ -691,7 +698,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   // En el móvil (6 columnas) la descripción ocupa la fila entera
                   // y cantidad, precio y quitar van debajo; en pantalla ancha,
                   // todo en una línea (#106).
-                  <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-2 items-center">
+                  <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-fila items-center">
                     <input list="conversion-products-list-multi" value={it.descripcion}
                       onChange={e => {
                         const v = e.target.value;
@@ -718,7 +725,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 </datalist>
                 <button type="button"
                   onClick={() => setItems([...items, { product_id: null, descripcion: '', cantidad: 1, precio_unitario: '0' }])}
-                  className="text-xs text-primary hover:underline">+ añadir otro producto</button>
+                  className="px-1 text-secundario text-primary hover:underline">+ añadir otro producto</button>
                 <div className="px-1 text-secundario text-muted-foreground">
                   Subtotal: {items.reduce((s, it) => s + Number(it.cantidad || 1) * Number(it.precio_unitario || 0), 0).toFixed(2)} €
                 </div>
@@ -728,9 +735,10 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
             {/* DESCUENTO */}
             <div className="border border-border rounded-md p-3 bg-muted/10">
               <FilaCampos>
-                <Field label="Descuento">
+                <Field label="Descuento" htmlFor="venta-descuento">
                   {/* El desplegable del CRM, como el resto (#106). */}
                   <Select<'none' | 'pct' | 'monto'>
+                    id="venta-descuento"
                     value={form.descuento_tipo}
                     onChange={(v) => update('descuento_tipo', v as any)}
                     ariaLabel="Descuento"
@@ -742,9 +750,9 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   />
                 </Field>
                 {form.descuento_tipo !== 'none' && (
-                  <Field label={form.descuento_tipo === 'pct' ? 'Porcentaje de descuento (%)' : 'Descuento (€)'}
+                  <Field label={form.descuento_tipo === 'pct' ? 'Porcentaje de descuento (%)' : 'Descuento (€)'} htmlFor="venta-descuento-valor"
                     hint={calc.desc > 0 ? `Se descuentan ${calc.desc.toFixed(2)} €.` : undefined}>
-                    <input type="number" min="0" step="0.01" value={form.descuento_valor}
+                    <input id="venta-descuento-valor" type="number" min="0" step="0.01" value={form.descuento_valor}
                       onChange={e => update('descuento_valor', e.target.value)}
                       placeholder={form.descuento_tipo === 'pct' ? '10' : '50'}
                       className={inputClass} />
@@ -784,8 +792,9 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
             </div>
 
             <FilaCampos>
-              <Field label={useMultiItem ? 'Subtotal items (auto)' : 'Precio base (EUR)'} required={!useMultiItem}>
+              <Field label={useMultiItem ? 'Subtotal items (auto)' : 'Precio base (EUR)'} required={!useMultiItem} htmlFor="venta-precio-base">
                 <input
+                  id="venta-precio-base"
                   type="number" step="0.01" min="0"
                   value={useMultiItem ? calc.bruto.toFixed(2) : form.importe_total}
                   onChange={e => update('importe_total', e.target.value)}
@@ -829,8 +838,9 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
             {/* Con plan fraccionado, el pago inicial necesita su método real
                 (la factura de ese pago lo usará; 'fraccionado' es el plan). */}
             {pagoMode !== 'none' && form.metodo_pago === 'fraccionado' && (
-              <Field label="Método del pago inicial">
+              <Field label="Método del pago inicial" htmlFor="venta-metodo-inicial">
                 <Select<MetodoPago>
+                  id="venta-metodo-inicial"
                   value={metodoInicial}
                   onChange={setMetodoInicial}
                   ariaLabel="Método del pago inicial"
@@ -874,8 +884,9 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
             </div>
 
             <FilaCampos>
-              <Field label="Método de pago">
+              <Field label="Método de pago" htmlFor="venta-metodo-pago">
                 <Select<MetodoPago>
+                  id="venta-metodo-pago"
                   value={form.metodo_pago}
                   onChange={(v) => update('metodo_pago', v)}
                   // Si pagó TODO no queda nada que fraccionar, asi que el metodo
@@ -890,15 +901,15 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
               {/* Diego, 14/09: «en conversion la fecha de conversion seria fecha de
                   pago». Es la fecha en la que entro el dinero, que es la que
                   usan los informes y la que decide de que mes es la venta. */}
-              <Field label="Fecha de pago">
-                <input type="date" value={form.fecha_conversion} onChange={e => update('fecha_conversion', e.target.value)} className={inputClass} />
+              <Field label="Fecha de pago" htmlFor="venta-fecha-pago">
+                <input id="venta-fecha-pago" type="date" value={form.fecha_conversion} onChange={e => update('fecha_conversion', e.target.value)} className={inputClass} />
               </Field>
             </FilaCampos>
 
             {form.metodo_pago === 'fraccionado' && (
               <div className="space-y-3 p-3 rounded-lg bg-warning-soft border border-warning/30">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="text-xs font-bold text-warning-soft-foreground uppercase tracking-wider">
+                  <div className="px-1 text-tabla uppercase text-warning-soft-foreground">
                     Plan de cuotas
                   </div>
                   {installmentsDirty && (
@@ -913,16 +924,18 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                 </div>
 
                 <FilaCampos>
-                  <Field label="Número de cuotas">
+                  <Field label="Número de cuotas" htmlFor="venta-num-cuotas">
                     <input
+                      id="venta-num-cuotas"
                       type="number" min="1" max="60"
                       value={numCuotas}
                       onChange={e => { setNumCuotas(Math.max(1, Number(e.target.value) || 1)); setInstallmentsDirty(false); }}
                       className={inputClass}
                     />
                   </Field>
-                  <Field label="Fecha primera cuota">
+                  <Field label="Fecha primera cuota" htmlFor="venta-primera-cuota">
                     <input
+                      id="venta-primera-cuota"
                       type="date"
                       value={fechaPrimeraCuota}
                       onChange={e => { setFechaPrimeraCuota(e.target.value); setInstallmentsDirty(false); }}
@@ -936,13 +949,13 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                     {/* En el móvil cada cuota va en dos líneas (importe arriba,
                         vencimiento debajo) y la cabecera sobra: los campos dicen
                         qué son. En pantalla ancha, una línea por cuota (#106). */}
-                    <div className="hidden sm:grid grid-cols-[40px_1fr_140px] gap-2 text-tabla uppercase text-muted-foreground px-1">
+                    <div className="hidden sm:grid grid-cols-[40px_1fr_140px] gap-fila text-tabla uppercase text-muted-foreground px-1">
                       <span>#</span>
                       <span>Importe (EUR)</span>
                       <span>Vencimiento</span>
                     </div>
                     {installments.map((c, i) => (
-                      <div key={i} className="grid grid-cols-[2rem_1fr] sm:grid-cols-[40px_1fr_140px] gap-2 items-center">
+                      <div key={i} className="grid grid-cols-[2rem_1fr] sm:grid-cols-[40px_1fr_140px] gap-fila items-center">
                         <span className="text-xs font-mono text-muted-foreground">{i + 1}</span>
                         <input
                           type="number" step="0.01" min="0.01"
@@ -985,8 +998,8 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
                   </div>
                 )}
 
-                <Field label="Fecha compromiso de pago pendiente (opcional)">
-                  <input type="date" value={form.fecha_compromiso_pago} onChange={e => update('fecha_compromiso_pago', e.target.value)} className={inputClass} />
+                <Field label="Fecha compromiso de pago pendiente (opcional)" htmlFor="venta-fecha-compromiso">
+                  <input id="venta-fecha-compromiso" type="date" value={form.fecha_compromiso_pago} onChange={e => update('fecha_compromiso_pago', e.target.value)} className={inputClass} />
                 </Field>
               </div>
             )}
@@ -1043,14 +1056,14 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
               </div>
             )}
 
-            <Field label="Notas">
-              <textarea value={form.notas_pago} onChange={e => update('notas_pago', e.target.value)} rows={2} className={`${inputClass} h-auto py-2 resize-none`} placeholder="Notas sobre el acuerdo..." />
+            <Field label="Notas" htmlFor="venta-notas">
+              <textarea id="venta-notas" value={form.notas_pago} onChange={e => update('notas_pago', e.target.value)} rows={2} className={`${inputClass} h-auto py-2 resize-none`} placeholder="Notas sobre el acuerdo..." />
             </Field>
 
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onClose} className="h-9 px-4 rounded-lg border border-border bg-card text-sm font-semibold hover:bg-muted">Cancelar</button>
               <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
-                {saving ? 'Guardando...' : 'Registrar conversion'}
+                {saving ? 'Guardando...' : 'Registrar conversión'}
               </button>
             </div>
           </form>

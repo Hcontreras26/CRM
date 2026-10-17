@@ -21,11 +21,10 @@ export default function CustomFieldRenderer({ field, value, onChange, disabled =
   }
 
   // El Field común (#106): el obligatorio con su nombre para el lector de
-  // pantalla, y no un asterisco rojo suelto. El desplegable se nombra solo
-  // (`ariaLabel`); el resto, por la etiqueta.
+  // pantalla, y no un asterisco rojo suelto. La etiqueta enfoca su campo,
+  // también el desplegable (el `id` va a su botón).
   return (
-    <Field label={field.label} required={field.required} disabled={disabled}
-      htmlFor={field.type === 'select' ? undefined : id}>
+    <Field label={field.label} required={field.required} disabled={disabled} htmlFor={id}>
       {renderInput()}
     </Field>
   );
@@ -61,6 +60,7 @@ export default function CustomFieldRenderer({ field, value, onChange, disabled =
         const choices = field.options?.choices || [];
         return (
           <Select<string>
+            id={id}
             value={stringValue}
             onChange={set}
             options={[

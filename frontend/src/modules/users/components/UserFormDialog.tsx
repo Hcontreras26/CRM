@@ -312,8 +312,9 @@ export default function UserFormDialog({
               </Field>
             )}
 
-            <Field label="Rol" required hint={ASSIGNABLE_ROLES.find((r) => r.value === role)?.hint}>
+            <Field label="Rol" required htmlFor="user-rol" hint={ASSIGNABLE_ROLES.find((r) => r.value === role)?.hint}>
               <Select<UserRole>
+                id="user-rol"
                 value={role}
                 onChange={setRole}
                 options={ASSIGNABLE_ROLES.map((r) => ({ value: r.value, label: r.label }))}

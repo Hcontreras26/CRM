@@ -9,6 +9,12 @@ export function useEscapeKey(onClose, enabled = true) {
     if (!enabled || typeof onClose !== 'function') return;
     function onKey(e) {
       if (e.key === 'Escape') {
+        // Con un desplegable abierto, Escape cierra el desplegable y no el
+        // diálogo, como en useModalAccesible. Este escuchador se registra antes
+        // que el del desplegable, así que aquí aún está abierto. Sin esto, un
+        // Escape en «Descuento» cerraba «Nueva venta» y se perdía lo escrito
+        // (#106: el desplegable del CRM entró en esos diálogos).
+        if (document.querySelector('[aria-expanded="true"]')) return;
         e.stopPropagation();
         onClose();
       }

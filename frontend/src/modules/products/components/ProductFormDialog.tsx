@@ -20,6 +20,7 @@ import { inputClass } from '@/shared/lib/ui';
 const ETIQUETAS: Record<string, string> = {
   nombre: 'Nombre', precio: 'Precio', num_modulos: 'Nº módulos',
   plazas_totales: 'Plazas de la convocatoria', plazas_ocupadas_previas: 'Ya ocupadas antes del CRM',
+  url_info: 'URL de información / landing', stripe_link: 'Enlace de pago Stripe',
 };
 
 export default function ProductFormDialog({ open, onClose, product, onSubmit }) {
@@ -257,25 +258,25 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
 
         <form onSubmit={handleSubmit(handleFormSubmit, (errs) => {
           const msgs = Object.entries(errs)
-            .filter(([, e]: [string, any]) => e?.message)
+            .filter(([, e]: [string, any]) => typeof e?.message === 'string')
             .map(([k, e]: [string, any]) => `${ETIQUETAS[k] || k}: ${e.message}`);
           toast({ title: 'Revisa el formulario', description: msgs.join(' · ') || 'Hay campos inválidos', variant: 'destructive' });
         })} className="space-y-3">
           <FilaCampos>
-            <Field label="Nombre" required error={errors.nombre?.message}>
-              <input {...register('nombre')} aria-label="Nombre" placeholder={`Nombre del ${productoLabel.toLowerCase()}`} className={inputClass} />
+            <Field label="Nombre" htmlFor="producto-nombre" required error={errors.nombre?.message}>
+              <input id="producto-nombre" {...register('nombre')} placeholder={`Nombre del ${productoLabel.toLowerCase()}`} className={inputClass} />
             </Field>
-            <Field label="SKU / código" error={errors.sku?.message}>
-              <input {...register('sku')} aria-label="SKU / código" placeholder="opcional" className={inputClass} />
+            <Field label="SKU / código" htmlFor="producto-sku" error={errors.sku?.message}>
+              <input id="producto-sku" {...register('sku')} placeholder="opcional" className={inputClass} />
             </Field>
           </FilaCampos>
 
-          <Field label="Descripción" error={errors.descripcion?.message}>
+          <Field label="Descripción" htmlFor="producto-descripcion" error={errors.descripcion?.message}>
             <textarea
               {...register('descripcion')}
               placeholder="Descripción corta..."
               rows={2}
-              aria-label="Descripción"
+              id="producto-descripcion"
               className={`${inputClass} h-auto py-2 resize-none`}
             />
           </Field>
@@ -306,9 +307,10 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                 setSubcategoriaSel('');
               }}
             />
-            <Field label="Régimen fiscal (IVA)"
+            <Field label="Régimen fiscal (IVA)" htmlFor="producto-regimen"
               hint="Déjalo por defecto salvo que el producto tenga un régimen fijo (p. ej. formación exenta de IVA).">
               <Select<string>
+                id="producto-regimen"
                 value={regimenSel}
                 onChange={setRegimenSel}
                 options={[
@@ -382,15 +384,16 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
               <CurrencyEur size={12} /> Precio y venta
             </div>
             <FilaCampos columnas={3}>
-              <Field label="Precio" error={errors.precio?.message}>
-                <input {...register('precio')} type="number" step="0.01" min="0" placeholder="0.00" aria-label="Precio" className={inputClass} />
+              <Field label="Precio" htmlFor="producto-precio" error={errors.precio?.message}>
+                <input id="producto-precio" {...register('precio')} type="number" step="0.01" min="0" placeholder="0.00" className={inputClass} />
               </Field>
-              <Field label="Moneda">
+              <Field label="Moneda" htmlFor="producto-moneda">
                 <Controller
                   name="moneda"
                   control={control}
                   render={({ field }) => (
                     <Select<string>
+                      id="producto-moneda"
                       value={field.value || 'EUR'}
                       onChange={field.onChange}
                       options={[
@@ -404,12 +407,12 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
                   )}
                 />
               </Field>
-              <Field label="Duración" hint="ej: 8 sesiones">
-                <input {...register('duracion')} aria-label="Duración" placeholder="opcional" className={inputClass} />
+              <Field label="Duración" htmlFor="producto-duracion" hint="ej: 8 sesiones">
+                <input id="producto-duracion" {...register('duracion')} placeholder="opcional" className={inputClass} />
               </Field>
             </FilaCampos>
-            <Field label="URL de información / landing" error={errors.url_info?.message}>
-              <input {...register('url_info')} aria-label="URL de información / landing" placeholder="https://..." className={inputClass} />
+            <Field label="URL de información / landing" htmlFor="producto-url-info" error={errors.url_info?.message}>
+              <input id="producto-url-info" {...register('url_info')} placeholder="https://..." className={inputClass} />
             </Field>
           </div>
 
@@ -419,17 +422,17 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
               Datos del programa <span className="font-normal normal-case opacity-70">(importados de WP/WC, editables)</span>
             </div>
             <FilaCampos columnas={4}>
-              <Field label="Horas">
-                <input {...register('horas')} aria-label="Horas" placeholder="ej: 1500 horas" className={inputClass} />
+              <Field label="Horas" htmlFor="producto-horas">
+                <input id="producto-horas" {...register('horas')} placeholder="ej: 1500 horas" className={inputClass} />
               </Field>
-              <Field label="Nº módulos" error={errors.num_modulos?.message}>
-                <input {...register('num_modulos')} type="number" min="0" placeholder="ej: 10" aria-label="Nº módulos" className={inputClass} />
+              <Field label="Nº módulos" htmlFor="producto-num-modulos" error={errors.num_modulos?.message}>
+                <input id="producto-num-modulos" {...register('num_modulos')} type="number" min="0" placeholder="ej: 10" className={inputClass} />
               </Field>
-              <Field label="Modalidad">
-                <input {...register('modalidad')} aria-label="Modalidad" placeholder="Online, Presencial..." className={inputClass} />
+              <Field label="Modalidad" htmlFor="producto-modalidad">
+                <input id="producto-modalidad" {...register('modalidad')} placeholder="Online, Presencial..." className={inputClass} />
               </Field>
-              <Field label="Fecha de inicio">
-                <input {...register('fecha_inicio_texto')} aria-label="Fecha de inicio" placeholder="DD-MM-YYYY" className={inputClass} />
+              <Field label="Fecha de inicio" htmlFor="producto-fecha-inicio-texto">
+                <input id="producto-fecha-inicio-texto" {...register('fecha_inicio_texto')} placeholder="DD-MM-YYYY" className={inputClass} />
               </Field>
             </FilaCampos>
           </div>
@@ -440,14 +443,14 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
               Convocatoria <span className="font-normal normal-case opacity-70">(las plazas salen en las plantillas del proceso comercial)</span>
             </div>
             <FilaCampos columnas={3}>
-              <Field label="Plazas de la convocatoria" error={errors.plazas_totales?.message}>
-                <input {...register('plazas_totales')} aria-label="Plazas de la convocatoria" type="number" min="0" placeholder="en blanco: sin cuenta de plazas" className={inputClass} />
+              <Field label="Plazas de la convocatoria" htmlFor="producto-plazas-totales" error={errors.plazas_totales?.message}>
+                <input id="producto-plazas-totales" {...register('plazas_totales')} type="number" min="0" placeholder="en blanco: sin cuenta de plazas" className={inputClass} />
               </Field>
-              <Field label="Ya ocupadas antes del CRM" error={errors.plazas_ocupadas_previas?.message}>
-                <input {...register('plazas_ocupadas_previas')} aria-label="Ya ocupadas antes del CRM" type="number" min="0" placeholder="0" className={inputClass} />
+              <Field label="Ya ocupadas antes del CRM" htmlFor="producto-plazas-ocupadas-previas" error={errors.plazas_ocupadas_previas?.message}>
+                <input id="producto-plazas-ocupadas-previas" {...register('plazas_ocupadas_previas')} type="number" min="0" placeholder="0" className={inputClass} />
               </Field>
-              <Field label="Cierre de convocatoria" error={errors.fecha_cierre_convocatoria?.message}>
-                <input {...register('fecha_cierre_convocatoria')} aria-label="Cierre de convocatoria" type="date" className={inputClass} />
+              <Field label="Cierre de convocatoria" htmlFor="producto-fecha-cierre-convocatoria" error={errors.fecha_cierre_convocatoria?.message}>
+                <input id="producto-fecha-cierre-convocatoria" {...register('fecha_cierre_convocatoria')} type="date" className={inputClass} />
               </Field>
             </FilaCampos>
             {/* Las ocupadas y las libres no se teclean: las cuenta el servidor desde

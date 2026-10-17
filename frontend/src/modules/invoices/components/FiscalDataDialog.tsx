@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { X, FloppyDisk } from '@phosphor-icons/react';
 import { invoicesApi } from '../api/invoices.api';
 import type { LeadFiscalData, InvoiceItem } from '../api/invoices.api';
@@ -117,17 +117,20 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
     ? (nombre.trim() && metodoPago)
     : (nombre.trim() && nif.trim() && direccion.trim() && ciudad.trim() && cp.trim() && pais.trim() && metodoPago);
 
+  // Que diga QUÉ falta, con el nombre de cada campo, y no la lista entera.
+  function loQueFalta(asDraft: boolean): string[] {
+    if (isProforma || asDraft) return nombre.trim() ? [] : ['Nombre'];
+    return ([['Nombre', nombre], ['NIF / DNI / CIF', nif], ['Código postal', cp], ['Dirección fiscal', direccion], ['Ciudad', ciudad], ['País', pais]] as const)
+      .filter(([, v]) => !v.trim()).map(([k]) => k);
+  }
+  const faltanParaEmitir = loQueFalta(false);
+
   // asDraft=true → guarda la factura como BORRADOR (sin número fiscal) aunque
   // falten datos; solo exige el nombre. Se completa y emite desde Facturación.
   async function save(asDraft = false) {
     const draftOk = nombre.trim() && metodoPago;
     if (asDraft ? !draftOk : !required) {
-      // Que diga QUÉ falta, con el nombre de cada campo, y no la lista entera.
-      const faltan = (isProforma || asDraft)
-        ? ['Nombre']
-        : ([['Nombre', nombre], ['NIF / DNI / CIF', nif], ['Código postal', cp], ['Dirección fiscal', direccion], ['Ciudad', ciudad], ['País', pais]] as const)
-            .filter(([, v]) => !v.trim()).map(([k]) => k);
-      toast({ title: 'Faltan datos', description: `En «Cliente»: ${faltan.join(' · ')}.`, variant: 'destructive' });
+      toast({ title: 'Faltan datos', description: `En «Cliente»: ${loQueFalta(asDraft).join(' · ')}.`, variant: 'destructive' });
       return;
     }
     setSaving(true);
@@ -186,8 +189,9 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
           <div className="p-4 space-y-3 text-sm">
             {issuers.length > 0 && (
               <Section title="Empresa que emite">
-                <Field label="Empresa" hint="Esta factura se emite desde esta empresa. Solo las administradoras gestionan el listado en Configuración.">
+                <Field label="Empresa que emite" htmlFor="datos-fiscales-empresa" hint="Esta factura se emite desde esta empresa. Solo las administradoras gestionan el listado en Configuración.">
                   <Select<number | null>
+                    id="datos-fiscales-empresa"
                     value={issuerId ?? null}
                     onChange={(v) => { if (v) setIssuerId(v); }}
                     ariaLabel="Empresa que emite"
@@ -233,7 +237,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
                 {/* En el móvil cada concepto va en dos filas (la descripción arriba;
                     la cantidad y el precio debajo) en vez de estrujarse (#106). */}
                 {items.map((it, idx) => (
-                  <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-2 items-center">
+                  <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-fila items-center">
                     <input value={it.descripcion} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, descripcion: e.target.value } : x))}
                       placeholder="Descripción" aria-label={`Concepto ${idx + 1}`} className={`${inputClass} col-span-6 sm:col-span-7 min-w-0`} />
                     <input type="number" value={it.cantidad} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value) } : x))}
@@ -249,8 +253,9 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
             </Section>
 
             <Section title="Pago">
-              <Field label="Método de pago" required>
+              <Field label="Método de pago" required htmlFor="datos-fiscales-metodo">
                 <Select<string>
+                  id="datos-fiscales-metodo"
                   value={metodoPago}
                   onChange={(v) => setMetodoPago(v as 'transferencia')}
                   ariaLabel="Método de pago"
@@ -281,7 +286,12 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
           </div>
         )}
 
-        <div className="p-3 border-t border-border flex justify-end gap-2 bg-muted/20">
+        <div className="p-3 border-t border-border flex flex-wrap items-center justify-end gap-2 bg-muted/20">
+          {!loading && faltanParaEmitir.length > 0 && (
+            <p role="status" className="mr-auto px-1 text-secundario text-muted-foreground">
+              Para {isProforma ? 'generarlo' : 'emitirla'}, falta en «Cliente»: {faltanParaEmitir.join(' · ')}.
+            </p>
+          )}
           <button onClick={onClose} className="h-9 px-3 rounded-md border border-border bg-card text-sm">Cancelar</button>
           {!isProforma && (
             <button onClick={() => save(true)} disabled={saving || !nombre.trim()}
@@ -310,9 +320,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function CampoTexto({ label, value, onChange, required }: { label: string; value: string; onChange: (v: string) => void; required?: boolean }) {
+  // Un id propio para que la etiqueta enfoque su campo (#106).
+  const id = useId();
   return (
-    <Field label={label} required={required}>
+    <Field label={label} required={required} htmlFor={id}>
       <input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={required && !value ? true : undefined}
