@@ -16,6 +16,8 @@ import { cn } from '@/shared/lib/utils';
 import Field from '@/shared/components/ui/Field';
 import Select from '@/shared/components/ui/Select';
 import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
+import { inputClass } from '@/shared/lib/ui';
+import BuscadorEnLista from '@/shared/components/ui/BuscadorEnLista';
 
 const PAISES = [
   { value: '', label: 'Sin especificar' },
@@ -87,5 +89,20 @@ describe('piezas comunes de los formularios (#106)', () => {
     // Ya cerrado el desplegable, Escape sí cierra el diálogo.
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(cerrar).toHaveBeenCalledTimes(1);
+  });
+
+  it('el desplegable y los buscadores se ven como una casilla: mismo fondo y esquinas', () => {
+    // Al lado de una casilla de texto, el desplegable salía casi blanco y más
+    // redondeado, y la caja del buscador, blanca (lo vio la revisión en el
+    // navegador, 16/10).
+    const comunes = ['bg-muted/50', 'rounded-md', 'border-border'];
+    for (const c of comunes) expect(inputClass).toContain(c);
+    render(<Select value="" onChange={vi.fn()} options={PAISES} ariaLabel="País" />);
+    const desplegable = screen.getByRole('combobox', { name: 'País' });
+    for (const c of comunes) expect(desplegable.className).toContain(c);
+    const { container } = render(<BuscadorEnLista opciones={[{ id: 1, nombre: 'Máster' }]} valor={null} onElegir={vi.fn()} id="buscar" />);
+    const caja = container.querySelector('#buscar').parentElement;
+    for (const c of comunes) expect(caja.className).toContain(c);
+    expect(caja.className).not.toContain('bg-background');
   });
 });

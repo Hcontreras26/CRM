@@ -49,7 +49,7 @@ beforeEach(() => {
 describe('ConversionDialog — render base', () => {
   it('no renderiza nada cuando open=false', () => {
     render(<ConversionDialog open={false} onClose={vi.fn()} lead={baseLead} projectId={1} />);
-    expect(screen.queryByText(/Registrar Conversion/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Registrar conversi[oó]n/i)).not.toBeInTheDocument();
   });
 
   it('renderiza con nombre del lead en subtítulo', () => {

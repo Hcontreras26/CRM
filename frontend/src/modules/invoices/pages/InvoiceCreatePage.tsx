@@ -532,7 +532,7 @@ export default function InvoiceCreatePage() {
       {/* Tipo de documento: factura fiscal vs proforma (presupuesto).
           En EDICIÓN el tipo es FIJO (no se puede convertir una factura emitida en
           proforma al editarla); solo se muestra como etiqueta. */}
-      <div className="inline-flex rounded-lg border border-border bg-muted/30 p-1 text-sm font-semibold">
+      <div className="inline-flex flex-wrap rounded-lg border border-border bg-muted/30 p-1 text-sm font-semibold">
         {editId ? (
           <span className="px-4 h-8 inline-flex items-center rounded-md bg-primary text-primary-foreground shadow">
             {esProforma ? 'Proforma' : esRect ? 'Abono' : 'Factura'}
@@ -543,7 +543,7 @@ export default function InvoiceCreatePage() {
             {label}
           </button>
         ))}
-        <span className="self-center pl-3 pr-1 text-secundario font-normal text-muted-foreground">
+        <span className="self-center basis-full sm:basis-auto px-1 pt-1 sm:pt-0 sm:pl-3 text-secundario font-normal text-muted-foreground">
           {editId ? 'El tipo no se cambia al editar una factura ya emitida'
             : esRect ? 'Factura rectificativa (abono) · importe negativo · serie R'
             : esProforma ? 'Proforma sin validez fiscal · serie propia (PRO)'

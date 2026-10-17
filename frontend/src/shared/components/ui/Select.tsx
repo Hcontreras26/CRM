@@ -146,9 +146,12 @@ export default function Select<T>({
         aria-controls={open ? listId : undefined}
         aria-label={ariaLabel}
         className={cn(
-          'w-full flex items-center rounded-lg border border-border bg-muted/30 text-foreground transition-colors',
+          // El mismo fondo, borde y esquinas que `inputClass` (#106): al lado de una
+          // casilla de texto, el desplegable salía casi blanco y más redondeado,
+          // y dos campos de la misma fila no se veían iguales.
+          'w-full flex items-center rounded-md border border-border bg-muted/50 text-foreground transition-colors',
           'focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary',
-          'hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed',
+          'hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed',
           triggerCls,
         )}
       >

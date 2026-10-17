@@ -533,7 +533,7 @@ export default function ConversionDialog({ open, onClose, lead, projectId, onCre
         <div className="relative bg-card rounded-lg border border-border w-full max-w-lg mx-4 p-6 overflow-y-auto max-h-[90vh]">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-semibold">{docPhase === 'choose' ? 'Documento de la venta' : 'Registrar Conversion'}</h2>
+              <h2 className="text-lg font-semibold">{docPhase === 'choose' ? 'Documento de la venta' : 'Registrar conversión'}</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Lead: {lead?.nombre}</p>
             </div>
             <button onClick={finishAndClose} className="p-1.5 rounded-lg hover:bg-muted">
