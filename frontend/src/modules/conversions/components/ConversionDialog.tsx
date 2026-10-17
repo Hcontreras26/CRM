@@ -109,8 +109,21 @@ const METODOS: ReadonlyArray<{ value: MetodoPago; label: string }> = [
   { value: 'otro', label: 'Otro' },
 ];
 
-export default function ConversionDialog({ open, onClose, lead, projectId, onCreated }: ConversionDialogProps) {
-  const { products } = useProducts(projectId);
+/*
+  El formulario se monta de nuevo en cada apertura y con cada prospecto.
+
+  Antes se quedaba montado con el diálogo cerrado: al abrirlo para otro
+  prospecto seguían puestos el producto, el precio y el pago del anterior, y
+  se podía registrar a uno la venta de otro (visto en la prueba de la #106).
+  El catálogo se pide aquí fuera, para no volver a pedirlo en cada apertura.
+*/
+export default function ConversionDialog(props: ConversionDialogProps) {
+  const { products } = useProducts(props.projectId);
+  if (!props.open) return null;
+  return <FormularioConversion key={props.lead?.id ?? 'sin-prospecto'} {...props} products={products} />;
+}
+
+function FormularioConversion({ open, onClose, lead, projectId, onCreated, products }: ConversionDialogProps & { products: ReturnType<typeof useProducts>['products'] }) {
   const [saving, setSaving] = useState(false);
   // Paso post-venta: tras registrar la conversión, ofrecer generar Presupuesto/Factura + PDF.
   const [created, setCreated] = useState<Conversion | null>(null);
