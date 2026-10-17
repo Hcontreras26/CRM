@@ -314,4 +314,39 @@ describe('ConversionDialog — formato común (#106)', () => {
     const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
     expect(etiquetasSueltas(container, ['IVA', 'Pago recibido hoy'])).toEqual([]);
   });
+
+  // En la prueba a mano, el globo «Rellene este campo» del navegador salía
+  // antes que el aviso del CRM, y no se veía nunca.
+  it('avisa el CRM, no el navegador: el formulario lleva noValidate', () => {
+    const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+    expect(container.querySelector('form').noValidate).toBe(true);
+    // Los obligatorios lo siguen diciendo al lector de pantalla.
+    expect(precioBase(container)).not.toBeNull();
+  });
+
+  describe('con catálogo: un solo desplegable', () => {
+    beforeEach(() => {
+      productsState.products = [{ id: 1, nombre: 'Curso Dislexia', payment_links: null }];
+    });
+
+    it('la casilla de texto no trae la lista del navegador (el catálogo ya está arriba)', () => {
+      const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+      expect(container.querySelector('#venta-producto-contratado').getAttribute('list')).toBeNull();
+      expect(container.querySelector('datalist')).toBeNull();
+    });
+
+    it('con un nombre escrito a mano, el desplegable dice «Seleccionar…», no se queda en blanco', () => {
+      const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+      fireEvent.change(container.querySelector('#venta-producto-contratado'), { target: { value: 'Curso prueba' } });
+      expect(screen.getByRole('combobox', { name: /Producto contratado/i })).toHaveTextContent('Seleccionar o escribir abajo');
+    });
+
+    it('al elegir del catálogo, la casilla de texto se rellena igual que antes', () => {
+      const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+      fireEvent.click(screen.getByRole('combobox', { name: /Producto contratado/i }));
+      fireEvent.mouseDown(screen.getByRole('option', { name: 'Curso Dislexia' }));
+      expect(container.querySelector('#venta-producto-contratado')).toHaveValue('Curso Dislexia');
+      expect(screen.getByRole('combobox', { name: /Producto contratado/i })).toHaveTextContent('Curso Dislexia');
+    });
+  });
 });
