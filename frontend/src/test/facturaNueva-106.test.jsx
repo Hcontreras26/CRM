@@ -22,7 +22,9 @@ vi.mock('@/shared/api/client', () => ({
   default: {
     get: vi.fn((url) => Promise.resolve(url.startsWith('/products')
       ? { success: true, data: [{ id: 5, nombre: 'Máster TCC', precio: 900 }] }
-      : { success: false })),
+      : url.startsWith('/invoices/siguiente-numero')
+        ? { success: true, data: { codigo: '2026/0001', siguiente: 1, serie: 'CEDIA', huecos: [] } }
+        : { success: false })),
   },
 }));
 vi.mock('@/modules/conversions/api/conversions.api', () => ({
@@ -102,6 +104,18 @@ describe('Nueva factura (#106)', () => {
       .filter((l) => !l.htmlFor || !document.getElementById(l.htmlFor))
       .map((l) => l.textContent);
     expect(sueltas).toEqual([]);
+  });
+
+  // Visto en la prueba a mano: iba al lado de la casilla, no debajo.
+  it('la ayuda del número de factura va debajo de la casilla, como la de Field', async () => {
+    await abrir();
+    const ayuda = screen.getByText(/El siguiente disponible es/);
+    expect(ayuda.tagName).toBe('P');
+    expect(ayuda.className).toMatch(/mt-1 px-1 text-secundario text-muted-foreground/);
+    // No comparte fila con la casilla.
+    expect(ayuda.parentElement.contains(screen.getByLabelText('Número de factura'))).toBe(true);
+    expect(ayuda.previousElementSibling.contains(screen.getByLabelText('Número de factura'))).toBe(true);
+    expect(ayuda.previousElementSibling.className).toMatch(/flex/);
   });
 });
 

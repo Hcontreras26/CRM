@@ -605,12 +605,6 @@ export default function InvoiceCreatePage() {
                       className={`${inputClass} tabular-nums`}
                     />
                   </div>
-                  {sugerido && (
-                    <span className="text-secundario text-muted-foreground">
-                      El siguiente disponible es <b className="text-foreground tabular-nums">{sugerido.codigo}</b>
-                      {!numeroManual && ' — se usará ese si lo dejas vacío'}
-                    </span>
-                  )}
                   {numeroManual && sugerido && Number(numeroManual) !== sugerido.siguiente && (
                     <button type="button" onClick={() => setNumeroManual('')}
                       className="h-8 px-2 rounded-md border border-border text-secundario hover:bg-muted/60">
@@ -618,6 +612,14 @@ export default function InvoiceCreatePage() {
                     </button>
                   )}
                 </div>
+                {/* La ayuda, debajo de la casilla y con el estilo de la de Field
+                    (#106). Va aquí porque lleva el número en negrita. */}
+                {sugerido && (
+                  <p className="mt-1 px-1 text-secundario text-muted-foreground">
+                    El siguiente disponible es <b className="text-foreground tabular-nums">{sugerido.codigo}</b>
+                    {!numeroManual && ' — se usará ese si lo dejas vacío'}
+                  </p>
+                )}
               </Field>
               {sugerido && sugerido.huecos.length > 0 && (
                 <p className="mt-1.5 px-1 text-secundario text-warning-soft-foreground">
