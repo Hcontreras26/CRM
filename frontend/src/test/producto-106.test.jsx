@@ -84,6 +84,21 @@ describe('Producto (#106)', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  // Visto en la prueba a mano: sin nombre y con un enlace vacío, el aviso
+  // solo hablaba del nombre (y decía «al menos 2 caracteres» estando vacío).
+  it('sin nombre y con un enlace vacío: los dos en el mismo aviso', async () => {
+    const onSubmit = vi.fn();
+    const { container } = await abrir(onSubmit);
+    fireEvent.click(screen.getByRole('button', { name: /Añadir enlace/ }));
+    fireEvent.change(screen.getByLabelText('Nº módulos'), { target: { value: '-2' } });
+    await enviar(container);
+    await waitFor(() => expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({
+      title: 'Revisa el formulario',
+      description: 'Nombre: Es obligatorio: escríbelo · Nº módulos: Escribe un número entero, 0 o mayor · Enlace 1: Escribe la etiqueta del enlace',
+    })));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   // Visto en la prueba a mano: el globo del navegador (min="0", step="0.01")
   // se adelantaba al aviso del esquema, que dice el campo.
   it('avisa el CRM, no el navegador; y los céntimos del precio los comprueba el esquema', async () => {

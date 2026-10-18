@@ -3,6 +3,7 @@ import { GraduationCap, Plus, X, Warning, Trash, CheckCircle, Copy, ArrowsClockw
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { toast } from '@/shared/hooks/useToast';
+import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
 import client from '@/shared/api/client';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
@@ -443,16 +444,23 @@ export default function TutoresPage() {
     e.preventDefault();
     if (!projectId) return;
     const f = new FormData(e.currentTarget);
-    if (avisar(faltaNombre(String(f.get('nombre') || ''))
-      || correoMalo(String(f.get('email') || ''))
-      || (sinCorreos && !contrasena
-        ? { title: 'Falta la contraseña', description: 'Sin correos no se le puede mandar el enlace: escríbela o pulsa «Generar».' }
-        : null)
-      || (contrasena && contrasena.length < 8
-        ? { title: 'Contraseña demasiado corta', description: 'En «Contraseña», al menos 8 caracteres.' }
-        : null)
-      // Como el navegador: vacío vale (se toma el de por defecto); escrito, de 0 a 100.
-      || (nuevoPct.trim() !== '' ? porcentajeMalo(nuevoPct, '%') : null))) return;
+    // Todo lo que falta o está mal, de una vez (#106).
+    const correo = String(f.get('email') || '');
+    const faltan: Falta[] = [];
+    if (!String(f.get('nombre') || '').trim()) faltan.push({ ...faltaNombre('')!, que: 'el nombre en «Nombre y apellidos»' });
+    if (!correo.trim()) faltan.push({ title: 'Falta el correo', description: 'Escríbelo en «Correo»: es con lo que entra al CRM.', que: 'el correo en «Correo»' });
+    else if (correoMalo(correo)) faltan.push({ ...correoMalo(correo)!, que: 'un correo válido en «Correo» (nombre@dominio.com)' });
+    if (sinCorreos && !contrasena) {
+      faltan.push({ title: 'Falta la contraseña', description: 'Sin correos no se le puede mandar el enlace: escríbela o pulsa «Generar».', que: 'la contraseña (escríbela o pulsa «Generar»)' });
+    } else if (contrasena && contrasena.length < 8) {
+      faltan.push({ title: 'Contraseña demasiado corta', description: 'En «Contraseña», al menos 8 caracteres.', que: 'una contraseña de al menos 8 caracteres' });
+    }
+    // Como el navegador: vacío vale (se toma el de por defecto); escrito, de 0 a 100.
+    if (nuevoPct.trim() !== '' && porcentajeMalo(nuevoPct, '%')) {
+      faltan.push({ ...porcentajeMalo(nuevoPct, '%')!, que: 'un % del curso de 0 a 100' });
+    }
+    const falta = avisoDeLoQueFalta(faltan);
+    if (falta) { toast(falta); return; }
     setGuardando(true);
     try {
       const r = await tutoresApi.alta({
@@ -538,10 +546,14 @@ export default function TutoresPage() {
     if (!elegido) return;
     const f = new FormData(e.currentTarget);
     const productId = Number(f.get('productId'));
-    if (avisar(porcentajeMalo(String(f.get('pct') ?? ''), 'Porcentaje')
-      || (String(f.get('desde') || '')
-        ? null
-        : { title: 'Falta la fecha', description: 'Pon en «Desde» el día que empezó con esta formación.' }))) return;
+    const pctEscrito = String(f.get('pct') ?? '');
+    const faltan: Falta[] = [];
+    if (porcentajeMalo(pctEscrito, 'Porcentaje')) faltan.push({ ...porcentajeMalo(pctEscrito, 'Porcentaje')!, que: 'un porcentaje de 0 a 100 en «Porcentaje»' });
+    if (!String(f.get('desde') || '')) {
+      faltan.push({ title: 'Falta la fecha', description: 'Pon en «Desde» el día que empezó con esta formación.', que: 'la fecha en «Desde»' });
+    }
+    const falta = avisoDeLoQueFalta(faltan);
+    if (falta) { toast(falta); return; }
     setGuardando(true);
     try {
       // Si esa formacion ya la tuvo y esta desactivada, esto es REACTIVARLA.

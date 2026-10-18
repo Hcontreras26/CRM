@@ -18,6 +18,30 @@ import Select from '@/shared/components/ui/Select';
 import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { inputClass } from '@/shared/lib/ui';
 import BuscadorEnLista from '@/shared/components/ui/BuscadorEnLista';
+import { avisoDeLoQueFalta } from '@/shared/lib/loQueFalta';
+
+describe('avisoDeLoQueFalta: todo lo que falta, en un aviso (#106)', () => {
+  const nombre = { title: 'Falta el nombre', description: 'Escríbelo en «Nombre».', que: 'el nombre en «Nombre»' };
+  const email = { title: 'Falta el email', description: 'Escríbelo en «Email».', que: 'el email en «Email»' };
+  const proyecto = { title: 'Falta el proyecto', description: 'Asigna uno.', que: 'al menos un proyecto' };
+
+  it('si no falta nada, no hay aviso', () => {
+    expect(avisoDeLoQueFalta([])).toBeNull();
+  });
+
+  it('si falta una cosa, su aviso de siempre', () => {
+    expect(avisoDeLoQueFalta([nombre])).toEqual({ title: 'Falta el nombre', description: 'Escríbelo en «Nombre».', variant: 'destructive' });
+  });
+
+  it('si faltan varias, todas juntas y bien enlazadas', () => {
+    expect(avisoDeLoQueFalta([nombre, email])?.description).toBe('Falta el nombre en «Nombre» y el email en «Email».');
+    expect(avisoDeLoQueFalta([nombre, email, proyecto])).toEqual({
+      title: 'Faltan datos',
+      description: 'Falta el nombre en «Nombre», el email en «Email» y al menos un proyecto.',
+      variant: 'destructive',
+    });
+  });
+});
 
 const PAISES = [
   { value: '', label: 'Sin especificar' },

@@ -24,7 +24,8 @@ const MSG_ENTERO = 'Escribe un número entero, 0 o mayor';
 const ENTERO = { errorMap: () => ({ message: MSG_ENTERO }) };
 
 export const productSchema = z.object({
-  nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+  // Vacío no es «demasiado corto»: falta (visto en la prueba a mano, #106).
+  nombre: z.string().min(1, 'Es obligatorio: escríbelo').min(2, 'El nombre debe tener al menos 2 caracteres'),
   descripcion: z.string().optional().or(z.literal('')),
   // multipleOf: los céntimos que antes comprobaba el navegador (step="0.01").
   precio: z.coerce.number().nonnegative('El precio no puede ser negativo').multipleOf(0.01, 'Como mucho 2 decimales (céntimos)').optional().or(z.nan()),

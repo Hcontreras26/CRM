@@ -28,13 +28,24 @@ describe('Usuario (#106)', () => {
     const { container } = render(<UserFormDialog {...base} user={null} />);
     const form = container.querySelector('form');
     expect(form.noValidate).toBe(true);
-    // Vacío no es «demasiado corto»: falta (visto en la prueba a mano).
+    // Todo vacío: todo lo que falta, en un solo aviso (visto en la prueba a
+    // mano: decía solo «Falta el nombre», y vacío no es «demasiado corto»).
     fireEvent.submit(form);
-    expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Falta el nombre', description: 'Escríbelo en «Nombre».' }));
+    expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({
+      title: 'Faltan datos',
+      description: 'Falta el nombre en «Nombre», el email en «Email» y al menos un proyecto en «Proyectos asignados».',
+    }));
     fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: 'A' } });
     fireEvent.submit(form);
-    expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Nombre demasiado corto', variant: 'destructive' }));
+    expect(avisos.toast.mock.calls.at(-1)[0].description).toMatch(/^Falta un nombre de al menos 2 letras en «Nombre», el email/);
     expect(base.onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('si solo falta una cosa, su aviso de siempre', () => {
+    render(<UserFormDialog {...base} user={usuario} />);
+    fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: '' } });
+    fireEvent.submit(screen.getByLabelText(/^Nombre/).closest('form'));
+    expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Falta el nombre', description: 'Escríbelo en «Nombre».' }));
   });
 
   it('alta: nombre, email y rol con el Field común, marcados como obligatorios', () => {
@@ -65,8 +76,7 @@ describe('Usuario (#106)', () => {
     fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: 'Ana Test' } });
     fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: 'ana@' } });
     fireEvent.submit(screen.getByLabelText(/^Nombre/).closest('form'));
-    expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Email no válido', description: expect.stringMatching(/nombre@dominio\.com/),
-    }));
+    // Sin proyecto, va en la misma lista que el proyecto que falta.
+    expect(avisos.toast.mock.calls.at(-1)[0].description).toMatch(/un email válido en «Email» \(nombre@dominio\.com\)/);
   });
 });

@@ -296,12 +296,17 @@ export default function InvoiceCreatePage() {
   async function generar(saltarAvisoVenta = false) {
     // Documento nuevo para un cliente pero sin venta elegida -> se avisa primero.
     if (!saltarAvisoVenta && !editId && leadId && !assocConvId) { setAvisoVenta(true); return; }
-    if (moneda !== 'EUR' && !(Number(totalEur) > 0)) {
+    // Todo lo que falta, de una vez (#106): el total en euros va en la misma lista.
+    const faltaEur = moneda !== 'EUR' && !(Number(totalEur) > 0);
+    if (faltaEur && !missing.length) {
       toast({ title: 'Falta el importe en euros', description: `La factura va en ${moneda}: indica el total en euros (es el que cuenta para la contabilidad).`, variant: 'destructive' });
       return;
     }
     if (!pid) return;
-    if (missing.length) { toast({ title: 'Faltan datos', description: missing.join(' · '), variant: 'destructive' }); return; }
+    if (missing.length) {
+      toast({ title: 'Faltan datos', description: [...missing, ...(faltaEur ? ['Total en euros'] : [])].join(' · '), variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       const cNombre = tipo === 'contado' ? (nombre.trim() || 'Consumidor final') : nombre.trim();

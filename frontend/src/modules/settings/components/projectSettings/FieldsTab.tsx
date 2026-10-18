@@ -6,6 +6,7 @@ import Field from '@/shared/components/ui/Field';
 import FilaCampos from '@/shared/components/ui/FilaCampos';
 import { inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
+import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
 import { SectionTitle, useConfirm, FIELD_TYPES, BASE_FIELDS } from './shared';
 import { lista } from '@/shared/lib/lista';
 
@@ -71,14 +72,11 @@ export default function FieldsTab({ project, onSaved }) {
   async function handleAdd(e) {
     e.preventDefault();
     // Lo decía el globo del navegador; ahora el CRM, y dónde (#106).
-    if (!newField.field_key || !newField.label) {
-      toast({
-        title: !newField.field_key ? 'Falta la clave interna' : 'Falta la etiqueta',
-        description: !newField.field_key ? 'Escríbela en «Clave interna», en minúsculas y con _ (clave_snake_case).' : 'Escríbela en «Etiqueta visible»: es lo que se ve en el formulario.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    const faltan: Falta[] = [];
+    if (!newField.field_key) faltan.push({ title: 'Falta la clave interna', description: 'Escríbela en «Clave interna», en minúsculas y con _ (clave_snake_case).', que: 'la clave en «Clave interna»' });
+    if (!newField.label) faltan.push({ title: 'Falta la etiqueta', description: 'Escríbela en «Etiqueta visible»: es lo que se ve en el formulario.', que: 'la etiqueta en «Etiqueta visible»' });
+    const falta = avisoDeLoQueFalta(faltan);
+    if (falta) { toast(falta); return; }
     try {
       const payload: Partial<FieldDef> = {
         project_id: project.id,

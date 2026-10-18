@@ -6,6 +6,7 @@ import Select from '@/shared/components/ui/Select';
 import Field from '@/shared/components/ui/Field';
 import { avatarColorFor, getInitials, inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
+import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
 import type { AvisoCambioCorreo, CrmUser, Empresa, ProjectAssignment } from '../api/users.api';
 import { ASSIGNABLE_ROLES } from '../lib/usersUi';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '../lib/credenciales';
@@ -132,32 +133,29 @@ export default function UserFormDialog({
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
+    // Todo lo que falta o está mal, de una vez (#106).
+    // Un admin con una empresa entera ya tiene de dónde le llegan campus,
+    // aunque esa empresa aún no tenga ninguno (#220).
+    const conEmpresa = role === 'admin' && puedeDarEmpresas && empresasEnteras.length > 0;
+    const faltan: Falta[] = [];
+    if (!nombre.trim()) faltan.push({ title: 'Falta el nombre', description: 'Escríbelo en «Nombre».', que: 'el nombre en «Nombre»' });
     // El backend pide 2 caracteres minimo; validarlo aqui evita el viaje.
-    if (nombre.trim().length < 2) {
-      toast(nombre.trim()
-        ? { title: 'Nombre demasiado corto', description: 'En «Nombre», al menos 2 caracteres.', variant: 'destructive' }
-        : { title: 'Falta el nombre', description: 'Escríbelo en «Nombre».', variant: 'destructive' });
-      return;
+    else if (nombre.trim().length < 2) faltan.push({ title: 'Nombre demasiado corto', description: 'En «Nombre», al menos 2 caracteres.', que: 'un nombre de al menos 2 letras en «Nombre»' });
+    if (!esEdicion && !email.trim()) faltan.push({ title: 'Falta el email', description: 'Escríbelo en «Email» como nombre@dominio.com.', que: 'el email en «Email»' });
+    else if (!esEdicion && !EMAIL_RE.test(email.trim())) {
+      faltan.push({ title: 'Email no válido', description: 'Escríbelo en «Email» como nombre@dominio.com.', que: 'un email válido en «Email» (nombre@dominio.com)' });
     }
-    if (!esEdicion) {
-      if (!EMAIL_RE.test(email.trim())) {
-        toast({ title: 'Email no válido', description: 'Escríbelo en «Email» como nombre@dominio.com.', variant: 'destructive' });
-        return;
-      }
-      // Un admin con una empresa entera ya tiene de dónde le llegan campus,
-      // aunque esa empresa aún no tenga ninguno (#220).
-      const conEmpresa = role === 'admin' && puedeDarEmpresas && empresasEnteras.length > 0;
-      if (seleccionados.length === 0 && !conEmpresa) {
-        toast({
-          title: 'Falta el proyecto',
-          description: role === 'admin' && puedeDarEmpresas
-            ? 'Marca al menos un campus o una empresa entera.'
-            : 'Asigna al menos un proyecto.',
-          variant: 'destructive',
-        });
-        return;
-      }
+    if (!esEdicion && seleccionados.length === 0 && !conEmpresa) {
+      faltan.push({
+        title: 'Falta el proyecto',
+        description: role === 'admin' && puedeDarEmpresas
+          ? 'Marca al menos un campus o una empresa entera.'
+          : 'Asigna al menos un proyecto.',
+        que: 'al menos un proyecto en «Proyectos asignados»',
+      });
     }
+    const falta = avisoDeLoQueFalta(faltan);
+    if (falta) { toast(falta); return; }
     // El correo de otro (#248): solo el super admin, y avisando antes de guardar
     // de lo que supone, sobre todo si recibe prospectos por Make.
     const correoNuevo = email.trim().toLowerCase();

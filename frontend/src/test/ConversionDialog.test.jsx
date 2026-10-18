@@ -342,6 +342,16 @@ describe('ConversionDialog — formato común (#106)', () => {
     })));
   });
 
+  it('sin producto ni precio, los dos en un solo aviso', async () => {
+    const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+    fireEvent.submit(container.querySelector('form'));
+    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Faltan datos',
+      description: 'Falta el producto en «Producto contratado» y el precio en «Precio base (EUR)».',
+    })));
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
   it('el obligatorio se anuncia como tal (Field compartido)', () => {
     render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
     expect(screen.getAllByText('(obligatorio)').length).toBeGreaterThanOrEqual(2);

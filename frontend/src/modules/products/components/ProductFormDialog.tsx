@@ -200,7 +200,10 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
     });
   }
 
-  function validateLinks() {
+  // Los enlaces de pago que fallan, con su número. Se comprueban a la vez que el
+  // resto del formulario: antes iban después, y si faltaba el nombre no se
+  // decía nada de ellos (visto en la prueba a mano, #106).
+  function erroresDeEnlaces() {
     const errors = {};
     paymentLinks.forEach((l, i) => {
       if (!l.label?.trim()) errors[i] = 'Escribe la etiqueta del enlace';
@@ -209,21 +212,17 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
       }
     });
     setLinkErrors(errors);
-    const fallan = Object.keys(errors);
     // El error se pinta junto al enlace, pero puede quedar fuera de la vista:
     // el aviso dice cuál es (#106).
-    if (fallan.length) {
-      toast({
-        title: 'Revisa los enlaces de pago',
-        description: fallan.map((i) => `Enlace ${Number(i) + 1}: ${errors[i]}`).join(' · '),
-        variant: 'destructive',
-      });
-    }
-    return fallan.length === 0;
+    return Object.keys(errors).map((i) => `Enlace ${Number(i) + 1}: ${errors[i]}`);
   }
 
   async function handleFormSubmit(data) {
-    if (!validateLinks()) return;
+    const enlaces = erroresDeEnlaces();
+    if (enlaces.length) {
+      toast({ title: 'Revisa los enlaces de pago', description: enlaces.join(' · '), variant: 'destructive' });
+      return;
+    }
     const cleanLinks = paymentLinks.filter((l) => l.label?.trim() && l.url?.trim());
     const payload = {
       ...data,
@@ -259,7 +258,9 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
         <form onSubmit={handleSubmit(handleFormSubmit, (errs) => {
           const msgs = Object.entries(errs)
             .filter(([, e]: [string, any]) => typeof e?.message === 'string')
-            .map(([k, e]: [string, any]) => `${ETIQUETAS[k] || k}: ${e.message}`);
+            .map(([k, e]: [string, any]) => `${ETIQUETAS[k] || k}: ${e.message}`)
+            // Todo lo que falla, de una vez: también los enlaces de pago (#106).
+            .concat(erroresDeEnlaces());
           toast({ title: 'Revisa el formulario', description: msgs.join(' · ') || 'Hay campos inválidos', variant: 'destructive' });
         // noValidate: el aviso lo da el esquema, diciendo el campo, y no el
         // globo del navegador (#106).

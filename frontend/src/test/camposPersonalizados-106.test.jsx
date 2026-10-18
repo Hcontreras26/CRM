@@ -55,7 +55,10 @@ describe('FieldsTab (#106)', () => {
     const clave = screen.getByLabelText(/^Clave interna/);
     expect(clave.closest('form').noValidate).toBe(true);
     await act(async () => { fireEvent.submit(clave.closest('form')); });
-    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Falta la clave interna', variant: 'destructive' }));
+    // Las dos vacías: las dos en un solo aviso.
+    expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({
+      title: 'Faltan datos', description: 'Falta la clave en «Clave interna» y la etiqueta en «Etiqueta visible».', variant: 'destructive',
+    }));
     fireEvent.change(clave, { target: { value: 'nivel_ingles' } });
     await act(async () => { fireEvent.submit(clave.closest('form')); });
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Falta la etiqueta', variant: 'destructive' }));

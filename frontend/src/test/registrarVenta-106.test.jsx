@@ -63,13 +63,22 @@ describe('Registrar venta (#106, #134)', () => {
     expect(screen.getAllByText('(obligatorio)').length).toBeGreaterThanOrEqual(4);
   });
 
-  it('cada aviso dice qué falta y dónde ponerlo', async () => {
+  // Con todo vacío, todo lo que falta en un solo aviso (visto en la prueba a
+  // mano: antes decía solo lo primero, y había que ir descubriendo lo demás).
+  it('cada aviso dice qué falta y dónde ponerlo; con todo vacío, todo a la vez', async () => {
     await abrir({ modoInicial: 'new' });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar venta' }));
-    expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Falta el nombre del cliente',
-      description: expect.stringMatching(/Nombre del cliente/),
-    }));
+    expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Faltan datos', variant: 'destructive' }));
+    const { description } = avisos.toast.mock.calls.at(-1)[0];
+    for (const que of ['el nombre en «Nombre del cliente»', 'el email o el teléfono', 'la formación en «Producto»', 'el importe en «Importe total»']) {
+      expect(description).toContain(que);
+    }
+    // Si solo falta una cosa, su aviso de siempre.
+    fireEvent.change(screen.getByLabelText(/^Nombre del cliente/), { target: { value: 'Ana' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@prueba.local' } });
+    fireEvent.change(screen.getByLabelText(/^Importe total/), { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar venta' }));
+    expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Falta la formación', description: expect.stringMatching(/Producto/) }));
   });
 
   it('cada etiqueta enlazada a su campo, con cliente existente y con cliente nuevo (#106)', async () => {

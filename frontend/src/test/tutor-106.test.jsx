@@ -107,13 +107,19 @@ describe('Tutor: avisa el CRM, no el navegador (#106)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Nuevo tutor/ }));
     const nombre = screen.getByLabelText(/^Nombre y apellidos/);
     expect(nombre.closest('form').noValidate).toBe(true);
+    // Todo vacío: todo lo que falta, en un solo aviso.
     await enviar(nombre);
-    aviso('Falta el nombre');
+    aviso('Faltan datos');
+    expect(toast.mock.calls.at(-1)[0].description).toBe('Falta el nombre en «Nombre y apellidos» y el correo en «Correo».');
     escribir(nombre, 'Ana Tutora');
     escribir(screen.getByLabelText(/^Correo/), 'ana@');
     await enviar(nombre);
     aviso('Correo no válido');
+    // Lo mal escrito también va en la misma lista.
     escribir(screen.getByLabelText('Contraseña'), 'corta');
+    await enviar(nombre);
+    aviso('Faltan datos');
+    expect(toast.mock.calls.at(-1)[0].description).toMatch(/un correo válido en «Correo».*una contraseña de al menos 8 caracteres/);
     escribir(screen.getByLabelText(/^Correo/), 'ana@prueba.local');
     await enviar(nombre);
     aviso('Contraseña demasiado corta');
