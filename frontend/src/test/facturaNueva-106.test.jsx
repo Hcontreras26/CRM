@@ -156,6 +156,14 @@ describe('Datos fiscales para la factura (#106)', () => {
     expect(screen.getByRole('combobox', { name: 'Método de pago' })).toBeTruthy();
   });
 
+  // Al pasar el desplegable a Field, el título del apartado y la etiqueta
+  // decían lo mismo: «Empresa que emite» dos veces seguidas.
+  it('«Empresa que emite» sale una vez: el apartado se llama «Emisor»', async () => {
+    await abrirDialogo();
+    expect(screen.getAllByText('Empresa que emite')).toHaveLength(1);
+    expect(screen.getByText('Emisor')).toBeTruthy();
+  });
+
   it('todos los campos con la clase común y su etiqueta, también las notas', async () => {
     const { container } = await abrirDialogo();
     const propias = [...container.querySelectorAll('input:not([type=checkbox]), textarea')]

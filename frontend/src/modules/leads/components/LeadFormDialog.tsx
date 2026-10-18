@@ -161,6 +161,8 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
         ? (lead.telefono ? 'ambos' : 'usuario')
         : 'numero');
       setCustomValues((lead?.custom_fields as Record<string, unknown>) || {});
+      // Los avisos de personalizados de la vez anterior no se arrastran.
+      setFaltanPersonalizados([]);
     }
   }, [open, lead, reset]);
 

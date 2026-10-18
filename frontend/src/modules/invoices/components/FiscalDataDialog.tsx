@@ -188,7 +188,7 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
         ) : (
           <div className="p-4 space-y-3 text-sm">
             {issuers.length > 0 && (
-              <Section title="Empresa que emite">
+              <Section title="Emisor">
                 <Field label="Empresa que emite" htmlFor="datos-fiscales-empresa" hint="Esta factura se emite desde esta empresa. Solo las administradoras gestionan el listado en Configuración.">
                   <Select<number | null>
                     id="datos-fiscales-empresa"
