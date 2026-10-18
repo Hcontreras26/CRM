@@ -277,7 +277,7 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
                     onChange={(v) => setPickedProjectId(v ? Number(v) : null)}
                     ariaLabel="Proyecto al que pertenece este prospecto"
                     options={[
-                      { value: '', label: '— Elige proyecto —' },
+                      { value: '', label: 'Elige el proyecto…' },
                       ...(projects || []).map((p) => ({ value: String(p.id), label: p.nombre || `Proyecto ${p.id}` })),
                     ]}
                   />
@@ -473,7 +473,7 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
                           value={(customValues[f.field_key] as string) || ''}
                           onChange={(v) => setCustomValues({ ...customValues, [f.field_key]: v })}
                           options={[
-                            { value: '', label: 'Seleccionar...' },
+                            { value: '', label: 'Elige una opción…' },
                             ...(f.options || []).map(o => ({ value: o, label: o })),
                           ]}
                           ariaLabel={f.label}

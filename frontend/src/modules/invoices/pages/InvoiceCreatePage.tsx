@@ -654,7 +654,7 @@ export default function InvoiceCreatePage() {
                 onChange={setRectOriginalId}
                 ariaLabel="Factura a rectificar"
                 options={[
-                  { value: null, label: '— elegir factura —' },
+                  { value: null, label: 'Elige la factura…' },
                   ...rectList.map((i) => ({
                     value: i.id,
                     label: `${i.codigo} · ${i.cliente_nombre} · ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(i.total))}`,
@@ -731,7 +731,7 @@ export default function InvoiceCreatePage() {
                 onChange={setAssocConvId}
                 ariaLabel="Asociar a venta del cliente"
                 options={[
-                  { value: '', label: '— Sin asociar (documento suelto) —' },
+                  { value: '', label: 'Sin asociar (documento suelto)' },
                   ...leadConvs.map((c) => {
                     const pend = Number(c.importe_total) - Number(c.importe_pagado);
                     return {
@@ -819,7 +819,7 @@ export default function InvoiceCreatePage() {
                   }}
                   ariaLabel="Añadir un curso del catálogo"
                   options={[
-                    { value: null, label: '— elegir del catálogo —' },
+                    { value: null, label: 'Elige del catálogo…' },
                     ...products.map((p) => ({ value: p.id, label: `${p.nombre}${p.precio ? ` · ${Number(p.precio)}€` : ''}` })),
                   ]}
                 />

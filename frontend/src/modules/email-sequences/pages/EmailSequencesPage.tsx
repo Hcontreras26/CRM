@@ -277,7 +277,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                       value={step.template_id ?? null}
                       onChange={(v) => updateStep(i, 'template_id', v)}
                       options={[
-                        { value: null, label: '— Sin plantilla (usar texto manual) —' },
+                        { value: null, label: 'Sin plantilla (usar texto manual)' },
                         ...templates.map(t => ({ value: t.id as number, label: t.name })),
                       ]}
                       ariaLabel={`Plantilla del paso ${i + 1}`}

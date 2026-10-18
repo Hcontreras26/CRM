@@ -64,7 +64,7 @@ export default function CustomFieldRenderer({ field, value, onChange, disabled =
             value={stringValue}
             onChange={set}
             options={[
-              { value: '', label: '— Seleccionar —' },
+              { value: '', label: 'Elige una opción…' },
               ...choices.map((c) => ({ value: c, label: c })),
             ]}
             ariaLabel={field.label}

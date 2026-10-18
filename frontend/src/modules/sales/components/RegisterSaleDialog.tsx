@@ -528,7 +528,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                             onClick={() => selectClient(c)}
                             className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b last:border-0 border-border"
                           >
-                            <p className="font-medium truncate">{c.nombre || '— sin nombre —'}</p>
+                            <p className="font-medium truncate">{c.nombre || 'Sin nombre'}</p>
                             <p className="text-[11px] text-muted-foreground truncate">{c.email || '—'} {c.telefono ? `· ${c.telefono}` : ''}</p>
                           </button>
                         ))}
@@ -539,7 +539,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                   <div className="bg-success-soft border border-success/30 rounded-md p-3 flex items-start gap-3">
                     <UserCheck size={20} weight="duotone" className="text-success flex-shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{selectedClient.nombre || '— sin nombre —'}</p>
+                      <p className="text-sm font-semibold truncate">{selectedClient.nombre || 'Sin nombre'}</p>
                       <p className="text-secundario text-muted-foreground truncate">{selectedClient.email || '—'} {selectedClient.telefono ? `· ${selectedClient.telefono}` : ''}</p>
                       <p className="text-secundario text-success-soft-foreground mt-0.5">Cliente seleccionado — se le añadirá una nueva venta.</p>
                     </div>
@@ -587,7 +587,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                             onClick={() => selectClient(c)}
                             className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b last:border-0 border-border"
                           >
-                            <p className="font-medium truncate">{c.nombre || '— sin nombre —'}</p>
+                            <p className="font-medium truncate">{c.nombre || 'Sin nombre'}</p>
                             <p className="text-[11px] text-muted-foreground truncate">
                               {c.email || '—'} {c.telefono ? `· ${c.telefono}` : ''}
                               {' · '}{c.responsable_nombre || 'sin gestora'}
@@ -601,7 +601,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                   <div className="bg-info-soft border border-info/30 rounded-md p-3 flex items-start gap-3">
                     <UserCheck size={20} weight="duotone" className="text-info flex-shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{selectedClient.nombre || '— sin nombre —'}</p>
+                      <p className="text-sm font-semibold truncate">{selectedClient.nombre || 'Sin nombre'}</p>
                       <p className="text-secundario text-muted-foreground truncate">{selectedClient.email || '—'} {selectedClient.telefono ? `· ${selectedClient.telefono}` : ''}</p>
                       {selectedClient.responsable_nombre ? (
                         <p className="text-secundario text-info-soft-foreground mt-0.5">
@@ -735,7 +735,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                       onChange={setProductoId}
                       ariaLabel="Producto"
                       options={[
-                        { value: '', label: '— Selecciona —' },
+                        { value: '', label: 'Elige la formación…' },
                         ...productosFiltrados.map((p) => ({
                           value: p.id,
                           label: `${p.nombre}${p.precio ? ` (${p.precio} ${p.moneda || ''})` : ''}`,
