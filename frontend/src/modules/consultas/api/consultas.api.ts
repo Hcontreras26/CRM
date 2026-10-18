@@ -1,0 +1,137 @@
+import client, { API_BASE_URL, getAccessToken } from '@/shared/api/client';
+import type { ApiResponse } from '@/shared/types';
+
+/*
+  Consultas de alumnos, fase 2 (#188): la bandeja del tutor y el panel de
+  administración.
+*/
+
+export type EstadoConsulta = 'abierta' | 'respondida' | 'cerrada';
+
+export interface ConsultaFila {
+  id: number;
+  project_id: number;
+  campus: string;
+  empresa: string | null;
+  alumno_nombre: string | null;
+  alumno_email: string | null;
+  curso_nombre: string | null;
+  tutor_id: number | null;
+  tutor: string | null;
+  estado: EstadoConsulta;
+  entrada_at: string;
+  asignada_at: string | null;
+  primera_lectura_at: string | null;
+  primera_respuesta_at: string | null;
+  cerrada_at: string | null;
+  reabierta_at: string | null;
+  /** Desde cuándo espera respuesta el alumno (solo si está abierta). */
+  espera_desde: string | null;
+  ultimo_mensaje: string | null;
+  /** Respuestas del tutor que aún no han llegado al campus. */
+  sin_enviar: number;
+}
+
+export interface AdjuntoConsulta { id: number; mensaje_id: number; nombre: string; tipo: string | null; tamano: number | null }
+
+export interface MensajeConsulta {
+  id: number;
+  autor: 'alumno' | 'tutor';
+  autor_nombre: string | null;
+  texto: string;
+  escrito_at: string;
+  enviado_campus_at: string | null;
+  error_envio: string | null;
+  en_el_campus: boolean;
+  adjuntos: AdjuntoConsulta[];
+}
+
+export interface EventoConsulta { tipo: string; at: string; quien: string | null; detalle: Record<string, unknown> | null }
+
+export interface ConsultaDetalle extends ConsultaFila {
+  mensajes: MensajeConsulta[];
+  eventos: EventoConsulta[];
+  plazoHoras: number;
+  /** 'tutor' = es la suya (responde y cierra) · 'admin' = la ve administración (cierra y reasigna). */
+  puedes: 'tutor' | 'admin';
+}
+
+export interface ListaConsultas { consultas: ConsultaFila[]; plazoHoras: number }
+
+export interface FiltrosConsultas {
+  estado?: 'pendientes' | EstadoConsulta;
+  sinTutor?: boolean;
+  buscar?: string;
+}
+
+const qs = (o: Record<string, string | number | boolean | null | undefined>) => {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(o)) if (v !== undefined && v !== null && v !== '' && v !== false) p.set(k, String(v));
+  const s = p.toString();
+  return s ? `?${s}` : '';
+};
+
+export const consultasApi = {
+  mias: (f: FiltrosConsultas = {}) =>
+    client.get(`/consultas/mias${qs({ estado: f.estado, buscar: f.buscar })}`) as Promise<ApiResponse<ListaConsultas>>,
+  panel: (ambito: { projectId?: number | null; issuerId?: number | null }, f: FiltrosConsultas = {}) =>
+    client.get(`/consultas${qs({
+      projectId: ambito.projectId && ambito.projectId > 0 ? ambito.projectId : undefined,
+      issuerId: ambito.issuerId || undefined,
+      estado: f.estado, sinTutor: f.sinTutor ? 1 : undefined, buscar: f.buscar,
+    })}`) as Promise<ApiResponse<ListaConsultas>>,
+  ver: (id: number) => client.get(`/consultas/${id}`) as Promise<ApiResponse<ConsultaDetalle>>,
+  responder: (id: number, texto: string, adjuntos: File[]) => {
+    const fd = new FormData();
+    fd.append('texto', texto);
+    for (const f of adjuntos) fd.append('adjuntos', f);
+    return client.post(`/consultas/${id}/responder`, fd) as Promise<ApiResponse<{ enviado: boolean; error: string | null; consulta: ConsultaDetalle }>>;
+  },
+  reintentar: (mensajeId: number) =>
+    client.post(`/consultas/mensajes/${mensajeId}/reintentar`, {}) as Promise<ApiResponse<{ enviado: boolean; error: string | null; consulta: ConsultaDetalle }>>,
+  cerrar: (id: number) => client.post(`/consultas/${id}/cerrar`, {}) as Promise<ApiResponse<ConsultaDetalle>>,
+  tutoresPosibles: (id: number) =>
+    client.get(`/consultas/${id}/tutores`) as Promise<ApiResponse<Array<{ id: number; nombre: string; email: string }>>>,
+  reasignar: (id: number, tutorId: number) =>
+    client.post(`/consultas/${id}/reasignar`, { tutorId }) as Promise<ApiResponse<ConsultaDetalle>>,
+  leerAhora: (ambito: { projectId?: number | null; issuerId?: number | null }) =>
+    client.post(`/consultas/leer-ahora${qs({
+      projectId: ambito.projectId && ambito.projectId > 0 ? ambito.projectId : undefined,
+      issuerId: ambito.issuerId || undefined,
+    })}`, {}) as Promise<ApiResponse<Array<{ projectId: number; nuevos?: number; errores?: string[] }>>>,
+  tokensDelTutor: (tutorId: number) =>
+    client.get(`/consultas/tutores/${tutorId}/tokens`) as Promise<ApiResponse<Array<{ project_id: number; campus: string; estado: string | null; tiene_token: boolean }>>>,
+  guardarToken: (tutorId: number, projectId: number, token: string | null) =>
+    client.put(`/consultas/tutores/${tutorId}/token`, { projectId, token }) as Promise<ApiResponse<{ project_id: number; tiene_token: boolean }>>,
+
+  /** El adjunto, con la sesión (no es el enlace público del alumno). */
+  async abrirAdjunto(a: AdjuntoConsulta) {
+    const r = await fetch(`${API_BASE_URL}/consultas/adjuntos/${a.id}`, {
+      headers: { Authorization: `Bearer ${getAccessToken() || ''}` },
+    });
+    if (!r.ok) throw new Error('No se ha podido abrir el adjunto.');
+    const url = URL.createObjectURL(await r.blob());
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  },
+};
+
+/**
+ * El semáforo del plazo de primera respuesta (24 h de inicio, configurable):
+ * verde hasta las tres cuartas partes del plazo, ámbar hasta el plazo y rojo
+ * pasado. Solo para las abiertas: las respondidas y cerradas no esperan.
+ */
+export function semaforo(c: Pick<ConsultaFila, 'estado' | 'espera_desde' | 'entrada_at'>, plazoHoras: number, ahora = Date.now()) {
+  if (c.estado !== 'abierta') return null;
+  const desde = new Date(c.espera_desde || c.entrada_at).getTime();
+  const horas = (ahora - desde) / 3_600_000;
+  const color: 'verde' | 'ambar' | 'rojo' = horas >= plazoHoras ? 'rojo' : horas >= plazoHoras * 0.75 ? 'ambar' : 'verde';
+  return { color, horas };
+}
+
+/** «hace 3 h», «hace 2 días»: lo que lleva esperando. */
+export function haceCuanto(horas: number) {
+  if (horas < 1) return `hace ${Math.max(1, Math.round(horas * 60))} min`;
+  if (horas < 48) return `hace ${Math.round(horas)} h`;
+  return `hace ${Math.round(horas / 24)} días`;
+}

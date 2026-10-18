@@ -90,6 +90,8 @@ export function colaboradorPuede(ruta) {
 export const RUTAS_DEL_TUTOR = [
   /^\/api\/auth(?:\/|$)/,
   /^\/api\/tutores(?:\/|$)/,
+  // Sus consultas de alumnos (#188): el controlador le deja solo las suyas.
+  /^\/api\/consultas(?:\/|$)/,
   /^\/api\/notifications(?:\/|$)/,
   /^\/api\/novedades(?:\/|$)/,
   // Los mensajes internos entre usuarios del CRM (la campana de «Mensajes»).

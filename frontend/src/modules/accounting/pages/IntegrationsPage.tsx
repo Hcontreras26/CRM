@@ -538,6 +538,8 @@ function MoodleCard({ projectId }: { projectId: number }) {
   const [token, setToken] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [url, setUrl] = useState('');
+  // #188: leer las consultas de los alumnos de este campus.
+  const [consultas, setConsultas] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
 
@@ -549,6 +551,7 @@ function MoodleCard({ projectId }: { projectId: number }) {
         const d = res.data || EMPTY('moodle');
         setData(d);
         setUrl((d.config_public?.url as string) || '');
+        setConsultas(String(d.config_public?.consultas) === 'true');
       }
     } catch {/* ignore */} finally { setLoading(false); }
   }, [projectId]);
@@ -567,7 +570,7 @@ function MoodleCard({ projectId }: { projectId: number }) {
     try {
       const body: Record<string, unknown> = {
         projectId, provider: 'moodle', active: true,
-        config_public: { url: url.trim() },
+        config_public: { url: url.trim(), consultas },
       };
       if (token.trim()) body.api_key = token.trim();
       const res = await client.put<Integration>('/integrations', body);
@@ -668,6 +671,21 @@ function MoodleCard({ projectId }: { projectId: number }) {
               {showKey ? <EyeSlash size={14} /> : <Eye size={14} />}
             </button>
           </div>
+        </div>
+
+        <div className="rounded-md border border-border p-3 space-y-1">
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input type="checkbox" checked={consultas} onChange={(e) => setConsultas(e.target.checked)} />
+            Leer las consultas de este campus
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Cada 5 minutos el CRM lee los mensajes que los alumnos escriben a sus tutores en el campus y los pone en «Consultas».
+            Solo lo escrito desde que se marca (no el historial). El token tiene que poder leer los mensajes de todos
+            (usuario administrador) y su servicio, tener <code>core_message_get_conversations</code> y <code>core_message_get_conversation_messages</code>.
+          </p>
+          {consultas && data?.config_public?.consultas_desde && (
+            <p className="text-xs text-muted-foreground">Leyendo desde el {fmt(String(data.config_public.consultas_desde))}.</p>
+          )}
         </div>
 
         <TestStatus data={data} />

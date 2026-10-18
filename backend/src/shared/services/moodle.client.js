@@ -108,6 +108,8 @@ export async function infoDelCampus(conexion, opciones) {
     version: info?.release || null,
     // Sin la lista (algunos Moodle no la dan) no se puede decir que falte nada.
     faltan: info?.functions ? FUNCIONES_NECESARIAS.filter((f) => !tiene.has(f)) : [],
+    // Las de leer la mensajería (#188): solo cuentan si el campus lee consultas.
+    faltanConsultas: info?.functions ? FUNCIONES_CONSULTAS.filter((f) => !tiene.has(f)) : [],
   };
 }
 
@@ -142,4 +144,92 @@ export function estadoDeLaMatricula(usuario, estadoAnterior = null) {
   if (usuario) return usuario.suspendido ? 'baja' : 'activa';
   if (estadoAnterior === 'activa' || estadoAnterior === 'baja') return 'baja';
   return 'pendiente';
+}
+
+// ─── Consultas de alumnos, fase 2 (#188): la mensajería del campus ──────────
+
+/**
+ * Lo que necesita el token del CAMPUS para leer las consultas (además de las de
+ * la fase 1). Leer conversaciones de otro usuario pide que el usuario del token
+ * pueda leer todos los mensajes (`moodle/site:readallmessages`): un
+ * administrador del campus lo puede.
+ */
+export const FUNCIONES_CONSULTAS = ['core_message_get_conversations', 'core_message_get_conversation_messages'];
+
+/** Lo que necesita el token de cada TUTOR para responder en su nombre. */
+export const FUNCIONES_RESPUESTA = ['core_message_send_instant_messages'];
+
+/**
+ * Las conversaciones privadas (individuales) de un usuario del campus, con sus
+ * miembros. Es por donde preguntan hoy los alumnos: el «Chat» del curso lleva a
+ * la mensajería privada con su tutor (estudio de la fase 0).
+ */
+export async function conversacionesDe(conexion, moodleUserId, { limite = 50 } = {}, opciones) {
+  const r = await llamar(conexion, 'core_message_get_conversations', {
+    userid: moodleUserId, type: 1, limitfrom: 0, limitnum: limite,
+  }, opciones);
+  return (r?.conversations || []).map((c) => ({
+    id: Number(c.id),
+    miembros: (c.members || []).map((m) => ({ id: Number(m.id), nombre: m.fullname || null })),
+  }));
+}
+
+/**
+ * Los mensajes de una conversación desde una fecha (segundos Unix), del más
+ * antiguo al más nuevo, para meterlos en orden.
+ */
+export async function mensajesDeConversacion(conexion, moodleUserId, conversacionId, { desde = 0, limite = 100 } = {}, opciones) {
+  const r = await llamar(conexion, 'core_message_get_conversation_messages', {
+    currentuserid: moodleUserId, convid: conversacionId, limitfrom: 0, limitnum: limite,
+    newest: 0, timefrom: Math.max(0, Math.floor(desde)),
+  }, opciones);
+  return (r?.messages || [])
+    .map((m) => ({
+      id: Number(m.id),
+      de: Number(m.useridfrom),
+      texto: textoDeMoodle(m.text),
+      fecha: new Date(Number(m.timecreated) * 1000),
+    }))
+    .sort((a, b) => a.fecha - b.fecha || a.id - b.id);
+}
+
+/** Un usuario del campus por su id: nombre y correo. */
+export async function usuarioPorId(conexion, moodleUserId, opciones) {
+  const lista = await llamar(conexion, 'core_user_get_users_by_field',
+    { field: 'id', 'values[0]': moodleUserId }, opciones);
+  const u = Array.isArray(lista) ? lista[0] : null;
+  return u ? { id: Number(u.id), nombre: u.fullname || null, email: u.email || null } : null;
+}
+
+/**
+ * Manda un mensaje privado DESDE el usuario del token (el tutor) al alumno.
+ * Moodle contesta una lista con `msgid` (-1 si no lo ha aceptado) y, si falla,
+ * `errormessage`.
+ */
+export async function enviarMensaje(conexion, paraMoodleUserId, texto, opciones) {
+  const r = await llamar(conexion, 'core_message_send_instant_messages', {
+    'messages[0][touserid]': paraMoodleUserId,
+    'messages[0][text]': texto,
+    // 2 = texto plano: lo que escribe el tutor sale tal cual, sin HTML.
+    'messages[0][textformat]': 2,
+  }, opciones);
+  const m = Array.isArray(r) ? r[0] : null;
+  if (!m || Number(m.msgid) <= 0) {
+    throw new MoodleError(`El campus no ha aceptado el mensaje${m?.errormessage ? `: ${m.errormessage}` : '.'}`, 'NO_ENVIADO');
+  }
+  return { id: Number(m.msgid) };
+}
+
+/** El texto de un mensaje de Moodle (viene en HTML) como texto normal. */
+export function textoDeMoodle(html) {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
