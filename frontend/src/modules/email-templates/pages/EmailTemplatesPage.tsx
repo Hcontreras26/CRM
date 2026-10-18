@@ -5,6 +5,7 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { toast } from '@/shared/hooks/useToast';
+import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
 import { emailTemplatesApi, type EmailTemplate, type TemplateVariable } from '../api/templates.api';
 import Field from '@/shared/components/ui/Field';
 import { inputClass } from '@/shared/lib/ui';
@@ -198,14 +199,14 @@ function TemplateEditorDialog({ template, variables, onClose, onSave }: {
   const [saving, setSaving] = useState(false);
 
   async function submit() {
-    // Que diga CUÁLES faltan, con el nombre que se ve en pantalla (#106).
-    const faltan = [
-      !name.trim() && 'Nombre interno', !subject.trim() && 'Asunto', !body.trim() && 'Cuerpo HTML',
-    ].filter(Boolean);
-    if (faltan.length) {
-      toast({ title: faltan.length === 1 ? `Falta: ${faltan[0]}` : 'Faltan campos', description: `Rellena ${faltan.join(', ')}.`, variant: 'destructive' });
-      return;
-    }
+    // Que diga CUÁLES faltan, con el nombre que se ve en pantalla, y con el
+    // mismo aviso que los demás formularios (#106).
+    const faltan: Falta[] = [];
+    if (!name.trim()) faltan.push({ title: 'Falta el nombre interno', description: 'Escríbelo en «Nombre interno».', que: 'el nombre en «Nombre interno»' });
+    if (!subject.trim()) faltan.push({ title: 'Falta el asunto', description: 'Escríbelo en «Asunto».', que: 'el asunto en «Asunto»' });
+    if (!body.trim()) faltan.push({ title: 'Falta el cuerpo', description: 'Escríbelo en «Cuerpo HTML».', que: 'el cuerpo en «Cuerpo HTML»' });
+    const falta = avisoDeLoQueFalta(faltan);
+    if (falta) { toast(falta); return; }
     setSaving(true);
     try {
       await onSave({ name: name.trim(), subject: subject.trim(), body_html: body, description: description.trim() || undefined });

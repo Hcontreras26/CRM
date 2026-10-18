@@ -46,7 +46,7 @@ describe('Plantillas de email (#106)', () => {
     fireEvent.change(screen.getByLabelText(/^Nombre interno/), { target: { value: 'Bienvenida' } });
     fireEvent.click(screen.getByRole('button', { name: /Guardar/ }));
     expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Faltan campos', description: 'Rellena Asunto, Cuerpo HTML.',
+      title: 'Faltan datos', description: 'Falta el asunto en «Asunto» y el cuerpo en «Cuerpo HTML».',
     }));
   });
 });
