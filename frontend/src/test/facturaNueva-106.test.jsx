@@ -106,6 +106,28 @@ describe('Nueva factura (#106)', () => {
     expect(sueltas).toEqual([]);
   });
 
+  // Visto en la prueba a mano: salía «España — 21% IVA — 21% IVA».
+  it('el régimen que ya dice su IVA en el nombre no lo repite', async () => {
+    const { invoicesApi } = await import('@/modules/invoices/api/invoices.api');
+    const antes = invoicesApi.listRegimenes.getMockImplementation();
+    invoicesApi.listRegimenes.mockResolvedValue({ success: true, data: [
+      { id: 1, nombre: 'España — 21% IVA', aplica_iva: true, iva_pct: '21.00' },
+      { id: 2, nombre: 'Fuera de la UE', aplica_iva: false, iva_pct: '0.00' },
+      { id: 3, nombre: 'UE B2C', aplica_iva: true, iva_pct: '21.00' },
+    ] });
+    try {
+      await abrir();
+      act(() => { screen.getByRole('combobox', { name: 'IVA / Régimen fiscal' }).click(); });
+      const opciones = screen.getAllByRole('option').map((o) => o.textContent);
+      expect(opciones).toContain('España — 21% IVA');
+      expect(opciones).toContain('Fuera de la UE — sin IVA');
+      expect(opciones).toContain('UE B2C — 21% IVA');
+      expect(opciones.some((o) => /IVA — 21% IVA/.test(o))).toBe(false);
+    } finally {
+      invoicesApi.listRegimenes.mockImplementation(antes);
+    }
+  });
+
   // Visto en la prueba a mano: iba al lado de la casilla, no debajo.
   it('la ayuda del número de factura va debajo de la casilla, como la de Field', async () => {
     await abrir();

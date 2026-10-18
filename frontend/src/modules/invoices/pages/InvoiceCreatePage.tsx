@@ -850,7 +850,11 @@ export default function InvoiceCreatePage() {
                   ariaLabel="IVA / Régimen fiscal"
                   options={[
                     { value: null, label: 'Manual (elegir IVA abajo)' },
-                    ...regimenes.map((r) => ({ value: r.id, label: `${r.nombre} — ${r.aplica_iva ? `${Number(r.iva_pct)}% IVA` : 'sin IVA'}` })),
+                    ...regimenes.map((r) => {
+                      const iva = r.aplica_iva ? `${Number(r.iva_pct)}% IVA` : 'sin IVA';
+                      // «España — 21% IVA» ya lo dice en el nombre: salía dos veces.
+                      return { value: r.id, label: r.nombre.includes(iva) ? r.nombre : `${r.nombre} — ${iva}` };
+                    }),
                   ]}
                 />
               )}
