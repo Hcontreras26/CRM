@@ -1094,11 +1094,17 @@ export default function TutoresPage() {
               </section>
 
               <section className="space-y-2 border-t border-border pt-4">
-                <h3 className="text-tabla uppercase text-muted-foreground">Cómo entra</h3>
+                {/* La casilla tenía solo el título del apartado y el texto gris: se
+                    veía que era la contraseña solo por el ejemplo (#106). */}
+                <Field label="Contraseña" required={sinCorreos} htmlFor="alta-clave"
+                  hint={sinCorreos
+                    ? 'No se le manda ningún correo: entra con esta contraseña. Cópiala y pásasela tú antes de dar de alta, porque después no se puede volver a ver.'
+                    : contrasena
+                      ? 'Entra ya con esa contraseña. Cópiala antes de dar de alta — después no se puede volver a ver.'
+                      : 'Si la dejas vacía se le manda un correo para que la ponga él. Con contraseña entra al momento.'}>
                 <div className="flex gap-2">
-                  <input value={contrasena} onChange={(e) => { setContrasena(e.target.value); setCopiada(false); }}
-                    type="text" minLength={8} required={sinCorreos} autoComplete="new-password" placeholder="Contraseña (mínimo 8)"
-                    aria-label="Contraseña"
+                  <input id="alta-clave" value={contrasena} onChange={(e) => { setContrasena(e.target.value); setCopiada(false); }}
+                    type="text" minLength={8} required={sinCorreos} autoComplete="new-password" placeholder="Mínimo 8 caracteres"
                     className={`${inputClass} flex-1 min-w-0`} />
                   <Button type="button" variant="outline" size="sm"
                     onClick={() => { setContrasena(generarContrasena()); setCopiada(false); }}>
@@ -1109,13 +1115,7 @@ export default function TutoresPage() {
                     {copiada ? <CheckCircle size={14} weight="fill" className="text-success" /> : <Copy size={14} weight="bold" />}
                   </Button>
                 </div>
-                <p className="px-1 text-secundario text-muted-foreground leading-relaxed">
-                  {sinCorreos
-                    ? 'No se le manda ningún correo: entra con esta contraseña. Cópiala y pásasela tú antes de dar de alta, porque después no se puede volver a ver.'
-                    : contrasena
-                      ? 'Entra ya con esa contraseña. Cópiala antes de dar de alta — después no se puede volver a ver.'
-                      : 'Si la dejas vacía se le manda un correo para que la ponga él. Con contraseña entra al momento.'}
-                </p>
+                </Field>
               </section>
 
               {projects.length > 1 && (
@@ -1160,7 +1160,7 @@ export default function TutoresPage() {
 
                 {/* En el móvil no caben cuatro columnas: el curso va arriba, el
                     porcentaje y la fecha debajo, y «Añadir» a lo ancho (#106). */}
-                <div className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_5rem_9.5rem_auto] gap-fila items-end">
+                <div className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_6rem_9.5rem_auto] gap-fila items-end">
                   <Field label="Curso" htmlFor="alta-curso" className="col-span-2 sm:col-span-1">
                     <BuscadorEnLista
                       id="alta-curso"
@@ -1313,9 +1313,10 @@ export default function TutoresPage() {
             <p className="text-xs text-muted-foreground">
               Para <strong>{elegido.nombre}</strong>. Cópiala y pásasela: no se le manda ningún correo.
             </p>
+            <Field label="Nueva contraseña" htmlFor="clave-nueva">
             <div className="flex gap-1.5">
-              <input value={claveNueva} onChange={(e) => { setClaveNueva(e.target.value); setClaveCopiada(false); }}
-                aria-label="Nueva contraseña" autoComplete="new-password"
+              <input id="clave-nueva" value={claveNueva} onChange={(e) => { setClaveNueva(e.target.value); setClaveCopiada(false); }}
+                autoComplete="new-password"
                 className={`${inputClass} flex-1 font-mono min-w-0`} />
               <Button type="button" variant="outline" size="sm" aria-label="Generar otra"
                 onClick={() => { const c = generarContrasena(); setClaveNueva(c); setClaveRepetida(c); setClaveCopiada(false); }}>
@@ -1326,10 +1327,13 @@ export default function TutoresPage() {
                 {claveCopiada ? <CheckCircle size={14} weight="fill" className="text-success" /> : <Copy size={14} weight="bold" />}
               </Button>
             </div>
+            </Field>
             {/* Repetida, como en «Establece tu contraseña» (#248). La generada ya la rellena. */}
-            <input value={claveRepetida} onChange={(e) => setClaveRepetida(e.target.value)}
-              placeholder="Repítela" aria-label="Repite la contraseña" autoComplete="new-password"
-              className={`${inputClass} font-mono`} />
+            <Field label="Repite la contraseña" htmlFor="clave-repetida">
+              <input id="clave-repetida" value={claveRepetida} onChange={(e) => setClaveRepetida(e.target.value)}
+                autoComplete="new-password"
+                className={`${inputClass} font-mono`} />
+            </Field>
             {problemaDeContrasena(claveNueva, claveRepetida) && (
               <p className="px-1 text-secundario text-warning-soft-foreground">
                 {problemaDeContrasena(claveNueva, claveRepetida)}
