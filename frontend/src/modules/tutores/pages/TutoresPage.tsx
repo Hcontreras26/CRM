@@ -548,7 +548,14 @@ export default function TutoresPage() {
     const productId = Number(f.get('productId'));
     const pctEscrito = String(f.get('pct') ?? '');
     const faltan: Falta[] = [];
-    if (porcentajeMalo(pctEscrito, 'Porcentaje')) faltan.push({ ...porcentajeMalo(pctEscrito, 'Porcentaje')!, que: 'un porcentaje de 0 a 100 en «Porcentaje»' });
+    // Sin curso, el servidor contestaba con un error que no tenía que ver.
+    if (!productId) faltan.push({ title: 'Falta el curso', description: 'Elígelo en «Curso»: escribe para buscarlo.', que: 'el curso en «Curso»' });
+    // Vacío no es «no válido»: falta (visto en la prueba a mano).
+    if (!pctEscrito.trim()) {
+      faltan.push({ title: 'Falta el porcentaje', description: 'Escríbelo en «Porcentaje»: de 0 a 100 (se admiten medios, como 7,5).', que: 'el porcentaje en «Porcentaje»' });
+    } else if (porcentajeMalo(pctEscrito, 'Porcentaje')) {
+      faltan.push({ ...porcentajeMalo(pctEscrito, 'Porcentaje')!, que: 'un porcentaje de 0 a 100 en «Porcentaje»' });
+    }
     if (!String(f.get('desde') || '')) {
       faltan.push({ title: 'Falta la fecha', description: 'Pon en «Desde» el día que empezó con esta formación.', que: 'la fecha en «Desde»' });
     }
@@ -1242,10 +1249,12 @@ export default function TutoresPage() {
       {popupColab && elegido && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setPopupColab(false)}>
           <form onSubmit={altaColaboracion} onClick={(e) => e.stopPropagation()} noValidate
-            className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-md p-4 space-y-3">
+            className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-lg p-4 space-y-3">
+            {/* max-w-lg: con max-w-md, las tres fechas no cabían y «Hasta» salía
+                cortada, con el calendario encima (visto en la prueba a mano). */}
             <div className="flex items-start justify-between gap-3">
               <h2 className="font-bold">Formación de {elegido.nombre}</h2>
-              <button type="button" onClick={() => setPopupColab(false)} className="text-muted-foreground hover:text-foreground">
+              <button type="button" onClick={() => setPopupColab(false)} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
                 <X size={16} weight="bold" />
               </button>
             </div>
@@ -1257,17 +1266,21 @@ export default function TutoresPage() {
                 se lleva por delante el historico—. El mensaje ademas mentia: decia
                 «ningun curso con ese nombre» mientras la tabla de al lado lo
                 estaba enseñando. */}
-            <BuscadorEnLista
-              opciones={formaciones.map((f) => ({ ...f, nota: f.precio }))}
-              comoDinero
-              placeholder="Escribe para buscar un curso…"
-              sinResultados="Ningún curso con «{texto}». Prueba con una palabra suelta." 
-              valor={cursoColab}
-              onElegir={setCursoColab}
-              excluir={lasQueYaRigen(colabs)}
-              yaEstaFuera="«{nombre}» ya la tiene asignada y activa. Para cambiar el porcentaje o las fechas, edítala desde su tabla."
-              autoFocus
-            />
+            {/* Con su etiqueta, como en «Nuevo tutor» (#106). */}
+            <Field label="Curso" required htmlFor="colab-curso">
+              <BuscadorEnLista
+                id="colab-curso"
+                opciones={formaciones.map((f) => ({ ...f, nota: f.precio }))}
+                comoDinero
+                placeholder="Escribe para buscar un curso…"
+                sinResultados="Ningún curso con «{texto}». Prueba con una palabra suelta."
+                valor={cursoColab}
+                onElegir={setCursoColab}
+                excluir={lasQueYaRigen(colabs)}
+                yaEstaFuera="«{nombre}» ya la tiene asignada y activa. Para cambiar el porcentaje o las fechas, edítala desde su tabla."
+                autoFocus
+              />
+            </Field>
             <input type="hidden" name="productId" value={cursoColab ?? ''} />
 
             <FilaCampos columnas={3}>

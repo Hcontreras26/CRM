@@ -16,7 +16,12 @@ vi.mock('@/contexts/ProjectContext', () => ({
 // La misma lista siempre: una nueva en cada pintado relanza la carga sin fin.
 const CAMPUS = vi.hoisted(() => [{ id: 1, nombre: 'Psiko' }]);
 vi.mock('@/shared/hooks/useAmbito', () => ({ useProyectosDelAmbito: () => CAMPUS }));
-vi.mock('@/shared/api/client', () => ({ default: { get: vi.fn().mockResolvedValue({ success: true, data: [] }) } }));
+vi.mock('@/shared/api/client', () => ({
+  default: {
+    // Un curso en el catálogo, para elegirlo en «Añadir formación».
+    get: vi.fn((url) => Promise.resolve({ success: true, data: String(url).startsWith('/products') ? [{ id: 11, nombre: 'Curso Prueba', precio: 100 }] : [] })),
+  },
+}));
 vi.mock('@/modules/tutores/components/Entregables', () => ({ default: () => null }));
 vi.mock('@/modules/users/api/users.api', () => ({ avisoCambioCorreo: vi.fn() }));
 vi.mock('@/modules/tutores/api/tutores.api', () => ({
@@ -200,7 +205,16 @@ describe('Tutor: avisa el CRM, no el navegador (#106)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Añadir formación/ }));
     const pct = screen.getByLabelText(/^Porcentaje/);
     expect(pct.closest('form').noValidate).toBe(true);
-    for (const malo of ['150', '-1', '7.3', '']) {
+    // El buscador con su etiqueta, como en «Nuevo tutor».
+    const curso = screen.getByLabelText(/^Curso/);
+    // Sin curso y sin porcentaje: los dos, y vacío dice «Falta», no «no válido».
+    escribir(pct, '');
+    await enviar(pct);
+    aviso('Faltan datos');
+    expect(toast.mock.calls.at(-1)[0].description).toBe('Falta el curso en «Curso» y el porcentaje en «Porcentaje».');
+    escribir(curso, 'Curso');
+    fireEvent.click(await screen.findByRole('button', { name: /Curso Prueba/ }));
+    for (const malo of ['150', '-1', '7.3']) {
       escribir(pct, malo);
       await enviar(pct);
       aviso('Porcentaje no válido');
@@ -212,6 +226,6 @@ describe('Tutor: avisa el CRM, no el navegador (#106)', () => {
     expect(tutoresApi.crearColaboracion).not.toHaveBeenCalled();
     escribir(screen.getByLabelText(/^Desde/), '2026-09-01');
     await enviar(pct);
-    expect(tutoresApi.crearColaboracion).toHaveBeenCalledWith(expect.objectContaining({ pct: 7.5, desde: '2026-09-01' }));
+    expect(tutoresApi.crearColaboracion).toHaveBeenCalledWith(expect.objectContaining({ productId: 11, pct: 7.5, desde: '2026-09-01' }));
   });
 });
