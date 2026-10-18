@@ -28,8 +28,12 @@ describe('Usuario (#106)', () => {
     const { container } = render(<UserFormDialog {...base} user={null} />);
     const form = container.querySelector('form');
     expect(form.noValidate).toBe(true);
+    // Vacío no es «demasiado corto»: falta (visto en la prueba a mano).
     fireEvent.submit(form);
-    expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Nombre demasiado corto', variant: 'destructive' }));
+    expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Falta el nombre', description: 'Escríbelo en «Nombre».' }));
+    fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: 'A' } });
+    fireEvent.submit(form);
+    expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Nombre demasiado corto', variant: 'destructive' }));
     expect(base.onSubmit).not.toHaveBeenCalled();
   });
 

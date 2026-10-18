@@ -134,7 +134,9 @@ export default function UserFormDialog({
     e.preventDefault();
     // El backend pide 2 caracteres minimo; validarlo aqui evita el viaje.
     if (nombre.trim().length < 2) {
-      toast({ title: 'Nombre demasiado corto', description: 'En «Nombre», al menos 2 caracteres.', variant: 'destructive' });
+      toast(nombre.trim()
+        ? { title: 'Nombre demasiado corto', description: 'En «Nombre», al menos 2 caracteres.', variant: 'destructive' }
+        : { title: 'Falta el nombre', description: 'Escríbelo en «Nombre».', variant: 'destructive' });
       return;
     }
     if (!esEdicion) {
