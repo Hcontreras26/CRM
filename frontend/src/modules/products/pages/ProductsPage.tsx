@@ -215,6 +215,7 @@ export default function ProductsPage() {
             )}
             <button
               onClick={() => setSidebarOpen((o) => !o)}
+              aria-label={sidebarOpen ? 'Ocultar filtros' : 'Filtros'}
               className="flex items-center gap-2 h-9 px-3 rounded-md border bg-card text-sm hover:bg-muted"
             >
               <Funnel size={16} weight={sidebarOpen ? 'fill' : 'regular'} />
@@ -223,6 +224,8 @@ export default function ProductsPage() {
             {can('products.create') && (
             <button
               onClick={openCreate}
+              // En el móvil es solo el «+»: así el lector de pantalla dice qué hace.
+              aria-label="Nuevo producto"
               className="flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90"
             >
               <Plus size={16} weight="bold" /> <span className="hidden sm:inline">Nuevo Producto</span>

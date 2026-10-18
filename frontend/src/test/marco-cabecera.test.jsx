@@ -1,4 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Para pintar la barra de verdad (Topbar) sin el resto del marco.
+vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ({ activeProject: { id: 1, nombre: 'Fono Aprende' } }) }));
+vi.mock('@/shared/components/layout/SelectorProyecto', () => ({ default: ({ className }) => <button type="button" className={className}>Fono Aprende</button> }));
+vi.mock('@/shared/components/layout/NotificationsBell', () => ({ default: () => null }));
 import { render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -69,6 +74,28 @@ describe('la cabecera de pantalla', () => {
     expect(trasLaPrimera).toBeLessThan(5);
     expect(pintadas).toBeLessThan(10);
     expect(screen.getByTestId('barra').textContent).toContain('Nuevo 1');
+  });
+
+  // Visto en la prueba a mano de la #106: a 390 px todo iba en una fila; el
+  // selector de campus se montaba encima del «+» y el título quedaba en una letra.
+  it('en el móvil, el título y los botones van en su propia fila debajo', async () => {
+    const { default: Topbar } = await import('@/shared/components/layout/Topbar');
+    render(
+      <MemoryRouter>
+        <CabeceraProvider>
+          <Topbar onAbrirMenu={() => {}} />
+          <PageHeader title="Productos" actions={<button type="button" aria-label="Nuevo producto">+</button>} />
+        </CabeceraProvider>
+      </MemoryRouter>,
+    );
+    const fila = screen.getByRole('banner').firstElementChild;
+    expect(fila.className).toMatch(/flex-wrap sm:flex-nowrap|flex-wrap.*sm:flex-nowrap/);
+    const hueco = screen.getByRole('heading', { level: 1 }).closest('div.min-w-0.flex-1').parentElement;
+    expect(hueco.className).toMatch(/order-last/);
+    expect(hueco.className).toMatch(/basis-full/);
+    // En ordenador, como siempre: una fila.
+    expect(hueco.className).toMatch(/sm:order-none/);
+    expect(hueco.className).toMatch(/sm:flex-1/);
   });
 
   it('al salir de la pantalla la barra deja de darla por ocupada', () => {
