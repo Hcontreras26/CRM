@@ -70,7 +70,15 @@ export default function FieldsTab({ project, onSaved }) {
 
   async function handleAdd(e) {
     e.preventDefault();
-    if (!newField.field_key || !newField.label) return;
+    // Lo decía el globo del navegador; ahora el CRM, y dónde (#106).
+    if (!newField.field_key || !newField.label) {
+      toast({
+        title: !newField.field_key ? 'Falta la clave interna' : 'Falta la etiqueta',
+        description: !newField.field_key ? 'Escríbela en «Clave interna», en minúsculas y con _ (clave_snake_case).' : 'Escríbela en «Etiqueta visible»: es lo que se ve en el formulario.',
+        variant: 'destructive',
+      });
+      return;
+    }
     try {
       const payload: Partial<FieldDef> = {
         project_id: project.id,
@@ -181,7 +189,7 @@ export default function FieldsTab({ project, onSaved }) {
 
       {view === 'editor' ? (
         <>
-          <form onSubmit={handleAdd} className="p-4 bg-muted/30 rounded-md border border-border">
+          <form onSubmit={handleAdd} noValidate className="p-4 bg-muted/30 rounded-md border border-border">
             <p className="text-secundario font-medium text-muted-foreground mb-3">Nuevo campo</p>
             {/* #106: cada campo con su etiqueta (antes solo el texto de ejemplo,
                 que desaparece al escribir). Y `sm:col-span-2`, no `col-span-2`:

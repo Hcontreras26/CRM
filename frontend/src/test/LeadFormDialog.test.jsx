@@ -127,6 +127,33 @@ describe('LeadFormDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  // Visto en la prueba a mano: el globo «Rellene este campo» del navegador en
+  // los personalizados obligatorios. Ahora lo dice el Field de cada uno.
+  it('un personalizado obligatorio vacío: lo dice debajo del campo y no crea', async () => {
+    const client = (await import('@/shared/api/client')).default;
+    client.get.mockResolvedValueOnce({ success: true, data: [
+      { id: 1, field_key: 'dni', label: 'DNI', type: 'text', required: true },
+      { id: 2, field_key: 'nivel', label: 'Nivel', type: 'select', required: true, options: ['A'] },
+    ] });
+    const onSubmit = vi.fn().mockResolvedValue();
+    const { container } = render(<LeadFormDialog open onClose={vi.fn()} onSubmit={onSubmit} />);
+    await act(async () => { await Promise.resolve(); });
+    const form = container.querySelector('form');
+    expect(form.noValidate).toBe(true);
+    fireEvent.input(container.querySelector('input[name="nombre"]'), { target: { value: 'Juan' } });
+    fireEvent.input(container.querySelector('input[name="telefono"]'), { target: { value: '600123456' } });
+    fireEvent.submit(form);
+    expect(await screen.findByText('Falta «DNI»: es obligatorio.')).toBeInTheDocument();
+    // El desplegable nunca se comprobó, y así sigue: no sale aviso para «Nivel».
+    expect(screen.queryByText('Falta «Nivel»: es obligatorio.')).toBeNull();
+    expect(onSubmit).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText(/^DNI/), { target: { value: '12345678Z' } });
+    expect(screen.queryByText('Falta «DNI»: es obligatorio.')).toBeNull();
+    fireEvent.submit(form);
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].custom_fields).toEqual({ dni: '12345678Z' });
+  });
+
   it('no llama onSubmit si el email es invalido', async () => {
     const onSubmit = vi.fn();
     const { container } = render(<LeadFormDialog open onClose={vi.fn()} onSubmit={onSubmit} />);

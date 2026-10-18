@@ -261,7 +261,9 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
             .filter(([, e]: [string, any]) => typeof e?.message === 'string')
             .map(([k, e]: [string, any]) => `${ETIQUETAS[k] || k}: ${e.message}`);
           toast({ title: 'Revisa el formulario', description: msgs.join(' · ') || 'Hay campos inválidos', variant: 'destructive' });
-        })} className="space-y-3">
+        // noValidate: el aviso lo da el esquema, diciendo el campo, y no el
+        // globo del navegador (#106).
+        })} noValidate className="space-y-3">
           <FilaCampos>
             <Field label="Nombre" htmlFor="producto-nombre" required error={errors.nombre?.message}>
               <input id="producto-nombre" {...register('nombre')} placeholder={`Nombre del ${productoLabel.toLowerCase()}`} className={inputClass} />

@@ -45,6 +45,23 @@ describe('CustomFieldRenderer (#106)', () => {
 });
 
 describe('FieldsTab (#106)', () => {
+  // Visto en la prueba a mano: sin clave o sin etiqueta salía el globo del
+  // navegador; y si no, no pasaba nada y no se decía por qué.
+  it('nuevo campo: avisa el CRM de lo que falta, no el navegador', async () => {
+    const { toast } = await import('@/shared/hooks/useToast');
+    const client = (await import('@/shared/api/client')).default;
+    render(<FieldsTab project={{ id: 1, lead_base_fields_config: {} }} onSaved={vi.fn()} />);
+    await act(async () => { await new Promise((ok) => setTimeout(ok, 0)); });
+    const clave = screen.getByLabelText(/^Clave interna/);
+    expect(clave.closest('form').noValidate).toBe(true);
+    await act(async () => { fireEvent.submit(clave.closest('form')); });
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Falta la clave interna', variant: 'destructive' }));
+    fireEvent.change(clave, { target: { value: 'nivel_ingles' } });
+    await act(async () => { fireEvent.submit(clave.closest('form')); });
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Falta la etiqueta', variant: 'destructive' }));
+    expect(client.post).not.toHaveBeenCalled();
+  });
+
   it('editar un campo: cada casilla con su etiqueta y la clase común', async () => {
     render(<FieldsTab project={{ id: 1, lead_base_fields_config: {} }} onSaved={vi.fn()} />);
     await act(async () => { await new Promise((ok) => setTimeout(ok, 0)); });

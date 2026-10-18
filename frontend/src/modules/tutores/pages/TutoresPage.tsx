@@ -35,6 +35,27 @@ interface Formacion { id: number; nombre: string; precio: string }
 // en septiembre, y cobrar de los dos desde el mismo dia le regala meses.
 
 const hoy = () => new Date().toISOString().slice(0, 10);
+
+/*
+  Los avisos de los formularios de tutor los da el CRM, no el globo del
+  navegador (#106): los formularios llevan noValidate y aquí se comprueba lo
+  mismo que comprobaba el navegador, diciendo qué falta y dónde.
+*/
+// La misma regla que type="email" del navegador (la del estándar HTML).
+const CORREO_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+type Aviso = { title: string; description: string };
+const avisar = (a: Aviso | null) => { if (a) toast({ ...a, variant: 'destructive' }); return Boolean(a); };
+const faltaNombre = (nombre: string): Aviso | null => (nombre.trim()
+  ? null : { title: 'Falta el nombre', description: 'Escríbelo en «Nombre y apellidos».' });
+const correoMalo = (correo: string): Aviso | null => (CORREO_RE.test(correo.trim())
+  ? null : { title: 'Correo no válido', description: 'Escríbelo en «Correo» como nombre@dominio.com.' });
+// Lo mismo que min="0" max="100" step="0.5" del campo.
+const porcentajeMalo = (pct: string, campo: string): Aviso | null => {
+  const n = Number(pct);
+  return pct.trim() !== '' && Number.isFinite(n) && n >= 0 && n <= 100 && Number.isInteger(n * 2)
+    ? null
+    : { title: 'Porcentaje no válido', description: `En «${campo}», un número de 0 a 100 (se admiten medios, como 7,5).` };
+};
 const soloFecha = (f: string | null) => (f ? String(f).slice(0, 10) : null);
 
 const enCastellano = (f: string) => {
@@ -353,6 +374,9 @@ export default function TutoresPage() {
     e.preventDefault();
     if (!elegido) return;
     const f = new FormData(e.currentTarget);
+    const correoEscrito = esSuperadmin ? String(f.get('email') || '') : '';
+    if (avisar(faltaNombre(String(f.get('nombre') || ''))
+      || (correoEscrito.trim() ? correoMalo(correoEscrito) : null))) return;
     setProcesando(true);
     try {
       const nombre = String(f.get('nombre') || '').trim();
@@ -419,6 +443,16 @@ export default function TutoresPage() {
     e.preventDefault();
     if (!projectId) return;
     const f = new FormData(e.currentTarget);
+    if (avisar(faltaNombre(String(f.get('nombre') || ''))
+      || correoMalo(String(f.get('email') || ''))
+      || (sinCorreos && !contrasena
+        ? { title: 'Falta la contraseña', description: 'Sin correos no se le puede mandar el enlace: escríbela o pulsa «Generar».' }
+        : null)
+      || (contrasena && contrasena.length < 8
+        ? { title: 'Contraseña demasiado corta', description: 'En «Contraseña», al menos 8 caracteres.' }
+        : null)
+      // Como el navegador: vacío vale (se toma el de por defecto); escrito, de 0 a 100.
+      || (nuevoPct.trim() !== '' ? porcentajeMalo(nuevoPct, '%') : null))) return;
     setGuardando(true);
     try {
       const r = await tutoresApi.alta({
@@ -504,6 +538,10 @@ export default function TutoresPage() {
     if (!elegido) return;
     const f = new FormData(e.currentTarget);
     const productId = Number(f.get('productId'));
+    if (avisar(porcentajeMalo(String(f.get('pct') ?? ''), 'Porcentaje')
+      || (String(f.get('desde') || '')
+        ? null
+        : { title: 'Falta la fecha', description: 'Pon en «Desde» el día que empezó con esta formación.' }))) return;
     setGuardando(true);
     try {
       // Si esa formacion ya la tuvo y esta desactivada, esto es REACTIVARLA.
@@ -923,7 +961,7 @@ export default function TutoresPage() {
       {popupPago && elegido && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
           onClick={() => setPopupPago(false)}>
-          <form onSubmit={guardarPago} onClick={(e) => e.stopPropagation()}
+          <form onSubmit={guardarPago} onClick={(e) => e.stopPropagation()} noValidate
             className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-md">
 
             <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
@@ -1004,7 +1042,7 @@ export default function TutoresPage() {
       {/* Alta de tutor */}
       {popupAlta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setPopupAlta(false)}>
-          <form onSubmit={altaTutor} onClick={(e) => e.stopPropagation()}
+          <form onSubmit={altaTutor} onClick={(e) => e.stopPropagation()} noValidate
             className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
 
             <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
@@ -1191,7 +1229,7 @@ export default function TutoresPage() {
       {/* Añadir formación */}
       {popupColab && elegido && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setPopupColab(false)}>
-          <form onSubmit={altaColaboracion} onClick={(e) => e.stopPropagation()}
+          <form onSubmit={altaColaboracion} onClick={(e) => e.stopPropagation()} noValidate
             className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-md p-4 space-y-3">
             <div className="flex items-start justify-between gap-3">
               <h2 className="font-bold">Formación de {elegido.nombre}</h2>

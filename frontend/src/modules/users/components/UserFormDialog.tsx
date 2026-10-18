@@ -230,7 +230,9 @@ export default function UserFormDialog({
             </button>
           </div>
 
-          <form onSubmit={enviar} className="space-y-4">
+          {/* noValidate: avisa el CRM (enviar), diciendo qué falta y dónde,
+              y no el globo del navegador (#106). */}
+          <form onSubmit={enviar} noValidate className="space-y-4">
             {esEdicion && (
               <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-semibold ${avatarColorFor(user!.id)}`}>

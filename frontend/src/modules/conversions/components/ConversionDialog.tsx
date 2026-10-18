@@ -401,12 +401,59 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
   const update = <K extends keyof ConversionForm>(k: K, v: ConversionForm[K]): void =>
     setForm(f => ({ ...f, [k]: v }));
 
+  /*
+    Los límites de cada casilla (min, max y los céntimos de step="0.01").
+
+    El formulario lleva noValidate para que avise el CRM y no el globo del
+    navegador (#106), y con eso el navegador deja de comprobarlos. Aquí se
+    comprueban los mismos, ni uno más, diciendo en qué casilla está el problema.
+  */
+  function fueraDeLimites(): { title: string; description: string } | null {
+    const num = (v: unknown) => Number(v);
+    const centimos = (v: unknown) => /\.\d{3,}$/.test(String(v ?? '').trim());
+    const dinero = (v: unknown, casilla: string) => (centimos(v)
+      ? { title: 'Demasiados decimales', description: `En «${casilla}», como mucho 2 decimales (céntimos).` } : null);
+    if (!useMultiItem) {
+      if (form.importe_total !== '' && num(form.importe_total) < 0) {
+        return { title: 'Precio no válido', description: '«Precio base (EUR)» no puede ser negativo.' };
+      }
+      const d = dinero(form.importe_total, 'Precio base (EUR)'); if (d) return d;
+    }
+    for (const [i, it] of items.entries()) {
+      if (num(it.cantidad) < 1) return { title: 'Cantidad no válida', description: `En el producto ${i + 1}, la cantidad tiene que ser 1 o más.` };
+      if (num(it.precio_unitario) < 0) return { title: 'Precio no válido', description: `En el producto ${i + 1}, el precio no puede ser negativo.` };
+      const d = dinero(it.precio_unitario, `Precio unitario del producto ${i + 1}`); if (d) return d;
+    }
+    if (form.descuento_tipo !== 'none') {
+      if (num(form.descuento_valor) < 0) return { title: 'Descuento no válido', description: 'El descuento no puede ser negativo.' };
+      const d = dinero(form.descuento_valor, form.descuento_tipo === 'pct' ? 'Porcentaje de descuento (%)' : 'Descuento (€)'); if (d) return d;
+    }
+    if (!form.iva_exento) {
+      if (form.iva_pct === '' || num(form.iva_pct) < 0 || num(form.iva_pct) > 100) {
+        return { title: 'IVA no válido', description: 'En «IVA», un porcentaje de 0 a 100.' };
+      }
+      const d = dinero(form.iva_pct, 'IVA'); if (d) return d;
+    }
+    if (pagoMode === 'parcial') {
+      if (num(form.importe_pagado) < 0) return { title: 'Pago no válido', description: 'Lo pagado hoy no puede ser negativo.' };
+      const d = dinero(form.importe_pagado, 'Pago recibido hoy'); if (d) return d;
+    }
+    if (form.metodo_pago === 'fraccionado') {
+      if (numCuotas > 60) return { title: 'Demasiadas cuotas', description: 'En «Número de cuotas», como mucho 60.' };
+      const i = installments.findIndex((c) => centimos(c.importe_previsto));
+      if (i >= 0) return { title: 'Demasiados decimales', description: `En el importe de la cuota ${i + 1}, como mucho 2 decimales (céntimos).` };
+    }
+    return null;
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
     if (!lead?.id) {
       toast({ title: 'Lead inválido', description: 'No se pudo identificar el lead asociado.', variant: 'destructive' });
       return;
     }
+    const fuera = fueraDeLimites();
+    if (fuera) { toast({ ...fuera, variant: 'destructive' }); return; }
     const importe = calc.total;  // total final con descuento + IVA
     // Pago según el modo elegido (evita el bug de "Pagó el total" con valor viejo).
     const pagado = pagoMode === 'total' ? calc.total : pagoMode === 'parcial' ? Number(form.importe_pagado || 0) : 0;

@@ -22,6 +22,17 @@ const usuario = { id: 4, nombre: 'Laura', email: 'laura@empresa.com', role: 'ges
 describe('Usuario (#106)', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
+  // Visto en la prueba a mano: el globo «Rellene este campo» del navegador
+  // tapaba el aviso del CRM, que ya comprueba nombre, email y proyecto.
+  it('avisa el CRM, no el navegador: sin nombre, dice cuál falta', () => {
+    const { container } = render(<UserFormDialog {...base} user={null} />);
+    const form = container.querySelector('form');
+    expect(form.noValidate).toBe(true);
+    fireEvent.submit(form);
+    expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Nombre demasiado corto', variant: 'destructive' }));
+    expect(base.onSubmit).not.toHaveBeenCalled();
+  });
+
   it('alta: nombre, email y rol con el Field común, marcados como obligatorios', () => {
     render(<UserFormDialog {...base} user={null} />);
     expect(screen.getByLabelText(/^Nombre/)).toBeTruthy();

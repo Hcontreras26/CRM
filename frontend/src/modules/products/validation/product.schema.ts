@@ -26,7 +26,8 @@ const ENTERO = { errorMap: () => ({ message: MSG_ENTERO }) };
 export const productSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   descripcion: z.string().optional().or(z.literal('')),
-  precio: z.coerce.number().nonnegative('El precio no puede ser negativo').optional().or(z.nan()),
+  // multipleOf: los céntimos que antes comprobaba el navegador (step="0.01").
+  precio: z.coerce.number().nonnegative('El precio no puede ser negativo').multipleOf(0.01, 'Como mucho 2 decimales (céntimos)').optional().or(z.nan()),
   moneda: z.string().optional().or(z.literal('')),
   stripe_link: z.string().max(500, 'Como mucho 500 caracteres').optional().or(z.literal('')),
   sku: z.string().optional().or(z.literal('')),

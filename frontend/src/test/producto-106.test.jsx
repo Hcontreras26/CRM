@@ -84,6 +84,16 @@ describe('Producto (#106)', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  // Visto en la prueba a mano: el globo del navegador (min="0", step="0.01")
+  // se adelantaba al aviso del esquema, que dice el campo.
+  it('avisa el CRM, no el navegador; y los céntimos del precio los comprueba el esquema', async () => {
+    const { container } = await abrir();
+    expect(container.querySelector('form').noValidate).toBe(true);
+    expect(productSchema.safeParse({ nombre: 'Máster', precio: '10.005' }).success).toBe(false);
+    expect(productSchema.safeParse({ nombre: 'Máster', precio: '10.05' }).success).toBe(true);
+    expect(productSchema.safeParse({ nombre: 'Máster', precio: '0.07' }).success).toBe(true);
+  });
+
   it('el esquema ya no dice «Invalid input» ni «>= 0»', () => {
     const r = productSchema.safeParse({ nombre: 'Máster', precio: -1, plazas_totales: -3 });
     const msgs = r.error.issues.map((i) => i.message);

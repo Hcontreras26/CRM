@@ -85,6 +85,10 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
 
   const [customFields, setCustomFields] = useState<CustomFieldDef[]>([]);
   const [customValues, setCustomValues] = useState<Record<string, unknown>>({});
+  // Los personalizados obligatorios que se quedaron vacíos al pulsar «Crear».
+  // Antes lo decía el globo del navegador; ahora, el Field de cada uno (#106).
+  const [faltanPersonalizados, setFaltanPersonalizados] = useState<string[]>([]);
+  const vacio = (k: string) => (customValues[k] ?? '') === '';
   const [duplicates, setDuplicates] = useState<DuplicateLead[]>([]);
   const [pendingDup, setPendingDup] = useState<{
     lead: { id: number; nombre?: string; email?: string; telefono?: string; status?: string; responsable_nombre?: string; created_at?: string; masked?: boolean; message?: string };
@@ -186,6 +190,13 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
       setFaltaProyecto(true);
       return;
     }
+    // Los mismos que comprobaba el navegador: los de texto, número, fecha y
+    // área de texto. El desplegable y el sí/no nunca se comprobaron.
+    const faltan = customFields
+      .filter((f) => f.required && f.type !== 'select' && f.type !== 'boolean' && vacio(f.field_key))
+      .map((f) => f.field_key);
+    setFaltanPersonalizados(faltan);
+    if (faltan.length) return;
     // El ProductCombobox guarda el NOMBRE del producto en data.producto_interes,
     // pero el backend acepta producto_interes_id (number). Resolvemos el nombre
     // a ID buscando en el array `products` (case-insensitive trim).
@@ -240,7 +251,9 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
             </button>
           </div>
 
-          <form onSubmit={handleSubmit(handleFormSubmit, () => { if (!effectiveProjectId) setFaltaProyecto(true); })} className="space-y-3">
+          {/* noValidate: los avisos los da el CRM (el esquema y los Field), no
+              el globo del navegador (#106). */}
+          <form onSubmit={handleSubmit(handleFormSubmit, () => { if (!effectiveProjectId) setFaltaProyecto(true); })} noValidate className="space-y-3">
             {/* En modo "Todos los proyectos": pedimos al usuario que elija
                 a qué proyecto pertenece el lead antes de poder rellenar nada. */}
             {isAllProjects && !isEdit && (
@@ -438,7 +451,9 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
                 <FilaCampos>
                   {customFields.map(f => (
                     <Field key={f.id} label={f.label} required={f.required} htmlFor={`prospecto-cf-${f.field_key}`}
-                      className={f.type === 'textarea' ? 'sm:col-span-2' : undefined}>
+                      className={f.type === 'textarea' ? 'sm:col-span-2' : undefined}
+                      error={faltanPersonalizados.includes(f.field_key) && vacio(f.field_key)
+                        ? `Falta «${f.label}»: es obligatorio.` : undefined}>
                       {f.type === 'textarea' ? (
                         // `h-auto`, no `h-20`: en la hoja de estilos `h-9` (de
                         // inputClass) va después de `h-20` y la dejaba en 36 px.
