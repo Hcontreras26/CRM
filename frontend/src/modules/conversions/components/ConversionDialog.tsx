@@ -218,6 +218,12 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
   // Multi-item: si tiene >0 items se usan para calcular importe_total.
   // Si la lista está vacía → comportamiento legacy (1 producto, importe manual).
   const [items, setItems] = useState<SaleItem[]>([]);
+  // Del catálogo o escrito a mano: si el nombre es el de un producto, se enlaza
+  // y se trae su precio (antes lo hacía la lista del navegador, #106).
+  const elegirProducto = (idx: number, v: string) => {
+    const matched = products.find((p: any) => p.nombre === v);
+    setItems(items.map((x, i) => i === idx ? { ...x, descripcion: v, product_id: matched?.id || null, precio_unitario: matched?.precio ? String(matched.precio) : x.precio_unitario } : x));
+  };
   const useMultiItem = items.length > 0;
 
   // Desglose central: subtotal bruto → descuento → base → IVA → total.
@@ -764,34 +770,42 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                     className="px-1 text-secundario text-muted-foreground hover:text-foreground">Volver a producto único</button>
                 </div>
                 {items.map((it, idx) => (
-                  // En el móvil (6 columnas) la descripción ocupa la fila entera
-                  // y cantidad, precio y quitar van debajo; en pantalla ancha,
-                  // todo en una línea (#106).
-                  <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-fila items-center">
-                    <input autoComplete="off" list="conversion-products-list-multi" value={it.descripcion}
-                      onChange={e => {
-                        const v = e.target.value;
-                        const matched = products.find((p: any) => p.nombre === v);
-                        setItems(items.map((x, i) => i === idx ? { ...x, descripcion: v, product_id: matched?.id || null, precio_unitario: matched?.precio ? String(matched.precio) : x.precio_unitario } : x));
-                      }}
-                      placeholder="Descripción / nombre del curso"
-                      aria-label={`Producto ${idx + 1}`}
-                      className={`${inputClass} col-span-6 min-w-0`} />
-                    <input autoComplete="off" type="number" min="1" value={it.cantidad}
-                      onChange={e => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value || 1) } : x))}
-                      title="Cantidad" placeholder="Cant" aria-label={`Cantidad del producto ${idx + 1}`}
-                      className={`${inputClass} col-span-2 min-w-0`} />
-                    <input autoComplete="off" type="number" step="0.01" min="0" value={it.precio_unitario}
-                      onChange={e => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: e.target.value } : x))}
-                      title="Precio unitario" placeholder="€/u" aria-label={`Precio unitario del producto ${idx + 1}`}
-                      className={`${inputClass} col-span-3 min-w-0`} />
-                    <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                      className="col-span-1 text-muted-foreground hover:text-destructive text-base">×</button>
+                  // Sin datalist, como en el producto único: el catálogo con el
+                  // desplegable del CRM y debajo la casilla para escribir (#106).
+                  <div key={idx} className="space-y-1.5">
+                    {products.length > 0 && (
+                      <Select<string>
+                        value={products.some((p: any) => p.nombre === it.descripcion) ? it.descripcion : ''}
+                        onChange={(v) => elegirProducto(idx, v)}
+                        options={[
+                          { value: '', label: 'Seleccionar o escribir abajo' },
+                          ...products.map((p: any) => ({ value: p.nombre, label: p.nombre })),
+                        ]}
+                        ariaLabel={`Producto ${idx + 1} del catálogo`}
+                      />
+                    )}
+                    {/* En el móvil (6 columnas) la descripción ocupa la fila entera
+                        y cantidad, precio y quitar van debajo; en pantalla ancha,
+                        todo en una línea (#106). */}
+                    <div className="grid grid-cols-6 sm:grid-cols-12 gap-fila items-center">
+                      <input autoComplete="off" value={it.descripcion}
+                        onChange={e => elegirProducto(idx, e.target.value)}
+                        placeholder="Descripción / nombre del curso"
+                        aria-label={`Producto ${idx + 1}`}
+                        className={`${inputClass} col-span-6 min-w-0`} />
+                      <input autoComplete="off" type="number" min="1" value={it.cantidad}
+                        onChange={e => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value || 1) } : x))}
+                        title="Cantidad" placeholder="Cant" aria-label={`Cantidad del producto ${idx + 1}`}
+                        className={`${inputClass} col-span-2 min-w-0`} />
+                      <input autoComplete="off" type="number" step="0.01" min="0" value={it.precio_unitario}
+                        onChange={e => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: e.target.value } : x))}
+                        title="Precio unitario" placeholder="€/u" aria-label={`Precio unitario del producto ${idx + 1}`}
+                        className={`${inputClass} col-span-3 min-w-0`} />
+                      <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                        className="col-span-1 text-muted-foreground hover:text-destructive text-base">×</button>
+                    </div>
                   </div>
                 ))}
-                <datalist id="conversion-products-list-multi">
-                  {products.map((p: any) => <option key={p.id} value={p.nombre} />)}
-                </datalist>
                 <button type="button"
                   onClick={() => setItems([...items, { product_id: null, descripcion: '', cantidad: 1, precio_unitario: '0' }])}
                   className="px-1 text-secundario text-primary hover:underline">+ añadir otro producto</button>

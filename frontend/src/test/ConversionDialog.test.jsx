@@ -461,5 +461,24 @@ describe('ConversionDialog — formato común (#106)', () => {
       expect(container.querySelector('#venta-producto-contratado')).toHaveValue('Curso Dislexia');
       expect(screen.getByRole('combobox', { name: /Producto contratado/i })).toHaveTextContent('Curso Dislexia');
     });
+
+    // Visto en la prueba a mano de ISEIE: con «+ Añadir más productos» cada
+    // producto seguía con la lista del navegador.
+    it('con varios productos, tampoco: el catálogo con el desplegable del CRM y el precio se trae igual', () => {
+      productsState.products = [{ id: 1, nombre: 'Curso Dislexia', precio: 350, payment_links: null }];
+      const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+      fireEvent.click(screen.getByRole('button', { name: /Añadir más productos/ }));
+      fireEvent.click(screen.getByRole('button', { name: /añadir otro producto/ }));
+      expect(container.querySelector('datalist')).toBeNull();
+      expect(container.querySelector('input[list]')).toBeNull();
+      fireEvent.click(screen.getByRole('combobox', { name: 'Producto 2 del catálogo' }));
+      fireEvent.mouseDown(screen.getByRole('option', { name: 'Curso Dislexia' }));
+      expect(screen.getByLabelText('Producto 2')).toHaveValue('Curso Dislexia');
+      expect(screen.getByLabelText('Precio unitario del producto 2')).toHaveValue(350);
+      // Escrito a mano, igual que antes: si coincide con el catálogo, se enlaza.
+      fireEvent.change(screen.getByLabelText('Producto 1'), { target: { value: 'Curso Dislexia' } });
+      expect(screen.getByRole('combobox', { name: 'Producto 1 del catálogo' })).toHaveTextContent('Curso Dislexia');
+      expect(screen.getByLabelText('Precio unitario del producto 1')).toHaveValue(350);
+    });
   });
 });
