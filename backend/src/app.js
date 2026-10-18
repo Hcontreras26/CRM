@@ -75,6 +75,7 @@ import { startDocumentOrphanScheduler } from './jobs/documentOrphanScheduler.js'
 import { startGoogleAdsTokenScheduler } from './jobs/googleAdsTokenScheduler.js';
 import { startMetaAdsSyncScheduler } from './jobs/metaAdsSyncScheduler.js';
 import { startTutorCommissionsScheduler } from './jobs/tutorCommissionsScheduler.js';
+import { startTutoresCampusScheduler } from './jobs/tutoresCampusScheduler.js';
 import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoScheduler.js';
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
@@ -411,6 +412,7 @@ if (process.env.NODE_ENV !== 'test') {
     startGoogleAdsTokenScheduler();
     startMetaAdsSyncScheduler();
     startTutorCommissionsScheduler();
+    startTutoresCampusScheduler();
     startVigilanteCatalogoScheduler();
     startLeadSinTocarScheduler();
     startPasoVencidoScheduler();

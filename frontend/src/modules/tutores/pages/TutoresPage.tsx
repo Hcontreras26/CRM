@@ -18,6 +18,7 @@ import {
 import { tutoresApi, type Tutor, type Colaboracion, type AjustesTutores } from '../api/tutores.api';
 import { avisoCambioCorreo } from '@/modules/users/api/users.api';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '@/modules/users/lib/credenciales';
+import ConsultasDelTutor from '../components/ConsultasDelTutor';
 
 // Tutores y sus colaboraciones.
 //
@@ -448,6 +449,12 @@ export default function TutoresPage() {
         }
       }
       toast(avisoDelAlta(Boolean(r.data?.entraYa), cursos.length - fallidos.length, fallidos));
+      // #187: si en algún campus conectado su correo no es usuario, queda
+      // pendiente de matrícula, y se dice aquí mismo.
+      const enElCampus = (r.data as { avisosDelCampus?: string[] } | undefined)?.avisosDelCampus || [];
+      if (enElCampus.length) {
+        toast({ title: 'Revisa la matrícula en el campus', description: enElCampus.join(' '), variant: 'destructive' });
+      }
       setPopupAlta(false);
       setCursosAlta([]);
       setNuevoCurso('');
@@ -909,6 +916,8 @@ export default function TutoresPage() {
                   </table>
                 </div>
               )}
+              {/* Consultas de alumnos (#187): campus, empresas y matrícula. */}
+              <ConsultasDelTutor key={elegido.id} tutorId={elegido.id} puedeGestionar />
             </>
           )}
         </div>
