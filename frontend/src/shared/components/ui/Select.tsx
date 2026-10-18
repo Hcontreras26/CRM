@@ -182,7 +182,10 @@ export default function Select<T>({
                 key={String(opt.value) + ':' + idx}
                 role="option"
                 aria-selected={isSelected ? 'true' : 'false'}
-                onMouseEnter={() => setHighlighted(idx)}
+                // onMouseMove y no onMouseEnter: al saltar con una letra la lista se
+                // desplaza, pasa por debajo del ratón quieto y «entraba» en otra opción,
+                // que pisaba la elegida con el teclado (visto en la prueba a mano, #106).
+                onMouseMove={() => { if (highlighted !== idx) setHighlighted(idx); }}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   commit(idx);

@@ -133,6 +133,51 @@ describe('piezas comunes de los formularios (#106)', () => {
     expect(cerrar).toHaveBeenCalledTimes(1);
   });
 
+  // Visto en la prueba a mano: con una sección del menú lateral desplegada
+  // (también lleva aria-expanded), el segundo Escape no cerraba el diálogo.
+  // Visto en la prueba a mano: al saltar con «p», la lista se desplazaba bajo
+  // el ratón quieto y «entraba» en otra opción, que pisaba la del teclado.
+  it('el ratón quieto no pisa la opción elegida con el teclado; moviéndolo, sí', () => {
+    function Uno() {
+      const [v, setV] = useState('');
+      return <Select value={v} onChange={setV} options={PAISES} ariaLabel="País" />;
+    }
+    render(<Uno />);
+    const boton = screen.getByRole('combobox', { name: 'País' });
+    fireEvent.click(boton);
+    const lista = screen.getByRole('listbox');
+    fireEvent.keyDown(lista, { key: 'p' });
+    const otra = screen.getAllByRole('option').find((o) => !/^P/i.test(o.textContent.trim()));
+    fireEvent.mouseEnter(otra);
+    fireEvent.keyDown(lista, { key: 'Enter' });
+    expect(boton.textContent).toMatch(/^P/i);
+    // Moviendo el ratón de verdad sí manda el ratón.
+    fireEvent.click(boton);
+    fireEvent.mouseMove(screen.getAllByRole('option').find((o) => o.textContent.trim() === otra.textContent.trim()));
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Enter' });
+    expect(boton.textContent).toBe(otra.textContent);
+  });
+
+  it('una sección desplegada del menú no impide que Escape cierre el diálogo', () => {
+    const cerrar = vi.fn();
+    function Pantalla() {
+      useEscapeKey(cerrar, true);
+      const [v, setV] = useState('');
+      return (
+        <>
+          <button type="button" aria-expanded="true">Prospectos</button>
+          <Select value={v} onChange={setV} options={PAISES} ariaLabel="País" />
+        </>
+      );
+    }
+    render(<Pantalla />);
+    fireEvent.click(screen.getByRole('combobox', { name: 'País' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(cerrar).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(cerrar).toHaveBeenCalledTimes(1);
+  });
+
   it('el desplegable y los buscadores se ven como una casilla: mismo fondo y esquinas', () => {
     // Al lado de una casilla de texto, el desplegable salía casi blanco y más
     // redondeado, y la caja del buscador, blanca (lo vio la revisión en el

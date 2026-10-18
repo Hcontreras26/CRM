@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react';
  * useEscapeKey(onClose, enabled = true)
  *   Escucha la tecla Escape a nivel global y llama a onClose.
  */
+const DESPLEGABLE_ABIERTO = '[role="combobox"][aria-expanded="true"], [aria-haspopup][aria-expanded="true"]';
+
 export function useEscapeKey(onClose, enabled = true) {
   useEffect(() => {
     if (!enabled || typeof onClose !== 'function') return;
@@ -14,7 +16,10 @@ export function useEscapeKey(onClose, enabled = true) {
         // que el del desplegable, así que aquí aún está abierto. Sin esto, un
         // Escape en «Descuento» cerraba «Nueva venta» y se perdía lo escrito
         // (#106: el desplegable del CRM entró en esos diálogos).
-        if (document.querySelector('[aria-expanded="true"]')) return;
+        // Solo los desplegables de verdad (combobox o con aria-haspopup): las
+        // secciones del menú lateral también llevan aria-expanded, y con una
+        // abierta Escape no cerraba ningún diálogo (visto en la prueba a mano).
+        if (document.querySelector(DESPLEGABLE_ABIERTO)) return;
         e.stopPropagation();
         onClose();
       }

@@ -50,6 +50,7 @@ export default function ProductCombobox({ value, onChange, products, projectId, 
         id={id}
         type="button"
         onClick={() => setOpen(!open)}
+        aria-haspopup="listbox"
         aria-expanded={open ? 'true' : 'false'}
         className={inputClass + ' flex items-center justify-between text-left'}
       >
