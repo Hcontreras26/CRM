@@ -71,6 +71,17 @@ describe('Usuario (#106)', () => {
     expect(ayudaDe(screen.getByLabelText('Reiniciar contraseña'))).toMatch(/Mínimo 8 caracteres/);
   });
 
+  // Visto en la prueba de ISEIE (aquí pasaba igual): Escape no cerraba.
+  it('Escape cierra la ventana; con el rol abierto, solo el desplegable', () => {
+    render(<UserFormDialog {...base} user={usuario} />);
+    const rol = screen.getByRole('combobox', { name: /^Rol/ });
+    fireEvent.click(rol);
+    fireEvent.keyDown(rol, { key: 'Escape' });
+    expect(base.onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(base.onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('el aviso del correo dice cómo escribirlo', () => {
     render(<UserFormDialog {...base} user={null} />);
     fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: 'Ana Test' } });

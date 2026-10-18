@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Lock } from '@phosphor-icons/react';
+import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import type { Project, UserRole } from '@/shared/types';
 import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
@@ -62,6 +63,8 @@ export default function UserFormDialog({
   empresas, faltaMigracionEmpresas = false,
 }: Props) {
   const esEdicion = !!user;
+  // Escape cierra, como los demás formularios (#106).
+  useEscapeKey(onClose);
 
   const [nombre, setNombre] = useState(user?.nombre ?? '');
   const [email, setEmail] = useState(user?.email ?? '');

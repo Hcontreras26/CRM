@@ -113,6 +113,22 @@ describe('Tutor (#106)', () => {
 
 // Visto en la prueba a mano de la #106: el globo «Rellene este campo» del
 // navegador. Ahora avisa el CRM, comprobando lo mismo que comprobaba el navegador.
+// Visto en la prueba de ISEIE (aquí pasaba igual): Escape solo cerraba
+// «Nuevo tutor» y «Añadir formación»; «Editar tutor» o «Retirar», no.
+describe('Tutor: Escape cierra cada ventana (#106)', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  for (const boton of [/Nuevo tutor/, /Editar tutor/, /^Retirar/, /Añadir formación/]) {
+    it(`«${boton.source.replace(/[\^\\/]/g, '')}»`, async () => {
+      await abrirPagina();
+      if (!/Nuevo/.test(boton.source)) { fireEvent.click(screen.getAllByText('Tutora Prueba')[0]); await esperar(); }
+      fireEvent.click(screen.getAllByRole('button', { name: boton })[0]);
+      expect(document.querySelector('div.fixed.inset-0')).not.toBeNull();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(document.querySelector('div.fixed.inset-0')).toBeNull();
+    });
+  }
+});
+
 describe('Tutor: avisa el CRM, no el navegador (#106)', () => {
   beforeEach(() => { vi.clearAllMocks(); });
   const aviso = (title) => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title, variant: 'destructive' }));

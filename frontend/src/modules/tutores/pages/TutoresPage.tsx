@@ -3,6 +3,7 @@ import { GraduationCap, Plus, X, Warning, Trash, CheckCircle, Copy, ArrowsClockw
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { toast } from '@/shared/hooks/useToast';
+import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { avisoDeLoQueFalta, numerosMalEscritos, type Falta } from '@/shared/lib/loQueFalta';
 import client from '@/shared/api/client';
 import PageHeader from '@/shared/components/ui/PageHeader';
@@ -210,14 +211,13 @@ export default function TutoresPage() {
   }, []);
 
   // Cerrar con Escape, que es lo que hace todo el mundo antes de buscar la X.
-  useEffect(() => {
-    if (!popupAlta && !popupColab) return;
-    const alPulsar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setPopupAlta(false); setPopupColab(false); }
-    };
-    window.addEventListener('keydown', alPulsar);
-    return () => window.removeEventListener('keydown', alPulsar);
-  }, [popupAlta, popupColab]);
+  // Todas las ventanas, no solo el alta y la formación; y con un desplegable
+  // abierto, Escape cierra solo el desplegable, como en los demás (#106).
+  const cerrarVentanas = useCallback(() => {
+    setPopupAlta(false); setPopupColab(false); setPopupPago(false);
+    setPopupClave(false); setPopupRetiro(false);
+  }, []);
+  useEscapeKey(cerrarVentanas, popupAlta || popupColab || popupPago || popupClave || popupRetiro);
 
   function anadirCursoAlAlta() {
     const id = Number(nuevoCurso);
