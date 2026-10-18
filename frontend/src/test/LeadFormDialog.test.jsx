@@ -16,10 +16,13 @@ vi.mock('@/contexts/AuthContext', () => ({
 }));
 
 // La vista de todos los proyectos se pide en una prueba concreta (#106).
-const vista = vi.hoisted(() => ({ todos: false }));
+const vista = vi.hoisted(() => ({ todos: false, empresa: null }));
 vi.mock('@/contexts/ProjectContext', () => ({
   useProjectContext: () => (vista.todos
-    ? { activeProject: { id: -1 }, isAllProjects: true, projects: [{ id: 1, nombre: 'Psiko' }, { id: 2, nombre: 'ISEIH' }] }
+    ? {
+      activeProject: { id: -1 }, isAllProjects: true, activeIssuerId: vista.empresa,
+      projects: [{ id: 1, nombre: 'Psiko', sociedad_emisora_id: 7 }, { id: 2, nombre: 'ISEIH', sociedad_emisora_id: 7 }, { id: 3, nombre: 'Academia IA', sociedad_emisora_id: 9 }],
+    }
     : { activeProject: { id: 1, nombre: 'Test Project', producto_label: 'Producto' } }),
 }));
 
@@ -233,6 +236,30 @@ describe('LeadFormDialog', () => {
     fireEvent.submit(container.querySelector('form'));
     expect(await screen.findByText(/Elige el proyecto antes de crear el prospecto/i)).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  // Visto en la ronda de empresa/campus/«Todos»: con CEDIA puesta salían los
+  // campus de todas las empresas. Diego, 10/10: «campus solo de esa empresa».
+  it('con una empresa puesta, el proyecto solo ofrece sus campus', async () => {
+    vista.todos = true;
+    vista.empresa = 7;
+    try {
+      render(<LeadFormDialog open onClose={vi.fn()} onSubmit={vi.fn()} />);
+      fireEvent.click(screen.getByRole('combobox', { name: /Proyecto al que pertenece/ }));
+      const opciones = screen.getAllByRole('option').map((o) => o.textContent);
+      expect(opciones).toEqual(['Elige el proyecto…', 'Psiko', 'ISEIH']);
+      await act(async () => { await Promise.resolve(); });
+    } finally {
+      vista.empresa = null;
+    }
+  });
+
+  it('con «Todos» (sin empresa), ofrece todos los campus, como antes', async () => {
+    vista.todos = true;
+    render(<LeadFormDialog open onClose={vi.fn()} onSubmit={vi.fn()} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /Proyecto al que pertenece/ }));
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Elige el proyecto…', 'Psiko', 'ISEIH', 'Academia IA']);
+    await act(async () => { await Promise.resolve(); });
   });
 
   it('cada etiqueta enlazada a su campo (#106)', async () => {

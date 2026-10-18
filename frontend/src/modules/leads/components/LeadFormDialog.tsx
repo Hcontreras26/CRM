@@ -6,6 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { leadSchema, ORIGEN_OPTIONS, PAIS_OPTIONS, type LeadFormData } from '../validation/lead.schema';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/modules/products/hooks/useProducts';
 import { X, Warning, Link as LinkIcon } from '@phosphor-icons/react';
@@ -58,6 +59,7 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
   // El form NECESITA un proyecto concreto, asi que mostramos un selector
   // al inicio para que el usuario elija a cual asignar el lead.
   const [pickedProjectId, setPickedProjectId] = useState<number | null>(null);
+  const delAmbito = useProyectosDelAmbito<{ id: number; nombre?: string; sociedad_emisora_id?: number | null }>();
   // Se pulsó «Crear» sin elegir proyecto. Antes el desplegable era el del
   // navegador con `required` y él mismo lo avisaba; con el del CRM hay que
   // decirlo aquí, o el botón no haría nada (#106).
@@ -286,7 +288,9 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
                     ariaLabel="Proyecto al que pertenece este prospecto"
                     options={[
                       { value: '', label: 'Elige el proyecto…' },
-                      ...(projects || []).map((p) => ({ value: String(p.id), label: p.nombre || `Proyecto ${p.id}` })),
+                      // Con una empresa puesta, solo sus campus. Diego, 10/10:
+                      // «campus solo de esa empresa». Antes salían todos.
+                      ...delAmbito.map((p) => ({ value: String(p.id), label: p.nombre || `Proyecto ${p.id}` })),
                     ]}
                   />
                 </Field>
