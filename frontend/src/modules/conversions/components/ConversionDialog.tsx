@@ -646,7 +646,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                 <div className="text-left rounded-lg border border-border bg-muted/30 p-3">
                   <Field label={`Número de ${queSeEmite}`} htmlFor="conversion-numero"
                     hint={sugerido ? `El siguiente libre es el ${sugerido}. Puedes poner ese u otro.` : undefined}>
-                    <input id="conversion-numero" type="number" min="1" value={numero}
+                    <input autoComplete="off" id="conversion-numero" type="number" min="1" value={numero}
                       onChange={(e) => setNumero(e.target.value)}
                       className={`${inputClass} tabular-nums`} />
                   </Field>
@@ -764,7 +764,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                   // y cantidad, precio y quitar van debajo; en pantalla ancha,
                   // todo en una línea (#106).
                   <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-fila items-center">
-                    <input list="conversion-products-list-multi" value={it.descripcion}
+                    <input autoComplete="off" list="conversion-products-list-multi" value={it.descripcion}
                       onChange={e => {
                         const v = e.target.value;
                         const matched = products.find((p: any) => p.nombre === v);
@@ -773,11 +773,11 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                       placeholder="Descripción / nombre del curso"
                       aria-label={`Producto ${idx + 1}`}
                       className={`${inputClass} col-span-6 min-w-0`} />
-                    <input type="number" min="1" value={it.cantidad}
+                    <input autoComplete="off" type="number" min="1" value={it.cantidad}
                       onChange={e => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value || 1) } : x))}
                       title="Cantidad" placeholder="Cant" aria-label={`Cantidad del producto ${idx + 1}`}
                       className={`${inputClass} col-span-2 min-w-0`} />
-                    <input type="number" step="0.01" min="0" value={it.precio_unitario}
+                    <input autoComplete="off" type="number" step="0.01" min="0" value={it.precio_unitario}
                       onChange={e => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: e.target.value } : x))}
                       title="Precio unitario" placeholder="€/u" aria-label={`Precio unitario del producto ${idx + 1}`}
                       className={`${inputClass} col-span-3 min-w-0`} />
@@ -817,7 +817,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                 {form.descuento_tipo !== 'none' && (
                   <Field label={form.descuento_tipo === 'pct' ? 'Porcentaje de descuento (%)' : 'Descuento (€)'} htmlFor="venta-descuento-valor"
                     hint={calc.desc > 0 ? `Se descuentan ${calc.desc.toFixed(2)} €.` : undefined}>
-                    <input id="venta-descuento-valor" type="number" min="0" step="0.01" value={form.descuento_valor}
+                    <input autoComplete="off" id="venta-descuento-valor" type="number" min="0" step="0.01" value={form.descuento_valor}
                       onChange={e => update('descuento_valor', e.target.value)}
                       placeholder={form.descuento_tipo === 'pct' ? '10' : '50'}
                       className={inputClass} />
@@ -840,7 +840,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                       <div className="inline-flex items-center gap-1.5">
                         <span>%:</span>
                         <div className="w-24">
-                          <input type="number" min="0" max="100" step="0.01" value={form.iva_pct}
+                          <input autoComplete="off" type="number" min="0" max="100" step="0.01" value={form.iva_pct}
                             onChange={e => update('iva_pct', e.target.value)}
                             aria-label="Porcentaje de IVA"
                             className={inputClass} />
@@ -858,7 +858,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
 
             <FilaCampos>
               <Field label={useMultiItem ? 'Subtotal items (auto)' : 'Precio base (EUR)'} required={!useMultiItem} htmlFor="venta-precio-base">
-                <input
+                <input autoComplete="off"
                   id="venta-precio-base"
                   type="number" step="0.01" min="0"
                   value={useMultiItem ? calc.bruto.toFixed(2) : form.importe_total}
@@ -895,7 +895,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                     className={`flex-1 h-9 ${pagoMode === 'total' ? 'bg-success-soft text-success-soft-foreground' : 'bg-card text-muted-foreground hover:bg-muted/50'}`}>Pagó TODO</button>
                 </div>
                 {pagoMode === 'parcial' && (
-                  <input type="number" step="0.01" min="0" value={form.importe_pagado} onChange={e => update('importe_pagado', e.target.value)}
+                  <input autoComplete="off" type="number" step="0.01" min="0" value={form.importe_pagado} onChange={e => update('importe_pagado', e.target.value)}
                     placeholder="¿Cuánto pagó?" aria-label="Cuánto pagó hoy" className={inputClass + ' mt-1.5'} autoFocus />
                 )}
               </Field>
@@ -990,7 +990,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
 
                 <FilaCampos>
                   <Field label="Número de cuotas" htmlFor="venta-num-cuotas">
-                    <input
+                    <input autoComplete="off"
                       id="venta-num-cuotas"
                       type="number" min="1" max="60"
                       value={numCuotas}
@@ -1022,7 +1022,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                     {installments.map((c, i) => (
                       <div key={i} className="grid grid-cols-[2rem_1fr] sm:grid-cols-[40px_1fr_140px] gap-fila items-center">
                         <span className="text-xs font-mono text-muted-foreground">{i + 1}</span>
-                        <input
+                        <input autoComplete="off"
                           type="number" step="0.01" min="0.01"
                           value={c.importe_previsto}
                           aria-label={`Importe de la cuota ${i + 1}`}
@@ -1089,7 +1089,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                   ariaLabel="Enlace de pago"
                 />
                 {selectedLinkIdx === 'custom' && (
-                  <input
+                  <input autoComplete="off"
                     type="url"
                     value={customLink}
                     onChange={(e) => setCustomLink(e.target.value)}
@@ -1122,7 +1122,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
             )}
 
             <Field label="Notas" htmlFor="venta-notas">
-              <textarea id="venta-notas" value={form.notas_pago} onChange={e => update('notas_pago', e.target.value)} rows={2} className={`${inputClass} h-auto py-2 resize-none`} placeholder="Notas sobre el acuerdo..." />
+              <textarea autoComplete="off" id="venta-notas" value={form.notas_pago} onChange={e => update('notas_pago', e.target.value)} rows={2} className={`${inputClass} h-auto py-2 resize-none`} placeholder="Notas sobre el acuerdo..." />
             </Field>
 
             <div className="flex justify-end gap-2 pt-2">

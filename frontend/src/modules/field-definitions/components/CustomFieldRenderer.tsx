@@ -34,7 +34,7 @@ export default function CustomFieldRenderer({ field, value, onChange, disabled =
     switch (field.type) {
       case 'number':
         return (
-          <input
+          <input autoComplete="off"
             id={id}
             type="number"
             disabled={disabled}
@@ -88,7 +88,7 @@ export default function CustomFieldRenderer({ field, value, onChange, disabled =
         );
       case 'textarea':
         return (
-          <textarea
+          <textarea autoComplete="off"
             id={id}
             disabled={disabled}
             required={field.required}
@@ -101,7 +101,7 @@ export default function CustomFieldRenderer({ field, value, onChange, disabled =
       case 'text':
       default:
         return (
-          <input
+          <input autoComplete="off"
             id={id}
             type="text"
             disabled={disabled}

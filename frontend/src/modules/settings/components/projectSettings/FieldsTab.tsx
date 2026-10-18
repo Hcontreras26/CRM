@@ -195,10 +195,10 @@ export default function FieldsTab({ project, onSaved }) {
                 una segunda que sacaba los campos de la pantalla. */}
             <FilaCampos>
               <Field label="Clave interna" required htmlFor="nuevo-campo-clave">
-                <input id="nuevo-campo-clave" value={newField.field_key} onChange={e => setNewField({ ...newField, field_key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} placeholder="clave_snake_case" className={`${inputClass} font-mono`} required />
+                <input autoComplete="off" id="nuevo-campo-clave" value={newField.field_key} onChange={e => setNewField({ ...newField, field_key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })} placeholder="clave_snake_case" className={`${inputClass} font-mono`} required />
               </Field>
               <Field label="Etiqueta visible" required htmlFor="nuevo-campo-etiqueta">
-                <input id="nuevo-campo-etiqueta" value={newField.label} onChange={e => setNewField({ ...newField, label: e.target.value })} placeholder="Etiqueta visible" className={inputClass} required />
+                <input autoComplete="off" id="nuevo-campo-etiqueta" value={newField.label} onChange={e => setNewField({ ...newField, label: e.target.value })} placeholder="Etiqueta visible" className={inputClass} required />
               </Field>
               <Field label="Tipo" htmlFor="nuevo-campo-tipo">
                 <Select
@@ -210,11 +210,11 @@ export default function FieldsTab({ project, onSaved }) {
                 />
               </Field>
               <Field label="Sección" hint="Opcional" htmlFor="nuevo-campo-seccion">
-                <input id="nuevo-campo-seccion" value={newField.grupo} onChange={e => setNewField({ ...newField, grupo: e.target.value })} placeholder="Sección (opcional)" className={inputClass} />
+                <input autoComplete="off" id="nuevo-campo-seccion" value={newField.grupo} onChange={e => setNewField({ ...newField, grupo: e.target.value })} placeholder="Sección (opcional)" className={inputClass} />
               </Field>
               {newField.type === 'select' && (
                 <Field label="Opciones" hint="Separadas por coma" htmlFor="nuevo-campo-opciones" className="sm:col-span-2">
-                  <input id="nuevo-campo-opciones" value={newField.options} onChange={e => setNewField({ ...newField, options: e.target.value })} placeholder="Opciones separadas por coma" className={inputClass} />
+                  <input autoComplete="off" id="nuevo-campo-opciones" value={newField.options} onChange={e => setNewField({ ...newField, options: e.target.value })} placeholder="Opciones separadas por coma" className={inputClass} />
                 </Field>
               )}
               <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
@@ -254,14 +254,14 @@ export default function FieldsTab({ project, onSaved }) {
                         // por el texto de ejemplo.
                         <FilaCampos>
                           <Field label="Etiqueta visible" required htmlFor={`campo-${f.id}-etiqueta`}>
-                            <input id={`campo-${f.id}-etiqueta`} value={editBuf.label} onChange={e => setEditBuf({ ...editBuf, label: e.target.value })} className={inputClass} />
+                            <input autoComplete="off" id={`campo-${f.id}-etiqueta`} value={editBuf.label} onChange={e => setEditBuf({ ...editBuf, label: e.target.value })} className={inputClass} />
                           </Field>
                           <Field label="Sección" hint="Opcional" htmlFor={`campo-${f.id}-seccion`}>
-                            <input id={`campo-${f.id}-seccion`} value={editBuf.grupo} onChange={e => setEditBuf({ ...editBuf, grupo: e.target.value })} className={inputClass} placeholder="Sección" />
+                            <input autoComplete="off" id={`campo-${f.id}-seccion`} value={editBuf.grupo} onChange={e => setEditBuf({ ...editBuf, grupo: e.target.value })} className={inputClass} placeholder="Sección" />
                           </Field>
                           {f.type === 'select' && (
                             <Field label="Opciones" hint="Separadas por coma" htmlFor={`campo-${f.id}-opciones`} className="sm:col-span-2">
-                              <input id={`campo-${f.id}-opciones`} value={editBuf.options} onChange={e => setEditBuf({ ...editBuf, options: e.target.value })} className={inputClass} placeholder="opciones,separadas" />
+                              <input autoComplete="off" id={`campo-${f.id}-opciones`} value={editBuf.options} onChange={e => setEditBuf({ ...editBuf, options: e.target.value })} className={inputClass} placeholder="opciones,separadas" />
                             </Field>
                           )}
                           <label className="flex items-center gap-1.5 text-sm sm:col-span-2">
@@ -315,7 +315,7 @@ export default function FieldsTab({ project, onSaved }) {
                 {items.map(f => (
                   // La vista previa, con la misma etiqueta que el formulario de verdad (#106).
                   <Field key={f.id} label={f.label} required={f.required} htmlFor={`vista-${f.id}`} className={f.type === 'textarea' ? 'sm:col-span-2' : ''}>
-                    <input id={`vista-${f.id}`} disabled type={f.type === 'number' ? 'number' : 'text'} className={inputClass} placeholder={`(${f.field_key})`} />
+                    <input autoComplete="off" id={`vista-${f.id}`} disabled type={f.type === 'number' ? 'number' : 'text'} className={inputClass} placeholder={`(${f.field_key})`} />
                   </Field>
                 ))}
               </FilaCampos>

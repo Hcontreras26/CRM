@@ -167,6 +167,31 @@ describe('formato de los formularios (#106)', () => {
     expect(malas).toEqual([]);
   });
 
+  // Visto en la prueba a mano (17/10): el navegador sacaba su burbuja con lo
+  // escrito otras veces («diana», «Taller…»). Ningún desplegable que no sea
+  // del CRM: cada casilla de texto lleva autoComplete.
+  it('ninguna casilla de texto deja al navegador autocompletar', () => {
+    const SIN = /type=(?:"|\{?')(?:checkbox|radio|hidden|file|date|password|color|range)/;
+    const rutas = [...DE_LA_LISTA,
+      'src/modules/leads/components/lead-detail/LeadInfoCard.tsx',
+      'src/modules/leads/components/ProductCombobox.tsx',
+      'src/modules/invoices/components/FiscalDataDialog.tsx',
+      'src/modules/field-definitions/components/CustomFieldRenderer.tsx',
+      'src/modules/product-categories/components/CascadaDeCategorias.tsx',
+      'src/shared/components/ui/BuscadorEnLista.tsx'];
+    const malas = [];
+    for (const ruta of rutas) {
+      const { texto } = TODOS.find((x) => x.ruta === ruta);
+      for (const m of texto.matchAll(/<(input|textarea)\b/g)) {
+        const etiqueta = texto.slice(m.index, texto.indexOf('/>', m.index));
+        if (!etiqueta.includes('autoComplete') && !SIN.test(etiqueta)) {
+          malas.push(`${ruta}:${texto.slice(0, m.index).split('\n').length}`);
+        }
+      }
+    }
+    expect(malas).toEqual([]);
+  });
+
   it('deja escrito cuántas etiquetas sueltas quedan en el resto del CRM', () => {
     const CANON = 'mb-1.5 block px-1 text-secundario text-muted-foreground';
     const estilos = new Map();

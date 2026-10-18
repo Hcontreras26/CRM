@@ -246,7 +246,7 @@ export default function UserFormDialog({
             )}
 
             <Field label="Nombre" required htmlFor="user-nombre">
-              <input
+              <input autoComplete="off"
                 id="user-nombre"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
@@ -259,7 +259,7 @@ export default function UserFormDialog({
 
             {!esEdicion ? (
               <Field label="Email" required htmlFor="user-email">
-                <input
+                <input autoComplete="off"
                   id="user-email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -273,7 +273,7 @@ export default function UserFormDialog({
               <div>
                 <Field label="Email" required htmlFor="user-email"
                   hint="Es con lo que entra: al cambiarlo, con el viejo ya no podrá, y se cierran sus sesiones. Se le avisa por correo en la dirección vieja. Si recibe prospectos por Make, cámbialo también allí.">
-                  <input
+                  <input autoComplete="off"
                     id="user-email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -310,7 +310,7 @@ export default function UserFormDialog({
               </div>
             ) : (
               <Field label="Email" disabled htmlFor="user-email-fijo" hint="Solo un superadmin puede cambiar el correo.">
-                <input id="user-email-fijo" value={user!.email} readOnly disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
+                <input autoComplete="off" id="user-email-fijo" value={user!.email} readOnly disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
               </Field>
             )}
 
@@ -450,7 +450,7 @@ export default function UserFormDialog({
 
             {esEdicion && (
               <Field label="Teléfono (WhatsApp)" htmlFor="user-tel" hint="Se usa para el widget de WhatsApp y el contacto del gestor.">
-                <input
+                <input autoComplete="off"
                   id="user-tel"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}

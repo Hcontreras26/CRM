@@ -120,7 +120,7 @@ export default function BuscadorEnLista({
           campos del formulario (la caja era blanca al lado de casillas grises). */}
       <div className="flex items-center gap-2 h-9 px-2.5 rounded-md border border-border bg-muted/50 transition-all focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 focus-within:bg-card">
         <MagnifyingGlass size={14} className="text-muted-foreground shrink-0" />
-        <input
+        <input autoComplete="off"
           id={id}
           value={texto}
           autoFocus={autoFocus}

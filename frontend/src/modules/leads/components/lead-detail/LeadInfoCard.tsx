@@ -246,10 +246,10 @@ export default function LeadInfoCard({ lead, onUpdate, onLlamada, onWhatsapp }: 
         // Las piezas comunes, como en «Nuevo prospecto» (#106).
         <FilaCampos>
           <Field label="Nombre" htmlFor="ficha-nombre">
-            <input id="ficha-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
+            <input autoComplete="off" id="ficha-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
           </Field>
           <Field label="Email" htmlFor="ficha-email">
-            <input
+            <input autoComplete="off"
               id="ficha-email"
               type="email"
               value={email}
@@ -259,13 +259,13 @@ export default function LeadInfoCard({ lead, onUpdate, onLlamada, onWhatsapp }: 
             />
           </Field>
           <Field label="Teléfono" htmlFor="ficha-telefono">
-            <input id="ficha-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} className={inputClass} />
+            <input autoComplete="off" id="ficha-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} className={inputClass} />
           </Field>
           <Field label="Canal" htmlFor="ficha-canal">
             <Select<string> id="ficha-canal" value={canal} onChange={setCanal} ariaLabel="Canal" options={CANAL_OPTIONS} placeholder={canal} />
           </Field>
           <Field label="Notas" htmlFor="ficha-notas" className="sm:col-span-2">
-            <textarea
+            <textarea autoComplete="off"
               id="ficha-notas"
               value={notas}
               onChange={(e) => setNotas(e.target.value)}

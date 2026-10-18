@@ -606,7 +606,7 @@ export default function InvoiceCreatePage() {
                 <div className="flex flex-wrap items-center gap-2">
                   {/* El ancho, en la envoltura: `inputClass` ya trae `w-full`. */}
                   <div className="w-32">
-                    <input
+                    <input autoComplete="off"
                       id="factura-numero"
                       value={numeroManual}
                       onChange={(e) => setNumeroManual(e.target.value.replace(/[^0-9]/g, ''))}
@@ -681,12 +681,12 @@ export default function InvoiceCreatePage() {
           )}
           <FilaCampos>
             <Field label="Motivo del abono" required className="sm:col-span-2" htmlFor="abono-motivo">
-              <textarea id="abono-motivo" value={rectMotivo} onChange={(e) => setRectMotivo(e.target.value)} rows={2}
+              <textarea autoComplete="off" id="abono-motivo" value={rectMotivo} onChange={(e) => setRectMotivo(e.target.value)} rows={2}
                 placeholder="Ej: anulación por error, devolución, corrección de importe…"
                 className={cn(inputClass, 'h-auto py-2 resize-none', !rectMotivo.trim() && 'border-destructive/50')} />
             </Field>
             <Field label="Importe a rectificar (opcional)" hint="Vacío = abono total. Rellena solo para un abono parcial." htmlFor="abono-parcial">
-              <input id="abono-parcial" type="number" step="0.01" value={rectParcial} onChange={(e) => setRectParcial(e.target.value)}
+              <input autoComplete="off" id="abono-parcial" type="number" step="0.01" value={rectParcial} onChange={(e) => setRectParcial(e.target.value)}
                 placeholder={rectOrig ? `Total: ${Number(rectOrig.total)}` : 'Vacío = total'}
                 className={inputClass} />
             </Field>
@@ -716,7 +716,7 @@ export default function InvoiceCreatePage() {
           <Field label="Cliente" htmlFor="factura-buscar-cliente" hint="Busca por nombre o email para traer sus datos; lo que falte lo completas abajo.">
             <div className="relative">
               <MagnifyingGlass size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input id="factura-buscar-cliente" value={search} onChange={(e) => { setSearch(e.target.value); setLeadId(null); }} onFocus={() => hits.length && setOpenHits(true)}
+              <input autoComplete="off" id="factura-buscar-cliente" value={search} onChange={(e) => { setSearch(e.target.value); setLeadId(null); }} onFocus={() => hits.length && setOpenHits(true)}
                 placeholder="Buscar cliente o escribir nombre nuevo…" className={`${inputClass} pl-8`} />
               {openHits && hits.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-md shadow-lg max-h-56 overflow-auto">
@@ -794,10 +794,10 @@ export default function InvoiceCreatePage() {
           const subtotal = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
           return (
           <div key={idx} className="grid grid-cols-7 sm:grid-cols-12 gap-fila items-center">
-            <input value={it.descripcion} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, descripcion: e.target.value } : x))} placeholder="Ej: Producto/servicio: servicio académico, [programa]" aria-label={`Concepto ${idx + 1}`} className={`${inputClass} col-span-7 sm:col-span-6 min-w-0`} />
-            <input type="number" min="1" value={it.cantidad} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value) } : x))} placeholder="1" aria-label={`Cantidad del concepto ${idx + 1}`} className={`${inputClass} col-span-2 min-w-0 text-center`} />
+            <input autoComplete="off" value={it.descripcion} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, descripcion: e.target.value } : x))} placeholder="Ej: Producto/servicio: servicio académico, [programa]" aria-label={`Concepto ${idx + 1}`} className={`${inputClass} col-span-7 sm:col-span-6 min-w-0`} />
+            <input autoComplete="off" type="number" min="1" value={it.cantidad} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value) } : x))} placeholder="1" aria-label={`Cantidad del concepto ${idx + 1}`} className={`${inputClass} col-span-2 min-w-0 text-center`} />
             <div className="col-span-2 relative min-w-0">
-              <input type="number" step="0.01" min="0" value={it.precio_unitario} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: Number(e.target.value) } : x))} placeholder="0,00" aria-label={`Precio unitario del concepto ${idx + 1}`} className={`${inputClass} pr-6 text-right`} />
+              <input autoComplete="off" type="number" step="0.01" min="0" value={it.precio_unitario} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: Number(e.target.value) } : x))} placeholder="0,00" aria-label={`Precio unitario del concepto ${idx + 1}`} className={`${inputClass} pr-6 text-right`} />
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">{simboloMoneda}</span>
             </div>
             <span className="col-span-2 sm:col-span-1 text-sm text-right tabular-nums font-medium">{subtotal.toFixed(2)}&nbsp;{simboloMoneda}</span>
@@ -918,7 +918,7 @@ export default function InvoiceCreatePage() {
                 En la factura saldrá <strong>{totalConceptos.toFixed(2)} {moneda} ({(Number(totalEur) || 0).toFixed(2)} €)</strong>.
               </p>
               <Field label="Total en euros" required htmlFor="factura-total-eur">
-                <input id="factura-total-eur" type="number" step="0.01" min="0" value={totalEur} onChange={(e) => setTotalEur(e.target.value)}
+                <input autoComplete="off" id="factura-total-eur" type="number" step="0.01" min="0" value={totalEur} onChange={(e) => setTotalEur(e.target.value)}
                   placeholder="0.00"
                   className={cn(inputClass, !totalEur && 'border-warning')} />
               </Field>
@@ -936,7 +936,7 @@ export default function InvoiceCreatePage() {
             </FilaCampos>
           )}
           <Field label="Pie de pago" htmlFor="factura-pie">
-            <textarea id="factura-pie" value={piePago} onChange={(e) => setPiePago(e.target.value)} rows={2} placeholder="IBAN, vencimiento…" className={`${inputClass} h-auto py-2 resize-none`} />
+            <textarea autoComplete="off" id="factura-pie" value={piePago} onChange={(e) => setPiePago(e.target.value)} rows={2} placeholder="IBAN, vencimiento…" className={`${inputClass} h-auto py-2 resize-none`} />
           </Field>
         </div>
       </div>
@@ -1010,7 +1010,7 @@ function CampoTexto({ label, value, onChange, required, full }: { label: string;
   const id = useId();
   return (
     <Field label={label} required={required} className={full ? 'sm:col-span-2' : undefined} htmlFor={id}>
-      <input
+      <input autoComplete="off"
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}

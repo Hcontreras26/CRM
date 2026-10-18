@@ -238,11 +238,11 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
                     la cantidad y el precio debajo) en vez de estrujarse (#106). */}
                 {items.map((it, idx) => (
                   <div key={idx} className="grid grid-cols-6 sm:grid-cols-12 gap-fila items-center">
-                    <input value={it.descripcion} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, descripcion: e.target.value } : x))}
+                    <input autoComplete="off" value={it.descripcion} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, descripcion: e.target.value } : x))}
                       placeholder="Descripción" aria-label={`Concepto ${idx + 1}`} className={`${inputClass} col-span-6 sm:col-span-7 min-w-0`} />
-                    <input type="number" value={it.cantidad} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value) } : x))}
+                    <input autoComplete="off" type="number" value={it.cantidad} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, cantidad: Number(e.target.value) } : x))}
                       placeholder="Cant" aria-label={`Cantidad del concepto ${idx + 1}`} className={`${inputClass} col-span-2 min-w-0`} />
-                    <input type="number" step="0.01" value={it.precio_unitario} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: Number(e.target.value) } : x))}
+                    <input autoComplete="off" type="number" step="0.01" value={it.precio_unitario} onChange={(e) => setItems(items.map((x, i) => i === idx ? { ...x, precio_unitario: Number(e.target.value) } : x))}
                       placeholder="€" aria-label={`Precio del concepto ${idx + 1}`} className={`${inputClass} col-span-3 sm:col-span-2 min-w-0`} />
                     <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-1 text-muted-foreground hover:text-destructive text-xs">×</button>
                   </div>
@@ -273,14 +273,14 @@ export default function FiscalDataDialog({ projectId, leadId, conversionId, defa
                 />
               </Field>
               <Field label="Pie de pago (instrucciones / IBAN / etc)" htmlFor="datos-fiscales-pie">
-                <textarea id="datos-fiscales-pie" value={piePago} onChange={(e) => setPiePago(e.target.value)} rows={3}
+                <textarea autoComplete="off" id="datos-fiscales-pie" value={piePago} onChange={(e) => setPiePago(e.target.value)} rows={3}
                   placeholder="Ej: IBAN ES12 3456 …  /  Pago a 30 días"
                   className={`${inputClass} h-auto py-2 resize-none`} />
               </Field>
             </Section>
 
             <Field label="Notas (opcional)" htmlFor="datos-fiscales-notas">
-              <textarea id="datos-fiscales-notas" value={notas} onChange={(e) => setNotas(e.target.value)} rows={2}
+              <textarea autoComplete="off" id="datos-fiscales-notas" value={notas} onChange={(e) => setNotas(e.target.value)} rows={2}
                 className={`${inputClass} h-auto py-2 resize-none`} />
             </Field>
           </div>
@@ -324,7 +324,7 @@ function CampoTexto({ label, value, onChange, required }: { label: string; value
   const id = useId();
   return (
     <Field label={label} required={required} htmlFor={id}>
-      <input
+      <input autoComplete="off"
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}

@@ -219,7 +219,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
         <div className="p-5 space-y-4">
           <FilaCampos>
             <Field label="Nombre de la secuencia" required htmlFor="secuencia-nombre">
-              <input
+              <input autoComplete="off"
                 id="secuencia-nombre"
                 value={s.nombre}
                 onChange={e => setS({ ...s, nombre: e.target.value })}
@@ -248,7 +248,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                   <span className="text-xs font-bold">Paso {i + 1}</span>
                   {/* El ancho lo pone la envoltura, no una clase encima de inputClass (#106). */}
                   <div className="w-20 flex-none">
-                    <input
+                    <input autoComplete="off"
                       type="number"
                       min="0"
                       value={step.delay_hours}
@@ -285,7 +285,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                   </Field>
                 )}
                 <Field label="Asunto" htmlFor={`paso-${i}-asunto`} disabled={usingTemplate}>
-                  <input
+                  <input autoComplete="off"
                     id={`paso-${i}-asunto`}
                     value={step.subject || ''}
                     onChange={e => updateStep(i, 'subject', e.target.value)}
@@ -295,7 +295,7 @@ function SequenceEditor({ seq, onSave, onClose }: SequenceEditorProps) {
                   />
                 </Field>
                 <Field label="Cuerpo HTML" htmlFor={`paso-${i}-cuerpo`} disabled={usingTemplate}>
-                  <textarea
+                  <textarea autoComplete="off"
                     id={`paso-${i}-cuerpo`}
                     value={step.body || ''}
                     onChange={e => updateStep(i, 'body', e.target.value)}

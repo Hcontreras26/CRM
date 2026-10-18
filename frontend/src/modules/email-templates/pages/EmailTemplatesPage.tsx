@@ -229,14 +229,14 @@ function TemplateEditorDialog({ template, variables, onClose, onSave }: {
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           <Field label="Nombre interno" required htmlFor="plantilla-nombre">
-            <input id="plantilla-nombre" value={name} onChange={e => setName(e.target.value)} className={inputClass} placeholder="ej: Bienvenida tras conversión" maxLength={120} />
+            <input autoComplete="off" id="plantilla-nombre" value={name} onChange={e => setName(e.target.value)} className={inputClass} placeholder="ej: Bienvenida tras conversión" maxLength={120} />
           </Field>
           <Field label="Asunto" required htmlFor="plantilla-asunto">
-            <input id="plantilla-asunto" value={subject} onChange={e => setSubject(e.target.value)} className={inputClass} placeholder="Hola {{lead.nombre}}, ..." maxLength={500} />
+            <input autoComplete="off" id="plantilla-asunto" value={subject} onChange={e => setSubject(e.target.value)} className={inputClass} placeholder="Hola {{lead.nombre}}, ..." maxLength={500} />
             <VariablePicker variables={variables} onPick={tok => insertVar(tok, 'subject')} />
           </Field>
           <Field label="Cuerpo HTML" required htmlFor="plantilla-cuerpo">
-            <textarea
+            <textarea autoComplete="off"
               id="plantilla-cuerpo"
               value={body}
               onChange={e => setBody(e.target.value)}
@@ -248,7 +248,7 @@ function TemplateEditorDialog({ template, variables, onClose, onSave }: {
             <VariablePicker variables={variables} onPick={tok => insertVar(tok, 'body')} />
           </Field>
           <Field label="Descripción interna (opcional)" htmlFor="plantilla-descripcion">
-            <input id="plantilla-descripcion" value={description || ''} onChange={e => setDescription(e.target.value)} className={inputClass} placeholder="Cuándo usar esta plantilla" maxLength={1000} />
+            <input autoComplete="off" id="plantilla-descripcion" value={description || ''} onChange={e => setDescription(e.target.value)} className={inputClass} placeholder="Cuándo usar esta plantilla" maxLength={1000} />
           </Field>
         </div>
 

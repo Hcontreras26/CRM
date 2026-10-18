@@ -503,7 +503,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                     <Field label="Buscar cliente" required htmlFor="venta-buscar-cliente">
                       <div className="relative">
                         <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <input
+                        <input autoComplete="off"
                           id="venta-buscar-cliente"
                           autoFocus
                           value={clientSearch}
@@ -567,7 +567,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                     <Field label="Buscar el prospecto" required htmlFor="venta-buscar-prospecto">
                       <div className="relative">
                         <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <input
+                        <input autoComplete="off"
                           id="venta-buscar-prospecto"
                           autoFocus
                           value={clientSearch}
@@ -634,15 +634,15 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                   nombre basta.
                 </p>
                 <Field label="Nombre del cliente" required htmlFor="venta-nombre">
-                  <input id="venta-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
+                  <input autoComplete="off" id="venta-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
                 </Field>
                 <FilaCampos>
                   <Field label="Email" htmlFor="venta-email">
-                    <input id="venta-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    <input autoComplete="off" id="venta-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                       placeholder="opcional" className={inputClass} />
                   </Field>
                   <Field label="Teléfono" htmlFor="venta-telefono">
-                    <input id="venta-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)}
+                    <input autoComplete="off" id="venta-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)}
                       placeholder="opcional" className={inputClass} />
                   </Field>
                 </FilaCampos>
@@ -653,15 +653,15 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
             {mode === 'new' && (
               <div className="space-y-3">
                 <Field label="Nombre del cliente" required htmlFor="venta-nombre">
-                  <input id="venta-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
+                  <input autoComplete="off" id="venta-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClass} />
                 </Field>
                 <FilaCampos>
                   <Field label="Email" hint="Hace falta el email o el teléfono" htmlFor="venta-email">
-                    <input id="venta-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    <input autoComplete="off" id="venta-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                       placeholder="correo@ejemplo.com" className={inputClass} />
                   </Field>
                   <Field label="Teléfono" hint="Hace falta el teléfono o el email" htmlFor="venta-telefono">
-                    <input id="venta-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)}
+                    <input autoComplete="off" id="venta-telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)}
                       placeholder="+34..." className={inputClass} />
                   </Field>
                 </FilaCampos>
@@ -671,7 +671,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
             {/* Datos fiscales (opcionales, común a ambos modos) */}
             <div className="space-y-2">
               <Field label="Identificación fiscal (opcional)" htmlFor="venta-identificacion">
-                <input
+                <input autoComplete="off"
                   id="venta-identificacion"
                   value={identificacionFiscal}
                   onChange={(e) => setIdentificacionFiscal(e.target.value)}
@@ -682,7 +682,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               </Field>
               <Field label="Dirección fiscal (opcional)" htmlFor="venta-direccion"
                 hint="Los dos datos fiscales son para emitir factura. Si no los tienes, déjalos vacíos.">
-                <textarea
+                <textarea autoComplete="off"
                   id="venta-direccion"
                   value={direccionFiscal}
                   onChange={(e) => setDireccionFiscal(e.target.value)}
@@ -707,7 +707,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                       : sugerido
                         ? `El siguiente libre es el ${sugerido}. Puedes poner ese u otro. Si lo dejas vacío, la venta se queda en la cola de facturación.`
                         : 'Si lo dejas vacío, la venta se queda en la cola de facturación.'}>
-                    <input
+                    <input autoComplete="off"
                       id="venta-numero-factura"
                       type="number" min="1" value={numero}
                       disabled={!pid}
@@ -728,7 +728,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               <div>
                 <Field label="Producto" required htmlFor="venta-producto">
                   <div className="space-y-1.5">
-                    <input value={productSearch} onChange={(e) => setProductSearch(e.target.value)}
+                    <input autoComplete="off" value={productSearch} onChange={(e) => setProductSearch(e.target.value)}
                       placeholder="Buscar producto…" aria-label="Buscar producto"
                       className={inputClass} />
                     {/* El desplegable del CRM, como el resto (#106, #134). */}
@@ -766,14 +766,14 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
 
               <FilaCampos>
                 <Field label="Importe total" required htmlFor="venta-importe-total">
-                  <input id="venta-importe-total" type="number" min="0" step="0.01" value={importeTotal}
+                  <input autoComplete="off" id="venta-importe-total" type="number" min="0" step="0.01" value={importeTotal}
                     onChange={(e) => setImporteTotal(e.target.value)} className={inputClass} />
                 </Field>
                 {/* «Por defecto: igual al total» iba de texto de ejemplo dentro
                     del campo y en el móvil salía cortado (#134): va debajo. */}
                 <Field label="Importe pagado" htmlFor="venta-importe-pagado"
                   hint={importeTotal ? `Si lo dejas vacío, se toma el total (${importeTotal}).` : 'Si lo dejas vacío, se toma el total.'}>
-                  <input id="venta-importe-pagado" type="number" min="0" step="0.01" value={importePagado}
+                  <input autoComplete="off" id="venta-importe-pagado" type="number" min="0" step="0.01" value={importePagado}
                     onChange={(e) => setImportePagado(e.target.value)} className={inputClass} />
                 </Field>
               </FilaCampos>
@@ -808,7 +808,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                   </div>
                   <FilaCampos>
                     <Field label="N° de cuotas" htmlFor="venta-num-cuotas">
-                      <input id="venta-num-cuotas" type="number" min={2} max={36} value={numCuotas}
+                      <input autoComplete="off" id="venta-num-cuotas" type="number" min={2} max={36} value={numCuotas}
                         onChange={(e) => { setNumCuotas(parseInt(e.target.value) || 2); setInstallmentsDirty(false); }}
                         className={inputClass} />
                     </Field>
@@ -837,7 +837,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
                               setInstallments(next); setInstallmentsDirty(true);
                             }}
                             className={`${inputClass} min-w-0`} />
-                          <input type="number" min="0" step="0.01" value={it.importe_previsto}
+                          <input autoComplete="off" type="number" min="0" step="0.01" value={it.importe_previsto}
                             aria-label={`Importe de la cuota ${idx + 1}`}
                             onChange={(e) => {
                               const next = [...installments];
@@ -857,7 +857,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
               )}
 
               <Field label="Notas (opcional)" htmlFor="venta-notas">
-                <textarea id="venta-notas" value={notas} onChange={(e) => setNotas(e.target.value)} rows={2}
+                <textarea autoComplete="off" id="venta-notas" value={notas} onChange={(e) => setNotas(e.target.value)} rows={2}
                   placeholder="Comentarios sobre la venta…"
                   className={textareaClass} />
               </Field>

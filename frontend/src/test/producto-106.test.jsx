@@ -67,7 +67,7 @@ describe('Producto (#106)', () => {
     fireEvent.change(screen.getByLabelText('Nº módulos'), { target: { value: '-2' } });
     await enviar(container);
     await waitFor(() => expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({
-      description: 'Nº módulos: Escribe un número entero, 0 o mayor',
+      title: 'Revisa «Nº módulos»', description: 'Escribe un número entero, 0 o mayor',
     })));
   });
 
@@ -78,7 +78,7 @@ describe('Producto (#106)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Añadir enlace/ }));
     await enviar(container);
     await waitFor(() => expect(avisos.toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Revisa los enlaces de pago', description: 'Enlace 1: Escribe la etiqueta del enlace',
+      title: 'Falta la etiqueta del enlace', description: 'En el enlace 1, escribe su etiqueta (ej: Pago único).',
     })));
     expect(screen.getByRole('alert').textContent).toBe('Escribe la etiqueta del enlace');
     expect(onSubmit).not.toHaveBeenCalled();
@@ -93,9 +93,12 @@ describe('Producto (#106)', () => {
     fireEvent.change(screen.getByLabelText('Nº módulos'), { target: { value: '-2' } });
     await enviar(container);
     await waitFor(() => expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({
-      title: 'Revisa el formulario',
-      description: 'Nombre: Es obligatorio: escríbelo · Nº módulos: Escribe un número entero, 0 o mayor · Enlace 1: Escribe la etiqueta del enlace',
+      // Como en los demás formularios: una frase, sin «Campo: mensaje · …».
+      title: 'Faltan datos',
+      description: 'Falta el nombre en «Nombre», un número entero (0 o más) en «Nº módulos» y la etiqueta del enlace 1.',
     })));
+    // Debajo del nombre, en rojo, lo mismo dicho corto.
+    expect(screen.getByText('Falta el nombre')).toBeTruthy();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
