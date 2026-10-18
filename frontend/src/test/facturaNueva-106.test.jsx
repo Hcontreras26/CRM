@@ -14,7 +14,7 @@ const ctx = vi.hoisted(() => ({
   proyectos: [{ id: 1, nombre: 'Psiko', sociedad_emisora_id: 7 }, { id: 2, nombre: 'ISEIH', sociedad_emisora_id: 7 }],
 }));
 vi.mock('@/contexts/ProjectContext', () => ({
-  useProjectContext: () => ({ activeProject: ctx.proyecto, projects: ctx.proyectos }),
+  useProjectContext: () => ({ activeProject: ctx.proyecto, projects: ctx.proyectos, activeIssuerId: ctx.empresa ?? null }),
 }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { role: 'admin' } }) }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
@@ -96,6 +96,27 @@ describe('Nueva factura (#106)', () => {
     expect(container.querySelector('select')).toBeNull();
     const campus = screen.getByRole('combobox', { name: 'Campus de la factura' });
     expect(document.activeElement).toBe(campus);
+  });
+
+  // Visto en la prueba a mano: con CEDIA puesta (dos campus) salían todos.
+  // Diego, 10/10: «campus solo de esa empresa».
+  it('con una empresa puesta, el campus solo ofrece los de esa empresa', async () => {
+    ctx.proyecto = { id: -1, nombre: 'Todos' };
+    ctx.empresa = 7;
+    ctx.proyectos = [
+      { id: 1, nombre: 'Psiko', sociedad_emisora_id: 7 },
+      { id: 2, nombre: 'ISEIH', sociedad_emisora_id: 7 },
+      { id: 3, nombre: 'Academia IA', sociedad_emisora_id: 9 },
+    ];
+    try {
+      await abrir();
+      act(() => { screen.getByRole('combobox', { name: 'Campus de la factura' }).click(); });
+      const opciones = screen.getAllByRole('option').map((o) => o.textContent);
+      expect(opciones).toEqual(['Elige el campus…', 'Psiko', 'ISEIH']);
+    } finally {
+      ctx.empresa = null;
+      ctx.proyectos = [{ id: 1, nombre: 'Psiko', sociedad_emisora_id: 7 }, { id: 2, nombre: 'ISEIH', sociedad_emisora_id: 7 }];
+    }
   });
 
   it('cada etiqueta enlazada a su campo', async () => {

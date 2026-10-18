@@ -11,6 +11,7 @@ import type { Issuer, InvoiceItem } from '../api/invoices.api';
 import { emitirPreguntandoSiPasa } from '../lib/masQueLoCobrado';
 import { conversionsApi, type Conversion } from '@/modules/conversions/api/conversions.api';
 import { toast } from '@/shared/hooks/useToast';
+import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 
 import Field from '@/shared/components/ui/Field';
 import { inputClass } from '@/shared/lib/ui';
@@ -44,8 +45,12 @@ export default function InvoiceCreatePage() {
   const pid = projectId ?? undefined;
   const socActual = (projects || []).find((p) => p.id === projectId)?.sociedad_emisora_id
     ?? activeProject?.sociedad_emisora_id ?? null;
-  const projectOptions = (projects || []).filter((p) =>
-    socActual == null ? true : p.sociedad_emisora_id === socActual);
+  // Sin campus todavía, los de la empresa puesta arriba y ninguno más. Diego,
+  // 10/10: «campus solo de esa empresa». Antes salían los de todas (#106).
+  const delAmbito = useProyectosDelAmbito<{ id: number; nombre: string; sociedad_emisora_id?: number | null }>();
+  const projectOptions = socActual == null
+    ? delAmbito
+    : (projects || []).filter((p) => p.sociedad_emisora_id === socActual);
   const { user } = useAuth() as { user: { role?: string; editar_fechas_factura?: boolean } | null };
   // Cambiar fechas de la factura: admins o permiso acotado editar_fechas_factura.
   const puedeFechas = user?.role === 'admin' || user?.role === 'superadmin' || !!user?.editar_fechas_factura;
