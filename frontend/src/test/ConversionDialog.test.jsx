@@ -342,6 +342,19 @@ describe('ConversionDialog — formato común (#106)', () => {
     })));
   });
 
+  // Sin el globo del navegador, «2-» en una casilla de número pasaba como vacío.
+  it('una casilla de número con algo que no es un número va en el aviso', async () => {
+    const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
+    fireEvent.change(container.querySelector('#venta-producto-contratado'), { target: { value: 'Curso X' } });
+    Object.defineProperty(precioBase(container), 'validity', { value: { badInput: true } });
+    fireEvent.submit(container.querySelector('form'));
+    // Una sola vez: mal escrito, no también «falta el precio».
+    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Número no válido', description: 'En «Precio base (EUR)», escribe solo un número.',
+    })));
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
   it('sin producto ni precio, los dos en un solo aviso', async () => {
     const { container } = render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
     fireEvent.submit(container.querySelector('form'));

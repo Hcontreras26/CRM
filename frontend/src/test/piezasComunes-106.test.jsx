@@ -18,7 +18,25 @@ import Select from '@/shared/components/ui/Select';
 import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { inputClass } from '@/shared/lib/ui';
 import BuscadorEnLista from '@/shared/components/ui/BuscadorEnLista';
-import { avisoDeLoQueFalta } from '@/shared/lib/loQueFalta';
+import { avisoDeLoQueFalta, numerosMalEscritos } from '@/shared/lib/loQueFalta';
+
+// Lo que hace el navegador cuando en una casilla de número hay «2-»: la da por
+// vacía y marca validity.badInput. jsdom no lo hace solo.
+const conAlgoQueNoEsNumero = (casilla) => Object.defineProperty(casilla, 'validity', { value: { badInput: true }, configurable: true });
+
+describe('numerosMalEscritos (#106)', () => {
+  it('recoge las casillas de número con algo que no es un número, con su etiqueta limpia', () => {
+    const raiz = document.createElement('div');
+    raiz.innerHTML = '<label for="a">Precio base (EUR) <span> *<span> (obligatorio)</span></span></label><input id="a" type="number">'
+      + '<input id="b" type="number" aria-label="Cantidad del producto 1"><input id="c" type="number">';
+    conAlgoQueNoEsNumero(raiz.querySelector('#a'));
+    conAlgoQueNoEsNumero(raiz.querySelector('#b'));
+    const malos = numerosMalEscritos(raiz);
+    expect(malos.map((m) => m.que)).toEqual(['un número válido en «Precio base (EUR)»', 'un número válido en «Cantidad del producto 1»']);
+    expect(malos[0]).toMatchObject({ title: 'Número no válido', description: 'En «Precio base (EUR)», escribe solo un número.' });
+    expect(numerosMalEscritos(null)).toEqual([]);
+  });
+});
 
 describe('avisoDeLoQueFalta: todo lo que falta, en un aviso (#106)', () => {
   const nombre = { title: 'Falta el nombre', description: 'Escríbelo en «Nombre».', que: 'el nombre en «Nombre»' };

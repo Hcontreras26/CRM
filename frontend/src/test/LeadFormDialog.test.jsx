@@ -154,6 +154,21 @@ describe('LeadFormDialog', () => {
     expect(onSubmit.mock.calls[0][0].custom_fields).toEqual({ dni: '12345678Z' });
   });
 
+  // Sin el globo del navegador, «2-» en un personalizado de número pasaba como vacío.
+  it('un personalizado de número con algo que no es un número: lo dice debajo y no crea', async () => {
+    const client = (await import('@/shared/api/client')).default;
+    client.get.mockResolvedValueOnce({ success: true, data: [{ id: 3, field_key: 'edad', label: 'Edad', type: 'number', required: false }] });
+    const onSubmit = vi.fn().mockResolvedValue();
+    const { container } = render(<LeadFormDialog open onClose={vi.fn()} onSubmit={onSubmit} />);
+    await act(async () => { await Promise.resolve(); });
+    fireEvent.input(container.querySelector('input[name="nombre"]'), { target: { value: 'Juan' } });
+    fireEvent.input(container.querySelector('input[name="telefono"]'), { target: { value: '600123456' } });
+    Object.defineProperty(screen.getByLabelText('Edad'), 'validity', { value: { badInput: true } });
+    fireEvent.submit(container.querySelector('form'));
+    expect(await screen.findByText('En «Edad», escribe solo un número.')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   // Al cerrar y volver a abrir, el aviso de la vez anterior no se arrastra.
   it('al volver a abrir, no sale el aviso de un personalizado de la vez anterior', async () => {
     const client = (await import('@/shared/api/client')).default;

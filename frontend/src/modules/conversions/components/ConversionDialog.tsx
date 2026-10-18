@@ -10,7 +10,7 @@ import { useProducts } from '@/modules/products/hooks/useProducts';
 import { invoicesApi, invoiceFaltantes, type Invoice, type InvoiceItem } from '@/modules/invoices/api/invoices.api';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
-import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
+import { avisoDeLoQueFalta, numerosMalEscritos, type Falta } from '@/shared/lib/loQueFalta';
 import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 
 const FiscalDataDialog = lazy(() => import('@/modules/invoices/components/FiscalDataDialog'));
@@ -453,27 +453,31 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
       toast({ title: 'Lead inválido', description: 'No se pudo identificar el lead asociado.', variant: 'destructive' });
       return;
     }
-    const fuera = fueraDeLimites();
-    if (fuera) { toast({ ...fuera, variant: 'destructive' }); return; }
     const importe = calc.total;  // total final con descuento + IVA
     // Pago según el modo elegido (evita el bug de "Pagó el total" con valor viejo).
     const pagado = pagoMode === 'total' ? calc.total : pagoMode === 'parcial' ? Number(form.importe_pagado || 0) : 0;
     const prodOk = useMultiItem ? items.some(it => it.descripcion?.trim()) : form.producto_contratado?.trim();
     // Cada aviso dice qué falta y dónde ponerlo, no solo «requerido»; y si
-    // faltan varias cosas, todas de una vez (#106).
-    const faltan: Falta[] = [];
+    // faltan varias cosas, todas de una vez (#106). Las casillas de número con
+    // algo que no es un número van en la misma lista.
+    const faltan: Falta[] = numerosMalEscritos(e.currentTarget);
     if (!prodOk) {
       faltan.push(useMultiItem
         ? { title: 'Falta el producto contratado', description: 'Escribe al menos uno en «Productos contratados».', que: 'el producto en «Productos contratados»' }
         : { title: 'Falta el producto contratado', description: 'Elígelo del catálogo o escribe su nombre en «Producto contratado».', que: 'el producto en «Producto contratado»' });
     }
-    if ((isNaN(importe) || importe <= 0) && !(calc.bruto > 0)) {
+    // Un precio negativo no «falta»: lo dice fueraDeLimites, más abajo. Y si
+    // está mal escrito, ya va en la lista: no se dice dos veces.
+    const precioMalEscrito = faltan.some((f) => f.que.endsWith('«Precio base (EUR)»'));
+    if ((isNaN(importe) || importe <= 0) && !(calc.bruto > 0) && !(calc.bruto < 0) && !precioMalEscrito) {
       faltan.push(useMultiItem
         ? { title: 'Falta el precio', description: 'El total tiene que ser mayor que 0: pon el precio de cada producto en «Productos contratados».', que: 'el precio de cada producto' }
         : { title: 'Falta el precio', description: 'El total tiene que ser mayor que 0: escribe el precio en «Precio base (EUR)».', que: 'el precio en «Precio base (EUR)»' });
     }
     const falta = avisoDeLoQueFalta(faltan);
     if (falta) { toast(falta); return; }
+    const fuera = fueraDeLimites();
+    if (fuera) { toast({ ...fuera, variant: 'destructive' }); return; }
     if (isNaN(importe) || importe <= 0) {
       toast({ title: 'El total queda en 0', description: 'El descuento se come todo el precio: revisa «Descuento».', variant: 'destructive' });
       return;

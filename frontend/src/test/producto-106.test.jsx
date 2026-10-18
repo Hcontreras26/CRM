@@ -102,6 +102,19 @@ describe('Producto (#106)', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  // Sin el globo del navegador, «2-» en «Nº módulos» pasaba como vacío y se guardaba.
+  it('«Nº módulos» con algo que no es un número: lo dice y no guarda', async () => {
+    const onSubmit = vi.fn();
+    const { container } = await abrir(onSubmit);
+    fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: 'Máster TCC' } });
+    Object.defineProperty(screen.getByLabelText('Nº módulos'), 'validity', { value: { badInput: true } });
+    await enviar(container);
+    await waitFor(() => expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({
+      title: 'Número no válido', description: 'En «Nº módulos», escribe solo un número.',
+    })));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   // Visto en la prueba a mano: el globo del navegador (min="0", step="0.01")
   // se adelantaba al aviso del esquema, que dice el campo.
   it('avisa el CRM, no el navegador; y los céntimos del precio los comprueba el esquema', async () => {

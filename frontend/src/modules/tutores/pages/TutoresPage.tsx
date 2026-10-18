@@ -3,7 +3,7 @@ import { GraduationCap, Plus, X, Warning, Trash, CheckCircle, Copy, ArrowsClockw
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { toast } from '@/shared/hooks/useToast';
-import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
+import { avisoDeLoQueFalta, numerosMalEscritos, type Falta } from '@/shared/lib/loQueFalta';
 import client from '@/shared/api/client';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
@@ -446,7 +446,7 @@ export default function TutoresPage() {
     const f = new FormData(e.currentTarget);
     // Todo lo que falta o está mal, de una vez (#106).
     const correo = String(f.get('email') || '');
-    const faltan: Falta[] = [];
+    const faltan: Falta[] = numerosMalEscritos(e.currentTarget);
     if (!String(f.get('nombre') || '').trim()) faltan.push({ ...faltaNombre('')!, que: 'el nombre en «Nombre y apellidos»' });
     if (!correo.trim()) faltan.push({ title: 'Falta el correo', description: 'Escríbelo en «Correo»: es con lo que entra al CRM.', que: 'el correo en «Correo»' });
     else if (correoMalo(correo)) faltan.push({ ...correoMalo(correo)!, que: 'un correo válido en «Correo» (nombre@dominio.com)' });

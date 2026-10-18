@@ -16,6 +16,24 @@ export interface Falta {
 
 const enLista = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
 
+/*
+  Las casillas de número con algo que no es un número («2-», «--2»).
+
+  El navegador las da como vacías, y sin su globo (los formularios llevan
+  noValidate, #106) pasaban como si no se hubiera escrito nada. Aquí se
+  recogen para que el aviso las diga, como antes las frenaba el navegador.
+*/
+export function numerosMalEscritos(raiz: Element | null | undefined): Falta[] {
+  if (!raiz) return [];
+  return [...raiz.querySelectorAll<HTMLInputElement>('input[type=number]')]
+    .filter((c) => c.validity?.badInput)
+    .map((c) => {
+      const nombre = (c.labels?.[0]?.textContent || c.getAttribute('aria-label') || 'la casilla de número')
+        .replace(/\s*\*?\s*\(obligatorio\)\s*$/, '').replace(/\s*\*$/, '').trim();
+      return { title: 'Número no válido', description: `En «${nombre}», escribe solo un número.`, que: `un número válido en «${nombre}»` };
+    });
+}
+
 export function avisoDeLoQueFalta(faltan: Falta[]): { title: string; description: string; variant: 'destructive' } | null {
   if (!faltan.length) return null;
   if (faltan.length === 1) return { title: faltan[0].title, description: faltan[0].description, variant: 'destructive' };

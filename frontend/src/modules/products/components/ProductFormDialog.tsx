@@ -10,7 +10,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { uploadProductImage, deleteProductImage, getProductImageUrl } from '../api/products.api';
 import { toast } from '@/shared/hooks/useToast';
-import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
+import { avisoDeLoQueFalta, numerosMalEscritos, type Falta } from '@/shared/lib/loQueFalta';
 import CascadaDeCategorias from '@/modules/product-categories/components/CascadaDeCategorias';
 import Field from '@/shared/components/ui/Field';
 import FilaCampos from '@/shared/components/ui/FilaCampos';
@@ -242,8 +242,8 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
     return faltan;
   }
 
-  async function handleFormSubmit(data) {
-    const falta = avisoDeLoQueFalta(erroresDeEnlaces());
+  async function handleFormSubmit(data, evento) {
+    const falta = avisoDeLoQueFalta([...numerosMalEscritos(evento?.target), ...erroresDeEnlaces()]);
     if (falta) { toast(falta); return; }
     const cleanLinks = paymentLinks.filter((l) => l.label?.trim() && l.url?.trim());
     const payload = {
@@ -277,12 +277,12 @@ export default function ProductFormDialog({ open, onClose, product, onSubmit }) 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(handleFormSubmit, (errs) => {
-          const faltan = Object.entries(errs)
+        <form onSubmit={handleSubmit(handleFormSubmit, (errs, evento) => {
+          const faltan = numerosMalEscritos(evento?.target).concat(Object.entries(errs)
             .filter(([, e]: [string, any]) => typeof e?.message === 'string')
             .map(([k, e]: [string, any]) => faltaDelEsquema(k, e.message))
             // Todo lo que falla, de una vez: también los enlaces de pago (#106).
-            .concat(erroresDeEnlaces());
+            .concat(erroresDeEnlaces()));
           toast(avisoDeLoQueFalta(faltan) || { title: 'Revisa el formulario', description: 'Hay campos inválidos', variant: 'destructive' });
         // noValidate: el aviso lo da el esquema, diciendo el campo, y no el
         // globo del navegador (#106).
