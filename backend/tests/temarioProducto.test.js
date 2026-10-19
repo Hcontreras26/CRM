@@ -24,6 +24,8 @@ const MUESTRAS = {
   'ISSLOGG (span)': '<button><span>Módulo 1: Limitaciones del forecast puramente estadístico</span></button><button><span>Módulo 2: Sesgo humano en la previsión de demanda</span></button>',
   'ISECD (raya y cero delante)': '<h3>Módulo 01 — Fundamentos del pentesting web</h3><h3>Módulo 02 &mdash; Metodologías profesionales</h3>',
   'ISEF (summary)': '<details><summary>Módulo 1: El cementerio histórico como patrimonio cultural: valor y protección</summary></details><details><summary>Módulo 2: Marco legal de la protección del patrimonio funerario en España</summary></details>',
+  // 19/10: el icono del acordeón va delante, dentro del botón, y en mayúsculas.
+  'ISAEG (icono delante y mayúsculas)': '<div class="pe-accordion"> <button class="pe-header" onclick="peToggle(\'modulo-1\', this)" aria-expanded="false"> <span class="pe-icon">+</span> MÓDULO 1: EL PACIENTE MAYOR Y LA COMPLEJIDAD GERIÁTRICA </button> <div class="pe-body" id="modulo-1" style="display:none"></div></div><div class="pe-accordion"> <button class="pe-header"> <span class="pe-icon">+</span> MÓDULO 2: VALORACIÓN GERIÁTRICA INTEGRAL: METODOLOGÍA Y HERRAMIENTAS </button></div>',
 };
 
 describe('los módulos de la página del curso, en cada campus', () => {
@@ -39,6 +41,33 @@ describe('los módulos de la página del curso, en cada campus', () => {
   it('el título conserva sus dos puntos internos (ISEF) y decodifica las entidades', () => {
     expect(extraerModulosDeHtml(MUESTRAS['ISEF (summary)'])[0].titulo).toBe('El cementerio histórico como patrimonio cultural: valor y protección');
     expect(extraerModulosDeHtml('<h3>M&oacute;dulo 1: Gesti&oacute;n &amp; control</h3><h3>Módulo 2: Otro módulo</h3>')[0].titulo).toBe('Gestión & control');
+  });
+  it('con el icono del acordeón delante (ISAEG) el título sale entero y sin el icono', () => {
+    expect(extraerModulosDeHtml(MUESTRAS['ISAEG (icono delante y mayúsculas)']).map((x) => x.titulo)).toEqual([
+      'EL PACIENTE MAYOR Y LA COMPLEJIDAD GERIÁTRICA',
+      'VALORACIÓN GERIÁTRICA INTEGRAL: METODOLOGÍA Y HERRAMIENTAS',
+    ]);
+    // Un elemento con texto largo delante no es un icono: no cuela una mención suelta.
+    expect(extraerModulosDeHtml('<p><span>Ver el detalle</span> Módulo 1: A uno</p><p><span>Ver</span> Módulo 2: B dos</p>')).toEqual([]);
+  });
+  it('el título en el elemento siguiente (Psiko: «Módulo 1:» en negrita y el título debajo)', () => {
+    const html = '<p><strong>Módulo 1:</strong></p><ul><li><strong>Introducción a la Sexología Clínica</strong><ul><li>Conceptos</li></ul></li></ul>'
+      + '<p><strong>Módulo 2:</strong></p><ul><li><strong>Evaluación y diagnóstico sexológico</strong></li></ul>';
+    expect(extraerModulosDeHtml(html).map((x) => x.titulo)).toEqual(['Introducción a la Sexología Clínica', 'Evaluación y diagnóstico sexológico']);
+  });
+  it('«TEMA N» cuando la página no dice «Módulo» (ISEIE)', () => {
+    const html = '<h3 class="e-n-accordion-item-title-text"> TEMA 1: INTRODUCCIÓN A LA MEDICINA ESTÉTICA </h3><h3 class="e-n-accordion-item-title-text"> TEMA 2: ANATOMÍA FACIAL </h3>';
+    expect(extraerModulosDeHtml(html).map((x) => x.titulo)).toEqual(['INTRODUCCIÓN A LA MEDICINA ESTÉTICA', 'ANATOMÍA FACIAL']);
+    // Si hay «Módulo N», manda: un «Tema 1» suelto dentro de un módulo no lo cambia.
+    expect(extraerModulosDeHtml(MUESTRAS['Fono (h3)'] + '<h4>Tema 1: Repaso</h4><h4>Tema 2: Otro</h4>')).toHaveLength(2);
+    expect(extraerModulosDeHtml(MUESTRAS['Fono (h3)'] + '<h4>Tema 1: Repaso</h4><h4>Tema 2: Otro</h4>')[0].titulo).toMatch(/Psicología/);
+  });
+  it('un temario largo con un número mal puesto en la web (ISEIE: del 1 al 3) sale entero, renumerado', () => {
+    const h = (n, t) => `<h3 class="e-n-accordion-item-title-text"> MÓDULO ${n}: ${t} </h3>`;
+    const html = h(1, 'FUNDAMENTOS Y EXAMEN DERMATOLÓGICO') + h(3, 'ALERGIAS') + h(4, 'PARASITOSIS') + h(5, 'ENDOCRINAS') + h(6, 'TUMORES');
+    const m = extraerModulosDeHtml(html);
+    expect(m.map((x) => x.n)).toEqual([1, 2, 3, 4, 5]);
+    expect(m[1].titulo).toBe('ALERGIAS');
   });
   it('las páginas que repiten el temario (móvil y escritorio) no duplican módulos', () => {
     const html = MUESTRAS['Fono (h3)'] + MUESTRAS['Fono (h3)'];

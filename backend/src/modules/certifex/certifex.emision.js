@@ -4,6 +4,7 @@ import * as model from './certifex.model.js';
 import { certifex, recorrer } from './certifex.cliente.js';
 import { programasPara, datosDeCandidato, tieneEdicion } from './certifex.programa.js';
 import { alcanceDe, exigirMatriculas } from './certifex.alcance.js';
+import { firmasParaEmitir } from './certifex.firma.js';
 
 /**
  * EMITIR CON EL PROGRAMA DEL CRM, desde cualquier pestaña (#272).
@@ -68,7 +69,16 @@ export async function prepararEmision(ids) {
       bloqueadas.set(id, `No se ha emitido: tiene datos revisados a mano y con ellos no sale el programa (${p?.motivo || 'sin motivo'}). Revísalo con «Editar».`);
     }
   }
-  return { datos, programas, bloqueadas };
+  // La firma del alumno (CRM #349), como el programa: si la base no contesta, no se emite
+  // nada (un diploma no se borra, y saldría sin la firma que sí tenía).
+  let firmas;
+  try {
+    firmas = await firmasParaEmitir(ids.map((id) => datos.get(id)).filter(Boolean));
+  } catch (e) {
+    logger.warn({ err: e.message }, 'Certifex: no se pudo mirar la firma del alumno');
+    throw new AppError('No se pudo mirar la firma del alumno en el CRM: no se ha aprobado ni emitido nada. Prueba de nuevo en un momento.', 503, 'CRM_NO_CONTESTA');
+  }
+  return { datos, programas, bloqueadas, firmas };
 }
 
 /**
@@ -80,25 +90,29 @@ export async function prepararEmision(ids) {
  * Devuelve los resultados por matricula y, si la llamada entera fallo, el error tal cual
  * (con su codigo HTTP) para quien quiera relanzarlo.
  */
-export async function emitirConPrograma(emitidaPor, ids, { programas, bloqueadas }) {
+export async function emitirConPrograma(emitidaPor, ids, { programas, bloqueadas, firmas = new Map() }) {
   const porId = new Map();
   for (const id of ids) {
     if (bloqueadas.has(id)) porId.set(id, { matriculaId: id, ok: false, fase: 'emitir_bloqueado', error: bloqueadas.get(id) });
   }
   const aEmitir = ids.filter((id) => !bloqueadas.has(id));
   if (!aEmitir.length) return { porId, error: null };
+  // `firmaAlumno` (data:image/png;base64): la firma sobre «El interesado». Un Certifex que
+  // aún no la conoce la ignora, y el diploma sale con el nombre impreso, como antes.
   const items = aEmitir.map((matriculaId) => {
     const p = programas.get(matriculaId)?.programa;
-    return p ? { matriculaId, programa: p } : { matriculaId };
+    const firma = firmas.get(matriculaId);
+    return { matriculaId, ...(p ? { programa: p } : {}), ...(firma ? { firmaAlumno: firma } : {}) };
   });
   // Solo se dice que programa se mando si se emitio de verdad: con `yaExistia` (un doble
   // clic, o ya estaba emitido) el diploma es el de antes, no el de ahora.
   const marca = (r) => {
     if (!r.ok || r.yaExistia) return {};
     const p = programas.get(r.matriculaId);
+    const firma = { firmaAlumno: firmas.has(r.matriculaId) };
     return p?.programa
-      ? { programa: { horas: p.programa.horas ?? null, modulos: p.programa.modulos.length, formacion: p.formacion?.nombre ?? null, ...(p.editado ? { editado: true } : {}) } }
-      : { sinPrograma: p?.motivo ?? 'No se encontró la matrícula para buscar su venta.' };
+      ? { ...firma, programa: { horas: p.programa.horas ?? null, modulos: p.programa.modulos.length, formacion: p.formacion?.nombre ?? null, ...(p.editado ? { editado: true } : {}) } }
+      : { ...firma, sinPrograma: p?.motivo ?? 'No se encontró la matrícula para buscar su venta.' };
   };
   try {
     const em = await certifex('POST', '/emitir', { items, emitidaPor }, { timeoutMs: 180_000 });

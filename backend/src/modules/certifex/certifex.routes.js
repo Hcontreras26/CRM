@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { verifyToken, roleGuard, soloRoles } from '../../shared/middleware/auth.js';
+import { uploadImage } from '../../shared/middleware/upload.js';
 import * as ctrl from './certifex.controller.js';
 import * as emisiones from './certifex.emisiones.js';
 import * as diplomas from './certifex.diplomas.js';
@@ -56,6 +57,9 @@ router.post('/diplomas/revocar', soloAdmin, diplomas.revocar);
 router.post('/diplomas/corregir', soloAdmin, diplomas.corregir);
 // Revisar antes de aprobar: nombre (en Certifex), correo del CRM, formacion y programa.
 router.post('/diplomas/editar', soloAdmin, diplomas.editar);
+// La firma del alumno (CRM #349): subirla o cambiarla antes de aprobar, y verla.
+router.post('/diplomas/firma', soloAdmin, uploadImage, diplomas.subirFirma);
+router.get('/diplomas/firma/:matriculaId', soloAdmin, diplomas.verFirma);
 // «Nuevo diploma»: desde cero, eligiendo cliente y formación (19/10).
 router.post('/diplomas/nuevo', soloAdmin, diplomas.nuevo);
 router.get('/diplomas/formaciones', soloAdmin, diplomas.formaciones);

@@ -289,6 +289,81 @@ export async function guardarEdicion(matriculaId, cambios, por, base = {}) {
   return edicion(rows[0]);
 }
 
+// ── La firma del alumno (migracion 207, CRM #349) ────────────────────────────
+
+/** Las firmas subidas a mano, por matricula: Map id → { key, por, en }. */
+export async function firmasSubidasDe(matriculaIds) {
+  if (!matriculaIds.length) return new Map();
+  const { rows } = await query(
+    `SELECT matricula_id, firma_key, firma_por, firma_en
+       FROM certifex_solicitudes
+      WHERE matricula_id = ANY($1::bigint[]) AND firma_key IS NOT NULL`,
+    [matriculaIds],
+  );
+  return new Map(rows.map((r) => [Number(r.matricula_id), { key: r.firma_key, por: r.firma_por ?? null, en: r.firma_en ?? null }]));
+}
+
+/**
+ * La firma de la matricula de admision de cada `{ matriculaId, projectId, email }`: la
+ * mas reciente con firma de ese proyecto y ese correo. Las que llegan por el formulario de
+ * admision no tienen ficha ni venta (solo `dedupe_key` y `datos_admision`), asi que el
+ * correo se busca en las cuatro. Map matriculaId → { key, matriculaCrm }.
+ */
+export async function firmasDeAdmision(pares) {
+  if (!pares.length) return new Map();
+  const { rows } = await query(
+    `SELECT x.matricula_id, f.id AS matricula_crm, f.firma_key
+       FROM unnest($1::bigint[], $2::int[], $3::text[]) AS x(matricula_id, project_id, email)
+       JOIN LATERAL (
+         SELECT m.id, m.firma_key
+           FROM matriculas m
+           LEFT JOIN leads l ON l.id = m.lead_id
+           LEFT JOIN conversions cv ON cv.id = m.conversion_id
+           LEFT JOIN leads lc ON lc.id = cv.lead_id
+          WHERE m.project_id = x.project_id
+            AND m.firma_key IS NOT NULL
+            AND x.email IN (lower(l.email), lower(lc.email), lower(m.dedupe_key), lower(m.datos_admision->>'email'))
+          ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
+          LIMIT 1
+       ) f ON true`,
+    [pares.map((p) => p.matriculaId), pares.map((p) => p.projectId), pares.map((p) => p.email)],
+  );
+  return new Map(rows.map((r) => [Number(r.matricula_id), { key: r.firma_key, matriculaCrm: r.matricula_crm }]));
+}
+
+/**
+ * Apunta la firma subida a mano de una matricula (la fila se crea si no existe, con lo
+ * que dice Certifex en `base`, como guardarEdicion). Devuelve la key ANTERIOR, para
+ * borrar ese archivo, o null.
+ */
+export async function guardarFirma(matriculaId, key, por, base = {}) {
+  const { rows } = await query(
+    `WITH antes AS (SELECT firma_key FROM certifex_solicitudes WHERE matricula_id = $1)
+     INSERT INTO certifex_solicitudes
+       (matricula_id, centro, curso_ref, curso_nombre, nombre_diploma, nombre_moodle, email, solicitada_en,
+        firma_key, firma_por, firma_en)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+     ON CONFLICT (matricula_id) DO UPDATE SET
+       centro = COALESCE(certifex_solicitudes.centro, EXCLUDED.centro),
+       curso_ref = COALESCE(certifex_solicitudes.curso_ref, EXCLUDED.curso_ref),
+       curso_nombre = COALESCE(certifex_solicitudes.curso_nombre, EXCLUDED.curso_nombre),
+       nombre_diploma = COALESCE(certifex_solicitudes.nombre_diploma, EXCLUDED.nombre_diploma),
+       nombre_moodle = COALESCE(certifex_solicitudes.nombre_moodle, EXCLUDED.nombre_moodle),
+       email = COALESCE(certifex_solicitudes.email, EXCLUDED.email),
+       solicitada_en = COALESCE(certifex_solicitudes.solicitada_en, EXCLUDED.solicitada_en),
+       firma_key = EXCLUDED.firma_key,
+       firma_por = EXCLUDED.firma_por,
+       firma_en = NOW(),
+       updated_at = NOW()
+     RETURNING (SELECT firma_key FROM antes) AS anterior`,
+    [
+      matriculaId, base.centro ?? null, base.cursoRef ?? null, base.cursoNombre ?? null, base.nombreDiploma ?? null,
+      base.nombreMoodle ?? null, base.email ?? null, base.solicitadaEn ?? null, key, por,
+    ],
+  );
+  return rows[0]?.anterior ?? null;
+}
+
 // ── Quien recibe la campana de un campus (#272) ──────────────────────────────
 
 /**

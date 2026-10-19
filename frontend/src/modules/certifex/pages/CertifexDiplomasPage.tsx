@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ArrowClockwise, ArrowCounterClockwise, ArrowSquareOut, BookOpenText, Certificate, CheckCircle, DownloadSimple, Envelope, FileXls, FilePdf,
-  FlagCheckered, HourglassMedium, LinkSimple, NotePencil, PaperPlaneTilt, PencilSimple, PlugsConnected, Plus, Printer, Prohibit, SealCheck, Trash, Warning, X, XCircle,
+  FlagCheckered, HourglassMedium, LinkSimple, NotePencil, PaperPlaneTilt, PencilSimple, PlugsConnected, Plus, Printer, Prohibit, SealCheck, Signature, Trash, UploadSimple, Warning, X, XCircle,
 } from '@phosphor-icons/react';
 import { toast, useToast } from '@/shared/hooks/useToast';
 import { useModalAccesible } from '@/shared/hooks/useDialogA11y';
@@ -204,6 +204,11 @@ function ProgramaAImprimir({ p }: { p: ProgramaDelCrm | null | undefined }) {
     return (
       <>
         <Modulos programa={p.programa} rotulo={rotulo} />
+        {/* Diego, 19/10: «todo tiene que tener módulos». Academia IA no los tiene en
+            ningún sitio: se escriben a mano en «Editar» antes de aprobar. */}
+        {p.programa.modulos.length === 0 && (
+          <div className="mt-1"><Etiqueta tono="destructive">Sin módulos: escríbelos en «Editar»</Etiqueta></div>
+        )}
         {p.elegida && p.formacion && (
           <p className="mt-0.5 max-w-[280px] truncate text-[11px] text-muted-foreground" title={p.formacion.nombre}>Formación: {p.formacion.nombre}</p>
         )}
@@ -215,6 +220,109 @@ function ProgramaAImprimir({ p }: { p: ProgramaDelCrm | null | undefined }) {
       <Etiqueta tono="warning">Sin programa del CRM: se usará lo de Moodle</Etiqueta>
       {p?.motivo && <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{p.motivo}</p>}
     </div>
+  );
+}
+
+/**
+ * La firma del alumno en la fila (CRM #349): si la tiene, se dice; si no, se ofrece
+ * subirla (abre «Revisar datos»). Sin el dato (no se pudo mirar), no se dice nada.
+ */
+function FirmaEnFila({ c, alSubir, deshabilitado }: { c: Solicitud; alSubir: () => void; deshabilitado?: boolean }) {
+  if (c.firma === undefined) return null;
+  if (c.firma) {
+    return (
+      <div className="mt-1" title={c.firma.origen === 'admision' ? 'La de su matrícula de admisión' : `Subida por ${c.firma.por ?? '—'}`}>
+        <Etiqueta tono="success"><Signature size={12} className="mr-1 inline" />Con firma</Etiqueta>
+      </div>
+    );
+  }
+  return (
+    <button type="button" onClick={alSubir} disabled={deshabilitado}
+      className="mt-1 inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-warning-soft-foreground hover:bg-warning-soft/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
+      <Signature size={12} /> Sin firma · Subir
+    </button>
+  );
+}
+
+/** El fondo de cuadros para ver que la firma es transparente. */
+const CUADROS = { backgroundImage: 'conic-gradient(#e5e7eb 25%, #ffffff 0 50%, #e5e7eb 0 75%, #ffffff 0)', backgroundSize: '16px 16px' };
+
+/**
+ * «Firma del alumno» en «Revisar datos antes de aprobar» (CRM #349; Diego, 19/10: «si no
+ * la tiene debe salir para cargarla»). Se ve la que se imprimirá sobre «El interesado»
+ * (la subida a mano o la de su matrícula de admisión) y se puede subir o cambiar. La
+ * subida se guarda en el momento, sin esperar a «Guardar».
+ */
+function FirmaDelAlumnoBloque({ c, alCambiar }: { c: Solicitud; alCambiar: () => void }) {
+  const [firma, setFirma] = useState(c.firma);
+  const [url, setUrl] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!firma) { setUrl(null); return undefined; }
+    let vivo = true;
+    let u: string | null = null;
+    setCargando(true);
+    diplomasApi.firma(c.matriculaId)
+      .then((b) => { if (vivo) { u = URL.createObjectURL(b); setUrl(u); setError(null); } })
+      .catch((e) => { if (vivo) setError(`No se pudo ver la firma: ${(e as Error).message}`); })
+      .finally(() => { if (vivo) setCargando(false); });
+    return () => { vivo = false; if (u) URL.revokeObjectURL(u); };
+  }, [c.matriculaId, firma, version]);
+
+  async function subir(archivo: File | undefined) {
+    if (!archivo || subiendo) return;
+    setSubiendo(true);
+    setError(null);
+    try {
+      const r = await diplomasApi.subirFirma(c.matriculaId, archivo);
+      setFirma(r.data.firma ?? null);
+      setVersion((v) => v + 1);
+      alCambiar();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSubiendo(false);
+      if (input.current) input.current.value = '';
+    }
+  }
+
+  return (
+    <fieldset className="min-w-0 rounded-md border border-border p-3 [min-inline-size:0]">
+      <legend className="px-1 text-xs font-medium text-muted-foreground">Firma del alumno</legend>
+      {firma ? (
+        <>
+          <div className="flex h-28 items-center justify-center overflow-hidden rounded-md border border-border" style={CUADROS}>
+            {url ? <img src={url} alt="Firma del alumno" className="max-h-24 max-w-[90%] object-contain" />
+              : <span className="text-xs text-muted-foreground">{cargando ? 'Cargando la firma…' : '—'}</span>}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {firma.origen === 'admision'
+              ? `La de su matrícula de admisión${firma.matriculaCrm ? ` (nº ${firma.matriculaCrm})` : ''}.`
+              : `Subida por ${firma.por ?? '—'}${firma.en ? ` el ${fechaHora(firma.en)}` : ''}.`}
+            {' '}Saldrá sobre «El interesado».
+          </p>
+        </>
+      ) : (
+        <div className="rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-xs text-warning-soft-foreground">
+          {firma === null
+            ? 'Este alumno no tiene firma. Súbela para que salga en el diploma, sobre «El interesado».'
+            : 'No se pudo comprobar si tiene firma. Puedes subirla igualmente.'}
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void subir(e.target.files?.[0])} />
+        <Button type="button" size="sm" variant={firma ? 'outline' : 'default'} onClick={() => input.current?.click()} disabled={subiendo} aria-busy={subiendo}>
+          <UploadSimple size={14} className="mr-1.5" /> {subiendo ? 'Subiendo…' : firma ? 'Cambiar firma' : 'Subir firma'}
+        </Button>
+        <span className="text-[11px] text-muted-foreground">PNG, JPG o WEBP. Se quita el fondo y se recorta al trazo.</span>
+      </div>
+      {error && <p className="mt-2 text-xs text-destructive" role="alert">{error}</p>}
+    </fieldset>
   );
 }
 
@@ -407,6 +515,8 @@ export default function CertifexDiplomasPage() {
   useEffect(() => addListener(), [addListener]);
 
   const recargar = () => setRecarga((n) => n + 1);
+  // Subir la firma en «Revisar datos» la guarda en el momento: al cerrar, se recarga.
+  const firmaCambiada = useRef(false);
   const abrir = (d: Dialogo) => { setErrorDialogo(null); setDialogo(d); };
 
   // ── carga ───────────────────────────────────────────────────────
@@ -1110,6 +1220,7 @@ export default function CertifexDiplomasPage() {
                           <td className="px-2 py-3">
                             <NombreDiploma c={c} />
                             <CorreoDelAlumno c={c} />
+                            <FirmaEnFila c={c} alSubir={() => setEditando(c)} deshabilitado={trabajando} />
                           </td>
                           <td className="px-2 py-3">
                             <div className="max-w-[260px] truncate" title={c.curso.nombre}>{c.curso.nombre}</div>
@@ -1437,7 +1548,11 @@ export default function CertifexDiplomasPage() {
       {editando && (
         <DialogoEditar
           c={editando}
-          alCerrar={() => setEditando(null)}
+          alCambiarFirma={() => { firmaCambiada.current = true; }}
+          alCerrar={() => {
+            setEditando(null);
+            if (firmaCambiada.current) { firmaCambiada.current = false; recargar(); }
+          }}
           alGuardar={(fila) => {
             setEditando(null);
             toast({ title: 'Datos revisados', description: `${fila.solicitud?.nombre || nombre(fila.matriculaId)}: «Aprobar y emitir» usará lo que has guardado.` });
@@ -1766,8 +1881,10 @@ function DialogoNuevoDiploma({ campus, alCerrar, alCrear }: {
   );
 }
 
-function DialogoEditar({ c, alCerrar, alGuardar }: {
+function DialogoEditar({ c, alCerrar, alGuardar, alCambiarFirma }: {
   c: Solicitud; alCerrar: () => void; alGuardar: (fila: Solicitud) => void;
+  /** La firma se guarda al subirla: el panel recarga al cerrar aunque no se pulse «Guardar». */
+  alCambiarFirma?: () => void;
 }) {
   const ed = c.edicion ?? null;
   const [catalogo, setCatalogo] = useState<CatalogoDelCampus | null>(null);
@@ -1987,7 +2104,9 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
                   )}
                 </div>
                 {form.modulos.length === 0 ? (
-                  <p className="mt-1 text-xs italic text-muted-foreground">Sin módulos.</p>
+                  <p className="mt-1 text-xs font-medium text-destructive" role="status">
+                    Sin módulos: el diploma saldría sin temario. Sincronízalos con el producto o escríbelos con «Añadir módulo».
+                  </p>
                 ) : (
                   <ol className="mt-1 space-y-1.5">
                     {form.modulos.map((m, i) => (
@@ -2013,6 +2132,8 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
               </div>
               {prog.error && <p className="mt-2 text-xs text-destructive">{prog.error}</p>}
             </fieldset>
+
+            <FirmaDelAlumnoBloque c={c} alCambiar={() => alCambiarFirma?.()} />
 
             {ed?.por && (
               <p className="text-xs text-muted-foreground">Correo, formación o programa revisados por {ed.por} el {fechaHora(ed.en)}.</p>
