@@ -121,7 +121,8 @@ export const emitirSchema = z.object({
 
 const centro = z.string().trim().regex(/^[A-Za-z0-9]{2,10}$/, 'Centro no valido');
 const dia = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha no valida (AAAA-MM-DD)');
-const nexp = z.string().trim().toUpperCase().regex(/^[A-Z]{3}-\d{4}-\d{6}-[A-Z0-9]{4}$/, 'Numero de expediente no valido');
+// Prefijo de 2 a 6 letras: el de la empresa que numera (Certifex 0035) o el CTF de los antiguos.
+const nexp = z.string().trim().toUpperCase().regex(/^[A-Z]{2,6}-\d{4}-\d{6}-[A-Z0-9]{4}$/, 'Numero de expediente no valido');
 const ids = (max, msg) => z.array(z.number().int().positive()).min(1, 'Elige al menos una').max(max, msg);
 const motivo = z.string({ required_error: 'Indica el motivo', invalid_type_error: 'Indica el motivo' }).trim()
   .min(3, 'El motivo debe tener al menos 3 caracteres').max(500, 'El motivo no puede pasar de 500 caracteres');
