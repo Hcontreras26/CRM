@@ -175,6 +175,9 @@ async function cargasPorRecordar(ahora, tutorIds) {
             (SELECT MAX(tc2.created_at) FROM tutor_carga tc2 WHERE tc2.tutor_id = u.id) AS ultima
        FROM users u
        JOIN tutor_campus tc ON tc.tutor_id = u.id AND tc.estado = 'activa'
+       -- Solo campus que leen consultas: a quien no usa Consultas no se le pide la carga.
+       JOIN project_integrations pi ON pi.project_id = tc.project_id AND pi.provider = 'moodle'
+        AND pi.active AND COALESCE((pi.config_public->>'consultas')::boolean, false)
        LEFT JOIN tutor_carga_recordatorios r ON r.tutor_id = u.id
       WHERE u.active
         AND NOT EXISTS (SELECT 1 FROM tutor_carga c WHERE c.tutor_id = u.id

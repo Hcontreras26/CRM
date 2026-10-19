@@ -184,15 +184,21 @@ describe('#190 · recordatorio de carga desactualizada', () => {
   it('sin indicar o de hace más de una semana: recordatorio; como mucho uno por semana; al día, nada', async () => {
     if (!hayBase) return;
     const p = await crearCampus('Carga');
+    // Su campus lee consultas; el del último, no: a quien no usa Consultas no se le pide la carga.
+    await query(
+      `INSERT INTO project_integrations (project_id, provider, active, encrypted_value, iv, auth_tag, config_public)
+       VALUES ($1, 'moodle', true, 'x', 'x', 'x', '{"consultas": true}')`, [p]);
+    const sinConsultas = await crearCampus('SinConsultas');
     const sinIndicar = await tutorMatriculado(p);
     const vieja = await tutorMatriculado(p);
     const alDia = await tutorMatriculado(p);
+    const deOtro = await tutorMatriculado(sinConsultas);
     await query("INSERT INTO tutor_carga (tutor_id, nivel, created_at) VALUES ($1, 'media', NOW() - INTERVAL '10 days')", [vieja]);
     await query("INSERT INTO tutor_carga (tutor_id, nivel) VALUES ($1, 'alta')", [alDia]);
     const enviar = vi.fn(async () => ({ sent: true }));
     const tutorIds = [sinIndicar, vieja, alDia];
 
-    const r = await recordarCargas({ tutorIds, enviar });
+    const r = await recordarCargas({ tutorIds: [...tutorIds, deOtro], enviar });
     expect(r.recordatorios).toBe(2);
     expect(enviar).toHaveBeenCalledTimes(NO_ESCRIBIR_A_TUTORES ? 0 : 2);
     const { rows } = await query(
