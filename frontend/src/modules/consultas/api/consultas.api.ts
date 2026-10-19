@@ -1,4 +1,4 @@
-import client, { API_BASE_URL, getAccessToken } from '@/shared/api/client';
+import client, { API_BASE_URL, getAccessToken, setAccessToken } from '@/shared/api/client';
 import type { ApiResponse } from '@/shared/types';
 
 /*
@@ -104,15 +104,35 @@ export const consultasApi = {
   guardarToken: (tutorId: number, projectId: number, token: string | null) =>
     client.put(`/consultas/tutores/${tutorId}/token`, { projectId, token }) as Promise<ApiResponse<{ project_id: number; tiene_token: boolean }>>,
 
-  /** El adjunto, con la sesión (no es el enlace público del alumno). */
+  /**
+   * El adjunto, con la sesión (no es el enlace público del alumno).
+   *
+   * La ventana se abre YA, con el clic: abierta después de esperar a la descarga,
+   * Safari y Firefox la bloquean sin decir nada. Y si la sesión ha caducado se
+   * renueva una vez, como hace `client` con todo lo demás.
+   */
   async abrirAdjunto(a: AdjuntoConsulta) {
-    const r = await fetch(`${API_BASE_URL}/consultas/adjuntos/${a.id}`, {
-      headers: { Authorization: `Bearer ${getAccessToken() || ''}` },
-    });
-    if (!r.ok) throw new Error('No se ha podido abrir el adjunto.');
-    const url = URL.createObjectURL(await r.blob());
-    window.open(url, '_blank', 'noopener');
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    const ventana = window.open('', '_blank');
+    try {
+      const pedir = () => fetch(`${API_BASE_URL}/consultas/adjuntos/${a.id}`, {
+        headers: { Authorization: `Bearer ${getAccessToken() || ''}` }, credentials: 'include',
+      });
+      let r = await pedir();
+      if (r.status === 401) {
+        const renovada = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        });
+        if (renovada.ok) { setAccessToken((await renovada.json()).data.accessToken); r = await pedir(); }
+      }
+      if (!r.ok) throw new Error('No se ha podido abrir el adjunto.');
+      const url = URL.createObjectURL(await r.blob());
+      if (ventana) ventana.location.href = url;
+      else window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      ventana?.close();
+      throw err;
+    }
   },
 };
 

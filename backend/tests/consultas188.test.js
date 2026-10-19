@@ -44,7 +44,8 @@ function moodle({ conversaciones = {}, usuarios = {}, enviados = [], token = 'ca
       if (!de) return json({ exception: 'moodle_exception', errorcode: 'invalidtoken', message: 'Invalid token' });
       const id = 900000 + enviados.length;
       enviados.push({ de, para: Number(p.get('messages[0][touserid]')), texto: p.get('messages[0][text]'), id });
-      return json([{ msgid: id }]);
+      // Como Moodle: la conversación de ese tutor con ese alumno (la abre si no existía).
+      return json([{ msgid: id, conversationid: 50000 + de }]);
     }
     if (wstoken !== token) return json({ exception: 'moodle_exception', errorcode: 'invalidtoken', message: 'Invalid token' });
     if (f === 'core_message_get_conversations') {
@@ -290,11 +291,17 @@ describe('#188 · un tutor no ve las consultas de otro (API)', () => {
       { originalname: 'temario.pdf', mimetype: 'application/pdf', size: 8, buffer: Buffer.from('%PDF-1.4') },
     ], { guardarArchivo, fetchImpl: moodle() });
     const { rows } = await query(
-      `SELECT a.token_descarga, a.storage_key FROM consulta_adjuntos a JOIN consulta_mensajes m ON m.id = a.mensaje_id
+      `SELECT a.id, a.token_descarga, a.storage_key FROM consulta_adjuntos a JOIN consulta_mensajes m ON m.id = a.mensaje_id
         WHERE m.consulta_id = $1`, [consulta.id]);
-    const r = await supertest(app).get(`/api/adjunto-consulta/${rows[0].token_descarga}`);
+    const binario = (res, cb) => { const d = []; res.on('data', (c) => d.push(c)); res.on('end', () => cb(null, Buffer.concat(d))); };
+    const r = await supertest(app).get(`/api/adjunto-consulta/${rows[0].token_descarga}`).buffer(true).parse(binario);
     expect(r.status).toBe(200);
     expect(r.headers['content-disposition']).toMatch(/temario\.pdf/);
+    // El archivo de verdad, byte a byte (antes salía un JSON con el buffer dentro).
+    expect(r.body.toString()).toBe('%PDF-1.4');
+    const conSesion = await como({ userId: t, role: 'tutor' }).get(`/api/consultas/adjuntos/${rows[0].id}`).buffer(true).parse(binario);
+    expect(conSesion.status).toBe(200);
+    expect(conSesion.body.toString()).toBe('%PDF-1.4');
     await query('UPDATE consulta_adjuntos SET expira_at = NOW() - INTERVAL \'1 day\' WHERE token_descarga = $1', [rows[0].token_descarga]);
     const caducado = await supertest(app).get(`/api/adjunto-consulta/${rows[0].token_descarga}`);
     expect(caducado.status).toBe(404);
@@ -372,5 +379,148 @@ describe('#188 · entrada desde el campus y respuesta de vuelta', () => {
     const r = await testMoodle('t', 'campus.es', { fetchImpl: soloFase1 }, { consultas: true });
     expect(r.ok).toBe(false);
     expect(r.message).toMatch(/core_message_get_conversations/);
+  });
+});
+
+describe('#188 · lo que salió en la revisión final (18/10)', () => {
+  const app = express();
+  app.use(express.json());
+  app.use(consultasModule.prefix, consultasModule.router);
+  app.use(errorHandler);
+  const como = (user) => {
+    const token = jwt.sign(user, process.env.JWT_SECRET);
+    return {
+      get: (u) => supertest(app).get(u).set('Authorization', `Bearer ${token}`),
+      put: (u, b) => supertest(app).put(u).send(b).set('Authorization', `Bearer ${token}`),
+    };
+  };
+
+  it('el admin de un campus no ve ni toca el token del tutor en los campus de otra empresa', async () => {
+    if (!hayBase) return;
+    const a = await crearCampus('TokenA');
+    const b = await crearCampus('TokenB');
+    const t = await tutorMatriculado(a, 81);
+    await query('INSERT INTO user_projects (user_id, project_id, active) VALUES ($1, $2, true)', [t, b]);
+    await query(`INSERT INTO tutor_campus (tutor_id, project_id, estado, moodle_user_id) VALUES ($1, $2, 'activa', 81)`, [t, b]);
+    const admin = await crearUsuario('admin');
+    await query('INSERT INTO user_projects (user_id, project_id, active) VALUES ($1, $2, true)', [admin, a]);
+    const yo = como({ userId: admin, role: 'admin' });
+    const lista = await yo.get(`/api/consultas/tutores/${t}/tokens`);
+    expect(lista.status).toBe(200);
+    expect(lista.body.data.map((c) => c.project_id)).toEqual([a]);
+    expect((await yo.put(`/api/consultas/tutores/${t}/token`, { projectId: b, token: 'robado' })).status).toBe(400);
+    expect((await yo.put(`/api/consultas/tutores/${t}/token`, { projectId: a, token: 'el-suyo' })).status).toBe(200);
+  });
+
+  it('reasignada: el tutor nuevo responde en su conversación y lo que contesta el alumno ahí sigue en la misma consulta', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('Reasignada');
+    await conectar(p);
+    const a = await tutorMatriculado(p, 91);
+    const b = await tutorMatriculado(p, 92);
+    const m = mensajeAlumno(p);
+    const { consulta } = await servicio.entraMensajeDelAlumno(m, { tutorPreferido: a, avisar: false });
+    await query('UPDATE consultas SET tutor_id = $2 WHERE id = $1', [consulta.id, b]);
+    await servicio.guardarTokenDelTutor(b, p, 'token-b');
+    const enviados = [];
+    const r = await servicio.responder(consulta.id, b, 'Te contesto yo', [],
+      { guardarArchivo: async () => {}, fetchImpl: moodle({ enviados, tokensTutor: { 'token-b': 92 } }) });
+    expect(r.enviado).toBe(true);
+    // El alumno contesta en la conversación con B (la que abrió Moodle al responder).
+    const enLaDeB = await servicio.entraMensajeDelAlumno({
+      ...m, conversacionId: 50000 + 92, externoId: m.externoId + 5, texto: 'Gracias', escritoAt: new Date(),
+    }, { tutorPreferido: b, avisar: false });
+    expect(enLaDeB.consulta.id).toBe(consulta.id);
+    expect(enLaDeB.nueva).toBeFalsy();
+  });
+
+  it('al reabrir se queda con el tutor que ya la llevaba, no con el de la conversación', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('ReabreConB');
+    const a = await tutorMatriculado(p, 101);
+    const b = await tutorMatriculado(p, 102);
+    const m = mensajeAlumno(p);
+    const { consulta } = await servicio.entraMensajeDelAlumno(m, { tutorPreferido: a, avisar: false });
+    await query('UPDATE consultas SET tutor_id = $2 WHERE id = $1', [consulta.id, b]);
+    await model.cerrar(consulta.id, b);
+    // El alumno vuelve a escribir en la conversación de A (la lectura dice «preferido: A»).
+    const r = await servicio.entraMensajeDelAlumno({ ...m, externoId: m.externoId + 1, escritoAt: new Date() },
+      { tutorPreferido: a, avisar: false });
+    expect(r.reabierta).toBe(true);
+    expect(r.consulta.tutor_id).toBe(b);
+  });
+
+  it('reintentar: sale con el token de quien la escribió, y dos a la vez no la mandan dos veces', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('Reintento');
+    await conectar(p);
+    const a = await tutorMatriculado(p, 111);
+    const b = await tutorMatriculado(p, 112);
+    const { consulta } = await servicio.entraMensajeDelAlumno(mensajeAlumno(p), { tutorPreferido: a, avisar: false });
+    const sinToken = await servicio.responder(consulta.id, a, 'Lo escribe A', [], { guardarArchivo: async () => {}, fetchImpl: moodle() });
+    expect(sinToken.enviado).toBe(false);
+    // Se reasigna a B; A pone su token y se reintenta.
+    await query('UPDATE consultas SET tutor_id = $2 WHERE id = $1', [consulta.id, b]);
+    await servicio.guardarTokenDelTutor(a, p, 'token-a');
+    await servicio.guardarTokenDelTutor(b, p, 'token-b');
+    const enviados = [];
+    const fetchImpl = moodle({ enviados, tokensTutor: { 'token-a': 111, 'token-b': 112 } });
+    const [uno, dos] = await Promise.all([
+      servicio.reintentar(sinToken.mensajeId, { fetchImpl }),
+      servicio.reintentar(sinToken.mensajeId, { fetchImpl }),
+    ]);
+    expect(enviados).toHaveLength(1);
+    expect(enviados[0]).toMatchObject({ de: 111, texto: 'Lo escribe A' });
+    expect([uno, dos].filter((x) => x?.enviado)).toHaveLength(1);
+  });
+
+  it('si la lectura del campus ya guardó el mensaje enviado, apuntar el envío no choca', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('Choque');
+    const t = await tutorMatriculado(p, 121);
+    const m = mensajeAlumno(p);
+    const { consulta } = await servicio.entraMensajeDelAlumno(m, { tutorPreferido: t, avisar: false });
+    const r = await model.guardarRespuestaDelCrm(consulta.id, t, 'Respuesta');
+    // La lectura se adelanta y guarda el mismo mensaje (id de Moodle 777001).
+    await model.guardarRespuestaDesdeElCampus({
+      projectId: p, conversacionId: m.conversacionId, alumnoMoodleId: m.alumno.moodleId,
+      tutorId: t, texto: 'Respuesta', externoId: 777001, escritoAt: new Date(),
+    });
+    await model.apuntarEnvio(r.mensaje.id, { externoId: 777001, error: null });
+    const { rows } = await query(
+      "SELECT id FROM consulta_mensajes WHERE consulta_id = $1 AND autor = 'tutor'", [consulta.id]);
+    expect(rows.map((x) => Number(x.id))).toEqual([Number(r.mensaje.id)]);
+  });
+
+  it('dos lecturas del campus a la vez no fallan ni duplican', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('DosLecturas');
+    await conectar(p);
+    await tutorMatriculado(p, 131);
+    const fetchImpl = moodle({
+      conversaciones: { 9131: { tutor: 131, alumno: 8131, mensajes: [{ id: 913101, useridfrom: 8131, text: 'Hola', timecreated: 1792400000 }] } },
+    });
+    const desde = new Date('2026-10-01T00:00:00Z');
+    const [x, y] = await Promise.all([
+      servicio.leerCampus(p, { desde, fetchImpl, avisar: false }),
+      servicio.leerCampus(p, { desde, fetchImpl, avisar: false }),
+    ]);
+    expect(x.nuevos + y.nuevos).toBe(1);
+    const { rows } = await query('SELECT COUNT(*)::int AS n FROM consulta_mensajes WHERE project_id = $1', [p]);
+    expect(rows[0].n).toBe(1);
+  });
+
+  it('si un adjunto no se puede guardar, no queda una respuesta a medias', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('AdjuntoFalla');
+    const t = await tutorMatriculado(p, 141);
+    const { consulta } = await servicio.entraMensajeDelAlumno(mensajeAlumno(p), { tutorPreferido: t, avisar: false });
+    const guardarArchivo = async () => { throw new Error('disco lleno'); };
+    const adjunto = { originalname: 'a.pdf', mimetype: 'application/pdf', size: 3, buffer: Buffer.from('abc') };
+    await expect(servicio.responder(consulta.id, t, 'Con adjunto', [adjunto], { guardarArchivo, fetchImpl: moodle() }))
+      .rejects.toThrow('disco lleno');
+    expect((await model.cabecera(consulta.id)).estado).toBe('abierta');
+    const { rows } = await query("SELECT COUNT(*)::int AS n FROM consulta_mensajes WHERE consulta_id = $1 AND autor = 'tutor'", [consulta.id]);
+    expect(rows[0].n).toBe(0);
   });
 });

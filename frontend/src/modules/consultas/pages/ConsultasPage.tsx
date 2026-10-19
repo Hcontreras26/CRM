@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowsClockwise, ChatCircleText, MagnifyingGlass } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,11 +60,21 @@ export default function ConsultasPage() {
     activeProject: { id?: number | null; nombre?: string } | null; activeIssuerId: number | null;
   };
   const esTutor = tieneRol(user as never, 'tutor');
-  const esAdmin = tieneRol(user as never, 'admin', 'superadmin', 'soporte');
+  // Como el servidor (`veTodoElCrm`): superadmin y soporte cuentan solo como rol
+  // principal; admin, también de más. Si no, el botón sale y el servidor da 403.
+  const esAdmin = ['superadmin', 'soporte'].includes(user?.role || '') || tieneRol(user as never, 'admin');
   const [vista, setVista] = useState<Vista>(esTutor ? 'mias' : 'todas');
   const [pestana, setPestana] = useState<(typeof PESTANAS)[number]['clave']>('pendientes');
   const [sinTutor, setSinTutor] = useState(false);
   const [buscar, setBuscar] = useState('');
+  // Lo que se busca de verdad, un momento después de dejar de escribir.
+  const [buscarYa, setBuscarYa] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setBuscarYa(buscar.trim()), 300);
+    return () => clearTimeout(t);
+  }, [buscar]);
+  // Solo vale la respuesta de la última petición: una vieja que llegue tarde no pisa la lista.
+  const ultima = useRef(0);
   const [lista, setLista] = useState<ConsultaFila[]>([]);
   const [plazo, setPlazo] = useState(24);
   const [cargando, setCargando] = useState(true);
@@ -74,16 +84,21 @@ export default function ConsultasPage() {
     [activeProject?.id, activeIssuerId]);
 
   const cargar = useCallback(async () => {
+    const yo = ++ultima.current;
     setCargando(true);
-    const f: FiltrosConsultas = { estado: pestana === 'todas' ? undefined : pestana, buscar: buscar.trim() || undefined };
+    const f: FiltrosConsultas = { estado: pestana === 'todas' ? undefined : pestana, buscar: buscarYa || undefined };
     try {
       const r = vista === 'mias' ? await consultasApi.mias(f) : await consultasApi.panel(ambito, { ...f, sinTutor });
+      if (yo !== ultima.current) return;
       if (r.success && r.data) { setLista(r.data.consultas); setPlazo(r.data.plazoHoras); }
     } catch (e: unknown) {
+      if (yo !== ultima.current) return;
+      // Sin datos viejos debajo de la cabecera nueva: si no se ha podido cargar, la lista va vacía.
+      setLista([]);
       const err = e as { data?: { error?: string }; message?: string };
       toast({ title: 'No se han podido cargar las consultas', description: err?.data?.error || err?.message, variant: 'destructive' });
-    } finally { setCargando(false); }
-  }, [vista, pestana, buscar, sinTutor, ambito]);
+    } finally { if (yo === ultima.current) setCargando(false); }
+  }, [vista, pestana, buscarYa, sinTutor, ambito]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

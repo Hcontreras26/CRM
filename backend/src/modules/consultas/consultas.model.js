@@ -15,7 +15,7 @@ import { query, getClient } from '../../shared/config/db.js';
 /** Lo que se pide al campus: el plazo de primera respuesta, en horas (decisión 1). */
 export const PLAZO_HORAS = Number(process.env.CONSULTAS_PLAZO_HORAS || 24);
 
-async function enTransaccion(fn) {
+export async function enTransaccion(fn) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -50,7 +50,8 @@ export async function ultimoDeLaConversacion(projectId, conversacionId) {
     `SELECT MAX(m.escrito_at) AS hasta
        FROM consulta_mensajes m
        JOIN consultas c ON c.id = m.consulta_id
-      WHERE c.project_id = $1 AND c.conversacion_externa_id = $2 AND m.externo_id IS NOT NULL`,
+      WHERE c.project_id = $1 AND (c.conversacion_externa_id = $2 OR $2 = ANY(c.conversaciones_extra))
+        AND m.externo_id IS NOT NULL`,
     [projectId, conversacionId]
   );
   return rows[0]?.hasta || null;
@@ -78,7 +79,8 @@ export async function guardarMensajeDelAlumno({
     const previa = await db.query(
       `SELECT * FROM consultas
         WHERE project_id = $1 AND alumno_moodle_id = $2
-          AND (conversacion_externa_id = $3 OR ($3::bigint IS NULL AND conversacion_externa_id IS NULL))
+          AND (conversacion_externa_id = $3 OR $3 = ANY(conversaciones_extra)
+               OR ($3::bigint IS NULL AND conversacion_externa_id IS NULL))
         ORDER BY id DESC LIMIT 1 FOR UPDATE`,
       [projectId, alumno.moodleId, conversacionId]
     );
@@ -156,7 +158,8 @@ export async function guardarRespuestaDesdeElCampus({ projectId, conversacionId,
       'SELECT 1 FROM consulta_mensajes WHERE project_id = $1 AND externo_id = $2', [projectId, externoId]);
     if (ya.rows.length) return { duplicado: true };
     const { rows } = await db.query(
-      `SELECT * FROM consultas WHERE project_id = $1 AND alumno_moodle_id = $2 AND conversacion_externa_id = $3
+      `SELECT * FROM consultas WHERE project_id = $1 AND alumno_moodle_id = $2
+          AND (conversacion_externa_id = $3 OR $3 = ANY(conversaciones_extra))
         ORDER BY id DESC LIMIT 1 FOR UPDATE`,
       [projectId, alumnoMoodleId, conversacionId]
     );
@@ -200,15 +203,37 @@ export async function guardarRespuestaDelCrm(consultaId, tutorId, texto) {
   });
 }
 
-export async function apuntarEnvio(mensajeId, { externoId = null, error = null }) {
-  await query(
-    `UPDATE consulta_mensajes
-        SET externo_id = COALESCE($2, externo_id),
-            enviado_campus_at = CASE WHEN $2::bigint IS NULL THEN enviado_campus_at ELSE NOW() END,
-            error_envio = $3, intentos = intentos + 1
-      WHERE id = $1`,
-    [mensajeId, externoId, error]
-  );
+export async function apuntarEnvio(mensajeId, { externoId = null, error = null, conversacionId = null }, db = null) {
+  const hacer = async (q) => {
+    if (externoId != null) {
+      // Si la lectura del campus ya ha guardado este mismo mensaje (entre el
+      // envío y este apunte), esa copia sobra: el mensaje es este.
+      await q.query(
+        `DELETE FROM consulta_mensajes
+          WHERE externo_id = $2 AND id <> $1
+            AND project_id = (SELECT project_id FROM consulta_mensajes WHERE id = $1)`, [mensajeId, externoId]);
+    }
+    const { rows } = await q.query(
+      `UPDATE consulta_mensajes
+          SET externo_id = COALESCE($2, externo_id),
+              enviado_campus_at = CASE WHEN $2::bigint IS NULL THEN enviado_campus_at ELSE NOW() END,
+              error_envio = $3, intentos = intentos + 1
+        WHERE id = $1 RETURNING consulta_id`,
+      [mensajeId, externoId, error]
+    );
+    // La conversación de Moodle donde ha ido (tras reasignar, la del tutor nuevo).
+    if (conversacionId != null && rows[0]) {
+      await q.query(
+        `UPDATE consultas
+            SET conversacion_externa_id = COALESCE(conversacion_externa_id, $2),
+                conversaciones_extra = CASE
+                  WHEN conversacion_externa_id IS NULL OR conversacion_externa_id = $2 OR $2 = ANY(conversaciones_extra)
+                  THEN conversaciones_extra ELSE array_append(conversaciones_extra, $2) END
+          WHERE id = $1`, [rows[0].consulta_id, conversacionId]);
+    }
+  };
+  if (db) return hacer(db);
+  return enTransaccion(hacer);
 }
 
 export async function guardarAdjunto(mensajeId, { nombre, tipo, tamano, storageKey, token, expiraAt }) {

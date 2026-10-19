@@ -52,6 +52,10 @@ CREATE TABLE IF NOT EXISTS consultas (
 CREATE INDEX IF NOT EXISTS idx_consultas_tutor_estado ON consultas(tutor_id, estado);
 CREATE INDEX IF NOT EXISTS idx_consultas_project_estado ON consultas(project_id, estado);
 CREATE INDEX IF NOT EXISTS idx_consultas_alumno ON consultas(project_id, alumno_moodle_id);
+-- Otras conversaciones de Moodle de la misma consulta: tras reasignarla, el
+-- tutor nuevo responde con su token y Moodle abre la conversación de ese tutor
+-- con el alumno; lo que el alumno conteste ahí sigue siendo esta consulta.
+ALTER TABLE consultas ADD COLUMN IF NOT EXISTS conversaciones_extra BIGINT[] NOT NULL DEFAULT '{}';
 
 CREATE TABLE IF NOT EXISTS consulta_mensajes (
     id SERIAL PRIMARY KEY,

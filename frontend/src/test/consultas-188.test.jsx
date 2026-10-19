@@ -138,3 +138,54 @@ describe('Consultas con la empresa o «Todos» en la cabecera', () => {
     }
   });
 });
+
+describe('Consultas (#188) · lo que salió en la revisión final (18/10)', () => {
+  it('reintentar que vuelve a fallar no dice «enviada»: dice por qué', async () => {
+    api.ver.mockResolvedValue({ success: true, data: detalle({ mensajes: [
+      { id: 2, autor: 'tutor', autor_nombre: 'Tutora', texto: 'Mira la sección 2', escrito_at: horasAtras(1),
+        enviado_campus_at: null, error_envio: 'Falta el token del tutor en este campus', en_el_campus: false, adjuntos: [] },
+    ] }) });
+    api.reintentar.mockResolvedValue({ success: true, data: { enviado: false, error: 'Falta el token del tutor en este campus' } });
+    enLaFicha();
+    fireEvent.click(await screen.findByRole('button', { name: /Reintentar/ }));
+    await waitFor(() => expect(api.toast).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Sigue sin llegar al campus', description: 'Falta el token del tutor en este campus', variant: 'destructive',
+    })));
+    expect(api.toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Respuesta enviada al campus' }));
+  });
+
+  it('si falla la lista de tutores, la consulta se ve igual', async () => {
+    api.user = { role: 'admin' };
+    api.ver.mockResolvedValue({ success: true, data: detalle({ puedes: 'admin' }) });
+    api.tutoresPosibles.mockRejectedValue(new Error('caído'));
+    enLaFicha();
+    expect(await screen.findByText('Alumna Uno')).toBeTruthy();
+    expect(screen.getByText('No encuentro el tema 3', { selector: 'p' })).toBeTruthy();
+  });
+
+  it('el buscador espera a que se deje de escribir, y una respuesta vieja no pisa a la nueva', async () => {
+    let soltarVieja;
+    api.mias.mockImplementation((f) => (f.buscar === 'An'
+      ? new Promise((r) => { soltarVieja = () => r({ success: true, data: { consultas: [fila({ id: 9, alumno_nombre: 'Vieja' })], plazoHoras: 24 } }); })
+      : Promise.resolve({ success: true, data: { consultas: [fila({ id: 10, alumno_nombre: 'Ana Nueva' })], plazoHoras: 24 } })));
+    render(<MemoryRouter><ConsultasPage /></MemoryRouter>);
+    const caja = await screen.findByLabelText('Buscar alumno, correo o curso');
+    fireEvent.change(caja, { target: { value: 'An' } });
+    await waitFor(() => expect(api.mias).toHaveBeenCalledWith(expect.objectContaining({ buscar: 'An' })), { timeout: 1500 });
+    fireEvent.change(caja, { target: { value: 'Ana' } });
+    expect(await screen.findByText('Ana Nueva', {}, { timeout: 1500 })).toBeTruthy();
+    soltarVieja();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText('Vieja')).toBeNull();
+    // «A», «An», «Ana» seguidos no son tres peticiones: cada búsqueda espera un momento.
+    expect(api.mias.mock.calls.filter(([f]) => f.buscar === 'A')).toHaveLength(0);
+  });
+
+  it('soporte como rol de más no ve el panel de administración (el servidor no se lo deja)', async () => {
+    api.user = { role: 'tutor', roles_extra: ['soporte'] };
+    render(<MemoryRouter><ConsultasPage /></MemoryRouter>);
+    await waitFor(() => expect(api.mias).toHaveBeenCalled());
+    expect(api.panel).not.toHaveBeenCalled();
+    expect(screen.queryByRole('tab', { name: 'Todas' })?.closest('[aria-label="Qué consultas"]')).toBeFalsy();
+  });
+});

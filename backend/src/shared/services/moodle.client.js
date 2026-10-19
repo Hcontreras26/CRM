@@ -217,7 +217,8 @@ export async function enviarMensaje(conexion, paraMoodleUserId, texto, opciones)
   if (!m || Number(m.msgid) <= 0) {
     throw new MoodleError(`El campus no ha aceptado el mensaje${m?.errormessage ? `: ${m.errormessage}` : '.'}`, 'NO_ENVIADO');
   }
-  return { id: Number(m.msgid) };
+  // La conversación donde ha quedado (Moodle la abre si no existía).
+  return { id: Number(m.msgid), conversacionId: Number(m.conversationid) || null };
 }
 
 /** El texto de un mensaje de Moodle (viene en HTML) como texto normal. */

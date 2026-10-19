@@ -46,14 +46,18 @@ export default function ConsultaPage() {
   const archivo = useRef<HTMLInputElement>(null);
 
   const cargar = useCallback(async () => {
+    let r;
     try {
-      const r = await consultasApi.ver(consultaId);
+      r = await consultasApi.ver(consultaId);
       if (r.success && r.data) { setC(r.data); setError(null); }
-      if (r.success && r.data?.puedes === 'admin') {
+    } catch (e) { setError(mensajeDeError(e)); return; }
+    // Aparte: si falla la lista de tutores, la consulta se ve igual (solo falta reasignar).
+    if (r.success && r.data?.puedes === 'admin') {
+      try {
         const t = await consultasApi.tutoresPosibles(consultaId);
         if (t.success && t.data) setTutores(t.data);
-      }
-    } catch (e) { setError(mensajeDeError(e)); }
+      } catch { setTutores([]); }
+    }
   }, [consultaId]);
 
   useEffect(() => { cargar(); }, [cargar]);
@@ -81,6 +85,19 @@ export default function ConsultaPage() {
       }
     } catch (err) {
       toast({ title: 'No se ha podido responder', description: mensajeDeError(err), variant: 'destructive' });
+    } finally { setOcupado(false); }
+  }
+
+  /** Reintentar: puede volver a fallar (sin token, campus caído): se dice, no «enviada». */
+  async function reintentar(mensajeId: number) {
+    setOcupado(true);
+    try {
+      const r = await consultasApi.reintentar(mensajeId);
+      if (r.data?.enviado) toast({ title: 'Respuesta enviada al campus' });
+      else toast({ title: 'Sigue sin llegar al campus', description: r.data?.error || 'Inténtalo más tarde.', variant: 'destructive' });
+      await cargar();
+    } catch (err) {
+      toast({ title: 'No se ha podido reintentar', description: mensajeDeError(err), variant: 'destructive' });
     } finally { setOcupado(false); }
   }
 
@@ -181,7 +198,7 @@ export default function ConsultaPage() {
                     <p className="flex items-start gap-1"><Warning size={12} weight="fill" className="mt-0.5 shrink-0" />
                       No ha llegado al campus{m.error_envio ? `: ${m.error_envio}` : '.'}</p>
                     <button type="button" disabled={ocupado} className="mt-1 inline-flex items-center gap-1 font-semibold hover:underline"
-                      onClick={() => hacer(() => consultasApi.reintentar(m.id), 'Respuesta enviada al campus')}>
+                      onClick={() => reintentar(m.id)}>
                       <ArrowsClockwise size={12} /> Reintentar
                     </button>
                   </div>

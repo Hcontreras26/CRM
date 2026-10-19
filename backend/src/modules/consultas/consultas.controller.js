@@ -154,10 +154,11 @@ export async function adjunto(req, res, next) {
   try {
     const a = await model.adjuntoPorId(parseInt(req.params.id));
     await exigirVer(req, a && { id: a.consulta_id, tutor_id: a.tutor_id, project_id: a.project_id });
-    const buf = await getLocal(a.storage_key);
+    // `getLocal` da { buffer, size }: se manda el buffer, no el objeto (si no, sale un JSON).
+    const { buffer } = await getLocal(a.storage_key);
     res.setHeader('Content-Type', a.tipo || 'application/octet-stream');
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(a.nombre)}`);
-    res.send(buf);
+    res.send(buffer);
   } catch (err) { next(err); }
 }
 
@@ -168,11 +169,12 @@ export async function adjuntoPublico(req, res, next) {
     if (!/^[a-f0-9]{48}$/.test(token)) throw new AppError('Enlace no válido', 404, 'NOT_FOUND');
     const a = await model.adjuntoPorToken(token);
     if (!a) throw new AppError('Este enlace ha caducado o no existe. Pide a tu tutor que te lo vuelva a enviar.', 404, 'NOT_FOUND');
-    const buf = await getLocal(a.storage_key);
+    // `getLocal` da { buffer, size }: se manda el buffer, no el objeto (si no, sale un JSON).
+    const { buffer } = await getLocal(a.storage_key);
     res.setHeader('Content-Type', a.tipo || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(a.nombre)}`);
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.send(buf);
+    res.send(buffer);
   } catch (err) { next(err); }
 }
 
@@ -182,11 +184,13 @@ async function exigirGestionDelTutor(req, tutorId) {
   const puede = veTodoElCrm(req.user) || tieneRol(req.user, 'admin') || (await esGestorColaboraciones(req.user.userId));
   if (!puede) throw new AppError('No puedes gestionar tutores', 403, 'FORBIDDEN');
   const suyos = await campusDelTutor(tutorId);
-  if (!veTodoElCrm(req.user)) {
-    const mios = await campusDeLaPersona(req.user.userId);
-    if (!suyos.some((c) => mios.includes(c.project_id))) throw new AppError('Tutor no encontrado', 404, 'NOT_FOUND');
-  }
-  return suyos;
+  if (veTodoElCrm(req.user)) return suyos;
+  // Solo los campus que comparten: el admin de una empresa no ve ni toca el
+  // token del tutor en los campus de otra.
+  const mios = await campusDeLaPersona(req.user.userId);
+  const comunes = suyos.filter((c) => mios.includes(c.project_id));
+  if (!comunes.length) throw new AppError('Tutor no encontrado', 404, 'NOT_FOUND');
+  return comunes;
 }
 
 // GET /api/consultas/tutores/:tutorId/tokens

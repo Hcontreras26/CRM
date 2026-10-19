@@ -71,8 +71,10 @@ export async function elegirTutor(projectId, { preferido = null } = {}) {
  * y lo usarían otras entradas (un webhook del campus) sin cambiar nada.
  */
 export async function entraMensajeDelAlumno(datos, { tutorPreferido = null, avisar = true } = {}) {
+  // Al reabrir, primero el tutor que ya la lleva (puede ser otro que el de la
+  // conversación, si se reasignó); en una nueva, al que escribió el alumno.
   const r = await model.guardarMensajeDelAlumno(datos,
-    (actual) => elegirTutor(datos.projectId, { preferido: tutorPreferido ?? actual }));
+    (actual) => elegirTutor(datos.projectId, { preferido: actual ?? tutorPreferido }));
   if (r.duplicado) return r;
   if (avisar && r.consulta.tutor_id) {
     await avisarAlTutor(r.consulta, datos.texto, { nueva: r.nueva || r.reabierta })
@@ -82,6 +84,20 @@ export async function entraMensajeDelAlumno(datos, { tutorPreferido = null, avis
 }
 
 const MARGEN_LECTURA_MS = 10 * 60 * 1000;
+
+/**
+ * «Leer el campus ahora» y la vuelta programada pueden leer el mismo mensaje a
+ * la vez: el segundo choca con el índice único del id de Moodle. Eso es un
+ * repetido, no un fallo que corte la lectura del campus.
+ */
+async function siYaEstaRepetido(guardar) {
+  try {
+    return await guardar();
+  } catch (err) {
+    if (err.code === '23505') return { duplicado: true };
+    throw err;
+  }
+}
 
 /** Los campus con «Leer las consultas» marcado en su conexión de Moodle. */
 export async function campusConConsultas() {
@@ -146,10 +162,10 @@ export async function leerCampus(projectId, { desde = new Date(0), ...opciones }
         if (m.fecha < desde) continue;
         if (await model.existeMensajeExterno(projectId, m.id)) continue;
         if (m.de === tutor.moodleId) {
-          const r = await model.guardarRespuestaDesdeElCampus({
+          const r = await siYaEstaRepetido(() => model.guardarRespuestaDesdeElCampus({
             projectId, conversacionId: conv.id, alumnoMoodleId: alumno.id,
             tutorId: tutor.tutorId, texto: m.texto, externoId: m.id, escritoAt: m.fecha,
-          });
+          }));
           if (!r.duplicado && !r.sinConsulta) resumen.respuestas += 1;
           continue;
         }
@@ -158,11 +174,11 @@ export async function leerCampus(projectId, { desde = new Date(0), ...opciones }
           alumnos.set(alumno.id, await usuarioPorId(conexion, alumno.id, opciones).catch(() => null));
         }
         const datos = alumnos.get(alumno.id);
-        const r = await entraMensajeDelAlumno({
+        const r = await siYaEstaRepetido(() => entraMensajeDelAlumno({
           projectId, conversacionId: conv.id,
           alumno: { moodleId: alumno.id, nombre: datos?.nombre || alumno.nombre, email: datos?.email || null },
           texto: m.texto, externoId: m.id, escritoAt: m.fecha,
-        }, { tutorPreferido: tutor.tutorId, avisar: opciones.avisar !== false });
+        }, { tutorPreferido: tutor.tutorId, avisar: opciones.avisar !== false }));
         if (!r.duplicado) {
           resumen.nuevos += 1;
           if (r.nueva) resumen.consultasNuevas += 1;
@@ -272,10 +288,11 @@ export function textoParaElCampus(texto, adjuntos = []) {
  * Manda al campus una respuesta ya guardada. Si no puede (sin token del tutor,
  * campus caído…), se queda guardada con el motivo y se puede reintentar.
  */
-export async function enviarAlCampus(mensaje, consulta, adjuntos = [], opciones = {}) {
+export async function enviarAlCampus(mensaje, consulta, adjuntos = [], { db = null, ...opciones } = {}) {
   const conexion = await conexionDelCampus(consulta.project_id);
   let error = null;
   let externoId = null;
+  let conversacionId = null;
   if (!conexion || conexion.error) {
     error = conexion?.error || 'El campus no está conectado en Integraciones.';
   } else if (!consulta.alumno_moodle_id) {
@@ -289,12 +306,13 @@ export async function enviarAlCampus(mensaje, consulta, adjuntos = [], opciones 
         const r = await enviarMensaje({ url: conexion.url, token }, consulta.alumno_moodle_id,
           textoParaElCampus(mensaje.texto, adjuntos), opciones);
         externoId = r.id;
+        conversacionId = r.conversacionId;
       } catch (err) {
         error = err instanceof MoodleError ? err.message : 'No se ha podido enviar al campus.';
       }
     }
   }
-  await model.apuntarEnvio(mensaje.id, { externoId, error });
+  await model.apuntarEnvio(mensaje.id, { externoId, error, conversacionId }, db);
   return { enviado: Boolean(externoId), error };
 }
 
@@ -304,14 +322,22 @@ export async function enviarAlCampus(mensaje, consulta, adjuntos = [], opciones 
  * el tutor ha contestado; lo que falta es que llegue).
  */
 export async function responder(consultaId, tutorId, texto, archivos = [], { guardarArchivo, ...opciones } = {}) {
-  const r = await model.guardarRespuestaDelCrm(consultaId, tutorId, texto);
-  if (!r) return null;
-  const adjuntos = [];
+  const c = await model.cabecera(consultaId);
+  if (!c) return null;
+  // Primero los archivos: si alguno no se puede guardar, no queda una respuesta
+  // a medias (guardada y «respondida», pero sin sus adjuntos).
+  const subidos = [];
   for (const f of archivos) {
     const token = crypto.randomBytes(24).toString('hex');
     const nombreSeguro = f.originalname.replace(/[^\w.\- ]+/g, '_').slice(0, 120);
-    const key = `consultas/${r.consulta.project_id}/${r.consulta.id}/${token.slice(0, 12)}-${nombreSeguro}`;
+    const key = `consultas/${c.project_id}/${c.id}/${token.slice(0, 12)}-${nombreSeguro}`;
     await guardarArchivo(key, f.buffer);
+    subidos.push({ f, key, token });
+  }
+  const r = await model.guardarRespuestaDelCrm(consultaId, tutorId, texto);
+  if (!r) return null;
+  const adjuntos = [];
+  for (const { f, key, token } of subidos) {
     adjuntos.push(await model.guardarAdjunto(r.mensaje.id, {
       nombre: f.originalname, tipo: f.mimetype, tamano: f.size, storageKey: key, token,
       expiraAt: new Date(Date.now() + DIAS_ENLACE_ADJUNTO * 86400000),
@@ -321,15 +347,27 @@ export async function responder(consultaId, tutorId, texto, archivos = [], { gua
   return { mensajeId: r.mensaje.id, ...envio };
 }
 
-/** Reintentar una respuesta que no llegó al campus. */
-export async function reintentar(mensajeId, opciones) {
-  const { rows } = await query(
-    `SELECT m.*, c.project_id AS c_project, c.tutor_id AS c_tutor, c.alumno_moodle_id AS c_alumno
-       FROM consulta_mensajes m JOIN consultas c ON c.id = m.consulta_id
-      WHERE m.id = $1 AND m.autor = 'tutor' AND m.enviado_campus_at IS NULL`, [mensajeId]);
-  const m = rows[0];
-  if (!m) return null;
-  const adj = await query(
-    'SELECT nombre, token_descarga FROM consulta_adjuntos WHERE mensaje_id = $1 ORDER BY id', [mensajeId]);
-  return enviarAlCampus(m, { project_id: m.c_project, tutor_id: m.c_tutor, alumno_moodle_id: m.c_alumno }, adj.rows, opciones);
+/**
+ * Reintentar una respuesta que no llegó al campus.
+ *
+ * Con la fila bloqueada mientras se envía: un doble clic (o dos personas a la
+ * vez) no la manda dos veces; el segundo ve que ya está en marcha.
+ * Sale con el token de quien la escribió, no del tutor de ahora: si la consulta
+ * se reasignó, el texto de A no puede llegar firmado por B.
+ */
+export async function reintentar(mensajeId, opciones = {}) {
+  return model.enTransaccion(async (db) => {
+    const { rows } = await db.query(
+      `SELECT m.*, c.project_id AS c_project, c.tutor_id AS c_tutor, c.alumno_moodle_id AS c_alumno
+         FROM consulta_mensajes m JOIN consultas c ON c.id = m.consulta_id
+        WHERE m.id = $1 AND m.autor = 'tutor' AND m.enviado_campus_at IS NULL
+        FOR UPDATE OF m SKIP LOCKED`, [mensajeId]);
+    const m = rows[0];
+    if (!m) return null;
+    const adj = await db.query(
+      'SELECT nombre, token_descarga FROM consulta_adjuntos WHERE mensaje_id = $1 ORDER BY id', [mensajeId]);
+    return enviarAlCampus(m, {
+      project_id: m.c_project, tutor_id: m.autor_user_id || m.c_tutor, alumno_moodle_id: m.c_alumno,
+    }, adj.rows, { ...opciones, db });
+  });
 }
