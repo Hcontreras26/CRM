@@ -76,8 +76,42 @@ function chargeToPayment(charge, projectId) {
   };
 }
 
+/*
+  UN CARGO CON VENTA PERO SIN COBRO SE VUELVE A ENGANCHAR (19/10).
+
+  Dayana, venta 595 de Psiko (Laura): apuntó a mano la cuota de 108,33 € (cobro 881),
+  la sincronización vio el cargo de Stripe y lo enganchó a ese cobro (auto_dedup), y
+  luego ella borró el 881 y lo volvió a apuntar (882). Al borrarse, el cargo se quedó
+  con la venta pero SIN cobro, y como solo se intentaba enganchar lo que no tenía venta,
+  ya nadie lo miraba: en Stripe salía como «asociado» a un cobro que no existe.
+
+  Ahora, si el cargo tiene venta y no cobro, se busca el cobro equivalente que ya
+  esté apuntado (findPagoDuplicado: el mismo cargo en las notas, o mismo importe con
+  un euro de margen y fecha a menos de 4 días, sin otro cargo enganchado). Si lo hay,
+  se engancha. NUNCA se crea un cobro aquí: si no lo hay, el dinero ya pudo contarse
+  de otra forma y apuntarlo otra vez lo contaría dos veces.
+*/
+export async function reengancharCobro(payment, dbRow) {
+  if (dbRow.conversion_payment_id || payment.status !== 'succeeded') return;
+  const segundos = Number(payment.stripe_created_at ?? 0);
+  const fecha = segundos > 0
+    ? new Date(segundos * 1000).toISOString().slice(0, 10)
+    : new Date(dbRow.stripe_created_at).toISOString().slice(0, 10);
+  const dup = await model.findPagoDuplicado(dbRow.conversion_id, payment.amount ?? dbRow.amount, fecha, payment.stripe_id ?? dbRow.stripe_id);
+  if (!dup) return;
+  await model.linkPayment(dbRow.id, {
+    leadId: dbRow.lead_id, conversionId: dbRow.conversion_id, conversionPaymentId: dup.id,
+    userId: dbRow.linked_by ?? null, method: dbRow.link_method || 'auto_dedup',
+  });
+  logger.info({ stripeId: dbRow.stripe_id, conversionId: dbRow.conversion_id, conversionPaymentId: dup.id },
+    'cargo de Stripe sin cobro: enganchado al cobro que ya estaba');
+}
+
 async function autoLinkIfPossible(projectId, payment, dbRow) {
-  if (dbRow.conversion_id) return;
+  if (dbRow.conversion_id) {
+    await reengancharCobro(payment, dbRow);
+    return;
+  }
   if (payment.status !== 'succeeded' || !payment.customer_email) return;
   // Un cargo en otra moneda solo vale si su importe ya viene liquidado en euros.
   // Los importados sin el balance_transaction guardaron el importe en la moneda
@@ -373,6 +407,18 @@ export async function syncStripePayments(projectId, { fullHistory = false, retry
         if (!antes && despues?.conversion_payment_id) reasociados++;
       } catch (e) {
         logger.warn({ stripeId: row.stripe_id, err: e.message }, 'reintento de asociacion fallido');
+      }
+    }
+    // Y los que tienen venta pero se quedaron sin cobro (ver reengancharCobro).
+    for (const row of await model.listConVentaSinCobro(projectId, 500)) {
+      try {
+        await reengancharCobro({
+          status: row.status, amount: Number(row.amount),
+          stripe_created_at: Number(row.stripe_created_at), stripe_id: row.stripe_id,
+        }, row);
+        if ((await model.getById(row.id))?.conversion_payment_id) reasociados++;
+      } catch (e) {
+        logger.warn({ stripeId: row.stripe_id, err: e.message }, 'reenganche al cobro fallido');
       }
     }
   } catch (e) {
