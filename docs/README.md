@@ -81,6 +81,25 @@ Certifex emite los diplomas; el CRM decide **quién** lo recibe y **cuándo** se
 
 **Ningún correo sale solo:** ni al emitir, ni al revocar, ni al rechazar. Si el correo de Certifex está apagado (`CERTIFEX_EMAIL_ACTIVO`), al «Enviar» el panel lo dice («Aprobado, pero el correo está apagado») y queda registrado para reenviar.
 
+## Consultas de alumnos (#185, fases 1–4: #187–#190)
+
+Las dudas que los alumnos escriben en el campus (mensajería privada de Moodle) entran en el CRM, van al tutor que toca, se responden desde el CRM y se miden. Pantallas: menú **Consultas** (bandeja, Alumnos sin mensajes, Mi carga, Tutores, Métricas) y la ficha del tutor en **Tutores**.
+
+**Conectar un campus** (el mismo conector para todos; uno por campus): Finanzas → Integraciones, con ese campus elegido arriba → «Campus (Moodle)» → URL del campus y token de un **administrador** del Moodle (lee los mensajes de todos) → **Probar conexión** → marcar **«Leer las consultas de este campus»** (solo se lee lo escrito desde ese momento). En el Moodle: servicios web y REST activos, y el permiso `webservice/rest:use` para el rol de los tutores. Cada tutor necesita estar matriculado en ese campus (lo comprueba el CRM) y su propio token en su ficha («Responder en su nombre») para que las respuestas salgan con su nombre. Moodle solo deja escribir entre usuarios que comparten curso.
+
+**Trabajos programados** (cada uno con su interruptor en `.env`; detalles en `backend/.env.example`):
+
+| Trabajo | Cada cuánto | Interruptor |
+|---|---|---|
+| Matrícula de los tutores en cada campus (#187) | 1 vez al día | `TUTORES_CAMPUS_DISABLED=1` |
+| Leer las consultas de los campus (#188) | 5 min | `CONSULTAS_CAMPUS_DISABLED=1` |
+| Alumnos matriculados de cada tutor (#189) | 1 vez al día | `CONSULTAS_ALUMNOS_DISABLED=1` |
+| Resumen semanal al tutor (#189) | lunes, 9:00 | `CONSULTAS_RESUMEN_DISABLED=1` |
+| Recordatorio de plazo al tutor y aviso de fuera de plazo a administración (#190) | 15 min | `CONSULTAS_PLAZO_DISABLED=1` |
+| Recordatorio de carga de trabajo desactualizada (#190) | 1 vez al día (como mucho uno por semana a cada tutor) | `CONSULTAS_CARGA_RECORDATORIO_DISABLED=1` |
+
+Los **correos al tutor** respetan el freno `NO_ESCRIBIR_A_TUTORES` (`backend/src/shared/config/frenoTutores.js`): con él puesto no sale ninguno y se apunta en el registro. Los avisos de la **campana** sí llegan. El aviso de fuera de plazo va a los super admin y a los admin de ese campus; la reasignación es manual, desde la consulta.
+
 ## Versión 2.0.0 (en producción desde el 29/09/2026)
 
 Lo nuevo, con un botón para ir a cada pantalla, está dentro del CRM en **Novedades** (`backend/src/modules/novedades/versiones.js`) y en la release `v2.0.0` de GitHub. En corto:
@@ -307,6 +326,7 @@ Fuente de verdad del esquema. Cada archivo en `backend/migrations/` es un SQL ej
 | 208 | 208_tutores_campus_y_empresas.sql | Consultas de alumnos, fase 1 (#187): `tutor_empresas` (las empresas enteras de un tutor; sus campus se leen de `projects.sociedad_emisora_id` al consultar, también los nuevos, sin copiar filas) y `tutor_campus` (su matrícula en el Moodle de cada campus: activa, pendiente o baja). Los campus sueltos del tutor siguen en `user_projects`. Se puede pasar dos veces. |
 | 209 | 209_consultas_de_alumnos.sql | Consultas de alumnos, fase 2 (#188): `consultas` (alumno, curso, proyecto, empresa, tutor, estado y la hora de cada paso), `consulta_mensajes` (el id del mensaje de Moodle no se repite por proyecto), `consulta_adjuntos` (enlace propio con caducidad), `consulta_eventos` y el token del tutor en `tutor_campus` (cifrado). Se puede pasar dos veces. |
 | 210 | 210_alumnos_y_carga_del_tutor.sql | Consultas de alumnos, fase 3 (#189): `tutor_alumnos` (los alumnos matriculados de cada tutor, leídos del campus; la fecha de matrícula es aproximada, la primera vez que el CRM los ve) y `tutor_carga` (el nivel y el texto de la carga de trabajo, con su historial). Se puede pasar dos veces. |
+| 211 | 211_recordatorios_de_consultas.sql | Consultas de alumnos, fase 4 (#190): en `consultas`, cuándo se recordó al tutor que se acerca el plazo y cuándo se avisó a administración de que se pasó (valen para la espera de ahora: si el alumno vuelve a escribir, se vuelve a avisar); `tutor_carga_recordatorios` (el último recordatorio de carga desactualizada a cada tutor). Se puede pasar dos veces. |
 
 > **09/10/2026, comprobado contra el catálogo de producción:** aplicadas hasta la **195**. La 193–195
 > (tablas del tablero de Hugo, #210, y el rol `colaborador`) están, pero vacías y sin pantalla: el
