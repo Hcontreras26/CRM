@@ -48,12 +48,13 @@ import { marcarContactado } from './consultas.alumnos.js';
  *     más tiempo sin recibir una, y luego el de id más bajo (para que sea fijo);
  *   · null si no hay nadie: la consulta queda «sin tutor» en el panel.
  */
-export async function elegirTutor(projectId, { preferido = null } = {}) {
+export async function elegirTutor(projectId, { preferido = null, nueva = true } = {}) {
   let candidatos = await tutoresQueRecibenConsultas(projectId);
   if (!candidatos.length) return null;
-  // Decisión 10 (#189): con la carga «completa» no recibe consultas nuevas si
-  // hay otro tutor en el campus. Si es el único, sí (no se deja sin tutor).
-  const completos = await tutoresConCargaCompleta(candidatos.map((t) => t.id));
+  // Decisión 10 (#189): con la carga «completa» no recibe consultas NUEVAS si
+  // hay otro tutor en el campus. Si es el único, sí (no se deja sin tutor). Una
+  // que se reabre sigue con el tutor que ya la llevaba: no es nueva.
+  const completos = nueva ? await tutoresConCargaCompleta(candidatos.map((t) => t.id)) : new Set();
   if (completos.size && candidatos.some((t) => !completos.has(t.id))) {
     candidatos = candidatos.filter((t) => !completos.has(t.id));
   }
@@ -90,7 +91,7 @@ export async function entraMensajeDelAlumno(datos, { tutorPreferido = null, avis
   // Al reabrir, primero el tutor que ya la lleva (puede ser otro que el de la
   // conversación, si se reasignó); en una nueva, al que escribió el alumno.
   const r = await model.guardarMensajeDelAlumno(datos,
-    (actual) => elegirTutor(datos.projectId, { preferido: actual ?? tutorPreferido }));
+    (actual) => elegirTutor(datos.projectId, { preferido: actual ?? tutorPreferido, nueva: actual == null }));
   if (r.duplicado) return r;
   // #189: ya tiene conversación con su tutor, sale de «Alumnos sin mensajes».
   if (r.nueva && r.consulta.tutor_id) {

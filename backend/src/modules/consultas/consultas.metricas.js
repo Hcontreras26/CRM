@@ -29,8 +29,10 @@ function filtro({ tutorId, projectIds, desde, hasta }, alias = 'c') {
   const p = [];
   if (tutorId) { p.push(tutorId); w.push(`${alias}.tutor_id = $${p.length}`); }
   if (projectIds) { p.push(projectIds); w.push(`${alias}.project_id = ANY($${p.length}::int[])`); }
-  if (desde) { p.push(desde); w.push(`${alias}.entrada_at >= $${p.length}::date`); }
-  if (hasta) { p.push(hasta); w.push(`${alias}.entrada_at < ($${p.length}::date + INTERVAL '1 day')`); }
+  // Días de Madrid, como el volumen por día: si no, lo de las 00:00–02:00 caía
+  // fuera del día pedido y salía en el gráfico del día de antes.
+  if (desde) { p.push(desde); w.push(`${alias}.entrada_at >= ($${p.length}::date::timestamp AT TIME ZONE 'Europe/Madrid')`); }
+  if (hasta) { p.push(hasta); w.push(`${alias}.entrada_at < (($${p.length}::date + 1)::timestamp AT TIME ZONE 'Europe/Madrid')`); }
   return { where: w.join(' AND '), p };
 }
 
@@ -55,10 +57,10 @@ export async function metricas({ tutorId = null, projectIds = null, desde = null
   // Fuera de plazo: respondidas tarde o abiertas que ya se pasaron.
   const fuera = (await query(
     `SELECT c.id, c.alumno_nombre, pr.nombre AS campus, u.nombre AS tutor, c.estado, c.entrada_at,
-            ROUND((COALESCE(${HORAS('c.primera_respuesta_at', 'c.entrada_at')}, ${HORAS('NOW()', 'c.entrada_at')}))::numeric, 1) AS horas
+            ROUND((${HORAS('COALESCE(c.primera_respuesta_at, c.cerrada_at, NOW())', 'c.entrada_at')})::numeric, 1) AS horas
        FROM consultas c JOIN projects pr ON pr.id = c.project_id LEFT JOIN users u ON u.id = c.tutor_id
       WHERE ${f.where}
-        AND COALESCE(${HORAS('c.primera_respuesta_at', 'c.entrada_at')}, ${HORAS('NOW()', 'c.entrada_at')}) > ${plazo}
+        AND ${HORAS('COALESCE(c.primera_respuesta_at, c.cerrada_at, NOW())', 'c.entrada_at')} > ${plazo}
       ORDER BY horas DESC LIMIT 100`, f.p)).rows;
 
   const porDia = (await query(
@@ -71,10 +73,16 @@ export async function metricas({ tutorId = null, projectIds = null, desde = null
   if (tutorId) { fa.push(tutorId); wa.push(`ta.tutor_id = $${fa.length}`); }
   if (projectIds) { fa.push(projectIds); wa.push(`ta.project_id = ANY($${fa.length}::int[])`); }
   const alumnos = (await query(
+    // Un alumno es uno aunque esté en varios cursos del mismo tutor (si no,
+    // contaba doble en el total y en el % de contactados).
     `WITH a AS (
-       SELECT ta.*, (ta.con_conversacion OR EXISTS (SELECT 1 FROM consultas c WHERE c.project_id = ta.project_id
-                       AND c.alumno_moodle_id = ta.alumno_moodle_id AND c.tutor_id = ta.tutor_id)) AS contactado
+       SELECT ta.project_id, ta.tutor_id, ta.alumno_moodle_id,
+              MIN(ta.matriculado_desde) AS matriculado_desde,
+              MIN(ta.primer_contacto_at) AS primer_contacto_at,
+              (BOOL_OR(ta.con_conversacion) OR EXISTS (SELECT 1 FROM consultas c WHERE c.project_id = ta.project_id
+                 AND c.alumno_moodle_id = ta.alumno_moodle_id AND c.tutor_id = ta.tutor_id)) AS contactado
          FROM tutor_alumnos ta WHERE ${wa.join(' AND ')}
+        GROUP BY ta.project_id, ta.tutor_id, ta.alumno_moodle_id
      )
      SELECT COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE contactado)::int AS contactados,

@@ -37,7 +37,10 @@ export const cargaSchema = z.object({
   texto: z.string().trim().max(2000, 'El texto, como mucho 2000 caracteres.').nullable().optional(),
 });
 
-const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha en formato AAAA-MM-DD');
+// Una fecha que existe: «2026-13-45» pasaba el formato y la base daba un 500.
+const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha en formato AAAA-MM-DD')
+  .refine((v) => { const d = new Date(`${v}T00:00:00Z`); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v; },
+    'Esa fecha no existe: revísala (AAAA-MM-DD).');
 export const metricasSchema = z.object({
   desde: fecha.optional(),
   hasta: fecha.optional(),

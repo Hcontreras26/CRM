@@ -9,7 +9,7 @@ import Field from '@/shared/components/ui/Field';
 import { Button } from '@/shared/components/ui/button';
 import { inputClass } from '@/shared/lib/ui';
 import { consultasApi, type AlumnoSinMensajes, type Color } from '../api/consultas.api';
-import ConsultasNav, { useQuienSoy, VistaMiasTodas, mensajeDeError, fechaCorta } from '../components/ConsultasNav';
+import ConsultasNav, { useQuienSoy, VistaMiasTodas, mensajeDeError, fechaCorta, useUltimaPeticion } from '../components/ConsultasNav';
 
 /*
   «Alumnos sin mensajes» (#189): los alumnos matriculados de cada tutor con los
@@ -89,15 +89,20 @@ export default function AlumnosSinMensajesPage() {
   const ambito = useMemo(() => ({ projectId: activeIssuerId ? null : activeProject?.id ?? null, issuerId: activeIssuerId }),
     [activeProject?.id, activeIssuerId]);
 
+  const nueva = useUltimaPeticion();
   const cargar = useCallback(async () => {
+    const vale = nueva();
     setCargando(true);
     try {
       const r = await consultasApi.alumnosSinMensajes(vista === 'todas' ? ambito : undefined);
+      if (!vale()) return;
       if (r.success && r.data) { setLista(r.data.alumnos); setDias({ ambar: r.data.diasAmbar, rojo: r.data.diasRojo }); }
     } catch (e) {
+      if (!vale()) return;
+      setLista([]);
       toast({ title: 'No se han podido cargar los alumnos', description: mensajeDeError(e), variant: 'destructive' });
-    } finally { setCargando(false); }
-  }, [vista, ambito]);
+    } finally { if (vale()) setCargando(false); }
+  }, [vista, ambito, nueva]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

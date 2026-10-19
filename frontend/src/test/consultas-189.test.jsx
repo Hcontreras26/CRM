@@ -230,3 +230,34 @@ describe('#189 · métricas', () => {
     expect(screen.getByRole('combobox', { name: 'Tutor' })).toBeTruthy();
   });
 });
+
+describe('#189 · lo que salió en la revisión final (18/10)', () => {
+  it('un día suelto se escribe tal cual, sin pasar por la hora (en América salía el día de antes)', async () => {
+    const { fechaCorta } = await import('@/modules/consultas/components/ConsultasNav');
+    expect(fechaCorta('2026-10-02')).toBe('2/10/2026');
+    expect(fechaCorta(null)).toBe('—');
+  });
+
+  it('«Mi carga» dice por qué no carga, en vez de quedarse en «Cargando…»', async () => {
+    api.miCarga.mockRejectedValue(Object.assign(new Error('La carga es de cada tutor'), { data: { error: 'La carga es de cada tutor' } }));
+    enRuta(<MiCargaPage />);
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText(/No se ha podido cargar tu carga de trabajo: La carga es de cada tutor/)).toBeTruthy();
+    expect(screen.queryByText('Cargando…')).toBeNull();
+  });
+
+  it('si falla la lista de alumnos, no se quedan los de antes', async () => {
+    api.user = { role: 'admin' };
+    api.alumnosSinMensajes.mockRejectedValueOnce(new Error('403'));
+    enRuta(<AlumnosSinMensajesPage />);
+    await waitFor(() => expect(api.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No se han podido cargar los alumnos' })));
+    expect(screen.queryByText('Ana Pérez')).toBeNull();
+  });
+
+  it('soporte como rol de más no ve «Tutores» (el servidor no se lo deja)', () => {
+    api.user = { role: 'tutor', roles_extra: ['soporte'] };
+    enRuta(<AlumnosSinMensajesPage />);
+    expect(screen.queryByRole('link', { name: /Tutores/ })).toBeNull();
+    expect(screen.getByRole('link', { name: /Mi carga/ })).toBeTruthy();
+  });
+});

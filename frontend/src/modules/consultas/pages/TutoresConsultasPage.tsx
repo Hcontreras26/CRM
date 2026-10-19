@@ -6,7 +6,7 @@ import { toast } from '@/shared/hooks/useToast';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { consultasApi, type TutorPanel, type CampusSinTutor } from '../api/consultas.api';
-import ConsultasNav, { mensajeDeError, fechaCorta } from '../components/ConsultasNav';
+import ConsultasNav, { mensajeDeError, fechaCorta, useUltimaPeticion } from '../components/ConsultasNav';
 import { NivelCargaChip } from './MiCargaPage';
 import CampusSinTutorAviso from '../components/CampusSinTutorAviso';
 
@@ -28,15 +28,20 @@ export default function TutoresConsultasPage() {
   const ambito = useMemo(() => ({ projectId: activeIssuerId ? null : activeProject?.id ?? null, issuerId: activeIssuerId }),
     [activeProject?.id, activeIssuerId]);
 
+  const nueva = useUltimaPeticion();
   const cargar = useCallback(async () => {
+    const vale = nueva();
     setCargando(true);
     try {
       const r = await consultasApi.panelDeTutores(ambito);
+      if (!vale()) return;
       if (r.success && r.data) { setTutores(r.data.tutores); setSinTutor(r.data.campusSinTutor); setPlazo(r.data.diasPlazoCarga); }
     } catch (e) {
+      if (!vale()) return;
+      setTutores([]); setSinTutor([]);
       toast({ title: 'No se ha podido cargar el panel de tutores', description: mensajeDeError(e), variant: 'destructive' });
-    } finally { setCargando(false); }
-  }, [ambito]);
+    } finally { if (vale()) setCargando(false); }
+  }, [ambito, nueva]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

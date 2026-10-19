@@ -49,6 +49,7 @@ const fechaHora = (s: string) => new Date(s).toLocaleString('es-ES', { dateStyle
 
 export default function MiCargaPage() {
   const [datos, setDatos] = useState<MiCarga | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [nivel, setNivel] = useState<NivelCarga | null>(null);
   const [texto, setTexto] = useState('');
   const [faltaNivel, setFaltaNivel] = useState(false);
@@ -63,6 +64,8 @@ export default function MiCargaPage() {
         setTexto(r.data.actual?.texto ?? '');
       }
     } catch (e) {
+      // Sin esto se quedaba en «Cargando…» para siempre (p. ej., un admin que no es tutor).
+      setError(mensajeDeError(e) || 'No se ha podido cargar.');
       toast({ title: 'No se ha podido cargar tu carga de trabajo', description: mensajeDeError(e), variant: 'destructive' });
     }
   }, []);
@@ -87,7 +90,9 @@ export default function MiCargaPage() {
       <PageHeader title="Mi carga de trabajo"
         subtitle="Cuéntale a administración en qué estás y cuánta carga tienes. Actualízala al menos una vez por semana." />
 
-      {!datos ? (
+      {error && !datos ? (
+        <p role="alert" className="text-sm text-destructive">No se ha podido cargar tu carga de trabajo: {error}</p>
+      ) : !datos ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : (
         <div className="max-w-4xl mx-auto grid gap-4 lg:grid-cols-[1fr_18rem]">

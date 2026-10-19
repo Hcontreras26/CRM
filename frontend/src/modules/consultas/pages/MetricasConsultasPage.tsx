@@ -7,7 +7,7 @@ import Field from '@/shared/components/ui/Field';
 import Select from '@/shared/components/ui/Select';
 import { inputClass } from '@/shared/lib/ui';
 import { consultasApi, haceCuanto, type Metricas, type MediaMediana, type FilaRanking } from '../api/consultas.api';
-import ConsultasNav, { useQuienSoy, VistaMiasTodas, mensajeDeError, fechaCorta } from '../components/ConsultasNav';
+import ConsultasNav, { useQuienSoy, VistaMiasTodas, mensajeDeError, fechaCorta, useUltimaPeticion } from '../components/ConsultasNav';
 
 /*
   Métricas de las consultas (#189, sección 7 de la especificación). La
@@ -95,16 +95,25 @@ export default function MetricasConsultasPage() {
       .catch(() => setTutores([]));
   }, [deTodos, ambito]);
 
+  // Otra empresa o campus arriba: el tutor elegido puede no estar ya en la lista.
+  useEffect(() => { setTutorId(null); }, [ambito]);
+
+  const nueva = useUltimaPeticion();
   const cargar = useCallback(async () => {
+    const vale = nueva();
     setCargando(true);
     try {
       const f = { desde: desde || undefined, hasta: hasta || undefined, tutorId };
       const r = await consultasApi.metricas(f, deTodos ? ambito : undefined);
+      if (!vale()) return;
       if (r.success && r.data) setM(r.data);
     } catch (e) {
+      if (!vale()) return;
+      // Sin cifras del ámbito anterior debajo de la cabecera nueva.
+      setM(null);
       toast({ title: 'No se han podido cargar las métricas', description: mensajeDeError(e), variant: 'destructive' });
-    } finally { setCargando(false); }
-  }, [desde, hasta, tutorId, deTodos, ambito]);
+    } finally { if (vale()) setCargando(false); }
+  }, [desde, hasta, tutorId, deTodos, ambito, nueva]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

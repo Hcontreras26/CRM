@@ -165,9 +165,9 @@ export const FUNCIONES_RESPUESTA = ['core_message_send_instant_messages'];
  * miembros. Es por donde preguntan hoy los alumnos: el «Chat» del curso lleva a
  * la mensajería privada con su tutor (estudio de la fase 0).
  */
-export async function conversacionesDe(conexion, moodleUserId, { limite = 50 } = {}, opciones) {
+export async function conversacionesDe(conexion, moodleUserId, { limite = 50, desde = 0 } = {}, opciones) {
   const r = await llamar(conexion, 'core_message_get_conversations', {
-    userid: moodleUserId, type: 1, limitfrom: 0, limitnum: limite,
+    userid: moodleUserId, type: 1, limitfrom: desde, limitnum: limite,
   }, opciones);
   return (r?.conversations || []).map((c) => ({
     id: Number(c.id),

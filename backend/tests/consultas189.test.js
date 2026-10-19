@@ -55,7 +55,11 @@ function moodle({ cursos = {}, gente = {}, conversaciones = {} } = {}) {
       return json((g || []).map((u) => ({ ...u, roles: u.roles.map((r) => ({ shortname: r })) })));
     }
     if (f === 'core_message_get_conversations') {
-      return json({ conversations: (conversaciones[p.get('userid')] || []).map((a, i) => ({ id: 70000 + i, members: [{ id: a, fullname: `A ${a}` }] })) });
+      // Como Moodle: de `limitfrom` en adelante, como mucho `limitnum`.
+      const desde = Number(p.get('limitfrom') || 0);
+      const cuantas = Number(p.get('limitnum') || 50);
+      return json({ conversations: (conversaciones[p.get('userid')] || []).slice(desde, desde + cuantas)
+        .map((a, i) => ({ id: 70000 + desde + i, members: [{ id: a, fullname: `A ${a}` }] })) });
     }
     return error('accessexception');
   });
@@ -446,5 +450,100 @@ describe('#189 · resumen semanal al tutor', () => {
     const envio = await enviarResumenes(new Date());
     expect(envio.mandados).toBe(0);
     expect(envio.frenados).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('#189 · lo que salió en la revisión final (18/10)', () => {
+  it('un alumno en dos cursos del mismo tutor sale una vez, en la lista y en las métricas', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('DosCursos');
+    const t = await tutorMatriculado(p, 210);
+    alumnoN += 1;
+    for (const [curso, dias] of [[1, 9], [2, 3]]) {
+      await query(
+        `INSERT INTO tutor_alumnos (project_id, tutor_id, alumno_moodle_id, curso_moodle_id, curso_nombre,
+                                    alumno_nombre, matriculado_desde, activo, visto_at)
+         VALUES ($1, $2, $3, $4, $5, 'Doble', NOW() - ($6 || ' days')::interval, true, NOW())`,
+        [p, t, alumnoN, curso, `Curso ${curso}`, String(dias)]);
+    }
+    const l = await alumnos.sinMensajes({ tutorId: t });
+    expect(l).toHaveLength(1);
+    expect(l[0]).toMatchObject({ dias: 9, color: 'rojo' });
+    expect(l[0].curso_nombre).toMatch(/Curso 1/);
+    expect(l[0].curso_nombre).toMatch(/Curso 2/);
+    expect((await metricas({ tutorId: t })).alumnos).toMatchObject({ total: 1, sinMensajes: 1 });
+  });
+
+  it('los alumnos de un tutor que ya no está en el campus se dan de baja al sincronizar', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('TutorFuera');
+    await conectar(p);
+    const sigue = await tutorMatriculado(p, 220);
+    const seVa = await tutorMatriculado(p, 221);
+    await alumnoDe(p, seVa, 2);
+    await query("UPDATE tutor_campus SET estado = 'baja' WHERE tutor_id = $1", [seVa]);
+    const r = await alumnos.sincronizarAlumnos(p, { fetchImpl: moodle({ cursos: { 220: [] } }) });
+    expect(r.bajas).toBeGreaterThanOrEqual(1);
+    expect(await alumnos.sinMensajes({ tutorId: seVa })).toEqual([]);
+    expect(sigue).toBeTruthy();
+  });
+
+  it('lee todas las conversaciones del tutor, de 500 en 500', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('Paginas');
+    await conectar(p);
+    const t = await tutorMatriculado(p, 230);
+    // 501 conversaciones: el alumno 9501 está en la segunda página.
+    const conv = Array.from({ length: 501 }, (_, i) => 9001 + i);
+    const fetchImpl = moodle({
+      cursos: { 230: [{ id: 7, fullname: 'Curso' }] },
+      gente: { 7: [{ id: 230, fullname: 'Tutor', roles: ['editingteacher'] }, { id: 9501, fullname: 'Al final', roles: ['student'] }] },
+      conversaciones: { 230: conv },
+    });
+    await alumnos.sincronizarAlumnos(p, { fetchImpl });
+    expect(await alumnos.sinMensajes({ tutorId: t })).toEqual([]);
+  });
+
+  it('con la carga «completa», una consulta que se reabre sigue con su tutor', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('CompletaReabre');
+    const lleno = await tutorMatriculado(p, 240);
+    await tutorMatriculado(p, 241);
+    const m = {
+      projectId: p, conversacionId: 88240, alumno: { moodleId: 88240, nombre: 'Alumno' },
+      texto: 'Hola', externoId: 882400, escritoAt: new Date(),
+    };
+    const { consulta } = await servicio.entraMensajeDelAlumno(m, { tutorPreferido: lleno, avisar: false });
+    expect(consulta.tutor_id).toBe(lleno);
+    await carga.guardarCarga(lleno, { nivel: 'completa', texto: null }, lleno);
+    await query("UPDATE consultas SET estado = 'cerrada', cerrada_at = NOW() WHERE id = $1", [consulta.id]);
+    const r = await servicio.entraMensajeDelAlumno({ ...m, externoId: 882401, escritoAt: new Date() }, { tutorPreferido: lleno, avisar: false });
+    expect(r.reabierta).toBe(true);
+    expect(r.consulta.tutor_id).toBe(lleno);
+  });
+
+  it('métricas: las fechas en días de Madrid, las cerradas sin respuesta hasta su cierre y las fechas imposibles dan 400', async () => {
+    if (!hayBase) return;
+    const p = await crearCampus('MetricasMadrid');
+    const t = await tutorMatriculado(p, 250);
+    // 1 de octubre a las 23:30 UTC = 2 de octubre a la 01:30 en Madrid.
+    alumnoN += 1;
+    await query(
+      `INSERT INTO consultas (project_id, alumno_moodle_id, alumno_nombre, tutor_id, estado, origen, entrada_at, cerrada_at)
+       VALUES ($1, $2, 'Madrugada', $3, 'cerrada', 'moodle', '2026-10-01T23:30:00Z', '2026-10-03T23:30:00Z')`, [p, alumnoN, t]);
+    const dia2 = await metricas({ tutorId: t, desde: '2026-10-02', hasta: '2026-10-02' });
+    expect(dia2.consultas.volumen).toBe(1);
+    expect((await metricas({ tutorId: t, desde: '2026-10-01', hasta: '2026-10-01' })).consultas.volumen).toBe(0);
+    // Cerrada sin responder a las 48 h: fuera de plazo con 48 h, no con lo que lleve hasta hoy.
+    expect(dia2.consultas.fueraDePlazo.map((f) => f.horas)).toEqual([48]);
+    const sa = como({ userId: await crearUsuario('superadmin'), role: 'superadmin' });
+    expect((await sa.get('/api/consultas/metricas?todas=1&desde=2026-13-45')).status).toBe(400);
+  });
+
+  it('el resumen de los lunes mira la hora de Madrid, no la del servidor', async () => {
+    const { enMadrid } = await import('../src/jobs/consultasResumenScheduler.js');
+    expect(enMadrid(new Date('2026-10-19T07:30:00Z'))).toMatchObject({ diaSemana: 1, hora: 9, dia: '2026-10-19' });
+    expect(enMadrid(new Date('2026-10-18T23:30:00Z'))).toMatchObject({ diaSemana: 1, hora: 1, dia: '2026-10-19' });
+    expect(enMadrid(new Date('2026-12-21T08:30:00Z'))).toMatchObject({ diaSemana: 1, hora: 9 });
   });
 });

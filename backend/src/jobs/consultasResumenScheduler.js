@@ -31,8 +31,12 @@ export async function resumenDelTutor(tutorId) {
 
 export async function enviarResumenes(hoy = new Date()) {
   const { rows } = await query(
+    // Solo tutores de campus que leen consultas: a los demás no se les habla
+    // de Consultas.
     `SELECT DISTINCT u.id, u.nombre, u.email
        FROM users u JOIN tutor_campus tc ON tc.tutor_id = u.id AND tc.estado = 'activa'
+       JOIN project_integrations pi ON pi.project_id = tc.project_id AND pi.provider = 'moodle'
+        AND pi.active AND COALESCE((pi.config_public->>'consultas')::boolean, false)
       WHERE u.active`);
   const lunes = hoy.toISOString().slice(0, 10);
   let mandados = 0;
@@ -68,12 +72,22 @@ export async function enviarResumenes(hoy = new Date()) {
 
 let hecho = null;
 
+/** El día de la semana (1 = lunes), la hora y la fecha, en Madrid: el servidor puede ir en UTC. */
+export function enMadrid(fecha) {
+  const partes = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Madrid', weekday: 'short', hour: '2-digit', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(fecha).map((x) => [x.type, x.value]));
+  const dias = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 0 };
+  return { diaSemana: dias[partes.weekday], hora: Number(partes.hour), dia: `${partes.year}-${partes.month}-${partes.day}` };
+}
+
 async function vuelta() {
   const hoy = new Date();
-  // Los lunes, desde su hora, una vez. La clave del correo lleva el día, así
-  // que ni un reinicio el mismo lunes lo repite.
-  const dia = hoy.toISOString().slice(0, 10);
-  if (hoy.getDay() !== 1 || hoy.getHours() < HORA || hecho === dia) return null;
+  // Los lunes, desde su hora de Madrid, una vez. La clave del correo lleva el
+  // día, así que ni un reinicio el mismo lunes lo repite.
+  const { diaSemana, hora, dia } = enMadrid(hoy);
+  if (diaSemana !== 1 || hora < HORA || hecho === dia) return null;
   hecho = dia;
   return enviarResumenes(hoy);
 }

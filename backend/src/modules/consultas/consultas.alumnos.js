@@ -45,14 +45,16 @@ export async function sincronizarAlumnos(projectId, opciones = {}) {
   const conexion = await conexionDelCampus(projectId);
   if (!conexion || conexion.error) return { projectId, sinConexion: true };
   const resumen = { projectId, tutores: 0, alumnos: 0, nuevos: 0, bajas: 0, errores: [] };
-  for (const tutor of await tutoresDelCampus(projectId)) {
-    const inicio = new Date();
+  const tutores = await tutoresDelCampus(projectId);
+  for (const tutor of tutores) {
+    // La hora de la base, no la de Node: `visto_at` se pone con NOW() y un
+    // reloj adelantado daría de baja a quien se acaba de ver.
+    const inicio = (await query('SELECT NOW() AS ahora')).rows[0].ahora;
     let cursos;
     let conConversacion;
     try {
       cursos = await cursosDe(conexion, tutor.moodleId, opciones);
-      conConversacion = new Set((await conversacionesDe(conexion, tutor.moodleId, { limite: 500 }, opciones))
-        .flatMap((c) => c.miembros.map((m) => m.id)));
+      conConversacion = await conQuienHabla(conexion, tutor.moodleId, opciones);
     } catch (err) {
       resumen.errores.push(err instanceof MoodleError ? err.message : 'No se han podido leer sus cursos.');
       continue;
@@ -96,7 +98,30 @@ export async function sincronizarAlumnos(projectId, opciones = {}) {
       resumen.bajas += b.rowCount;
     }
   }
+  // Los alumnos de quien ya no es tutor activo de este campus (baja en el
+  // campus, usuario desactivado…) salen de las listas y de las métricas.
+  const fuera = await query(
+    `UPDATE tutor_alumnos SET activo = false
+      WHERE project_id = $1 AND activo AND NOT (tutor_id = ANY($2::int[]))`,
+    [projectId, tutores.map((t) => t.tutorId)]);
+  resumen.bajas += fuera.rowCount;
   return resumen;
+}
+
+/**
+ * Con quién tiene ya conversación el tutor en el campus: todas sus
+ * conversaciones, de 500 en 500. Con una sola página, a un tutor con más de 500
+ * se le quedaban alumnos con conversación marcados como «sin mensajes».
+ */
+const POR_PAGINA = 500;
+async function conQuienHabla(conexion, moodleUserId, opciones) {
+  const quien = new Set();
+  for (let desde = 0; ; desde += POR_PAGINA) {
+    const pagina = await conversacionesDe(conexion, moodleUserId, { limite: POR_PAGINA, desde }, opciones);
+    for (const c of pagina) for (const m of c.miembros) quien.add(m.id);
+    if (pagina.length < POR_PAGINA) break;
+  }
+  return quien;
 }
 
 export async function sincronizarTodos(opciones = {}) {
@@ -132,16 +157,30 @@ export async function sinMensajes({ tutorId = null, projectIds = null } = {}) {
   const p = [];
   if (tutorId) { p.push(tutorId); where.push(`ta.tutor_id = $${p.length}`); }
   if (projectIds) { p.push(projectIds); where.push(`ta.project_id = ANY($${p.length}::int[])`); }
+  // Una fila por alumno y tutor, aunque esté en varios cursos suyos (si no, el
+  // mismo alumno salía dos veces y contaba doble en el resumen semanal): sus
+  // cursos juntos y la matrícula más antigua. `id` es la de esa matrícula.
   const { rows } = await query(
-    `SELECT ta.id, ta.project_id, pr.nombre AS campus, ta.tutor_id, u.nombre AS tutor,
-            ta.alumno_nombre, ta.alumno_email, ta.curso_nombre, ta.matriculado_desde, ta.matricula_aproximada,
-            ta.ultimo_acceso,
-            FLOOR(EXTRACT(EPOCH FROM (NOW() - ta.matriculado_desde)) / 86400)::int AS dias
-       FROM tutor_alumnos ta
-       JOIN projects pr ON pr.id = ta.project_id
-       JOIN users u ON u.id = ta.tutor_id
-      WHERE ${where.join(' AND ')}
-      ORDER BY ta.matriculado_desde ASC, ta.id
+    `WITH g AS (
+       SELECT ta.project_id, ta.tutor_id, ta.alumno_moodle_id,
+              (ARRAY_AGG(ta.id ORDER BY ta.matriculado_desde, ta.id))[1] AS id,
+              MIN(ta.matriculado_desde) AS matriculado_desde,
+              BOOL_OR(ta.matricula_aproximada) AS matricula_aproximada,
+              MAX(ta.ultimo_acceso) AS ultimo_acceso,
+              MAX(ta.alumno_nombre) AS alumno_nombre, MAX(ta.alumno_email) AS alumno_email,
+              STRING_AGG(DISTINCT ta.curso_nombre, ' · ') AS curso_nombre
+         FROM tutor_alumnos ta
+        WHERE ${where.join(' AND ')}
+        GROUP BY ta.project_id, ta.tutor_id, ta.alumno_moodle_id
+     )
+     SELECT g.id, g.project_id, pr.nombre AS campus, g.tutor_id, u.nombre AS tutor,
+            g.alumno_nombre, g.alumno_email, g.curso_nombre, g.matriculado_desde, g.matricula_aproximada,
+            g.ultimo_acceso,
+            FLOOR(EXTRACT(EPOCH FROM (NOW() - g.matriculado_desde)) / 86400)::int AS dias
+       FROM g
+       JOIN projects pr ON pr.id = g.project_id
+       JOIN users u ON u.id = g.tutor_id
+      ORDER BY g.matriculado_desde ASC, g.id
       LIMIT 1000`, p);
   return rows.map((r) => ({ ...r, color: r.dias >= DIAS_ROJO ? 'rojo' : r.dias >= DIAS_AMBAR ? 'ambar' : 'verde' }));
 }

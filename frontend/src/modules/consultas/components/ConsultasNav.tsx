@@ -1,4 +1,5 @@
 import { ChatCircleText, UserCircleMinus, Gauge, UsersThree, ChartBar } from '@phosphor-icons/react';
+import { useCallback, useRef } from 'react';
 import SubNav from '@/shared/components/ui/SubNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { tieneRol } from '@/shared/lib/roles';
@@ -13,7 +14,8 @@ export function useQuienSoy() {
   const { user } = useAuth() as { user: { role?: string; roles_extra?: string[] } | null };
   return {
     esTutor: tieneRol(user as never, 'tutor'),
-    esAdmin: tieneRol(user as never, 'admin', 'superadmin', 'soporte'),
+    // Como el servidor (`veTodoElCrm`): superadmin y soporte solo como rol principal.
+    esAdmin: ['superadmin', 'soporte'].includes(user?.role || '') || tieneRol(user as never, 'admin'),
   };
 }
 
@@ -48,4 +50,17 @@ export function mensajeDeError(e: unknown) {
   return err?.data?.error || err?.message;
 }
 
-export const fechaCorta = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString('es-ES') : '—');
+export const fechaCorta = (s: string | null | undefined) => {
+  if (!s) return '—';
+  // Un día suelto («2026-10-02») se escribe tal cual: con `new Date` se leía como
+  // medianoche UTC y en América salía el día de antes.
+  const dia = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (dia) return `${Number(dia[3])}/${Number(dia[2])}/${dia[1]}`;
+  return new Date(s).toLocaleDateString('es-ES');
+};
+
+/** Solo vale la respuesta de la última petición: una vieja que llegue tarde no pisa a la nueva. */
+export function useUltimaPeticion() {
+  const n = useRef(0);
+  return useCallback(() => { const yo = ++n.current; return () => yo === n.current; }, []);
+}
