@@ -3,7 +3,8 @@ import type { ApiResponse } from '@/shared/types';
 
 /*
   Consultas de alumnos, fase 2 (#188): la bandeja del tutor y el panel de
-  administración.
+  administración. Fase 3 (#189): alumnos sin mensajes, carga de trabajo y
+  métricas.
 */
 
 export type EstadoConsulta = 'abierta' | 'respondida' | 'cerrada';
@@ -64,6 +65,78 @@ export interface FiltrosConsultas {
   buscar?: string;
 }
 
+// ─── Fase 3 (#189) ──────────────────────────────────────────────────────────
+
+export type Color = 'verde' | 'ambar' | 'rojo';
+
+export interface AlumnoSinMensajes {
+  id: number;
+  project_id: number;
+  campus: string;
+  tutor_id: number;
+  tutor: string | null;
+  alumno_nombre: string | null;
+  alumno_email: string | null;
+  curso_nombre: string | null;
+  matriculado_desde: string;
+  /** La fecha es la primera vez que el CRM vio al alumno, no la de Moodle. */
+  matricula_aproximada: boolean;
+  ultimo_acceso: string | null;
+  dias: number;
+  color: Color;
+}
+
+export type NivelCarga = 'baja' | 'media' | 'alta' | 'completa';
+export interface DatosReales { alumnos_activos: number; consultas_abiertas: number; alumnos_sin_mensajes: number }
+export interface CargaApunte { id: number; nivel: NivelCarga; texto: string | null; created_at: string; por: string | null }
+export interface MiCarga {
+  actual: CargaApunte | null;
+  historial: CargaApunte[];
+  desactualizada: boolean;
+  diasPlazo: number;
+  datosReales: DatosReales;
+}
+
+export interface TutorPanel extends DatosReales {
+  id: number;
+  nombre: string;
+  email: string;
+  is_available: boolean | null;
+  unavailable_reason: string | null;
+  campus: string[];
+  empresas: string[] | null;
+  carga: { nivel: NivelCarga; texto: string | null; created_at: string } | null;
+  desactualizada: boolean;
+}
+export interface CampusSinTutor { id: number; campus: string; empresa: string | null }
+
+export interface MediaMediana { media: number | null; mediana: number | null }
+export interface FilaRanking { id: number; nombre: string; consultas: number; pendientes: number; primeraRespuestaHoras: MediaMediana; enPlazoPct: number | null }
+export interface Metricas {
+  plazoHoras: number;
+  consultas: {
+    volumen: number;
+    respondidas: number;
+    primeraRespuestaHoras: MediaMediana;
+    resolucionHoras: MediaMediana;
+    enPlazoPct: number | null;
+    pendientes: { total: number; mediaHoras: number | null; maximaHoras: number | null };
+    fueraDePlazo: Array<{ id: number; alumno_nombre: string | null; campus: string; tutor: string | null; estado: EstadoConsulta; entrada_at: string; horas: number }>;
+    porDia: Array<{ dia: string; n: number }>;
+  };
+  alumnos: {
+    total: number;
+    sinMensajes: number;
+    sinMensajesDiasMedia: number | null;
+    contactadosPct: number | null;
+    primerContactoDias: MediaMediana;
+    matriculaAproximada: boolean;
+  };
+  ranking?: { tutores: FilaRanking[]; campus: FilaRanking[] };
+}
+
+export interface Ambito { projectId?: number | null; issuerId?: number | null }
+
 const qs = (o: Record<string, string | number | boolean | null | undefined>) => {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(o)) if (v !== undefined && v !== null && v !== '' && v !== false) p.set(k, String(v));
@@ -103,6 +176,38 @@ export const consultasApi = {
     client.get(`/consultas/tutores/${tutorId}/tokens`) as Promise<ApiResponse<Array<{ project_id: number; campus: string; estado: string | null; tiene_token: boolean }>>>,
   guardarToken: (tutorId: number, projectId: number, token: string | null) =>
     client.put(`/consultas/tutores/${tutorId}/token`, { projectId, token }) as Promise<ApiResponse<{ project_id: number; tiene_token: boolean }>>,
+
+  /** Sin ámbito: los del tutor. Con ámbito: los de todos (administración). */
+  alumnosSinMensajes: (ambito?: Ambito) =>
+    client.get(`/consultas/alumnos-sin-mensajes${qs(ambito ? {
+      todas: 1, projectId: ambito.projectId && ambito.projectId > 0 ? ambito.projectId : undefined, issuerId: ambito.issuerId || undefined,
+    } : {})}`) as Promise<ApiResponse<{ alumnos: AlumnoSinMensajes[]; diasAmbar: number; diasRojo: number }>>,
+  escribirAlAlumno: (id: number, texto: string) =>
+    client.post(`/consultas/alumnos/${id}/escribir`, { texto }) as Promise<ApiResponse<{ consultaId: number; enviado: boolean; error: string | null }>>,
+  miCarga: () => client.get('/consultas/carga') as Promise<ApiResponse<MiCarga>>,
+  guardarCarga: (nivel: NivelCarga, texto: string | null) =>
+    client.post('/consultas/carga', { nivel, texto }) as Promise<ApiResponse<MiCarga>>,
+  panelDeTutores: (ambito: Ambito) =>
+    client.get(`/consultas/tutores-panel${qs({
+      projectId: ambito.projectId && ambito.projectId > 0 ? ambito.projectId : undefined, issuerId: ambito.issuerId || undefined,
+    })}`) as Promise<ApiResponse<{ tutores: TutorPanel[]; campusSinTutor: CampusSinTutor[]; diasPlazoCarga: number }>>,
+  campusSinTutor: (ambito: Ambito) =>
+    client.get(`/consultas/campus-sin-tutor${qs({
+      projectId: ambito.projectId && ambito.projectId > 0 ? ambito.projectId : undefined, issuerId: ambito.issuerId || undefined,
+    })}`) as Promise<ApiResponse<CampusSinTutor[]>>,
+  sincronizarAlumnos: (ambito: Ambito) =>
+    client.post(`/consultas/sincronizar-alumnos${qs({
+      projectId: ambito.projectId && ambito.projectId > 0 ? ambito.projectId : undefined, issuerId: ambito.issuerId || undefined,
+    })}`, {}) as Promise<ApiResponse<Array<{ projectId: number; alumnos?: number; nuevos?: number; bajas?: number; errores?: string[] }>>>,
+  /** Sin ámbito: las del tutor. Con ámbito: las de todos con el ranking (administración). */
+  metricas: (f: { desde?: string; hasta?: string; tutorId?: number | null }, ambito?: Ambito) =>
+    client.get(`/consultas/metricas${qs({
+      desde: f.desde, hasta: f.hasta,
+      ...(ambito ? {
+        todas: 1, tutorId: f.tutorId || undefined,
+        projectId: ambito.projectId && ambito.projectId > 0 ? ambito.projectId : undefined, issuerId: ambito.issuerId || undefined,
+      } : {}),
+    })}`) as Promise<ApiResponse<Metricas>>,
 
   /**
    * El adjunto, con la sesión (no es el enlace público del alumno).

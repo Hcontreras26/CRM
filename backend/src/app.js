@@ -78,6 +78,8 @@ import { startMetaAdsSyncScheduler } from './jobs/metaAdsSyncScheduler.js';
 import { startTutorCommissionsScheduler } from './jobs/tutorCommissionsScheduler.js';
 import { startTutoresCampusScheduler } from './jobs/tutoresCampusScheduler.js';
 import { startConsultasCampusScheduler } from './jobs/consultasCampusScheduler.js';
+import { startConsultasAlumnosScheduler } from './jobs/consultasAlumnosScheduler.js';
+import { startConsultasResumenScheduler } from './jobs/consultasResumenScheduler.js';
 import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoScheduler.js';
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
@@ -418,6 +420,8 @@ if (process.env.NODE_ENV !== 'test') {
     startTutorCommissionsScheduler();
     startTutoresCampusScheduler();
     startConsultasCampusScheduler();
+    startConsultasAlumnosScheduler();
+    startConsultasResumenScheduler();
     startVigilanteCatalogoScheduler();
     startLeadSinTocarScheduler();
     startPasoVencidoScheduler();

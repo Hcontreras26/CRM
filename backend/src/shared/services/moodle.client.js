@@ -109,7 +109,8 @@ export async function infoDelCampus(conexion, opciones) {
     // Sin la lista (algunos Moodle no la dan) no se puede decir que falte nada.
     faltan: info?.functions ? FUNCIONES_NECESARIAS.filter((f) => !tiene.has(f)) : [],
     // Las de leer la mensajería (#188): solo cuentan si el campus lee consultas.
-    faltanConsultas: info?.functions ? FUNCIONES_CONSULTAS.filter((f) => !tiene.has(f)) : [],
+    // y las de los matriculados (#189), que también usa leer consultas.
+    faltanConsultas: info?.functions ? [...FUNCIONES_CONSULTAS, ...FUNCIONES_ALUMNOS].filter((f) => !tiene.has(f)) : [],
   };
 }
 
@@ -234,4 +235,35 @@ export function textoDeMoodle(html) {
     .replace(/\r\n?/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+// ─── Consultas de alumnos, fase 3 (#189): los alumnos de cada tutor ─────────
+
+/** Lo que necesita el token del CAMPUS para leer los matriculados (además de lo anterior). */
+export const FUNCIONES_ALUMNOS = ['core_enrol_get_users_courses', 'core_enrol_get_enrolled_users'];
+
+/** Los cursos en los que está matriculado un usuario (para el tutor: los que imparte). */
+export async function cursosDe(conexion, moodleUserId, opciones) {
+  const r = await llamar(conexion, 'core_enrol_get_users_courses', { userid: moodleUserId }, opciones);
+  return (Array.isArray(r) ? r : []).map((c) => ({ id: Number(c.id), nombre: c.fullname || c.shortname || null }));
+}
+
+/**
+ * Los matriculados ACTIVOS de un curso, con su rol y su último acceso. Solo
+ * activos (decisión 8: fuera bajas): `onlyactive`.
+ */
+export async function matriculadosDe(conexion, cursoId, opciones) {
+  const r = await llamar(conexion, 'core_enrol_get_enrolled_users', {
+    courseid: cursoId,
+    'options[0][name]': 'onlyactive', 'options[0][value]': 1,
+    'options[1][name]': 'userfields', 'options[1][value]': 'id,fullname,email,lastaccess,lastcourseaccess,roles',
+  }, opciones);
+  return (Array.isArray(r) ? r : []).map((u) => ({
+    id: Number(u.id),
+    nombre: u.fullname || null,
+    email: u.email || null,
+    roles: (u.roles || []).map((x) => x.shortname),
+    // 0 = nunca ha entrado.
+    ultimoAcceso: Number(u.lastcourseaccess || u.lastaccess) > 0 ? new Date(Number(u.lastcourseaccess || u.lastaccess) * 1000) : null,
+  }));
 }

@@ -7,8 +7,12 @@ import { esGestorColaboraciones } from '../tutores/tutor.model.js';
 import { tutoresQueRecibenConsultas, campusDelTutor } from '../tutores/tutor.campus.js';
 import * as model from './consultas.model.js';
 import * as servicio from './consultas.service.js';
+import * as alumnos from './consultas.alumnos.js';
+import * as carga from './consultas.carga.js';
+import * as metricas from './consultas.metricas.js';
 import {
   responderSchema, reasignarSchema, tokenTutorSchema, listarSchema,
+  escribirSchema, cargaSchema, metricasSchema,
 } from './consultas.validation.js';
 
 /*
@@ -219,5 +223,107 @@ export async function guardarToken(req, res, next) {
       throw new AppError('Primero hay que comprobar su matrícula en ese campus («Comprobar en los campus»).', 409, 'SIN_MATRICULA');
     }
     res.json({ success: true, data: { project_id: projectId, tiene_token: Boolean(token) } });
+  } catch (err) { next(err); }
+}
+
+// ─── Fase 3 (#189): alumnos sin mensajes, carga de trabajo y métricas ───────
+
+const esTutorUsuario = (user) => tieneRol(user, 'tutor');
+
+/** Lo que pide la petición: lo suyo (tutor) o todo el ámbito (administración, con ?todas=1). */
+async function quienYAmbito(req) {
+  const todas = ['1', 'true'].includes(String(req.query.todas || ''));
+  if (todas) {
+    if (!esAdministracion(req.user)) throw new AppError('Solo administración ve las de todos', 403, 'FORBIDDEN');
+    const { projectId, projectIds } = await proyectosDelAmbito(req);
+    return { todas: true, projectIds: comoLista(projectId, projectIds) };
+  }
+  if (!esTutorUsuario(req.user)) throw new AppError('Esto es de cada tutor: pide las de todos', 403, 'FORBIDDEN');
+  return { todas: false, tutorId: req.user.userId };
+}
+
+// GET /api/consultas/alumnos-sin-mensajes[?todas=1]
+export async function alumnosSinMensajes(req, res, next) {
+  try {
+    const q = await quienYAmbito(req);
+    res.json({ success: true, data: {
+      alumnos: await alumnos.sinMensajes(q.todas ? { projectIds: q.projectIds } : { tutorId: q.tutorId }),
+      diasAmbar: alumnos.DIAS_AMBAR, diasRojo: alumnos.DIAS_ROJO,
+    } });
+  } catch (err) { next(err); }
+}
+
+// POST /api/consultas/alumnos/:id/escribir  { texto }
+export async function escribirAlAlumno(req, res, next) {
+  try {
+    const fila = await alumnos.filaDeAlumno(parseInt(req.params.id));
+    // Escribe su tutor; a otro se le contesta como si no existiera.
+    if (!fila || fila.tutor_id !== req.user.userId) throw new AppError('Alumno no encontrado', 404, 'NOT_FOUND');
+    const { texto } = valida(escribirSchema, req.body);
+    res.json({ success: true, data: await alumnos.escribirAlAlumno(fila, req.user.userId, texto) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/consultas/carga  — «Mi carga de trabajo»
+export async function miCarga(req, res, next) {
+  try {
+    if (!esTutorUsuario(req.user)) throw new AppError('La carga es de cada tutor', 403, 'FORBIDDEN');
+    res.json({ success: true, data: await carga.cargaDe(req.user.userId) });
+  } catch (err) { next(err); }
+}
+
+// POST /api/consultas/carga  { nivel, texto }
+export async function guardarMiCarga(req, res, next) {
+  try {
+    if (!esTutorUsuario(req.user)) throw new AppError('La carga es de cada tutor', 403, 'FORBIDDEN');
+    const d = valida(cargaSchema, req.body);
+    res.json({ success: true, data: await carga.guardarCarga(req.user.userId, d, req.user.userId) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/consultas/tutores-panel  — administración
+export async function panelDeTutores(req, res, next) {
+  try {
+    if (!esAdministracion(req.user)) throw new AppError('Solo administración', 403, 'FORBIDDEN');
+    const { projectId, projectIds } = await proyectosDelAmbito(req);
+    const ids = comoLista(projectId, projectIds);
+    res.json({ success: true, data: {
+      tutores: await carga.panelDeTutores(ids),
+      campusSinTutor: await carga.campusSinTutor(ids),
+      diasPlazoCarga: carga.DIAS_CARGA,
+    } });
+  } catch (err) { next(err); }
+}
+
+// POST /api/consultas/sincronizar-alumnos  — administración: no esperar a la vuelta diaria
+export async function sincronizarAlumnosAhora(req, res, next) {
+  try {
+    if (!esAdministracion(req.user)) throw new AppError('Solo administración', 403, 'FORBIDDEN');
+    const { projectId, projectIds } = await proyectosDelAmbito(req);
+    const ids = comoLista(projectId, projectIds);
+    const campus = (await servicio.campusConConsultas()).filter((c) => !ids || ids.includes(c.projectId));
+    const r = [];
+    for (const c of campus) r.push(await alumnos.sincronizarAlumnos(c.projectId));
+    res.json({ success: true, data: r });
+  } catch (err) { next(err); }
+}
+
+// GET /api/consultas/metricas?desde=&hasta=[&todas=1&tutorId=]
+export async function verMetricas(req, res, next) {
+  try {
+    const q = await quienYAmbito(req);
+    const f = valida(metricasSchema, req.query);
+    res.json({ success: true, data: await metricas.metricas(q.todas
+      ? { projectIds: q.projectIds, tutorId: f.tutorId || null, desde: f.desde, hasta: f.hasta, ranking: true }
+      : { tutorId: q.tutorId, desde: f.desde, hasta: f.hasta }) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/consultas/campus-sin-tutor  — el aviso de administración
+export async function campusSinTutor(req, res, next) {
+  try {
+    if (!esAdministracion(req.user)) throw new AppError('Solo administración', 403, 'FORBIDDEN');
+    const { projectId, projectIds } = await proyectosDelAmbito(req);
+    res.json({ success: true, data: await carga.campusSinTutor(comoLista(projectId, projectIds)) });
   } catch (err) { next(err); }
 }

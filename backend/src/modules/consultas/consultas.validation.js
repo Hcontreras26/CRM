@@ -21,3 +21,25 @@ export const listarSchema = z.object({
   sinTutor: z.enum(['1', 'true']).optional(),
   buscar: z.string().trim().max(100).optional(),
 });
+
+// ─── Fase 3 (#189) ───────────────────────────────────────────────────────────
+
+export const escribirSchema = z.object({
+  texto: z.string({ required_error: 'Falta el mensaje' }).trim()
+    .min(1, 'Falta el mensaje: escríbelo en «Mensaje al alumno».')
+    .max(20000, 'El mensaje es demasiado largo: como mucho 20 000 caracteres.'),
+});
+
+export const cargaSchema = z.object({
+  nivel: z.enum(['baja', 'media', 'alta', 'completa'], {
+    errorMap: () => ({ message: 'Falta el nivel: elige baja, media, alta o completa en «Nivel de carga».' }),
+  }),
+  texto: z.string().trim().max(2000, 'El texto, como mucho 2000 caracteres.').nullable().optional(),
+});
+
+const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha en formato AAAA-MM-DD');
+export const metricasSchema = z.object({
+  desde: fecha.optional(),
+  hasta: fecha.optional(),
+  tutorId: z.coerce.number().int().positive().optional(),
+});
