@@ -1,6 +1,14 @@
 import {
   describe, it, expect, beforeAll, afterAll, vi,
 } from 'vitest';
+
+// Los adjuntos se guardan en una carpeta temporal: la de por defecto
+// (/var/crm-uploads) no se puede escribir en la máquina de la CI. Va antes de
+// las importaciones porque `localStorage.service` la lee al cargarse.
+vi.hoisted(() => {
+  process.env.UPLOADS_DIR = `${process.env.RUNNER_TEMP || process.env.TEMP || '/tmp'}/crm-uploads-test-188`;
+});
+
 import express from 'express';
 import supertest from 'supertest';
 import jwt from 'jsonwebtoken';
