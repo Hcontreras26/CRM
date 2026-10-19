@@ -13,7 +13,7 @@ vi.mock('../src/shared/config/db.js', () => ({
 }));
 vi.mock('../src/modules/woocommerce/html-scraper.js', () => ({ fetchHtmlWithRetry: vi.fn() }));
 
-const { extraerModulosDeHtml, sincronizarTemario } = await import('../src/modules/products/temario.js');
+const { extraerModulosDeHtml, sincronizarTemario, paginasDelCurso } = await import('../src/modules/products/temario.js');
 
 beforeEach(() => { consultas.length = 0; producto = { id: 7, nombre: 'Curso X', url_info: 'https://iseih.com/cursos/x/' }; });
 
@@ -94,6 +94,35 @@ describe('sincronizar guarda los módulos en el catálogo', () => {
     expect(sqls.filter((s) => s.startsWith('INSERT INTO product_modules'))).toHaveLength(2);
     expect(sqls.some((s) => s.startsWith('UPDATE products SET num_modulos'))).toBe(true);
     expect(sqls.at(-1)).toBe('COMMIT');
+  });
+  it('Academia IA: la ficha de la tienda no trae temario y se coge el de la página del curso', async () => {
+    producto = { id: 8473, nombre: 'Curso de Benchmarking', url_info: 'https://academiaia.ai/product/curso-de-benchmarking-automatizado-con-inteligencia-artificial-16412/' };
+    const pedidas = [];
+    const r = await sincronizarTemario(8473, {
+      leer: async (url) => {
+        pedidas.push(url);
+        if (url.includes('/product/')) return '<p>La ficha de la tienda, sin temario</p>';
+        if (url.includes('/expertos/')) return MUESTRAS['Fono (h3)'];
+        throw new Error('HTTP 404');
+      },
+    });
+    expect(r.modulos).toHaveLength(2);
+    expect(r.fuente).toBe('https://academiaia.ai/expertos/curso-de-benchmarking-automatizado-con-inteligencia-artificial/');
+    // Primero la ficha, luego los niveles en orden hasta dar con él.
+    expect(pedidas).toEqual([
+      producto.url_info,
+      'https://academiaia.ai/principiantes/curso-de-benchmarking-automatizado-con-inteligencia-artificial/',
+      'https://academiaia.ai/avanzado/curso-de-benchmarking-automatizado-con-inteligencia-artificial/',
+      'https://academiaia.ai/expertos/curso-de-benchmarking-automatizado-con-inteligencia-artificial/',
+    ]);
+  });
+  it('las páginas del curso solo se buscan para fichas de la tienda de Academia IA', () => {
+    expect(paginasDelCurso('https://academiaia.ai/product/master-en-ia-123/')).toEqual([
+      'https://academiaia.ai/principiantes/master-en-ia/', 'https://academiaia.ai/avanzado/master-en-ia/', 'https://academiaia.ai/expertos/master-en-ia/',
+    ]);
+    expect(paginasDelCurso('https://psikoaprende.com/curso-de-mindfulness-2978/')).toEqual([]);
+    expect(paginasDelCurso('https://academiaia.ai/avanzado/diplomado-x/')).toEqual([]);
+    expect(paginasDelCurso(null)).toEqual([]);
   });
   it('si la página no los separa, NO borra lo que hubiera y dice por qué', async () => {
     const r = await sincronizarTemario(7, { leer: async () => '<p>Sin temario</p>' });

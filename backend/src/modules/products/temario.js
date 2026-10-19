@@ -105,7 +105,15 @@ export async function sincronizarTemario(productId, { leer = fetchHtmlWithRetry 
     logger.warn({ err: err.message, productId, url: p.url_info }, 'Temario: no se pudo leer la página');
     return { modulos: [], fuente: p.url_info, motivo: 'No se pudo abrir la página del curso. Prueba más tarde o escribe los módulos a mano.' };
   }
-  const modulos = extraerModulosDeHtml(html);
+  let modulos = extraerModulosDeHtml(html);
+  let fuente = p.url_info;
+  // La ficha de la tienda sin temario: se prueba la página del curso (Academia IA).
+  for (const alt of modulos.length ? [] : paginasDelCurso(p.url_info)) {
+    try {
+      const m = extraerModulosDeHtml(await leer(alt, 20000));
+      if (m.length) { modulos = m; fuente = alt; break; }
+    } catch { /* esa no existe (404) o no abre: la siguiente */ }
+  }
   if (!modulos.length) {
     return { modulos: [], fuente: p.url_info, motivo: 'La página del curso no separa el temario en «Módulo 1, 2…»: escribe los módulos a mano.' };
   }
@@ -125,6 +133,19 @@ export async function sincronizarTemario(productId, { leer = fetchHtmlWithRetry 
   } finally {
     c.release();
   }
-  logger.info({ productId, modulos: modulos.length, url: p.url_info }, 'Temario sincronizado con la página del curso');
-  return { modulos: modulos.map((x) => ({ titulo: x.titulo })), fuente: p.url_info, motivo: null };
+  logger.info({ productId, modulos: modulos.length, url: fuente }, 'Temario sincronizado con la página del curso');
+  return { modulos: modulos.map((x) => ({ titulo: x.titulo })), fuente, motivo: null };
+}
+
+/**
+ * Academia IA (19/10): el catálogo apunta a la ficha de la TIENDA
+ * (`academiaia.ai/product/<curso>-16412/`), que no trae el temario; el temario está en la
+ * página del CURSO, con el mismo nombre sin el número y bajo su nivel
+ * (`/principiantes/`, `/avanzado/` o `/expertos/<curso>/`). Las tres direcciones a probar,
+ * o ninguna si la ficha no es de esa tienda.
+ */
+export function paginasDelCurso(urlInfo) {
+  const m = /^https?:\/\/(?:www\.)?academiaia\.ai\/product\/([a-z0-9-]+?)(?:-\d+)?\/?(?:[?#].*)?$/i.exec(String(urlInfo || '').trim());
+  if (!m) return [];
+  return ['principiantes', 'avanzado', 'expertos'].map((nivel) => `https://academiaia.ai/${nivel}/${m[1]}/`);
 }
