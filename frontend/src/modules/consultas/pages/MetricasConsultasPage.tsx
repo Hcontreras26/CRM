@@ -162,7 +162,7 @@ export default function MetricasConsultasPage() {
           </section>
 
           <section aria-label="Volumen" className="rounded-lg border border-border bg-card p-4 space-y-2">
-            <h2 className="text-sm font-semibold">Volumen: {c.volumen} consultas</h2>
+            <h2 className="text-sm font-semibold">Volumen: {c.volumen} {c.volumen === 1 ? 'consulta' : 'consultas'}</h2>
             {c.porDia.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sin consultas en estas fechas.</p>
             ) : (
