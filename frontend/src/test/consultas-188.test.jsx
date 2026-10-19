@@ -23,6 +23,7 @@ vi.mock('@/contexts/ProjectContext', () => ({
 }));
 
 import { semaforo } from '@/modules/consultas/api/consultas.api';
+import { pathAllowsAll, rutaAceptaSociedad } from '@/shared/components/layout/AppLayout';
 import ConsultasPage from '@/modules/consultas/pages/ConsultasPage';
 import ConsultaPage from '@/modules/consultas/pages/ConsultaPage';
 
@@ -126,5 +127,14 @@ describe('Consultas (#188) · una consulta', () => {
     fireEvent.mouseDown(screen.getByRole('option', { name: 'Otro tutor' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reasignar' }));
     await waitFor(() => expect(api.reasignar).toHaveBeenCalledWith(5, 8));
+  });
+});
+
+describe('Consultas con la empresa o «Todos» en la cabecera', () => {
+  it('no sale el muro de «elige un campus»: el servidor ya acota por empresa', () => {
+    for (const ruta of ['/consultas', '/consultas/5']) {
+      expect(rutaAceptaSociedad(ruta)).toBe(true);
+      expect(pathAllowsAll(ruta)).toBe(true);
+    }
   });
 });
