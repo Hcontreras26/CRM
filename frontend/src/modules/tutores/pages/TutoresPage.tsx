@@ -1068,7 +1068,7 @@ export default function TutoresPage() {
               <div>
                 <h2 className="font-bold text-base">Nuevo tutor</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Sus datos, cómo entra, y los cursos por los que cobra.
+                  Sus datos, su contraseña y los cursos por los que cobra.
                 </p>
               </div>
               <button type="button" onClick={() => setPopupAlta(false)}

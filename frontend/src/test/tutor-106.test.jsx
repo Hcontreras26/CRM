@@ -77,6 +77,8 @@ describe('Tutor (#106)', () => {
     expect(document.querySelector('label[for="alta-clave"]').textContent).toMatch(/^Contraseña/);
     expect(clave.closest('div.min-w-0').textContent).toMatch(/Cópiala|correo|Con contraseña/);
     expect(screen.queryByText('Cómo entra')).toBeNull();
+    // Tampoco dentro de una frase (el texto de debajo del título lo decía).
+    expect(screen.queryByText(/cómo entra/i)).toBeNull();
   });
 
   it('nuevo tutor: la fila de «Sus cursos» se apila en el móvil', async () => {
