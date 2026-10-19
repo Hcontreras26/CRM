@@ -274,14 +274,25 @@ export async function guardarTokenDelTutor(tutorId, projectId, token) {
   return rowCount ? maskSecret(token.trim()) : false;
 }
 
-/** El texto que llega al alumno: la respuesta y, si hay, el enlace a cada adjunto. */
+/**
+ * Lo que llega al alumno, en HTML: la respuesta y un enlace de verdad a cada
+ * adjunto. En texto plano Moodle no convierte las direcciones en enlaces y el
+ * alumno tenía que copiarlas a mano (prueba a mano de Diana, 19/10).
+ *
+ * Lo que escribe el tutor va escapado: sale tal cual, sin que un «<» suyo se
+ * lea como HTML. Los saltos de línea se respetan.
+ */
 export function textoParaElCampus(texto, adjuntos = []) {
-  const lineas = [String(texto || '').trim()];
+  const partes = String(texto || '').trim().split(/\n{2,}/)
+    .map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`);
   if (adjuntos.length) {
-    lineas.push('', adjuntos.length === 1 ? 'Archivo adjunto:' : 'Archivos adjuntos:');
-    for (const a of adjuntos) lineas.push(`· ${a.nombre}: ${enlace(`api/adjunto-consulta/${a.token_descarga}`)}`);
+    const enlaces = adjuntos.map((a) => {
+      const url = esc(enlace(`api/adjunto-consulta/${a.token_descarga}`));
+      return `📎 <a href="${url}" target="_blank" rel="noopener">${esc(a.nombre)}</a>`;
+    });
+    partes.push(`<p>${adjuntos.length === 1 ? 'Archivo adjunto:' : 'Archivos adjuntos:'}<br>${enlaces.join('<br>')}</p>`);
   }
-  return lineas.join('\n');
+  return partes.join('');
 }
 
 /**

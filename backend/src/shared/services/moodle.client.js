@@ -210,8 +210,9 @@ export async function enviarMensaje(conexion, paraMoodleUserId, texto, opciones)
   const r = await llamar(conexion, 'core_message_send_instant_messages', {
     'messages[0][touserid]': paraMoodleUserId,
     'messages[0][text]': texto,
-    // 2 = texto plano: lo que escribe el tutor sale tal cual, sin HTML.
-    'messages[0][textformat]': 2,
+    // 1 = HTML: el texto llega ya escapado (`textoParaElCampus`) y los adjuntos
+    // como enlaces que se pueden pulsar. En texto plano (2) Moodle no los enlaza.
+    'messages[0][textformat]': 1,
   }, opciones);
   const m = Array.isArray(r) ? r[0] : null;
   if (!m || Number(m.msgid) <= 0) {

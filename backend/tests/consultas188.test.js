@@ -357,7 +357,7 @@ describe('#188 · entrada desde el campus y respuesta de vuelta', () => {
     const reintento = await servicio.reintentar(sinToken.mensajeId, { fetchImpl });
     expect(reintento.enviado).toBe(true);
     expect(enviados).toHaveLength(1);
-    expect(enviados[0]).toMatchObject({ de: 3, para: Number(consulta.alumno_moodle_id), texto: 'Primera respuesta' });
+    expect(enviados[0]).toMatchObject({ de: 3, para: Number(consulta.alumno_moodle_id), texto: '<p>Primera respuesta</p>' });
     const d = await model.detalle(consulta.id);
     expect(d.mensajes.find((m) => m.autor === 'tutor')).toMatchObject({ en_el_campus: true, error_envio: null });
   });
@@ -470,7 +470,7 @@ describe('#188 · lo que salió en la revisión final (18/10)', () => {
       servicio.reintentar(sinToken.mensajeId, { fetchImpl }),
     ]);
     expect(enviados).toHaveLength(1);
-    expect(enviados[0]).toMatchObject({ de: 111, texto: 'Lo escribe A' });
+    expect(enviados[0]).toMatchObject({ de: 111, texto: '<p>Lo escribe A</p>' });
     expect([uno, dos].filter((x) => x?.enviado)).toHaveLength(1);
   });
 
@@ -522,5 +522,19 @@ describe('#188 · lo que salió en la revisión final (18/10)', () => {
     expect((await model.cabecera(consulta.id)).estado).toBe('abierta');
     const { rows } = await query("SELECT COUNT(*)::int AS n FROM consulta_mensajes WHERE consulta_id = $1 AND autor = 'tutor'", [consulta.id]);
     expect(rows[0].n).toBe(0);
+  });
+});
+
+describe('#188 · lo que le llega al alumno en el campus (prueba a mano, 19/10)', () => {
+  it('va en HTML: el texto del tutor escapado, sus saltos de línea y un enlace pulsable por adjunto', () => {
+    const html = servicio.textoParaElCampus('Hola <b>Ana</b>\nlínea 2\n\nOtro párrafo', [
+      { nombre: 'a&b.pdf', token_descarga: 'abc123' },
+      { nombre: 'notas.xlsx', token_descarga: 'def456' },
+    ]);
+    expect(html).toContain('<p>Hola &lt;b&gt;Ana&lt;/b&gt;<br>línea 2</p><p>Otro párrafo</p>');
+    expect(html).toContain('Archivos adjuntos:');
+    expect(html).toMatch(/<a href="[^"]*\/api\/adjunto-consulta\/abc123"[^>]*>a&amp;b\.pdf<\/a>/);
+    expect(html).toMatch(/<a href="[^"]*\/api\/adjunto-consulta\/def456"[^>]*>notas\.xlsx<\/a>/);
+    expect(html).not.toContain('<b>');
   });
 });
