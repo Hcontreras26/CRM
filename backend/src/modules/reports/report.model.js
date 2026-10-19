@@ -30,6 +30,17 @@ const SIN_PRUEBAS = (col = 'project_id') =>
   `${col} NOT IN (SELECT id FROM projects WHERE es_prueba)`;
 
 // Overview por proyecto (o por sociedad) + rango fechas
+//
+// CON `asesoraId`, RECORTADO A ESA GESTORA. Diego, 19/10/2026: hasta hoy la
+// funcion aceptaba el parametro y no lo aplicaba, y «Tu semana» le contaba a
+// cada gestora los prospectos y las ventas de TODO el equipo como suyos (en
+// ISEIE, Diana, semana del 12 al 18/10: 408 prospectos y 8 ventas; los suyos
+// eran 32 y 0). Aqui pasaba exactamente lo mismo.
+//   · Prospectos: los que lleva ella (`leads.responsable_id`).
+//   · Ventas y dinero: su parte de cada venta (`conversion_reparto`, con el
+//     peso de las compartidas), la misma regla que el ranking. Una venta a
+//     medias cuenta 0,5 y la mitad de sus importes.
+// Sin `asesoraId` no cambia nada: es lo de siempre, para todo el ambito.
 export async function overview({ projectId, projectIds, from, to, asesoraId }) {
   const params = [];
   let idx = 1;
@@ -40,6 +51,18 @@ export async function overview({ projectId, projectIds, from, to, asesoraId }) {
   if (from) params.push(from);
   const toParam = to ? `$${idx++}` : 'NULL';
   if (to) params.push(to);
+  // El parametro de la gestora va el ULTIMO y lo usan TODAS las consultas que
+  // reciben `params`: Postgres rechaza un parametro que sobra.
+  const pAses = asesoraId ? `$${idx++}` : null;
+  if (asesoraId) params.push(Number(asesoraId));
+  const deLaGestora = (alias = '') => (pAses ? `AND ${alias}responsable_id = ${pAses}` : '');
+  // Su parte de la venta: 1 sin gestora (la venta es una para la casa).
+  const PESO = (cv = 'conversions') => (pAses
+    ? `(SELECT r.peso FROM conversion_reparto r WHERE r.conversion_id = ${cv}.id AND r.vendedora_id = ${pAses})`
+    : '1');
+  const suVenta = (cv = 'conversions') => (pAses
+    ? `AND EXISTS (SELECT 1 FROM conversion_reparto r WHERE r.conversion_id = ${cv}.id AND r.vendedora_id = ${pAses})`
+    : '');
 
   // Leads: total + por estado + por canal + por gestor
   const { rows: leadsKpi } = await query(
@@ -52,7 +75,7 @@ export async function overview({ projectId, projectIds, from, to, asesoraId }) {
        COUNT(*) FILTER (WHERE status = 'convertido') as convertido,
        COUNT(*) FILTER (WHERE status = 'no_interesado') as no_interesado
      FROM leads
-     WHERE deleted_at IS NULL ${pFilter}
+     WHERE deleted_at IS NULL ${pFilter} ${deLaGestora()}
        AND (${fromParam}::date IS NULL OR created_at >= ${fromParam}::date)
        AND (${toParam}::date IS NULL OR created_at <= ${toParam}::date + INTERVAL '1 day')`,
     params
@@ -62,7 +85,7 @@ export async function overview({ projectId, projectIds, from, to, asesoraId }) {
     `SELECT COALESCE(lu.canal_detectado::text, 'sin_canal') as canal, COUNT(*)::int as total
      FROM (SELECT * FROM leads WHERE deleted_at IS NULL) l
      LEFT JOIN lead_utms lu ON lu.lead_id = l.id
-     WHERE 1=1 ${pFilter.replace('project_id', 'l.project_id')}
+     WHERE 1=1 ${pFilter.replace('project_id', 'l.project_id')} ${deLaGestora('l.')}
        AND (${fromParam}::date IS NULL OR l.created_at >= ${fromParam}::date)
        AND (${toParam}::date IS NULL OR l.created_at <= ${toParam}::date + INTERVAL '1 day')
      GROUP BY lu.canal_detectado ORDER BY total DESC`,
@@ -75,22 +98,23 @@ export async function overview({ projectId, projectIds, from, to, asesoraId }) {
             COUNT(l.id) FILTER (WHERE l.status = 'convertido')::int as convertidos
      FROM (SELECT * FROM leads WHERE deleted_at IS NULL) l
      LEFT JOIN users u ON u.id = l.responsable_id
-     WHERE 1=1 ${pFilter.replace('project_id', 'l.project_id')}
+     WHERE 1=1 ${pFilter.replace('project_id', 'l.project_id')} ${deLaGestora('l.')}
        AND (${fromParam}::date IS NULL OR l.created_at >= ${fromParam}::date)
        AND (${toParam}::date IS NULL OR l.created_at <= ${toParam}::date + INTERVAL '1 day')
      GROUP BY u.nombre ORDER BY total DESC`,
     params
   );
 
-  // Conversiones: total + importes
+  // Conversiones: total + importes. Con gestora, SUM(peso) y no COUNT(*): una
+  // venta compartida es media venta para cada una.
   const { rows: convKpi } = await query(
     `SELECT
-       COUNT(*)::int as total,
-       COALESCE(SUM(importe_total), 0)::numeric as ventas_brutas,
-       COALESCE(SUM(importe_pagado), 0)::numeric as cobrado,
-       COALESCE(SUM(importe_total - importe_pagado), 0)::numeric as por_cobrar
+       ${pAses ? `COALESCE(SUM(${PESO()}), 0)::float8` : 'COUNT(*)::int'} as total,
+       COALESCE(SUM(importe_total * ${PESO()}), 0)::numeric as ventas_brutas,
+       COALESCE(SUM(importe_pagado * ${PESO()}), 0)::numeric as cobrado,
+       COALESCE(SUM((importe_total - importe_pagado) * ${PESO()}), 0)::numeric as por_cobrar
      FROM conversions
-     WHERE 1=1 ${pFilter}
+     WHERE 1=1 ${pFilter} ${suVenta()}
        AND (${fromParam}::date IS NULL OR fecha_conversion >= ${fromParam}::date)
        AND (${toParam}::date IS NULL OR fecha_conversion <= ${toParam}::date)`,
     params
@@ -100,11 +124,11 @@ export async function overview({ projectId, projectIds, from, to, asesoraId }) {
   const { rows: topProductos } = await query(
     `SELECT COALESCE((SELECT pr.nombre FROM products pr WHERE pr.id = conversions.producto_contratado_id),
                     NULLIF(TRIM(regexp_replace(regexp_replace(regexp_replace(producto_contratado, '^[[:space:]]*Producto/servicio:[[:space:]]*servicio[[:space:]]+acad[eé]mico[,;]?[[:space:]]*', '', 'i'), '^[[:space:]]*pago[[:space:]]+(de[[:space:]]+)?(la[[:space:]]+)?(mensualidad|cuota|matr[ií]cula)[^,]*[,]?[[:space:]]*', '', 'i'), '^[[:space:]]*servicio[[:space:]]+acad[eé]mico[[:space:]]*$', '', 'i')), ''), '— sin producto —') as producto,
-            COUNT(*)::int as ventas,
-            COALESCE(SUM(importe_total), 0)::numeric as total,
-            COALESCE(SUM(importe_pagado), 0)::numeric as cobrado
+            ${pAses ? `COALESCE(SUM(${PESO()}), 0)::float8` : 'COUNT(*)::int'} as ventas,
+            COALESCE(SUM(importe_total * ${PESO()}), 0)::numeric as total,
+            COALESCE(SUM(importe_pagado * ${PESO()}), 0)::numeric as cobrado
      FROM conversions
-     WHERE 1=1 ${pFilter}
+     WHERE 1=1 ${pFilter} ${suVenta()}
        AND (${fromParam}::date IS NULL OR fecha_conversion >= ${fromParam}::date)
        AND (${toParam}::date IS NULL OR fecha_conversion <= ${toParam}::date)
      GROUP BY COALESCE((SELECT pr.nombre FROM products pr WHERE pr.id = conversions.producto_contratado_id),
@@ -116,13 +140,23 @@ export async function overview({ projectId, projectIds, from, to, asesoraId }) {
   // Trend mensual de ingresos cobrados (12 meses) - usa solo projectId
   const trendParams = lista ? [lista] : [];
   const trendFilter = lista ? `AND c.project_id = ANY($1::int[])` : `AND ${SIN_PRUEBAS('c.project_id')}`;
+  // Con gestora, su parte de cada cobro. Lleva su propio numero de parametro:
+  // esta consulta no usa las fechas.
+  let pesoTrend = '1';
+  let filtroTrend = '';
+  if (pAses) {
+    trendParams.push(Number(asesoraId));
+    const ph = `$${trendParams.length}`;
+    pesoTrend = `(SELECT r.peso FROM conversion_reparto r WHERE r.conversion_id = c.id AND r.vendedora_id = ${ph})`;
+    filtroTrend = `AND EXISTS (SELECT 1 FROM conversion_reparto r WHERE r.conversion_id = c.id AND r.vendedora_id = ${ph})`;
+  }
   const { rows: trend } = await query(
     `SELECT to_char(date_trunc('month', fecha), 'YYYY-MM') as mes,
-            COALESCE(SUM(importe), 0)::numeric as ingresos
+            COALESCE(SUM(importe * ${pesoTrend}), 0)::numeric as ingresos
      FROM conversion_payments cp
      JOIN conversions c ON c.id = cp.conversion_id
      WHERE fecha >= CURRENT_DATE - INTERVAL '12 months'
-       ${trendFilter}
+       ${trendFilter} ${filtroTrend}
      GROUP BY mes ORDER BY mes`,
     trendParams
   );
@@ -145,16 +179,16 @@ export async function overview({ projectId, projectIds, from, to, asesoraId }) {
        FROM projects p
        LEFT JOIN LATERAL (
          SELECT COUNT(*)::int AS total FROM leads
-          WHERE deleted_at IS NULL AND project_id = p.id
+          WHERE deleted_at IS NULL AND project_id = p.id ${deLaGestora()}
             AND (${fromParam}::date IS NULL OR created_at >= ${fromParam}::date)
             AND (${toParam}::date IS NULL OR created_at <= ${toParam}::date + INTERVAL '1 day')
        ) l ON TRUE
        LEFT JOIN LATERAL (
-         SELECT COUNT(*)::int AS total,
-                SUM(importe_total)  AS facturado,
-                SUM(importe_pagado) AS cobrado
+         SELECT ${pAses ? `SUM(${PESO()})::float8` : 'COUNT(*)::int'} AS total,
+                SUM(importe_total * ${PESO()})  AS facturado,
+                SUM(importe_pagado * ${PESO()}) AS cobrado
            FROM conversions
-          WHERE project_id = p.id
+          WHERE project_id = p.id ${suVenta()}
             AND (${fromParam}::date IS NULL OR fecha_conversion >= ${fromParam}::date)
             AND (${toParam}::date IS NULL OR fecha_conversion <= ${toParam}::date)
        ) cv ON TRUE
@@ -941,7 +975,82 @@ export const IMPORTE_FACTURADO = 'i.total';
 export const FACTURA_QUE_CUENTA = `i.tipo IN ('normal', 'rectificativa')
           AND i.estado NOT IN ('cancelada', 'borrador') AND i.numero IS NOT NULL`;
 
-export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraId, base }) {
+/*
+  DE DÓNDE SALE CADA EURO COBRADO. Diego, 19/10/2026: «cifras separadas».
+
+  El caso que lo destapó: en el reporte de la semana del 12 al 18/10 Diana salía
+  la primera con 2.100 € cobrados, 0 ventas, 0 % de conversión y 125 €
+  facturados. 1.975 € eran una transferencia del 16/10 de la venta #676, que es
+  del 30/09 (factura 2026/0853, también del 30/09), y los otros 125 € una cuota
+  de la #527. Nada estaba mal contado: cada columna usa su fecha —las ventas la
+  de venta, lo cobrado la de cobro, lo facturado la de la factura— pero la tabla
+  no lo decía, y el dinero de una venta vieja solo asomaba en «Cobrado».
+
+  Diego: «eso no hay que acomodar, porque está en orden». Así que NO se toca
+  ninguna fecha ni ninguna base: se separa lo cobrado y se dice de dónde viene.
+  Cada cobro del periodo cae en UNA caja, y en este orden:
+
+    1. «de ventas del periodo»: el cobro (por su fecha de cobro, dentro del
+       periodo) de una venta cuya fecha de venta TAMBIÉN cae en el periodo. Las
+       fichas marcadas como mensualidad no entran: no son una venta nueva, y
+       tampoco cuentan en Vendido. Una cuota de una venta de ESTE periodo sí va
+       aquí: es dinero de una venta del periodo.
+    2. «cuotas»: el cobro que salda una cuota de un plan de pago
+       (`conversion_installments.payment_id`) o que es de una ficha marcada
+       como mensualidad.
+    3. «de ventas anteriores»: el resto. Cobros del periodo de ventas fechadas
+       antes, sin las cuotas. Si algún cobro fuera fechado ANTES que su venta
+       (un anticipo) también cae aquí: no es de una venta del periodo.
+
+  Las tres suman EXACTAMENTE «Cobrado» (la tercera se saca por diferencia, para
+  que el redondeo de una venta compartida no deje un céntimo suelto). Las fechas
+  son las de la base elegida —con `cobro`, fecha de cobro y fecha de venta; con
+  `factura`, las de sus facturas—: las mismas que ya usan Cobrado y Vendido en
+  la misma fila.
+
+  «El periodo» es el de la fila: el MES (recortado al rango pedido) cuando se
+  agrupa por mes, como el panel de Reportes; y el RANGO entero cuando se agrupa
+  por rango, como el ranking de «Cómo voy» y de los correos. Una venta del
+  29/09 cobrada el 02/10 es «del periodo» en la semana del 28/09 al 04/10.
+
+  PENDIENTE: de las ventas del periodo (las que suman en Vendido), su importe
+  menos TODO lo cobrado de ellas hasta hoy, sea de la fecha que sea. Una venta
+  cobrada de más cuenta 0, no resta.
+*/
+// Desde cuánto (su parte, en euros) un cobro de una venta anterior sale con su
+// número y su fecha («1.975 € · venta #676 del 30/09»), y cuántos como mucho.
+export const ANTERIOR_GRANDE = 300;
+export const ANTERIORES_A_LA_VISTA = 3;
+
+/** La caja de un cobro `cp` de la venta `c`. Ver el comentario de arriba. */
+function claseDelCobro({ DV, DC, pDesde, pHasta, porMes }) {
+  const mismoMes = porMes ? `AND to_char((${DV})::date, 'YYYY-MM') = to_char((${DC})::date, 'YYYY-MM')` : '';
+  // COALESCE: sin fecha de venta en la base elegida (venta sin facturar
+  // contando «por factura») la comparacion da NULL, y NULL no puede perder el
+  // cobro: va a la caja siguiente.
+  return `CASE WHEN COALESCE(NOT c.es_mensualidad ${mismoMes}
+                 AND (${pDesde}::date IS NULL OR (${DV})::date >= ${pDesde}::date)
+                 AND (${pHasta}::date IS NULL OR (${DV})::date <= ${pHasta}::date), FALSE) THEN 'periodo'
+               WHEN c.es_mensualidad
+                 OR EXISTS (SELECT 1 FROM conversion_installments ci WHERE ci.payment_id = cp.id) THEN 'cuotas'
+               ELSE 'anteriores' END`;
+}
+
+/**
+ * Las fechas de venta (DV) y de cobro (DC) de cada base. Una sola definicion.
+ * Este CRM tiene dos bases, «cobro» y «factura»; la tercera de ISEIE
+ * («cerrado», la de su contabilidad) no existe aqui y cae en «cobro».
+ */
+function fechasDeLaBase(base) {
+  const porFactura = base === 'factura';
+  return {
+    porFactura,
+    DV: porFactura ? FEC_VENTA : 'c.fecha_conversion',
+    DC: porFactura ? FEC_COBRO : 'cp.fecha',
+  };
+}
+
+export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraId, base, agrupar = 'mes' }) {
   // Tres cosas distintas con tres fechas distintas: los leads por su fecha de
   // entrada, las ventas por su fecha de venta y los cobros por su fecha de cobro.
   // Los leads van por su FECHA DE SOLICITUD, no por cuando se metieron en el CRM:
@@ -952,10 +1061,13 @@ export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraI
   // de contabilidad: por fecha de emision de la factura, no por fecha de cobro.
   // Los dos no cuadran (julio 2026: 5/16 por cobro y 5/18 por factura) porque un
   // cobro de junio se puede facturar en julio y al reves.
-  const porFactura = base === 'factura';
+  const { porFactura, DV, DC } = fechasDeLaBase(base);
 
-  const DV = porFactura ? FEC_VENTA : 'c.fecha_conversion';
-  const DC = porFactura ? FEC_COBRO : 'cp.fecha';
+  // agrupar = 'mes' (el panel de Reportes, una fila por mes y gestora) o
+  // 'rango' (una fila por gestora para todo el rango: el ranking). Lo unico que
+  // cambia es el cubo; las sumas y las fechas son las mismas.
+  const porRango = agrupar === 'rango';
+  const CUBO = (col) => (porRango ? `'rango'::text` : `to_char(date_trunc('month', ${col}), 'YYYY-MM')`);
 
   // Los leads NO cambian nunca de base: siempre por fecha de entrada.
   const fl = buildFilter({ projectId, projectIds, from, to, asesoraId }, ENTRY, 'l.project_id');
@@ -966,6 +1078,7 @@ export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraI
   const off1 = fl.params.length;
   const off2 = off1 + fv.params.length;
   const off3 = off2 + fc.params.length;
+  const off4 = off3 + ff.params.length;
   let wv = fv.where.replace(/\$(\d+)/g, (_, n) => '$' + (Number(n) + off1));
   let wc = fc.where.replace(/\$(\d+)/g, (_, n) => '$' + (Number(n) + off2));
   const wf = ff.where.replace(/\$(\d+)/g, (_, n) => '$' + (Number(n) + off3));
@@ -975,10 +1088,16 @@ export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraI
     wv = wv ? `${wv} AND ${DV} IS NOT NULL` : `WHERE ${DV} IS NOT NULL`;
     wc = wc ? `${wc} AND ${DC} IS NOT NULL` : `WHERE ${DC} IS NOT NULL`;
   }
+  // Los dos limites del periodo, para decidir si la venta de un cobro es «del
+  // periodo». Van SIEMPRE, aunque sean nulos: asi la numeracion no depende de
+  // si llega rango.
+  const pDesde = `$${off4 + 1}`;
+  const pHasta = `$${off4 + 2}`;
+  const CLASE = claseDelCobro({ DV, DC, pDesde, pHasta, porMes: !porRango });
 
   const { rows } = await query(
     `WITH leads_mes AS (
-       SELECT to_char(date_trunc('month', ${ENTRY}), 'YYYY-MM') AS mes,
+       SELECT ${CUBO(ENTRY)} AS mes,
               -- Si el lead no tiene responsable pero acabo comprando, cuenta para
               -- la vendedora de su venta: si no, sale como '— sin asesora —' con
               -- ventas que si tienen dueña.
@@ -999,13 +1118,19 @@ export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraI
         GROUP BY 1, 2
      ),
      ventas_mes AS (
-       SELECT to_char(date_trunc('month', ${DV}), 'YYYY-MM') AS mes,
+       SELECT ${CUBO(DV)} AS mes,
               r.vendedora_id AS uid,
               -- SUM(peso) y no COUNT(*): una venta atendida entre dos vale media
               -- para cada una, y asi el mes sigue sumando las ventas reales.
               COALESCE(SUM(r.peso), 0)::float8 AS ventas,
               COUNT(DISTINCT c.lead_id)::int AS clientes,
-              COALESCE(SUM(c.importe_total * r.peso), 0) AS vendido
+              COALESCE(SUM(c.importe_total * r.peso), 0) AS vendido,
+              -- Lo que les falta por cobrar HOY a estas ventas (ver arriba). De
+              -- los cobros registrados y no de c.importe_pagado, que declara de
+              -- mas. Una venta cobrada de mas no resta: cuenta 0.
+              COALESCE(SUM(GREATEST(c.importe_total - COALESCE((
+                SELECT SUM(cpp.importe) FROM conversion_payments cpp
+                 WHERE cpp.conversion_id = c.id), 0), 0) * r.peso), 0) AS pendiente
          FROM conversions c
          JOIN conversion_reparto r ON r.conversion_id = c.id
          LEFT JOIN leads l ON l.id = c.lead_id
@@ -1017,24 +1142,58 @@ export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraI
           AND EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = c.id)
         GROUP BY 1, 2
      ),
-     cobros_mes AS (
-       SELECT to_char(date_trunc('month', ${DC}), 'YYYY-MM') AS mes,
+     -- Cada cobro, una vez por gestora (con su parte), y en su caja.
+     cobros_base AS (
+       SELECT ${CUBO(DC)} AS mes,
               r.vendedora_id AS uid,
-              COALESCE(SUM(cp.importe * r.peso), 0) AS cobrado,
-              -- Un cobro es cuota si salda alguna cuota del plan. Con EXISTS y no
-              -- con JOIN: un mismo pago puede saldar varias y se contaria dos veces.
-              COALESCE(SUM(cp.importe * r.peso) FILTER (WHERE (NOT c.es_mensualidad AND NOT EXISTS (SELECT 1 FROM conversion_payments p0 WHERE p0.conversion_id = cp.conversion_id AND (p0.fecha < cp.fecha OR (p0.fecha = cp.fecha AND p0.id < cp.id))))), 0) AS cobrado_venta,
-              COALESCE(SUM(cp.importe * r.peso) FILTER (WHERE (c.es_mensualidad OR EXISTS (SELECT 1 FROM conversion_payments p0 WHERE p0.conversion_id = cp.conversion_id AND (p0.fecha < cp.fecha OR (p0.fecha = cp.fecha AND p0.id < cp.id))))), 0) AS cobrado_cuotas,
-              COALESCE(SUM(r.peso) FILTER (WHERE (c.es_mensualidad OR EXISTS (SELECT 1 FROM conversion_payments p0 WHERE p0.conversion_id = cp.conversion_id AND (p0.fecha < cp.fecha OR (p0.fecha = cp.fecha AND p0.id < cp.id))))), 0)::float8 AS mensualidades
+              cp.importe * r.peso AS imp,
+              r.peso,
+              c.id AS venta_id,
+              c.fecha_conversion AS fecha_venta,
+              -- La particion de SIEMPRE (la del Excel y el PDF, que no cambian):
+              -- el primer cobro de una venta que no es mensualidad es «de
+              -- venta»; el resto, «de cuotas».
+              (NOT c.es_mensualidad AND NOT EXISTS (SELECT 1 FROM conversion_payments p0 WHERE p0.conversion_id = cp.conversion_id AND (p0.fecha < cp.fecha OR (p0.fecha = cp.fecha AND p0.id < cp.id)))) AS es_primero,
+              -- La nueva, la de las cifras separadas (19/10).
+              ${CLASE} AS clase
          FROM conversion_payments cp
          JOIN conversions c ON c.id = cp.conversion_id
          JOIN conversion_reparto r ON r.conversion_id = c.id
          LEFT JOIN leads l ON l.id = c.lead_id
          ${wc}
+     ),
+     cobros_mes AS (
+       SELECT mes, uid,
+              COALESCE(SUM(imp), 0) AS cobrado,
+              COALESCE(SUM(imp) FILTER (WHERE es_primero), 0) AS cobrado_venta,
+              COALESCE(SUM(imp) FILTER (WHERE NOT es_primero), 0) AS cobrado_cuotas,
+              COALESCE(SUM(peso) FILTER (WHERE NOT es_primero), 0)::float8 AS mensualidades,
+              COALESCE(SUM(imp) FILTER (WHERE clase = 'periodo'), 0) AS cobrado_del_periodo,
+              COALESCE(SUM(imp) FILTER (WHERE clase = 'cuotas'), 0) AS cobrado_en_cuotas,
+              COALESCE(SUM(peso) FILTER (WHERE clase = 'cuotas'), 0)::float8 AS cobros_en_cuotas
+         FROM cobros_base
+        GROUP BY 1, 2
+     ),
+     -- Lo cobrado de ventas anteriores, venta a venta: las grandes salen con
+     -- su numero y su fecha para que se vea de donde viene el dinero.
+     anteriores_venta AS (
+       SELECT mes, uid, venta_id, fecha_venta, SUM(imp) AS importe,
+              row_number() OVER (PARTITION BY mes, uid ORDER BY SUM(imp) DESC, venta_id) AS n
+         FROM cobros_base
+        WHERE clase = 'anteriores'
+        GROUP BY 1, 2, 3, 4
+     ),
+     anteriores_mes AS (
+       SELECT mes, uid,
+              COUNT(*)::int AS ventas,
+              json_agg(json_build_object('venta_id', venta_id, 'fecha_venta', fecha_venta,
+                                         'importe', ROUND(importe, 2)) ORDER BY n)
+                FILTER (WHERE n <= ${ANTERIORES_A_LA_VISTA} AND importe >= ${ANTERIOR_GRANDE}) AS grandes
+         FROM anteriores_venta
         GROUP BY 1, 2
      ),
      facturas_mes AS (
-       SELECT to_char(date_trunc('month', i.fecha_emision), 'YYYY-MM') AS mes,
+       SELECT ${CUBO('i.fecha_emision')} AS mes,
               r.vendedora_id AS uid,
               COALESCE(SUM(${IMPORTE_FACTURADO} * r.peso), 0) AS facturado
          FROM invoices i
@@ -1073,6 +1232,16 @@ export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraI
             ROUND(COALESCE(cm.cobrado_venta, 0), 2) AS cobrado_venta,
             ROUND(COALESCE(cm.cobrado_cuotas, 0), 2) AS cobrado_cuotas,
             COALESCE(cm.mensualidades, 0) AS mensualidades,
+            -- Las cifras separadas (19/10). La tercera, por diferencia.
+            ROUND(COALESCE(cm.cobrado_del_periodo, 0), 2) AS cobrado_del_periodo,
+            ROUND(COALESCE(cm.cobrado, 0), 2)
+              - ROUND(COALESCE(cm.cobrado_del_periodo, 0), 2)
+              - ROUND(COALESCE(cm.cobrado_en_cuotas, 0), 2) AS cobrado_anteriores,
+            ROUND(COALESCE(cm.cobrado_en_cuotas, 0), 2) AS cobrado_en_cuotas,
+            COALESCE(cm.cobros_en_cuotas, 0) AS cobros_en_cuotas,
+            COALESCE(am.ventas, 0) AS ventas_anteriores,
+            COALESCE(am.grandes, '[]'::json) AS anteriores_grandes,
+            ROUND(COALESCE(vm.pendiente, 0), 2) AS pendiente,
             ROUND(COALESCE(fm.facturado, 0), 2) AS facturado,
             ROUND(CASE WHEN COALESCE(vm.ventas, 0) > 0
                        THEN COALESCE(vm.vendido, 0) / vm.ventas::numeric ELSE 0 END, 2) AS ticket_medio
@@ -1080,13 +1249,14 @@ export async function asesorasPorMes({ projectId, projectIds, from, to, asesoraI
        LEFT JOIN leads_mes  lm ON lm.mes = t.mes AND lm.uid IS NOT DISTINCT FROM t.uid
        LEFT JOIN ventas_mes vm ON vm.mes = t.mes AND vm.uid IS NOT DISTINCT FROM t.uid
        LEFT JOIN cobros_mes cm ON cm.mes = t.mes AND cm.uid IS NOT DISTINCT FROM t.uid
+       LEFT JOIN anteriores_mes am ON am.mes = t.mes AND am.uid IS NOT DISTINCT FROM t.uid
        LEFT JOIN facturas_mes fm ON fm.mes = t.mes AND fm.uid IS NOT DISTINCT FROM t.uid
        LEFT JOIN users u ON u.id = t.uid
       -- Desempate fijo: sin el, dos asesoras con el mismo cobrado salian en
       -- un orden u otro segun el plan que eligiera Postgres, y el mismo
       -- informe podia bajarse dos veces con las filas cambiadas de sitio.
       ORDER BY t.mes DESC, cobrado DESC, asesora, t.uid`,
-    [...fl.params, ...fv.params, ...fc.params, ...ff.params]
+    [...fl.params, ...fv.params, ...fc.params, ...ff.params, from || null, to || null]
   );
   return rows;
 }
@@ -1520,6 +1690,68 @@ export async function detalleMetrica({ projectId, projectIds, from, to, tipo, as
     return rows;
   }
 
+  // LAS TRES CAJAS DE LO COBRADO (Diego, 19/10/2026: «cifras separadas»): las
+  // filas que hay detras de «de ventas del periodo», «de ventas anteriores» y
+  // «cuotas». Con la MISMA regla que la tabla (`claseDelCobro`) y las fechas de
+  // SU base. El periodo es el de la fila pulsada: el mes
+  // recortado al rango, o el rango entero. Cada fila lleva la parte de la
+  // gestora (su peso), asi que las filas suman el numero que las abre.
+  const CAJAS = { 'cobros-periodo': 'periodo', 'cobros-anteriores': 'anteriores', 'cobros-cuotas': 'cuotas' };
+  if (CAJAS[tipo]) {
+    const { porFactura: pf, DV, DC: DCb } = fechasDeLaBase(base);
+    const finDelMes = mes
+      ? new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)).toISOString().slice(0, 10)
+      : null;
+    // Las fechas ISO se ordenan como texto: el mayor de los inicios y el menor
+    // de los finales es el periodo de la fila.
+    const ini = mes ? [`${mes}-01`, from].filter(Boolean).sort().pop() : (from || null);
+    const fin = mes ? [finDelMes, to].filter(Boolean).sort()[0] : (to || null);
+    const p = [];
+    const w = [];
+    const lista = comoLista(projectId, projectIds);
+    if (lista) { p.push(lista); w.push(`c.project_id = ANY($${p.length}::int[])`); } else w.push(SIN_PRUEBAS('c.project_id'));
+    p.push(ini); const pIni = `$${p.length}`;
+    p.push(fin); const pFin = `$${p.length}`;
+    w.push(`(${pIni}::date IS NULL OR (${DCb})::date >= ${pIni}::date)`);
+    w.push(`(${pFin}::date IS NULL OR (${DCb})::date <= ${pFin}::date)`);
+    if (pf) w.push(`${DCb} IS NOT NULL`);
+    let reparto = '';
+    let PESO = '1';
+    if (asesoraId === 'sin') {
+      reparto = 'JOIN conversion_reparto r ON r.conversion_id = c.id AND r.vendedora_id IS NULL';
+      PESO = 'r.peso';
+    } else if (asesoraId) {
+      p.push(Number(asesoraId));
+      reparto = `JOIN conversion_reparto r ON r.conversion_id = c.id AND r.vendedora_id = $${p.length}`;
+      PESO = 'r.peso';
+    }
+    // CAJAS[tipo] sale de la lista de arriba, nunca de la URL.
+    w.push(`(${claseDelCobro({ DV, DC: DCb, pDesde: pIni, pHasta: pFin, porMes: false })}) = '${CAJAS[tipo]}'`);
+    const { rows } = await query(
+      `SELECT cp.id, l.nombre AS cliente, l.email, cp.fecha,
+              ROUND(cp.importe * ${PESO}, 2) AS importe,
+              COALESCE(cp.metodo, '—') AS metodo,
+              c.id AS venta, c.fecha_conversion AS fecha_venta,
+              LEFT(COALESCE(c.producto_contratado, ''), 46) AS formacion,
+              (SELECT ci.numero FROM conversion_installments ci WHERE ci.payment_id = cp.id LIMIT 1) AS cuota,
+              (SELECT i.codigo FROM invoices i WHERE i.payment_id = cp.id AND i.estado <> 'cancelada' LIMIT 1) AS factura,
+              ${FEC_COBRO}::date AS emitida,
+              COALESCE(
+                (SELECT string_agg(u2.nombre, ' + ' ORDER BY u2.nombre)
+                   FROM conversion_vendedoras cv2 JOIN users u2 ON u2.id = cv2.user_id
+                  WHERE cv2.conversion_id = c.id),
+                u.nombre, '— sin asesora —') AS asesora
+         FROM conversion_payments cp
+         JOIN conversions c ON c.id = cp.conversion_id
+         ${reparto}
+         LEFT JOIN leads l ON l.id = c.lead_id
+         LEFT JOIN users u ON u.id = COALESCE(c.vendedora_id, l.responsable_id)
+        WHERE ${w.join(' AND ')}
+        ORDER BY cp.fecha DESC, cp.id DESC
+        LIMIT ${TOPE}`, p);
+    return rows;
+  }
+
   // cobros y mensualidades comparten consulta; cambia el filtro.
   { const lista = comoLista(projectId, projectIds);
     if (lista) add('c.project_id = ANY(?::int[])', lista); }
@@ -1664,6 +1896,23 @@ export async function ventasSinFacturaEnRango({ projectId, projectIds, from, to 
  * Y NO DEVUELVE LOS NUMEROS DE LAS DEMAS: la gestora ve su puesto, su tasa, la
  * media del equipo y cuanto le falta para subir un puesto. Quien va delante es
  * un dato del jefe, no de la carrera.
+ *
+ * CIFRAS SEPARADAS (Diego, 19/10/2026). Cada fila lleva, ademas, Vendido (nº y
+ * €, por fecha de venta), Facturado (por fecha de factura), Pendiente (de las
+ * ventas del periodo) y lo Cobrado partido en tres —de ventas del periodo, de
+ * ventas anteriores (las grandes con su nº y su fecha) y cuotas—; ver
+ * `claseDelCobro`. Y quien manda recibe dos filas mas, fuera de la clasificacion:
+ *
+ *   · `sin_gestora`: el dinero que no es de nadie (una venta sin vendedora de un
+ *     lead sin responsable). Antes se tiraba («sin asesora no compite») y las
+ *     filas no sumaban la tarjeta de Cobrado: el 4.195 € del cobro #1197 de la
+ *     venta #666 no salia en ningun sitio del ranking.
+ *   · `total`: todas las filas sumadas, «Sin gestora» incluida. Su Cobrado es el
+ *     de la tarjeta Cobrado del mismo periodo (los pagos registrados por su
+ *     fecha de cobro). Solo puede diferir en un centimo cuando hay ventas
+ *     compartidas, por el redondeo de cada parte.
+ *
+ * El orden NO cambia: por lo cobrado (decidido el 08/10).
  */
 export async function miPuesto({ userId, projectId, projectIds, from, to, base = 'cobro', esJefe = false }) {
   // `base = 'cobro'` cuenta cada venta POR SU FECHA DE VENTA; 'factura', por la
@@ -1671,21 +1920,36 @@ export async function miPuesto({ userId, projectId, projectIds, from, to, base =
   // venta cerrada hoy cuenta hoy, y una que todavia no se ha facturado cuenta
   // igual --si no, la gestora cierra tres y su pantalla sigue diciendo cero
   // hasta que administracion emita, que es justo lo que no depende de ella--.
-  const filas = await asesorasPorMes({ projectId, projectIds, from, to, asesoraId: null, base });
+  //
+  // Agrupado por RANGO y no por mes (19/10): «de ventas del periodo» se decide
+  // contra el periodo pedido entero, no contra cada mes. El resto de cifras
+  // sale igual que sumando los meses.
+  const filas = await asesorasPorMes({ projectId, projectIds, from, to, asesoraId: null, base, agrupar: 'rango' });
+
+  const vacia = (id, nombre) => ({
+    user_id: id, nombre, leads: 0, ventas: 0, vendido: 0, cobrado: 0, facturado: 0, pendiente: 0,
+    cobrado_del_periodo: 0, cobrado_anteriores: 0, cobrado_en_cuotas: 0,
+    ventas_anteriores: 0, anteriores_grandes: [],
+  });
+  const sumar = (a, f) => {
+    for (const k of ['leads', 'ventas', 'vendido', 'cobrado', 'facturado', 'pendiente',
+      'cobrado_del_periodo', 'cobrado_en_cuotas', 'ventas_anteriores']) {
+      a[k] += Number(f[k]) || 0;
+    }
+    if (Array.isArray(f.anteriores_grandes)) a.anteriores_grandes.push(...f.anteriores_grandes);
+  };
 
   // El rango puede coger mas de un mes: se suma por asesora y se recalcula la
   // tasa, porque la media de dos porcentajes no es el porcentaje del total.
   const porAsesora = new Map();
+  // «Sin asesora» no compite, pero SI cuenta: va en su fila y en el total.
+  const sinGestora = vacia(null, 'Sin gestora');
+  const total = vacia(null, 'Total');
   for (const f of filas) {
-    if (f.asesora_id == null) continue;   // «sin asesora» no compite
-    const a = porAsesora.get(f.asesora_id) || {
-      user_id: f.asesora_id, nombre: f.asesora, leads: 0, ventas: 0, vendido: 0, cobrado: 0, facturado: 0,
-    };
-    a.leads += Number(f.leads) || 0;
-    a.ventas += Number(f.ventas) || 0;
-    a.vendido += Number(f.vendido) || 0;
-    a.cobrado += Number(f.cobrado) || 0;
-    a.facturado += Number(f.facturado) || 0;
+    sumar(total, f);
+    if (f.asesora_id == null) { sumar(sinGestora, f); continue; }
+    const a = porAsesora.get(f.asesora_id) || vacia(f.asesora_id, f.asesora);
+    sumar(a, f);
     porAsesora.set(f.asesora_id, a);
   }
 
@@ -1693,15 +1957,55 @@ export async function miPuesto({ userId, projectId, projectIds, from, to, base =
   // Por lo COBRADO, y en empate por numero de ventas. Redondeado al
   // centimo: la suma de repartos deja decimales que no deben desempatar.
   const cent = (v) => Math.round(v * 100) / 100;
-  for (const a of porAsesora.values()) { a.cobrado = cent(a.cobrado); a.facturado = cent(a.facturado); }
+  const cerrar = (a) => {
+    for (const k of ['vendido', 'cobrado', 'facturado', 'pendiente', 'cobrado_del_periodo', 'cobrado_en_cuotas']) {
+      a[k] = cent(a[k]);
+    }
+    // Por diferencia, como en la consulta: las tres partes suman SIEMPRE lo
+    // cobrado de la fila.
+    a.cobrado_anteriores = cent(a.cobrado - a.cobrado_del_periodo - a.cobrado_en_cuotas);
+    // Una venta puede venir en varias filas (varios meses): se junta antes de
+    // elegir las grandes.
+    const porVenta = new Map();
+    for (const g of a.anteriores_grandes) {
+      const v = porVenta.get(g.venta_id) || { venta_id: g.venta_id, fecha_venta: g.fecha_venta, importe: 0 };
+      v.importe = cent(v.importe + (Number(g.importe) || 0));
+      porVenta.set(g.venta_id, v);
+    }
+    a.anteriores_grandes = [...porVenta.values()]
+      .filter((g) => g.importe >= ANTERIOR_GRANDE)
+      .sort((x, y) => y.importe - x.importe || x.venta_id - y.venta_id)
+      .slice(0, ANTERIORES_A_LA_VISTA);
+    a.tasa = tasaDe(a);
+    return a;
+  };
+  for (const a of porAsesora.values()) cerrar(a);
+  cerrar(sinGestora);
+  cerrar(total);
   const tabla = [...porAsesora.values()].sort((x, y) => y.cobrado - x.cobrado || y.ventas - x.ventas);
 
   const equipo = tabla.reduce((s, a) => ({
     leads: s.leads + a.leads, ventas: s.ventas + a.ventas, cobrado: s.cobrado + a.cobrado, facturado: s.facturado + a.facturado,
   }), { leads: 0, ventas: 0, cobrado: 0, facturado: 0 });
   const i = tabla.findIndex((a) => a.user_id === userId);
-  const yo = i >= 0 ? tabla[i] : { user_id: userId, nombre: null, leads: 0, ventas: 0, vendido: 0, cobrado: 0, facturado: 0 };
+  const yo = i >= 0 ? tabla[i] : cerrar(vacia(userId, null));
   const arriba = i > 0 ? tabla[i - 1] : null;
+
+  // Lo de una fila que se enseña: las cifras separadas incluidas.
+  const cifras = (a) => ({
+    leads: a.leads,
+    ventas: a.ventas,
+    vendido: a.vendido,
+    cobrado: a.cobrado,
+    cobrado_del_periodo: a.cobrado_del_periodo,
+    cobrado_anteriores: a.cobrado_anteriores,
+    cobrado_en_cuotas: a.cobrado_en_cuotas,
+    ventas_anteriores: a.ventas_anteriores,
+    anteriores_grandes: a.anteriores_grandes,
+    facturado: a.facturado,
+    pendiente: a.pendiente,
+    tasa: a.tasa,
+  });
 
   return {
     desde: from, hasta: to,
@@ -1713,29 +2017,17 @@ export async function miPuesto({ userId, projectId, projectIds, from, to, base =
     // cada una sepa el numero exacto de las demas no la ayuda a vender y
     // convierte el panel en un tablon de comparaciones.
     tabla: esJefe
-      ? tabla.map((a, n) => ({
-        puesto: n + 1,
-        user_id: a.user_id,
-        nombre: a.nombre,
-        leads: a.leads,
-        ventas: a.ventas,
-        vendido: a.vendido,
-        cobrado: a.cobrado,
-        facturado: a.facturado,
-        tasa: tasaDe(a),
-      }))
+      ? tabla.map((a, n) => ({ puesto: n + 1, user_id: a.user_id, nombre: a.nombre, ...cifras(a) }))
       : null,
+    // Las dos filas de debajo de la tabla (19/10), tambien solo para quien manda.
+    sin_gestora: esJefe ? cifras(sinGestora) : null,
+    total: esJefe ? cifras(total) : null,
     // `null` cuando esta persona no entra en la clasificacion --no tiene leads
     // ni ventas en el periodo--, para que la pantalla no diga «eres la 0 de 7».
     puesto: i >= 0 ? i + 1 : null,
     de: tabla.length,
     nombre: yo.nombre,
-    leads: yo.leads,
-    ventas: yo.ventas,
-    vendido: yo.vendido,
-    cobrado: yo.cobrado,
-    facturado: yo.facturado,
-    tasa: tasaDe(yo),
+    ...cifras(yo),
     tasa_equipo: equipo.leads > 0 ? Math.round((equipo.ventas / equipo.leads) * 1000) / 10 : 0,
     ventas_equipo: equipo.ventas,
     cobrado_equipo: cent(equipo.cobrado),
