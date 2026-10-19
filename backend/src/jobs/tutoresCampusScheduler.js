@@ -3,7 +3,9 @@ import { comprobarTodos } from '../modules/tutores/tutor.campus.js';
 import { vigilar } from './latido.js';
 
 /**
- * La matrícula de los tutores en los campus, una vez al día (#187).
+ * La matrícula de los tutores en los campus, cada hora (#187). Al abrir la ficha
+ * de un tutor se comprueba además en el momento si la última tiene más de unos
+ * segundos (`comprobarSiHaceFalta`).
  *
  * «Comprobación periódica en un trabajo programado, con su interruptor en
  * `.env`. Si al tutor le dan de baja, se marca y deja de recibir consultas de
@@ -16,7 +18,7 @@ import { vigilar } from './latido.js';
  * Se apaga con TUTORES_CAMPUS_DISABLED=1.
  */
 
-const CADA_MS = parseInt(process.env.TUTORES_CAMPUS_TICK_MS || String(24 * 60 * 60 * 1000), 10);
+const CADA_MS = parseInt(process.env.TUTORES_CAMPUS_TICK_MS || String(60 * 60 * 1000), 10);
 // La primera vuelta, un rato después de arrancar: no a la vez que todo lo demás.
 const AL_ARRANCAR_MS = parseInt(process.env.TUTORES_CAMPUS_PRIMERA_MS || String(10 * 60 * 1000), 10);
 

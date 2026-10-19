@@ -209,6 +209,24 @@ export async function comprobarTutor(tutorId, { soloProyectos = null, ...opcione
   return { campus: await campusDelTutor(tutorId), resultados };
 }
 
+/** Cuánto vale una comprobación antes de repetirla al abrir la ficha. */
+export const COMPROBACION_FRESCA_MS = Number(process.env.TUTORES_CAMPUS_FRESCA_MS || 30 * 1000);
+
+/**
+ * Al abrir la ficha del tutor: vuelve a preguntar a los campus conectados cuya
+ * comprobación tenga más de 30 segundos (para no preguntar dos veces seguidas). Así lo que se ve es lo de ahora, sin
+ * pulsar «Comprobar en los campus» (Diana, prueba a mano del 19/10).
+ */
+export async function comprobarSiHaceFalta(tutorId, opciones = {}) {
+  const ahora = Date.now();
+  const viejos = (await campusDelTutor(tutorId))
+    .filter((c) => c.campus_conectado
+      && (!c.comprobado_at || ahora - new Date(c.comprobado_at).getTime() > COMPROBACION_FRESCA_MS))
+    .map((c) => c.project_id);
+  if (!viejos.length) return { campus: null, resultados: [] };
+  return comprobarTutor(tutorId, { soloProyectos: viejos, ...opciones });
+}
+
 /**
  * Todos los tutores activos, en todos sus campus. Lo llama el trabajo
  * programado. Devuelve cuántos ha mirado y los que han cambiado de estado.

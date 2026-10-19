@@ -688,7 +688,11 @@ export async function campusDelTutor(req, res, next) {
     if (req.user.userId !== id) {
       await exigirTutorGestionable(req);
     }
-    res.json({ success: true, data: await panelDelTutor(id) });
+    // Lo de ahora, sin pulsar el botón: si la última comprobación es vieja, se
+    // repite. Si el campus no contesta, se enseña lo guardado (no falla la ficha).
+    const { resultados, campus } = await campusTutor.comprobarSiHaceFalta(id)
+      .catch(() => ({ resultados: [], campus: null }));
+    res.json({ success: true, data: await panelDelTutor(id, campus ? avisosDeLaComprobacion(resultados, campus) : []) });
   } catch (err) { next(err); }
 }
 

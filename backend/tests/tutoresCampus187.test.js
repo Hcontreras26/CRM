@@ -231,6 +231,28 @@ describe('#187 · un tutor sin matrícula no recibe consultas', () => {
     expect(r.campus[0].error).toMatch(/No se ha podido llegar al campus/);
   });
 
+  it('al abrir la ficha se vuelve a comprobar solo si la última comprobación es vieja', async () => {
+    if (!hayBase) return;
+    const t = await crearUsuario('tutor');
+    const p = await crearCampus('CampusF', null);
+    await campus.asignarCampus(t, p);
+    await conectarMoodle(p);
+    const { rows } = await query('SELECT email FROM users WHERE id = $1', [t]);
+    const matriculado = moodleFalso({ [rows[0].email]: { id: 7, suspended: 0 } });
+    await campus.comprobarTutor(t, { fetchImpl: matriculado });
+
+    // Recién comprobado: no se pregunta otra vez al campus.
+    const deBaja = moodleFalso({ [rows[0].email]: { id: 7, suspended: 1 } });
+    expect((await campus.comprobarSiHaceFalta(t, { fetchImpl: deBaja })).resultados).toEqual([]);
+    expect(deBaja).not.toHaveBeenCalled();
+
+    // Hace rato: sí, y se ve la baja sin pulsar «Comprobar en los campus».
+    await query("UPDATE tutor_campus SET comprobado_at = NOW() - INTERVAL '1 hour' WHERE tutor_id = $1", [t]);
+    const r = await campus.comprobarSiHaceFalta(t, { fetchImpl: deBaja });
+    expect(r.resultados).toEqual([expect.objectContaining({ project_id: p, estado: 'baja' })]);
+    expect(r.campus[0].estado).toBe('baja');
+  });
+
   it('sin el campus conectado no se inventa un estado', async () => {
     if (!hayBase) return;
     const t = await crearUsuario('tutor');
