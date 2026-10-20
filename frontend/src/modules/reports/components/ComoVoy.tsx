@@ -29,22 +29,54 @@ import { ponerAmbito } from '@/shared/lib/ambitoInforme';
  *   · Una gestora: su puesto, su tasa, la media y cuánto le falta para subir.
  *     No los números de las demás — eso no la ayuda a vender.
  *   · Quien manda: la media del equipo y el ranking completo, plegado.
+ *
+ * CIFRAS SEPARADAS (Diego, 19/10/2026). Diana salió primera de la semana con
+ * 2.100 € cobrados y 0 ventas: era una venta del 30/09 cobrada el 16/10 más una
+ * cuota. No estaba mal contado, pero no se veía de dónde venía. Ahora el
+ * ranking lleva Vendido, Facturado, Cobrado (partido en de ventas del mes, de
+ * ventas anteriores —las grandes con su nº y su fecha— y cuotas) y Pendiente,
+ * cada columna con la fecha por la que cuenta, más una fila «Sin gestora» y un
+ * «Total» que es la tarjeta Cobrado del mismo mes. Sigue ordenado por lo
+ * cobrado. Lo calcula `miPuesto`; aquí solo se pinta. Con `medida="facturado"`
+ * (el Dashboard, #224) la tabla es la de siempre: tiene su propia fuente y su
+ * propio orden.
  */
 
-export interface FilaDelRanking {
-  puesto: number;
-  user_id: number;
-  nombre: string | null;
+/** Un cobro grande de una venta anterior: «1.975 € · venta #676 del 30/09». */
+export interface AnteriorGrande {
+  venta_id: number;
+  fecha_venta: string;
+  importe: number;
+}
+
+/** Las cifras separadas de una fila (19/10/2026). */
+export interface CifrasSeparadas {
   leads: number;
   ventas: number;
   vendido: number;
   cobrado: number;
+  /** Cobros de ventas cuya fecha de venta cae en el periodo. */
+  cobrado_del_periodo: number;
+  /** Cobros de ventas de antes, sin las cuotas. */
+  cobrado_anteriores: number;
+  /** Cuotas de un plan de pago y mensualidades. */
+  cobrado_en_cuotas: number;
+  ventas_anteriores: number;
+  anteriores_grandes: AnteriorGrande[];
   facturado: number;
+  /** De las ventas del periodo, lo que aún les falta por cobrar hoy. */
+  pendiente: number;
   tasa: number;
+}
+
+export interface FilaDelRanking extends CifrasSeparadas {
+  puesto: number;
+  user_id: number;
+  nombre: string | null;
 }
 
 /** Una fila del ranking. Solo la recibe quien manda. */
-export interface FilaRanking {
+export interface FilaRanking extends Partial<CifrasSeparadas> {
   puesto: number;
   user_id: number;
   nombre: string | null;
@@ -56,17 +88,12 @@ export interface FilaRanking {
   tasa: number;
 }
 
-export interface Puesto {
+export interface Puesto extends CifrasSeparadas {
   puesto: number | null;
   de: number;
   nombre: string | null;
-  leads: number;
-  ventas: number;
-  vendido: number;
   /** Por esto se ordena el puesto. */
   cobrado: number;
-  facturado: number;
-  tasa: number;
   tasa_equipo: number;
   ventas_equipo: number;
   cobrado_equipo: number;
@@ -78,6 +105,10 @@ export interface Puesto {
   mejor_ventas: number;
   /** Solo para quien manda. `null` para una gestora. */
   tabla: FilaDelRanking[] | null;
+  /** Lo que no es de ninguna gestora. Solo para quien manda. */
+  sin_gestora: CifrasSeparadas | null;
+  /** Todas las filas, «Sin gestora» incluida: la tarjeta Cobrado. Solo para quien manda. */
+  total: CifrasSeparadas | null;
 }
 
 const numero = (n: number) =>
@@ -86,6 +117,40 @@ const numero = (n: number) =>
 const euros = (n: number) =>
   new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
     .format(Number(n || 0));
+
+/** «30/09» a partir de '2026-09-30'. */
+function diaMes(iso: string) {
+  const [, m, d] = String(iso || '').slice(0, 10).split('-');
+  return d && m ? `${d}/${m}` : '';
+}
+
+/** «1.975 € · venta #676 del 30/09». */
+const textoAnterior = (g: AnteriorGrande) => `${euros(g.importe)} · venta #${g.venta_id} del ${diaMes(g.fecha_venta)}`;
+
+/**
+ * Las celdas de cifras de una fila del ranking por lo cobrado, de Cobrado a
+ * Pendiente. Las usan las gestoras, «Sin gestora» y el Total: así las tres
+ * filas se pintan igual y la suma se comprueba a ojo.
+ */
+function CeldasDeCifras({ f, fuerte = false }: { f: Partial<CifrasSeparadas>; fuerte?: boolean }) {
+  const grandes = f.anteriores_grandes || [];
+  return (
+    <>
+      <td className="py-1 pr-2 text-right font-semibold tabular-nums">{euros(f.cobrado || 0)}</td>
+      <td className="py-1 pr-2 text-right tabular-nums">{euros(f.cobrado_del_periodo || 0)}</td>
+      <td className="py-1 pr-2 text-right tabular-nums">
+        {euros(f.cobrado_anteriores || 0)}
+        {!fuerte && grandes.map((g) => (
+          <span key={g.venta_id} className="block whitespace-nowrap text-[10px] text-muted-foreground">{textoAnterior(g)}</span>
+        ))}
+      </td>
+      <td className="py-1 pr-2 text-right tabular-nums">{euros(f.cobrado_en_cuotas || 0)}</td>
+      <td className="py-1 pr-2 text-right tabular-nums whitespace-nowrap">{numero(f.ventas || 0)} · {euros(f.vendido || 0)}</td>
+      <td className="py-1 pr-2 text-right tabular-nums">{euros(f.facturado || 0)}</td>
+      <td className="py-1 pr-2 text-right tabular-nums">{euros(f.pendiente || 0)}</td>
+    </>
+  );
+}
 
 /** Cómo se dice un puesto: «la 1.ª», «la 3.ª». */
 function ordinal(n: number) {
@@ -206,6 +271,9 @@ function mesEnCurso() {
   return { from: iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), to: iso(hoy) };
 }
 
+/** La línea pequeña de debajo de una cabecera: por qué fecha cuenta. */
+const SUBCABECERA = 'block text-[9px] font-normal normal-case tracking-normal';
+
 function anchoTasa(v: number, tope: number) {
   if (!(tope > 0)) return 0;
   return Math.max(2, Math.min(100, Math.round((Number(v) || 0) * 100 / tope)));
@@ -300,8 +368,11 @@ export default function ComoVoy({
     const t = d?.tabla || [];
     return {
       gente: t.length,
-      ventas: t.reduce((s, x) => s + Number(x.ventas || 0), 0),
-      cobrado: t.reduce((s, x) => s + Number(x.cobrado || 0), 0),
+      // EL TOTAL, «Sin gestora» incluida (19/10/2026): antes se sumaban solo
+      // las filas visibles y el dinero sin gestora no salía en ningún sitio.
+      // Es la misma cifra que la fila Total y que la tarjeta Cobrado del mes.
+      ventas: d?.total ? Number(d.total.ventas || 0) : t.reduce((s, x) => s + Number(x.ventas || 0), 0),
+      cobrado: d?.total ? Number(d.total.cobrado || 0) : t.reduce((s, x) => s + Number(x.cobrado || 0), 0),
     };
   }, [d]);
 
@@ -373,14 +444,100 @@ export default function ComoVoy({
             <CaretDown size={11} weight="bold" className={abierto ? 'rotate-180 transition-transform' : 'transition-transform'} />
           </button>
 
-          {abierto && (
+          {abierto && !filasFacturado && (
+            <div className="mt-2 overflow-x-auto">
+              {/* EL RANKING POR LO COBRADO, con las cifras separadas (19/10/2026).
+                  Cada cabecera dice por qué fecha cuenta; las filas, «Sin
+                  gestora» y el Total suman igual columna a columna. */}
+              <table className="w-full text-normal">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground align-bottom">
+                    <th className="py-1 pr-2 font-semibold">#</th>
+                    <th className="py-1 pr-2 font-semibold">Gestora</th>
+                    <th className="py-1 pr-2 text-right font-semibold" title="Los pagos registrados en el mes, por su fecha de cobro. Es la suma de las tres columnas siguientes, y por esto se ordena el ranking.">
+                      Cobrado<span className={SUBCABECERA}>por fecha de cobro</span>
+                    </th>
+                    <th className="py-1 pr-2 text-right font-semibold" title="Cobros de ventas cuya fecha de venta cae en este mes.">
+                      De ventas del mes<span className={SUBCABECERA}>ventas de este mes</span>
+                    </th>
+                    <th className="py-1 pr-2 text-right font-semibold" title="Cobros de ventas de antes de este mes, sin las cuotas. Las de 300 € o más salen con su nº de venta y su fecha.">
+                      De ventas anteriores<span className={SUBCABECERA}>ventas de antes</span>
+                    </th>
+                    <th className="py-1 pr-2 text-right font-semibold" title="Cobros que saldan una cuota de un plan de pago, o de una ficha marcada como mensualidad.">
+                      Cuotas<span className={SUBCABECERA}>plan o mensualidad</span>
+                    </th>
+                    <th className="py-1 pr-2 text-right font-semibold" title="Ventas del mes, número e importe, por su fecha de venta. Sin mensualidades ni ventas sin ningún cobro; una compartida cuenta su parte.">
+                      Vendido<span className={SUBCABECERA}>por fecha de venta</span>
+                    </th>
+                    <th className="py-1 pr-2 text-right font-semibold" title="Facturas y abonos emitidos en el mes, IVA incluido.">
+                      Facturado<span className={SUBCABECERA}>por fecha de factura</span>
+                    </th>
+                    <th className="py-1 pr-2 text-right font-semibold" title="De las ventas del mes, su importe menos todo lo cobrado de ellas hasta hoy.">
+                      Pendiente<span className={SUBCABECERA}>de las ventas del mes</span>
+                    </th>
+                    <th className="py-1 pr-2 text-right font-semibold" title="Prospectos por su fecha de entrada.">Prospectos</th>
+                    <th className="py-1 text-right font-semibold">Tasa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(d.tabla || []).map((f) => (
+                    <tr key={f.user_id} className={`border-t border-border/60 ${f.puesto === d.puesto ? 'font-semibold' : ''}`}>
+                      <td className="py-1 pr-2 tabular-nums text-muted-foreground">{f.puesto}</td>
+                      <td className="py-1 pr-2 truncate">{f.nombre || '—'}</td>
+                      <CeldasDeCifras f={f} />
+                      <td className="py-1 pr-2 text-right tabular-nums text-muted-foreground">{f.leads}</td>
+                      {/* La tasa, comparada con la media del equipo: es lo
+                          que dice si ese número es bueno o no. */}
+                      <td className={`py-1 text-right tabular-nums ${
+                        f.tasa > d.tasa_equipo ? 'text-success'
+                          : f.tasa < d.tasa_equipo ? 'text-warning-soft-foreground' : ''
+                      }`}>
+                        {numero(f.tasa)} %
+                      </td>
+                    </tr>
+                  ))}
+                  {/* SIN GESTORA: ventas sin vendedora de prospectos sin
+                      responsable. No compite, pero cuenta en el Total. */}
+                  {d.sin_gestora && (d.sin_gestora.cobrado !== 0 || d.sin_gestora.ventas > 0 || d.sin_gestora.facturado !== 0) && (
+                    <tr className="border-t border-border/60 text-muted-foreground"
+                      title="Ventas sin vendedora de prospectos sin responsable: no compiten, pero cuentan en el total.">
+                      <td className="py-1 pr-2">—</td>
+                      <td className="py-1 pr-2 italic">Sin gestora</td>
+                      <CeldasDeCifras f={d.sin_gestora} />
+                      <td className="py-1 pr-2 text-right tabular-nums">{d.sin_gestora.leads}</td>
+                      <td className="py-1" />
+                    </tr>
+                  )}
+                  {d.total && (
+                    <tr className="border-t-2 border-border font-semibold"
+                      title="Todas las filas, «Sin gestora» incluida. Su Cobrado es la tarjeta Ingresos de Reportes para este mes; con ventas compartidas puede haber un céntimo de redondeo.">
+                      <td className="py-1 pr-2" />
+                      <td className="py-1 pr-2">Total</td>
+                      <CeldasDeCifras f={d.total} fuerte />
+                      <td className="py-1 pr-2 text-right tabular-nums">{d.total.leads}</td>
+                      <td className="py-1 text-right tabular-nums">{numero(d.total.tasa)} %</td>
+                    </tr>
+                  )}
+                  {(d.tabla || []).length === 0 && !d.total?.cobrado && (
+                    <tr><td colSpan={11} className="py-2 text-muted-foreground">
+                      Nadie con prospectos, ventas ni cobros este mes.
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* POR LO FACTURADO (el Dashboard, #224): la tabla de siempre, con su
+              fuente y su orden. Solo se dice por qué fecha cuenta. */}
+          {abierto && filasFacturado && (
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-normal">
                 <thead>
                   <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                     <th className="py-1 pr-2 font-semibold">#</th>
                     <th className="py-1 pr-2 font-semibold">Gestora</th>
-                    <th className="py-1 pr-2 text-right font-semibold">{filasFacturado ? 'Facturado' : 'Cobrado'}</th>
+                    <th className="py-1 pr-2 text-right font-semibold" title={filasFacturado ? 'Facturas y abonos emitidos este mes, por su fecha de factura.' : 'Por fecha de cobro.'}>{filasFacturado ? 'Facturado' : 'Cobrado'}</th>
                     <th
                       className="py-1 pr-2 text-right font-semibold"
                       title={filasFacturado ? 'Ventas con alguna factura emitida este mes' : undefined}
@@ -471,6 +628,18 @@ export default function ComoVoy({
                 {' · '}{numero(d.ventas)} {d.ventas === 1 ? 'venta' : 'ventas'}
                 {d.leads > 0 && <> · {d.leads} {d.leads === 1 ? 'prospecto' : 'prospectos'}</>}
               </p>
+              {/* De dónde viene lo cobrado (19/10/2026): si es de una venta
+                  vieja, que lo vea ella también. */}
+              {d.cobrado > 0 && (
+                <p className="text-secundario tabular-nums text-muted-foreground"
+                  title={(d.anteriores_grandes || []).map(textoAnterior).join('\n') || undefined}>
+                  {euros(d.cobrado_del_periodo)} de ventas del mes · {euros(d.cobrado_anteriores)} de ventas anteriores
+                  {' · '}{euros(d.cobrado_en_cuotas)} de cuotas
+                  {!compacto && (d.anteriores_grandes || []).length > 0 && (
+                    <> ({(d.anteriores_grandes || []).map(textoAnterior).join('; ')})</>
+                  )}
+                </p>
+              )}
             </div>
           </div>
 

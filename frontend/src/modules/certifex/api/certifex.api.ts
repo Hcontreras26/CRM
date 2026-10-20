@@ -304,9 +304,23 @@ export interface CatalogoDelCampus {
 export interface CambiosSolicitud {
   matriculaId: number;
   nombre?: string;
+  /** El DNI / NIE / pasaporte que se imprime en el diploma (vive en Certifex). null = quitarlo. */
+  dni?: string | null;
   emailCrm?: string | null;
   productoId?: number | null;
   programa?: ProgramaOficial | null;
+}
+
+/**
+ * De dónde sale la firma del alumno que se imprimirá sobre «El interesado» (CRM #349):
+ * la subida a mano en «Revisar datos», o la de su matrícula de admisión.
+ */
+export interface FirmaDelAlumno {
+  origen: 'subida' | 'admision';
+  por: string | null;
+  en: string | null;
+  /** La matrícula de admisión de la que sale (solo con origen «admision»). */
+  matriculaCrm: number | null;
 }
 
 /** Una solicitud de diploma: un candidato de Certifex que lo pidió desde Moodle. */
@@ -315,6 +329,8 @@ export interface Solicitud extends Candidato {
   programaCrm?: ProgramaDelCrm | null;
   /** Solo sin diploma: lo revisado a mano antes de aprobar. */
   edicion?: EdicionSolicitud | null;
+  /** Solo sin diploma: la firma del alumno. null = no tiene; sin el campo = no se pudo mirar. */
+  firma?: FirmaDelAlumno | null;
   /** El aviso de rechazo que ya se aprobó (solo en las rechazadas). */
   avisoRechazo?: { en: string; por: string; resultado: string } | null;
   /** Solo en «por avisar»: el diploma emitido. */
@@ -427,6 +443,36 @@ export const diplomasApi = {
    * CRM, la formación y el programa se guardan en el CRM. Devuelve la fila actualizada.
    */
   editar: (cambios: CambiosSolicitud) => client.post('/certifex/diplomas/editar', cambios) as R<Solicitud>,
+  /**
+   * Subir o cambiar la firma del alumno (CRM #349): PNG, JPG o WEBP. El servidor le quita
+   * el fondo y la recorta al trazo. Devuelve la fila actualizada.
+   */
+  subirFirma: (matriculaId: number, archivo: File) => {
+    const fd = new FormData();
+    // El id antes que el archivo: multer lee los campos en orden.
+    fd.append('matriculaId', String(matriculaId));
+    fd.append('file', archivo);
+    return client.post('/certifex/diplomas/firma', fd) as R<Solicitud>;
+  },
+  /** La firma que se imprimirá (PNG transparente), para verla. */
+  firma: async (matriculaId: number): Promise<Blob> => {
+    const t = getAccessToken();
+    const r = await fetch(`${API_BASE_URL}/certifex/diplomas/firma/${matriculaId}`, {
+      credentials: 'include',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d?.error || `Error ${r.status}`);
+    }
+    return r.blob();
+  },
+  /**
+   * «Nuevo diploma» (19/10): la solicitud desde cero, eligiendo el cliente y la formación.
+   * Queda en «Por decidir» para aprobarla y emitirla como las que llegan de Moodle.
+   */
+  nuevo: (d: { centro: string; leadId: number; productoId: number; nombre?: string }) =>
+    client.post('/certifex/diplomas/nuevo', d) as R<{ matriculaId: number; yaExistia: boolean; centro: string; curso: string; nombre: string; vinculadaMoodle?: boolean }>,
   /** Las formaciones del catálogo del proyecto de ese campus, para elegir la vendida. */
   formaciones: (centro: string) => client.get(`/certifex/diplomas/formaciones?${qs({ centro })}`) as R<CatalogoDelCampus>,
   /** Los módulos de esa formación, leídos de la página del curso y guardados en el catálogo (12/10). */

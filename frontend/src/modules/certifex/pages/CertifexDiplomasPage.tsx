@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ArrowClockwise, ArrowCounterClockwise, ArrowSquareOut, BookOpenText, Certificate, CheckCircle, DownloadSimple, Envelope, FileXls, FilePdf,
-  FlagCheckered, HourglassMedium, LinkSimple, NotePencil, PaperPlaneTilt, PencilSimple, PlugsConnected, Plus, Printer, Prohibit, SealCheck, Trash, Warning, X, XCircle,
+  FlagCheckered, HourglassMedium, LinkSimple, NotePencil, PaperPlaneTilt, PencilSimple, PlugsConnected, Plus, Printer, Prohibit, SealCheck, Signature, Trash, UploadSimple, Warning, X, XCircle,
 } from '@phosphor-icons/react';
 import { toast, useToast } from '@/shared/hooks/useToast';
 import { useModalAccesible } from '@/shared/hooks/useDialogA11y';
@@ -19,12 +19,13 @@ import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import { runExport, type ExportColumn } from '@/shared/lib/export';
+import client from '@/shared/api/client';
 import {
   diplomasApi, emisionesApi,
   type CambiosSolicitud, type CampusCertifex, type CatalogoDelCampus, type ConexionCertifex, type CursoCertifex, type Diploma, type FiltroAviso,
   type PestanaDiplomas, type ProgramaDelCrm, type ProgramaOficial, type ResultadoAprobarEmitir, type ResumenDiplomas, type Solicitud, type Terminado,
 } from '../api/certifex.api';
-import { Avance, AvisoDireccionPublica, Buscador, EnElCrmEtiqueta, Etiqueta, Pestana } from '../components/piezas';
+import { Avance, AvisoCasiListo, AvisoDireccionPublica, Buscador, EnElCrmEtiqueta, Etiqueta, Pestana } from '../components/piezas';
 
 /**
  * Certifex · Diplomas (#272): lo que los alumnos piden desde Moodle y los diplomas ya
@@ -194,7 +195,14 @@ function Modulos({ programa, rotulo }: { programa: ProgramaOficial; rotulo: stri
  * Lo que se imprimirá en el diploma si se aprueba ahora: el programa de la formación
  * vendida (horas y módulos), o el aviso de que se usará lo de Moodle, con el motivo.
  */
-function ProgramaAImprimir({ p }: { p: ProgramaDelCrm | null | undefined }) {
+/**
+ * ¿La solicitud va sobre una matrícula de Moodle? Las creadas desde cero en el CRM llevan
+ * una referencia de curso desde 900.000.000 (Certifex, REF_CURSO_CRM); las de Moodle, el id
+ * de su curso. Con Moodle, si el catálogo no trae módulos se imprimen los del curso de Moodle.
+ */
+const esDeMoodle = (c: Solicitud) => Number(c.curso?.ref) > 0 && Number(c.curso.ref) < 900_000_000;
+
+function ProgramaAImprimir({ p, deMoodle = false }: { p: ProgramaDelCrm | null | undefined; deMoodle?: boolean }) {
   if (p === undefined) return null;
   if (p?.programa) {
     const rotulo = p.editado
@@ -203,6 +211,15 @@ function ProgramaAImprimir({ p }: { p: ProgramaDelCrm | null | undefined }) {
     return (
       <>
         <Modulos programa={p.programa} rotulo={rotulo} />
+        {/* Diego, 19/10: «todo tiene que tener módulos». Academia IA no los tiene en
+            ningún sitio: se escriben a mano en «Editar» antes de aprobar. */}
+        {p.programa.modulos.length === 0 && (
+          // Con matrícula de Moodle no falta nada: Certifex imprime los módulos del curso de
+          // Moodle cuando el catálogo no trae (Carlos, 20/10: «que tome los datos de Moodle»).
+          <div className="mt-1">{deMoodle
+            ? <Etiqueta tono="info">Módulos: los del curso de Moodle</Etiqueta>
+            : <Etiqueta tono="destructive">Sin módulos: escríbelos en «Editar»</Etiqueta>}</div>
+        )}
         {p.elegida && p.formacion && (
           <p className="mt-0.5 max-w-[280px] truncate text-[11px] text-muted-foreground" title={p.formacion.nombre}>Formación: {p.formacion.nombre}</p>
         )}
@@ -214,6 +231,125 @@ function ProgramaAImprimir({ p }: { p: ProgramaDelCrm | null | undefined }) {
       <Etiqueta tono="warning">Sin programa del CRM: se usará lo de Moodle</Etiqueta>
       {p?.motivo && <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{p.motivo}</p>}
     </div>
+  );
+}
+
+/**
+ * La firma del alumno en la fila (CRM #349): si la tiene, se dice; si no, se ofrece
+ * subirla (abre «Revisar datos»). Sin el dato (no se pudo mirar), no se dice nada.
+ */
+function FirmaEnFila({ c, alSubir, deshabilitado }: { c: Solicitud; alSubir: () => void; deshabilitado?: boolean }) {
+  if (c.firma === undefined) return null;
+  if (c.firma) {
+    return (
+      <div className="mt-1" title={c.firma.origen === 'admision' ? 'La de su matrícula de admisión' : `Subida por ${c.firma.por ?? '—'}`}>
+        <Etiqueta tono="success"><Signature size={12} className="mr-1 inline" />Con firma</Etiqueta>
+      </div>
+    );
+  }
+  return (
+    <button type="button" onClick={alSubir} disabled={deshabilitado}
+      className="mt-1 inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-warning-soft-foreground hover:bg-warning-soft/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
+      <Signature size={12} /> Sin firma · Subir
+    </button>
+  );
+}
+
+/**
+ * El DNI en la fila (Carlos, 20/10: «los DNI se colocan en el diploma»): si lo tiene, se ve;
+ * si no, se ofrece ponerlo (abre «Revisar datos»).
+ */
+function DniEnFila({ c, alPoner, deshabilitado }: { c: Solicitud; alPoner: () => void; deshabilitado?: boolean }) {
+  if (c.titular.dni) {
+    return <div className="mt-1"><Etiqueta tono="neutral">DNI {c.titular.dni}</Etiqueta></div>;
+  }
+  return (
+    <button type="button" onClick={alPoner} disabled={deshabilitado}
+      className="mt-1 inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-warning-soft-foreground hover:bg-warning-soft/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
+      Sin DNI · Poner
+    </button>
+  );
+}
+
+/** El fondo de cuadros para ver que la firma es transparente. */
+const CUADROS = { backgroundImage: 'conic-gradient(#e5e7eb 25%, #ffffff 0 50%, #e5e7eb 0 75%, #ffffff 0)', backgroundSize: '16px 16px' };
+
+/**
+ * «Firma del alumno» en «Revisar datos antes de aprobar» (CRM #349; Diego, 19/10: «si no
+ * la tiene debe salir para cargarla»). Se ve la que se imprimirá sobre «El interesado»
+ * (la subida a mano o la de su matrícula de admisión) y se puede subir o cambiar. La
+ * subida se guarda en el momento, sin esperar a «Guardar».
+ */
+function FirmaDelAlumnoBloque({ c, alCambiar }: { c: Solicitud; alCambiar: () => void }) {
+  const [firma, setFirma] = useState(c.firma);
+  const [url, setUrl] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!firma) { setUrl(null); return undefined; }
+    let vivo = true;
+    let u: string | null = null;
+    setCargando(true);
+    diplomasApi.firma(c.matriculaId)
+      .then((b) => { if (vivo) { u = URL.createObjectURL(b); setUrl(u); setError(null); } })
+      .catch((e) => { if (vivo) setError(`No se pudo ver la firma: ${(e as Error).message}`); })
+      .finally(() => { if (vivo) setCargando(false); });
+    return () => { vivo = false; if (u) URL.revokeObjectURL(u); };
+  }, [c.matriculaId, firma, version]);
+
+  async function subir(archivo: File | undefined) {
+    if (!archivo || subiendo) return;
+    setSubiendo(true);
+    setError(null);
+    try {
+      const r = await diplomasApi.subirFirma(c.matriculaId, archivo);
+      setFirma(r.data.firma ?? null);
+      setVersion((v) => v + 1);
+      alCambiar();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSubiendo(false);
+      if (input.current) input.current.value = '';
+    }
+  }
+
+  return (
+    <fieldset className="min-w-0 rounded-md border border-border p-3 [min-inline-size:0]">
+      <legend className="px-1 text-xs font-medium text-muted-foreground">Firma del alumno</legend>
+      {firma ? (
+        <>
+          <div className="flex h-28 items-center justify-center overflow-hidden rounded-md border border-border" style={CUADROS}>
+            {url ? <img src={url} alt="Firma del alumno" className="max-h-24 max-w-[90%] object-contain" />
+              : <span className="text-xs text-muted-foreground">{cargando ? 'Cargando la firma…' : '—'}</span>}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {firma.origen === 'admision'
+              ? `La de su matrícula de admisión${firma.matriculaCrm ? ` (nº ${firma.matriculaCrm})` : ''}.`
+              : `Subida por ${firma.por ?? '—'}${firma.en ? ` el ${fechaHora(firma.en)}` : ''}.`}
+            {' '}Saldrá sobre «El interesado».
+          </p>
+        </>
+      ) : (
+        <div className="rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-xs text-warning-soft-foreground">
+          {firma === null
+            ? 'Este alumno no tiene firma. Súbela para que salga en el diploma, sobre «El interesado».'
+            : 'No se pudo comprobar si tiene firma. Puedes subirla igualmente.'}
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void subir(e.target.files?.[0])} />
+        <Button type="button" size="sm" variant={firma ? 'outline' : 'default'} onClick={() => input.current?.click()} disabled={subiendo} aria-busy={subiendo}>
+          <UploadSimple size={14} className="mr-1.5" /> {subiendo ? 'Subiendo…' : firma ? 'Cambiar firma' : 'Subir firma'}
+        </Button>
+        <span className="text-[11px] text-muted-foreground">PNG, JPG o WEBP. Se quita el fondo y se recorta al trazo.</span>
+      </div>
+      {error && <p className="mt-2 text-xs text-destructive" role="alert">{error}</p>}
+    </fieldset>
   );
 }
 
@@ -396,6 +532,8 @@ export default function CertifexDiplomasPage() {
   const [versiones, setVersiones] = useState<Record<string, number>>({});
   // «Editar»: revisar los datos de una solicitud antes de aprobarla.
   const [editando, setEditando] = useState<Solicitud | null>(null);
+  // «Nuevo diploma» (19/10): desde cero, eligiendo cliente y formación.
+  const [creandoNuevo, setCreandoNuevo] = useState(false);
   // El error del servidor en un diálogo con texto (rechazar, revocar, corregir): el
   // diálogo sigue abierto y no pierde lo escrito.
   const [errorDialogo, setErrorDialogo] = useState<string | null>(null);
@@ -404,6 +542,8 @@ export default function CertifexDiplomasPage() {
   useEffect(() => addListener(), [addListener]);
 
   const recargar = () => setRecarga((n) => n + 1);
+  // Subir la firma en «Revisar datos» la guarda en el momento: al cerrar, se recarga.
+  const firmaCambiada = useRef(false);
   const abrir = (d: Dialogo) => { setErrorDialogo(null); setDialogo(d); };
 
   // ── carga ───────────────────────────────────────────────────────
@@ -827,6 +967,9 @@ export default function CertifexDiplomasPage() {
           <span>· Emitir no avisa al alumno: el correo sale solo cuando lo apruebas aquí</span>
         </span>
         <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => setCreandoNuevo(true)} disabled={!conexion?.conectado || !campus?.length}>
+            <Plus size={13} weight="bold" className="mr-1.5" /> Nuevo diploma
+          </Button>
           <Button variant="outline" size="sm" onClick={recargar} disabled={trabajando || !conexion?.conectado}>
             <ArrowClockwise size={13} weight="bold" className="mr-1.5" /> Actualizar
           </Button>
@@ -840,6 +983,7 @@ export default function CertifexDiplomasPage() {
       <SaludCampus campus={campus} />
 
       {/* Certifex en una dirección local: sus enlaces no abrirían (Certifex#96). */}
+      <AvisoCasiListo />
       <AvisoDireccionPublica conexion={conexion} />
 
       {/* Contadores: del campus elegido, o de todos. */}
@@ -1103,11 +1247,15 @@ export default function CertifexDiplomasPage() {
                           <td className="px-2 py-3">
                             <NombreDiploma c={c} />
                             <CorreoDelAlumno c={c} />
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <FirmaEnFila c={c} alSubir={() => setEditando(c)} deshabilitado={trabajando} />
+                              <DniEnFila c={c} alPoner={() => setEditando(c)} deshabilitado={trabajando} />
+                            </div>
                           </td>
                           <td className="px-2 py-3">
                             <div className="max-w-[260px] truncate" title={c.curso.nombre}>{c.curso.nombre}</div>
                             <div className="text-xs text-muted-foreground">{nombreCampus(c.centro)}</div>
-                            <ProgramaAImprimir p={c.programaCrm} />
+                            <ProgramaAImprimir p={c.programaCrm} deMoodle={esDeMoodle(c)} />
                           </td>
                           <td className="whitespace-nowrap px-2 py-3 text-xs">{fecha(c.solicitud?.en)}</td>
                           <td className="px-2 py-3 text-right">
@@ -1411,10 +1559,30 @@ export default function CertifexDiplomasPage() {
         />
       )}
 
+      {creandoNuevo && campus && (
+        <DialogoNuevoDiploma
+          campus={campus}
+          alCerrar={() => setCreandoNuevo(false)}
+          alCrear={(r) => {
+            setCreandoNuevo(false);
+            toast({
+              title: r.yaExistia ? 'Ya estaba creado' : 'Diploma creado',
+              description: `${r.nombre} · ${r.curso}. ${r.vinculadaMoodle ? 'Va sobre su matrícula de Moodle: saldrá con sus datos de Moodle. ' : ''}Está en «Por decidir»: apruébalo y emítelo cuando quieras.`,
+            });
+            irA('pendientes');
+            recargar();
+          }}
+        />
+      )}
+
       {editando && (
         <DialogoEditar
           c={editando}
-          alCerrar={() => setEditando(null)}
+          alCambiarFirma={() => { firmaCambiada.current = true; }}
+          alCerrar={() => {
+            setEditando(null);
+            if (firmaCambiada.current) { firmaCambiada.current = false; recargar(); }
+          }}
           alGuardar={(fila) => {
             setEditando(null);
             toast({ title: 'Datos revisados', description: `${fila.solicitud?.nombre || nombre(fila.matriculaId)}: «Aprobar y emitir» usará lo que has guardado.` });
@@ -1558,13 +1726,202 @@ const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * se imprimirá. El nombre se guarda en Certifex (es quien imprime); el correo del CRM,
  * la formación vendida y el programa, en el CRM. Solo antes de emitir: después, Corregir.
  */
-function DialogoEditar({ c, alCerrar, alGuardar }: {
+/** Un prospecto o cliente del proyecto del campus, tal y como lo da la búsqueda. */
+interface ClienteLite { id: number; nombre: string | null; email: string | null; telefono?: string | null }
+
+/**
+ * «Nuevo diploma» (Diego, 19/10: «Academia IA está sin Moodle, así que tiene que crear el
+ * diploma desde 0, seleccionando el cliente; igual para los demás»). Campus, cliente (de ese
+ * campus), formación del catálogo y el nombre que se imprimirá. Crea la solicitud en
+ * Certifex: queda en «Por decidir» para aprobarla y emitirla como las de Moodle.
+ */
+function DialogoNuevoDiploma({ campus, alCerrar, alCrear }: {
+  campus: CampusCertifex[]; alCerrar: () => void; alCrear: (r: { matriculaId: number; yaExistia: boolean; curso: string; nombre: string; vinculadaMoodle?: boolean }) => void;
+}) {
+  const [centro, setCentro] = useState(campus.length === 1 ? campus[0]!.codigo : '');
+  const [catalogo, setCatalogo] = useState<CatalogoDelCampus | null>(null);
+  const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [resultados, setResultados] = useState<ClienteLite[]>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [cliente, setCliente] = useState<ClienteLite | null>(null);
+  const [producto, setProducto] = useState('');
+  const [nombreD, setNombreD] = useState('');
+  const [creando, setCreando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // El catálogo (y el proyecto del CRM) del campus elegido.
+  useEffect(() => {
+    setCatalogo(null); setErrorCatalogo(null); setCliente(null); setResultados([]); setProducto('');
+    if (!centro) return;
+    let vivo = true;
+    diplomasApi.formaciones(centro)
+      .then((r) => { if (vivo) setCatalogo(r.data); })
+      .catch((e) => { if (vivo) setErrorCatalogo((e as Error).message); });
+    return () => { vivo = false; };
+  }, [centro]);
+
+  // Buscar al cliente en el proyecto del campus: por nombre, teléfono o correo.
+  const proyectoId = catalogo?.proyecto?.id ?? null;
+  useEffect(() => {
+    const q = busqueda.trim();
+    if (!proyectoId || q.length < 2 || cliente) { setResultados([]); return; }
+    let vivo = true;
+    const t = setTimeout(async () => {
+      setBuscando(true);
+      try {
+        const r = q.includes('@')
+          ? await client.get(`/leads/lookup-by-email?email=${encodeURIComponent(q)}&projectId=${proyectoId}`)
+          : await client.get(`/leads?projectId=${proyectoId}&search=${encodeURIComponent(q)}&limit=10`);
+        if (vivo) setResultados(((r as { data?: ClienteLite[] }).data ?? []).slice(0, 10));
+      } catch { if (vivo) setResultados([]); }
+      finally { if (vivo) setBuscando(false); }
+    }, 350);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [busqueda, proyectoId, cliente]);
+
+  const elegirCliente = (c: ClienteLite) => {
+    setCliente(c);
+    setResultados([]);
+    // El nombre impreso arranca con el de la ficha (sin lo que no puede ir en un diploma).
+    setNombreD((c.nombre ?? '').replace(/[()[\]{}0-9_@#*]+/g, ' ').replace(/\s+/g, ' ').trim());
+  };
+
+  const errorNombre = !cliente ? null : !nombreD.trim() ? 'Falta el nombre: es el que se imprimirá en el diploma.' : !nombreValido(nombreD) ? MSG_NOMBRE : null;
+  const sinCorreo = !!cliente && !(cliente.email ?? '').trim();
+  const listo = !creando && !!centro && !!cliente && !sinCorreo && !!producto && !errorNombre;
+
+  const ref = useRef<HTMLFormElement>(null);
+  useModalAccesible(ref, { onClose: () => !creando && alCerrar(), bloqueado: creando });
+
+  async function crear() {
+    if (!listo || !cliente) return;
+    setCreando(true);
+    setError(null);
+    try {
+      const r = await diplomasApi.nuevo({ centro, leadId: cliente.id, productoId: Number(producto), nombre: nombreValido(nombreD) ?? undefined });
+      alCrear(r.data);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setCreando(false);
+    }
+  }
+
+  const campo = 'mt-1 h-10 w-full rounded-md border border-border bg-muted/30 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
+  const formaciones = (catalogo?.formaciones ?? []).filter((f) => f.activa).concat((catalogo?.formaciones ?? []).filter((f) => !f.activa));
+  const elegida = formaciones.find((f) => String(f.id) === producto) ?? null;
+
+  return (
+    <Portal>
+      <div className="fixed inset-0 !m-0 z-[80] flex items-center justify-center sm:p-4">
+        <div className="fixed inset-0 !m-0 bg-black/60 backdrop-blur-sm" onClick={() => !creando && alCerrar()} />
+        <form
+          ref={ref}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="nuevo-diploma-titulo"
+          onSubmit={(e) => { e.preventDefault(); void crear(); }}
+          className="relative flex max-h-[100dvh] w-full max-w-xl flex-col border border-border bg-card sm:max-h-[92vh] sm:rounded-lg"
+        >
+          <div className="flex items-start gap-3 border-b border-border px-5 pb-3 pt-5">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Certificate size={20} /></div>
+            <div className="min-w-0 flex-1">
+              <h2 id="nuevo-diploma-titulo" className="text-base font-semibold">Nuevo diploma</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Para un cliente que no pide el diploma desde Moodle. Quedará en «Por decidir» para aprobarlo y emitirlo.</p>
+            </div>
+            <button type="button" onClick={alCerrar} disabled={creando} aria-label="Cerrar" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X size={16} /></button>
+          </div>
+
+          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+            <label className="block text-sm">
+              <span className="text-xs font-medium text-muted-foreground">Campus</span>
+              <Select<string> value={centro} onChange={setCentro} ariaLabel="Campus" className="mt-1 w-full"
+                options={[{ value: '', label: 'Elige el campus' }, ...campus.map((c) => ({ value: c.codigo, label: c.nombre }))]} />
+              {errorCatalogo && <span className="mt-1 block text-xs text-destructive" role="alert">{errorCatalogo}</span>}
+              {catalogo && !catalogo.proyecto && <span className="mt-1 block text-xs text-destructive" role="alert">{catalogo.motivo || 'Ese campus no tiene proyecto en el CRM.'}</span>}
+            </label>
+
+            <div className="block text-sm">
+              <span className="text-xs font-medium text-muted-foreground">Cliente</span>
+              {cliente ? (
+                <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-foreground">{cliente.nombre || 'Sin nombre'}</div>
+                    <div className="truncate text-xs text-muted-foreground">{cliente.email || 'sin correo'}{cliente.telefono ? ` · ${cliente.telefono}` : ''}</div>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setCliente(null); setBusqueda(''); }} disabled={creando}>Cambiar</Button>
+                </div>
+              ) : (
+                <>
+                  <input data-autofocus value={busqueda} onChange={(e) => setBusqueda(e.target.value)} disabled={!proyectoId} aria-label="Buscar cliente"
+                    placeholder={proyectoId ? 'Busca por nombre, teléfono o correo…' : 'Elige antes el campus'} className={campo} />
+                  {buscando && <span className="mt-1 block text-xs text-muted-foreground">Buscando…</span>}
+                  {resultados.length > 0 && (
+                    <ul className="mt-1 max-h-56 overflow-y-auto rounded-md border border-border" role="listbox" aria-label="Clientes encontrados">
+                      {resultados.map((c) => (
+                        <li key={c.id}>
+                          <button type="button" role="option" aria-selected="false" onClick={() => elegirCliente(c)}
+                            className="block w-full px-3 py-2 text-left hover:bg-muted focus:bg-muted focus:outline-none">
+                            <span className="block truncate text-sm text-foreground">{c.nombre || 'Sin nombre'}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{c.email || 'sin correo'}{c.telefono ? ` · ${c.telefono}` : ''}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {!buscando && busqueda.trim().length >= 2 && resultados.length === 0 && proyectoId && (
+                    <span className="mt-1 block text-xs text-muted-foreground">Nadie con eso en {catalogo?.proyecto?.nombre}. Si no está, créalo antes como prospecto.</span>
+                  )}
+                </>
+              )}
+              {sinCorreo && <span className="mt-1 block text-xs text-destructive" role="alert">Este cliente no tiene correo: añádelo en su ficha para poder enviarle el diploma.</span>}
+            </div>
+
+            <label className="block text-sm">
+              <span className="text-xs font-medium text-muted-foreground">Formación</span>
+              <SearchableSelect value={producto} onChange={setProducto} ariaLabel="Formación" placeholder="Buscar formación…" allLabel="Elige la formación"
+                className="mt-1 w-full" options={formaciones.map((f) => ({ value: String(f.id), label: [f.nombre, f.horas ? `${miles(f.horas)} h` : null, f.activa ? null : 'inactiva'].filter(Boolean).join(' · ') }))} />
+              {elegida && (
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {elegida.modulos.length ? `${elegida.modulos.length} módulos` : 'Sin módulos en el catálogo: podrás añadirlos con «Editar» antes de aprobar'}
+                  {elegida.horas ? ` · ${miles(elegida.horas)} h` : ''}
+                </span>
+              )}
+            </label>
+
+            {cliente && (
+              <label className="block text-sm">
+                <span className="text-xs font-medium text-muted-foreground">Nombre para el diploma</span>
+                <input value={nombreD} onChange={(e) => setNombreD(e.target.value)} maxLength={160} aria-invalid={!!errorNombre} className={campo} />
+                {errorNombre && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorNombre}</span>}
+              </label>
+            )}
+
+            {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{error}</p>}
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+            <Button type="button" variant="outline" onClick={alCerrar} disabled={creando}>Cancelar</Button>
+            <Button type="submit" disabled={!listo}>{creando ? 'Creando…' : 'Crear diploma'}</Button>
+          </div>
+        </form>
+      </div>
+    </Portal>
+  );
+}
+
+function DialogoEditar({ c, alCerrar, alGuardar, alCambiarFirma }: {
   c: Solicitud; alCerrar: () => void; alGuardar: (fila: Solicitud) => void;
+  /** La firma se guarda al subirla: el panel recarga al cerrar aunque no se pulse «Guardar». */
+  alCambiarFirma?: () => void;
 }) {
   const ed = c.edicion ?? null;
   const [catalogo, setCatalogo] = useState<CatalogoDelCampus | null>(null);
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
   const [nombreD, setNombreD] = useState(c.solicitud?.nombre ?? '');
+  // El DNI que se imprimirá (Carlos, 20/10): hasta que llegue de la admisión, a mano.
+  const [dniD, setDniD] = useState(c.titular.dni ?? '');
   const [correo, setCorreo] = useState(ed?.emailCrm ?? '');
   const [producto, setProducto] = useState(ed?.productoId ? String(ed.productoId) : '');
   // `tocado`: el programa es el escrito a mano. Si no, se imprime el del catálogo.
@@ -1642,15 +1999,20 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
   const sumaModulos = form.modulos.reduce((s, m) => s + (/^\d+$/.test(m.horas.trim()) ? Number(m.horas) : 0), 0);
   const horasTotales = /^\d+$/.test(form.horas.trim()) ? Number(form.horas) : null;
 
+  const dniN = dniD.replace(/\s+/g, ' ').trim().toUpperCase();
+  const errorDni = dniN && (!/^[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?$/.test(dniN) || dniN.replace(/[.-]/g, '').length < 5 || dniN.replace(/[.-]/g, '').length > 20)
+    ? 'Solo letras y números (con «-» o «.» por dentro), de 5 a 20.' : null;
+
   const cambios: CambiosSolicitud = { matriculaId: c.matriculaId };
   if (nombreN !== normalizarNombre(c.solicitud?.nombre ?? '')) cambios.nombre = nombreN;
+  if (dniN !== (c.titular.dni ?? '').toUpperCase()) cambios.dni = dniN || null;
   if (correoN !== (ed?.emailCrm ?? '')) cambios.emailCrm = correoN || null;
   const productoN = producto ? Number(producto) : null;
   if (productoN !== (ed?.productoId ?? null)) cambios.productoId = productoN;
   if (tocado && prog.programa && !mismoPrograma(prog.programa, ed?.programaEditado)) cambios.programa = prog.programa;
   if (!tocado && ed?.programaEditado) cambios.programa = null;
   const hayCambios = Object.keys(cambios).length > 1;
-  const listo = !guardando && hayCambios && !errorNombre && !errorCorreo && !prog.error;
+  const listo = !guardando && hayCambios && !errorNombre && !errorDni && !errorCorreo && !prog.error;
 
   // Con cambios sin guardar, Escape, el fondo o «Cancelar» preguntan antes de descartar.
   const [preguntar, setPreguntar] = useState(false);
@@ -1716,6 +2078,17 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
               {errorNombre && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorNombre}</span>}
             </label>
 
+            {/* DNI: vive en Certifex, en el alumno, y se imprime junto al nombre (Carlos, 20/10). */}
+            <label className="block text-sm">
+              <span className="text-xs font-medium text-muted-foreground">DNI / NIE / pasaporte</span>
+              <input value={dniD} onChange={(e) => setDniD(e.target.value)} maxLength={30} placeholder="Ej.: 12345678Z" aria-invalid={!!errorDni}
+                autoComplete="off" className={cn(campo, 'uppercase')} />
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Se imprime en el diploma junto al nombre. {c.titular.dni ? '' : 'Todavía no lo tiene: escríbelo si debe salir.'}
+              </span>
+              {errorDni && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorDni}</span>}
+            </label>
+
             <label className="block text-sm">
               <span className="text-xs font-medium text-muted-foreground">Correo del alumno en el CRM</span>
               <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} maxLength={254} placeholder={c.titular.email || 'correo@ejemplo.com'} aria-invalid={!!errorCorreo} className={campo} />
@@ -1779,7 +2152,11 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
                   )}
                 </div>
                 {form.modulos.length === 0 ? (
-                  <p className="mt-1 text-xs italic text-muted-foreground">Sin módulos.</p>
+                  esDeMoodle(c)
+                    ? <p className="mt-1 text-xs text-muted-foreground" role="status">Sin módulos en el catálogo: saldrán los del curso de Moodle. Si escribes alguno, mandan los tuyos.</p>
+                    : <p className="mt-1 text-xs font-medium text-destructive" role="status">
+                        Sin módulos: el diploma saldría sin temario. Sincronízalos con el producto o escríbelos con «Añadir módulo».
+                      </p>
                 ) : (
                   <ol className="mt-1 space-y-1.5">
                     {form.modulos.map((m, i) => (
@@ -1805,6 +2182,8 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
               </div>
               {prog.error && <p className="mt-2 text-xs text-destructive">{prog.error}</p>}
             </fieldset>
+
+            <FirmaDelAlumnoBloque c={c} alCambiar={() => alCambiarFirma?.()} />
 
             {ed?.por && (
               <p className="text-xs text-muted-foreground">Correo, formación o programa revisados por {ed.por} el {fechaHora(ed.en)}.</p>

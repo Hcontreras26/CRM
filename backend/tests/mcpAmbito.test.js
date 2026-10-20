@@ -231,7 +231,8 @@ describe('cada consulta va acotada a los campus de la persona', () => {
   });
 
   it('cada informe, a un gestor, o le recorta a lo suyo o se le niega', async () => {
-    // `overview` (resumen_general) acepta asesoraId pero no lo aplica. Si un
+    // `overview` (resumen_general) acepto asesoraId sin aplicarlo hasta el
+    // 19/10/2026; sigue siendo solo de admin. Si un
     // informe nuevo hace lo mismo, esta prueba lo caza antes de que Claude le
     // cuente a una gestora los totales de todo el campus.
     const informe = HERRAMIENTAS.find((h) => h.nombre === 'informe');

@@ -43,6 +43,11 @@ export default function DialogoWebhook({
   const [para, setPara] = useState<string>(() => {
     if (webhook) return opcionDesdeWebhook(webhook);
     if (issuerId) return `e:${issuerId}`;
+    // Con un campus elegido se propone SU EMPRESA entera (Diego, 19/10: «debe ser por
+    // empresa»); el campus solo sigue a mano en el desplegable. Un campus sin empresa,
+    // él mismo.
+    const empresa = projectId ? proyectos.find((p) => Number(p.id) === Number(projectId))?.sociedad_emisora_id : null;
+    if (empresa) return `e:${empresa}`;
     return projectId ? `c:${projectId}` : '';
   });
   const [metodos, setMetodos] = useState<MetodoWebhook[]>(webhook?.metodos || ['transferencia', 'deposito']);

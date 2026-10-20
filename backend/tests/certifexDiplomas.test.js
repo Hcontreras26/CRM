@@ -399,7 +399,7 @@ describe('aprobar y emitir', () => {
     // Solo se emite lo que se aprobo.
     expect(pedidas[2].cuerpo).toEqual({ items: [{ matriculaId: 7 }], emitidaPor: 'manuel@empresa.com' });
     expect(r.body.data.resultados).toEqual([
-      { matriculaId: 7, ok: true, nexpediente: 'CTF-2026-000007-AAAA', fase: 'emitir', sinPrograma: 'No se encontró la matrícula para buscar su venta.' },
+      { matriculaId: 7, ok: true, nexpediente: 'CTF-2026-000007-AAAA', fase: 'emitir', firmaAlumno: false, sinPrograma: 'No se encontró la matrícula para buscar su venta.' },
       { matriculaId: 8, ok: false, fase: 'aprobar', error: 'Ya está rechazada' },
     ]);
     expect(pedidas.some((p) => p.ruta.startsWith('/avisos'))).toBe(false);

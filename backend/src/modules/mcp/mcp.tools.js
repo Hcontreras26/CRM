@@ -58,9 +58,10 @@ export const INFORMES = {
   resumen_general: {
     descripcion: 'Leads por estado y canal, conversiones y dinero cobrado del periodo (solo super admin y admin).',
     ejecutar: reportes.overview,
-    // `overview` acepta `asesoraId` pero NO lo aplica: en la pantalla solo lo
-    // ven los admin (`roleGuard` en /overview). A quien ve solo lo suyo le
-    // daria los totales de todo el campus. Lo vigila `mcpAmbito.test.js`.
+    // `overview` no aplicaba `asesoraId` hasta el 19/10/2026 (ver su
+    // comentario: «Tu semana» de las gestoras). Ya lo aplica, pero esto sigue
+    // siendo solo para admin, como la pantalla (`roleGuard` en /overview): la
+    // gestora tiene su propio resumen. Lo vigila `mcpAmbito.test.js`.
     soloAdmin: true,
   },
   resumen_mensual: {

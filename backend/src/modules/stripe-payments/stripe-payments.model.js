@@ -328,6 +328,29 @@ export async function upsertSyncState(projectId, fields) {
 // Cargos ya importados que siguen sin asociar a una venta. La sincronizacion los
 // reintenta en cada pasada: si mientras tanto el lead se convirtio, o alguien
 // deshizo una asociacion, en el siguiente Sincronizar se vuelven a enganchar.
+/**
+ * Los cargos que tienen VENTA pero se quedaron SIN COBRO (19/10, venta 595 de Dayana:
+ * se borró el cobro al que estaban enganchados). La segunda pasada de Sincronizar los
+ * vuelve a enganchar al cobro equivalente que ya esté apuntado, sin crear ninguno.
+ */
+export async function listConVentaSinCobro(projectId, limit = 500) {
+  const { rows } = await query(
+    `SELECT id, stripe_id, status, amount, currency,
+            EXTRACT(EPOCH FROM stripe_created_at)::bigint AS stripe_created_at,
+            conversion_id, conversion_payment_id, lead_id, link_method, linked_by
+       FROM stripe_payments
+      WHERE project_id = $1
+        AND status = 'succeeded'
+        AND COALESCE(refunded, false) = false
+        AND conversion_id IS NOT NULL
+        AND conversion_payment_id IS NULL
+      ORDER BY stripe_created_at DESC
+      LIMIT $2`,
+    [projectId, limit]
+  );
+  return rows;
+}
+
 export async function listPendientesDeAsociar(projectId, limit = 500) {
   const { rows } = await query(
     `SELECT id, project_id, stripe_id, status, amount, currency, customer_email, customer_name,

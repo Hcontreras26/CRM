@@ -61,6 +61,20 @@ const COLUMNAS = {
 };
 COLUMNAS['cobros-venta'] = COLUMNAS.cobros;
 COLUMNAS['leads-convertidos'] = COLUMNAS.ventas;
+// Las tres partes de lo cobrado (Diego, 19/10/2026: «cifras separadas»). Con
+// el nº y la fecha de la venta delante: es lo que dice a qué caja va cada cobro.
+// El importe es la parte de la gestora en una venta compartida, para que las
+// filas sumen el número pulsado.
+COLUMNAS['cobros-periodo'] = [
+  { k: 'fecha', h: 'Cobro', t: 'date' }, { k: 'cliente', h: 'Cliente' },
+  { k: 'importe', h: 'Importe', t: 'eur' },
+  { k: 'venta', h: 'Venta nº', t: 'num' }, { k: 'fecha_venta', h: 'Venta de', t: 'date' },
+  { k: 'cuota', h: 'Cuota', t: 'num' }, { k: 'formacion', h: 'Formación' },
+  { k: 'factura', h: 'Factura' }, { k: 'emitida', h: 'Facturada', t: 'date' },
+  { k: 'asesora', h: 'Asesora' },
+];
+COLUMNAS['cobros-anteriores'] = COLUMNAS['cobros-periodo'];
+COLUMNAS['cobros-cuotas'] = COLUMNAS['cobros-periodo'];
 
 const TITULOS = {
   leads: 'Leads entrados',
@@ -69,6 +83,9 @@ const TITULOS = {
   mensualidades: 'Mensualidades cobradas',
   cobros: 'Cobros',
   'cobros-venta': 'Cobros de venta nueva',
+  'cobros-periodo': 'Cobrado de ventas del periodo',
+  'cobros-anteriores': 'Cobrado de ventas anteriores',
+  'cobros-cuotas': 'Cobrado en cuotas (plan de pago o mensualidad)',
 };
 
 // Las cifras van a la derecha; el resto, a la izquierda.

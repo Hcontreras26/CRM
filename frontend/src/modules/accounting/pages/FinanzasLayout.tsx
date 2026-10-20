@@ -5,7 +5,6 @@ import {
 } from '@phosphor-icons/react';
 import SubNav from '@/shared/components/ui/SubNav';
 import BetaDisclaimer from '@/shared/components/ui/BetaDisclaimer';
-import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 
 const TABS = [
   { label: 'Dashboard', to: '/finanzas', icon: ChartBar },
@@ -22,7 +21,7 @@ const TABS = [
   { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', icon: CreditCard },
   { label: 'Facturas', to: '/finanzas/facturas', icon: Receipt },
   // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
-  ...(SOLO_EN_PRUEBAS ? [{ label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', icon: Receipt }] : []),
+  { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', icon: Receipt },
   { label: 'Integraciones', to: '/finanzas/integraciones', icon: PlugsConnected },
 ];
 

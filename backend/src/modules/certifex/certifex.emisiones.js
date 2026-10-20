@@ -31,7 +31,9 @@ export { certifex };
  */
 
 /** Forma de un numero de expediente de Certifex: CTF-2026-000123-AB12. */
-export const NEXP = /^[A-Z]{3}-\d{4}-\d{6}-[A-Z0-9]{4}$/;
+// El prefijo es el de la empresa que numera (Certifex 0035: CEDIA, ISEIE, ICTESS, LTS) o
+// el CTF de los antiguos: de 2 a 6 letras, lo mismo que acepta la verificación de Certifex.
+export const NEXP = /^[A-Z]{2,6}-\d{4}-\d{6}-[A-Z0-9]{4}$/;
 
 function parsear(schema, datos) {
   const r = schema.safeParse(datos);
