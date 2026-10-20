@@ -17,7 +17,8 @@ const router = Router();
 // formulario normal llegan como siempre.
 const archivos = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_BYTES, files: 8, fields: 200 },
+  // fieldSize: un campo de texto puede traer una imagen en base64 (10 MB son ~13,4 MB en texto).
+  limits: { fileSize: MAX_BYTES, files: 8, fields: 200, fieldSize: 15 * 1024 * 1024 },
 }).any();
 
 function conArchivos(req, res, next) {

@@ -115,6 +115,10 @@ app.use(cors({
 // los mismos que deja pasar Nginx, para que no se rechace en dos sitios
 // distintos con dos mensajes distintos.
 app.use('/api/whatsapp/webhook', express.json({ limit: '25mb' }));
+// El webhook de admisión (#198): el formulario puede mandar los documentos como
+// imagen en texto (DNI por las dos caras, foto, título, firma), y con 5 MB se
+// perdía la solicitud entera. Solo esta ruta, y los mismos 25 MB que Nginx.
+app.use('/api/webhook-tokens/receive', express.json({ limit: '25mb' }), express.urlencoded({ extended: true, limit: '25mb' }));
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));  // Elementor envía form-encoded

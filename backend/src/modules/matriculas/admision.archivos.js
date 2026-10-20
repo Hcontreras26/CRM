@@ -128,7 +128,8 @@ export async function obtenerArchivo(valor, archivos = [], opciones = {}) {
   const v = Array.isArray(valor) ? valor.find((x) => x != null && x !== '') : valor;
   if (v == null || v === '') return null;
   if (typeof v === 'object' && v.__archivo) {
-    const f = archivos.find((a) => a.fieldname === v.__archivo);
+    const f = (Number.isInteger(v.__indice) && archivos[v.__indice]?.fieldname === v.__archivo)
+      ? archivos[v.__indice] : archivos.find((a) => a.fieldname === v.__archivo);
     if (!f) throw rechazo('No ha llegado el archivo.');
     return comprobado(f.buffer);
   }
@@ -150,7 +151,13 @@ export async function obtenerArchivo(valor, archivos = [], opciones = {}) {
  */
 export function conArchivos(body, archivos = []) {
   const out = { ...(body || {}) };
-  for (const f of archivos) out[f.fieldname] = { __archivo: f.fieldname, nombre: f.originalname || null, tamano: f.size ?? f.buffer?.length ?? null };
+  const porCampo = new Map();
+  archivos.forEach((f, i) => {
+    const marca = { __archivo: f.fieldname, __indice: i, nombre: f.originalname || null, tamano: f.size ?? f.buffer?.length ?? null };
+    porCampo.set(f.fieldname, [...(porCampo.get(f.fieldname) || []), marca]);
+  });
+  // Varios archivos con el mismo nombre (`fotos[]`): una lista, y vale el primero.
+  for (const [campo, marcas] of porCampo) out[campo] = marcas.length === 1 ? marcas[0] : marcas;
   return out;
 }
 

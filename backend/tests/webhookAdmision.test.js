@@ -225,6 +225,52 @@ describe('los documentos: archivo, imagen en texto o URL', () => {
   });
 });
 
+describe('el contrato de Diego (01/10), tal cual, y formularios de verdad', () => {
+  it('sin mapeo, el ARCHIVO «titulo» va como documento y «documento» como número', async () => {
+    const r = await recibir().field('email', correo('contrato')).field('documento', 'Y7654321G')
+      .attach('dni_frente', JPG, 'f.jpg').attach('titulo', PDF, 'titulo.pdf');
+    expect(r.body.data.documentos.guardados).toEqual(['dni_frente', 'titulo_doc']);
+    const m = await matricula(r.body.data.matricula_id);
+    expect(m.titulo_doc_key).toMatch(/\.pdf$/);
+    expect(m.titulo).toBeNull(); // el texto «Título / Programa» no se llena con un archivo
+    expect(m.dni).toBe('Y7654321G');
+  });
+
+  it('el «titulo» que es texto sigue siendo el texto «Título / Programa»', async () => {
+    const r = await recibir().send({ email: correo('titulotexto'), titulo: 'Máster en Duelo' });
+    expect((await matricula(r.body.data.matricula_id)).titulo).toBe('Máster en Duelo');
+  });
+
+  it('Gravity: el nombre por partes ({ first, last }) se junta', async () => {
+    const t = await tokenModel.create({ project_id: PROYECTO.id, kind: 'matriculas', field_mapping: { nombre: 'name', email: 'mail' } });
+    const r = await recibir(t.token).send({ name: { first: 'Ana', last: 'Pérez Gil' }, mail: correo('gravity') });
+    expect((await matricula(r.body.data.matricula_id)).nombre).toBe('Ana Pérez Gil');
+  });
+
+  it('varios archivos con el mismo nombre (fotos[]): se pueden mapear y vale el primero', async () => {
+    const t = await tokenModel.create({ project_id: PROYECTO.id, kind: 'matriculas', field_mapping: { email: 'e', dni_frente: 'docs.0', dni_dorso: 'docs.1' } });
+    const r = await recibir(t.token).field('e', correo('varios')).attach('docs', JPG, 'frente.jpg').attach('docs', PNG, 'dorso.png');
+    expect(r.body.data.documentos.guardados).toEqual(['dni_frente', 'dni_dorso']);
+    const m = await matricula(r.body.data.matricula_id);
+    expect(m.dni_doc_key).toMatch(/\.jpg$/);
+    expect(m.dni_dorso_key).toMatch(/\.png$/);
+  });
+
+  it('un JSON con las imágenes en texto de más de 5 MB entra (el tope general de la API es 5 MB)', async () => {
+    const grande = await sharp({ create: { width: 1400, height: 1400, channels: 3, background: '#888' } })
+      .composite([{ input: Buffer.from(Array.from({ length: 1400 * 1400 * 3 }, (_, i) => (i * 7919) % 256)), raw: { width: 1400, height: 1400, channels: 3 } }])
+      .png({ compressionLevel: 0 }).toBuffer();
+    expect(grande.length).toBeGreaterThan(4 * 1024 * 1024);
+    const uri = `data:image/png;base64,${grande.toString('base64')}`;
+    // La app de verdad, con su tope por ruta (app.js).
+    const { default: appReal } = await import('../src/app.js');
+    const r = await supertest(appReal).post(`/api/webhook-tokens/receive/${TOKEN.token}`)
+      .send({ email: correo('json-grande'), dni_frente: uri, dni_dorso: uri });
+    expect(r.status).toBe(201);
+    expect(r.body.data.documentos.guardados).toEqual(['dni_frente', 'dni_dorso']);
+  }, 60000);
+});
+
 describe('se une a la persona («que se sincronicen con el mail»)', () => {
   it('por el correo: con su prospecto de siempre y su gestora, sin crear otro', async () => {
     const [l] = await q(`INSERT INTO leads (project_id, nombre, email, telefono, responsable_id) VALUES ($1, 'Rosa Prospecto', $2, '600999888', $3) RETURNING id`,
@@ -261,6 +307,17 @@ describe('se une a la persona («que se sincronicen con el mail»)', () => {
     const [c] = await q(`INSERT INTO conversions (lead_id, project_id, producto_contratado, importe_total) VALUES ($1, $2, 'Máster X', 2400) RETURNING id`, [l.id, PROYECTO.id]);
     const r = await recibir().send({ nombre: 'Con Venta', email: correo('venta') });
     expect(r.body.data.conversion_id).toBe(c.id);
+    expect((await matricula(r.body.data.matricula_id)).conversion_id).toBe(c.id);
+  });
+
+  it('y si la venta llega DESPUÉS de la solicitud («cuando la haya»), se une al registrarla', async () => {
+    const r = await recibir().send({ nombre: 'Venta Tardía', email: correo('tardia') });
+    expect(r.body.data.conversion_id).toBeNull();
+    // La venta, como la registra el CRM (conversion.model.create: todas pasan por ahí).
+    const { create: crearVenta } = await import('../src/modules/conversions/conversion.model.js');
+    const c = await crearVenta({
+      lead_id: r.body.data.lead_id, project_id: PROYECTO.id, producto_contratado: 'Curso Tardío', importe_total: 300, importe_pagado: 0,
+    });
     expect((await matricula(r.body.data.matricula_id)).conversion_id).toBe(c.id);
   });
 

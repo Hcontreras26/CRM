@@ -42,10 +42,20 @@ const URL_DOC = { dni: 'dni_doc_url', dni_dorso: 'dni_dorso_url', foto: 'foto_ur
 
 const LARGO = { nombre: 200, email: 200, telefono: 50, documento_tipo: 30, dni: 40, pais: 80, curso_solicitado: 255 };
 
-/** Un texto limpio, recortado a lo que cabe en su columna; null si viene vacío. */
+/** ¿Es un archivo del multipart o una imagen en texto, no un dato? */
+const esArchivo = (v) => (v && typeof v === 'object' && !Array.isArray(v) && v.__archivo)
+  || (typeof v === 'string' && /^data:[\w.+/-]+;base64,/i.test(v.trim()));
+
+/**
+ * Un texto limpio, recortado a lo que cabe en su columna; null si viene vacío.
+ * Gravity manda algunos campos compuestos (el nombre como `{ first, last }`, la
+ * dirección por partes): se juntan sus partes, en el orden en que llegan.
+ */
 function texto(v, campo) {
-  if (v == null) return null;
-  const t = (Array.isArray(v) ? v.filter((x) => x != null && x !== '').join(', ') : String(v)).trim();
+  if (v == null || esArchivo(v)) return null;
+  const partes = (x) => (x == null || x === '' ? [] : typeof x === 'object' ? Object.values(x).flatMap(partes) : [String(x).trim()]);
+  const t = (Array.isArray(v) ? v.flatMap(partes).filter(Boolean).join(', ')
+    : typeof v === 'object' ? partes(v).filter(Boolean).join(' ') : String(v)).trim();
   if (!t) return null;
   return LARGO[campo] ? t.slice(0, LARGO[campo]) : t;
 }
@@ -150,11 +160,19 @@ async function guardarDocumento(matricula, tipo, archivo) {
 export async function recibirAdmision(token, body, archivos = [], opcionesArchivo = {}) {
   const projectId = token.project_id;
   const envio = conArchivos(body, archivos);
-  const mapeado = applyMapping(envio, token.field_mapping || {});
+  // Copia: sin mapeo, applyMapping devuelve el mismo objeto, y abajo se le añaden alias.
+  const mapeado = { ...applyMapping(envio, token.field_mapping || {}) };
   const huella = huellaDelEnvio(body, archivos);
 
   const repetido = await query('SELECT id FROM matriculas WHERE project_id = $1 AND envio_huella = $2', [projectId, huella]);
   if (repetido.rows[0]) return { status: 200, data: { matricula_id: repetido.rows[0].id, action: 'duplicate_skipped' } };
+
+  // El contrato de Diego (01/10) llama `titulo` al ARCHIVO del título y `documento`
+  // al número; el CRM ya usaba `titulo` para el texto «Título / Programa» y `dni`
+  // para el número. Se aceptan los dos: un `titulo` que es un archivo va como
+  // documento, y `documento` vale como `dni`.
+  if (mapeado.titulo_doc == null && esArchivo(mapeado.titulo)) mapeado.titulo_doc = mapeado.titulo;
+  if (mapeado.dni == null && mapeado.documento != null) mapeado.dni = mapeado.documento;
 
   const persona = {};
   for (const campo of CAMPOS_PERSONA) persona[campo] = texto(mapeado[campo], campo);
