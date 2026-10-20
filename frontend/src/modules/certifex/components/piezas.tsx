@@ -210,10 +210,10 @@ export function AvisoCasiListo() {
     <div role="note" className="flex items-start gap-3 rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-sm text-info-soft-foreground">
       <Signature size={18} weight="bold" className="mt-0.5 flex-none" aria-hidden />
       <div>
-        <p className="font-medium">Casi listo: los diplomas aún salen sin la firma del alumno</p>
+        <p className="font-medium">La firma del alumno va en el diploma</p>
         <p className="mt-0.5 text-xs">
-          La firma de la institución ya va impresa. La del alumno, la que hace en la solicitud de admisión, la mandará el CRM
-          a Certifex y se colocará sola sobre «El interesado». Hasta entonces, en esa línea sale solo su nombre.
+          Se coge la de su solicitud de admisión y, si no la tiene, se sube en «Revisar datos antes de aprobar» (foto o
+          escaneo: el CRM le quita el fondo). Se imprime sobre «El interesado»; sin firma, en esa línea sale solo su nombre.
         </p>
       </div>
     </div>

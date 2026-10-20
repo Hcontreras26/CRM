@@ -16,10 +16,10 @@ export const VERSIONES = [
     "version": "2.2.0",
     "fecha": "2026-10-16",
     "titulo": "Versión 2.2.0",
-    "intro": "Los diplomas de Certifex, ya desde el CRM, y una tanda de mejoras en Finanzas, usuarios y correos. Aquí está todo lo nuevo, con un botón para ir a cada pantalla.",
+    "intro": "Los diplomas de Certifex, ya desde el CRM y con la firma del alumno, y una tanda de mejoras en Finanzas, reportes, usuarios y correos. Aquí está todo lo nuevo, con un botón para ir a cada pantalla.",
     "grupos": [
       {
-        "titulo": "Diplomas de Certifex · casi listo",
+        "titulo": "Diplomas de Certifex",
         "items": [
           {
             "titulo": "Aprobar, emitir y enviar los diplomas",
@@ -32,14 +32,14 @@ export const VERSIONES = [
             "boton": "Ir a Diplomas"
           },
           {
-            "titulo": "Casi listo: falta la firma del alumno",
-            "texto": "Los diplomas ya salen con la firma de la institución. La del alumno, la que hace en la solicitud de admisión, la mandará el CRM y Certifex la colocará sobre «El interesado». Mientras tanto, en esa línea sale su nombre.",
+            "titulo": "La firma del alumno, en el diploma",
+            "texto": "Va impresa sobre «El interesado». Se coge la de su solicitud de admisión y, si no la tiene, la subes en «Revisar datos antes de aprobar»: una foto o un escaneo, y el CRM le quita el fondo y la recorta. En «Por decidir» cada fila dice «Con firma» o «Sin firma · Subir».",
             "roles": [
               "admin",
               "superadmin"
             ],
-            "ruta": null,
-            "boton": null
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
           },
           {
             "titulo": "Diploma nuevo de Psiko Aprende",
@@ -64,6 +64,36 @@ export const VERSIONES = [
           {
             "titulo": "El temario, desde la página del curso",
             "texto": "Antes de aprobar, «Sincronizar módulos con el producto» copia los módulos de la página del curso, y se pueden retocar a mano. Un nombre mal escrito se corrige sin revocar: mismo número de expediente y mismo QR, y queda anotado quién y por qué.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "Nuevo diploma, desde el CRM",
+            "texto": "Para quien no lo pide desde Moodle: «Nuevo diploma», eliges el campus, el cliente y la formación vendida, y queda en «Por decidir» para aprobarlo y emitirlo como los demás.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "Diploma nuevo de ISEIH",
+            "texto": "Los diplomas de ISEIH salen con su diseño nuevo: el certificado con las firmas de dirección y de formación, y el plan de estudios con sus módulos, sus horas y el sello de ISEIE, con su QR y su código de verificación.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "Horas y temario en todo el catálogo",
+            "texto": "Las formaciones ya traen sus horas y su temario, sacados de la página de cada curso. Si a alguna le faltan los módulos, el panel lo avisa en rojo para escribirlos antes de aprobar.",
             "roles": [
               "admin",
               "superadmin"
@@ -153,6 +183,46 @@ export const VERSIONES = [
             ],
             "ruta": null,
             "boton": null
+          },
+          {
+            "titulo": "Buscar una factura por el alumno",
+            "texto": "El buscador de Facturas encuentra también por el nombre y el correo del alumno de la venta: una factura a nombre de su empresa ya sale buscando a la persona.",
+            "roles": [
+              "admin",
+              "superadmin",
+              "gestor"
+            ],
+            "ruta": "/finanzas/facturas",
+            "boton": "Ir a Facturas"
+          },
+          {
+            "titulo": "El ranking separa de dónde viene lo cobrado",
+            "texto": "En Reportes → Asesoras, «Cómo voy» y el correo semanal, cada gestora tiene su vendido, facturado, cobrado y pendiente por separado, y lo cobrado se parte en ventas del periodo, ventas anteriores (con la venta y su fecha) y cuotas. Las filas «Sin gestora» y «Total» cuadran con la tarjeta de cobrado.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/informes",
+            "boton": "Ir a Reportes"
+          },
+          {
+            "titulo": "«Tu semana», con lo tuyo",
+            "texto": "El correo de cada lunes te enseña tus prospectos y tus ventas, no los del equipo, y de dónde viene lo que cobraste: ventas de la semana, ventas anteriores y cuotas.",
+            "roles": [
+              "gestor"
+            ],
+            "ruta": null,
+            "boton": null
+          },
+          {
+            "titulo": "Un cobro de Stripe no se queda suelto",
+            "texto": "Si se borra un cobro y se vuelve a apuntar, el cargo de Stripe se engancha al nuevo al pulsar «Sincronizar».",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
           }
         ]
       },
@@ -161,7 +231,7 @@ export const VERSIONES = [
         "items": [
           {
             "titulo": "Aviso de cobros por transferencia o depósito",
-            "texto": "En Conexión → Webhook de transferencias se configura una dirección que recibe un aviso firmado cada vez que se apunta un cobro por transferencia o depósito bancario, y solo esos. Se puede limitar a una empresa o a un campus, probarlo y ver el registro de envíos.",
+            "texto": "En Conexión → «Webhook de transferencias» pulsas «Nuevo webhook» y pones la dirección que debe recibir los datos (Make, tu contabilidad, otro programa). Desde entonces, cada cobro apuntado por transferencia o depósito bancario manda sus datos ahí, solo. Se configura por empresa, y arriba se ve si ahora mismo se avisa a alguien. Con tarjeta, Stripe, Bizum o efectivo no sale nada.",
             "roles": [
               "admin",
               "superadmin"
