@@ -114,9 +114,14 @@ const CAMPO = 'mt-1 w-full h-9 px-3 rounded-lg border border-border bg-muted/30 
  */
 const urlDelDocumento = (url: string) => (url.startsWith('/api/') ? `${API_BASE_URL}${url.slice(4)}` : url);
 
-/** Lo que trae el formulario, como texto (vacío si no viene). */
+/**
+ * Lo que trae el formulario, como texto (vacío si no viene). Primero el campo
+ * propio de la matrícula (#198: el webhook guarda ahí lo ya mapeado, aunque el
+ * formulario lo llame de otra forma) y, si no, el envío tal como llegó.
+ */
 const delFormulario = (m: Matricula, clave: string) => {
-  const v = m.datos_admision?.[clave];
+  const propio = m[clave];
+  const v = propio !== undefined && propio !== null && propio !== '' ? propio : m.datos_admision?.[clave];
   return v === undefined || v === null ? '' : String(v);
 };
 
@@ -219,7 +224,8 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
   const nacimiento = delFormulario(m, 'fecha_nacimiento');
   const datos: Array<{ etiqueta: string; valor: string }> = [
     { etiqueta: 'Documento', valor: documento },
-    { etiqueta: 'Fecha de nacimiento', valor: nacimiento ? nacimiento.split('-').reverse().join('/') : '' },
+    // La del campo propio llega como «1990-05-17» o «1990-05-17T00:00:00.000Z»: vale el día.
+    { etiqueta: 'Fecha de nacimiento', valor: /^\d{4}-\d{2}-\d{2}/.test(nacimiento) ? nacimiento.slice(0, 10).split('-').reverse().join('/') : nacimiento },
     { etiqueta: 'Dirección', valor: direccion },
     { etiqueta: 'Estudios', valor: delFormulario(m, 'estudios') },
     { etiqueta: 'Correo', valor: m.lead_email || delFormulario(m, 'email') },

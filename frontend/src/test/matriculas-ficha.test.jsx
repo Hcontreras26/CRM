@@ -101,6 +101,21 @@ describe('la ficha en panel lateral, como la de los prospectos', () => {
     expect(writeText).toHaveBeenCalledWith('+34600111222');
   });
 
+  it('#198: con el webhook mapeado, los datos salen de los campos propios aunque el formulario los llame de otra forma', async () => {
+    const mapeada = {
+      ...FICHA,
+      dni: 'X1234567L', documento_tipo: 'NIE', fecha_nacimiento: '1990-05-17T00:00:00.000Z',
+      direccion: 'C/ Mayor 1', pais: 'Portugal', estudios: 'Máster',
+      datos_admision: { 'your-doc': 'X1234567L', 'fecha-nac': '17/05/1990', 'your-address': 'C/ Mayor 1' },
+    };
+    get.mockImplementation(async () => ({ success: true, data: mapeada }));
+    abrir(mapeada);
+    expect(screen.getByText('NIE X1234567L')).toBeTruthy();
+    expect(screen.getByText('17/05/1990')).toBeTruthy();
+    expect(screen.getByText('C/ Mayor 1, Portugal')).toBeTruthy();
+    expect(screen.getByText('Máster')).toBeTruthy();
+  });
+
   it('documentos: miniatura, visor grande y «Reemplazar»; el aviso si no abre', async () => {
     abrir();
     // Los cinco de Diego, todos con su botón: «Reemplazar» en los que hay y «Subir» en los que faltan.
