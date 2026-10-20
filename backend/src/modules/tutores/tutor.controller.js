@@ -180,12 +180,37 @@ export async function crearColaboracion(req, res, next) {
     // Puede estar en varias —eso es lo normal en el MultiCRM— pero no en una
     // que no es suya: cobraria de un proyecto donde no ha dado ni una clase.
     const suyo = await model.formacionEsDeSuProyecto(d.tutorId, d.productId);
+    if (!suyo.projectId) throw new AppError('Esa formación no existe', 404, 'NOT_FOUND');
     if (!suyo.ok) {
-      throw new AppError(
-        `Esa formacion es de ${suyo.proyecto || 'otro proyecto'} y el tutor no está dado de alta ahí.`
-        + ' Añádelo a ese proyecto primero.',
-        409, 'OTRO_PROYECTO'
-      );
+      const campus = { projectId: suyo.projectId, proyecto: suyo.proyecto };
+      // Antes esto era un «no» sin salida: «añádelo a ese proyecto primero», y
+      // quien lleva las colaboraciones no puede dar de alta a nadie en un
+      // campus. Diego (#384): «a Vanessa no le deja agregar formaciones de otro
+      // campus a una tutora [...] debe de salir "¿deseas añadirla a este
+      // campus?"». El 409 lleva el campus para que la pantalla lo pregunte.
+      if (!d.anadirAlCampus) {
+        throw new AppError(
+          `Esa formación es de ${suyo.proyecto || 'otro campus'} y el tutor no está dado de alta ahí.`
+          + ' Puedes añadirlo a ese campus al asignársela.',
+          409, 'OTRO_PROYECTO', campus
+        );
+      }
+      // Con la respuesta, solo sobre un campus que vea quien lo pide: el mismo
+      // ámbito que el resto del CRM (#245). Y solo a un tutor que ya comparta
+      // algún campus con él, el que ve en su lista.
+      if (!veTodoElCrm(req.user) && !(await campusDeLaPersona(req.user.userId)).includes(suyo.projectId)) {
+        throw new AppError(
+          `Esa formación es de ${suyo.proyecto || 'otro campus'}, y tú no tienes acceso a ese campus:`
+          + ' no puedes dar de alta a nadie ahí. Pídeselo a quien lleve ese campus.',
+          403, 'CAMPUS_AJENO', campus
+        );
+      }
+      await exigirTutorDeMisCampus(req, d.tutorId);
+      const colab = await model.crearColaboracionEnOtroCampus({
+        ...d, projectId: suyo.projectId, createdBy: req.user.userId,
+      });
+      if (!colab) throw new AppError('Ese tutor no existe', 404, 'NOT_FOUND');
+      return res.status(201).json({ success: true, data: { ...colab, campusAnadido: campus } });
     }
 
     // Dos tramos del mismo tutor y formacion no pueden solaparse: no habria

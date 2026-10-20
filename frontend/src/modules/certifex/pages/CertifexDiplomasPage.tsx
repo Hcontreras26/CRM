@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ArrowClockwise, ArrowCounterClockwise, ArrowSquareOut, BookOpenText, Certificate, CheckCircle, DownloadSimple, Envelope, FileXls, FilePdf,
+  ArrowClockwise, ArrowCounterClockwise, ArrowSquareOut, BookOpenText, Certificate, CheckCircle, DownloadSimple, Envelope, Eye, FileXls, FilePdf,
   FlagCheckered, HourglassMedium, LinkSimple, NotePencil, PaperPlaneTilt, PencilSimple, PlugsConnected, Plus, Printer, Prohibit, SealCheck, Signature, Trash, UploadSimple, Warning, X, XCircle,
 } from '@phosphor-icons/react';
 import { toast, useToast } from '@/shared/hooks/useToast';
@@ -505,7 +505,13 @@ function SaludCampus({ campus }: { campus: CampusCertifex[] | null }) {
 
 // ─────────────────────────────────────────────────────────────── página
 
-export default function CertifexDiplomasPage() {
+/**
+ * `soloLectura` (#384): para quien tiene «Diplomas (Certifex) · Ver» sin ser admin.
+ * Ve lo mismo —sus campus, los contadores, las cinco pestañas, el PDF digital—, pero
+ * sin ningún botón que cambie nada: ni aprobar, emitir, rechazar, editar, poner el DNI,
+ * enviar, corregir, revocar ni «Nuevo diploma». El servidor tampoco se lo deja.
+ */
+export default function CertifexDiplomasPage({ soloLectura = false }: { soloLectura?: boolean } = {}) {
   const [params, setParams] = useSearchParams();
   const pestana: PestanaDiplomas = (PESTANAS.find((p) => p.clave === params.get('pestana'))?.clave) ?? 'pendientes';
   const irA = (p: PestanaDiplomas) => setParams(p === 'pendientes' ? {} : { pestana: p }, { replace: true });
@@ -990,12 +996,21 @@ export default function CertifexDiplomasPage() {
           {conexion?.conectado
             ? <StatusDot tono="success">Conectado{conexion.nombre ? ` como ${conexion.nombre}` : ''}</StatusDot>
             : 'Conectando con Certifex…'}
-          <span>· Emitir no avisa al alumno: el correo sale solo cuando lo apruebas aquí</span>
+          {soloLectura ? (
+            <span role="status" title="Puedes ver los diplomas de tus campus. Aprobar, emitir, enviar, corregir y revocar lo hace administración."
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+              <Eye size={12} aria-hidden /> Solo lectura
+            </span>
+          ) : (
+            <span>· Emitir no avisa al alumno: el correo sale solo cuando lo apruebas aquí</span>
+          )}
         </span>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => setCreandoNuevo(true)} disabled={!conexion?.conectado || !campus?.length}>
-            <Plus size={13} weight="bold" className="mr-1.5" /> Nuevo diploma
-          </Button>
+          {!soloLectura && (
+            <Button size="sm" onClick={() => setCreandoNuevo(true)} disabled={!conexion?.conectado || !campus?.length}>
+              <Plus size={13} weight="bold" className="mr-1.5" /> Nuevo diploma
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={recargar} disabled={trabajando || !conexion?.conectado}>
             <ArrowClockwise size={13} weight="bold" className="mr-1.5" /> Actualizar
           </Button>
@@ -1210,8 +1225,9 @@ export default function CertifexDiplomasPage() {
                 alternar={(k) => alternar(setElegidasAviso, k)}
                 todas={() => setElegidasAviso(elegidasAviso.size === despues.porAvisar.length ? new Set() : new Set(despues.porAvisar.map((c) => c.nexpediente!)))}
                 ocupado={trabajando}
-                verPdf={(c) => c.diploma && setVisor({ d: c.diploma, enviable: true })}
+                verPdf={(c) => c.diploma && setVisor({ d: c.diploma, enviable: !soloLectura })}
                 enviar={(exps) => setDialogo({ tipo: 'avisos', exps, reenvio: false })}
+                soloLectura={soloLectura}
               />
             )}
             {despues.sinEmitir.length > 0 && (
@@ -1221,18 +1237,20 @@ export default function CertifexDiplomasPage() {
                     <p className="text-sm font-semibold">Aprobados sin diploma ({despues.sinEmitir.length})</p>
                     <p className="text-xs text-muted-foreground">El visto bueno está dado, pero la emisión no terminó. Se puede reintentar.</p>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Button size="sm" variant="secondary" disabled={trabajando || sinEmitirConDni.length === 0}
-                      title={sinEmitirConDni.length === 0 ? TITULO_SIN_DNI : undefined}
-                      onClick={() => setDialogo({ tipo: 'emitir', ids: sinEmitirConDni.map((c) => c.matriculaId), sinDni: sinEmitirSinDni })}>
-                      <Certificate size={14} className="mr-1.5" /> Emitir {sinEmitirConDni.length}
-                    </Button>
-                    {sinEmitirSinDni > 0 && (
-                      <span className="text-[11px] font-medium text-destructive" role="status">
-                        {sinEmitirConDni.length === 0 ? `${PON_EL_DNI}: ` : ''}{sinEmitirSinDni} sin DNI no {sinEmitirSinDni === 1 ? 'se emite' : 'se emiten'} (es obligatorio)
-                      </span>
-                    )}
-                  </div>
+                  {!soloLectura && (
+                    <div className="flex flex-col items-end gap-1">
+                      <Button size="sm" variant="secondary" disabled={trabajando || sinEmitirConDni.length === 0}
+                        title={sinEmitirConDni.length === 0 ? TITULO_SIN_DNI : undefined}
+                        onClick={() => setDialogo({ tipo: 'emitir', ids: sinEmitirConDni.map((c) => c.matriculaId), sinDni: sinEmitirSinDni })}>
+                        <Certificate size={14} className="mr-1.5" /> Emitir {sinEmitirConDni.length}
+                      </Button>
+                      {sinEmitirSinDni > 0 && (
+                        <span className="text-[11px] font-medium text-destructive" role="status">
+                          {sinEmitirConDni.length === 0 ? `${PON_EL_DNI}: ` : ''}{sinEmitirSinDni} sin DNI no {sinEmitirSinDni === 1 ? 'se emite' : 'se emiten'} (es obligatorio)
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <ul className="mt-2 flex flex-wrap gap-1.5">
                   {despues.sinEmitir.slice(0, 20).map((c) => (
@@ -1240,11 +1258,13 @@ export default function CertifexDiplomasPage() {
                       <Etiqueta tono={!tieneDni(c) ? 'destructive' : c.programaCrm?.programa ? 'info' : 'warning'}>
                         {nombre(c.matriculaId)}{c.solicitud?.revisado ? ' (nombre revisado)' : ''} · {c.curso.nombre} · {lineaPrograma(c.programaCrm)}{tieneDni(c) ? '' : ' · falta el DNI'}
                       </Etiqueta>
-                      <button type="button" disabled={trabajando} onClick={() => setEditando(c)}
-                        aria-label={tieneDni(c) ? `Editar los datos de ${nombre(c.matriculaId)}` : `Poner el DNI de ${nombre(c.matriculaId)}`}
-                        className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
-                        <NotePencil size={12} /> {tieneDni(c) ? 'Editar' : 'Poner DNI'}
-                      </button>
+                      {!soloLectura && (
+                        <button type="button" disabled={trabajando} onClick={() => setEditando(c)}
+                          aria-label={tieneDni(c) ? `Editar los datos de ${nombre(c.matriculaId)}` : `Poner el DNI de ${nombre(c.matriculaId)}`}
+                          className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
+                          <NotePencil size={12} /> {tieneDni(c) ? 'Editar' : 'Poner DNI'}
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -1252,7 +1272,7 @@ export default function CertifexDiplomasPage() {
             )}
             <div className="flex items-baseline justify-between gap-2 px-4 pt-3">
               <h3 className="text-sm font-semibold">Por decidir</h3>
-              <span className="text-xs text-muted-foreground">Revisa el nombre que se imprimirá antes de aprobar</span>
+              {!soloLectura && <span className="text-xs text-muted-foreground">Revisa el nombre que se imprimirá antes de aprobar</span>}
             </div>
             {solicitudes.length === 0 ? (
               <EmptyState
@@ -1265,13 +1285,13 @@ export default function CertifexDiplomasPage() {
                 <table className="w-full min-w-[980px] text-sm">
                   <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                     <tr className="border-b border-border">
-                      <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>
-                      <Th>Nombre para el diploma</Th>
+                      {!soloLectura && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>}
+                      <Th className={soloLectura ? 'pl-4' : undefined}>Nombre para el diploma</Th>
                       <Th>Formación · programa a imprimir</Th>
                       <Th>Solicitado</Th>
                       <Th className="text-right">Nota · avance</Th>
-                      <Th>En el CRM</Th>
-                      <Th className="pr-4 text-right">Acciones</Th>
+                      <Th className={soloLectura ? 'pr-4' : undefined}>En el CRM</Th>
+                      {!soloLectura && <Th className="pr-4 text-right">Acciones</Th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -1279,13 +1299,17 @@ export default function CertifexDiplomasPage() {
                       const k = String(c.matriculaId);
                       return (
                         <tr key={k} className={cn('align-top transition-colors', elegidas.has(k) ? 'bg-primary/5' : 'hover:bg-muted/40')}>
-                          <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir a ${nombre(c.matriculaId)}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>
-                          <td className="px-2 py-3">
+                          {!soloLectura && <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir a ${nombre(c.matriculaId)}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>}
+                          <td className={cn('px-2 py-3', soloLectura && 'pl-4')}>
                             <NombreDiploma c={c} />
                             <CorreoDelAlumno c={c} />
                             <div className="flex flex-wrap items-center gap-1.5">
-                              {FIRMA_EN_DIPLOMA && <FirmaEnFila c={c} alSubir={() => setEditando(c)} deshabilitado={trabajando} />}
-                              <DniEnFila c={c} alPoner={() => setEditando(c)} deshabilitado={trabajando} />
+                              {FIRMA_EN_DIPLOMA && !soloLectura && <FirmaEnFila c={c} alSubir={() => setEditando(c)} deshabilitado={trabajando} />}
+                              {soloLectura
+                                ? (tieneDni(c)
+                                  ? <div className="mt-1"><Etiqueta tono="neutral">DNI {c.titular.dni}</Etiqueta></div>
+                                  : <div className="mt-1"><Etiqueta tono="destructive">Sin DNI</Etiqueta></div>)
+                                : <DniEnFila c={c} alPoner={() => setEditando(c)} deshabilitado={trabajando} />}
                             </div>
                           </td>
                           <td className="px-2 py-3">
@@ -1298,25 +1322,27 @@ export default function CertifexDiplomasPage() {
                             <div className="tabular-nums">{c.notaFinal == null ? <span className="text-muted-foreground">—</span> : notaTexto(c.notaFinal, c.umbral)}</div>
                             <div className="mt-1"><Avance hechas={c.actividades.calificadas} total={c.actividades.total} /></div>
                           </td>
-                          <td className="px-2 py-3"><EnElCrmEtiqueta crm={c.crm} /></td>
-                          <td className="px-2 py-3 pr-4">
-                            <div className="flex flex-col items-stretch gap-1.5">
-                              <Button size="sm" disabled={trabajando || !tieneDni(c)} title={tieneDni(c) ? undefined : TITULO_SIN_DNI}
-                                aria-describedby={tieneDni(c) ? undefined : `diplomas-sin-dni-${k}`}
-                                onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: [c.matriculaId] })}>
-                                <SealCheck size={14} className="mr-1.5" /> Aprobar y emitir
-                              </Button>
-                              {!tieneDni(c) && (
-                                <span id={`diplomas-sin-dni-${k}`} className="text-center text-[11px] font-medium text-destructive" title={TITULO_SIN_DNI}>{PON_EL_DNI}</span>
-                              )}
-                              <Button size="sm" variant="outline" disabled={trabajando} onClick={() => abrir({ tipo: 'rechazar', ids: [c.matriculaId] })}>
-                                <XCircle size={14} className="mr-1.5" /> Rechazar
-                              </Button>
-                              <Button size="sm" variant="ghost" disabled={trabajando} onClick={() => setEditando(c)} aria-label={`Editar los datos de ${nombre(c.matriculaId)}`}>
-                                <NotePencil size={14} className="mr-1.5" /> Editar
-                              </Button>
-                            </div>
-                          </td>
+                          <td className={cn('px-2 py-3', soloLectura && 'pr-4')}><EnElCrmEtiqueta crm={c.crm} /></td>
+                          {!soloLectura && (
+                            <td className="px-2 py-3 pr-4">
+                              <div className="flex flex-col items-stretch gap-1.5">
+                                <Button size="sm" disabled={trabajando || !tieneDni(c)} title={tieneDni(c) ? undefined : TITULO_SIN_DNI}
+                                  aria-describedby={tieneDni(c) ? undefined : `diplomas-sin-dni-${k}`}
+                                  onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: [c.matriculaId] })}>
+                                  <SealCheck size={14} className="mr-1.5" /> Aprobar y emitir
+                                </Button>
+                                {!tieneDni(c) && (
+                                  <span id={`diplomas-sin-dni-${k}`} className="text-center text-[11px] font-medium text-destructive" title={TITULO_SIN_DNI}>{PON_EL_DNI}</span>
+                                )}
+                                <Button size="sm" variant="outline" disabled={trabajando} onClick={() => abrir({ tipo: 'rechazar', ids: [c.matriculaId] })}>
+                                  <XCircle size={14} className="mr-1.5" /> Rechazar
+                                </Button>
+                                <Button size="sm" variant="ghost" disabled={trabajando} onClick={() => setEditando(c)} aria-label={`Editar los datos de ${nombre(c.matriculaId)}`}>
+                                  <NotePencil size={14} className="mr-1.5" /> Editar
+                                </Button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -1334,13 +1360,13 @@ export default function CertifexDiplomasPage() {
               <table className="w-full min-w-[980px] text-sm">
                 <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr className="border-b border-border">
-                    <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>
-                    <Th>Alumno</Th>
+                    {!soloLectura && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>}
+                    <Th className={soloLectura ? 'pl-4' : undefined}>Alumno</Th>
                     <Th>Formación</Th>
                     <Th>Motivo</Th>
                     <Th>Rechazada</Th>
-                    <Th>Aviso de rechazo</Th>
-                    <Th className="pr-4 text-right">Acción</Th>
+                    <Th className={soloLectura ? 'pr-4' : undefined}>Aviso de rechazo</Th>
+                    {!soloLectura && <Th className="pr-4 text-right">Acción</Th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -1349,26 +1375,28 @@ export default function CertifexDiplomasPage() {
                     const a = c.avisoRechazo;
                     return (
                       <tr key={k} className={cn('align-top transition-colors', elegidas.has(k) ? 'bg-primary/5' : 'hover:bg-muted/40')}>
-                        <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir a ${nombre(c.matriculaId)}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>
-                        <td className="px-2 py-3">
+                        {!soloLectura && <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir a ${nombre(c.matriculaId)}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>}
+                        <td className={cn('px-2 py-3', soloLectura && 'pl-4')}>
                           <NombreDiploma c={c} />
                           <div className="mt-0.5 max-w-[260px] truncate text-xs text-muted-foreground">{c.titular.email || 'sin correo'}</div>
                         </td>
                         <td className="px-2 py-3"><div className="max-w-[200px] truncate" title={c.curso.nombre}>{c.curso.nombre}</div><div className="text-xs text-muted-foreground">{nombreCampus(c.centro)}</div></td>
                         <td className="px-2 py-3"><p className="max-w-[260px] text-sm italic text-muted-foreground">«{c.decision?.motivo || 'sin motivo'}»</p></td>
                         <td className="whitespace-nowrap px-2 py-3 text-xs">{fecha(c.decision?.decididoEn)}<div className="max-w-[160px] truncate text-muted-foreground" title={c.decision?.decididoPor}>{c.decision?.decididoPor}</div></td>
-                        <td className="px-2 py-3">
+                        <td className={cn('px-2 py-3', soloLectura && 'pr-4')}>
                           {!a ? <StatusDot tono="neutral">Sin avisar</StatusDot>
                             : a.resultado === 'enviado' ? <StatusDot tono="success">Enviado</StatusDot>
                               : a.resultado === 'correo_apagado' ? <StatusDot tono="warning">Aviso aprobado (correo apagado)</StatusDot>
                                 : <StatusDot tono="danger">{ROTULO_AVISO[a.resultado] ?? a.resultado}</StatusDot>}
                           {a && <div className="mt-0.5 max-w-[170px] truncate text-[11px] text-muted-foreground" title={a.por}>{fecha(a.en)} · {a.por}</div>}
                         </td>
-                        <td className="px-2 py-3 pr-4 text-right">
-                          <Button size="sm" variant={a?.resultado === 'enviado' ? 'outline' : 'secondary'} disabled={trabajando} onClick={() => setDialogo({ tipo: 'avisoRechazo', ids: [c.matriculaId] })}>
-                            <Envelope size={14} className="mr-1.5" /> {a ? 'Reenviar aviso' : 'Enviar aviso de rechazo'}
-                          </Button>
-                        </td>
+                        {!soloLectura && (
+                          <td className="px-2 py-3 pr-4 text-right">
+                            <Button size="sm" variant={a?.resultado === 'enviado' ? 'outline' : 'secondary'} disabled={trabajando} onClick={() => setDialogo({ tipo: 'avisoRechazo', ids: [c.matriculaId] })}>
+                              <Envelope size={14} className="mr-1.5" /> {a ? 'Reenviar aviso' : 'Enviar aviso de rechazo'}
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -1387,8 +1415,8 @@ export default function CertifexDiplomasPage() {
             <table className="w-full min-w-[980px] text-sm">
               <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr className="border-b border-border">
-                  {pestana === 'enviados' && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>}
-                  <Th className={pestana === 'revocados' ? 'pl-4' : undefined}>Alumno</Th>
+                  {pestana === 'enviados' && !soloLectura && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>}
+                  <Th className={pestana === 'revocados' || soloLectura ? 'pl-4' : undefined}>Alumno</Th>
                   <Th>Titulación</Th>
                   <Th>Emitido</Th>
                   {pestana === 'enviados' ? <Th>Aviso al alumno</Th> : <><Th>Revocado</Th><Th>Motivo</Th></>}
@@ -1400,8 +1428,8 @@ export default function CertifexDiplomasPage() {
                   const k = d.nexpediente;
                   return (
                     <tr key={k} className={cn('align-top transition-colors', elegidas.has(k) ? 'bg-primary/5' : 'hover:bg-muted/40')}>
-                      {pestana === 'enviados' && <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir ${k}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>}
-                      <td className={cn('px-2 py-3', pestana === 'revocados' && 'pl-4')}>
+                      {pestana === 'enviados' && !soloLectura && <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir ${k}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>}
+                      <td className={cn('px-2 py-3', (pestana === 'revocados' || soloLectura) && 'pl-4')}>
                         <div className="max-w-[180px] truncate font-semibold" title={d.alumno}>{d.alumno}</div>
                         <div className="select-all font-mono text-[11px] text-primary">{d.nexpediente}</div>
                       </td>
@@ -1417,7 +1445,7 @@ export default function CertifexDiplomasPage() {
                       )}
                       <td className="px-2 py-3 pr-4">
                         <div className="flex justify-end gap-1.5 whitespace-nowrap">
-                          {pestana === 'enviados' && (
+                          {pestana === 'enviados' && !soloLectura && (
                             !d.aviso && !delCrm(d) ? (
                               // Emitido fuera del CRM: nadie lo tiene pendiente. Reenviar es secundario y pide confirmación.
                               <Button size="sm" variant="ghost" disabled={trabajando}
@@ -1432,9 +1460,9 @@ export default function CertifexDiplomasPage() {
                             )
                           )}
                           {/* Revocado, Certifex ya no sirve su PDF (404): solo el enlace, que dice «revocado». */}
-                          {pestana === 'enviados' && <IconoAccion etiqueta="Ver PDF" onClick={() => setVisor({ d, enviable: !d.aviso && delCrm(d) })}><FilePdf size={15} /></IconoAccion>}
+                          {pestana === 'enviados' && <IconoAccion etiqueta="Ver PDF" onClick={() => setVisor({ d, enviable: !soloLectura && !d.aviso && delCrm(d) })}><FilePdf size={15} /></IconoAccion>}
                           <IconoAccion etiqueta={d.verificarUrl ? 'Copiar enlace de verificación' : 'Sin enlace público: Certifex no tiene una dirección que abra desde fuera'} disabled={!d.verificarUrl} onClick={() => copiarEnlace(d)}><LinkSimple size={15} /></IconoAccion>
-                          {pestana === 'enviados' && (
+                          {pestana === 'enviados' && !soloLectura && (
                             <>
                               <IconoAccion etiqueta="Corregir nombre" disabled={trabajando} onClick={() => abrir({ tipo: 'corregir', d })}><PencilSimple size={15} /></IconoAccion>
                               <IconoAccion etiqueta="Revocar" peligro disabled={trabajando} onClick={() => abrir({ tipo: 'revocar', d })}><Prohibit size={15} /></IconoAccion>
@@ -1464,8 +1492,8 @@ export default function CertifexDiplomasPage() {
         )}
       </Card>
 
-      {/* Barra de acciones en bloque */}
-      {elegidas.size > 0 && (
+      {/* Barra de acciones en bloque (en solo lectura no hay nada que hacer en bloque) */}
+      {elegidas.size > 0 && !soloLectura && (
         // Con avisos (toasts) a la vista, la barra sube por encima de ellos: si no, los
         // avisos tapaban sus botones.
         <div className="sticky z-30 flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-card px-4 py-3 shadow-lg transition-[bottom]"
@@ -1653,7 +1681,8 @@ export default function CertifexDiplomasPage() {
           d={visor.d}
           version={versiones[visor.d.nexpediente]}
           alCerrar={() => setVisor(null)}
-          alEnviar={visor.enviable ? () => { const exp = visor.d.nexpediente; setVisor(null); setDialogo({ tipo: 'avisos', exps: [exp], reenvio: false }); } : undefined}
+          alEnviar={visor.enviable && !soloLectura ? () => { const exp = visor.d.nexpediente; setVisor(null); setDialogo({ tipo: 'avisos', exps: [exp], reenvio: false }); } : undefined}
+          soloLectura={soloLectura}
         />
       )}
     </div>
@@ -1663,7 +1692,7 @@ export default function CertifexDiplomasPage() {
 // ─────────────────────────────────────────────────────────────── bloques
 
 /** Lo emitido que espera a que alguien vea el PDF y lo envíe al alumno. */
-function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupado, verPdf, enviar }: {
+function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupado, verPdf, enviar, soloLectura = false }: {
   filas: Solicitud[];
   nombreCampus: (codigo: string) => string;
   elegidas: Set<string>;
@@ -1672,6 +1701,8 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
   ocupado: boolean;
   verPdf: (c: Solicitud) => void;
   enviar: (exps: string[]) => void;
+  /** Solo ver el PDF: el envío al alumno es de administración (#384). */
+  soloLectura?: boolean;
 }) {
   const marcadas = filas.filter((c) => elegidas.has(c.nexpediente!)).map((c) => c.nexpediente!);
   return (
@@ -1679,9 +1710,13 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3">
         <div>
           <h3 className="text-sm font-semibold">Emitidos, falta enviarlos al alumno ({filas.length})</h3>
-          <p className="text-xs text-muted-foreground">Revisa el PDF de cada uno; el correo sale solo cuando pulsas «Enviar».</p>
+          <p className="text-xs text-muted-foreground">
+            {soloLectura
+              ? 'Administración revisa el PDF de cada uno y lo envía al alumno.'
+              : 'Revisa el PDF de cada uno; el correo sale solo cuando pulsas «Enviar».'}
+          </p>
         </div>
-        {marcadas.length > 0 && (
+        {marcadas.length > 0 && !soloLectura && (
           <Button size="sm" disabled={ocupado} onClick={() => enviar(marcadas)}>
             <PaperPlaneTilt size={14} className="mr-1.5" /> Enviar {marcadas.length} al alumno
           </Button>
@@ -1691,8 +1726,8 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
         <table className="mt-2 w-full min-w-[860px] text-sm">
           <thead className="text-[11px] uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border">
-              <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-aviso-todas" etiqueta="Elegir todos los pendientes de aviso" marcada={marcadas.length === filas.length} alCambiar={todas} /></th>
-              <Th>Nombre en el diploma</Th>
+              {!soloLectura && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-aviso-todas" etiqueta="Elegir todos los pendientes de aviso" marcada={marcadas.length === filas.length} alCambiar={todas} /></th>}
+              <Th className={soloLectura ? 'pl-4' : undefined}>Nombre en el diploma</Th>
               <Th>Formación</Th>
               <Th>Nº de expediente</Th>
               <Th>Emitido</Th>
@@ -1704,8 +1739,8 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
               const k = c.nexpediente!;
               return (
                 <tr key={k} className="align-top">
-                  <td className="px-4 py-2.5"><Casilla id={`diplomas-aviso-${k}`} etiqueta={`Elegir ${k}`} marcada={elegidas.has(k)} alCambiar={() => alternar(k)} /></td>
-                  <td className="px-2 py-2.5">
+                  {!soloLectura && <td className="px-4 py-2.5"><Casilla id={`diplomas-aviso-${k}`} etiqueta={`Elegir ${k}`} marcada={elegidas.has(k)} alCambiar={() => alternar(k)} /></td>}
+                  <td className={cn('px-2 py-2.5', soloLectura && 'pl-4')}>
                     <div className="max-w-[260px] truncate font-semibold">{c.diploma?.alumno ?? c.solicitud?.nombre}</div>
                     <div className="max-w-[260px] truncate text-xs text-muted-foreground">{c.titular.email || 'sin correo'}</div>
                   </td>
@@ -1721,7 +1756,7 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
                   <td className="px-2 py-2.5 pr-4">
                     <div className="flex justify-end gap-1.5">
                       <Button size="sm" variant="outline" onClick={() => verPdf(c)}><FilePdf size={14} className="mr-1.5" /> Ver PDF</Button>
-                      <Button size="sm" disabled={ocupado} onClick={() => enviar([k])}><PaperPlaneTilt size={14} className="mr-1.5" /> Enviar diploma al alumno</Button>
+                      {!soloLectura && <Button size="sm" disabled={ocupado} onClick={() => enviar([k])}><PaperPlaneTilt size={14} className="mr-1.5" /> Enviar diploma al alumno</Button>}
                     </div>
                   </td>
                 </tr>
@@ -2364,11 +2399,13 @@ function DialogoCorregir({ d, ocupado, error, alCancelar, alConfirmar }: {
 }
 
 /** El PDF del diploma, traído por el servidor del CRM (Certifex no se deja incrustar). */
-function VisorPdf({ d, version, alCerrar, alEnviar }: {
+function VisorPdf({ d, version, alCerrar, alEnviar, soloLectura = false }: {
   d: Pick<Diploma, 'nexpediente' | 'alumno' | 'titulacion' | 'centro' | 'diplomaUrl' | 'imprenta'>;
   version?: number;
   alCerrar: () => void;
   alEnviar?: () => void;
+  /** Quien solo ve Diplomas (#384): el digital sí; el A3 de imprenta es de administración. */
+  soloLectura?: boolean;
 }) {
   const [pdf, setPdf] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -2404,7 +2441,7 @@ function VisorPdf({ d, version, alCerrar, alEnviar }: {
                   <Button variant="outline" size="sm" asChild><a href={pdf} download={`${d.nexpediente}.pdf`}><DownloadSimple size={14} className="mr-1.5" /> Descargar</a></Button>
                 </>
               )}
-              {d.imprenta && <BotonImprenta nexpediente={d.nexpediente} />}
+              {d.imprenta && !soloLectura && <BotonImprenta nexpediente={d.nexpediente} />}
               {alEnviar && <Button size="sm" disabled={!pdf} onClick={alEnviar}><PaperPlaneTilt size={14} className="mr-1.5" /> Está bien: enviar al alumno</Button>}
             </div>
           </div>

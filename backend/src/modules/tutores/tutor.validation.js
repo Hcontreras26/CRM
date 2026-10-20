@@ -69,6 +69,11 @@ export const colaboracionSchema = z.object({
   desde: fecha,
   hasta: fecha.optional().nullable(),
   notas: z.string().optional().nullable(),
+  // La formacion es de un campus en el que el tutor no esta (#384). Sin esto
+  // se contesta 409 con ese campus, y la pantalla pregunta «¿la añado a este
+  // campus?»; con `true`, se le da de alta ahi y se crea la colaboracion, todo
+  // de una vez. Solo sobre un campus que vea quien lo pide.
+  anadirAlCampus: z.boolean().optional(),
 }).refine((d) => !d.hasta || d.hasta >= d.desde, {
   message: 'La fecha de fin no puede ser anterior a la de inicio',
   path: ['hasta'],
