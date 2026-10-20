@@ -58,8 +58,11 @@ export async function findAll({ projectId, projectIds = null, estado, search, ca
   if (termino) {
     // La misma persona que enseña la lista: la del prospecto o, si aún no está
     // vinculada, la del formulario (si no, buscarla daba «Ninguna matrícula»).
+    // Y también lo que escribió en el formulario (#198): unida a su prospecto por
+    // el teléfono, puede haber puesto otro correo, y por ese se la busca.
     conditions.push(`(COALESCE(l.nombre, m.nombre, m.datos_admision->>'nombre') ILIKE $${idx}
       OR COALESCE(l.email, m.email, m.datos_admision->>'email') ILIKE $${idx}
+      OR m.nombre ILIKE $${idx} OR m.email ILIKE $${idx}
       OR m.dni ILIKE $${idx} OR m.datos_admision->>'documento' ILIKE $${idx})`);
     params.push(`%${termino.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`);
     idx++;

@@ -287,6 +287,9 @@ describe('se une a la persona («que se sincronicen con el mail»)', () => {
     // El CRM compara los teléfonos con su prefijo (claveTelefono de lead.model.js): «+34 611 222 333» = «0034611222333».
     const r = await recibir().send({ nombre: 'Telmo', email: correo('telmo-nuevo'), telefono: '0034611222333' });
     expect(r.body.data.lead_id).toBe(l.id);
+    // El buscador de Matrículas la encuentra también por el correo que escribió en el formulario.
+    const { matriculas } = await matriculaModel.findAll({ projectId: PROYECTO.id, search: correo('telmo-nuevo') });
+    expect(matriculas.map((m) => m.id)).toContain(r.body.data.matricula_id);
   });
 
   it('si no existe, se crea el prospecto SIN GESTORA (fuera del reparto; decidido el 20/10)', async () => {
