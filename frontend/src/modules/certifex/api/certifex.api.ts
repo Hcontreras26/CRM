@@ -304,6 +304,8 @@ export interface CatalogoDelCampus {
 export interface CambiosSolicitud {
   matriculaId: number;
   nombre?: string;
+  /** El DNI / NIE / pasaporte que se imprime en el diploma (vive en Certifex). null = quitarlo. */
+  dni?: string | null;
   emailCrm?: string | null;
   productoId?: number | null;
   programa?: ProgramaOficial | null;
@@ -470,7 +472,7 @@ export const diplomasApi = {
    * Queda en «Por decidir» para aprobarla y emitirla como las que llegan de Moodle.
    */
   nuevo: (d: { centro: string; leadId: number; productoId: number; nombre?: string }) =>
-    client.post('/certifex/diplomas/nuevo', d) as R<{ matriculaId: number; yaExistia: boolean; centro: string; curso: string; nombre: string }>,
+    client.post('/certifex/diplomas/nuevo', d) as R<{ matriculaId: number; yaExistia: boolean; centro: string; curso: string; nombre: string; vinculadaMoodle?: boolean }>,
   /** Las formaciones del catálogo del proyecto de ese campus, para elegir la vendida. */
   formaciones: (centro: string) => client.get(`/certifex/diplomas/formaciones?${qs({ centro })}`) as R<CatalogoDelCampus>,
   /** Los módulos de esa formación, leídos de la página del curso y guardados en el catálogo (12/10). */

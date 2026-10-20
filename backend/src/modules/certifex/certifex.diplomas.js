@@ -393,6 +393,14 @@ export async function editar(req, res, next) {
       }
     }
 
+    // El DNI vive en Certifex, en el alumno, como el nombre: es quien lo imprime (Carlos,
+    // 20/10). Va antes que el resto: si Certifex lo rechaza (otro alumno ya lo tiene, o ya hay
+    // diploma), no se guarda nada más.
+    if (d.dni !== undefined) {
+      const r = await certifex('POST', '/solicitudes/dni', { matriculaId: d.matriculaId, dni: d.dni, editadoPor: quien(req) });
+      c.titular = { ...(c.titular ?? {}), dni: r?.dni ?? d.dni };
+    }
+
     if (d.nombre !== undefined) {
       const r = await certifex('POST', '/solicitudes/nombre', { matriculaId: d.matriculaId, nombre: d.nombre, editadoPor: quien(req) });
       c.solicitud = {
@@ -422,7 +430,7 @@ export async function editar(req, res, next) {
     await conFirma([c]);
     logger.info({
       userId: req.user.userId, matriculaId: d.matriculaId,
-      campos: ['nombre', 'emailCrm', 'productoId', 'programa'].filter((k) => d[k] !== undefined),
+      campos: ['nombre', 'dni', 'emailCrm', 'productoId', 'programa'].filter((k) => d[k] !== undefined),
     }, 'Certifex: solicitud revisada antes de aprobar');
     res.json({ success: true, data: c });
   } catch (err) { next(err); }
@@ -550,7 +558,7 @@ export async function nuevo(req, res, next) {
       solicitadaEn: new Date().toISOString(),
     });
     logger.info({ userId: req.user.userId, centro: cod, matriculaId: r.matriculaId, productoId: p.id, yaExistia: !!r.yaExistia }, 'Certifex: nuevo diploma desde el CRM');
-    res.json({ success: true, data: { matriculaId: r.matriculaId, yaExistia: !!r.yaExistia, centro: cod, curso: p.nombre, nombre } });
+    res.json({ success: true, data: { matriculaId: r.matriculaId, yaExistia: !!r.yaExistia, vinculadaMoodle: !!r.vinculadaMoodle, centro: cod, curso: p.nombre, nombre } });
   } catch (err) { next(err); }
 }
 
