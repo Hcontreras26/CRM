@@ -122,11 +122,11 @@ describe('el listado de Matrículas sigue a la cabecera', () => {
   it('las columnas de Diego: el curso, el campus y la fecha de llegada salen de la consulta', async () => {
     await listar(MANUEL, {});
     const lista = deMatriculas().find((c) => c.sql.includes('LIMIT')).sql.replace(/\s+/g, ' ');
-    expect(lista).toContain("COALESCE(m.datos_admision->>'curso_solicitado', c.producto_contratado) as curso");
+    expect(lista).toContain("COALESCE(m.curso_solicitado, m.datos_admision->>'curso_solicitado', c.producto_contratado) as curso");
     expect(lista).toContain('p.nombre as campus_nombre');
     expect(lista).toContain('COALESCE(m.webhook_received_at, m.created_at) as recibida_at');
     // La persona del formulario, si aún no hay prospecto vinculado (contrato de la #198).
-    expect(lista).toContain("COALESCE(l.nombre, m.datos_admision->>'nombre') as lead_nombre");
+    expect(lista).toContain("COALESCE(l.nombre, m.nombre, m.datos_admision->>'nombre') as lead_nombre");
   });
 
   it('cada fila dice cuáles de los cinco documentos de Diego han llegado, con los nombres del contrato de la #198', async () => {
@@ -141,7 +141,7 @@ describe('el listado de Matrículas sigue a la cabecera', () => {
     const sql = lista.sql.replace(/\s+/g, ' ');
     expect(sql).toContain('m.project_id = ANY($1::int[])');
     expect(sql).toContain('m.project_id = $2');
-    expect(sql).toContain("COALESCE(m.datos_admision->>'curso_solicitado', c.producto_contratado) = $3");
+    expect(sql).toContain("COALESCE(m.curso_solicitado, m.datos_admision->>'curso_solicitado', c.producto_contratado) = $3");
     expect(sql).toContain("(COALESCE(m.webhook_received_at, m.created_at) AT TIME ZONE 'Europe/Madrid')::date >= $4::date");
     expect(sql).toContain("(COALESCE(m.webhook_received_at, m.created_at) AT TIME ZONE 'Europe/Madrid')::date <= $5::date");
     expect(lista.params.slice(0, 5)).toEqual([[1, 2, 3], 2, 'Máster en Logopedia', '2026-10-01', '2026-10-12']);
@@ -199,8 +199,8 @@ describe('el buscador busca en la misma persona que enseña la lista', () => {
   it('nombre y correo del prospecto o, si no hay, del formulario; y el documento', async () => {
     await listar(MANUEL, { search: 'Lucía' });
     const sql = deMatriculas().find((c) => c.sql.includes('LIMIT')).sql.replace(/\s+/g, ' ');
-    expect(sql).toContain("COALESCE(l.nombre, m.datos_admision->>'nombre') ILIKE $");
-    expect(sql).toContain("COALESCE(l.email, m.datos_admision->>'email') ILIKE $");
+    expect(sql).toContain("COALESCE(l.nombre, m.nombre, m.datos_admision->>'nombre') ILIKE $");
+    expect(sql).toContain("COALESCE(l.email, m.email, m.datos_admision->>'email') ILIKE $");
     expect(sql).toContain("m.datos_admision->>'documento' ILIKE $");
   });
 });

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import * as model from './token.model.js';
-import * as matriculaModel from '../matriculas/matricula.model.js';
+import { applyMapping } from './mapeo.js';
+import { recibirAdmision } from '../matriculas/admision.service.js';
+import { conArchivos } from '../matriculas/admision.archivos.js';
 import * as leadModel from '../leads/lead.model.js';
 import { AppError } from '../../shared/utils/AppError.js';
 
@@ -78,21 +80,6 @@ export async function getStatus(req, res, next) {
   } catch (err) { next(err); }
 }
 
-function resolvePath(obj, path) {
-  if (!path) return undefined;
-  return path.split('.').reduce((acc, k) => (acc == null ? undefined : acc[k]), obj);
-}
-
-function applyMapping(body, mapping) {
-  if (!mapping || Object.keys(mapping).length === 0) return body;
-  const out = {};
-  for (const [target, source] of Object.entries(mapping)) {
-    const v = resolvePath(body, source);
-    if (v !== undefined) out[target] = v;
-  }
-  return out;
-}
-
 // PUBLICO: recibe payload via webhook token, crea entidad segun kind
 export async function publicReceive(req, res, next) {
   try {
@@ -101,34 +88,20 @@ export async function publicReceive(req, res, next) {
 
     // Modo escucha: capturar payload sin procesar
     if (tok.awaiting_sample) {
-      await model.saveSample(tok.id, req.body || {});
+      // Con los archivos del multipart como marca, para mapearlos igual que el resto (#198).
+      await model.saveSample(tok.id, conArchivos(req.body, req.files));
       return res.json({ success: true, data: { mode: 'listen', captured: true, message: 'Payload capturado. El admin puede mapearlo en el CRM.' } });
     }
 
-    const mapped = applyMapping(req.body || {}, tok.field_mapping || {});
     await model.recordUse(tok.id);
 
+    // La solicitud de admisión (#198): datos, documentos y persona. Ver admision.service.js.
     if (tok.kind === 'matriculas') {
-      // Dedupe por DNI o email
-      const dedupe = mapped.dni || mapped.email || null;
-      if (dedupe) {
-        const existing = await matriculaModel.findByDedupe(tok.project_id, dedupe);
-        if (existing) {
-          return res.status(200).json({ success: true, data: { matricula_id: existing.id, action: 'duplicate_skipped' } });
-        }
-      }
-      const created = await matriculaModel.create({
-        project_id: tok.project_id,
-        dni: mapped.dni || null,
-        titulo: mapped.titulo || null,
-        notas: mapped.notas || null,
-        datos_admision: req.body,
-        source: 'webhook',
-        dedupe_key: dedupe,
-        estado: 'solicitud_admision',
-      });
-      return res.status(201).json({ success: true, data: { matricula_id: created.id, action: 'created' } });
+      const r = await recibirAdmision(tok, req.body || {}, req.files || []);
+      return res.status(r.status).json({ success: true, data: r.data });
     }
+
+    const mapped = applyMapping(req.body || {}, tok.field_mapping || {});
 
     if (tok.kind === 'leads') {
       if (!mapped.nombre || !mapped.email) throw new AppError('nombre y email requeridos tras mapeo', 400, 'VALIDATION_ERROR');

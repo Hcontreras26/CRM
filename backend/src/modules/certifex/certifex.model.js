@@ -322,7 +322,9 @@ export async function firmasDeAdmision(pares) {
            LEFT JOIN leads lc ON lc.id = cv.lead_id
           WHERE m.project_id = x.project_id
             AND m.firma_key IS NOT NULL
-            AND x.email IN (lower(l.email), lower(lc.email), lower(m.dedupe_key), lower(m.datos_admision->>'email'))
+            -- m.email: el correo del formulario ya mapeado (#198); el de datos_admision
+            -- solo vale si el formulario lo manda con el nombre «email».
+            AND x.email IN (lower(l.email), lower(lc.email), lower(m.dedupe_key), lower(m.email), lower(m.datos_admision->>'email'))
           ORDER BY m.updated_at DESC NULLS LAST, m.id DESC
           LIMIT 1
        ) f ON true`,

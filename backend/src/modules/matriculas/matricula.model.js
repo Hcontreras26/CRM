@@ -36,8 +36,8 @@ function alcance(projectId, projectIds, params) {
   return `m.project_id = ANY($${params.length}::int[])`;
 }
 
-/** El curso de una matrícula: el del formulario o, si no viene, el de su venta. */
-const CURSO = "COALESCE(m.datos_admision->>'curso_solicitado', c.producto_contratado)";
+/** El curso de una matrícula: el del formulario (campo propio desde la #198) o, si no viene, el de su venta. */
+const CURSO = "COALESCE(m.curso_solicitado, m.datos_admision->>'curso_solicitado', c.producto_contratado)";
 /** El día de llegada, en hora de Madrid. */
 const DIA_DE_LLEGADA = "(COALESCE(m.webhook_received_at, m.created_at) AT TIME ZONE 'Europe/Madrid')::date";
 
@@ -58,8 +58,8 @@ export async function findAll({ projectId, projectIds = null, estado, search, ca
   if (termino) {
     // La misma persona que enseña la lista: la del prospecto o, si aún no está
     // vinculada, la del formulario (si no, buscarla daba «Ninguna matrícula»).
-    conditions.push(`(COALESCE(l.nombre, m.datos_admision->>'nombre') ILIKE $${idx}
-      OR COALESCE(l.email, m.datos_admision->>'email') ILIKE $${idx}
+    conditions.push(`(COALESCE(l.nombre, m.nombre, m.datos_admision->>'nombre') ILIKE $${idx}
+      OR COALESCE(l.email, m.email, m.datos_admision->>'email') ILIKE $${idx}
       OR m.dni ILIKE $${idx} OR m.datos_admision->>'documento' ILIKE $${idx})`);
     params.push(`%${termino.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`);
     idx++;
@@ -73,9 +73,9 @@ export async function findAll({ projectId, projectIds = null, estado, search, ca
     `SELECT m.*,
             -- La persona: la del prospecto y, si aún no está vinculada, la del
             -- formulario (contrato de la #198: persona { nombre, email, telefono }).
-            COALESCE(l.nombre, m.datos_admision->>'nombre') as lead_nombre,
-            COALESCE(l.email, m.datos_admision->>'email') as lead_email,
-            COALESCE(l.telefono, m.datos_admision->>'telefono') as lead_telefono,
+            COALESCE(l.nombre, m.nombre, m.datos_admision->>'nombre') as lead_nombre,
+            COALESCE(l.email, m.email, m.datos_admision->>'email') as lead_email,
+            COALESCE(l.telefono, m.telefono, m.datos_admision->>'telefono') as lead_telefono,
             c.importe_total, c.producto_contratado, u.nombre as validated_by_nombre,
             -- Las columnas de Diego (#199): curso, campus y fecha de llegada.
             ${CURSO} as curso,
@@ -101,9 +101,9 @@ export async function findById(id) {
   // La ficha (#199): lo de la lista, más la gestora del prospecto y quién validó.
   const { rows } = await query(
     `SELECT m.*,
-            COALESCE(l.nombre, m.datos_admision->>'nombre') as lead_nombre,
-            COALESCE(l.email, m.datos_admision->>'email') as lead_email,
-            COALESCE(l.telefono, m.datos_admision->>'telefono') as lead_telefono,
+            COALESCE(l.nombre, m.nombre, m.datos_admision->>'nombre') as lead_nombre,
+            COALESCE(l.email, m.email, m.datos_admision->>'email') as lead_email,
+            COALESCE(l.telefono, m.telefono, m.datos_admision->>'telefono') as lead_telefono,
             c.importe_total, c.producto_contratado, u.nombre as validated_by_nombre,
             ${CURSO} as curso,
             p.nombre as campus_nombre,
@@ -132,14 +132,19 @@ export async function create(data) {
 async function crearConHistorial(data, db) {
   const dedupe = data.dedupe_key || data.dni || null;
   const { rows } = await consulta(db,
-    `INSERT INTO matriculas (project_id, conversion_id, lead_id, dni, titulo, notas, datos_admision, source, dedupe_key, estado, webhook_received_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+    `INSERT INTO matriculas (project_id, conversion_id, lead_id, dni, titulo, notas, datos_admision, source, dedupe_key, estado, webhook_received_at,
+                             nombre, email, telefono, documento_tipo, fecha_nacimiento, direccion, pais, estudios, curso_solicitado, envio_huella)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING *`,
     [data.project_id, data.conversion_id || null, data.lead_id || null,
      data.dni || null, data.titulo || null, data.notas || null,
      data.datos_admision ? JSON.stringify(data.datos_admision) : null,
      data.source || 'manual', dedupe,
      data.estado || (data.source === 'webhook' ? 'solicitud_admision' : 'pendiente'),
-     data.source === 'webhook' ? new Date() : null]
+     data.source === 'webhook' ? new Date() : null,
+     // Los datos de la persona en campos propios (#198, migración 213).
+     data.nombre || null, data.email || null, data.telefono || null, data.documento_tipo || null,
+     data.fecha_nacimiento || null, data.direccion || null, data.pais || null, data.estudios || null,
+     data.curso_solicitado || null, data.envio_huella || null]
   );
   // El historial empieza aquí: llegó por un formulario (el webhook de admisión o
   // los formularios del CRM, que crean la matrícula por esta misma función) o se
