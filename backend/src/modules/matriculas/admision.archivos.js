@@ -160,21 +160,3 @@ export function conArchivos(body, archivos = []) {
   for (const [campo, marcas] of porCampo) out[campo] = marcas.length === 1 ? marcas[0] : marcas;
   return out;
 }
-
-/**
- * Lo que se guarda en `datos_admision`: el envío tal cual, pero sin las imágenes en
- * texto (pueden ser megas en cada matrícula); en su lugar, «[imagen en texto, N KB]».
- */
-export function sinImagenesEnTexto(valor) {
-  if (typeof valor === 'string') {
-    if (DATA_URI.test(valor) || (valor.length > 2000 && BASE64_PURO.test(valor))) {
-      return `[imagen en texto, ${Math.round((valor.length * 3) / 4 / 1024)} KB]`;
-    }
-    return valor;
-  }
-  if (Array.isArray(valor)) return valor.map(sinImagenesEnTexto);
-  if (valor && typeof valor === 'object') {
-    return Object.fromEntries(Object.entries(valor).map(([k, x]) => [k, sinImagenesEnTexto(x)]));
-  }
-  return valor;
-}

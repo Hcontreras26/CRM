@@ -6,7 +6,7 @@ import * as leadModel from '../leads/lead.model.js';
 import { firmaTransparente } from '../certifex/certifex.firma.js';
 import { applyMapping } from '../webhook-tokens/mapeo.js';
 import * as model from './matricula.model.js';
-import { obtenerArchivo, conArchivos, sinImagenesEnTexto } from './admision.archivos.js';
+import { obtenerArchivo, conArchivos } from './admision.archivos.js';
 
 /**
  * EL WEBHOOK DE ADMISIÓN (#198).
@@ -202,7 +202,9 @@ export async function recibirAdmision(token, body, archivos = [], opcionesArchiv
       conversion_id: conversionId,
       lead_id: prospecto.leadId,
       ...persona,
-      datos_admision: sinImagenesEnTexto(envio),
+      // El envío tal cual llegó (Diego, 01/10), también las imágenes en texto; los
+      // archivos del multipart, como su marca «📎». En la lista no sale (va en la ficha).
+      datos_admision: envio,
       source: 'webhook',
       dedupe_key: dedupe,
       envio_huella: huella,

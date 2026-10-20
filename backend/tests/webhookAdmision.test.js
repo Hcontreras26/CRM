@@ -166,13 +166,13 @@ describe('los documentos: archivo, imagen en texto o URL', () => {
     expect(data[3]).toBe(0); // la esquina, transparente
   });
 
-  it('imagen en texto (data:image/png;base64): se guarda y no se copia entera en datos_admision', async () => {
+  it('imagen en texto (data:image/png;base64): se guarda como documento, y el envío se conserva tal cual llegó', async () => {
     const dataUri = `data:image/png;base64,${FIRMA_BLANCA.toString('base64')}`;
     const r = await recibir().send({ email: correo('base64'), firma: dataUri });
     expect(r.body.data.documentos.guardados).toEqual(['firma']);
     const m = await matricula(r.body.data.matricula_id);
     expect(m.firma_key).toBeTruthy();
-    expect(m.datos_admision.firma).toMatch(/^\[imagen en texto, \d+ KB\]$/);
+    expect(m.datos_admision.firma).toBe(dataUri);
   });
 
   it('un archivo que no es lo que dice (texto llamado dni.jpg) se rechaza, y la solicitud se guarda igual', async () => {
@@ -362,6 +362,52 @@ describe('idempotente y con su llave', () => {
     const r = await recibir().field('email', correo('grande')).attach('dni_frente', grande, 'grande.jpg');
     expect(r.status).toBe(400);
     expect(r.body.error).toMatch(/10 MB/);
+  });
+});
+
+describe('el contrato de la lista y la ficha (Diego, 01/10)', () => {
+  const ADMIN_ID = { id: null };
+  const como = () => ({ Authorization: `Bearer ${jwt.sign({ userId: ADMIN_ID.id, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '5m' })}` });
+  let api;
+
+  beforeAll(async () => {
+    const { default: modulo } = await import('../src/modules/matriculas/index.js');
+    const appM = express();
+    appM.use(express.json());
+    appM.use(modulo.prefix, modulo.router);
+    appM.use(errorHandler);
+    api = supertest(appM);
+    [ADMIN_ID.id] = (await q(`INSERT INTO users (nombre, email, password_hash, role) VALUES ($1, $2, 'x', 'admin') RETURNING id`,
+      [`${MARCA} Contrato`, correo('contrato')])).map((u) => u.id);
+    await q('INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2)', [ADMIN_ID.id, PROYECTO.id]);
+  });
+
+  afterAll(async () => {
+    await q('DELETE FROM user_projects WHERE user_id = $1', [ADMIN_ID.id]);
+    await q('DELETE FROM users WHERE id = $1', [ADMIN_ID.id]);
+  });
+
+  it('lista: persona { nombre, email, telefono }, curso, proyecto, documento y documentos; sin datos_admision (va en la ficha)', async () => {
+    const dataUri = `data:image/png;base64,${FIRMA_BLANCA.toString('base64')}`;
+    const r = await recibir().send({ nombre: 'Rosa Contrato', email: correo('rosa-contrato'), telefono: '+34 677 000 111', dni: '44444444A', curso_solicitado: 'Curso C', firma: dataUri });
+    const lista = await api.get(`/api/matriculas?projectId=${PROYECTO.id}&search=${encodeURIComponent(correo('rosa-contrato'))}`).set(como());
+    expect(lista.status).toBe(200);
+    const fila = lista.body.data.find((x) => x.id === r.body.data.matricula_id);
+    expect(fila).toMatchObject({
+      persona: { nombre: 'Rosa Contrato', email: correo('rosa-contrato'), telefono: '+34 677 000 111' },
+      curso: 'Curso C', proyecto: `${MARCA} Campus`, documento: '44444444A', estado: 'solicitud_admision',
+      documentos: { dni_frente: false, dni_dorso: false, foto: false, titulo: false, firma: true },
+      lead_id: r.body.data.lead_id, conversion_id: null,
+    });
+    expect(fila.recibida_at).toBeTruthy();
+    expect(fila).not.toHaveProperty('datos_admision');
+    for (const k of ['solicitudes', 'pendientes', 'validadas', 'rechazadas']) expect(lista.body.stats).toHaveProperty(k);
+
+    const ficha = await api.get(`/api/matriculas/${r.body.data.matricula_id}`).set(como());
+    expect(ficha.body.data).toMatchObject({ persona: { nombre: 'Rosa Contrato' }, proyecto: `${MARCA} Campus`, documento: '44444444A' });
+    expect(ficha.body.data.datos_admision.firma).toBe(dataUri);
+    expect(ficha.body.data.firma_url).toMatch(/[?&]sig=/);
+    expect(Array.isArray(ficha.body.data.historial)).toBe(true);
   });
 });
 

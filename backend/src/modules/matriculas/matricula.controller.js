@@ -24,7 +24,32 @@ const URL_DOC = { dni: 'dni_doc_url', dni_dorso: 'dni_dorso_url', foto: 'foto_ur
  */
 async function fichaCompleta(id, yaLeida = null) {
   const m = yaLeida || await model.findById(id);
-  return { ...conDocumentosFirmados(m), historial: await model.historial(id) };
+  return { ...conContrato(conDocumentosFirmados(m)), historial: await model.historial(id) };
+}
+
+/**
+ * Los nombres del contrato de Diego para la lista y la ficha (#198, comentario del
+ * 01/10): `persona { nombre, email, telefono }`, `proyecto` y `documento`. Se
+ * añaden a los de siempre (`lead_*`, `campus_nombre`, `dni`), que la pantalla ya usa.
+ */
+function conContrato(m) {
+  if (!m) return m;
+  return {
+    ...m,
+    persona: { nombre: m.lead_nombre ?? null, email: m.lead_email ?? null, telefono: m.lead_telefono ?? null },
+    proyecto: m.campus_nombre ?? null,
+    documento: m.dni ?? null,
+  };
+}
+
+/**
+ * Una fila de la lista: sin `datos_admision`, que en el contrato va solo en la
+ * ficha. Es el envío entero tal cual llegó y puede traer imágenes en texto (la
+ * firma de Elementor): en la lista serían megas que nadie mira.
+ */
+function filaDeLaLista(m) {
+  const { datos_admision: _enLaFicha, ...fila } = conContrato(conQueDocumentos(conDocumentosFirmados(m)));
+  return fila;
 }
 
 /** ¿Es este campus de quien hace la petición? Super admin y soporte, todos (`veTodoElCrm`). */
@@ -70,7 +95,7 @@ export async function list(req, res, next) {
     // Los cursos y los campus del ámbito, para los desplegables de los filtros.
     const cursos = await model.getCursos(ambito);
     const campus = await model.getCampus(ambito);
-    res.json({ success: true, data: data.matriculas.map((m) => conQueDocumentos(conDocumentosFirmados(m))), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats, cursos, campus });
+    res.json({ success: true, data: data.matriculas.map(filaDeLaLista), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats, cursos, campus });
   } catch (err) { next(err); }
 }
 
