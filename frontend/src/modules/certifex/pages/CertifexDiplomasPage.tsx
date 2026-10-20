@@ -25,7 +25,9 @@ import {
   type CambiosSolicitud, type CampusCertifex, type CatalogoDelCampus, type ConexionCertifex, type CursoCertifex, type Diploma, type FiltroAviso,
   type PestanaDiplomas, type ProgramaDelCrm, type ProgramaOficial, type ResultadoAprobarEmitir, type ResumenDiplomas, type Solicitud, type Terminado,
 } from '../api/certifex.api';
-import { Avance, AvisoCasiListo, AvisoDireccionPublica, Buscador, EnElCrmEtiqueta, Etiqueta, Pestana } from '../components/piezas';
+import {
+  Avance, AvisoCasiListo, AvisoDireccionPublica, Buscador, EnElCrmEtiqueta, Etiqueta, FIRMA_EN_DIPLOMA, PON_EL_DNI, Pestana, TITULO_SIN_DNI, tieneDni,
+} from '../components/piezas';
 
 /**
  * Certifex · Diplomas (#272): lo que los alumnos piden desde Moodle y los diplomas ya
@@ -36,10 +38,13 @@ import { Avance, AvisoCasiListo, AvisoDireccionPublica, Buscador, EnElCrmEtiquet
  *  1. El alumno termina, escribe su nombre (sin DNI) y lo pide. Llega aquí y suena la
  *     campana. El nombre que escribió es el que se imprime: va destacado junto al de
  *     Moodle para revisarlo.
- *  2. «Aprobar y emitir»: visto bueno y diploma, en un paso. NO avisa al alumno.
- *  3. El diploma queda «pendiente de aviso»: se ve el PDF y, si está bien, «Enviar
+ *  2. El DNI (o NIE o pasaporte) se pone aquí («Sin DNI · Poner») y es OBLIGATORIO (Diego,
+ *     20/10): sin él, «Aprobar y emitir» y «Emitir» no se pueden pulsar, y el servidor
+ *     tampoco lo aprueba ni lo emite. La firma del alumno no va (FIRMA_EN_DIPLOMA).
+ *  3. «Aprobar y emitir»: visto bueno y diploma, en un paso. NO avisa al alumno.
+ *  4. El diploma queda «pendiente de aviso»: se ve el PDF y, si está bien, «Enviar
  *     diploma al alumno». Solo entonces sale el correo, y solo si una persona lo aprueba.
- *  4. Un nombre mal escrito se CORRIGE (mismo número, queda registrado); revocar es para
+ *  5. Un nombre mal escrito se CORRIGE (mismo número, queda registrado); revocar es para
  *     lo que no debía emitirse.
  */
 
@@ -90,6 +95,19 @@ function nombreValido(v: string): string | null {
 }
 const MSG_NOMBRE = 'Escribe el nombre completo (nombre y apellidos), de 3 a 160 caracteres, solo con letras.';
 
+/** El DNI como lo guarda Certifex: en mayúsculas y sin espacios de más. */
+const normalizarDni = (t: string) => t.replace(/\s+/g, ' ').trim().toUpperCase();
+/** La misma regla que el servidor (`dniDiploma`): letras y números, con «-» o «.» por dentro; de 5 a 20. */
+const errorDeDni = (n: string) => (n && (!/^[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?$/.test(n) || n.replace(/[.-]/g, '').length < 5 || n.replace(/[.-]/g, '').length > 20)
+  ? 'Solo letras y números (con «-» o «.» por dentro), de 5 a 20.' : null);
+const MSG_FALTA_DNI = 'Falta el DNI (o NIE o pasaporte): es obligatorio en el diploma.';
+
+/** Lo que se añade al aviso de un lote si el servidor dejó alguna fuera por el DNI. */
+const avisoSinDni = (res: ResultadoAprobarEmitir[]) => {
+  const n = res.filter((r) => r.codigo === 'FALTA_DNI').length;
+  return n ? ` ${n} sin DNI, que es obligatorio: ponlo con «Sin DNI · Poner» y vuelve a emitir.` : '';
+};
+
 /** «8,8 · aprobado desde 5». */
 const notaTexto = (nota: number | null, umbral: number | null) => (nota == null
   ? '—'
@@ -98,8 +116,9 @@ const notaTexto = (nota: number | null, umbral: number | null) => (nota == null
 type Fallo = { quien: string; error: string };
 type Dialogo =
   | null
-  | { tipo: 'aprobarEmitir'; ids: number[] }
-  | { tipo: 'emitir'; ids: number[] }
+  // `sinDni`: las que se quedaron fuera por no tener DNI (se dice en la confirmación).
+  | { tipo: 'aprobarEmitir'; ids: number[]; sinDni?: number }
+  | { tipo: 'emitir'; ids: number[]; sinDni?: number }
   | { tipo: 'rechazar'; ids: number[] }
   | { tipo: 'avisos'; exps: string[]; reenvio: boolean; fuera?: boolean }
   | { tipo: 'avisoRechazo'; ids: number[] }
@@ -257,16 +276,17 @@ function FirmaEnFila({ c, alSubir, deshabilitado }: { c: Solicitud; alSubir: () 
 
 /**
  * El DNI en la fila (Carlos, 20/10: «los DNI se colocan en el diploma»): si lo tiene, se ve;
- * si no, se ofrece ponerlo (abre «Revisar datos»).
+ * si no, se ofrece ponerlo (abre «Revisar datos»). Es obligatorio (Diego, 20/10): sin él no
+ * se emite, y el aviso lo dice en rojo.
  */
 function DniEnFila({ c, alPoner, deshabilitado }: { c: Solicitud; alPoner: () => void; deshabilitado?: boolean }) {
-  if (c.titular.dni) {
+  if (tieneDni(c)) {
     return <div className="mt-1"><Etiqueta tono="neutral">DNI {c.titular.dni}</Etiqueta></div>;
   }
   return (
-    <button type="button" onClick={alPoner} disabled={deshabilitado}
-      className="mt-1 inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-warning-soft-foreground hover:bg-warning-soft/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
-      Sin DNI · Poner
+    <button type="button" onClick={alPoner} disabled={deshabilitado} title={TITULO_SIN_DNI}
+      className="mt-1 inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive-soft px-1.5 py-0.5 text-[11px] font-medium text-destructive-soft-foreground hover:bg-destructive-soft/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
+      <Warning size={12} weight="bold" aria-hidden /> Sin DNI · Poner <span className="font-normal">(obligatorio)</span>
     </button>
   );
 }
@@ -681,6 +701,12 @@ export default function CertifexDiplomasPage() {
     if (n.has(k)) n.delete(k); else n.add(k);
     return n;
   });
+  // El DNI es obligatorio para emitir (Diego, 20/10): lo que no lo tiene no entra en un lote.
+  const elegidasPendientes = pestana === 'pendientes' ? solicitudes.filter((c) => elegidas.has(String(c.matriculaId))) : [];
+  const elegidasConDni = elegidasPendientes.filter(tieneDni).map((c) => c.matriculaId);
+  const elegidasSinDni = elegidasPendientes.length - elegidasConDni.length;
+  const sinEmitirConDni = despues.sinEmitir.filter(tieneDni);
+  const sinEmitirSinDni = despues.sinEmitir.length - sinEmitirConDni.length;
   const conFechas = pestana !== 'terminados';
   const hayFiltros = !!(centro || curso || (conFechas && (desde || hasta)) || buscar || filtroAviso);
   const contar = (p: PestanaDiplomas) => {
@@ -742,7 +768,7 @@ export default function CertifexDiplomasPage() {
     setHechos(emitidasDe(res));
     toast({
       title: `${ok} ${ok === 1 ? 'diploma emitido' : 'diplomas emitidos'}`,
-      description: ok ? 'Quedan pendientes de aviso: revisa el PDF y envíalo al alumno.' : 'Ninguno se ha podido emitir: el motivo, en pantalla.',
+      description: (ok ? 'Quedan pendientes de aviso: revisa el PDF y envíalo al alumno.' : 'Ninguno se ha podido emitir: el motivo, en pantalla.') + avisoSinDni(res),
       variant: ok ? undefined : 'destructive',
     });
   }, 'No se pudo aprobar y emitir');
@@ -756,8 +782,8 @@ export default function CertifexDiplomasPage() {
     setFallos(res.filter((r) => !r.ok).map((r) => ({ quien: nombre(r.matriculaId), error: r.error ?? 'Error' })));
     setHechos(emitidasDe(res));
     toast(ok
-      ? { title: `${ok} ${ok === 1 ? 'diploma emitido' : 'diplomas emitidos'}`, description: res.length > ok ? `Quedan pendientes de aviso. ${res.length - ok} sin emitir: el motivo, en pantalla.` : 'Quedan pendientes de aviso.' }
-      : { title: 'No se ha emitido ninguno', description: 'El motivo de cada uno, en pantalla.', variant: 'destructive' });
+      ? { title: `${ok} ${ok === 1 ? 'diploma emitido' : 'diplomas emitidos'}`, description: (res.length > ok ? `Quedan pendientes de aviso. ${res.length - ok} sin emitir: el motivo, en pantalla.` : 'Quedan pendientes de aviso.') + avisoSinDni(res) }
+      : { title: 'No se ha emitido ninguno', description: `El motivo de cada uno, en pantalla.${avisoSinDni(res)}`, variant: 'destructive' });
   }, 'No se pudo emitir');
 
   const rechazar = (ids: number[], motivo: string) => ejecutarEnDialogo(async () => {
@@ -1195,19 +1221,29 @@ export default function CertifexDiplomasPage() {
                     <p className="text-sm font-semibold">Aprobados sin diploma ({despues.sinEmitir.length})</p>
                     <p className="text-xs text-muted-foreground">El visto bueno está dado, pero la emisión no terminó. Se puede reintentar.</p>
                   </div>
-                  <Button size="sm" variant="secondary" disabled={trabajando} onClick={() => setDialogo({ tipo: 'emitir', ids: despues.sinEmitir.map((c) => c.matriculaId) })}>
-                    <Certificate size={14} className="mr-1.5" /> Emitir {despues.sinEmitir.length}
-                  </Button>
+                  <div className="flex flex-col items-end gap-1">
+                    <Button size="sm" variant="secondary" disabled={trabajando || sinEmitirConDni.length === 0}
+                      title={sinEmitirConDni.length === 0 ? TITULO_SIN_DNI : undefined}
+                      onClick={() => setDialogo({ tipo: 'emitir', ids: sinEmitirConDni.map((c) => c.matriculaId), sinDni: sinEmitirSinDni })}>
+                      <Certificate size={14} className="mr-1.5" /> Emitir {sinEmitirConDni.length}
+                    </Button>
+                    {sinEmitirSinDni > 0 && (
+                      <span className="text-[11px] font-medium text-destructive" role="status">
+                        {sinEmitirConDni.length === 0 ? `${PON_EL_DNI}: ` : ''}{sinEmitirSinDni} sin DNI no {sinEmitirSinDni === 1 ? 'se emite' : 'se emiten'} (es obligatorio)
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <ul className="mt-2 flex flex-wrap gap-1.5">
                   {despues.sinEmitir.slice(0, 20).map((c) => (
                     <li key={c.matriculaId} className="inline-flex items-center gap-1">
-                      <Etiqueta tono={c.programaCrm?.programa ? 'info' : 'warning'}>
-                        {nombre(c.matriculaId)}{c.solicitud?.revisado ? ' (nombre revisado)' : ''} · {c.curso.nombre} · {lineaPrograma(c.programaCrm)}
+                      <Etiqueta tono={!tieneDni(c) ? 'destructive' : c.programaCrm?.programa ? 'info' : 'warning'}>
+                        {nombre(c.matriculaId)}{c.solicitud?.revisado ? ' (nombre revisado)' : ''} · {c.curso.nombre} · {lineaPrograma(c.programaCrm)}{tieneDni(c) ? '' : ' · falta el DNI'}
                       </Etiqueta>
-                      <button type="button" disabled={trabajando} onClick={() => setEditando(c)} aria-label={`Editar los datos de ${nombre(c.matriculaId)}`}
+                      <button type="button" disabled={trabajando} onClick={() => setEditando(c)}
+                        aria-label={tieneDni(c) ? `Editar los datos de ${nombre(c.matriculaId)}` : `Poner el DNI de ${nombre(c.matriculaId)}`}
                         className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
-                        <NotePencil size={12} /> Editar
+                        <NotePencil size={12} /> {tieneDni(c) ? 'Editar' : 'Poner DNI'}
                       </button>
                     </li>
                   ))}
@@ -1248,7 +1284,7 @@ export default function CertifexDiplomasPage() {
                             <NombreDiploma c={c} />
                             <CorreoDelAlumno c={c} />
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <FirmaEnFila c={c} alSubir={() => setEditando(c)} deshabilitado={trabajando} />
+                              {FIRMA_EN_DIPLOMA && <FirmaEnFila c={c} alSubir={() => setEditando(c)} deshabilitado={trabajando} />}
                               <DniEnFila c={c} alPoner={() => setEditando(c)} deshabilitado={trabajando} />
                             </div>
                           </td>
@@ -1265,9 +1301,14 @@ export default function CertifexDiplomasPage() {
                           <td className="px-2 py-3"><EnElCrmEtiqueta crm={c.crm} /></td>
                           <td className="px-2 py-3 pr-4">
                             <div className="flex flex-col items-stretch gap-1.5">
-                              <Button size="sm" disabled={trabajando} onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: [c.matriculaId] })}>
+                              <Button size="sm" disabled={trabajando || !tieneDni(c)} title={tieneDni(c) ? undefined : TITULO_SIN_DNI}
+                                aria-describedby={tieneDni(c) ? undefined : `diplomas-sin-dni-${k}`}
+                                onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: [c.matriculaId] })}>
                                 <SealCheck size={14} className="mr-1.5" /> Aprobar y emitir
                               </Button>
+                              {!tieneDni(c) && (
+                                <span id={`diplomas-sin-dni-${k}`} className="text-center text-[11px] font-medium text-destructive" title={TITULO_SIN_DNI}>{PON_EL_DNI}</span>
+                              )}
                               <Button size="sm" variant="outline" disabled={trabajando} onClick={() => abrir({ tipo: 'rechazar', ids: [c.matriculaId] })}>
                                 <XCircle size={14} className="mr-1.5" /> Rechazar
                               </Button>
@@ -1437,9 +1478,18 @@ export default function CertifexDiplomasPage() {
                 <Button variant="outline" size="sm" disabled={trabajando} onClick={() => abrir({ tipo: 'rechazar', ids: [...elegidas].map(Number) })}>
                   <XCircle size={14} className="mr-1.5" /> Rechazar ({elegidas.size})
                 </Button>
-                <Button size="sm" disabled={trabajando} onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: [...elegidas].map(Number) })}>
+                {/* Sin DNI no se emite: las que no lo tienen se quedan fuera, y se dice. */}
+                {elegidasSinDni > 0 && (
+                  <span className="self-center text-xs font-medium text-destructive" role="status">
+                    {elegidasConDni.length === 0
+                      ? 'Ninguna tiene DNI: ponlo para poder emitir'
+                      : `${elegidasSinDni} sin DNI ${elegidasSinDni === 1 ? 'se queda' : 'se quedan'} fuera (es obligatorio)`}
+                  </span>
+                )}
+                <Button size="sm" disabled={trabajando || elegidasConDni.length === 0} title={elegidasConDni.length === 0 ? TITULO_SIN_DNI : undefined}
+                  onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: elegidasConDni, sinDni: elegidasSinDni })}>
                   <SealCheck size={14} className="mr-1.5" />
-                  {trabajando && lote ? `Emitiendo ${lote.hechas} de ${lote.total}…` : `Aprobar y emitir (${elegidas.size})`}
+                  {trabajando && lote ? `Emitiendo ${lote.hechas} de ${lote.total}…` : `Aprobar y emitir (${elegidasConDni.length})`}
                 </Button>
               </>
             )}
@@ -1467,6 +1517,11 @@ export default function CertifexDiplomasPage() {
           <>
             {dialogo?.tipo === 'aprobarEmitir' ? 'Se aprueban y se emite su diploma en Certifex con el nombre que escribió cada alumno. ' : 'Se emite el diploma de lo ya aprobado. '}
             <strong>No se avisa al alumno</strong>: el diploma queda pendiente de aviso hasta que revises el PDF y lo envíes. Cada diploma gasta un número de expediente en un registro que no se borra. Queda a tu nombre.
+            {(dialogo?.tipo === 'aprobarEmitir' || dialogo?.tipo === 'emitir') && !!dialogo.sinDni && (
+              <strong className="mt-2 block text-destructive">
+                {dialogo.sinDni} sin DNI no {dialogo.sinDni === 1 ? 'entra' : 'entran'}: el DNI es obligatorio en el diploma. Pónselo y emítelo después.
+              </strong>
+            )}
           </>
         }
         confirmLabel="Emitir"
@@ -1565,10 +1620,12 @@ export default function CertifexDiplomasPage() {
           alCerrar={() => setCreandoNuevo(false)}
           alCrear={(r) => {
             setCreandoNuevo(false);
-            toast({
-              title: r.yaExistia ? 'Ya estaba creado' : 'Diploma creado',
-              description: `${r.nombre} · ${r.curso}. ${r.vinculadaMoodle ? 'Va sobre su matrícula de Moodle: saldrá con sus datos de Moodle. ' : ''}Está en «Por decidir»: apruébalo y emítelo cuando quieras.`,
-            });
+            toast(r.avisoDni
+              ? { title: r.yaExistia ? 'Ya estaba creado, sin DNI' : 'Diploma creado, sin DNI', description: `${r.nombre} · ${r.curso}. ${r.avisoDni}`, variant: 'destructive' }
+              : {
+                title: r.yaExistia ? 'Ya estaba creado' : 'Diploma creado',
+                description: `${r.nombre} · ${r.curso}. ${r.vinculadaMoodle ? 'Va sobre su matrícula de Moodle: saldrá con sus datos de Moodle. ' : ''}Está en «Por decidir»: apruébalo y emítelo cuando quieras.`,
+              });
             irA('pendientes');
             recargar();
           }}
@@ -1736,7 +1793,8 @@ interface ClienteLite { id: number; nombre: string | null; email: string | null;
  * Certifex: queda en «Por decidir» para aprobarla y emitirla como las de Moodle.
  */
 function DialogoNuevoDiploma({ campus, alCerrar, alCrear }: {
-  campus: CampusCertifex[]; alCerrar: () => void; alCrear: (r: { matriculaId: number; yaExistia: boolean; curso: string; nombre: string; vinculadaMoodle?: boolean }) => void;
+  campus: CampusCertifex[]; alCerrar: () => void;
+  alCrear: (r: { matriculaId: number; yaExistia: boolean; curso: string; nombre: string; vinculadaMoodle?: boolean; avisoDni?: string | null }) => void;
 }) {
   const [centro, setCentro] = useState(campus.length === 1 ? campus[0]!.codigo : '');
   const [catalogo, setCatalogo] = useState<CatalogoDelCampus | null>(null);
@@ -1747,6 +1805,8 @@ function DialogoNuevoDiploma({ campus, alCerrar, alCrear }: {
   const [cliente, setCliente] = useState<ClienteLite | null>(null);
   const [producto, setProducto] = useState('');
   const [nombreD, setNombreD] = useState('');
+  // El DNI que se imprimirá: obligatorio (Diego, 20/10), como en «Revisar datos».
+  const [dniD, setDniD] = useState('');
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1788,8 +1848,10 @@ function DialogoNuevoDiploma({ campus, alCerrar, alCrear }: {
   };
 
   const errorNombre = !cliente ? null : !nombreD.trim() ? 'Falta el nombre: es el que se imprimirá en el diploma.' : !nombreValido(nombreD) ? MSG_NOMBRE : null;
+  const dniN = normalizarDni(dniD);
+  const errorDni = !cliente ? null : !dniN ? MSG_FALTA_DNI : errorDeDni(dniN);
   const sinCorreo = !!cliente && !(cliente.email ?? '').trim();
-  const listo = !creando && !!centro && !!cliente && !sinCorreo && !!producto && !errorNombre;
+  const listo = !creando && !!centro && !!cliente && !sinCorreo && !!producto && !errorNombre && !errorDni;
 
   const ref = useRef<HTMLFormElement>(null);
   useModalAccesible(ref, { onClose: () => !creando && alCerrar(), bloqueado: creando });
@@ -1799,7 +1861,7 @@ function DialogoNuevoDiploma({ campus, alCerrar, alCrear }: {
     setCreando(true);
     setError(null);
     try {
-      const r = await diplomasApi.nuevo({ centro, leadId: cliente.id, productoId: Number(producto), nombre: nombreValido(nombreD) ?? undefined });
+      const r = await diplomasApi.nuevo({ centro, leadId: cliente.id, productoId: Number(producto), nombre: nombreValido(nombreD) ?? undefined, dni: dniN });
       alCrear(r.data);
     } catch (e) {
       setError((e as Error).message);
@@ -1895,6 +1957,16 @@ function DialogoNuevoDiploma({ campus, alCerrar, alCrear }: {
                 <span className="text-xs font-medium text-muted-foreground">Nombre para el diploma</span>
                 <input value={nombreD} onChange={(e) => setNombreD(e.target.value)} maxLength={160} aria-invalid={!!errorNombre} className={campo} />
                 {errorNombre && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorNombre}</span>}
+              </label>
+            )}
+
+            {cliente && (
+              <label className="block text-sm">
+                <span className="text-xs font-medium text-muted-foreground">DNI / NIE / pasaporte (obligatorio)</span>
+                <input value={dniD} onChange={(e) => setDniD(e.target.value)} maxLength={30} placeholder="Ej.: 12345678Z" aria-invalid={!!errorDni} aria-required="true"
+                  autoComplete="off" className={cn(campo, 'uppercase')} />
+                <span className="mt-1 block text-xs text-muted-foreground">Se imprime en el diploma junto al nombre. Sin él no se puede emitir.</span>
+                {errorDni && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorDni}</span>}
               </label>
             )}
 
@@ -1999,9 +2071,8 @@ function DialogoEditar({ c, alCerrar, alGuardar, alCambiarFirma }: {
   const sumaModulos = form.modulos.reduce((s, m) => s + (/^\d+$/.test(m.horas.trim()) ? Number(m.horas) : 0), 0);
   const horasTotales = /^\d+$/.test(form.horas.trim()) ? Number(form.horas) : null;
 
-  const dniN = dniD.replace(/\s+/g, ' ').trim().toUpperCase();
-  const errorDni = dniN && (!/^[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?$/.test(dniN) || dniN.replace(/[.-]/g, '').length < 5 || dniN.replace(/[.-]/g, '').length > 20)
-    ? 'Solo letras y números (con «-» o «.» por dentro), de 5 a 20.' : null;
+  const dniN = normalizarDni(dniD);
+  const errorDni = errorDeDni(dniN);
 
   const cambios: CambiosSolicitud = { matriculaId: c.matriculaId };
   if (nombreN !== normalizarNombre(c.solicitud?.nombre ?? '')) cambios.nombre = nombreN;
@@ -2080,12 +2151,17 @@ function DialogoEditar({ c, alCerrar, alGuardar, alCambiarFirma }: {
 
             {/* DNI: vive en Certifex, en el alumno, y se imprime junto al nombre (Carlos, 20/10). */}
             <label className="block text-sm">
-              <span className="text-xs font-medium text-muted-foreground">DNI / NIE / pasaporte</span>
+              <span className="text-xs font-medium text-muted-foreground">DNI / NIE / pasaporte (obligatorio)</span>
               <input value={dniD} onChange={(e) => setDniD(e.target.value)} maxLength={30} placeholder="Ej.: 12345678Z" aria-invalid={!!errorDni}
                 autoComplete="off" className={cn(campo, 'uppercase')} />
               <span className="mt-1 block text-xs text-muted-foreground">
-                Se imprime en el diploma junto al nombre. {c.titular.dni ? '' : 'Todavía no lo tiene: escríbelo si debe salir.'}
+                Se imprime en el diploma junto al nombre. Es obligatorio: sin él no se puede aprobar ni emitir.
               </span>
+              {!dniN && (
+                <span className="mt-0.5 block text-xs font-medium text-destructive" role="status">
+                  {c.titular.dni ? 'Si lo quitas, no se podrá emitir el diploma.' : 'Todavía no lo tiene: escríbelo para poder emitir.'}
+                </span>
+              )}
               {errorDni && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorDni}</span>}
             </label>
 
@@ -2183,7 +2259,8 @@ function DialogoEditar({ c, alCerrar, alGuardar, alCambiarFirma }: {
               {prog.error && <p className="mt-2 text-xs text-destructive">{prog.error}</p>}
             </fieldset>
 
-            <FirmaDelAlumnoBloque c={c} alCambiar={() => alCambiarFirma?.()} />
+            {/* La firma del alumno no va en el diploma (Diego, 20/10): sin bloque ni subida. */}
+            {FIRMA_EN_DIPLOMA && <FirmaDelAlumnoBloque c={c} alCambiar={() => alCambiarFirma?.()} />}
 
             {ed?.por && (
               <p className="text-xs text-muted-foreground">Correo, formación o programa revisados por {ed.por} el {fechaHora(ed.en)}.</p>

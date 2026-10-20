@@ -7,7 +7,7 @@ import { programasPara, datosDeCandidato, formacionesDeCentro, proyectoDeCentro 
 import { sincronizarTemario } from '../products/temario.js';
 import { certifex, recorrer } from './certifex.cliente.js';
 import { alcanceDe, acotar, exigirCentro, exigirExpedientes, NO_ENCONTRADA } from './certifex.alcance.js';
-import { prepararEmision, emitirConPrograma, emitirMatriculas } from './certifex.emision.js';
+import { prepararEmision, emitirConPrograma, emitirMatriculas, resultadoBloqueado } from './certifex.emision.js';
 import { conFirma, correoDe, firmaTransparente, guardarFirmaSubida, origenesDeFirma, pngDe } from './certifex.firma.js';
 import {
   listarSolicitudesSchema, listarDiplomasSchema, porAvisarSchema, aprobarEmitirSchema, rechazarSchema, emitirDiplomasSchema,
@@ -21,8 +21,11 @@ import {
  * los diplomas ya emitidos, desde el CRM.
  *
  * Decisiones del usuario (08/10) que mandan aqui:
- *  · SIN DNI: el alumno solo escribe su nombre, y es el que se imprime. El panel lo
- *    ensena destacado junto al de Moodle para revisarlo antes de aprobar.
+ *  · El alumno solo escribe su nombre, y es el que se imprime. El panel lo ensena
+ *    destacado junto al de Moodle para revisarlo antes de aprobar.
+ *  · El DNI no lo escribe el alumno: vive en Certifex, en el titular, y se pone desde el
+ *    panel («Sin DNI · Poner»). Es OBLIGATORIO para emitir (Diego, 20/10: «es
+ *    obligatorio»): sin el, ni se aprueba ni se emite (ver certifex.emision.js).
  *  · Emitir NO avisa. El correo al alumno sale solo cuando una persona del CRM lo
  *    aprueba, en un paso aparte (`avisos`), despues de ver el PDF.
  *  · Un nombre mal escrito se CORRIGE (mismo numero, auditado), no se revoca y reemite.
@@ -268,9 +271,10 @@ function exigirMatriculasDe(alcance, ids, datos) {
  * (sale en «Aprobados sin diploma» para reintentar) y se dice asi, no como un fallo
  * de todo.
  *
- * Todo lo que puede fallar en el CRM se mira ANTES de aprobar: si la base no contesta,
- * no se aprueba ni se emite nada (error claro). Una matricula revisada a mano que aun
- * asi no tiene programa no se aprueba ni se emite (`fase: 'emitir_bloqueado'`).
+ * Todo lo que puede fallar se mira ANTES de aprobar: si la base o Certifex no contestan,
+ * no se aprueba ni se emite nada (error claro). Una matricula sin DNI (`codigo:
+ * 'FALTA_DNI'`), o revisada a mano que aun asi no tiene programa, no se aprueba ni se
+ * emite (`fase: 'emitir_bloqueado'`, con el motivo).
  */
 export async function aprobarEmitir(req, res, next) {
   try {
@@ -290,7 +294,7 @@ export async function aprobarEmitir(req, res, next) {
     const { porId, error } = aEmitir.length ? await emitirConPrograma(quien(req), aEmitir, preparado) : { porId: new Map(), error: null };
 
     const resultados = matriculaIds.map((matriculaId) => {
-      if (preparado.bloqueadas.has(matriculaId)) return { matriculaId, ok: false, fase: 'emitir_bloqueado', error: preparado.bloqueadas.get(matriculaId) };
+      if (preparado.bloqueadas.has(matriculaId)) return resultadoBloqueado(matriculaId, preparado);
       if (fallidas.has(matriculaId)) return { matriculaId, ok: false, fase: 'aprobar', error: fallidas.get(matriculaId) };
       const r = porId.get(matriculaId);
       if (r) return { ...r, matriculaId, fase: 'emitir', ...(r.ok ? {} : { error: `Aprobada, pero sin diploma: ${r.error || 'error al emitir'}` }) };
@@ -519,13 +523,18 @@ export async function verFirma(req, res, next) {
 const REF_CURSO_CRM = 900_000_000;
 
 /**
- * POST /diplomas/nuevo { centro, leadId, productoId, nombre? } — «Nuevo diploma»: crea la
+ * POST /diplomas/nuevo { centro, leadId, productoId, nombre?, dni } — «Nuevo diploma»: crea la
  * solicitud DESDE CERO, eligiendo al cliente y la formación (Diego, 19/10: «Academia IA está
  * sin Moodle, así que tiene que crear el diploma desde 0, seleccionando el cliente; igual para
  * los demás»). Queda en «Por decidir» y se aprueba y emite como las que llegan de Moodle.
  *
  * La formación se guarda como «revisada a mano» (productoId): el diploma sale con su temario
  * y sus horas del catálogo, sin buscar la venta.
+ *
+ * El DNI es obligatorio (20/10). Va a Certifex como en «Editar» (`/solicitudes/dni`), en cuanto
+ * existe la matrícula. Si Certifex no lo acepta (otra ficha ya lo tiene, o no contesta), la
+ * solicitud ya está creada y no se deshace: se devuelve igual, con `avisoDni` diciendo por qué,
+ * y no se podrá emitir hasta ponerlo con «Sin DNI · Poner».
  */
 export async function nuevo(req, res, next) {
   try {
@@ -548,6 +557,18 @@ export async function nuevo(req, res, next) {
     const r = await certifex('POST', '/matriculas', {
       centro: cod, nombre, email, curso: p.nombre, cursoRef: REF_CURSO_CRM + p.id, creadoPor: quien(req),
     });
+    // Con el diploma ya emitido (lo era de antes) el DNI ya no cambia: no se toca.
+    let dni = null;
+    let avisoDni = null;
+    if (!r.nexpediente) {
+      try {
+        const rd = await certifex('POST', '/solicitudes/dni', { matriculaId: r.matriculaId, dni: d.dni, editadoPor: quien(req) });
+        dni = rd?.dni ?? d.dni;
+      } catch (e) {
+        logger.warn({ err: e.message, matriculaId: r.matriculaId }, 'Certifex: el DNI del nuevo diploma no se pudo guardar');
+        avisoDni = `El diploma se ha creado, pero Certifex no ha guardado su DNI: ${String(e.message || 'no contesta').replace(/\.\s*$/, '')}. Ponlo con «Sin DNI · Poner»: sin él no se puede emitir.`;
+      }
+    }
     await model.guardarEdicion(r.matriculaId, { productoId: p.id }, quien(req), {
       centro: cod,
       cursoRef: r.cursoRef ?? REF_CURSO_CRM + p.id,
@@ -557,8 +578,11 @@ export async function nuevo(req, res, next) {
       email,
       solicitadaEn: new Date().toISOString(),
     });
-    logger.info({ userId: req.user.userId, centro: cod, matriculaId: r.matriculaId, productoId: p.id, yaExistia: !!r.yaExistia }, 'Certifex: nuevo diploma desde el CRM');
-    res.json({ success: true, data: { matriculaId: r.matriculaId, yaExistia: !!r.yaExistia, vinculadaMoodle: !!r.vinculadaMoodle, centro: cod, curso: p.nombre, nombre } });
+    logger.info({ userId: req.user.userId, centro: cod, matriculaId: r.matriculaId, productoId: p.id, yaExistia: !!r.yaExistia, conDni: !!dni }, 'Certifex: nuevo diploma desde el CRM');
+    res.json({
+      success: true,
+      data: { matriculaId: r.matriculaId, yaExistia: !!r.yaExistia, vinculadaMoodle: !!r.vinculadaMoodle, centro: cod, curso: p.nombre, nombre, dni, avisoDni },
+    });
   } catch (err) { next(err); }
 }
 
