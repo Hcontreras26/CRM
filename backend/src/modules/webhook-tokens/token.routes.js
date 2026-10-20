@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import { verifyToken, roleGuard } from '../../shared/middleware/auth.js';
+import { verifyToken, soloRoles } from '../../shared/middleware/auth.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { MAX_BYTES } from '../matriculas/admision.archivos.js';
 import * as ctrl from './token.controller.js';
@@ -47,13 +47,20 @@ const limite = rateLimit({
 
 router.post('/receive/:token', limite, conArchivos, ctrl.publicReceive);
 
+// ─── ADMINISTRACIÓN ─────────────────────────────────────────────────────────
+//
+// La URL con el token es la llave del webhook y la muestra trae los datos de una
+// persona: como el webhook de transferencias y Conectores, solo admin y super
+// admin (`soloRoles`, no `roleGuard`, que deja pasar también a soporte), y cada
+// uno en sus campus, que lo comprueba el controlador.
 router.use(verifyToken);
+router.use(soloRoles('admin', 'superadmin'));
 router.get('/', ctrl.list);
 router.get('/:id/status', ctrl.getStatus);
-router.post('/', roleGuard('admin', 'superadmin', 'soporte'), ctrl.create);
-router.patch('/:id', roleGuard('admin', 'superadmin', 'soporte'), ctrl.update);
-router.delete('/:id', roleGuard('admin', 'superadmin', 'soporte'), ctrl.remove);
-router.post('/:id/listen', roleGuard('admin', 'superadmin', 'soporte'), ctrl.startListening);
-router.post('/:id/listen/stop', roleGuard('admin', 'superadmin', 'soporte'), ctrl.stopListening);
+router.post('/', ctrl.create);
+router.patch('/:id', ctrl.update);
+router.delete('/:id', ctrl.remove);
+router.post('/:id/listen', ctrl.startListening);
+router.post('/:id/listen/stop', ctrl.stopListening);
 
 export default router;

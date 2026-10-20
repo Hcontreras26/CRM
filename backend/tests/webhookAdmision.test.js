@@ -3,6 +3,7 @@ import http from 'node:http';
 import express from 'express';
 import supertest from 'supertest';
 import sharp from 'sharp';
+import jwt from 'jsonwebtoken';
 
 /**
  * El webhook de admisión (#198), contra la base de verdad.
@@ -358,5 +359,69 @@ describe('idempotente y con su llave', () => {
     const r = await recibir().field('email', correo('grande')).attach('dni_frente', grande, 'grande.jpg');
     expect(r.status).toBe(400);
     expect(r.body.error).toMatch(/10 MB/);
+  });
+});
+
+describe('quién administra los webhooks: admin y super admin, cada uno sus campus', () => {
+  // La URL con el token es la llave y la muestra trae datos de una persona: lo mismo
+  // que el webhook de transferencias.
+  const como = (id, role) => ({ Authorization: `Bearer ${jwt.sign({ userId: id, role }, process.env.JWT_SECRET, { expiresIn: '5m' })}` });
+  let ADMIN; let AJENO; let SOPORTE; let SUPER;
+
+  beforeAll(async () => {
+    const usuario = async (n, role) => (await q(
+      `INSERT INTO users (nombre, email, password_hash, role) VALUES ($1, $2, 'x', $3) RETURNING id`,
+      [`${MARCA} ${n}`, correo(n), role]))[0];
+    ADMIN = await usuario('admin', 'admin');
+    AJENO = await usuario('ajeno', 'admin');
+    SOPORTE = await usuario('soporte', 'soporte');
+    SUPER = await usuario('super', 'superadmin');
+    await q('INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2)', [ADMIN.id, PROYECTO.id]);
+  });
+
+  afterAll(async () => {
+    await q('DELETE FROM user_projects WHERE user_id = ANY($1::int[])', [[ADMIN.id, AJENO.id, SOPORTE.id, SUPER.id]]);
+    await q('DELETE FROM users WHERE id = ANY($1::int[])', [[ADMIN.id, AJENO.id, SOPORTE.id, SUPER.id]]);
+  });
+
+  it('el admin del campus lo ve, lo crea, escucha y lo cambia', async () => {
+    const lista = await request.get(`/api/webhook-tokens?projectId=${PROYECTO.id}`).set(como(ADMIN.id, 'admin'));
+    expect(lista.status).toBe(200);
+    expect(lista.body.data.some((t) => t.id === TOKEN.id)).toBe(true);
+    const nuevo = await request.post('/api/webhook-tokens').set(como(ADMIN.id, 'admin'))
+      .send({ project_id: PROYECTO.id, kind: 'matriculas' });
+    expect(nuevo.status).toBe(201);
+    expect((await request.post(`/api/webhook-tokens/${nuevo.body.data.id}/listen`).set(como(ADMIN.id, 'admin'))).status).toBe(200);
+    expect((await request.get(`/api/webhook-tokens/${nuevo.body.data.id}/status`).set(como(ADMIN.id, 'admin'))).status).toBe(200);
+    expect((await request.delete(`/api/webhook-tokens/${nuevo.body.data.id}`).set(como(ADMIN.id, 'admin'))).status).toBe(200);
+  });
+
+  it('un admin de otro campus: 403 en todo, y no se toca nada', async () => {
+    const h = como(AJENO.id, 'admin');
+    expect((await request.get(`/api/webhook-tokens?projectId=${PROYECTO.id}`).set(h)).status).toBe(403);
+    expect((await request.get(`/api/webhook-tokens/${TOKEN.id}/status`).set(h)).status).toBe(403);
+    expect((await request.post('/api/webhook-tokens').set(h).send({ project_id: PROYECTO.id, kind: 'matriculas' })).status).toBe(403);
+    expect((await request.patch(`/api/webhook-tokens/${TOKEN.id}`).set(h).send({ active: false })).status).toBe(403);
+    expect((await request.post(`/api/webhook-tokens/${TOKEN.id}/listen`).set(h)).status).toBe(403);
+    expect((await request.post(`/api/webhook-tokens/${TOKEN.id}/listen/stop`).set(h)).status).toBe(403);
+    expect((await request.delete(`/api/webhook-tokens/${TOKEN.id}`).set(h)).status).toBe(403);
+    expect((await tokenModel.findById(TOKEN.id)).active).toBe(true);
+  });
+
+  it('gestora y soporte: 403, aunque la gestora esté en el campus', async () => {
+    for (const h of [como(GESTORA.id, 'gestor'), como(SOPORTE.id, 'soporte')]) {
+      expect((await request.get(`/api/webhook-tokens?projectId=${PROYECTO.id}`).set(h)).status).toBe(403);
+      expect((await request.get(`/api/webhook-tokens/${TOKEN.id}/status`).set(h)).status).toBe(403);
+      expect((await request.patch(`/api/webhook-tokens/${TOKEN.id}`).set(h).send({ notas: 'x' })).status).toBe(403);
+    }
+  });
+
+  it('sin sesión: 401; el super admin, cualquier campus', async () => {
+    expect((await request.get(`/api/webhook-tokens?projectId=${PROYECTO.id}`)).status).toBe(401);
+    expect((await request.get(`/api/webhook-tokens/${TOKEN.id}/status`).set(como(SUPER.id, 'superadmin'))).status).toBe(200);
+  });
+
+  it('el envío público sigue sin sesión: la llave es el token', async () => {
+    expect((await recibir().send({ email: correo('publico'), nombre: 'Público' })).status).toBe(201);
   });
 });

@@ -208,12 +208,15 @@ export default function MatriculasPage() {
         >
           <GraduationCap size={14} /> Listado
         </button>
-        <button
-          onClick={() => { setTab('webhooks'); if (enCertifex) navigate('/clientes/matriculas'); }}
-          className={`flex items-center gap-2 px-3 h-9 text-sm font-bold border-b-2 focus:outline-none focus:ring-2 focus:ring-primary/40 ${!enCertifex && tab === 'webhooks' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
-        >
-          <PlugsConnected size={14} /> <span className="hidden sm:inline">Webhooks de admisión</span><span className="sm:hidden">Webhooks</span>
-        </button>
+        {/* Los webhooks, como en la API: solo admin y super admin (#198). */}
+        {verEmisiones && (
+          <button
+            onClick={() => { setTab('webhooks'); if (enCertifex) navigate('/clientes/matriculas'); }}
+            className={`flex items-center gap-2 px-3 h-9 text-sm font-bold border-b-2 focus:outline-none focus:ring-2 focus:ring-primary/40 ${!enCertifex && tab === 'webhooks' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+          >
+            <PlugsConnected size={14} /> <span className="hidden sm:inline">Webhooks de admisión</span><span className="sm:hidden">Webhooks</span>
+          </button>
+        )}
         {CERTIFEX_PANEL && verConsultas && (
           <button
             onClick={() => navigate('/clientes/matriculas/certificaciones')}
@@ -273,7 +276,7 @@ export default function MatriculasPage() {
             </Suspense>
           </div>
         )
-      ) : tab === 'webhooks' ? (
+      ) : tab === 'webhooks' && verEmisiones ? (
         campusElegido?.id ? <WebhooksTab project={{ id: campusElegido.id }} /> : (
           <EmptyState icon={PlugsConnected} title="Elige un campus"
             description="Cada webhook de admisión se conecta al formulario de un campus. Elige uno arriba para ver o crear el suyo." />
