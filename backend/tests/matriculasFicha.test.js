@@ -108,7 +108,7 @@ describe('el historial de cada matrícula', () => {
   });
 });
 
-// Los cinco documentos de Diego: también el DNI por detrás y la foto (migración 207).
+// Los cinco documentos de Diego: también el DNI por detrás y la foto (migración 212).
 describe('el DNI por detrás y la foto', () => {
   it.each([['dni_dorso', 'dni_dorso_key', 'dni_dorso_url'], ['foto', 'foto_key', 'foto_url']])('%s se puede subir', async (tipo, clave, url) => {
     const { error } = await llamar(ctrl.uploadDoc, { params: { id: '5', tipo }, file: { originalname: 'x.png', buffer: Buffer.from('x') } });

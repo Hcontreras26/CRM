@@ -9,7 +9,8 @@
 --     guardaba el ÚLTIMO cambio (validated_by, validated_at); aquí queda cada uno.
 --     Como el registro de las facturas de colaboradores: no se borra ni se edita.
 --
--- 207: la 206 es la de los webhooks salientes. Se puede pasar dos veces.
+-- 212: la 207 la tomó la firma del alumno de Certifex (#349) y la 208–211 son
+-- de las consultas de alumnos (#187–#190). Se puede pasar dos veces.
 
 BEGIN;
 

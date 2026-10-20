@@ -21,7 +21,7 @@ const falla = { evento: false };   // para probar que el historial y el cambio v
 async function consultaFalsa(sql, params = []) {
   {
     if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) { transaccion.push(sql); return { rows: [] }; }
-    if (sql.includes('INSERT INTO matriculas_eventos') && falla.evento) throw new Error('sin la migración 207');
+    if (sql.includes('INSERT INTO matriculas_eventos') && falla.evento) throw new Error('sin la migración 212');
     if (sql.includes('FROM projects WHERE NOT COALESCE(es_prueba')) return { rows: [{ id: 1, nombre: 'Psiko Aprende' }] };
     if (sql.includes('FROM projects WHERE id = ANY')) return { rows: params[0].map((id) => ({ id, nombre: `Campus ${id}` })) };
     if (sql.includes('FROM projects WHERE sociedad_emisora_id = $1')) {
@@ -212,7 +212,7 @@ describe('lo que salió en la revisión (servidor)', () => {
   it('si no se puede apuntar el historial, la matrícula tampoco se crea (ROLLBACK)', async () => {
     falla.evento = true;
     const { create } = await import('../src/modules/matriculas/matricula.model.js');
-    await expect(create({ project_id: 1, source: 'webhook' })).rejects.toThrow('sin la migración 207');
+    await expect(create({ project_id: 1, source: 'webhook' })).rejects.toThrow('sin la migración 212');
     expect(transaccion).toEqual(['BEGIN', 'ROLLBACK']);
   });
 

@@ -185,7 +185,7 @@ export async function findByDedupe(projectId, dedupeKey) {
 
 export async function update(id, fields, db = null) {
   const allowed = ['dni', 'titulo', 'notas', 'dni_doc_url', 'dni_doc_key', 'titulo_doc_url', 'titulo_doc_key', 'firma_url', 'firma_key',
-    // El DNI por detrás y la foto (#199, migración 207).
+    // El DNI por detrás y la foto (#199, migración 212).
     'dni_dorso_url', 'dni_dorso_key', 'foto_url', 'foto_key'];
   const sets = []; const params = []; let idx = 1;
   for (const k of allowed) {

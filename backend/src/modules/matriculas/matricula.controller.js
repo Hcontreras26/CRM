@@ -9,7 +9,7 @@ import { proyectosDelAmbito, veTodoElCrm, campusDeLaPersona } from '../../shared
 /**
  * Los documentos de una matrícula y sus columnas. Los cinco de Diego (#199):
  * «DNI por las dos caras, foto, título, firma» (el DNI de detrás y la foto,
- * desde la migración 207).
+ * desde la migración 212).
  */
 const TIPOS_DOC = ['dni', 'dni_dorso', 'foto', 'titulo', 'firma'];
 const CLAVE = { dni: 'dni_doc_key', dni_dorso: 'dni_dorso_key', foto: 'foto_key', titulo: 'titulo_doc_key', firma: 'firma_key' };

@@ -61,7 +61,7 @@ interface Props {
 /**
  * Los documentos, en el orden de Diego: «DNI por las dos caras, foto, título,
  * firma». `tipo` es el de la ruta del servidor (el DNI de detrás y la foto,
- * desde la migración 207).
+ * desde la migración 212).
  */
 const DOCUMENTOS: Array<{ clave: string; nombre: string; tipo: string; campo: string }> = [
   { clave: 'dni_frente', nombre: 'DNI (delante)', tipo: 'dni', campo: 'dni_doc_url' },
@@ -227,7 +227,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
   ];
 
   // El historial: cada cosa que le ha pasado, con quién y cuándo (lo guarda el
-  // servidor en matriculas_eventos, migración 207).
+  // servidor en matriculas_eventos, migración 212).
   const historial = (Array.isArray(m.historial) ? (m.historial as Evento[]) : []).map(lineaDelHistorial);
 
   return (
