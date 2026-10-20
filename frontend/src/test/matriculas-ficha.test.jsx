@@ -220,3 +220,14 @@ describe('lo que salió en la revisión de la ficha', () => {
     expect(screen.getByRole('textbox', { name: /Notas/i }).value).toBe('lo que escribo');
   });
 });
+
+describe('la firma, sobre papel blanco', () => {
+  // Llega con el fondo transparente (#198) y el trazo oscuro no se veía en modo oscuro.
+  it('la miniatura de la firma va sobre blanco y entera; las demás, como siempre', () => {
+    abrir({ ...FICHA, firma_url: '/api/matriculas/1/doc/firma?exp=1&sig=c', documentos_formato: { dni: 'imagen', firma: 'imagen' } });
+    const firma = screen.getByRole('button', { name: 'Ver Firma' });
+    expect(firma.className).toContain('bg-white');
+    expect(firma.querySelector('img').className).toContain('object-contain');
+    expect(screen.getByRole('button', { name: /Ver DNI/ }).className).not.toContain('bg-white');
+  });
+});

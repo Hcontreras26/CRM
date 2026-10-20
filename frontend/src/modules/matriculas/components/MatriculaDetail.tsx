@@ -103,6 +103,10 @@ function lineaDelHistorial(e: Evento): string {
   return `${estado}${quien}${cuando}${e.motivo ? `. Motivo: ${e.motivo}` : ''}`;
 }
 
+// La firma se guarda con el fondo transparente (para el diploma) y su trazo es de
+// tinta oscura: sobre el modo oscuro no se veía. Va sobre «papel» blanco siempre.
+const FONDO_FIRMA = 'bg-white';
+
 const CAMPO = 'mt-1 w-full h-9 px-3 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
 
 /**
@@ -136,7 +140,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
   // Si ya se ha escrito en «A mano», lo que llegue del servidor no lo pisa.
   const tocado = useRef(false);
   const [uploading, setUploading] = useState<string | null>(null);
-  const [visor, setVisor] = useState<{ nombre: string; url: string; formato: 'pdf' | 'imagen' } | null>(null);
+  const [visor, setVisor] = useState<{ nombre: string; url: string; formato: 'pdf' | 'imagen'; tipo: string } | null>(null);
   const [fallidos, setFallidos] = useState<Record<string, boolean>>({});
 
   /** La ficha completa (gestora, historial y enlaces firmados recién hechos), sin pisar lo escrito a mano. */
@@ -169,7 +173,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
     const guardada = ((fresca || m)[campo] as string | undefined) || '';
     if (!guardada) return;
     const formato = (fresca || m).documentos_formato?.[tipo] === 'pdf' ? 'pdf' : 'imagen';
-    setVisor({ nombre, url: urlDelDocumento(guardada), formato });
+    setVisor({ nombre, url: urlDelDocumento(guardada), formato, tipo });
   }
 
   /** «Vuelve a intentarlo»: enlaces nuevos y el documento, otra vez. */
@@ -300,11 +304,11 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
                       {url && !fallo ? (
                         <button type="button" onClick={() => abrirVisor(nombre, tipo, campo)}
                           aria-label={`Ver ${nombre}`}
-                          className="block w-full h-24 rounded-lg overflow-hidden bg-muted/40 hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/40">
+                          className={`block w-full h-24 rounded-lg overflow-hidden ${tipo === 'firma' ? FONDO_FIRMA : 'bg-muted/40'} hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/40`}>
                           {formato === 'pdf' ? (
                             <span className="flex h-full flex-col items-center justify-center gap-1 text-muted-foreground text-xs"><FilePdf size={28} />PDF</span>
                           ) : (
-                            <img src={url} alt={nombre} className="h-full w-full object-cover"
+                            <img src={url} alt={nombre} className={`h-full w-full ${tipo === 'firma' ? 'object-contain p-1' : 'object-cover'}`}
                               onError={() => setFallidos((f) => ({ ...f, [tipo]: true }))} />
                           )}
                         </button>
@@ -420,7 +424,7 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
                   <button onClick={() => setVisor(null)} aria-label="Cerrar visor" className="p-1.5 rounded hover:bg-muted"><X size={16} weight="bold" /></button>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 bg-muted/30 flex items-center justify-center">
+              <div className={`flex-1 min-h-0 ${visor.tipo === 'firma' ? FONDO_FIRMA : 'bg-muted/30'} flex items-center justify-center`}>
                 {visor.formato === 'pdf'
                   ? <iframe src={visor.url} title={visor.nombre} className="w-full h-full" />
                   : <img src={visor.url} alt={visor.nombre} className="max-h-full max-w-full object-contain" />}

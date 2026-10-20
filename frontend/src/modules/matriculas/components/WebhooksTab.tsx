@@ -227,7 +227,9 @@ function WebhookEditor({ token, onSave, onClose }: EditorProps) {
   const url = token?.token ? `${window.location.origin}${(import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '')}/api/webhook-tokens/receive/${token.token}` : null;
 
   return (
-    <div className="fixed inset-0 !m-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+    // Solo el fondo cierra: un clic en la ventanita de «Mapear» (que va dentro, por el
+    // árbol de React) subía hasta aquí y cerraba el editor sin mapear (#198).
+    <div className="fixed inset-0 !m-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-labelledby="webhook-editor-title" className="bg-card rounded-2xl border border-border max-w-3xl w-full max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h3 id="webhook-editor-title" className="font-extrabold">{token ? 'Editar' : 'Nuevo'} webhook de admisión</h3>

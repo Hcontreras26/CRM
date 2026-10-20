@@ -89,7 +89,10 @@ export default function BarraFiltros({
           <label className="relative min-w-0">
             <span className="sr-only">{placeholder}</span>
             <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            {/* Sin el autocompletado del navegador: Edge ofrecía aquí el correo guardado
+                de quien está usando el CRM, porque el texto dice «email». */}
             <input
+              autoComplete="off"
               value={busqueda}
               onChange={(e) => onBusqueda(e.target.value)}
               placeholder={placeholder}
