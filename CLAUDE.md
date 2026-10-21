@@ -205,6 +205,7 @@ Esto es lo que hay de verdad en `docs/`:
 
 - `README.md` — indice del directorio
 - `10-whatsapp.md` — el modulo de WhatsApp, que es el mas grande
+- `PERMISOS.md` — cada ruta y cada accion, que la protege y quien puede (#423). Generado: `npm run permisos:inventario`
 - `TAREAS-EQUIPO.md` — reparto de trabajo y estado
 - `ESTADO-Y-PENDIENTES.md` — lo que queda abierto
 - `PARIDAD-ENTRE-CRMS.md` — que hay en MultiCRM y no en ISEIE, y al reves

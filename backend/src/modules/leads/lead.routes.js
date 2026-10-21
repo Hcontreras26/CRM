@@ -100,6 +100,7 @@ const conPermisoDeBorrar = checkPermission('leads', 'delete');
 function puedeEliminar(req, res, next) {
   soloJefes(req, res, (noEsJefe) => (noEsJefe ? conPermisoDeBorrar(req, res, next) : next()));
 }
+puedeEliminar.regla = { tipo: 'rolOPermiso', roles: ['admin', 'superadmin'], atajoSoporte: true, clave: 'leads.delete', conExtras: false };
 router.delete('/:id', puedeEliminar, leadController.softDelete);
 router.patch('/:id/restore', roleGuard('superadmin'), leadController.restore);
 

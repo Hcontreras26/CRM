@@ -22,7 +22,7 @@ const limite = (max) => rateLimit({
 });
 
 // El tipo de verdad se mira después, por los primeros bytes (`tipoReal`).
-const recibir = (campo) => (req, res, next) => {
+const recibir = (campo) => function recibirArchivoSubido(req, res, next) {
   // Pocos campos y cortos (revisión del 10/10): la subida trae el importe, el número y el
   // desglose (horas o líneas); el pago, las facturas, la fecha, la forma y la referencia.
   multer({ storage: multer.memoryStorage(), limits: { fileSize: TOPE_BYTES, files: 1, fields: 4, fieldSize: 10_000, parts: 6 } })
@@ -79,6 +79,7 @@ const veOGestiona = async (req, res, next) => {
     next(new AppError('No tienes permiso para esta acción', 403, 'FORBIDDEN'));
   } catch (err) { next(err); }
 };
+veOGestiona.regla = { tipo: 'permisoAlguno', claves: ['facturas_colaborador.ver_todas', 'facturas_colaborador.gestionar'], conExtras: false };
 
 router.get('/empresas', verifyToken, veOGestiona, ctrl.empresas);
 router.get('/colaboradores', gestiona, ctrl.listar);

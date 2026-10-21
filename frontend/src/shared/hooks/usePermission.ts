@@ -189,10 +189,12 @@ export interface UsePermissionResult {
   isAdmin: boolean;
 }
 
-export default function usePermission(): UsePermissionResult {
-  const { user, permissions } = useAuth();
-
-  function can(permission: PermissionKey): boolean {
+/**
+ * El `can` de una persona, sin React (#423): lo usa el hook y lo usan las
+ * pruebas del menú, que necesitan saber qué ve cada perfil sin montar nada.
+ */
+export function crearCan(user: Parameters<typeof rolesDe>[0] | null | undefined, permissions: PermissionMap | null | undefined) {
+  return function can(permission: PermissionKey): boolean {
     if (!user) return false;
     // Solo el superadmin lo puede todo. Soporte NO: el backend le da un mapa
     // restrictivo y saltarselo aqui le pintaba botones que su rol no permite.
@@ -220,7 +222,12 @@ export default function usePermission(): UsePermissionResult {
       const defaults = ROLE_DEFAULT_PERMISSIONS[r] || {};
       return defaults[permission] === true || defaults['*'] === true;
     });
-  }
+  };
+}
+
+export default function usePermission(): UsePermissionResult {
+  const { user, permissions } = useAuth();
+  const can = crearCan(user, permissions);
 
   return {
     can,

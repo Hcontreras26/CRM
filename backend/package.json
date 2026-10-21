@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "lint": "eslint src/",
     "db:preparar": "node scripts/db-preparar.mjs",
+    "permisos:inventario": "node scripts/permisos-inventario.mjs",
     "db:arriba": "docker compose -f ../docker-compose.dev.yml up -d",
     "db:abajo": "docker compose -f ../docker-compose.dev.yml down -v"
   },

@@ -516,6 +516,23 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   return true;
 }
 
+/** Vanessa y quien lleve las colaboraciones: solo tutores. Un admin con la casilla NO se recorta. */
+export function esSoloColaboraciones(user) {
+  return user?.gestor_colaboraciones === true
+    && !['superadmin', 'admin', 'soporte'].includes(user?.role);
+}
+
+/**
+ * Las entradas de una sección que ve alguien (#423: sacado del componente para
+ * poder probar qué menú ve cada perfil sin montarlo). Los hijos de un grupo se
+ * filtran luego en `NavGroup`, con `canSeeItem`.
+ */
+export function entradasDeSeccion(section, { user, can, modules, projectType, soloColab }) {
+  return section.items
+    .filter((item) => !item.permiso || can(item.permiso))
+    .filter((item) => canSeeItem(item, rolesDe(user), modules, projectType, soloColab, user, can));
+}
+
 /**
  * Una entrada del menú que todavía no lleva a ninguna parte (#226).
  *
@@ -1074,8 +1091,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const initials = user?.nombre?.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) || '??';
   // Vanessa y quien lleve las colaboraciones: solo tutores, nada mas.
   // Un admin con la casilla NO se recorta: ya lo ve todo por su rol.
-  const soloColab = user?.gestor_colaboraciones === true
-    && !['superadmin', 'admin', 'soporte'].includes(user?.role);
+  const soloColab = esSoloColaboraciones(user);
 
   // Quien lleva las colaboraciones no es una gestora: se la llama por su trabajo,
   // que es dar de alta profesores y ajustarles el porcentaje.
@@ -1198,9 +1214,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       )}>
         {NAV_SECTIONS.map((section, sIdx) => {
           // Filtrar items que el usuario puede ver
-          const visibleItems = section.items
-            .filter((item) => !item.permiso || can(item.permiso))
-            .filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user, can));
+          const visibleItems = entradasDeSeccion(section, { user, can, modules: activeProject?.modules, projectType: activeProject?.type, soloColab });
           if (visibleItems.length === 0) return null;
           const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];

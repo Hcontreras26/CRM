@@ -1,5 +1,6 @@
 import { AppError } from '../utils/AppError.js';
 import { tieneRol } from '../utils/roles.js';
+import { conRegla } from './auth.js';
 import { resolvePermission } from '../../modules/permissions/permissions.service.js';
 
 // Middleware granular de permisos.
@@ -7,7 +8,7 @@ import { resolvePermission } from '../../modules/permissions/permissions.service
 //
 // Ejemplo: router.delete('/:id', verifyToken, checkPermission('leads', 'delete'), ctrl.remove)
 export function checkPermission(resource, action) {
-  return async (req, res, next) => {
+  return conRegla(async (req, res, next) => {
     try {
       const { userId, role, customRoleId } = req.user;
 
@@ -19,7 +20,7 @@ export function checkPermission(resource, action) {
     } catch (err) {
       next(err);
     }
-  };
+  }, { tipo: 'permiso', clave: `${resource}.${action}`, conExtras: false });
 }
 
 /**
@@ -42,7 +43,7 @@ export function checkPermission(resource, action) {
  */
 export function rolOPermiso(roles, resource, action) {
   const acciones = Array.isArray(action) ? action : [action];
-  return async (req, _res, next) => {
+  return conRegla(async (req, _res, next) => {
     try {
       if (!req.user) return next(new AppError('No autenticado', 401, 'AUTH_REQUIRED'));
       if (tieneRol(req.user, ...roles)) return next();
@@ -58,5 +59,5 @@ export function rolOPermiso(roles, resource, action) {
     } catch (err) {
       next(err);
     }
-  };
+  }, { tipo: 'rolOPermiso', roles, clave: `${resource}.${acciones[0]}`, claves: acciones.map((a) => `${resource}.${a}`) });
 }
