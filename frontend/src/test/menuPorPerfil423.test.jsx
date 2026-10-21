@@ -24,6 +24,8 @@ const { NAV_SECTIONS, entradasDeSeccion, canSeeItem, esSoloColaboraciones } = aw
 const { crearCan } = await import('@/shared/hooks/usePermission');
 const { rolesDe } = await import('@/shared/lib/roles');
 const legado = await import('../../../backend/src/modules/permissions/inventario/legado.js');
+// Los valores de serie de AHORA: los del catálogo (#423, fase 2).
+const { SYSTEM_ROLE_DEFAULTS } = await import('../../../backend/src/modules/permissions/permissions.defaults.js');
 
 const FOTO = path.resolve(__dirname, 'fixtures/menu-por-perfil-423.json');
 
@@ -82,7 +84,7 @@ export function menuDe(p, { mapa = legado.mapaDePermisos(p) } = {}) {
 export const CAMBIOS_APROBADOS = {};
 
 describe('menú por perfil (#423)', () => {
-  const ahora = Object.fromEntries(Object.entries(PERFILES).map(([k, p]) => [k, menuDe(p)]));
+  const ahora = Object.fromEntries(Object.entries(PERFILES).map(([k, p]) => [k, menuDe(p, { mapa: legado.mapaDePermisos(p, SYSTEM_ROLE_DEFAULTS) })]));
 
   if (process.env.ACTUALIZAR_MENU_423 === '1' || !fs.existsSync(FOTO)) {
     fs.mkdirSync(path.dirname(FOTO), { recursive: true });

@@ -43,13 +43,16 @@ describe('inventario de permisos (#423)', () => {
     expect(colgando).toEqual([]);
   });
 
+  // Sin los \r: en Windows git puede dejar el fichero con CRLF.
+  const leer = (f) => fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
+
   it('docs/PERMISOS.md está al día', () => {
-    const md = fs.readFileSync(path.resolve(aqui, '../../docs/PERMISOS.md'), 'utf8');
+    const md = leer(path.resolve(aqui, '../../docs/PERMISOS.md'));
     expect(md === inventarioEnMarkdown(filas), 'Ejecuta `npm run permisos:inventario` en backend/').toBe(true);
   });
 
   it('inventario.json está al día', () => {
-    const json = fs.readFileSync(path.resolve(aqui, '../src/modules/permissions/inventario/inventario.json'), 'utf8');
+    const json = leer(path.resolve(aqui, '../src/modules/permissions/inventario/inventario.json'));
     expect(json === inventarioEnJson(filas), 'Ejecuta `npm run permisos:inventario` en backend/').toBe(true);
   });
 

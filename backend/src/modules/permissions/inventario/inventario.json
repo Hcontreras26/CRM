@@ -5,6 +5,7 @@
   "modulo": "accounting",
   "metodo": "GET",
   "ruta": "/api/accounting/dashboard",
+  "relativa": "GET /dashboard",
   "controlador": "dashboard",
   "publica": false,
   "guardias": [
@@ -28,6 +29,7 @@
   "modulo": "accounting",
   "metodo": "GET",
   "ruta": "/api/accounting/receivable",
+  "relativa": "GET /receivable",
   "controlador": "receivable",
   "publica": false,
   "guardias": [
@@ -53,6 +55,7 @@
   "modulo": "accounts-payable",
   "metodo": "GET",
   "ruta": "/api/accounts-payable/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -76,6 +79,7 @@
   "modulo": "accounts-payable",
   "metodo": "GET",
   "ruta": "/api/accounts-payable/stats",
+  "relativa": "GET /stats",
   "controlador": "stats",
   "publica": false,
   "guardias": [
@@ -99,6 +103,7 @@
   "modulo": "accounts-payable",
   "metodo": "GET",
   "ruta": "/api/accounts-payable/:id",
+  "relativa": "GET /:id",
   "controlador": "getOne",
   "publica": false,
   "guardias": [
@@ -122,6 +127,7 @@
   "modulo": "accounts-payable",
   "metodo": "POST",
   "ruta": "/api/accounts-payable/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -145,6 +151,7 @@
   "modulo": "accounts-payable",
   "metodo": "PATCH",
   "ruta": "/api/accounts-payable/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -168,6 +175,7 @@
   "modulo": "accounts-payable",
   "metodo": "DELETE",
   "ruta": "/api/accounts-payable/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -191,6 +199,7 @@
   "modulo": "accounts-payable",
   "metodo": "POST",
   "ruta": "/api/accounts-payable/:id/payments",
+  "relativa": "POST /:id/payments",
   "controlador": "addPayment",
   "publica": false,
   "guardias": [
@@ -214,6 +223,7 @@
   "modulo": "audiences",
   "metodo": "POST",
   "ruta": "/api/audiences/preview",
+  "relativa": "POST /preview",
   "controlador": "preview",
   "publica": false,
   "guardias": [
@@ -229,6 +239,7 @@
   "modulo": "audiences",
   "metodo": "POST",
   "ruta": "/api/audiences/export",
+  "relativa": "POST /export",
   "controlador": "exportCsv",
   "publica": false,
   "guardias": [
@@ -253,6 +264,7 @@
   "modulo": "audiences",
   "metodo": "POST",
   "ruta": "/api/audiences/upload-meta",
+  "relativa": "POST /upload-meta",
   "controlador": "uploadMeta",
   "publica": false,
   "guardias": [
@@ -277,6 +289,7 @@
   "modulo": "audiences",
   "metodo": "GET",
   "ruta": "/api/audiences/upload-meta/history",
+  "relativa": "GET /upload-meta/history",
   "controlador": "uploadHistory",
   "publica": false,
   "guardias": [
@@ -292,6 +305,7 @@
   "modulo": "audiences",
   "metodo": "GET",
   "ruta": "/api/audiences/upload-meta/:uploadId/status",
+  "relativa": "GET /upload-meta/:uploadId/status",
   "controlador": "uploadStatus",
   "publica": false,
   "guardias": [
@@ -307,6 +321,7 @@
   "modulo": "auth",
   "metodo": "POST",
   "ruta": "/api/auth/login",
+  "relativa": "POST /login",
   "controlador": "login",
   "publica": true,
   "guardias": [],
@@ -318,6 +333,7 @@
   "modulo": "auth",
   "metodo": "POST",
   "ruta": "/api/auth/refresh",
+  "relativa": "POST /refresh",
   "controlador": "refresh",
   "publica": true,
   "guardias": [],
@@ -329,6 +345,7 @@
   "modulo": "auth",
   "metodo": "POST",
   "ruta": "/api/auth/logout",
+  "relativa": "POST /logout",
   "controlador": "logout",
   "publica": false,
   "guardias": [
@@ -344,6 +361,7 @@
   "modulo": "auth",
   "metodo": "POST",
   "ruta": "/api/auth/set-password",
+  "relativa": "POST /set-password",
   "controlador": "setPassword",
   "publica": true,
   "guardias": [],
@@ -355,6 +373,7 @@
   "modulo": "auth",
   "metodo": "GET",
   "ruta": "/api/auth/me",
+  "relativa": "GET /me",
   "controlador": "me",
   "publica": false,
   "guardias": [
@@ -370,6 +389,7 @@
   "modulo": "auth",
   "metodo": "POST",
   "ruta": "/api/auth/change-password",
+  "relativa": "POST /change-password",
   "controlador": "changePassword",
   "publica": false,
   "guardias": [
@@ -385,6 +405,7 @@
   "modulo": "auth",
   "metodo": "PATCH",
   "ruta": "/api/auth/me",
+  "relativa": "PATCH /me",
   "controlador": "updateMyProfile",
   "publica": false,
   "guardias": [
@@ -400,6 +421,7 @@
   "modulo": "auth",
   "metodo": "PATCH",
   "ruta": "/api/auth/me/email",
+  "relativa": "PATCH /me/email",
   "controlador": "updateMyEmail",
   "publica": false,
   "guardias": [
@@ -417,6 +439,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/consultas",
+  "relativa": "POST /consultas",
   "controlador": "recibir",
   "publica": true,
   "guardias": [],
@@ -428,6 +451,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/solicitudes",
+  "relativa": "POST /solicitudes",
   "controlador": "recibirSolicitud",
   "publica": true,
   "guardias": [],
@@ -439,6 +463,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/completados",
+  "relativa": "POST /completados",
   "controlador": "recibirCompletado",
   "publica": true,
   "guardias": [],
@@ -450,6 +475,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/emisiones/estado",
+  "relativa": "GET /emisiones/estado",
   "controlador": "estado",
   "publica": false,
   "guardias": [
@@ -473,6 +499,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/emisiones/centros",
+  "relativa": "GET /emisiones/centros",
   "controlador": "centros",
   "publica": false,
   "guardias": [
@@ -496,6 +523,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/emisiones/cursos",
+  "relativa": "GET /emisiones/cursos",
   "controlador": "cursos",
   "publica": false,
   "guardias": [
@@ -519,6 +547,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/emisiones/logo",
+  "relativa": "GET /emisiones/logo",
   "controlador": "logo",
   "publica": false,
   "guardias": [
@@ -542,6 +571,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/emisiones/diploma/:nexp",
+  "relativa": "GET /emisiones/diploma/:nexp",
   "controlador": "diploma",
   "publica": false,
   "guardias": [
@@ -565,6 +595,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/diplomas/resumen",
+  "relativa": "GET /diplomas/resumen",
   "controlador": "resumen",
   "publica": false,
   "guardias": [
@@ -588,6 +619,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/diplomas/solicitudes",
+  "relativa": "GET /diplomas/solicitudes",
   "controlador": "solicitudes",
   "publica": false,
   "guardias": [
@@ -611,6 +643,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/diplomas/por-avisar",
+  "relativa": "GET /diplomas/por-avisar",
   "controlador": "porAvisar",
   "publica": false,
   "guardias": [
@@ -634,6 +667,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/diplomas/terminados",
+  "relativa": "GET /diplomas/terminados",
   "controlador": "terminados",
   "publica": false,
   "guardias": [
@@ -657,6 +691,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/diplomas",
+  "relativa": "GET /diplomas",
   "controlador": "diplomas",
   "publica": false,
   "guardias": [
@@ -680,6 +715,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/consultas",
+  "relativa": "GET /consultas",
   "controlador": "listar",
   "publica": false,
   "guardias": [
@@ -704,6 +740,7 @@
   "modulo": "certifex",
   "metodo": "PATCH",
   "ruta": "/api/certifex/consultas/:id",
+  "relativa": "PATCH /consultas/:id",
   "controlador": "actualizar",
   "publica": false,
   "guardias": [
@@ -728,6 +765,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/emisiones",
+  "relativa": "GET /emisiones",
   "controlador": "listar",
   "publica": false,
   "guardias": [
@@ -760,6 +798,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/emisiones/decisiones",
+  "relativa": "POST /emisiones/decisiones",
   "controlador": "decidir",
   "publica": false,
   "guardias": [
@@ -792,6 +831,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/emisiones/emitir",
+  "relativa": "POST /emisiones/emitir",
   "controlador": "emitir",
   "publica": false,
   "guardias": [
@@ -824,6 +864,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/aprobar-emitir",
+  "relativa": "POST /diplomas/aprobar-emitir",
   "controlador": "aprobarEmitir",
   "publica": false,
   "guardias": [
@@ -856,6 +897,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/emitir",
+  "relativa": "POST /diplomas/emitir",
   "controlador": "emitir",
   "publica": false,
   "guardias": [
@@ -888,6 +930,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/rechazar",
+  "relativa": "POST /diplomas/rechazar",
   "controlador": "rechazar",
   "publica": false,
   "guardias": [
@@ -920,6 +963,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/avisos",
+  "relativa": "POST /diplomas/avisos",
   "controlador": "avisos",
   "publica": false,
   "guardias": [
@@ -952,6 +996,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/avisos-rechazo",
+  "relativa": "POST /diplomas/avisos-rechazo",
   "controlador": "avisosRechazo",
   "publica": false,
   "guardias": [
@@ -984,6 +1029,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/revocar",
+  "relativa": "POST /diplomas/revocar",
   "controlador": "revocar",
   "publica": false,
   "guardias": [
@@ -1016,6 +1062,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/corregir",
+  "relativa": "POST /diplomas/corregir",
   "controlador": "corregir",
   "publica": false,
   "guardias": [
@@ -1048,6 +1095,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/editar",
+  "relativa": "POST /diplomas/editar",
   "controlador": "editar",
   "publica": false,
   "guardias": [
@@ -1080,6 +1128,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/firma",
+  "relativa": "POST /diplomas/firma",
   "controlador": "subirFirma",
   "publica": false,
   "guardias": [
@@ -1112,6 +1161,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/diplomas/firma/:matriculaId",
+  "relativa": "GET /diplomas/firma/:matriculaId",
   "controlador": "verFirma",
   "publica": false,
   "guardias": [
@@ -1144,6 +1194,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/nuevo",
+  "relativa": "POST /diplomas/nuevo",
   "controlador": "nuevo",
   "publica": false,
   "guardias": [
@@ -1176,6 +1227,7 @@
   "modulo": "certifex",
   "metodo": "GET",
   "ruta": "/api/certifex/diplomas/formaciones",
+  "relativa": "GET /diplomas/formaciones",
   "controlador": "formaciones",
   "publica": false,
   "guardias": [
@@ -1208,6 +1260,7 @@
   "modulo": "certifex",
   "metodo": "POST",
   "ruta": "/api/certifex/diplomas/formaciones/sincronizar",
+  "relativa": "POST /diplomas/formaciones/sincronizar",
   "controlador": "sincronizarFormacion",
   "publica": false,
   "guardias": [
@@ -1240,6 +1293,7 @@
   "modulo": "change-requests",
   "metodo": "GET",
   "ruta": "/api/change-requests/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -1255,6 +1309,7 @@
   "modulo": "change-requests",
   "metodo": "POST",
   "ruta": "/api/change-requests/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -1270,6 +1325,7 @@
   "modulo": "change-requests",
   "metodo": "GET",
   "ruta": "/api/change-requests/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -1285,6 +1341,7 @@
   "modulo": "change-requests",
   "metodo": "PATCH",
   "ruta": "/api/change-requests/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -1300,6 +1357,7 @@
   "modulo": "change-requests",
   "metodo": "DELETE",
   "ruta": "/api/change-requests/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -1324,6 +1382,7 @@
   "modulo": "change-requests",
   "metodo": "POST",
   "ruta": "/api/change-requests/:id/reopen",
+  "relativa": "POST /:id/reopen",
   "controlador": "reopen",
   "publica": false,
   "guardias": [
@@ -1348,6 +1407,7 @@
   "modulo": "change-requests",
   "metodo": "POST",
   "ruta": "/api/change-requests/:id/approve",
+  "relativa": "POST /:id/approve",
   "controlador": "approve",
   "publica": false,
   "guardias": [
@@ -1363,6 +1423,7 @@
   "modulo": "change-requests",
   "metodo": "GET",
   "ruta": "/api/change-requests/approvals/:approvalId/signature",
+  "relativa": "GET /approvals/:approvalId/signature",
   "controlador": "getApprovalSignature",
   "publica": false,
   "guardias": [
@@ -1378,6 +1439,7 @@
   "modulo": "change-requests",
   "metodo": "POST",
   "ruta": "/api/change-requests/:id/attachments",
+  "relativa": "POST /:id/attachments",
   "controlador": "uploadAttachment",
   "publica": false,
   "guardias": [
@@ -1393,6 +1455,7 @@
   "modulo": "change-requests",
   "metodo": "GET",
   "ruta": "/api/change-requests/attachments/:attachmentId/download",
+  "relativa": "GET /attachments/:attachmentId/download",
   "controlador": "downloadAttachment",
   "publica": false,
   "guardias": [
@@ -1408,6 +1471,7 @@
   "modulo": "change-requests",
   "metodo": "DELETE",
   "ruta": "/api/change-requests/attachments/:attachmentId",
+  "relativa": "DELETE /attachments/:attachmentId",
   "controlador": "deleteAttachment",
   "publica": false,
   "guardias": [
@@ -1423,6 +1487,7 @@
   "modulo": "claude-chat",
   "metodo": "GET",
   "ruta": "/api/claude/status",
+  "relativa": "GET /status",
   "controlador": "status",
   "publica": false,
   "guardias": [
@@ -1438,6 +1503,7 @@
   "modulo": "claude-chat",
   "metodo": "GET",
   "ruta": "/api/claude/conversations",
+  "relativa": "GET /conversations",
   "controlador": "listConversations",
   "publica": false,
   "guardias": [
@@ -1453,6 +1519,7 @@
   "modulo": "claude-chat",
   "metodo": "GET",
   "ruta": "/api/claude/conversations/:conversationId",
+  "relativa": "GET /conversations/:conversationId",
   "controlador": "getMessages",
   "publica": false,
   "guardias": [
@@ -1468,6 +1535,7 @@
   "modulo": "claude-chat",
   "metodo": "POST",
   "ruta": "/api/claude/chat",
+  "relativa": "POST /chat",
   "controlador": "chat",
   "publica": false,
   "guardias": [
@@ -1483,6 +1551,7 @@
   "modulo": "client-errors",
   "metodo": "POST",
   "ruta": "/api/client-errors/",
+  "relativa": "POST /",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -1494,6 +1563,7 @@
   "modulo": "commissions",
   "metodo": "GET",
   "ruta": "/api/commissions/rules",
+  "relativa": "GET /rules",
   "controlador": "listRules",
   "publica": false,
   "guardias": [
@@ -1517,6 +1587,7 @@
   "modulo": "commissions",
   "metodo": "POST",
   "ruta": "/api/commissions/rules",
+  "relativa": "POST /rules",
   "controlador": "createRule",
   "publica": false,
   "guardias": [
@@ -1539,6 +1610,7 @@
   "modulo": "commissions",
   "metodo": "PATCH",
   "ruta": "/api/commissions/rules/:id",
+  "relativa": "PATCH /rules/:id",
   "controlador": "updateRule",
   "publica": false,
   "guardias": [
@@ -1561,6 +1633,7 @@
   "modulo": "commissions",
   "metodo": "DELETE",
   "ruta": "/api/commissions/rules/:id",
+  "relativa": "DELETE /rules/:id",
   "controlador": "deleteRule",
   "publica": false,
   "guardias": [
@@ -1583,6 +1656,7 @@
   "modulo": "commissions",
   "metodo": "GET",
   "ruta": "/api/commissions/me",
+  "relativa": "GET /me",
   "controlador": "listMine",
   "publica": false,
   "guardias": [
@@ -1598,6 +1672,7 @@
   "modulo": "commissions",
   "metodo": "GET",
   "ruta": "/api/commissions/me/stats",
+  "relativa": "GET /me/stats",
   "controlador": "statsMine",
   "publica": false,
   "guardias": [
@@ -1613,6 +1688,7 @@
   "modulo": "commissions",
   "metodo": "GET",
   "ruta": "/api/commissions/",
+  "relativa": "GET /",
   "controlador": "listAll",
   "publica": false,
   "guardias": [
@@ -1636,6 +1712,7 @@
   "modulo": "commissions",
   "metodo": "GET",
   "ruta": "/api/commissions/stats",
+  "relativa": "GET /stats",
   "controlador": "statsAll",
   "publica": false,
   "guardias": [
@@ -1659,6 +1736,7 @@
   "modulo": "commissions",
   "metodo": "PATCH",
   "ruta": "/api/commissions/:id/pay",
+  "relativa": "PATCH /:id/pay",
   "controlador": "pay",
   "publica": false,
   "guardias": [
@@ -1682,6 +1760,7 @@
   "modulo": "commissions",
   "metodo": "POST",
   "ruta": "/api/commissions/recalculate/:conversionId",
+  "relativa": "POST /recalculate/:conversionId",
   "controlador": "recalculate",
   "publica": false,
   "guardias": [
@@ -1705,6 +1784,7 @@
   "modulo": "connectors",
   "metodo": "GET",
   "ruta": "/api/connectors/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -1728,6 +1808,7 @@
   "modulo": "connectors",
   "metodo": "POST",
   "ruta": "/api/connectors/:id/mcp-url",
+  "relativa": "POST /:id/mcp-url",
   "controlador": "mcpUrl",
   "publica": false,
   "guardias": [
@@ -1751,6 +1832,7 @@
   "modulo": "connectors",
   "metodo": "GET",
   "ruta": "/api/connectors/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -1774,6 +1856,7 @@
   "modulo": "connectors",
   "metodo": "POST",
   "ruta": "/api/connectors/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -1797,6 +1880,7 @@
   "modulo": "connectors",
   "metodo": "PATCH",
   "ruta": "/api/connectors/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -1820,6 +1904,7 @@
   "modulo": "connectors",
   "metodo": "DELETE",
   "ruta": "/api/connectors/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -1843,6 +1928,7 @@
   "modulo": "connectors",
   "metodo": "POST",
   "ruta": "/api/connectors/:id/preview",
+  "relativa": "POST /:id/preview",
   "controlador": "preview",
   "publica": false,
   "guardias": [
@@ -1866,6 +1952,7 @@
   "modulo": "connectors",
   "metodo": "POST",
   "ruta": "/api/connectors/:id/import",
+  "relativa": "POST /:id/import",
   "controlador": "runImport",
   "publica": false,
   "guardias": [
@@ -1889,6 +1976,7 @@
   "modulo": "conversions",
   "metodo": "GET",
   "ruta": "/api/conversions/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -1904,6 +1992,7 @@
   "modulo": "conversions",
   "metodo": "GET",
   "ruta": "/api/conversions/productos",
+  "relativa": "GET /productos",
   "controlador": "listProductos",
   "publica": false,
   "guardias": [
@@ -1919,6 +2008,7 @@
   "modulo": "conversions",
   "metodo": "GET",
   "ruta": "/api/conversions/cuotas",
+  "relativa": "GET /cuotas",
   "controlador": "cuotas",
   "publica": false,
   "guardias": [
@@ -1934,6 +2024,7 @@
   "modulo": "conversions",
   "metodo": "GET",
   "ruta": "/api/conversions/filas",
+  "relativa": "GET /filas",
   "controlador": "filas",
   "publica": false,
   "guardias": [
@@ -1949,6 +2040,7 @@
   "modulo": "conversions",
   "metodo": "GET",
   "ruta": "/api/conversions/by-lead/:leadId",
+  "relativa": "GET /by-lead/:leadId",
   "controlador": "listByLead",
   "publica": false,
   "guardias": [
@@ -1964,6 +2056,7 @@
   "modulo": "conversions",
   "metodo": "GET",
   "ruta": "/api/conversions/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -1979,6 +2072,7 @@
   "modulo": "conversions",
   "metodo": "POST",
   "ruta": "/api/conversions/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -1994,6 +2088,7 @@
   "modulo": "conversions",
   "metodo": "PATCH",
   "ruta": "/api/conversions/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -2009,6 +2104,7 @@
   "modulo": "conversions",
   "metodo": "POST",
   "ruta": "/api/conversions/:id/payments",
+  "relativa": "POST /:id/payments",
   "controlador": "addPayment",
   "publica": false,
   "guardias": [
@@ -2024,6 +2120,7 @@
   "modulo": "conversions",
   "metodo": "DELETE",
   "ruta": "/api/conversions/payments/:paymentId",
+  "relativa": "DELETE /payments/:paymentId",
   "controlador": "removePayment",
   "publica": false,
   "guardias": [
@@ -2039,6 +2136,7 @@
   "modulo": "conversions",
   "metodo": "GET",
   "ruta": "/api/conversions/:id/installments",
+  "relativa": "GET /:id/installments",
   "controlador": "listInstallments",
   "publica": false,
   "guardias": [
@@ -2054,6 +2152,7 @@
   "modulo": "conversions",
   "metodo": "POST",
   "ruta": "/api/conversions/:id/installments/generate",
+  "relativa": "POST /:id/installments/generate",
   "controlador": "generateInstallments",
   "publica": false,
   "guardias": [
@@ -2069,6 +2168,7 @@
   "modulo": "conversions",
   "metodo": "PATCH",
   "ruta": "/api/conversions/installments/:instId",
+  "relativa": "PATCH /installments/:instId",
   "controlador": "updateInstallment",
   "publica": false,
   "guardias": [
@@ -2084,6 +2184,7 @@
   "modulo": "conversions",
   "metodo": "POST",
   "ruta": "/api/conversions/installments/:instId/pay",
+  "relativa": "POST /installments/:instId/pay",
   "controlador": "payInstallment",
   "publica": false,
   "guardias": [
@@ -2099,6 +2200,7 @@
   "modulo": "conversions",
   "metodo": "PATCH",
   "ruta": "/api/conversions/installments/:instId/paid",
+  "relativa": "PATCH /installments/:instId/paid",
   "controlador": "editPaidInstallment",
   "publica": false,
   "guardias": [
@@ -2114,6 +2216,7 @@
   "modulo": "conversions",
   "metodo": "POST",
   "ruta": "/api/conversions/installments/:instId/unpay",
+  "relativa": "POST /installments/:instId/unpay",
   "controlador": "unpayInstallment",
   "publica": false,
   "guardias": [
@@ -2129,6 +2232,7 @@
   "modulo": "conversions",
   "metodo": "DELETE",
   "ruta": "/api/conversions/installments/:instId",
+  "relativa": "DELETE /installments/:instId",
   "controlador": "deleteInstallment",
   "publica": false,
   "guardias": [
@@ -2144,6 +2248,7 @@
   "modulo": "conversions",
   "metodo": "GET",
   "ruta": "/api/conversions/:id/reparto",
+  "relativa": "GET /:id/reparto",
   "controlador": "get",
   "publica": false,
   "guardias": [
@@ -2159,6 +2264,7 @@
   "modulo": "conversions",
   "metodo": "PUT",
   "ruta": "/api/conversions/:id/reparto",
+  "relativa": "PUT /:id/reparto",
   "controlador": "set",
   "publica": false,
   "guardias": [
@@ -2182,6 +2288,7 @@
   "modulo": "conversions",
   "metodo": "DELETE",
   "ruta": "/api/conversions/:id/reparto",
+  "relativa": "DELETE /:id/reparto",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -2205,6 +2312,7 @@
   "modulo": "conversions",
   "metodo": "GET",
   "ruta": "/api/conversions/:id/refunds",
+  "relativa": "GET /:id/refunds",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -2220,6 +2328,7 @@
   "modulo": "conversions",
   "metodo": "POST",
   "ruta": "/api/conversions/:id/refunds",
+  "relativa": "POST /:id/refunds",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -2243,6 +2352,7 @@
   "modulo": "conversions",
   "metodo": "DELETE",
   "ruta": "/api/conversions/refunds/:refundId",
+  "relativa": "DELETE /refunds/:refundId",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -2266,6 +2376,7 @@
   "modulo": "conversions",
   "metodo": "DELETE",
   "ruta": "/api/conversions/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -2281,6 +2392,7 @@
   "modulo": "convocatorias",
   "metodo": "GET",
   "ruta": "/api/convocatorias/embudo",
+  "relativa": "GET /embudo",
   "controlador": "embudo",
   "publica": false,
   "guardias": [
@@ -2296,6 +2408,7 @@
   "modulo": "convocatorias",
   "metodo": "GET",
   "ruta": "/api/convocatorias/pendientes",
+  "relativa": "GET /pendientes",
   "controlador": "pendientes",
   "publica": false,
   "guardias": [
@@ -2311,6 +2424,7 @@
   "modulo": "convocatorias",
   "metodo": "GET",
   "ruta": "/api/convocatorias/lead/:leadId",
+  "relativa": "GET /lead/:leadId",
   "controlador": "deLead",
   "publica": false,
   "guardias": [
@@ -2326,6 +2440,7 @@
   "modulo": "convocatorias",
   "metodo": "POST",
   "ruta": "/api/convocatorias/:id/ofrecer",
+  "relativa": "POST /:id/ofrecer",
   "controlador": "ofrecer",
   "publica": false,
   "guardias": [
@@ -2341,6 +2456,7 @@
   "modulo": "convocatorias",
   "metodo": "PATCH",
   "ruta": "/api/convocatorias/ofrecimientos/:id",
+  "relativa": "PATCH /ofrecimientos/:id",
   "controlador": "actualizarOfrecimiento",
   "publica": false,
   "guardias": [
@@ -2356,6 +2472,7 @@
   "modulo": "convocatorias",
   "metodo": "GET",
   "ruta": "/api/convocatorias/",
+  "relativa": "GET /",
   "controlador": "listar",
   "publica": false,
   "guardias": [
@@ -2375,6 +2492,7 @@
   "modulo": "convocatorias",
   "metodo": "POST",
   "ruta": "/api/convocatorias/",
+  "relativa": "POST /",
   "controlador": "crear",
   "publica": false,
   "guardias": [
@@ -2402,6 +2520,7 @@
   "modulo": "convocatorias",
   "metodo": "PATCH",
   "ruta": "/api/convocatorias/:id",
+  "relativa": "PATCH /:id",
   "controlador": "editar",
   "publica": false,
   "guardias": [
@@ -2429,6 +2548,7 @@
   "modulo": "correos",
   "metodo": "GET",
   "ruta": "/api/correos/",
+  "relativa": "GET /",
   "controlador": "listar",
   "publica": false,
   "guardias": [
@@ -2452,6 +2572,7 @@
   "modulo": "correos",
   "metodo": "GET",
   "ruta": "/api/correos/recuento",
+  "relativa": "GET /recuento",
   "controlador": "recuento",
   "publica": false,
   "guardias": [
@@ -2475,6 +2596,7 @@
   "modulo": "correos",
   "metodo": "POST",
   "ruta": "/api/correos/sincronizar",
+  "relativa": "POST /sincronizar",
   "controlador": "sincronizar",
   "publica": false,
   "guardias": [
@@ -2498,6 +2620,7 @@
   "modulo": "correos",
   "metodo": "GET",
   "ruta": "/api/correos/:id",
+  "relativa": "GET /:id",
   "controlador": "uno",
   "publica": false,
   "guardias": [
@@ -2521,6 +2644,7 @@
   "modulo": "credentials",
   "metodo": "GET",
   "ruta": "/api/credentials/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -2544,6 +2668,7 @@
   "modulo": "credentials",
   "metodo": "GET",
   "ruta": "/api/credentials/paridad",
+  "relativa": "GET /paridad",
   "controlador": "paridad",
   "publica": false,
   "guardias": [
@@ -2567,6 +2692,7 @@
   "modulo": "credentials",
   "metodo": "GET",
   "ruta": "/api/credentials/registro",
+  "relativa": "GET /registro",
   "controlador": "registro",
   "publica": false,
   "guardias": [
@@ -2590,6 +2716,7 @@
   "modulo": "credentials",
   "metodo": "POST",
   "ruta": "/api/credentials/",
+  "relativa": "POST /",
   "controlador": "upsert",
   "publica": false,
   "guardias": [
@@ -2613,6 +2740,7 @@
   "modulo": "credentials",
   "metodo": "POST",
   "ruta": "/api/credentials/:id/test",
+  "relativa": "POST /:id/test",
   "controlador": "test",
   "publica": false,
   "guardias": [
@@ -2636,6 +2764,7 @@
   "modulo": "credentials",
   "metodo": "GET",
   "ruta": "/api/credentials/:id/revelar",
+  "relativa": "GET /:id/revelar",
   "controlador": "revelar",
   "publica": false,
   "guardias": [
@@ -2659,6 +2788,7 @@
   "modulo": "credentials",
   "metodo": "DELETE",
   "ruta": "/api/credentials/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -2682,6 +2812,7 @@
   "modulo": "documents",
   "metodo": "GET",
   "ruta": "/api/documents/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -2701,6 +2832,7 @@
   "modulo": "documents",
   "metodo": "GET",
   "ruta": "/api/documents/:id/download",
+  "relativa": "GET /:id/download",
   "controlador": "download",
   "publica": false,
   "guardias": [
@@ -2720,6 +2852,7 @@
   "modulo": "documents",
   "metodo": "GET",
   "ruta": "/api/documents/:id/audit",
+  "relativa": "GET /:id/audit",
   "controlador": "audit",
   "publica": false,
   "guardias": [
@@ -2746,6 +2879,7 @@
   "modulo": "documents",
   "metodo": "GET",
   "ruta": "/api/documents/next-number",
+  "relativa": "GET /next-number",
   "controlador": "peekNumber",
   "publica": false,
   "guardias": [
@@ -2773,6 +2907,7 @@
   "modulo": "documents",
   "metodo": "POST",
   "ruta": "/api/documents/set-number",
+  "relativa": "POST /set-number",
   "controlador": "setNumber",
   "publica": false,
   "guardias": [
@@ -2800,6 +2935,7 @@
   "modulo": "documents",
   "metodo": "POST",
   "ruta": "/api/documents/preview",
+  "relativa": "POST /preview",
   "controlador": "preview",
   "publica": false,
   "guardias": [
@@ -2823,6 +2959,7 @@
   "modulo": "documents",
   "metodo": "POST",
   "ruta": "/api/documents/generate",
+  "relativa": "POST /generate",
   "controlador": "generate",
   "publica": false,
   "guardias": [
@@ -2850,6 +2987,7 @@
   "modulo": "documents",
   "metodo": "POST",
   "ruta": "/api/documents/:id/regenerate",
+  "relativa": "POST /:id/regenerate",
   "controlador": "regenerate",
   "publica": false,
   "guardias": [
@@ -2877,6 +3015,7 @@
   "modulo": "documents",
   "metodo": "POST",
   "ruta": "/api/documents/:id/resend-email",
+  "relativa": "POST /:id/resend-email",
   "controlador": "resendEmail",
   "publica": false,
   "guardias": [
@@ -2904,6 +3043,7 @@
   "modulo": "documents",
   "metodo": "DELETE",
   "ruta": "/api/documents/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -2931,6 +3071,7 @@
   "modulo": "dossiers",
   "metodo": "POST",
   "ruta": "/api/dossiers/upload",
+  "relativa": "POST /upload",
   "controlador": "upload",
   "publica": false,
   "guardias": [
@@ -2958,6 +3099,7 @@
   "modulo": "dossiers",
   "metodo": "GET",
   "ruta": "/api/dossiers/:id/url",
+  "relativa": "GET /:id/url",
   "controlador": "getPresignedUrl",
   "publica": false,
   "guardias": [
@@ -2977,6 +3119,7 @@
   "modulo": "dossiers",
   "metodo": "GET",
   "ruta": "/api/dossiers/product/:productId/history",
+  "relativa": "GET /product/:productId/history",
   "controlador": "getHistory",
   "publica": false,
   "guardias": [
@@ -2996,6 +3139,7 @@
   "modulo": "email-sequences",
   "metodo": "GET",
   "ruta": "/api/secuencias-email/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -3011,6 +3155,7 @@
   "modulo": "email-sequences",
   "metodo": "GET",
   "ruta": "/api/secuencias-email/runs",
+  "relativa": "GET /runs",
   "controlador": "listRuns",
   "publica": false,
   "guardias": [
@@ -3026,6 +3171,7 @@
   "modulo": "email-sequences",
   "metodo": "GET",
   "ruta": "/api/secuencias-email/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -3041,6 +3187,7 @@
   "modulo": "email-sequences",
   "metodo": "POST",
   "ruta": "/api/secuencias-email/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -3064,6 +3211,7 @@
   "modulo": "email-sequences",
   "metodo": "PATCH",
   "ruta": "/api/secuencias-email/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -3087,6 +3235,7 @@
   "modulo": "email-sequences",
   "metodo": "DELETE",
   "ruta": "/api/secuencias-email/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -3110,6 +3259,7 @@
   "modulo": "email-sequences",
   "metodo": "POST",
   "ruta": "/api/secuencias-email/runs/start",
+  "relativa": "POST /runs/start",
   "controlador": "startManual",
   "publica": false,
   "guardias": [
@@ -3134,6 +3284,7 @@
   "modulo": "email-sequences",
   "metodo": "POST",
   "ruta": "/api/secuencias-email/runs/:runId/stop",
+  "relativa": "POST /runs/:runId/stop",
   "controlador": "stopRun",
   "publica": false,
   "guardias": [
@@ -3158,6 +3309,7 @@
   "modulo": "email-templates",
   "metodo": "GET",
   "ruta": "/api/email-templates/variables",
+  "relativa": "GET /variables",
   "controlador": "getVariables",
   "publica": false,
   "guardias": [
@@ -3173,6 +3325,7 @@
   "modulo": "email-templates",
   "metodo": "GET",
   "ruta": "/api/email-templates/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -3192,6 +3345,7 @@
   "modulo": "email-templates",
   "metodo": "GET",
   "ruta": "/api/email-templates/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -3211,6 +3365,7 @@
   "modulo": "email-templates",
   "metodo": "POST",
   "ruta": "/api/email-templates/:id/render",
+  "relativa": "POST /:id/render",
   "controlador": "preview",
   "publica": false,
   "guardias": [
@@ -3230,6 +3385,7 @@
   "modulo": "email-templates",
   "metodo": "POST",
   "ruta": "/api/email-templates/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -3257,6 +3413,7 @@
   "modulo": "email-templates",
   "metodo": "PATCH",
   "ruta": "/api/email-templates/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -3284,6 +3441,7 @@
   "modulo": "email-templates",
   "metodo": "DELETE",
   "ruta": "/api/email-templates/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -3311,6 +3469,7 @@
   "modulo": "expenses",
   "metodo": "GET",
   "ruta": "/api/expenses/",
+  "relativa": "GET /",
   "controlador": "listExpenses",
   "publica": false,
   "guardias": [
@@ -3334,6 +3493,7 @@
   "modulo": "expenses",
   "metodo": "GET",
   "ruta": "/api/expenses/resumen",
+  "relativa": "GET /resumen",
   "controlador": "resumen",
   "publica": false,
   "guardias": [
@@ -3357,6 +3517,7 @@
   "modulo": "expenses",
   "metodo": "POST",
   "ruta": "/api/expenses/upload-comprobante",
+  "relativa": "POST /upload-comprobante",
   "controlador": "uploadComprobante",
   "publica": false,
   "guardias": [
@@ -3380,6 +3541,7 @@
   "modulo": "expenses",
   "metodo": "GET",
   "ruta": "/api/expenses/comprobante/:key",
+  "relativa": "GET /comprobante/:key",
   "controlador": "downloadComprobante",
   "publica": false,
   "guardias": [
@@ -3403,6 +3565,7 @@
   "modulo": "expenses",
   "metodo": "GET",
   "ruta": "/api/expenses/:id",
+  "relativa": "GET /:id",
   "controlador": "getExpense",
   "publica": false,
   "guardias": [
@@ -3426,6 +3589,7 @@
   "modulo": "expenses",
   "metodo": "POST",
   "ruta": "/api/expenses/",
+  "relativa": "POST /",
   "controlador": "createExpense",
   "publica": false,
   "guardias": [
@@ -3449,6 +3613,7 @@
   "modulo": "expenses",
   "metodo": "PATCH",
   "ruta": "/api/expenses/:id",
+  "relativa": "PATCH /:id",
   "controlador": "updateExpense",
   "publica": false,
   "guardias": [
@@ -3472,6 +3637,7 @@
   "modulo": "expenses",
   "metodo": "DELETE",
   "ruta": "/api/expenses/:id",
+  "relativa": "DELETE /:id",
   "controlador": "deleteExpense",
   "publica": false,
   "guardias": [
@@ -3495,6 +3661,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/enlace/:token",
+  "relativa": "GET /enlace/:token",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -3506,6 +3673,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/enlace/:token",
+  "relativa": "POST /enlace/:token",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -3517,6 +3685,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/archivo-local/:id",
+  "relativa": "GET /archivo-local/:id",
   "controlador": "archivoLocal",
   "publica": true,
   "guardias": [],
@@ -3528,6 +3697,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/justificante-local/:id",
+  "relativa": "GET /justificante-local/:id",
   "controlador": "justificanteLocal",
   "publica": true,
   "guardias": [],
@@ -3539,6 +3709,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/mias",
+  "relativa": "GET /mias",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3559,6 +3730,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/mias/:id",
+  "relativa": "POST /mias/:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3579,6 +3751,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/mias/:id/archivo",
+  "relativa": "GET /mias/:id/archivo",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3599,6 +3772,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/empresas",
+  "relativa": "GET /empresas",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3622,6 +3796,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/colaboradores",
+  "relativa": "GET /colaboradores",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3642,6 +3817,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/colaboradores",
+  "relativa": "POST /colaboradores",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3662,6 +3838,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/colaboradores/:id",
+  "relativa": "GET /colaboradores/:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3682,6 +3859,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "PATCH",
   "ruta": "/api/facturas-colaborador/colaboradores/:id",
+  "relativa": "PATCH /colaboradores/:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3702,6 +3880,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/colaboradores/:id/baja",
+  "relativa": "POST /colaboradores/:id/baja",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3722,6 +3901,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/colaboradores/:id/alta",
+  "relativa": "POST /colaboradores/:id/alta",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3742,6 +3922,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/colaboradores/:id/registro",
+  "relativa": "GET /colaboradores/:id/registro",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3762,6 +3943,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/mes",
+  "relativa": "GET /mes",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3782,6 +3964,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/facturas",
+  "relativa": "GET /facturas",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3802,6 +3985,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/coste-por-campus",
+  "relativa": "GET /coste-por-campus",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3822,6 +4006,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/zip",
+  "relativa": "GET /zip",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3842,6 +4027,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/facturas/:id/archivo",
+  "relativa": "GET /facturas/:id/archivo",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3862,6 +4048,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/facturas/:id/registro",
+  "relativa": "GET /facturas/:id/registro",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3882,6 +4069,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/facturas/:id/desglose",
+  "relativa": "GET /facturas/:id/desglose",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3902,6 +4090,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/facturas/:id/anular",
+  "relativa": "POST /facturas/:id/anular",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3922,6 +4111,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/facturas/:id/reenviar",
+  "relativa": "POST /facturas/:id/reenviar",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3942,6 +4132,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/facturas/pagar",
+  "relativa": "POST /facturas/pagar",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3962,6 +4153,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/facturas/:id/deshacer-pago",
+  "relativa": "POST /facturas/:id/deshacer-pago",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -3982,6 +4174,7 @@
   "modulo": "facturas-colaborador",
   "metodo": "GET",
   "ruta": "/api/facturas-colaborador/facturas/:id/justificante",
+  "relativa": "GET /facturas/:id/justificante",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -4002,6 +4195,7 @@
   "modulo": "feedback",
   "metodo": "GET",
   "ruta": "/api/feedback/panel",
+  "relativa": "GET /panel",
   "controlador": "panel",
   "publica": false,
   "guardias": [
@@ -4017,6 +4211,7 @@
   "modulo": "feedback",
   "metodo": "GET",
   "ruta": "/api/feedback/lista",
+  "relativa": "GET /lista",
   "controlador": "lista",
   "publica": false,
   "guardias": [
@@ -4032,6 +4227,7 @@
   "modulo": "feedback",
   "metodo": "GET",
   "ruta": "/api/feedback/lead/:leadId",
+  "relativa": "GET /lead/:leadId",
   "controlador": "deUnLead",
   "publica": false,
   "guardias": [
@@ -4047,6 +4243,7 @@
   "modulo": "feedback",
   "metodo": "POST",
   "ruta": "/api/feedback/lead/:leadId/enviar",
+  "relativa": "POST /lead/:leadId/enviar",
   "controlador": "enviarLoRevisado",
   "publica": false,
   "guardias": [
@@ -4062,6 +4259,7 @@
   "modulo": "feedback",
   "metodo": "POST",
   "ruta": "/api/feedback/lead/:leadId/no-enviar",
+  "relativa": "POST /lead/:leadId/no-enviar",
   "controlador": "noEnviar",
   "publica": false,
   "guardias": [
@@ -4077,6 +4275,7 @@
   "modulo": "feedback",
   "metodo": "GET",
   "ruta": "/api/f/cabecera/:projectId",
+  "relativa": "GET /cabecera/:projectId",
   "controlador": "servir",
   "publica": true,
   "guardias": [],
@@ -4088,6 +4287,7 @@
   "modulo": "feedback",
   "metodo": "GET",
   "ruta": "/api/f/cabecera/:projectId.png",
+  "relativa": "GET /cabecera/:projectId.png",
   "controlador": "servir",
   "publica": true,
   "guardias": [],
@@ -4099,6 +4299,7 @@
   "modulo": "feedback",
   "metodo": "GET",
   "ruta": "/api/f/insignia/:projectId",
+  "relativa": "GET /insignia/:projectId",
   "controlador": "servirInsignia",
   "publica": true,
   "guardias": [],
@@ -4110,6 +4311,7 @@
   "modulo": "feedback",
   "metodo": "GET",
   "ruta": "/api/f/:token",
+  "relativa": "GET /:token",
   "controlador": "encuesta",
   "publica": true,
   "guardias": [],
@@ -4121,6 +4323,7 @@
   "modulo": "feedback",
   "metodo": "POST",
   "ruta": "/api/f/:token",
+  "relativa": "POST /:token",
   "controlador": "responder",
   "publica": true,
   "guardias": [],
@@ -4132,6 +4335,7 @@
   "modulo": "field-definitions",
   "metodo": "GET",
   "ruta": "/api/field-definitions/project/:projectId",
+  "relativa": "GET /project/:projectId",
   "controlador": "listByProject",
   "publica": false,
   "guardias": [
@@ -4147,6 +4351,7 @@
   "modulo": "field-definitions",
   "metodo": "POST",
   "ruta": "/api/field-definitions/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -4170,6 +4375,7 @@
   "modulo": "field-definitions",
   "metodo": "PATCH",
   "ruta": "/api/field-definitions/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -4193,6 +4399,7 @@
   "modulo": "field-definitions",
   "metodo": "DELETE",
   "ruta": "/api/field-definitions/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -4216,6 +4423,7 @@
   "modulo": "field-definitions",
   "metodo": "POST",
   "ruta": "/api/field-definitions/reorder",
+  "relativa": "POST /reorder",
   "controlador": "reorder",
   "publica": false,
   "guardias": [
@@ -4239,6 +4447,7 @@
   "modulo": "forms",
   "metodo": "GET",
   "ruta": "/api/forms/public/:embedId",
+  "relativa": "GET /public/:embedId",
   "controlador": "publicMeta",
   "publica": true,
   "guardias": [],
@@ -4250,6 +4459,7 @@
   "modulo": "forms",
   "metodo": "POST",
   "ruta": "/api/forms/public/:embedId/submit",
+  "relativa": "POST /public/:embedId/submit",
   "controlador": "publicSubmit",
   "publica": true,
   "guardias": [],
@@ -4261,6 +4471,7 @@
   "modulo": "forms",
   "metodo": "POST",
   "ruta": "/api/forms/webhook/:embedId",
+  "relativa": "POST /webhook/:embedId",
   "controlador": "publicWebhook",
   "publica": true,
   "guardias": [],
@@ -4272,6 +4483,7 @@
   "modulo": "forms",
   "metodo": "POST",
   "ruta": "/api/forms/mailhook/:embedId",
+  "relativa": "POST /mailhook/:embedId",
   "controlador": "publicMailhook",
   "publica": true,
   "guardias": [],
@@ -4283,6 +4495,7 @@
   "modulo": "forms",
   "metodo": "GET",
   "ruta": "/api/forms/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -4298,6 +4511,7 @@
   "modulo": "forms",
   "metodo": "GET",
   "ruta": "/api/forms/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -4313,6 +4527,7 @@
   "modulo": "forms",
   "metodo": "GET",
   "ruta": "/api/forms/:id/status",
+  "relativa": "GET /:id/status",
   "controlador": "getStatus",
   "publica": false,
   "guardias": [
@@ -4328,6 +4543,7 @@
   "modulo": "forms",
   "metodo": "GET",
   "ruta": "/api/forms/:id/events",
+  "relativa": "GET /:id/events",
   "controlador": "listEvents",
   "publica": false,
   "guardias": [
@@ -4343,6 +4559,7 @@
   "modulo": "forms",
   "metodo": "POST",
   "ruta": "/api/forms/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -4367,6 +4584,7 @@
   "modulo": "forms",
   "metodo": "PATCH",
   "ruta": "/api/forms/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -4391,6 +4609,7 @@
   "modulo": "forms",
   "metodo": "DELETE",
   "ruta": "/api/forms/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -4415,6 +4634,7 @@
   "modulo": "forms",
   "metodo": "POST",
   "ruta": "/api/forms/:id/listen",
+  "relativa": "POST /:id/listen",
   "controlador": "startListening",
   "publica": false,
   "guardias": [
@@ -4439,6 +4659,7 @@
   "modulo": "forms",
   "metodo": "POST",
   "ruta": "/api/forms/:id/listen/stop",
+  "relativa": "POST /:id/listen/stop",
   "controlador": "stopListening",
   "publica": false,
   "guardias": [
@@ -4463,6 +4684,7 @@
   "modulo": "ia-monitor",
   "metodo": "GET",
   "ruta": "/api/ia/metrics/:projectId",
+  "relativa": "GET /metrics/:projectId",
   "controlador": "getMetrics",
   "publica": false,
   "guardias": [
@@ -4478,6 +4700,7 @@
   "modulo": "ia-monitor",
   "metodo": "GET",
   "ruta": "/api/ia/gasto",
+  "relativa": "GET /gasto",
   "controlador": "getGasto",
   "publica": false,
   "guardias": [
@@ -4493,6 +4716,7 @@
   "modulo": "installation",
   "metodo": "GET",
   "ruta": "/api/installation/",
+  "relativa": "GET /",
   "controlador": "getInstallation",
   "publica": false,
   "guardias": [
@@ -4508,6 +4732,7 @@
   "modulo": "installation",
   "metodo": "PATCH",
   "ruta": "/api/installation/",
+  "relativa": "PATCH /",
   "controlador": "updateInstallation",
   "publica": false,
   "guardias": [
@@ -4530,6 +4755,7 @@
   "modulo": "integrations",
   "metodo": "GET",
   "ruta": "/api/integrations/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -4553,6 +4779,7 @@
   "modulo": "integrations",
   "metodo": "GET",
   "ruta": "/api/integrations/:provider",
+  "relativa": "GET /:provider",
   "controlador": "getOne",
   "publica": false,
   "guardias": [
@@ -4576,6 +4803,7 @@
   "modulo": "integrations",
   "metodo": "PUT",
   "ruta": "/api/integrations/",
+  "relativa": "PUT /",
   "controlador": "upsert",
   "publica": false,
   "guardias": [
@@ -4599,6 +4827,7 @@
   "modulo": "integrations",
   "metodo": "POST",
   "ruta": "/api/integrations/:provider/test",
+  "relativa": "POST /:provider/test",
   "controlador": "test",
   "publica": false,
   "guardias": [
@@ -4622,6 +4851,7 @@
   "modulo": "integrations",
   "metodo": "DELETE",
   "ruta": "/api/integrations/:provider",
+  "relativa": "DELETE /:provider",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -4645,6 +4875,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/issuers/:id/logo",
+  "relativa": "GET /issuers/:id/logo",
   "controlador": "getIssuerLogo",
   "publica": true,
   "guardias": [],
@@ -4656,6 +4887,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/facturacion-al-dia",
+  "relativa": "GET /facturacion-al-dia",
   "controlador": "facturacionAlDia",
   "publica": false,
   "guardias": [
@@ -4671,6 +4903,7 @@
   "modulo": "invoices",
   "metodo": "PUT",
   "ruta": "/api/invoices/facturacion-al-dia",
+  "relativa": "PUT /facturacion-al-dia",
   "controlador": "setFacturacionAlDia",
   "publica": false,
   "guardias": [
@@ -4688,6 +4921,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/cola/generar",
+  "relativa": "POST /cola/generar",
   "controlador": "generarDeCola",
   "publica": false,
   "guardias": [
@@ -4705,6 +4939,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/cola/emitir-hasta",
+  "relativa": "POST /cola/emitir-hasta",
   "controlador": "emitirColaHasta",
   "publica": false,
   "guardias": [
@@ -4722,6 +4957,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -4737,6 +4973,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/stats",
+  "relativa": "GET /stats",
   "controlador": "stats",
   "publica": false,
   "guardias": [
@@ -4752,6 +4989,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/siguiente-numero",
+  "relativa": "GET /siguiente-numero",
   "controlador": "siguienteNumero",
   "publica": false,
   "guardias": [
@@ -4767,6 +5005,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/ventas-sin-factura",
+  "relativa": "GET /ventas-sin-factura",
   "controlador": "ventasSinFactura",
   "publica": false,
   "guardias": [
@@ -4782,6 +5021,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/regimenes",
+  "relativa": "GET /regimenes",
   "controlador": "listRegimenes",
   "publica": false,
   "guardias": [
@@ -4797,6 +5037,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/resolve-regimen",
+  "relativa": "GET /resolve-regimen",
   "controlador": "resolveRegimen",
   "publica": false,
   "guardias": [
@@ -4812,6 +5053,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/regimenes",
+  "relativa": "POST /regimenes",
   "controlador": "createRegimen",
   "publica": false,
   "guardias": [
@@ -4829,6 +5071,7 @@
   "modulo": "invoices",
   "metodo": "PATCH",
   "ruta": "/api/invoices/regimenes/:id",
+  "relativa": "PATCH /regimenes/:id",
   "controlador": "updateRegimen",
   "publica": false,
   "guardias": [
@@ -4846,6 +5089,7 @@
   "modulo": "invoices",
   "metodo": "DELETE",
   "ruta": "/api/invoices/regimenes/:id",
+  "relativa": "DELETE /regimenes/:id",
   "controlador": "deleteRegimen",
   "publica": false,
   "guardias": [
@@ -4863,6 +5107,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/templates",
+  "relativa": "GET /templates",
   "controlador": "listTemplates",
   "publica": false,
   "guardias": [
@@ -4878,6 +5123,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/templates",
+  "relativa": "POST /templates",
   "controlador": "createTemplate",
   "publica": false,
   "guardias": [
@@ -4895,6 +5141,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/templates/:id",
+  "relativa": "GET /templates/:id",
   "controlador": "getTemplate",
   "publica": false,
   "guardias": [
@@ -4910,6 +5157,7 @@
   "modulo": "invoices",
   "metodo": "PATCH",
   "ruta": "/api/invoices/templates/:id",
+  "relativa": "PATCH /templates/:id",
   "controlador": "updateTemplate",
   "publica": false,
   "guardias": [
@@ -4927,6 +5175,7 @@
   "modulo": "invoices",
   "metodo": "DELETE",
   "ruta": "/api/invoices/templates/:id",
+  "relativa": "DELETE /templates/:id",
   "controlador": "deleteTemplate",
   "publica": false,
   "guardias": [
@@ -4944,6 +5193,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/issuers",
+  "relativa": "GET /issuers",
   "controlador": "listIssuers",
   "publica": false,
   "guardias": [
@@ -4959,6 +5209,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/issuers",
+  "relativa": "POST /issuers",
   "controlador": "createIssuer",
   "publica": false,
   "guardias": [
@@ -4976,6 +5227,7 @@
   "modulo": "invoices",
   "metodo": "PATCH",
   "ruta": "/api/invoices/issuers/:id",
+  "relativa": "PATCH /issuers/:id",
   "controlador": "updateIssuer",
   "publica": false,
   "guardias": [
@@ -4993,6 +5245,7 @@
   "modulo": "invoices",
   "metodo": "DELETE",
   "ruta": "/api/invoices/issuers/:id",
+  "relativa": "DELETE /issuers/:id",
   "controlador": "deleteIssuer",
   "publica": false,
   "guardias": [
@@ -5010,6 +5263,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/issuers/:id/logo",
+  "relativa": "POST /issuers/:id/logo",
   "controlador": "uploadIssuerLogo",
   "publica": false,
   "guardias": [
@@ -5027,6 +5281,7 @@
   "modulo": "invoices",
   "metodo": "DELETE",
   "ruta": "/api/invoices/issuers/:id/logo",
+  "relativa": "DELETE /issuers/:id/logo",
   "controlador": "deleteIssuerLogo",
   "publica": false,
   "guardias": [
@@ -5044,6 +5299,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/config",
+  "relativa": "GET /config",
   "controlador": "getConfig",
   "publica": false,
   "guardias": [
@@ -5059,6 +5315,7 @@
   "modulo": "invoices",
   "metodo": "PATCH",
   "ruta": "/api/invoices/config",
+  "relativa": "PATCH /config",
   "controlador": "updateConfig",
   "publica": false,
   "guardias": [
@@ -5076,6 +5333,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/sequences",
+  "relativa": "GET /sequences",
   "controlador": "listSequences",
   "publica": false,
   "guardias": [
@@ -5091,6 +5349,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/sequences",
+  "relativa": "POST /sequences",
   "controlador": "setSequence",
   "publica": false,
   "guardias": [
@@ -5108,6 +5367,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/lead-fiscal/:leadId",
+  "relativa": "GET /lead-fiscal/:leadId",
   "controlador": "leadFiscalData",
   "publica": false,
   "guardias": [
@@ -5123,6 +5383,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/by-conversion/:conversionId",
+  "relativa": "GET /by-conversion/:conversionId",
   "controlador": "byConversion",
   "publica": false,
   "guardias": [
@@ -5138,6 +5399,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/:id",
+  "relativa": "GET /:id",
   "controlador": "getOne",
   "publica": false,
   "guardias": [
@@ -5153,6 +5415,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -5168,6 +5431,7 @@
   "modulo": "invoices",
   "metodo": "PATCH",
   "ruta": "/api/invoices/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -5191,6 +5455,7 @@
   "modulo": "invoices",
   "metodo": "PATCH",
   "ruta": "/api/invoices/:id/corregir",
+  "relativa": "PATCH /:id/corregir",
   "controlador": "corregir",
   "publica": false,
   "guardias": [
@@ -5217,6 +5482,7 @@
   "modulo": "invoices",
   "metodo": "PATCH",
   "ruta": "/api/invoices/:id/fechas",
+  "relativa": "PATCH /:id/fechas",
   "controlador": "updateFechas",
   "publica": false,
   "guardias": [
@@ -5234,6 +5500,7 @@
   "modulo": "invoices",
   "metodo": "PATCH",
   "ruta": "/api/invoices/:id/entregada",
+  "relativa": "PATCH /:id/entregada",
   "controlador": "marcarEntregada",
   "publica": false,
   "guardias": [
@@ -5249,6 +5516,7 @@
   "modulo": "invoices",
   "metodo": "PATCH",
   "ruta": "/api/invoices/:id/asociar",
+  "relativa": "PATCH /:id/asociar",
   "controlador": "asociarVenta",
   "publica": false,
   "guardias": [
@@ -5275,6 +5543,7 @@
   "modulo": "invoices",
   "metodo": "GET",
   "ruta": "/api/invoices/:id/pdf",
+  "relativa": "GET /:id/pdf",
   "controlador": "pdf",
   "publica": false,
   "guardias": [
@@ -5290,6 +5559,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/:id/send",
+  "relativa": "POST /:id/send",
   "controlador": "send",
   "publica": false,
   "guardias": [
@@ -5305,6 +5575,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/:id/mark-paid",
+  "relativa": "POST /:id/mark-paid",
   "controlador": "markPaid",
   "publica": false,
   "guardias": [
@@ -5320,6 +5591,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/:id/cobrar-proforma",
+  "relativa": "POST /:id/cobrar-proforma",
   "controlador": "cobrarProforma",
   "publica": false,
   "guardias": [
@@ -5346,6 +5618,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/:id/cancel",
+  "relativa": "POST /:id/cancel",
   "controlador": "cancel",
   "publica": false,
   "guardias": [
@@ -5361,6 +5634,7 @@
   "modulo": "invoices",
   "metodo": "DELETE",
   "ruta": "/api/invoices/:id",
+  "relativa": "DELETE /:id",
   "controlador": "destroy",
   "publica": false,
   "guardias": [
@@ -5387,6 +5661,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/:id/rectificar",
+  "relativa": "POST /:id/rectificar",
   "controlador": "rectificar",
   "publica": false,
   "guardias": [
@@ -5413,6 +5688,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/:id/emitir",
+  "relativa": "POST /:id/emitir",
   "controlador": "emitir",
   "publica": false,
   "guardias": [
@@ -5428,6 +5704,7 @@
   "modulo": "invoices",
   "metodo": "POST",
   "ruta": "/api/invoices/:id/completar-datos",
+  "relativa": "POST /:id/completar-datos",
   "controlador": "completarDatos",
   "publica": false,
   "guardias": [
@@ -5443,6 +5720,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/webhooks/:slug",
+  "relativa": "POST /webhooks/:slug",
   "controlador": "webhook",
   "publica": true,
   "guardias": [],
@@ -5454,6 +5732,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -5469,6 +5748,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/export/wasapi",
+  "relativa": "GET /export/wasapi",
   "controlador": "exportWasapi",
   "publica": false,
   "guardias": [
@@ -5484,6 +5764,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/stats",
+  "relativa": "GET /stats",
   "controlador": "stats",
   "publica": false,
   "guardias": [
@@ -5499,6 +5780,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/quick-counts",
+  "relativa": "GET /quick-counts",
   "controlador": "quickCounts",
   "publica": false,
   "guardias": [
@@ -5514,6 +5796,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/revision",
+  "relativa": "GET /revision",
   "controlador": "progresoRevision",
   "publica": false,
   "guardias": [
@@ -5529,6 +5812,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/today",
+  "relativa": "GET /today",
   "controlador": "today",
   "publica": false,
   "guardias": [
@@ -5544,6 +5828,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/lookup-by-email",
+  "relativa": "GET /lookup-by-email",
   "controlador": "lookupByEmail",
   "publica": false,
   "guardias": [
@@ -5559,6 +5844,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/check-duplicate",
+  "relativa": "POST /check-duplicate",
   "controlador": "checkDuplicate",
   "publica": false,
   "guardias": [
@@ -5574,6 +5860,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/spam-reports",
+  "relativa": "GET /spam-reports",
   "controlador": "listPending",
   "publica": false,
   "guardias": [
@@ -5596,6 +5883,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/spam-reports/count",
+  "relativa": "GET /spam-reports/count",
   "controlador": "countPending",
   "publica": false,
   "guardias": [
@@ -5618,6 +5906,7 @@
   "modulo": "leads",
   "metodo": "PATCH",
   "ruta": "/api/leads/spam-reports/:reportId",
+  "relativa": "PATCH /spam-reports/:reportId",
   "controlador": "resolveReport",
   "publica": false,
   "guardias": [
@@ -5640,6 +5929,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/review-queue",
+  "relativa": "GET /review-queue",
   "controlador": "listReviewQueue",
   "publica": false,
   "guardias": [
@@ -5663,6 +5953,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/duplicados",
+  "relativa": "GET /duplicados",
   "controlador": "listDuplicateGroups",
   "publica": false,
   "guardias": [
@@ -5686,6 +5977,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/review-queue/:id/decide",
+  "relativa": "POST /review-queue/:id/decide",
   "controlador": "decideReviewQueue",
   "publica": false,
   "guardias": [
@@ -5709,6 +6001,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/:id/products",
+  "relativa": "GET /:id/products",
   "controlador": "listLeadProducts",
   "publica": false,
   "guardias": [
@@ -5724,6 +6017,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/:id/products",
+  "relativa": "POST /:id/products",
   "controlador": "addLeadProduct",
   "publica": false,
   "guardias": [
@@ -5739,6 +6033,7 @@
   "modulo": "leads",
   "metodo": "PATCH",
   "ruta": "/api/leads/:id/products/:lpId",
+  "relativa": "PATCH /:id/products/:lpId",
   "controlador": "updateLeadProduct",
   "publica": false,
   "guardias": [
@@ -5754,6 +6049,7 @@
   "modulo": "leads",
   "metodo": "DELETE",
   "ruta": "/api/leads/:id/products/:lpId",
+  "relativa": "DELETE /:id/products/:lpId",
   "controlador": "removeLeadProduct",
   "publica": false,
   "guardias": [
@@ -5769,6 +6065,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -5784,6 +6081,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/:id/merge",
+  "relativa": "POST /:id/merge",
   "controlador": "mergeLeads",
   "publica": false,
   "guardias": [
@@ -5799,6 +6097,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/:id/revisar",
+  "relativa": "POST /:id/revisar",
   "controlador": "revisar",
   "publica": false,
   "guardias": [
@@ -5814,6 +6113,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/",
+  "relativa": "POST /",
   "controlador": "createManual",
   "publica": false,
   "guardias": [
@@ -5829,6 +6129,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/bulk",
+  "relativa": "POST /bulk",
   "controlador": "bulkCreate",
   "publica": false,
   "guardias": [
@@ -5844,6 +6145,7 @@
   "modulo": "leads",
   "metodo": "PATCH",
   "ruta": "/api/leads/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -5859,6 +6161,7 @@
   "modulo": "leads",
   "metodo": "PATCH",
   "ruta": "/api/leads/:id/status",
+  "relativa": "PATCH /:id/status",
   "controlador": "changeStatus",
   "publica": false,
   "guardias": [
@@ -5874,6 +6177,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/:id/interactions",
+  "relativa": "POST /:id/interactions",
   "controlador": "addInteraction",
   "publica": false,
   "guardias": [
@@ -5889,6 +6193,7 @@
   "modulo": "leads",
   "metodo": "PATCH",
   "ruta": "/api/leads/:id/interactions/:interactionId",
+  "relativa": "PATCH /:id/interactions/:interactionId",
   "controlador": "updateInteraction",
   "publica": false,
   "guardias": [
@@ -5904,6 +6209,7 @@
   "modulo": "leads",
   "metodo": "DELETE",
   "ruta": "/api/leads/:id/interactions/:interactionId",
+  "relativa": "DELETE /:id/interactions/:interactionId",
   "controlador": "deleteInteraction",
   "publica": false,
   "guardias": [
@@ -5919,6 +6225,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/:id/reminders",
+  "relativa": "POST /:id/reminders",
   "controlador": "addReminder",
   "publica": false,
   "guardias": [
@@ -5934,6 +6241,7 @@
   "modulo": "leads",
   "metodo": "PATCH",
   "ruta": "/api/leads/reminders/:reminderId/complete",
+  "relativa": "PATCH /reminders/:reminderId/complete",
   "controlador": "completeReminder",
   "publica": false,
   "guardias": [
@@ -5949,6 +6257,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/:id/sequences",
+  "relativa": "GET /:id/sequences",
   "controlador": "getLeadSequences",
   "publica": false,
   "guardias": [
@@ -5964,6 +6273,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/:id/purchase-history",
+  "relativa": "GET /:id/purchase-history",
   "controlador": "getPurchaseHistory",
   "publica": false,
   "guardias": [
@@ -5979,6 +6289,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/:id/send-email",
+  "relativa": "POST /:id/send-email",
   "controlador": "sendLeadEmail",
   "publica": false,
   "guardias": [
@@ -5994,6 +6305,7 @@
   "modulo": "leads",
   "metodo": "GET",
   "ruta": "/api/leads/:id/emails",
+  "relativa": "GET /:id/emails",
   "controlador": "listLeadEmails",
   "publica": false,
   "guardias": [
@@ -6009,6 +6321,7 @@
   "modulo": "leads",
   "metodo": "PATCH",
   "ruta": "/api/leads/:id/reassign",
+  "relativa": "PATCH /:id/reassign",
   "controlador": "reassign",
   "publica": false,
   "guardias": [
@@ -6032,6 +6345,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/:id/report-spam",
+  "relativa": "POST /:id/report-spam",
   "controlador": "reportSpam",
   "publica": false,
   "guardias": [
@@ -6055,6 +6369,7 @@
   "modulo": "leads",
   "metodo": "DELETE",
   "ruta": "/api/leads/:id",
+  "relativa": "DELETE /:id",
   "controlador": "softDelete",
   "publica": false,
   "guardias": [
@@ -6080,6 +6395,7 @@
   "modulo": "leads",
   "metodo": "PATCH",
   "ruta": "/api/leads/:id/restore",
+  "relativa": "PATCH /:id/restore",
   "controlador": "restore",
   "publica": false,
   "guardias": [
@@ -6102,6 +6418,7 @@
   "modulo": "leads",
   "metodo": "POST",
   "ruta": "/api/leads/reassign-pending",
+  "relativa": "POST /reassign-pending",
   "controlador": "reassignPending",
   "publica": false,
   "guardias": [
@@ -6125,6 +6442,7 @@
   "modulo": "make",
   "metodo": "GET",
   "ruta": "/api/make-webhooks/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -6148,6 +6466,7 @@
   "modulo": "make",
   "metodo": "GET",
   "ruta": "/api/make-webhooks/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -6171,6 +6490,7 @@
   "modulo": "make",
   "metodo": "POST",
   "ruta": "/api/make-webhooks/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -6194,6 +6514,7 @@
   "modulo": "make",
   "metodo": "PATCH",
   "ruta": "/api/make-webhooks/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -6217,6 +6538,7 @@
   "modulo": "make",
   "metodo": "DELETE",
   "ruta": "/api/make-webhooks/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -6240,6 +6562,7 @@
   "modulo": "make",
   "metodo": "POST",
   "ruta": "/api/make-webhooks/:id/rotate-secret",
+  "relativa": "POST /:id/rotate-secret",
   "controlador": "rotateSecret",
   "publica": false,
   "guardias": [
@@ -6263,6 +6586,7 @@
   "modulo": "make",
   "metodo": "GET",
   "ruta": "/api/make-webhooks/:id/deliveries",
+  "relativa": "GET /:id/deliveries",
   "controlador": "deliveries",
   "publica": false,
   "guardias": [
@@ -6286,6 +6610,7 @@
   "modulo": "make",
   "metodo": "POST",
   "ruta": "/api/webhooks/make/:slug",
+  "relativa": "POST /make/:slug",
   "controlador": "receive",
   "publica": true,
   "guardias": [],
@@ -6297,6 +6622,7 @@
   "modulo": "matriculas",
   "metodo": "GET",
   "ruta": "/api/matriculas/:id/doc/:tipo",
+  "relativa": "GET /:id/doc/:tipo",
   "controlador": "getDoc",
   "publica": true,
   "guardias": [],
@@ -6308,6 +6634,7 @@
   "modulo": "matriculas",
   "metodo": "GET",
   "ruta": "/api/matriculas/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -6332,6 +6659,7 @@
   "modulo": "matriculas",
   "metodo": "GET",
   "ruta": "/api/matriculas/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -6356,6 +6684,7 @@
   "modulo": "matriculas",
   "metodo": "POST",
   "ruta": "/api/matriculas/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -6380,6 +6709,7 @@
   "modulo": "matriculas",
   "metodo": "PATCH",
   "ruta": "/api/matriculas/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -6404,6 +6734,7 @@
   "modulo": "matriculas",
   "metodo": "DELETE",
   "ruta": "/api/matriculas/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -6427,6 +6758,7 @@
   "modulo": "matriculas",
   "metodo": "POST",
   "ruta": "/api/matriculas/:id/estado",
+  "relativa": "POST /:id/estado",
   "controlador": "setEstado",
   "publica": false,
   "guardias": [
@@ -6450,6 +6782,7 @@
   "modulo": "matriculas",
   "metodo": "POST",
   "ruta": "/api/matriculas/:id/doc/:tipo",
+  "relativa": "POST /:id/doc/:tipo",
   "controlador": "uploadDoc",
   "publica": false,
   "guardias": [
@@ -6474,6 +6807,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/panel/",
+  "relativa": "GET /panel/",
   "controlador": "estado",
   "publica": false,
   "guardias": [
@@ -6489,6 +6823,7 @@
   "modulo": "mcp",
   "metodo": "POST",
   "ruta": "/api/mcp/panel/tokens",
+  "relativa": "POST /panel/tokens",
   "controlador": "crearToken",
   "publica": false,
   "guardias": [
@@ -6506,6 +6841,7 @@
   "modulo": "mcp",
   "metodo": "DELETE",
   "ruta": "/api/mcp/panel/tokens/:id",
+  "relativa": "DELETE /panel/tokens/:id",
   "controlador": "revocarToken",
   "publica": false,
   "guardias": [
@@ -6521,6 +6857,7 @@
   "modulo": "mcp",
   "metodo": "POST",
   "ruta": "/api/mcp/panel/codigo",
+  "relativa": "POST /panel/codigo",
   "controlador": "crearCodigo",
   "publica": false,
   "guardias": [
@@ -6538,6 +6875,7 @@
   "modulo": "mcp",
   "metodo": "POST",
   "ruta": "/api/mcp/panel/tokens/:id/desbloquear",
+  "relativa": "POST /panel/tokens/:id/desbloquear",
   "controlador": "desbloquearUrl",
   "publica": false,
   "guardias": [
@@ -6555,6 +6893,7 @@
   "modulo": "mcp",
   "metodo": "PATCH",
   "ruta": "/api/mcp/panel/conexiones/:id",
+  "relativa": "PATCH /panel/conexiones/:id",
   "controlador": "decidirConexion",
   "publica": false,
   "guardias": [
@@ -6570,6 +6909,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/panel/personas",
+  "relativa": "GET /panel/personas",
   "controlador": "personas",
   "publica": false,
   "guardias": [
@@ -6593,6 +6933,7 @@
   "modulo": "mcp",
   "metodo": "PATCH",
   "ruta": "/api/mcp/panel/personas/:id",
+  "relativa": "PATCH /panel/personas/:id",
   "controlador": "cambiarAcceso",
   "publica": false,
   "guardias": [
@@ -6616,6 +6957,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/panel/actividad",
+  "relativa": "GET /panel/actividad",
   "controlador": "actividad",
   "publica": false,
   "guardias": [
@@ -6639,6 +6981,7 @@
   "modulo": "mcp",
   "metodo": "POST",
   "ruta": "/api/mcp/panel/interruptor",
+  "relativa": "POST /panel/interruptor",
   "controlador": "interruptor",
   "publica": false,
   "guardias": [
@@ -6661,6 +7004,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/oauth/recurso/mcp/u/:secreto",
+  "relativa": "GET /oauth/recurso/mcp/u/:secreto",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -6672,6 +7016,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/oauth/metadatos",
+  "relativa": "GET /oauth/metadatos",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -6683,6 +7028,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/oauth/.well-known/oauth-authorization-server",
+  "relativa": "GET /oauth/.well-known/oauth-authorization-server",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -6694,6 +7040,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/oauth/.well-known/openid-configuration",
+  "relativa": "GET /oauth/.well-known/openid-configuration",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -6705,6 +7052,7 @@
   "modulo": "mcp",
   "metodo": "POST",
   "ruta": "/api/mcp/oauth/register",
+  "relativa": "POST /oauth/register",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -6716,6 +7064,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/oauth/authorize",
+  "relativa": "GET /oauth/authorize",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -6727,6 +7076,7 @@
   "modulo": "mcp",
   "metodo": "POST",
   "ruta": "/api/mcp/oauth/token",
+  "relativa": "POST /oauth/token",
   "controlador": null,
   "publica": true,
   "guardias": [],
@@ -6738,6 +7088,7 @@
   "modulo": "mcp",
   "metodo": "POST",
   "ruta": "/api/mcp/",
+  "relativa": "POST /",
   "controlador": "atenderPeticion",
   "publica": true,
   "guardias": [],
@@ -6751,6 +7102,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/",
+  "relativa": "GET /",
   "controlador": "metodoNoPermitido",
   "publica": true,
   "guardias": [],
@@ -6762,6 +7114,7 @@
   "modulo": "mcp",
   "metodo": "DELETE",
   "ruta": "/api/mcp/",
+  "relativa": "DELETE /",
   "controlador": "metodoNoPermitido",
   "publica": true,
   "guardias": [],
@@ -6773,6 +7126,7 @@
   "modulo": "mcp",
   "metodo": "POST",
   "ruta": "/api/mcp/u/:secreto",
+  "relativa": "POST /u/:secreto",
   "controlador": "atenderPeticion",
   "publica": true,
   "guardias": [],
@@ -6786,6 +7140,7 @@
   "modulo": "mcp",
   "metodo": "GET",
   "ruta": "/api/mcp/u/:secreto",
+  "relativa": "GET /u/:secreto",
   "controlador": "metodoNoPermitido",
   "publica": true,
   "guardias": [],
@@ -6797,6 +7152,7 @@
   "modulo": "mcp",
   "metodo": "DELETE",
   "ruta": "/api/mcp/u/:secreto",
+  "relativa": "DELETE /u/:secreto",
   "controlador": "metodoNoPermitido",
   "publica": true,
   "guardias": [],
@@ -6808,6 +7164,7 @@
   "modulo": "messages",
   "metodo": "GET",
   "ruta": "/api/mensajes/conversations",
+  "relativa": "GET /conversations",
   "controlador": "listConversations",
   "publica": false,
   "guardias": [
@@ -6823,6 +7180,7 @@
   "modulo": "messages",
   "metodo": "GET",
   "ruta": "/api/mensajes/conversations/unread-count",
+  "relativa": "GET /conversations/unread-count",
   "controlador": "unreadCount",
   "publica": false,
   "guardias": [
@@ -6838,6 +7196,7 @@
   "modulo": "messages",
   "metodo": "POST",
   "ruta": "/api/mensajes/conversations",
+  "relativa": "POST /conversations",
   "controlador": "createConversation",
   "publica": false,
   "guardias": [
@@ -6853,6 +7212,7 @@
   "modulo": "messages",
   "metodo": "GET",
   "ruta": "/api/mensajes/conversations/:id/messages",
+  "relativa": "GET /conversations/:id/messages",
   "controlador": "listMessages",
   "publica": false,
   "guardias": [
@@ -6868,6 +7228,7 @@
   "modulo": "messages",
   "metodo": "POST",
   "ruta": "/api/mensajes/conversations/:id/messages",
+  "relativa": "POST /conversations/:id/messages",
   "controlador": "sendMessage",
   "publica": false,
   "guardias": [
@@ -6883,6 +7244,7 @@
   "modulo": "messages",
   "metodo": "PATCH",
   "ruta": "/api/mensajes/conversations/:id/read",
+  "relativa": "PATCH /conversations/:id/read",
   "controlador": "markRead",
   "publica": false,
   "guardias": [
@@ -6898,6 +7260,7 @@
   "modulo": "messages",
   "metodo": "POST",
   "ruta": "/api/mensajes/conversations/:id/typing",
+  "relativa": "POST /conversations/:id/typing",
   "controlador": "typing",
   "publica": false,
   "guardias": [
@@ -6913,6 +7276,7 @@
   "modulo": "messages",
   "metodo": "GET",
   "ruta": "/api/mensajes/conversations/:id/typing",
+  "relativa": "GET /conversations/:id/typing",
   "controlador": "getTyping",
   "publica": false,
   "guardias": [
@@ -6928,6 +7292,7 @@
   "modulo": "messages",
   "metodo": "DELETE",
   "ruta": "/api/mensajes/messages/:msgId",
+  "relativa": "DELETE /messages/:msgId",
   "controlador": "deleteMessage",
   "publica": false,
   "guardias": [
@@ -6943,6 +7308,7 @@
   "modulo": "messages",
   "metodo": "GET",
   "ruta": "/api/mensajes/users/available",
+  "relativa": "GET /users/available",
   "controlador": "availableUsers",
   "publica": false,
   "guardias": [
@@ -6958,6 +7324,7 @@
   "modulo": "messages",
   "metodo": "GET",
   "ruta": "/api/mensajes/users/online",
+  "relativa": "GET /users/online",
   "controlador": "onlineUsers",
   "publica": false,
   "guardias": [
@@ -6973,6 +7340,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/accounts",
+  "relativa": "GET /accounts",
   "controlador": "listAccounts",
   "publica": false,
   "guardias": [
@@ -6996,6 +7364,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/account",
+  "relativa": "GET /account",
   "controlador": "getAccount",
   "publica": false,
   "guardias": [
@@ -7019,6 +7388,7 @@
   "modulo": "meta-ads",
   "metodo": "POST",
   "ruta": "/api/meta-ads/connect",
+  "relativa": "POST /connect",
   "controlador": "connect",
   "publica": false,
   "guardias": [
@@ -7042,6 +7412,7 @@
   "modulo": "meta-ads",
   "metodo": "PATCH",
   "ruta": "/api/meta-ads/accounts/:accountId/token",
+  "relativa": "PATCH /accounts/:accountId/token",
   "controlador": "updateToken",
   "publica": false,
   "guardias": [
@@ -7065,6 +7436,7 @@
   "modulo": "meta-ads",
   "metodo": "DELETE",
   "ruta": "/api/meta-ads/accounts/:accountId",
+  "relativa": "DELETE /accounts/:accountId",
   "controlador": "disconnect",
   "publica": false,
   "guardias": [
@@ -7088,6 +7460,7 @@
   "modulo": "meta-ads",
   "metodo": "POST",
   "ruta": "/api/meta-ads/accounts/:accountId/sync",
+  "relativa": "POST /accounts/:accountId/sync",
   "controlador": "syncNow",
   "publica": false,
   "guardias": [
@@ -7111,6 +7484,7 @@
   "modulo": "meta-ads",
   "metodo": "POST",
   "ruta": "/api/meta-ads/accounts/:accountId/backfill",
+  "relativa": "POST /accounts/:accountId/backfill",
   "controlador": "backfill",
   "publica": false,
   "guardias": [
@@ -7134,6 +7508,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/campaigns",
+  "relativa": "GET /campaigns",
   "controlador": "listCampaigns",
   "publica": false,
   "guardias": [
@@ -7157,6 +7532,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/campaigns/:campaignId",
+  "relativa": "GET /campaigns/:campaignId",
   "controlador": "campaignDetail",
   "publica": false,
   "guardias": [
@@ -7180,6 +7556,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/campaigns/:campaignId/adsets",
+  "relativa": "GET /campaigns/:campaignId/adsets",
   "controlador": "listAdSets",
   "publica": false,
   "guardias": [
@@ -7203,6 +7580,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/adsets/:adsetId/ads",
+  "relativa": "GET /adsets/:adsetId/ads",
   "controlador": "listAds",
   "publica": false,
   "guardias": [
@@ -7226,6 +7604,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/dashboard",
+  "relativa": "GET /dashboard",
   "controlador": "dashboard",
   "publica": false,
   "guardias": [
@@ -7249,6 +7628,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/associations",
+  "relativa": "GET /associations",
   "controlador": "listAssociations",
   "publica": false,
   "guardias": [
@@ -7272,6 +7652,7 @@
   "modulo": "meta-ads",
   "metodo": "POST",
   "ruta": "/api/meta-ads/associations",
+  "relativa": "POST /associations",
   "controlador": "setAssociations",
   "publica": false,
   "guardias": [
@@ -7295,6 +7676,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/adset-associations",
+  "relativa": "GET /adset-associations",
   "controlador": "listAdSetAssociations",
   "publica": false,
   "guardias": [
@@ -7318,6 +7700,7 @@
   "modulo": "meta-ads",
   "metodo": "POST",
   "ruta": "/api/meta-ads/adset-associations",
+  "relativa": "POST /adset-associations",
   "controlador": "setAdSetAssociations",
   "publica": false,
   "guardias": [
@@ -7341,6 +7724,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/roi",
+  "relativa": "GET /roi",
   "controlador": "getRoi",
   "publica": false,
   "guardias": [
@@ -7364,6 +7748,7 @@
   "modulo": "meta-ads",
   "metodo": "GET",
   "ruta": "/api/meta-ads/products-view",
+  "relativa": "GET /products-view",
   "controlador": "getProductsView",
   "publica": false,
   "guardias": [
@@ -7387,6 +7772,7 @@
   "modulo": "notifications",
   "metodo": "GET",
   "ruta": "/api/notifications/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -7402,6 +7788,7 @@
   "modulo": "notifications",
   "metodo": "GET",
   "ruta": "/api/notifications/unread-count",
+  "relativa": "GET /unread-count",
   "controlador": "unreadCount",
   "publica": false,
   "guardias": [
@@ -7417,6 +7804,7 @@
   "modulo": "notifications",
   "metodo": "GET",
   "ruta": "/api/notifications/preferences",
+  "relativa": "GET /preferences",
   "controlador": "getPreferences",
   "publica": false,
   "guardias": [
@@ -7432,6 +7820,7 @@
   "modulo": "notifications",
   "metodo": "PUT",
   "ruta": "/api/notifications/preferences",
+  "relativa": "PUT /preferences",
   "controlador": "putPreferences",
   "publica": false,
   "guardias": [
@@ -7447,6 +7836,7 @@
   "modulo": "notifications",
   "metodo": "PATCH",
   "ruta": "/api/notifications/read-group",
+  "relativa": "PATCH /read-group",
   "controlador": "markReadGroup",
   "publica": false,
   "guardias": [
@@ -7462,6 +7852,7 @@
   "modulo": "notifications",
   "metodo": "PATCH",
   "ruta": "/api/notifications/:id/read",
+  "relativa": "PATCH /:id/read",
   "controlador": "markRead",
   "publica": false,
   "guardias": [
@@ -7477,6 +7868,7 @@
   "modulo": "notifications",
   "metodo": "PATCH",
   "ruta": "/api/notifications/mark-all-read",
+  "relativa": "PATCH /mark-all-read",
   "controlador": "markAllRead",
   "publica": false,
   "guardias": [
@@ -7492,6 +7884,7 @@
   "modulo": "novedades",
   "metodo": "GET",
   "ruta": "/api/novedades/",
+  "relativa": "GET /",
   "controlador": "listar",
   "publica": false,
   "guardias": [
@@ -7507,6 +7900,7 @@
   "modulo": "novedades",
   "metodo": "GET",
   "ruta": "/api/novedades/:version/pdf",
+  "relativa": "GET /:version/pdf",
   "controlador": "pdf",
   "publica": false,
   "guardias": [
@@ -7522,6 +7916,7 @@
   "modulo": "novedades",
   "metodo": "GET",
   "ruta": "/api/novedades/:version/envios",
+  "relativa": "GET /:version/envios",
   "controlador": "envios",
   "publica": false,
   "guardias": [
@@ -7546,6 +7941,7 @@
   "modulo": "novedades",
   "metodo": "POST",
   "ruta": "/api/novedades/:version/enviar",
+  "relativa": "POST /:version/enviar",
   "controlador": "enviar",
   "publica": false,
   "guardias": [
@@ -7569,6 +7965,7 @@
   "modulo": "payroll",
   "metodo": "GET",
   "ruta": "/api/payroll/plans",
+  "relativa": "GET /plans",
   "controlador": "listPlans",
   "publica": false,
   "guardias": [
@@ -7592,6 +7989,7 @@
   "modulo": "payroll",
   "metodo": "PUT",
   "ruta": "/api/payroll/plans",
+  "relativa": "PUT /plans",
   "controlador": "upsertPlan",
   "publica": false,
   "guardias": [
@@ -7615,6 +8013,7 @@
   "modulo": "payroll",
   "metodo": "DELETE",
   "ruta": "/api/payroll/plans/:id",
+  "relativa": "DELETE /plans/:id",
   "controlador": "deletePlan",
   "publica": false,
   "guardias": [
@@ -7638,6 +8037,7 @@
   "modulo": "payroll",
   "metodo": "GET",
   "ruta": "/api/payroll/hours",
+  "relativa": "GET /hours",
   "controlador": "listHours",
   "publica": false,
   "guardias": [
@@ -7661,6 +8061,7 @@
   "modulo": "payroll",
   "metodo": "POST",
   "ruta": "/api/payroll/hours",
+  "relativa": "POST /hours",
   "controlador": "createHours",
   "publica": false,
   "guardias": [
@@ -7685,6 +8086,7 @@
   "modulo": "payroll",
   "metodo": "DELETE",
   "ruta": "/api/payroll/hours/:id",
+  "relativa": "DELETE /hours/:id",
   "controlador": "deleteHours",
   "publica": false,
   "guardias": [
@@ -7708,6 +8110,7 @@
   "modulo": "payroll",
   "metodo": "GET",
   "ruta": "/api/payroll/periods",
+  "relativa": "GET /periods",
   "controlador": "listPeriods",
   "publica": false,
   "guardias": [
@@ -7731,6 +8134,7 @@
   "modulo": "payroll",
   "metodo": "GET",
   "ruta": "/api/payroll/periods/:id",
+  "relativa": "GET /periods/:id",
   "controlador": "getPeriod",
   "publica": false,
   "guardias": [
@@ -7754,6 +8158,7 @@
   "modulo": "payroll",
   "metodo": "POST",
   "ruta": "/api/payroll/periods/generate",
+  "relativa": "POST /periods/generate",
   "controlador": "generatePeriod",
   "publica": false,
   "guardias": [
@@ -7777,6 +8182,7 @@
   "modulo": "payroll",
   "metodo": "POST",
   "ruta": "/api/payroll/periods/:id/close",
+  "relativa": "POST /periods/:id/close",
   "controlador": "closePeriod",
   "publica": false,
   "guardias": [
@@ -7800,6 +8206,7 @@
   "modulo": "payroll",
   "metodo": "POST",
   "ruta": "/api/payroll/periods/:id/pay",
+  "relativa": "POST /periods/:id/pay",
   "controlador": "payPeriod",
   "publica": false,
   "guardias": [
@@ -7823,6 +8230,7 @@
   "modulo": "payroll",
   "metodo": "POST",
   "ruta": "/api/payroll/adjustments",
+  "relativa": "POST /adjustments",
   "controlador": "addAdjustment",
   "publica": false,
   "guardias": [
@@ -7846,6 +8254,7 @@
   "modulo": "payroll",
   "metodo": "DELETE",
   "ruta": "/api/payroll/adjustments/:id",
+  "relativa": "DELETE /adjustments/:id",
   "controlador": "deleteAdjustment",
   "publica": false,
   "guardias": [
@@ -7864,11 +8273,28 @@
   "puertas": []
  },
  {
+  "id": "GET /api/permissions/catalogo",
+  "tipo": "ruta",
+  "modulo": "permissions",
+  "metodo": "GET",
+  "ruta": "/api/permissions/catalogo",
+  "relativa": "GET /catalogo",
+  "controlador": "getCatalogo",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/permissions/system-defaults",
   "tipo": "ruta",
   "modulo": "permissions",
   "metodo": "GET",
   "ruta": "/api/permissions/system-defaults",
+  "relativa": "GET /system-defaults",
   "controlador": "getSystemDefaults",
   "publica": false,
   "guardias": [
@@ -7884,6 +8310,7 @@
   "modulo": "permissions",
   "metodo": "GET",
   "ruta": "/api/permissions/custom-roles",
+  "relativa": "GET /custom-roles",
   "controlador": "listCustomRoles",
   "publica": false,
   "guardias": [
@@ -7907,6 +8334,7 @@
   "modulo": "permissions",
   "metodo": "GET",
   "ruta": "/api/permissions/custom-roles/:id",
+  "relativa": "GET /custom-roles/:id",
   "controlador": "getCustomRole",
   "publica": false,
   "guardias": [
@@ -7930,6 +8358,7 @@
   "modulo": "permissions",
   "metodo": "POST",
   "ruta": "/api/permissions/custom-roles",
+  "relativa": "POST /custom-roles",
   "controlador": "createCustomRole",
   "publica": false,
   "guardias": [
@@ -7953,6 +8382,7 @@
   "modulo": "permissions",
   "metodo": "PUT",
   "ruta": "/api/permissions/custom-roles/:id",
+  "relativa": "PUT /custom-roles/:id",
   "controlador": "updateCustomRole",
   "publica": false,
   "guardias": [
@@ -7976,6 +8406,7 @@
   "modulo": "permissions",
   "metodo": "DELETE",
   "ruta": "/api/permissions/custom-roles/:id",
+  "relativa": "DELETE /custom-roles/:id",
   "controlador": "deleteCustomRole",
   "publica": false,
   "guardias": [
@@ -7998,6 +8429,7 @@
   "modulo": "permissions",
   "metodo": "GET",
   "ruta": "/api/permissions/users/:userId/permissions",
+  "relativa": "GET /users/:userId/permissions",
   "controlador": "getUserPermissions",
   "publica": false,
   "guardias": [
@@ -8021,6 +8453,7 @@
   "modulo": "permissions",
   "metodo": "PUT",
   "ruta": "/api/permissions/users/:userId/permissions",
+  "relativa": "PUT /users/:userId/permissions",
   "controlador": "saveUserPermissions",
   "publica": false,
   "guardias": [
@@ -8044,6 +8477,7 @@
   "modulo": "permissions",
   "metodo": "GET",
   "ruta": "/api/permissions/role-permissions/:roleKey",
+  "relativa": "GET /role-permissions/:roleKey",
   "controlador": "getRolePermissions",
   "publica": false,
   "guardias": [
@@ -8067,6 +8501,7 @@
   "modulo": "permissions",
   "metodo": "PUT",
   "ruta": "/api/permissions/role-permissions/:roleKey",
+  "relativa": "PUT /role-permissions/:roleKey",
   "controlador": "saveRolePermissions",
   "publica": false,
   "guardias": [
@@ -8090,6 +8525,7 @@
   "modulo": "permissions",
   "metodo": "GET",
   "ruta": "/api/permissions/claves/:clave/rol/:roleKey",
+  "relativa": "GET /claves/:clave/rol/:roleKey",
   "controlador": "getClaveDeRol",
   "publica": false,
   "guardias": [
@@ -8113,6 +8549,7 @@
   "modulo": "permissions",
   "metodo": "PUT",
   "ruta": "/api/permissions/claves/:clave/rol/:roleKey",
+  "relativa": "PUT /claves/:clave/rol/:roleKey",
   "controlador": "setClaveDeRol",
   "publica": false,
   "guardias": [
@@ -8135,6 +8572,7 @@
   "modulo": "permissions",
   "metodo": "GET",
   "ruta": "/api/permissions/claves/:clave/personas",
+  "relativa": "GET /claves/:clave/personas",
   "controlador": "personasDeLaClave",
   "publica": false,
   "guardias": [
@@ -8158,6 +8596,7 @@
   "modulo": "permissions",
   "metodo": "PUT",
   "ruta": "/api/permissions/claves/:clave/personas/:userId",
+  "relativa": "PUT /claves/:clave/personas/:userId",
   "controlador": "setClaveDePersona",
   "publica": false,
   "guardias": [
@@ -8181,6 +8620,7 @@
   "modulo": "permissions",
   "metodo": "GET",
   "ruta": "/api/permissions/role-views/:roleKey",
+  "relativa": "GET /role-views/:roleKey",
   "controlador": "getRoleView",
   "publica": false,
   "guardias": [
@@ -8196,6 +8636,7 @@
   "modulo": "permissions",
   "metodo": "PUT",
   "ruta": "/api/permissions/role-views/:roleKey",
+  "relativa": "PUT /role-views/:roleKey",
   "controlador": "setRoleView",
   "publica": false,
   "guardias": [
@@ -8219,6 +8660,7 @@
   "modulo": "proceso",
   "metodo": "GET",
   "ruta": "/api/proceso/pasos",
+  "relativa": "GET /pasos",
   "controlador": "listarPasos",
   "publica": false,
   "guardias": [
@@ -8238,6 +8680,7 @@
   "modulo": "proceso",
   "metodo": "POST",
   "ruta": "/api/proceso/pasos",
+  "relativa": "POST /pasos",
   "controlador": "crearPaso",
   "publica": false,
   "guardias": [
@@ -8265,6 +8708,7 @@
   "modulo": "proceso",
   "metodo": "PATCH",
   "ruta": "/api/proceso/pasos/orden",
+  "relativa": "PATCH /pasos/orden",
   "controlador": "reordenarPasos",
   "publica": false,
   "guardias": [
@@ -8292,6 +8736,7 @@
   "modulo": "proceso",
   "metodo": "PATCH",
   "ruta": "/api/proceso/pasos/:id",
+  "relativa": "PATCH /pasos/:id",
   "controlador": "editarPaso",
   "publica": false,
   "guardias": [
@@ -8319,6 +8764,7 @@
   "modulo": "proceso",
   "metodo": "DELETE",
   "ruta": "/api/proceso/pasos/:id",
+  "relativa": "DELETE /pasos/:id",
   "controlador": "desactivarPaso",
   "publica": false,
   "guardias": [
@@ -8346,6 +8792,7 @@
   "modulo": "proceso",
   "metodo": "GET",
   "ruta": "/api/proceso/cola",
+  "relativa": "GET /cola",
   "controlador": "cola",
   "publica": false,
   "guardias": [
@@ -8361,6 +8808,7 @@
   "modulo": "proceso",
   "metodo": "GET",
   "ruta": "/api/proceso/cola/resumen",
+  "relativa": "GET /cola/resumen",
   "controlador": "resumenCola",
   "publica": false,
   "guardias": [
@@ -8376,6 +8824,7 @@
   "modulo": "proceso",
   "metodo": "GET",
   "ruta": "/api/proceso/seguimiento",
+  "relativa": "GET /seguimiento",
   "controlador": "seguimiento",
   "publica": false,
   "guardias": [
@@ -8391,6 +8840,7 @@
   "modulo": "proceso",
   "metodo": "GET",
   "ruta": "/api/proceso/seguimiento/resumen",
+  "relativa": "GET /seguimiento/resumen",
   "controlador": "resumenSeguimiento",
   "publica": false,
   "guardias": [
@@ -8406,6 +8856,7 @@
   "modulo": "proceso",
   "metodo": "GET",
   "ruta": "/api/proceso/seguimiento/wasapi",
+  "relativa": "GET /seguimiento/wasapi",
   "controlador": "wasapiSeguimiento",
   "publica": false,
   "guardias": [
@@ -8421,6 +8872,7 @@
   "modulo": "proceso",
   "metodo": "GET",
   "ruta": "/api/proceso/lead/:leadId",
+  "relativa": "GET /lead/:leadId",
   "controlador": "pasosDeUnLead",
   "publica": false,
   "guardias": [
@@ -8436,6 +8888,7 @@
   "modulo": "proceso",
   "metodo": "POST",
   "ruta": "/api/proceso/lead/:leadId/replanificar",
+  "relativa": "POST /lead/:leadId/replanificar",
   "controlador": "replanificar",
   "publica": false,
   "guardias": [
@@ -8459,6 +8912,7 @@
   "modulo": "proceso",
   "metodo": "PATCH",
   "ruta": "/api/proceso/paso-lead/:id",
+  "relativa": "PATCH /paso-lead/:id",
   "controlador": "ajustarPasoDeLead",
   "publica": false,
   "guardias": [
@@ -8474,6 +8928,7 @@
   "modulo": "proceso",
   "metodo": "POST",
   "ruta": "/api/proceso/lead/:leadId/seguimiento",
+  "relativa": "POST /lead/:leadId/seguimiento",
   "controlador": "anadirSeguimientoDeLead",
   "publica": false,
   "guardias": [
@@ -8489,6 +8944,7 @@
   "modulo": "product-categories",
   "metodo": "GET",
   "ruta": "/api/product-categories/tree",
+  "relativa": "GET /tree",
   "controlador": "getTree",
   "publica": false,
   "guardias": [
@@ -8504,6 +8960,7 @@
   "modulo": "product-categories",
   "metodo": "GET",
   "ruta": "/api/product-categories/project/:projectId",
+  "relativa": "GET /project/:projectId",
   "controlador": "listByProject",
   "publica": false,
   "guardias": [
@@ -8519,6 +8976,7 @@
   "modulo": "product-categories",
   "metodo": "GET",
   "ruta": "/api/product-categories/:id/ancestors",
+  "relativa": "GET /:id/ancestors",
   "controlador": "getAncestors",
   "publica": false,
   "guardias": [
@@ -8534,6 +8992,7 @@
   "modulo": "product-categories",
   "metodo": "POST",
   "ruta": "/api/product-categories/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -8557,6 +9016,7 @@
   "modulo": "product-categories",
   "metodo": "PATCH",
   "ruta": "/api/product-categories/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -8580,6 +9040,7 @@
   "modulo": "product-categories",
   "metodo": "DELETE",
   "ruta": "/api/product-categories/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -8603,6 +9064,7 @@
   "modulo": "products",
   "metodo": "GET",
   "ruta": "/api/products/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -8622,6 +9084,7 @@
   "modulo": "products",
   "metodo": "GET",
   "ruta": "/api/products/export",
+  "relativa": "GET /export",
   "controlador": "exportAll",
   "publica": false,
   "guardias": [
@@ -8641,6 +9104,7 @@
   "modulo": "products",
   "metodo": "GET",
   "ruta": "/api/products/leads-stats",
+  "relativa": "GET /leads-stats",
   "controlador": "leadsStats",
   "publica": false,
   "guardias": [
@@ -8660,6 +9124,7 @@
   "modulo": "products",
   "metodo": "GET",
   "ruta": "/api/products/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -8679,6 +9144,7 @@
   "modulo": "products",
   "metodo": "GET",
   "ruta": "/api/products/:id/image-url",
+  "relativa": "GET /:id/image-url",
   "controlador": "getImageUrl",
   "publica": false,
   "guardias": [
@@ -8698,6 +9164,7 @@
   "modulo": "products",
   "metodo": "POST",
   "ruta": "/api/products/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -8725,6 +9192,7 @@
   "modulo": "products",
   "metodo": "PATCH",
   "ruta": "/api/products/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -8752,6 +9220,7 @@
   "modulo": "products",
   "metodo": "DELETE",
   "ruta": "/api/products/:id",
+  "relativa": "DELETE /:id",
   "controlador": "deactivate",
   "publica": false,
   "guardias": [
@@ -8779,6 +9248,7 @@
   "modulo": "products",
   "metodo": "POST",
   "ruta": "/api/products/:id/image",
+  "relativa": "POST /:id/image",
   "controlador": "uploadImage",
   "publica": false,
   "guardias": [
@@ -8806,6 +9276,7 @@
   "modulo": "products",
   "metodo": "DELETE",
   "ruta": "/api/products/:id/image",
+  "relativa": "DELETE /:id/image",
   "controlador": "removeImage",
   "publica": false,
   "guardias": [
@@ -8833,6 +9304,7 @@
   "modulo": "products",
   "metodo": "GET",
   "ruta": "/api/products/:id/modules",
+  "relativa": "GET /:id/modules",
   "controlador": "listModules",
   "publica": false,
   "guardias": [
@@ -8852,6 +9324,7 @@
   "modulo": "products",
   "metodo": "POST",
   "ruta": "/api/products/:id/modules",
+  "relativa": "POST /:id/modules",
   "controlador": "createModule",
   "publica": false,
   "guardias": [
@@ -8879,6 +9352,7 @@
   "modulo": "products",
   "metodo": "PATCH",
   "ruta": "/api/products/:id/modules/:moduleId",
+  "relativa": "PATCH /:id/modules/:moduleId",
   "controlador": "updateModule",
   "publica": false,
   "guardias": [
@@ -8906,6 +9380,7 @@
   "modulo": "products",
   "metodo": "DELETE",
   "ruta": "/api/products/:id/modules/:moduleId",
+  "relativa": "DELETE /:id/modules/:moduleId",
   "controlador": "deleteModule",
   "publica": false,
   "guardias": [
@@ -8933,6 +9408,7 @@
   "modulo": "products",
   "metodo": "POST",
   "ruta": "/api/products/:id/modules/reorder",
+  "relativa": "POST /:id/modules/reorder",
   "controlador": "reorderModules",
   "publica": false,
   "guardias": [
@@ -8960,6 +9436,7 @@
   "modulo": "project-channels",
   "metodo": "GET",
   "ruta": "/api/project-channels/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -8975,6 +9452,7 @@
   "modulo": "project-channels",
   "metodo": "POST",
   "ruta": "/api/project-channels/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -8998,6 +9476,7 @@
   "modulo": "project-channels",
   "metodo": "PATCH",
   "ruta": "/api/project-channels/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -9021,6 +9500,7 @@
   "modulo": "project-channels",
   "metodo": "DELETE",
   "ruta": "/api/project-channels/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -9044,6 +9524,7 @@
   "modulo": "projects",
   "metodo": "GET",
   "ruta": "/api/projects/:id/logo",
+  "relativa": "GET /:id/logo",
   "controlador": "getLogo",
   "publica": true,
   "guardias": [],
@@ -9055,6 +9536,7 @@
   "modulo": "projects",
   "metodo": "GET",
   "ruta": "/api/projects/shortcuts/catalog",
+  "relativa": "GET /shortcuts/catalog",
   "controlador": "getCatalog",
   "publica": false,
   "guardias": [
@@ -9070,6 +9552,7 @@
   "modulo": "projects",
   "metodo": "GET",
   "ruta": "/api/projects/types",
+  "relativa": "GET /types",
   "controlador": "types",
   "publica": false,
   "guardias": [
@@ -9085,6 +9568,7 @@
   "modulo": "projects",
   "metodo": "GET",
   "ruta": "/api/projects/sociedades",
+  "relativa": "GET /sociedades",
   "controlador": "listSociedades",
   "publica": false,
   "guardias": [
@@ -9100,6 +9584,7 @@
   "modulo": "projects",
   "metodo": "POST",
   "ruta": "/api/projects/sociedades",
+  "relativa": "POST /sociedades",
   "controlador": "createSociedad",
   "publica": false,
   "guardias": [
@@ -9122,6 +9607,7 @@
   "modulo": "projects",
   "metodo": "GET",
   "ruta": "/api/projects/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -9137,6 +9623,7 @@
   "modulo": "projects",
   "metodo": "GET",
   "ruta": "/api/projects/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -9152,6 +9639,7 @@
   "modulo": "projects",
   "metodo": "POST",
   "ruta": "/api/projects/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -9174,6 +9662,7 @@
   "modulo": "projects",
   "metodo": "PATCH",
   "ruta": "/api/projects/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -9196,6 +9685,7 @@
   "modulo": "projects",
   "metodo": "POST",
   "ruta": "/api/projects/:id/regenerate-webhook-key",
+  "relativa": "POST /:id/regenerate-webhook-key",
   "controlador": "regenerateKey",
   "publica": false,
   "guardias": [
@@ -9218,6 +9708,7 @@
   "modulo": "projects",
   "metodo": "POST",
   "ruta": "/api/projects/:id/logo",
+  "relativa": "POST /:id/logo",
   "controlador": "uploadLogo",
   "publica": false,
   "guardias": [
@@ -9241,6 +9732,7 @@
   "modulo": "projects",
   "metodo": "DELETE",
   "ruta": "/api/projects/:id/logo",
+  "relativa": "DELETE /:id/logo",
   "controlador": "deleteLogo",
   "publica": false,
   "guardias": [
@@ -9264,6 +9756,7 @@
   "modulo": "projects",
   "metodo": "PUT",
   "ruta": "/api/projects/:id/shortcuts",
+  "relativa": "PUT /:id/shortcuts",
   "controlador": "saveShortcuts",
   "publica": false,
   "guardias": [
@@ -9287,6 +9780,7 @@
   "modulo": "projects",
   "metodo": "GET",
   "ruta": "/api/projects/:id/ultimo-lead",
+  "relativa": "GET /:id/ultimo-lead",
   "controlador": "getUltimoLead",
   "publica": false,
   "guardias": [
@@ -9302,6 +9796,7 @@
   "modulo": "projects",
   "metodo": "GET",
   "ruta": "/api/projects/:id/queue-state",
+  "relativa": "GET /:id/queue-state",
   "controlador": "getQueueState",
   "publica": false,
   "guardias": [
@@ -9317,6 +9812,7 @@
   "modulo": "registro",
   "metodo": "GET",
   "ruta": "/api/registro/",
+  "relativa": "GET /",
   "controlador": "listar",
   "publica": false,
   "guardias": [
@@ -9340,6 +9836,7 @@
   "modulo": "registro",
   "metodo": "GET",
   "ruta": "/api/registro/fuentes",
+  "relativa": "GET /fuentes",
   "controlador": "fuentes",
   "publica": false,
   "guardias": [
@@ -9363,6 +9860,7 @@
   "modulo": "registro",
   "metodo": "GET",
   "ruta": "/api/registro/csv",
+  "relativa": "GET /csv",
   "controlador": "csv",
   "publica": false,
   "guardias": [
@@ -9386,6 +9884,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/overview",
+  "relativa": "GET /overview",
   "controlador": "overview",
   "publica": false,
   "guardias": [
@@ -9409,6 +9908,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/resumen-mensual",
+  "relativa": "GET /resumen-mensual",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -9424,6 +9924,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/prospectos",
+  "relativa": "GET /prospectos",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -9439,6 +9940,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/ventas",
+  "relativa": "GET /ventas",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -9454,6 +9956,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/general",
+  "relativa": "GET /general",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -9469,6 +9972,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/general-facturacion",
+  "relativa": "GET /general-facturacion",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -9484,6 +9988,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/cobros-mensuales",
+  "relativa": "GET /cobros-mensuales",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -9499,6 +10004,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/ventas-vendedora",
+  "relativa": "GET /ventas-vendedora",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -9514,6 +10020,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/ventas-asesora",
+  "relativa": "GET /ventas-asesora",
   "controlador": "ventasAsesora",
   "publica": false,
   "guardias": [
@@ -9529,6 +10036,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/asesoras-mes",
+  "relativa": "GET /asesoras-mes",
   "controlador": "asesorasMes",
   "publica": false,
   "guardias": [
@@ -9544,6 +10052,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/mi-puesto",
+  "relativa": "GET /mi-puesto",
   "controlador": "miPuesto",
   "publica": false,
   "guardias": [
@@ -9559,6 +10068,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/panel",
+  "relativa": "GET /panel",
   "controlador": "panel",
   "publica": false,
   "guardias": [
@@ -9574,6 +10084,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/seguimiento",
+  "relativa": "GET /seguimiento",
   "controlador": "seguimiento",
   "publica": false,
   "guardias": [
@@ -9589,6 +10100,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/paises",
+  "relativa": "GET /paises",
   "controlador": "paises",
   "publica": false,
   "guardias": [
@@ -9604,6 +10116,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/formaciones",
+  "relativa": "GET /formaciones",
   "controlador": "formaciones",
   "publica": false,
   "guardias": [
@@ -9619,6 +10132,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/detalle",
+  "relativa": "GET /detalle",
   "controlador": "detalle",
   "publica": false,
   "guardias": [
@@ -9634,6 +10148,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/aviso-sin-factura",
+  "relativa": "GET /aviso-sin-factura",
   "controlador": "avisoSinFactura",
   "publica": false,
   "guardias": [
@@ -9649,6 +10164,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/tasa-cierre",
+  "relativa": "GET /tasa-cierre",
   "controlador": "tasaCierre",
   "publica": false,
   "guardias": [
@@ -9664,6 +10180,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/tasa-cierre/detalle",
+  "relativa": "GET /tasa-cierre/detalle",
   "controlador": "tasaCierreDetalle",
   "publica": false,
   "guardias": [
@@ -9679,6 +10196,7 @@
   "modulo": "reports",
   "metodo": "GET",
   "ruta": "/api/informes/resumen-del-dia",
+  "relativa": "GET /resumen-del-dia",
   "controlador": "resumenDia",
   "publica": false,
   "guardias": [
@@ -9694,6 +10212,7 @@
   "modulo": "reports-ia",
   "metodo": "GET",
   "ruta": "/api/reports-ia/:projectId",
+  "relativa": "GET /:projectId",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -9709,6 +10228,7 @@
   "modulo": "reports-ia",
   "metodo": "GET",
   "ruta": "/api/reports-ia/detail/:id",
+  "relativa": "GET /detail/:id",
   "controlador": "getDetail",
   "publica": false,
   "guardias": [
@@ -9724,6 +10244,7 @@
   "modulo": "reports-ia",
   "metodo": "POST",
   "ruta": "/api/reports-ia/:projectId/generate",
+  "relativa": "POST /:projectId/generate",
   "controlador": "generate",
   "publica": false,
   "guardias": [
@@ -9748,6 +10269,7 @@
   "modulo": "reports-ia",
   "metodo": "POST",
   "ruta": "/api/reports-ia/:id/export-pdf",
+  "relativa": "POST /:id/export-pdf",
   "controlador": "exportPdf",
   "publica": false,
   "guardias": [
@@ -9772,6 +10294,7 @@
   "modulo": "sales",
   "metodo": "POST",
   "ruta": "/api/ventas/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -9796,6 +10319,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/resumen",
+  "relativa": "GET /resumen",
   "controlador": "resumenVentas",
   "publica": false,
   "guardias": [
@@ -9819,6 +10343,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/por-asesora",
+  "relativa": "GET /por-asesora",
   "controlador": "ventasPorAsesora",
   "publica": false,
   "guardias": [
@@ -9842,6 +10367,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/por-cliente",
+  "relativa": "GET /por-cliente",
   "controlador": "ventasPorCliente",
   "publica": false,
   "guardias": [
@@ -9857,6 +10383,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/top-products",
+  "relativa": "GET /top-products",
   "controlador": "topProducts",
   "publica": false,
   "guardias": [
@@ -9872,6 +10399,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/facturado",
+  "relativa": "GET /facturado",
   "controlador": "facturado",
   "publica": false,
   "guardias": [
@@ -9887,6 +10415,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/gestores-stats",
+  "relativa": "GET /gestores-stats",
   "controlador": "gestoresStats",
   "publica": false,
   "guardias": [
@@ -9910,6 +10439,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/desglose",
+  "relativa": "GET /desglose",
   "controlador": "desglose",
   "publica": false,
   "guardias": [
@@ -9925,6 +10455,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/paises",
+  "relativa": "GET /paises",
   "controlador": "paises",
   "publica": false,
   "guardias": [
@@ -9940,6 +10471,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/serie",
+  "relativa": "GET /serie",
   "controlador": "serieVentas",
   "publica": false,
   "guardias": [
@@ -9955,6 +10487,7 @@
   "modulo": "sales",
   "metodo": "GET",
   "ruta": "/api/ventas/my-stats",
+  "relativa": "GET /my-stats",
   "controlador": "myStats",
   "publica": false,
   "guardias": [
@@ -9970,6 +10503,7 @@
   "modulo": "sales",
   "metodo": "POST",
   "ruta": "/api/ventas/goals",
+  "relativa": "POST /goals",
   "controlador": "setGoal",
   "publica": false,
   "guardias": [
@@ -9985,6 +10519,7 @@
   "modulo": "sales",
   "metodo": "DELETE",
   "ruta": "/api/ventas/goals/:id",
+  "relativa": "DELETE /goals/:id",
   "controlador": "deleteGoal",
   "publica": false,
   "guardias": [
@@ -10000,6 +10535,7 @@
   "modulo": "status",
   "metodo": "GET",
   "ruta": "/api/status/",
+  "relativa": "GET /",
   "controlador": "getStatus",
   "publica": true,
   "guardias": [],
@@ -10011,6 +10547,7 @@
   "modulo": "status",
   "metodo": "GET",
   "ruta": "/api/status/incidents",
+  "relativa": "GET /incidents",
   "controlador": "getIncidents",
   "publica": true,
   "guardias": [],
@@ -10022,6 +10559,7 @@
   "modulo": "status",
   "metodo": "POST",
   "ruta": "/api/status/incidents",
+  "relativa": "POST /incidents",
   "controlador": "createIncident",
   "publica": false,
   "guardias": [
@@ -10045,6 +10583,7 @@
   "modulo": "status",
   "metodo": "PUT",
   "ruta": "/api/status/incidents/:id",
+  "relativa": "PUT /incidents/:id",
   "controlador": "updateIncident",
   "publica": false,
   "guardias": [
@@ -10068,6 +10607,7 @@
   "modulo": "status",
   "metodo": "PUT",
   "ruta": "/api/status/components/:slug",
+  "relativa": "PUT /components/:slug",
   "controlador": "updateComponent",
   "publica": false,
   "guardias": [
@@ -10091,6 +10631,7 @@
   "modulo": "status",
   "metodo": "GET",
   "ruta": "/api/status/errors",
+  "relativa": "GET /errors",
   "controlador": "getErrors",
   "publica": false,
   "guardias": [
@@ -10114,6 +10655,7 @@
   "modulo": "status",
   "metodo": "GET",
   "ruta": "/api/status/piezas",
+  "relativa": "GET /piezas",
   "controlador": "getPiezas",
   "publica": false,
   "guardias": [
@@ -10137,6 +10679,7 @@
   "modulo": "status",
   "metodo": "GET",
   "ruta": "/api/status/correos",
+  "relativa": "GET /correos",
   "controlador": "getCorreos",
   "publica": false,
   "guardias": [
@@ -10160,6 +10703,7 @@
   "modulo": "status",
   "metodo": "GET",
   "ruta": "/api/status/correos/vista-previa",
+  "relativa": "GET /correos/vista-previa",
   "controlador": "getVistaPreviaCorreos",
   "publica": false,
   "guardias": [
@@ -10183,6 +10727,7 @@
   "modulo": "stripe-payments",
   "metodo": "GET",
   "ruta": "/api/stripe-payments/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -10198,6 +10743,7 @@
   "modulo": "stripe-payments",
   "metodo": "GET",
   "ruta": "/api/stripe-payments/stats",
+  "relativa": "GET /stats",
   "controlador": "stats",
   "publica": false,
   "guardias": [
@@ -10213,6 +10759,7 @@
   "modulo": "stripe-payments",
   "metodo": "POST",
   "ruta": "/api/stripe-payments/sync",
+  "relativa": "POST /sync",
   "controlador": "sync",
   "publica": false,
   "guardias": [
@@ -10228,6 +10775,7 @@
   "modulo": "stripe-payments",
   "metodo": "GET",
   "ruta": "/api/stripe-payments/:id",
+  "relativa": "GET /:id",
   "controlador": "getOne",
   "publica": false,
   "guardias": [
@@ -10243,6 +10791,7 @@
   "modulo": "stripe-payments",
   "metodo": "POST",
   "ruta": "/api/stripe-payments/:id/link",
+  "relativa": "POST /:id/link",
   "controlador": "link",
   "publica": false,
   "guardias": [
@@ -10266,6 +10815,7 @@
   "modulo": "stripe-payments",
   "metodo": "DELETE",
   "ruta": "/api/stripe-payments/:id/link",
+  "relativa": "DELETE /:id/link",
   "controlador": "unlink",
   "publica": false,
   "guardias": [
@@ -10289,6 +10839,7 @@
   "modulo": "stripe-payments",
   "metodo": "PATCH",
   "ruta": "/api/stripe-payments/:id/dispute",
+  "relativa": "PATCH /:id/dispute",
   "controlador": "updateDispute",
   "publica": false,
   "guardias": [
@@ -10312,6 +10863,7 @@
   "modulo": "stripe-payments",
   "metodo": "POST",
   "ruta": "/api/stripe-webhook/:projectId",
+  "relativa": "POST /:projectId",
   "controlador": "webhook",
   "publica": true,
   "guardias": [],
@@ -10323,6 +10875,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/metrics",
+  "relativa": "GET /metrics",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10347,6 +10900,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/metrics/areas",
+  "relativa": "GET /metrics/areas",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10371,6 +10925,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/assignees",
+  "relativa": "GET /assignees",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10395,6 +10950,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/tags",
+  "relativa": "GET /tags",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10419,6 +10975,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/review",
+  "relativa": "GET /review",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10443,6 +11000,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/review/count",
+  "relativa": "GET /review/count",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10467,6 +11025,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/columns",
+  "relativa": "GET /columns",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10491,6 +11050,7 @@
   "modulo": "tasks",
   "metodo": "POST",
   "ruta": "/api/tasks/columns",
+  "relativa": "POST /columns",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10515,6 +11075,7 @@
   "modulo": "tasks",
   "metodo": "PATCH",
   "ruta": "/api/tasks/columns/reorder",
+  "relativa": "PATCH /columns/reorder",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10539,6 +11100,7 @@
   "modulo": "tasks",
   "metodo": "PATCH",
   "ruta": "/api/tasks/columns/:id",
+  "relativa": "PATCH /columns/:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10563,6 +11125,7 @@
   "modulo": "tasks",
   "metodo": "DELETE",
   "ruta": "/api/tasks/columns/:id",
+  "relativa": "DELETE /columns/:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10587,6 +11150,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/areas",
+  "relativa": "GET /areas",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10611,6 +11175,7 @@
   "modulo": "tasks",
   "metodo": "POST",
   "ruta": "/api/tasks/areas",
+  "relativa": "POST /areas",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10635,6 +11200,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/areas/assignments",
+  "relativa": "GET /areas/assignments",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10659,6 +11225,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/areas/user/:userId",
+  "relativa": "GET /areas/user/:userId",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10683,6 +11250,7 @@
   "modulo": "tasks",
   "metodo": "PUT",
   "ruta": "/api/tasks/areas/user/:userId",
+  "relativa": "PUT /areas/user/:userId",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10707,6 +11275,7 @@
   "modulo": "tasks",
   "metodo": "PATCH",
   "ruta": "/api/tasks/areas/:id",
+  "relativa": "PATCH /areas/:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10731,6 +11300,7 @@
   "modulo": "tasks",
   "metodo": "PUT",
   "ruta": "/api/tasks/areas/:id/members",
+  "relativa": "PUT /areas/:id/members",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10755,6 +11325,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/external-projects",
+  "relativa": "GET /external-projects",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10779,6 +11350,7 @@
   "modulo": "tasks",
   "metodo": "POST",
   "ruta": "/api/tasks/external-projects",
+  "relativa": "POST /external-projects",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10803,6 +11375,7 @@
   "modulo": "tasks",
   "metodo": "PATCH",
   "ruta": "/api/tasks/external-projects/:id",
+  "relativa": "PATCH /external-projects/:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10827,6 +11400,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/",
+  "relativa": "GET /",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10851,6 +11425,7 @@
   "modulo": "tasks",
   "metodo": "POST",
   "ruta": "/api/tasks/",
+  "relativa": "POST /",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10875,6 +11450,7 @@
   "modulo": "tasks",
   "metodo": "GET",
   "ruta": "/api/tasks/:id",
+  "relativa": "GET /:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10899,6 +11475,7 @@
   "modulo": "tasks",
   "metodo": "PATCH",
   "ruta": "/api/tasks/:id/move",
+  "relativa": "PATCH /:id/move",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10923,6 +11500,7 @@
   "modulo": "tasks",
   "metodo": "PATCH",
   "ruta": "/api/tasks/:id/return",
+  "relativa": "PATCH /:id/return",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10947,6 +11525,7 @@
   "modulo": "tasks",
   "metodo": "PATCH",
   "ruta": "/api/tasks/:id/approve",
+  "relativa": "PATCH /:id/approve",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10971,6 +11550,7 @@
   "modulo": "tasks",
   "metodo": "PATCH",
   "ruta": "/api/tasks/:id",
+  "relativa": "PATCH /:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -10995,6 +11575,7 @@
   "modulo": "tasks",
   "metodo": "DELETE",
   "ruta": "/api/tasks/:id",
+  "relativa": "DELETE /:id",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11019,6 +11600,7 @@
   "modulo": "tasks",
   "metodo": "POST",
   "ruta": "/api/tasks/:id/checklist",
+  "relativa": "POST /:id/checklist",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11043,6 +11625,7 @@
   "modulo": "tasks",
   "metodo": "PATCH",
   "ruta": "/api/tasks/:id/checklist/:itemId",
+  "relativa": "PATCH /:id/checklist/:itemId",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11067,6 +11650,7 @@
   "modulo": "tasks",
   "metodo": "DELETE",
   "ruta": "/api/tasks/:id/checklist/:itemId",
+  "relativa": "DELETE /:id/checklist/:itemId",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11091,6 +11675,7 @@
   "modulo": "tasks",
   "metodo": "POST",
   "ruta": "/api/tasks/:id/comments",
+  "relativa": "POST /:id/comments",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11115,6 +11700,7 @@
   "modulo": "tasks",
   "metodo": "DELETE",
   "ruta": "/api/tasks/:id/comments/:commentId",
+  "relativa": "DELETE /:id/comments/:commentId",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11139,6 +11725,7 @@
   "modulo": "tasks",
   "metodo": "POST",
   "ruta": "/api/tasks/:id/tags",
+  "relativa": "POST /:id/tags",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11163,6 +11750,7 @@
   "modulo": "tasks",
   "metodo": "DELETE",
   "ruta": "/api/tasks/:id/tags/:tagId",
+  "relativa": "DELETE /:id/tags/:tagId",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11187,6 +11775,7 @@
   "modulo": "tasks",
   "metodo": "POST",
   "ruta": "/api/tasks/:id/links",
+  "relativa": "POST /:id/links",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11211,6 +11800,7 @@
   "modulo": "tasks",
   "metodo": "DELETE",
   "ruta": "/api/tasks/:id/links/:linkId",
+  "relativa": "DELETE /:id/links/:linkId",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -11235,6 +11825,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/colaboraciones",
+  "relativa": "GET /colaboraciones",
   "controlador": "colaboraciones",
   "publica": false,
   "guardias": [
@@ -11252,6 +11843,7 @@
   "modulo": "tutores",
   "metodo": "POST",
   "ruta": "/api/tutores/colaboraciones",
+  "relativa": "POST /colaboraciones",
   "controlador": "crearColaboracion",
   "publica": false,
   "guardias": [
@@ -11269,6 +11861,7 @@
   "modulo": "tutores",
   "metodo": "PATCH",
   "ruta": "/api/tutores/colaboraciones/:id",
+  "relativa": "PATCH /colaboraciones/:id",
   "controlador": "editarColaboracion",
   "publica": false,
   "guardias": [
@@ -11286,6 +11879,7 @@
   "modulo": "tutores",
   "metodo": "DELETE",
   "ruta": "/api/tutores/colaboraciones/:id",
+  "relativa": "DELETE /colaboraciones/:id",
   "controlador": "borrarColaboracion",
   "publica": false,
   "guardias": [
@@ -11303,6 +11897,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/ajustes",
+  "relativa": "GET /ajustes",
   "controlador": "ajustes",
   "publica": false,
   "guardias": [
@@ -11320,6 +11915,7 @@
   "modulo": "tutores",
   "metodo": "PATCH",
   "ruta": "/api/tutores/ajustes",
+  "relativa": "PATCH /ajustes",
   "controlador": "guardarAjustes",
   "publica": false,
   "guardias": [
@@ -11337,6 +11933,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/simulacion",
+  "relativa": "GET /simulacion",
   "controlador": "simulacion",
   "publica": false,
   "guardias": [
@@ -11354,6 +11951,7 @@
   "modulo": "tutores",
   "metodo": "POST",
   "ruta": "/api/tutores/comisiones/calcular",
+  "relativa": "POST /comisiones/calcular",
   "controlador": "calcular",
   "publica": false,
   "guardias": [
@@ -11371,6 +11969,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/comisiones/resumen",
+  "relativa": "GET /comisiones/resumen",
   "controlador": "resumenComisiones",
   "publica": false,
   "guardias": [
@@ -11388,6 +11987,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/comisiones",
+  "relativa": "GET /comisiones",
   "controlador": "listarComisiones",
   "publica": false,
   "guardias": [
@@ -11405,6 +12005,7 @@
   "modulo": "tutores",
   "metodo": "POST",
   "ruta": "/api/tutores/comisiones/liquidar",
+  "relativa": "POST /comisiones/liquidar",
   "controlador": "liquidar",
   "publica": false,
   "guardias": [
@@ -11422,6 +12023,7 @@
   "modulo": "tutores",
   "metodo": "POST",
   "ruta": "/api/tutores/comisiones/:id/revertir",
+  "relativa": "POST /comisiones/:id/revertir",
   "controlador": "revertirComision",
   "publica": false,
   "guardias": [
@@ -11439,6 +12041,7 @@
   "modulo": "tutores",
   "metodo": "PATCH",
   "ruta": "/api/tutores/comisiones/:id/estado",
+  "relativa": "PATCH /comisiones/:id/estado",
   "controlador": "cambiarEstadoComision",
   "publica": false,
   "guardias": [
@@ -11456,6 +12059,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/comisiones/aviso",
+  "relativa": "GET /comisiones/aviso",
   "controlador": "previoDelAviso",
   "publica": false,
   "guardias": [
@@ -11471,6 +12075,7 @@
   "modulo": "tutores",
   "metodo": "POST",
   "ruta": "/api/tutores/comisiones/avisar",
+  "relativa": "POST /comisiones/avisar",
   "controlador": "avisarTutor",
   "publica": false,
   "guardias": [
@@ -11486,6 +12091,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/formaciones-sin-tutor",
+  "relativa": "GET /formaciones-sin-tutor",
   "controlador": "formacionesSinTutor",
   "publica": false,
   "guardias": [
@@ -11503,6 +12109,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/pagos-sin-formacion",
+  "relativa": "GET /pagos-sin-formacion",
   "controlador": "pagosSinFormacion",
   "publica": false,
   "guardias": [
@@ -11520,6 +12127,7 @@
   "modulo": "tutores",
   "metodo": "PUT",
   "ruta": "/api/tutores/formaciones/:productId/busqueda",
+  "relativa": "PUT /formaciones/:productId/busqueda",
   "controlador": "marcarBusqueda",
   "publica": false,
   "guardias": [
@@ -11537,6 +12145,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/anuncios",
+  "relativa": "GET /anuncios",
   "controlador": "anunciosDeTutores",
   "publica": false,
   "guardias": [
@@ -11554,6 +12163,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/curso/:productId",
+  "relativa": "GET /curso/:productId",
   "controlador": "cursoDetalle",
   "publica": false,
   "guardias": [
@@ -11571,6 +12181,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/curso/:productId/brochure",
+  "relativa": "GET /curso/:productId/brochure",
   "controlador": "brochureDelCurso",
   "publica": false,
   "guardias": [
@@ -11588,6 +12199,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/",
+  "relativa": "GET /",
   "controlador": "listar",
   "publica": false,
   "guardias": [
@@ -11605,6 +12217,7 @@
   "modulo": "tutores",
   "metodo": "POST",
   "ruta": "/api/tutores/",
+  "relativa": "POST /",
   "controlador": "alta",
   "publica": false,
   "guardias": [
@@ -11622,6 +12235,7 @@
   "modulo": "tutores",
   "metodo": "GET",
   "ruta": "/api/tutores/:id",
+  "relativa": "GET /:id",
   "controlador": "ficha",
   "publica": false,
   "guardias": [
@@ -11637,6 +12251,7 @@
   "modulo": "tutores",
   "metodo": "PATCH",
   "ruta": "/api/tutores/:id/perfil",
+  "relativa": "PATCH /:id/perfil",
   "controlador": "guardarPerfil",
   "publica": false,
   "guardias": [
@@ -11652,6 +12267,7 @@
   "modulo": "tutores",
   "metodo": "PATCH",
   "ruta": "/api/tutores/:id/cobra-desde",
+  "relativa": "PATCH /:id/cobra-desde",
   "controlador": "cambiarCobraDesde",
   "publica": false,
   "guardias": [
@@ -11669,6 +12285,7 @@
   "modulo": "tutores",
   "metodo": "POST",
   "ruta": "/api/tutores/:id/contrasena",
+  "relativa": "POST /:id/contrasena",
   "controlador": "cambiarContrasena",
   "publica": false,
   "guardias": [
@@ -11686,6 +12303,7 @@
   "modulo": "tutores",
   "metodo": "POST",
   "ruta": "/api/tutores/:id/reactivar",
+  "relativa": "POST /:id/reactivar",
   "controlador": "reactivarTutor",
   "publica": false,
   "guardias": [
@@ -11703,6 +12321,7 @@
   "modulo": "tutores",
   "metodo": "DELETE",
   "ruta": "/api/tutores/:id",
+  "relativa": "DELETE /:id",
   "controlador": "retirarTutor",
   "publica": false,
   "guardias": [
@@ -11720,6 +12339,7 @@
   "modulo": "users",
   "metodo": "GET",
   "ruta": "/api/users/:id/avatar",
+  "relativa": "GET /:id/avatar",
   "controlador": "getAvatar",
   "publica": true,
   "guardias": [],
@@ -11731,6 +12351,7 @@
   "modulo": "users",
   "metodo": "POST",
   "ruta": "/api/users/:id/avatar",
+  "relativa": "POST /:id/avatar",
   "controlador": "uploadAvatar",
   "publica": false,
   "guardias": [
@@ -11746,6 +12367,7 @@
   "modulo": "users",
   "metodo": "DELETE",
   "ruta": "/api/users/:id/avatar",
+  "relativa": "DELETE /:id/avatar",
   "controlador": "deleteAvatar",
   "publica": false,
   "guardias": [
@@ -11761,6 +12383,7 @@
   "modulo": "users",
   "metodo": "GET",
   "ruta": "/api/users/:id/views",
+  "relativa": "GET /:id/views",
   "controlador": "getViews",
   "publica": false,
   "guardias": [
@@ -11776,6 +12399,7 @@
   "modulo": "users",
   "metodo": "PATCH",
   "ruta": "/api/users/:id/views",
+  "relativa": "PATCH /:id/views",
   "controlador": "setViews",
   "publica": false,
   "guardias": [
@@ -11791,6 +12415,7 @@
   "modulo": "users",
   "metodo": "GET",
   "ruta": "/api/users/mis-avisos",
+  "relativa": "GET /mis-avisos",
   "controlador": "misAvisos",
   "publica": false,
   "guardias": [
@@ -11806,6 +12431,7 @@
   "modulo": "users",
   "metodo": "PATCH",
   "ruta": "/api/users/mis-avisos",
+  "relativa": "PATCH /mis-avisos",
   "controlador": "cambiarMiAviso",
   "publica": false,
   "guardias": [
@@ -11821,6 +12447,7 @@
   "modulo": "users",
   "metodo": "GET",
   "ruta": "/api/users/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -11844,6 +12471,7 @@
   "modulo": "users",
   "metodo": "GET",
   "ruta": "/api/users/availability",
+  "relativa": "GET /availability",
   "controlador": "listAvailability",
   "publica": false,
   "guardias": [
@@ -11867,6 +12495,7 @@
   "modulo": "users",
   "metodo": "DELETE",
   "ruta": "/api/users/availability-blocks/:blockId",
+  "relativa": "DELETE /availability-blocks/:blockId",
   "controlador": "deleteBlock",
   "publica": false,
   "guardias": [
@@ -11890,6 +12519,7 @@
   "modulo": "users",
   "metodo": "GET",
   "ruta": "/api/users/:id",
+  "relativa": "GET /:id",
   "controlador": "getById",
   "publica": false,
   "guardias": [
@@ -11913,6 +12543,7 @@
   "modulo": "users",
   "metodo": "POST",
   "ruta": "/api/users/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -11936,6 +12567,7 @@
   "modulo": "users",
   "metodo": "PATCH",
   "ruta": "/api/users/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -11959,6 +12591,7 @@
   "modulo": "users",
   "metodo": "DELETE",
   "ruta": "/api/users/:id",
+  "relativa": "DELETE /:id",
   "controlador": "deactivate",
   "publica": false,
   "guardias": [
@@ -11982,6 +12615,7 @@
   "modulo": "users",
   "metodo": "PATCH",
   "ruta": "/api/users/:id/reactivate",
+  "relativa": "PATCH /:id/reactivate",
   "controlador": "reactivate",
   "publica": false,
   "guardias": [
@@ -12005,6 +12639,7 @@
   "modulo": "users",
   "metodo": "PATCH",
   "ruta": "/api/users/:id/password",
+  "relativa": "PATCH /:id/password",
   "controlador": "setPassword",
   "publica": false,
   "guardias": [
@@ -12030,6 +12665,7 @@
   "modulo": "users",
   "metodo": "GET",
   "ruta": "/api/users/:id/aviso-correo",
+  "relativa": "GET /:id/aviso-correo",
   "controlador": "avisoCorreo",
   "publica": false,
   "guardias": [
@@ -12060,6 +12696,7 @@
   "modulo": "users",
   "metodo": "PATCH",
   "ruta": "/api/users/:id/availability",
+  "relativa": "PATCH /:id/availability",
   "controlador": "setAvailability",
   "publica": false,
   "guardias": [
@@ -12083,6 +12720,7 @@
   "modulo": "users",
   "metodo": "GET",
   "ruta": "/api/users/:id/availability-blocks",
+  "relativa": "GET /:id/availability-blocks",
   "controlador": "listBlocks",
   "publica": false,
   "guardias": [
@@ -12106,6 +12744,7 @@
   "modulo": "users",
   "metodo": "POST",
   "ruta": "/api/users/:id/availability-blocks",
+  "relativa": "POST /:id/availability-blocks",
   "controlador": "createBlock",
   "publica": false,
   "guardias": [
@@ -12129,6 +12768,7 @@
   "modulo": "webhook-tokens",
   "metodo": "POST",
   "ruta": "/api/webhook-tokens/receive/:token",
+  "relativa": "POST /receive/:token",
   "controlador": "publicReceive",
   "publica": true,
   "guardias": [],
@@ -12140,6 +12780,7 @@
   "modulo": "webhook-tokens",
   "metodo": "GET",
   "ruta": "/api/webhook-tokens/",
+  "relativa": "GET /",
   "controlador": "list",
   "publica": false,
   "guardias": [
@@ -12155,6 +12796,7 @@
   "modulo": "webhook-tokens",
   "metodo": "GET",
   "ruta": "/api/webhook-tokens/:id/status",
+  "relativa": "GET /:id/status",
   "controlador": "getStatus",
   "publica": false,
   "guardias": [
@@ -12170,6 +12812,7 @@
   "modulo": "webhook-tokens",
   "metodo": "POST",
   "ruta": "/api/webhook-tokens/",
+  "relativa": "POST /",
   "controlador": "create",
   "publica": false,
   "guardias": [
@@ -12194,6 +12837,7 @@
   "modulo": "webhook-tokens",
   "metodo": "PATCH",
   "ruta": "/api/webhook-tokens/:id",
+  "relativa": "PATCH /:id",
   "controlador": "update",
   "publica": false,
   "guardias": [
@@ -12218,6 +12862,7 @@
   "modulo": "webhook-tokens",
   "metodo": "DELETE",
   "ruta": "/api/webhook-tokens/:id",
+  "relativa": "DELETE /:id",
   "controlador": "remove",
   "publica": false,
   "guardias": [
@@ -12242,6 +12887,7 @@
   "modulo": "webhook-tokens",
   "metodo": "POST",
   "ruta": "/api/webhook-tokens/:id/listen",
+  "relativa": "POST /:id/listen",
   "controlador": "startListening",
   "publica": false,
   "guardias": [
@@ -12266,6 +12912,7 @@
   "modulo": "webhook-tokens",
   "metodo": "POST",
   "ruta": "/api/webhook-tokens/:id/listen/stop",
+  "relativa": "POST /:id/listen/stop",
   "controlador": "stopListening",
   "publica": false,
   "guardias": [
@@ -12290,6 +12937,7 @@
   "modulo": "webhooks-salientes",
   "metodo": "GET",
   "ruta": "/api/webhooks-salientes/",
+  "relativa": "GET /",
   "controlador": "listar",
   "publica": false,
   "guardias": [
@@ -12313,6 +12961,7 @@
   "modulo": "webhooks-salientes",
   "metodo": "GET",
   "ruta": "/api/webhooks-salientes/ejemplo",
+  "relativa": "GET /ejemplo",
   "controlador": "ejemplo",
   "publica": false,
   "guardias": [
@@ -12336,6 +12985,7 @@
   "modulo": "webhooks-salientes",
   "metodo": "GET",
   "ruta": "/api/webhooks-salientes/envios",
+  "relativa": "GET /envios",
   "controlador": "envios",
   "publica": false,
   "guardias": [
@@ -12359,6 +13009,7 @@
   "modulo": "webhooks-salientes",
   "metodo": "POST",
   "ruta": "/api/webhooks-salientes/envios/:envioId/reenviar",
+  "relativa": "POST /envios/:envioId/reenviar",
   "controlador": "reenviar",
   "publica": false,
   "guardias": [
@@ -12382,6 +13033,7 @@
   "modulo": "webhooks-salientes",
   "metodo": "GET",
   "ruta": "/api/webhooks-salientes/:id",
+  "relativa": "GET /:id",
   "controlador": "uno",
   "publica": false,
   "guardias": [
@@ -12405,6 +13057,7 @@
   "modulo": "webhooks-salientes",
   "metodo": "POST",
   "ruta": "/api/webhooks-salientes/",
+  "relativa": "POST /",
   "controlador": "crear",
   "publica": false,
   "guardias": [
@@ -12428,6 +13081,7 @@
   "modulo": "webhooks-salientes",
   "metodo": "PATCH",
   "ruta": "/api/webhooks-salientes/:id",
+  "relativa": "PATCH /:id",
   "controlador": "cambiar",
   "publica": false,
   "guardias": [
@@ -12451,6 +13105,7 @@
   "modulo": "webhooks-salientes",
   "metodo": "DELETE",
   "ruta": "/api/webhooks-salientes/:id",
+  "relativa": "DELETE /:id",
   "controlador": "borrar",
   "publica": false,
   "guardias": [
@@ -12474,6 +13129,7 @@
   "modulo": "webhooks-salientes",
   "metodo": "POST",
   "ruta": "/api/webhooks-salientes/:id/prueba",
+  "relativa": "POST /:id/prueba",
   "controlador": "prueba",
   "publica": false,
   "guardias": [
@@ -12497,6 +13153,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/webhook",
+  "relativa": "POST /webhook",
   "controlador": "webhook",
   "publica": true,
   "guardias": [],
@@ -12508,6 +13165,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/media/:mensajeId",
+  "relativa": "GET /media/:mensajeId",
   "controlador": "verMedia",
   "publica": true,
   "guardias": [],
@@ -12519,6 +13177,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/templates",
+  "relativa": "GET /templates",
   "controlador": "listTemplates",
   "publica": false,
   "guardias": [
@@ -12534,6 +13193,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/templates",
+  "relativa": "POST /templates",
   "controlador": "createTemplate",
   "publica": false,
   "guardias": [
@@ -12549,6 +13209,7 @@
   "modulo": "whatsapp",
   "metodo": "PATCH",
   "ruta": "/api/whatsapp/templates/:id",
+  "relativa": "PATCH /templates/:id",
   "controlador": "updateTemplate",
   "publica": false,
   "guardias": [
@@ -12564,6 +13225,7 @@
   "modulo": "whatsapp",
   "metodo": "DELETE",
   "ruta": "/api/whatsapp/templates/:id",
+  "relativa": "DELETE /templates/:id",
   "controlador": "deleteTemplate",
   "publica": false,
   "guardias": [
@@ -12579,6 +13241,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/cola",
+  "relativa": "GET /cola",
   "controlador": "cola",
   "publica": false,
   "guardias": [
@@ -12594,6 +13257,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/usuarios",
+  "relativa": "GET /usuarios",
   "controlador": "usuarios",
   "publica": false,
   "guardias": [
@@ -12609,6 +13273,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/forma-avisos",
+  "relativa": "GET /forma-avisos",
   "controlador": "formaDeAvisos",
   "publica": false,
   "guardias": [
@@ -12632,6 +13297,7 @@
   "modulo": "whatsapp",
   "metodo": "DELETE",
   "ruta": "/api/whatsapp/forma-avisos",
+  "relativa": "DELETE /forma-avisos",
   "controlador": "olvidarFormaDeAvisos",
   "publica": false,
   "guardias": [
@@ -12655,6 +13321,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/banco",
+  "relativa": "GET /banco",
   "controlador": "banco",
   "publica": false,
   "guardias": [
@@ -12672,6 +13339,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/banco/numeros",
+  "relativa": "GET /banco/numeros",
   "controlador": "bancoNumeros",
   "publica": false,
   "guardias": [
@@ -12689,6 +13357,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/etiquetas",
+  "relativa": "GET /etiquetas",
   "controlador": "etiquetasDeWhatsapp",
   "publica": false,
   "guardias": [
@@ -12706,6 +13375,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/chats",
+  "relativa": "GET /chats",
   "controlador": "chats",
   "publica": false,
   "guardias": [
@@ -12723,6 +13393,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/chats",
+  "relativa": "POST /chats",
   "controlador": "abrirChat",
   "publica": false,
   "guardias": [
@@ -12740,6 +13411,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/chats/:id",
+  "relativa": "GET /chats/:id",
   "controlador": "chat",
   "publica": false,
   "guardias": [
@@ -12757,6 +13429,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/chats/:id/ficha",
+  "relativa": "GET /chats/:id/ficha",
   "controlador": "ficha",
   "publica": false,
   "guardias": [
@@ -12774,6 +13447,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/chats/:id/enviar",
+  "relativa": "POST /chats/:id/enviar",
   "controlador": "enviar",
   "publica": false,
   "guardias": [
@@ -12791,6 +13465,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/chats/:id/adjunto",
+  "relativa": "POST /chats/:id/adjunto",
   "controlador": "adjunto",
   "publica": false,
   "guardias": [
@@ -12808,6 +13483,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/chats/:id/historial",
+  "relativa": "POST /chats/:id/historial",
   "controlador": "traerHistorial",
   "publica": false,
   "guardias": [
@@ -12825,6 +13501,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/chats/:id/reenviar",
+  "relativa": "POST /chats/:id/reenviar",
   "controlador": "reenviar",
   "publica": false,
   "guardias": [
@@ -12842,6 +13519,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/chats/:id/no-escribir",
+  "relativa": "POST /chats/:id/no-escribir",
   "controlador": "noEscribir",
   "publica": false,
   "guardias": [
@@ -12859,6 +13537,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/chats/:id/etiqueta",
+  "relativa": "POST /chats/:id/etiqueta",
   "controlador": "etiquetarChat",
   "publica": false,
   "guardias": [
@@ -12876,6 +13555,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/chats/:id/llamada",
+  "relativa": "POST /chats/:id/llamada",
   "controlador": "registrarLlamada",
   "publica": false,
   "guardias": [
@@ -12893,6 +13573,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/mensajes/:id/descargar",
+  "relativa": "POST /mensajes/:id/descargar",
   "controlador": "descargarAdjunto",
   "publica": false,
   "guardias": [
@@ -12910,6 +13591,7 @@
   "modulo": "whatsapp",
   "metodo": "PATCH",
   "ruta": "/api/whatsapp/mensajes/:id",
+  "relativa": "PATCH /mensajes/:id",
   "controlador": "editarMensaje",
   "publica": false,
   "guardias": [
@@ -12927,6 +13609,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/conexion",
+  "relativa": "GET /conexion",
   "controlador": "conexion",
   "publica": false,
   "guardias": [
@@ -12944,6 +13627,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/sincronizacion",
+  "relativa": "GET /sincronizacion",
   "controlador": "sincronizacion",
   "publica": false,
   "guardias": [
@@ -12961,6 +13645,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/reintentar-archivos",
+  "relativa": "POST /reintentar-archivos",
   "controlador": "reintentarArchivos",
   "publica": false,
   "guardias": [
@@ -12978,6 +13663,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/emparejar",
+  "relativa": "POST /emparejar",
   "controlador": "emparejar",
   "publica": false,
   "guardias": [
@@ -12995,6 +13681,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/desconectar",
+  "relativa": "POST /desconectar",
   "controlador": "desconectar",
   "publica": false,
   "guardias": [
@@ -13012,6 +13699,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/sonando",
+  "relativa": "GET /sonando",
   "controlador": "sonando",
   "publica": false,
   "guardias": [
@@ -13027,6 +13715,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/sin-leer",
+  "relativa": "GET /sin-leer",
   "controlador": "sinLeer",
   "publica": false,
   "guardias": [
@@ -13044,6 +13733,7 @@
   "modulo": "whatsapp",
   "metodo": "GET",
   "ruta": "/api/whatsapp/respuesta-llamada",
+  "relativa": "GET /respuesta-llamada",
   "controlador": "respuestaLlamada",
   "publica": false,
   "guardias": [
@@ -13061,6 +13751,7 @@
   "modulo": "whatsapp",
   "metodo": "POST",
   "ruta": "/api/whatsapp/respuesta-llamada",
+  "relativa": "POST /respuesta-llamada",
   "controlador": "guardarRespuestaLlamada",
   "publica": false,
   "guardias": [
@@ -13078,6 +13769,7 @@
   "modulo": "widget",
   "metodo": "GET",
   "ruta": "/api/widget/config",
+  "relativa": "GET /config",
   "controlador": "getConfig",
   "publica": false,
   "guardias": [
@@ -13093,6 +13785,7 @@
   "modulo": "widget",
   "metodo": "PATCH",
   "ruta": "/api/widget/config",
+  "relativa": "PATCH /config",
   "controlador": "updateConfig",
   "publica": false,
   "guardias": [
@@ -13108,6 +13801,7 @@
   "modulo": "widget",
   "metodo": "PATCH",
   "ruta": "/api/widget/users/:userId/phone",
+  "relativa": "PATCH /users/:userId/phone",
   "controlador": "updateUserPhone",
   "publica": false,
   "guardias": [
@@ -13123,6 +13817,7 @@
   "modulo": "widget",
   "metodo": "GET",
   "ruta": "/api/w/whatsapp/:projectIdJs",
+  "relativa": "GET /whatsapp/:projectIdJs",
   "controlador": "widgetScript",
   "publica": true,
   "guardias": [],
@@ -13134,6 +13829,7 @@
   "modulo": "widget",
   "metodo": "GET",
   "ruta": "/api/w/data/:projectIdJson",
+  "relativa": "GET /data/:projectIdJson",
   "controlador": "widgetData",
   "publica": true,
   "guardias": [],
@@ -13145,6 +13841,7 @@
   "modulo": "woocommerce",
   "metodo": "GET",
   "ruta": "/api/woocommerce/credentials",
+  "relativa": "GET /credentials",
   "controlador": "getCreds",
   "publica": false,
   "guardias": [
@@ -13168,6 +13865,7 @@
   "modulo": "woocommerce",
   "metodo": "PUT",
   "ruta": "/api/woocommerce/credentials",
+  "relativa": "PUT /credentials",
   "controlador": "upsertCreds",
   "publica": false,
   "guardias": [
@@ -13191,6 +13889,7 @@
   "modulo": "woocommerce",
   "metodo": "DELETE",
   "ruta": "/api/woocommerce/credentials",
+  "relativa": "DELETE /credentials",
   "controlador": "deleteCreds",
   "publica": false,
   "guardias": [
@@ -13214,6 +13913,7 @@
   "modulo": "woocommerce",
   "metodo": "GET",
   "ruta": "/api/woocommerce/mappings",
+  "relativa": "GET /mappings",
   "controlador": "listMappings",
   "publica": false,
   "guardias": [
@@ -13237,6 +13937,7 @@
   "modulo": "woocommerce",
   "metodo": "PUT",
   "ruta": "/api/woocommerce/mappings",
+  "relativa": "PUT /mappings",
   "controlador": "setMappings",
   "publica": false,
   "guardias": [
@@ -13260,6 +13961,7 @@
   "modulo": "woocommerce",
   "metodo": "GET",
   "ruta": "/api/woocommerce/runs",
+  "relativa": "GET /runs",
   "controlador": "listRuns",
   "publica": false,
   "guardias": [
@@ -13283,6 +13985,7 @@
   "modulo": "woocommerce",
   "metodo": "GET",
   "ruta": "/api/woocommerce/runs/current",
+  "relativa": "GET /runs/current",
   "controlador": "getCurrentRun",
   "publica": false,
   "guardias": [
@@ -13306,6 +14009,7 @@
   "modulo": "woocommerce",
   "metodo": "POST",
   "ruta": "/api/woocommerce/runs/start",
+  "relativa": "POST /runs/start",
   "controlador": "importNow",
   "publica": false,
   "guardias": [
@@ -13329,6 +14033,7 @@
   "modulo": "woocommerce",
   "metodo": "POST",
   "ruta": "/api/woocommerce/auto-discover-cpts",
+  "relativa": "POST /auto-discover-cpts",
   "controlador": "autoDiscoverCpts",
   "publica": false,
   "guardias": [
@@ -13352,6 +14057,7 @@
   "modulo": "woocommerce",
   "metodo": "GET",
   "ruta": "/api/woocommerce/preview",
+  "relativa": "GET /preview",
   "controlador": "previewWc",
   "publica": false,
   "guardias": [
@@ -13375,6 +14081,7 @@
   "modulo": "woocommerce",
   "metodo": "PUT",
   "ruta": "/api/woocommerce/mapping",
+  "relativa": "PUT /mapping",
   "controlador": "saveMapping",
   "publica": false,
   "guardias": [
@@ -13398,6 +14105,7 @@
   "modulo": "woocommerce",
   "metodo": "POST",
   "ruta": "/api/woocommerce/scrape-preview",
+  "relativa": "POST /scrape-preview",
   "controlador": "scrapePreview",
   "publica": false,
   "guardias": [

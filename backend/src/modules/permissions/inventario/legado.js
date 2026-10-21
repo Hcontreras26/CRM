@@ -75,8 +75,8 @@ export function colaboradorPuede(ruta) {
 
 // ─── Permisos (permissions.service.js) ──────────────────────────────────────
 
-function defaultsDelRol(role, filas = [], respaldo = null) {
-  const out = { ...(DEFAULTS_ANTES[role] || respaldo || {}) };
+function defaultsDelRol(role, filas = [], respaldo = null, tabla = DEFAULTS_ANTES) {
+  const out = { ...(tabla[role] || respaldo || {}) };
   for (const f of filas) {
     if (f.role === role) out[`${f.resource}.${f.action}`] = f.allowed;
   }
@@ -103,7 +103,7 @@ export function resolverPermiso(u, clave, conExtras) {
 }
 
 /** `buildPermissionsMap` tal cual: lo que devolvía /auth/me y usaba Tareas. */
-export function mapaDePermisos(u) {
+export function mapaDePermisos(u, tabla = DEFAULTS_ANTES) {
   if (u.role === 'superadmin') {
     const todo = {};
     for (const [r, acciones] of Object.entries(RECURSOS_ANTES)) for (const a of acciones) todo[`${r}.${a}`] = true;
@@ -116,10 +116,10 @@ export function mapaDePermisos(u) {
     suyos = u.custom_role.permissions || {};
   }
   const filas = u.ajustesRol || [];
-  const base = defaultsDelRol(baseRole, filas, DEFAULTS_ANTES.gestor);
+  const base = defaultsDelRol(baseRole, filas, tabla.gestor, tabla);
   for (const extra of comoLista(u.roles_extra)) {
-    if (!DEFAULTS_ANTES[extra] && !filas.some((f) => f.role === extra)) continue;
-    for (const [k, v] of Object.entries(defaultsDelRol(extra, filas))) if (v === true) base[k] = true;
+    if (!tabla[extra] && !filas.some((f) => f.role === extra)) continue;
+    for (const [k, v] of Object.entries(defaultsDelRol(extra, filas, null, tabla))) if (v === true) base[k] = true;
   }
   return { ...base, ...suyos, ...(u.excepciones || {}) };
 }

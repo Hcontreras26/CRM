@@ -5,12 +5,7 @@ import PestanaVista from '../components/PestanaVista';
 import PermisosTareas from '../components/PermisosTareas';
 import PermisoDiplomas from '../components/PermisoDiplomas';
 import usePermission, { type PermissionMap } from '@/shared/hooks/usePermission';
-import {
-  FIXED_ROLES,
-  PERMISSION_RESOURCES,
-  ROLE_DEFAULT_PERMISSIONS,
-} from '@/shared/hooks/usePermission';
-import type { UserRole } from '@/shared/types';
+import { FIXED_ROLES } from '@/shared/hooks/usePermission';
 import * as api from '../api/permissions.api';
 import type { CustomRole, SystemDefaults } from '../api/permissions.api';
 import { toast } from '@/shared/hooks/useToast';
@@ -123,12 +118,14 @@ export default function RolesPage() {
   function permisosDe(entrada: RoleEntry): PermissionMap {
     const delServidor = (k: string) => {
       const r = defaults?.roles?.[k];
-      return (r && typeof r === 'object') ? r : (ROLE_DEFAULT_PERMISSIONS[k as UserRole] || {});
+      return (r && typeof r === 'object') ? r : {};
     };
     if (entrada.custom) return { ...delServidor(entrada.custom.base_role || 'gestor'), ...(entrada.custom.permissions || {}) };
     return delServidor(entrada.key);
   }
   const alGuardarTareas = () => { cargarDefaults(); cargarRolesMedida(); };
+  // Los recursos y sus acciones, del servidor (catálogo, #423).
+  const recursos = Object.entries(defaults?.resources || {}).map(([key, actions]) => ({ key, label: key, actions }));
 
   return (
     <div className="space-y-5 pb-8">
@@ -294,7 +291,7 @@ export default function RolesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {PERMISSION_RESOURCES.map((res) => {
+                    {recursos.map((res) => {
                       const perms = permisosDe(role);
                       const all = perms['*'] === true;
                       const has = (a: string): boolean => all || perms[`${res.key}.${a}`] === true;
@@ -331,7 +328,7 @@ export default function RolesPage() {
 
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
-                {PERMISSION_RESOURCES.map((res) => {
+                {recursos.map((res) => {
                   const perms = permisosDe(role);
                   const all = perms['*'] === true;
                   const has = (a: string): boolean => all || perms[`${res.key}.${a}`] === true;

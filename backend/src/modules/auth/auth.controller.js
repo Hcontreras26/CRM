@@ -58,6 +58,7 @@ export async function login(req, res, next) {
         user: result.user,
         projects: result.projects,
         activeProjectId: result.activeProjectId,
+        permissions: result.permissions,
       },
     });
   } catch (err) {

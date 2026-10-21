@@ -6,6 +6,11 @@ const router = Router();
 
 router.use(verifyToken);
 
+// El catálogo de permisos (#423): secciones, nombres, descripciones,
+// dependencias y valores de cada rol. Lo pinta Configuración › Roles y la
+// ficha de cada persona. No es secreto: cualquiera con sesión.
+router.get('/catalogo', ctrl.getCatalogo);
+
 // Defaults del sistema — cualquier usuario autenticado puede ver
 router.get('/system-defaults', ctrl.getSystemDefaults);
 

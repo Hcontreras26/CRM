@@ -92,7 +92,7 @@ export async function leerRutas() {
       const salida = [];
       recorrer(router.stack, prefijo, [], salida);
       for (const r of salida) {
-        todas.push({ modulo: d, ...r, publica: !r.guardias.some((g) => g.tipo === 'token') });
+        todas.push({ modulo: d, prefijo, ...r, publica: !r.guardias.some((g) => g.tipo === 'token') });
       }
     }
   }

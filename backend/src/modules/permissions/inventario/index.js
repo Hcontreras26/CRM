@@ -10,7 +10,9 @@
  */
 import { leerRutas } from './rutas.js';
 import { PUERTAS, ALCANCE, YA_CON_PERMISO } from './manuales.js';
-import { puedeRuta, manual, ROLES_DEL_SISTEMA } from './legado.js';
+import { puedeRuta, pasaRegla, manual, ROLES_DEL_SISTEMA } from './legado.js';
+import { claveDe, PROPIA } from './asignacion.js';
+import { SECCIONES, POR_CLAVE, ROLES_FIJOS, dependencias } from '../catalogo.js';
 
 export { PUERTAS, ALCANCE, YA_CON_PERMISO };
 
@@ -40,6 +42,29 @@ export function puedeAntes(u, entrada) {
   const r = puedeRuta(u, entrada);
   if (r === null) return null;
   return r && entrada.puertas.every((id) => manual[PUERTAS.find((p) => p.id === id).regla](u));
+}
+
+/**
+ * ¿Entra con el catálogo? `mapa` es lo que puede la persona ({ clave: bool }),
+ * sea de los valores de serie de su rol o de `explicarPermisos`. El corte del
+ * colaborador (`verifyToken`) sigue mandando por encima, como siempre.
+ */
+export function puedeDespues(u, fila, mapa) {
+  if (fila.tipo === 'condicion') {
+    return puedeDespues(u, fila.ruta_base, mapa) && tieneClave(u, claveDe(fila), mapa);
+  }
+  const k = claveDe(fila);
+  if (fila.publica) return k ? tieneClave(u, k, mapa) && u.active !== false : true;
+  if (u.active === false) return false;
+  if (!pasaRegla(u, { tipo: 'token' }, fila.ruta)) return false;
+  if (k === PROPIA) return true;
+  return tieneClave(u, k, mapa);
+}
+
+function tieneClave(u, k, mapa) {
+  if (u.role === 'superadmin') return true;
+  if (k === undefined || k === null) return false;
+  return [].concat(k).some((c) => mapa[c] === true);
 }
 
 function describirRegla(g) {
@@ -88,6 +113,7 @@ export async function construirInventario() {
       modulo: r.modulo,
       metodo: r.metodo,
       ruta: r.ruta,
+      relativa: `${r.metodo} ${r.ruta.slice(r.prefijo.length) || '/'}`,
       controlador: r.controlador,
       publica: r.publica,
       guardias: r.guardias,
@@ -116,6 +142,39 @@ export async function construirInventario() {
 
 const celda = (s) => String(s ?? '').replace(/\|/g, '\\|');
 
+/** La columna «Permiso»: la clave del catálogo que pide, o por qué no pide ninguna. */
+function permisoDe(f) {
+  const k = claveDe(f);
+  if (k === PROPIA) return 'lo de cada uno';
+  if (k === null) return '—';
+  if (k === undefined) return '¿sin asignar?';
+  return [].concat(k).map((c) => `\`${c}\``).join(' o ');
+}
+
+/** El catálogo por secciones: lo que se ve en Configuración › Roles. */
+function catalogoEnMarkdown() {
+  const nombreRol = Object.fromEntries(ROLES_FIJOS.map((r) => [r.clave, r.nombre]));
+  const lineas = ['# Catálogo de permisos', '',
+    'Cada permiso del CRM, agrupado como el menú (`backend/src/modules/permissions/catalogo.js`).',
+    '«De serie» son los roles fijos que lo traen; el superadmin los tiene todos. «Necesita» es',
+    'lo que pide para tener sentido (editar pide ver).', ''];
+  for (const s of SECCIONES) {
+    lineas.push(`## ${s.nombre}`, '');
+    for (const r of s.recursos) {
+      lineas.push(`### ${r.nombre}`, '', '| Permiso | Clave | Qué deja hacer | De serie | Necesita |', '|---|---|---|---|---|');
+      for (const x of r.acciones) {
+        const clave = `${r.clave}.${x.accion}`;
+        const deSerie = POR_CLAVE[clave].roles.map((k) => nombreRol[k] || k).join(', ') || 'solo superadmin';
+        const extra = [x.soloPantalla ? ' (solo pantalla)' : '', x.nunca?.length ? ` · nunca: ${x.nunca.map((k) => nombreRol[k] || k).join(', ')}` : ''].join('');
+        const necesita = dependencias(clave).map((d) => `\`${d}\``).join(', ');
+        lineas.push(`| ${celda(x.nombre)} | \`${clave}\` | ${celda(x.descripcion + extra)} | ${celda(deSerie)} | ${celda(necesita)} |`);
+      }
+      lineas.push('');
+    }
+  }
+  return lineas;
+}
+
 function protegeHoy(f) {
   if (f.tipo === 'condicion') {
     const p = PUERTAS.find((x) => x.id === f.puerta);
@@ -136,7 +195,7 @@ export function inventarioEnMarkdown(filas) {
   const total = filas.filter((f) => f.tipo === 'ruta').length;
   const sinRegla = filas.filter((f) => f.tipo === 'ruta' && f.guardias.some((g) => g.tipo === 'sin_regla'));
   const lineas = [
-    '# Permisos del CRM: inventario',
+    '# Permisos del CRM',
     '',
     '> **Generado** con `npm run permisos:inventario` (backend). No se edita a mano:',
     '> sale de recorrer los routers de cada módulo (`modules/permissions/inventario/rutas.js`)',
@@ -151,16 +210,20 @@ export function inventarioEnMarkdown(filas) {
     'la copia congelada de esas reglas (`inventario/legado.js`) para cada rol, sin casillas',
     'ni excepciones, y dice qué casilla abre la puerta a quien no entra por su rol. El',
     'alcance —qué campus, qué prospectos— no cambia quién entra y va al final.',
+    '«Permiso» es la clave del catálogo que pide la ruta (el catálogo entero, más abajo).',
+    '',
+    '# Inventario: cada ruta y cada acción',
     '',
   ];
   for (const [modulo, fs] of porModulo) {
-    lineas.push(`## ${modulo}`, '', '| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad |', '|---|---|---|---|');
+    lineas.push(`## ${modulo}`, '', '| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |', '|---|---|---|---|---|');
     for (const f of fs) {
       const accion = f.tipo === 'condicion' ? `${f.controlador} · ${f.condicion}` : (f.controlador || '(anónima)');
-      lineas.push(`| ${celda(accion)} | \`${f.metodo} ${celda(f.ruta)}\` | ${celda(protegeHoy(f))} | ${celda(quienPuede(f))} |`);
+      lineas.push(`| ${celda(accion)} | \`${f.metodo} ${celda(f.ruta)}\` | ${celda(protegeHoy(f))} | ${celda(quienPuede(f))} | ${celda(permisoDe(f))} |`);
     }
     lineas.push('');
   }
+  lineas.push(...catalogoEnMarkdown());
   lineas.push('## Dentro del código, que ya preguntan a un permiso', '', '| Módulo | Dónde | Qué decide |', '|---|---|---|');
   for (const a of YA_CON_PERMISO) lineas.push(`| ${celda(a.modulo)} | ${celda(a.donde)} | ${celda(a.que)} |`);
   lineas.push('');

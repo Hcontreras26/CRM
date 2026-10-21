@@ -2,6 +2,7 @@ import { z } from 'zod';
 import * as service from './permissions.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { query } from '../../shared/config/db.js';
+import { catalogoParaPantalla } from './catalogo.js';
 
 const customRoleSchema = z.object({
   label:       z.string().min(1).max(100),
@@ -15,6 +16,12 @@ const overridesSchema = z.array(z.object({
   action:   z.string().min(1),
   allowed:  z.boolean(),
 }));
+
+export async function getCatalogo(_req, res, next) {
+  try {
+    res.json({ success: true, data: catalogoParaPantalla() });
+  } catch (err) { next(err); }
+}
 
 export async function getSystemDefaults(req, res, next) {
   try {

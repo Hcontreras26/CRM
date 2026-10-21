@@ -136,7 +136,9 @@ export function AuthProvider({ children }) {
       throw new Error(res.error || 'Error al iniciar sesión');
     }
 
-    const { accessToken: token, user: userData, projects: userProjects, activeProjectId: apiProjectId } = res.data;
+    const { accessToken: token, user: userData, projects: userProjects, activeProjectId: apiProjectId, permissions: mapa } = res.data;
+    // El mapa de permisos llega ya con el login (#423): no hay tabla de respaldo.
+    if (mapa) setPermissions(mapa);
 
     setAccessToken(token);
     setUser(userData);
@@ -152,8 +154,7 @@ export function AuthProvider({ children }) {
     setActiveProjectId(projectId);
     if (projectId) localStorage.setItem('crm_active_project_id', String(projectId));
 
-    // El login no trae los permisos; `/auth/me` si. Sin esperar: hasta que
-    // lleguen, vale la tabla del rol, que es lo que habia.
+    // Y /auth/me, que trae lo mismo y lo que se haya cambiado desde entonces.
     client.get('/auth/me')
       .then((me) => { if (me.success) setPermissions(me.data.permissions || null); })
       .catch(() => {});
