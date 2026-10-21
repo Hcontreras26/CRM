@@ -116,7 +116,7 @@ export default function UsersTable({
                   la tabla tenga que desplazarse. Necesita fondo opaco para tapar lo que pasa
                   por debajo: el de la tarjeta con el mismo gris al 50 % encima, que es el
                   color que se ve en el resto de la cabecera. */}
-              <th className="sticky right-0 bg-card bg-gradient-to-r from-muted/50 to-muted/50 px-4 py-2.5 text-right text-tabla uppercase text-muted-foreground whitespace-nowrap">Acciones</th>
+              <th className="sticky right-0 bg-card bg-gradient-to-r from-muted/50 to-muted/50 border-l border-border/40 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.04)] px-4 py-2.5 text-right text-tabla uppercase text-muted-foreground whitespace-nowrap">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -163,7 +163,7 @@ export default function UsersTable({
                       <AusenciaBadge estado={disponibilidad.get(u.id)} />
                     </div>
                   </td>
-                  <td className="sticky right-0 bg-card group-hover:bg-gradient-to-r group-hover:from-muted/50 group-hover:to-muted/50 px-4 py-3 text-right whitespace-nowrap">
+                  <td className="sticky right-0 bg-card group-hover:bg-gradient-to-r group-hover:from-muted/50 group-hover:to-muted/50 border-l border-border/40 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.04)] px-4 py-3 text-right whitespace-nowrap">
                     {u.role !== 'superadmin' && (
                       <UserActionsMenu
                         isActive={u.active}
