@@ -105,4 +105,59 @@ describe('UsersTable responsive y scroll horizontal', () => {
     const contenedorMovil = container.querySelector('.xl\\:hidden');
     expect(contenedorMovil).not.toBeNull();
   });
+
+  it('un usuario desactivado se atenúa celda a celda: la columna fija de Acciones queda opaca', () => {
+    const desactivado = { ...usuariosFalsos[0], id: 2, nombre: 'Usuaria Desactivada', active: false };
+    const { container } = render(
+      <UsersTable
+        users={[desactivado]}
+        projects={[{ id: 1, nombre: 'Campus Principal' }]}
+        disponibilidad={new Map()}
+        openMenuId={null}
+        onOpenMenu={() => {}}
+        onEdit={() => {}}
+        onToggleActive={() => {}}
+        onAvailability={() => {}}
+        hayFiltroActivo={false}
+        onClearFilters={() => {}}
+      />
+    );
+
+    const fila = container.querySelector('.xl\\:block tbody tr');
+    // Con la opacidad en la fila, la celda fija quedaba al 50 % y lo que pasa por
+    // debajo se transparentaba.
+    expect(fila.className).not.toContain('opacity-');
+    const celdas = [...fila.querySelectorAll('td')];
+    const fija = celdas[celdas.length - 1];
+    expect(fija.className).toContain('sticky');
+    expect(fija.className).not.toContain('opacity-');
+    expect(fija.className).toContain('bg-card');
+    // El resto de celdas, atenuadas.
+    for (const td of celdas.slice(0, -1)) expect(td.className).toContain('opacity-50');
+  });
+
+  it('sin colores a mano en la columna fija: el borde es el token del CRM', () => {
+    const { container } = render(
+      <UsersTable
+        users={usuariosFalsos}
+        projects={[{ id: 1, nombre: 'Campus Principal' }]}
+        disponibilidad={new Map()}
+        openMenuId={null}
+        onOpenMenu={() => {}}
+        onEdit={() => {}}
+        onToggleActive={() => {}}
+        onAvailability={() => {}}
+        hayFiltroActivo={false}
+        onClearFilters={() => {}}
+      />
+    );
+
+    const fijas = container.querySelectorAll('.xl\\:block .sticky');
+    expect(fijas.length).toBe(2); // cabecera y celda
+    for (const el of fijas) {
+      expect(el.className).not.toMatch(/rgba?\(|#[0-9a-f]{3,6}\b/i);
+      expect(el.className).toContain('border-l');
+      expect(el.className).toContain('border-border');
+    }
+  });
 });
