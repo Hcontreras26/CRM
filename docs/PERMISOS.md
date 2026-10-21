@@ -1249,8 +1249,8 @@ lo que pide para tener sentido (editar pide ver).
 | Anular facturas | `facturas.anular` | Anular una factura sin emitir. | Admin, Gestora, Soporte, Project manager, Tutor | `facturas.view` |
 | Emitir un borrador | `facturas.emitir_borrador` | Darle número a un borrador. | Admin, Gestora, Soporte, Project manager, Tutor | `facturas.view` |
 | Poner número al cobrar | `facturas.emitir` | Que el cobro salga facturado y la proforma sin esperar visto bueno. | Admin | `facturas.view` |
-| Corregir y abonar | `facturas.gestionar` | Corregir, abonar (rectificativa), asociar a una venta y borrar facturas (una gestora, las suyas). · nunca: Tutor, Colaborador | Admin | `facturas.view` |
-| Emitir desde la cola | `facturas.cola` | Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día». · nunca: Tutor, Colaborador | solo superadmin | `facturas.view` |
+| Corregir y abonar | `facturas.gestionar` | Corregir, abonar (rectificativa), asociar a una venta y borrar facturas (una gestora, las suyas). | Admin | `facturas.view` |
+| Emitir desde la cola | `facturas.cola` | Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día». | solo superadmin | `facturas.view` |
 | Cambiar fechas | `facturas.editar_fechas` | Cambiar la fecha de emisión y de pago, sin tocar importes. | Admin | `facturas.view` |
 | Editar facturas | `facturas.edit` | Cambiar cualquier dato de una factura. | Admin, Soporte | `facturas.view` |
 | Configurar la facturación | `facturas.configurar` | Empresas emisoras, regímenes, plantillas, series y ajustes. | Admin, Soporte | `facturas.view` |
@@ -1398,7 +1398,7 @@ lo que pide para tener sentido (editar pide ver).
 
 | Permiso | Clave | Qué deja hacer | De serie | Necesita |
 |---|---|---|---|---|
-| Usar el MCP | `mcp.usar` | Conectar su Claude al CRM con su URL personal. · nunca: Tutor, Colaborador | Admin |  |
+| Usar el MCP | `mcp.usar` | Conectar su Claude al CRM con su URL personal. · nunca: Tutor | Admin |  |
 | Administrar el MCP | `mcp.administrar` | Dar o quitar el MCP a personas de sus campus y ver qué se ha consultado. | Admin |  |
 | Apagar el MCP | `mcp.supervisar` | El interruptor de emergencia y rechazar conexiones ajenas. | solo superadmin |  |
 

@@ -263,8 +263,8 @@ export const SECCIONES = [
           a('anular', 'Anular facturas', 'Anular una factura sin emitir.', TODOS),
           a('emitir_borrador', 'Emitir un borrador', 'Darle número a un borrador.', TODOS),
           a('emitir', 'Poner número al cobrar', 'Que el cobro salga facturado y la proforma sin esperar visto bueno.', ADMIN),
-          a('gestionar', 'Corregir y abonar', 'Corregir, abonar (rectificativa), asociar a una venta y borrar facturas (una gestora, las suyas).', ADMIN, { nunca: ['tutor', 'colaborador'] }),
-          a('cola', 'Emitir desde la cola', 'Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día».', NADIE, { nunca: ['tutor', 'colaborador'] }),
+          a('gestionar', 'Corregir y abonar', 'Corregir, abonar (rectificativa), asociar a una venta y borrar facturas (una gestora, las suyas).', ADMIN),
+          a('cola', 'Emitir desde la cola', 'Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día».', NADIE),
           a('editar_fechas', 'Cambiar fechas', 'Cambiar la fecha de emisión y de pago, sin tocar importes.', ADMIN),
           a('edit', 'Editar facturas', 'Cambiar cualquier dato de una factura.', ADMIN_SOPORTE),
           a('configurar', 'Configurar la facturación', 'Empresas emisoras, regímenes, plantillas, series y ajustes.', ADMIN_SOPORTE),
@@ -404,7 +404,7 @@ export const SECCIONES = [
     recursos: [
       {
         clave: 'mcp', nombre: 'MCP (Claude)', acciones: [
-          a('usar', 'Usar el MCP', 'Conectar su Claude al CRM con su URL personal.', ADMIN, { nunca: ['tutor', 'colaborador'] }),
+          a('usar', 'Usar el MCP', 'Conectar su Claude al CRM con su URL personal.', ADMIN, { nunca: ['tutor'] }),
           a('administrar', 'Administrar el MCP', 'Dar o quitar el MCP a personas de sus campus y ver qué se ha consultado.', ADMIN),
           a('supervisar', 'Apagar el MCP', 'El interruptor de emergencia y rechazar conexiones ajenas.', NADIE),
         ],

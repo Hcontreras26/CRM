@@ -74,3 +74,49 @@ export const CAMBIOS = [
 export function cambioPrevisto(filaId, rol) {
   return CAMBIOS.find((c) => c.filas.includes(filaId) && c.roles.includes(rol)) || null;
 }
+
+/**
+ * Los cambios que dependen de los DATOS de una persona, no de su rol: solo los
+ * ve el script con la base de verdad (`scripts/comparar-permisos.mjs`). Cada uno
+ * dice cuándo explica una diferencia: `explica(contexto)` recibe
+ *   { persona, fila, antes, despues, despuesSin }  —`despuesSin(cambio)` vuelve
+ * a calcular el «después» deshaciendo esa parte (sin roles de más, con el rol a
+ * medida activo…)— y devuelve true si la diferencia sale de ahí.
+ */
+export const CAMBIOS_POR_DATOS = [
+  {
+    id: 'roles-de-mas-cuentan',
+    que: 'Los roles de más cuentan en todo: también donde antes solo se miraba el rol principal (facturas, tutores, MCP, WhatsApp, permisos sueltos).',
+    motivo: 'Antes unas comprobaciones miraban los roles de más y otras no (checkPermission no; el menú solo el principal). Ahora una sola regla: basta con que uno de sus roles lo traiga.',
+    explica: ({ persona, antes, despuesSin }) => persona.roles_extra.length > 0 && despuesSin('sinRolesDeMas') === antes,
+    aprobadoPor: null,
+  },
+  {
+    id: 'rol-a-medida-desactivado',
+    que: 'Un rol a medida desactivado deja de aplicarse: la persona tiene lo de su rol.',
+    motivo: 'Antes se aplicaba aunque estuviera desactivado (`findCustomRoleById` no miraba `active`).',
+    explica: ({ persona, antes, despuesSin }) => persona.custom_role && persona.custom_role.active === false && despuesSin('rolAMedidaActivo') === antes,
+    aprobadoPor: null,
+  },
+  {
+    id: 'rol-a-medida-con-roles-de-mas',
+    que: 'Quien tiene rol a medida y además roles de más suma lo de esos roles.',
+    motivo: 'Los guardias (resolvePermission) ignoraban sus roles de más; /auth/me los sumaba. Ahora las dos cosas dicen lo mismo.',
+    explica: ({ persona, antes, despuesSin }) => Boolean(persona.custom_role) && persona.roles_extra.length > 0 && despuesSin('sinRolesDeMas') === antes,
+    aprobadoPor: null,
+  },
+  {
+    id: 'cola-entera',
+    que: 'Quien lleva la cola de facturación (antes, la casilla «factura_manager») también cobra proformas, sea cual sea su rol.',
+    motivo: 'Antes la casilla abría tres de las cuatro rutas de la cola a cualquier rol, pero «cobrar proforma» además pedía ser admin o gestora. Ahora las cuatro son «Emitir desde la cola».',
+    explica: ({ persona, fila, despues }) => persona.factura_manager && fila.id === 'POST /api/invoices/:id/cobrar-proforma' && despues === true,
+    aprobadoPor: null,
+  },
+  {
+    id: 'superadmin-todo',
+    que: 'El superadmin lo puede todo, también lo que una casilla o una regla suelta le quitaba (su WhatsApp apagado, el correo de «Mi perfil»).',
+    motivo: 'En el catálogo el superadmin no tiene excepciones.',
+    explica: ({ persona, despues }) => persona.role === 'superadmin' && despues === true,
+    aprobadoPor: null,
+  },
+];

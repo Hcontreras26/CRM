@@ -63,11 +63,11 @@ export const ANTES = new Map(
  * sea de los valores de serie de su rol o de `explicarPermisos`. El corte del
  * colaborador (`verifyToken`) sigue mandando por encima, como siempre.
  */
-export function puedeDespues(u, fila, mapa) {
+export function puedeDespues(u, fila, mapa, { comoGuardia = false } = {}) {
   if (fila.tipo === 'condicion') {
-    return puedeDespues(u, fila.ruta_base, mapa) && tieneClave(u, claveDe(fila), mapa);
+    return puedeDespues(u, fila.ruta_base, mapa, { comoGuardia: true }) && tieneClave(u, claveDe(fila), mapa);
   }
-  const k = claveDe(fila);
+  const k = claveDe(fila, { comoGuardia });
   if (fila.publica) return k ? tieneClave(u, k, mapa) && u.active !== false : true;
   if (u.active === false) return false;
   if (!pasaRegla(u, { tipo: 'token' }, fila.ruta)) return false;

@@ -55,34 +55,34 @@ router.get('/banco/numeros', puede('whatsapp.usar', 'whatsapp.supervisar'), chat
 
 // Las etiquetas de WhatsApp de esta sesion (#128, #138). Son las del movil de
 // la gestora, no el estado del prospecto que filtra la lista.
-router.get('/etiquetas', puede('whatsapp.usar'), chat.etiquetasDeWhatsapp);
+router.get('/etiquetas', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.etiquetasDeWhatsapp);
 
-router.get('/chats', puede('whatsapp.usar'), chat.chats);
-router.post('/chats', puede('whatsapp.usar'), chat.abrirChat);
-router.get('/chats/:id', puede('whatsapp.usar'), chat.chat);
-router.get('/chats/:id/ficha', puede('whatsapp.usar'), chat.ficha);
-router.post('/chats/:id/enviar', puede('whatsapp.usar'), chat.enviar);
-router.post('/chats/:id/adjunto', puede('whatsapp.usar'), uploadWhatsapp.single('archivo'), chat.adjunto);
-router.post('/chats/:id/historial', puede('whatsapp.usar'), chat.traerHistorial);
-router.post('/chats/:id/reenviar', puede('whatsapp.usar'), chat.reenviar);
-router.post('/chats/:id/no-escribir', puede('whatsapp.usar'), chat.noEscribir);
+router.get('/chats', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.chats);
+router.post('/chats', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.abrirChat);
+router.get('/chats/:id', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.chat);
+router.get('/chats/:id/ficha', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.ficha);
+router.post('/chats/:id/enviar', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.enviar);
+router.post('/chats/:id/adjunto', puede('whatsapp.usar', 'whatsapp.supervisar'), uploadWhatsapp.single('archivo'), chat.adjunto);
+router.post('/chats/:id/historial', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.traerHistorial);
+router.post('/chats/:id/reenviar', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.reenviar);
+router.post('/chats/:id/no-escribir', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.noEscribir);
 // Llamar se hace desde el movil; el CRM solo lo apunta.
-router.post('/chats/:id/etiqueta', puede('whatsapp.usar'), chat.etiquetarChat);
-router.post('/chats/:id/llamada', puede('whatsapp.usar'), chat.registrarLlamada);
-router.post('/mensajes/:id/descargar', puede('whatsapp.usar'), chat.descargarAdjunto);
+router.post('/chats/:id/etiqueta', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.etiquetarChat);
+router.post('/chats/:id/llamada', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.registrarLlamada);
+router.post('/mensajes/:id/descargar', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.descargarAdjunto);
 // Corregir un mensaje ya enviado. WhatsApp deja 15 minutos (#75).
-router.patch('/mensajes/:id', puede('whatsapp.usar'), chat.editarMensaje);
-router.get('/conexion', puede('whatsapp.usar'), chat.conexion);
-router.get('/sincronizacion', puede('whatsapp.usar'), chat.sincronizacion);
-router.post('/reintentar-archivos', puede('whatsapp.usar'), chat.reintentarArchivos);
-router.post('/emparejar', puede('whatsapp.usar'), chat.emparejar);
-router.post('/desconectar', puede('whatsapp.usar'), chat.desconectar);
+router.patch('/mensajes/:id', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.editarMensaje);
+router.get('/conexion', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.conexion);
+router.get('/sincronizacion', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.sincronizacion);
+router.post('/reintentar-archivos', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.reintentarArchivos);
+router.post('/emparejar', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.emparejar);
+router.post('/desconectar', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.desconectar);
 // Que se le contesta a quien llama. Por sesion: no todas la quieren.
 // Lo consulta todo el CRM, no solo la pantalla de WhatsApp. No toca la base.
 router.get('/sonando', chat.sonando);
 // Lo que ha entrado y nadie ha leido, para avisar desde cualquier pantalla.
-router.get('/sin-leer', puede('whatsapp.usar'), chat.sinLeer);
-router.get('/respuesta-llamada', puede('whatsapp.usar'), chat.respuestaLlamada);
-router.post('/respuesta-llamada', puede('whatsapp.usar'), chat.guardarRespuestaLlamada);
+router.get('/sin-leer', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.sinLeer);
+router.get('/respuesta-llamada', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.respuestaLlamada);
+router.post('/respuesta-llamada', puede('whatsapp.usar', 'whatsapp.supervisar'), chat.guardarRespuestaLlamada);
 
 export default router;
