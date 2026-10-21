@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
+import { formatDia } from '@/shared/lib/fechas';
 import { useNavigate } from 'react-router-dom';
 import { CalendarBlank,
   X, ArrowSquareOut, EnvelopeSimple, Phone, WhatsappLogo,
@@ -628,7 +629,7 @@ function RecordatoriosTab({ leadId, reminders, onRefetch }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm">{r.nota || 'Recordatorio'}</p>
-                <p className="text-xs text-muted-foreground">{fmtDateTime(r.fecha_recordatorio)}</p>
+                <p className="text-xs text-muted-foreground">{formatDia(r.fecha_recordatorio)}</p>
               </div>
               {!r.completado && (
                 <button

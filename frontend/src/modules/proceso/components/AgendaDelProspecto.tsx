@@ -21,7 +21,9 @@ import { fechaCorta, fechaAplazada, APLAZAMIENTOS } from '../lib/fechasDelPaso';
  *
  * Se marca UN paso como «el siguiente» —el primero pendiente— y no varios: si
  * alguien lleva tres sin hacer, lo que necesita es que le llamen una vez, no
- * tres avisos.
+ * tres avisos. El que ya cubrio un contacto no cuenta (13/10): es el mismo
+ * paso que enseña la cola, y la ficha y la cola no pueden decir cosas
+ * distintas de la misma persona.
  *
  * LA LISTA SE PUEDE TACHAR. Un paso se cierra de dos formas: apuntando el
  * contacto, que es la buena porque deja el texto de lo que se hablo, o
@@ -145,7 +147,7 @@ export default function AgendaDelProspecto({
   // uno anterior al proceso, no tiene agenda y una tarjeta vacía solo estorba.
   if (!pasos || pasos.length === 0) return null;
 
-  const siguiente = pasos.find((p) => !p.hecho && p.estado === 'pendiente') || null;
+  const siguiente = pasos.find((p) => !p.hecho && p.estado === 'pendiente' && !p.con_contacto) || null;
   const hechos = pasos.filter((p) => p.hecho).length;
 
   return (
@@ -255,7 +257,9 @@ export default function AgendaDelProspecto({
         </div>
       ) : (
         <p className="mb-3 text-[11px] text-muted-foreground">
-          No queda ningún paso pendiente con esta persona.
+          {pasos.some((p) => !p.hecho && p.estado === 'pendiente')
+            ? 'Al día: los pasos que quedan ya tienen un contacto apuntado. Táchalos cuando estén dados.'
+            : 'No queda ningún paso pendiente con esta persona.'}
         </p>
       )}
 

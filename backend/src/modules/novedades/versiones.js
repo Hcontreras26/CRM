@@ -13,6 +13,298 @@ export const CRM = { nombre: 'MultiCRM', color: '#1f3a5f' };
 
 export const VERSIONES = [
   {
+    "version": "2.2.0",
+    "fecha": "2026-10-16",
+    "titulo": "Versión 2.2.0",
+    "intro": "Los diplomas de Certifex, ya desde el CRM y con la firma del alumno, y una tanda de mejoras en Finanzas, reportes, usuarios y correos. Aquí está todo lo nuevo, con un botón para ir a cada pantalla.",
+    "grupos": [
+      {
+        "titulo": "Diplomas de Certifex",
+        "items": [
+          {
+            "titulo": "Aprobar, emitir y enviar los diplomas",
+            "texto": "En Clientes → Diplomas ves lo que piden los alumnos desde Moodle y lo apruebas; Certifex emite el diploma con el temario de la formación. Emitir no escribe al alumno: el correo sale cuando pulsas «Enviar al alumno», después de ver el PDF. Las consultas de la web y las emisiones están en Matrículas → Certificaciones.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "La firma del alumno, en el diploma",
+            "texto": "Va impresa sobre «El interesado». Se coge la de su solicitud de admisión y, si no la tiene, la subes en «Revisar datos antes de aprobar»: una foto o un escaneo, y el CRM le quita el fondo y la recorta. En «Por decidir» cada fila dice «Con firma» o «Sin firma · Subir».",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "Diploma nuevo de Psiko Aprende",
+            "texto": "Los diplomas de Psiko Aprende salen con su diseño nuevo: el certificado con las firmas de dirección y de formación, y el plan de estudios con los módulos del curso, sus horas y el sello de ISEIE. Llevan su QR y su código de verificación.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "Cada empresa numera sus diplomas",
+            "texto": "El número de expediente lleva el prefijo de la empresa que expide y cuenta desde 000001: CEDIA-2026-000001 (Psiko, ISEIH, Fono, ISAEG, ISECD, ISEF e ISSLOGG), ISEIE-2026-000001, ICTESS-2026-000001 y LTS-2026-000001 (Academia IA).",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          },
+          {
+            "titulo": "El temario, desde la página del curso",
+            "texto": "Antes de aprobar, «Sincronizar módulos con el producto» copia los módulos de la página del curso, y se pueden retocar a mano. Un nombre mal escrito se corrige sin revocar: mismo número de expediente y mismo QR, y queda anotado quién y por qué.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "Nuevo diploma, desde el CRM",
+            "texto": "Para quien no lo pide desde Moodle: «Nuevo diploma», eliges el campus, el cliente y la formación vendida, y queda en «Por decidir» para aprobarlo y emitirlo como los demás.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "Diploma nuevo de ISEIH",
+            "texto": "Los diplomas de ISEIH salen con su diseño nuevo: el certificado con las firmas de dirección y de formación, y el plan de estudios con sus módulos, sus horas y el sello de ISEIE, con su QR y su código de verificación.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "Horas y temario en todo el catálogo",
+            "texto": "Las formaciones ya traen sus horas y su temario, sacados de la página de cada curso. Si a alguna le faltan los módulos, el panel lo avisa en rojo para escribirlos antes de aprobar.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          }
+        ]
+      },
+      {
+        "titulo": "Nuevo en el CRM",
+        "items": [
+          {
+            "titulo": "El tablero del equipo",
+            "texto": "Equipo de Desarrollo → Tablero: las tareas del equipo por áreas, con «Por revisar» para aprobar o devolver y «Configurar tablero» para las columnas, las áreas y los proyectos. Quién puede qué se cambia en Configuración → Roles.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/tareas",
+            "boton": "Abrir el tablero"
+          },
+          {
+            "titulo": "Facturas de colaboradores",
+            "texto": "Los colaboradores suben su factura del mes en «Mi factura». En Finanzas → Facturas de colaboradores se revisan: enviadas, por pagar, pagadas e historial, con el desglose de cada una, «marcar pagada» y el ZIP del mes para administración.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/finanzas/facturas-colaboradores",
+            "boton": "Ir a Facturas de colaboradores"
+          },
+          {
+            "titulo": "Convocatorias",
+            "texto": "Prospectos → Convocatorias: cada convocatoria de becas como una campaña, con su embudo y sus topes, y la beca de cada persona en su ficha.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/prospectos/convocatorias",
+            "boton": "Ir a Convocatorias"
+          }
+        ]
+      },
+      {
+        "titulo": "Finanzas",
+        "items": [
+          {
+            "titulo": "El Dashboard cuenta lo facturado",
+            "texto": "Las cifras del Dashboard, también las del equipo, son lo facturado, con una fila «Sin gestora» para las ventas que no tienen. En Ventas, las que aún no tienen ningún cobro salen aparte.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/",
+            "boton": "Ir al Dashboard"
+          },
+          {
+            "titulo": "Egresos, por empresa",
+            "texto": "Un egreso puede ser de un campus, de toda una empresa o general (este, solo el super admin). La pantalla funciona igual en los dos CRM y cada uno ve solo lo de sus campus.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/finanzas/egresos",
+            "boton": "Ir a Egresos"
+          },
+          {
+            "titulo": "Ingresos más limpio",
+            "texto": "Los nombres de los cursos ya no salen con «&amp;», y los atajos de fecha («Hoy · Ayer · …») salen una sola vez.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/finanzas/ingresos",
+            "boton": "Ir a Ingresos"
+          },
+          {
+            "titulo": "Una factura tapa un solo cobro",
+            "texto": "Una factura sin cobro enganchado ya no da por facturados todos los cobros del mismo importe: solo uno.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          },
+          {
+            "titulo": "Buscar una factura por el alumno",
+            "texto": "El buscador de Facturas encuentra también por el nombre y el correo del alumno de la venta: una factura a nombre de su empresa ya sale buscando a la persona.",
+            "roles": [
+              "admin",
+              "superadmin",
+              "gestor"
+            ],
+            "ruta": "/finanzas/facturas",
+            "boton": "Ir a Facturas"
+          },
+          {
+            "titulo": "El ranking separa de dónde viene lo cobrado",
+            "texto": "En Reportes → Asesoras, «Cómo voy» y el correo semanal, cada gestora tiene su vendido, facturado, cobrado y pendiente por separado, y lo cobrado se parte en ventas del periodo, ventas anteriores (con la venta y su fecha) y cuotas. Las filas «Sin gestora» y «Total» cuadran con la tarjeta de cobrado.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/informes",
+            "boton": "Ir a Reportes"
+          },
+          {
+            "titulo": "«Tu semana», con lo tuyo",
+            "texto": "El correo de cada lunes te enseña tus prospectos y tus ventas, no los del equipo, y de dónde viene lo que cobraste: ventas de la semana, ventas anteriores y cuotas.",
+            "roles": [
+              "gestor"
+            ],
+            "ruta": null,
+            "boton": null
+          },
+          {
+            "titulo": "Un cobro de Stripe no se queda suelto",
+            "texto": "Si se borra un cobro y se vuelve a apuntar, el cargo de Stripe se engancha al nuevo al pulsar «Sincronizar».",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          }
+        ]
+      },
+      {
+        "titulo": "Conexión",
+        "items": [
+          {
+            "titulo": "Aviso de cobros por transferencia o depósito",
+            "texto": "En Conexión → «Webhook de transferencias» pulsas «Nuevo webhook» y pones la dirección que debe recibir los datos (Make, tu contabilidad, otro programa). Desde entonces, cada cobro apuntado por transferencia o depósito bancario manda sus datos ahí, solo. Se configura por empresa, y arriba se ve si ahora mismo se avisa a alguien. Con tarjeta, Stripe, Bizum o efectivo no sale nada.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/conexion/webhook-transferencias",
+            "boton": "Abrir el webhook"
+          }
+        ]
+      },
+      {
+        "titulo": "Usuarios y tutores",
+        "items": [
+          {
+            "titulo": "Un admin con toda su empresa",
+            "texto": "Al dar de alta o editar un admin, el super admin puede marcar «Todos los campus de esta empresa, también los que se creen». Sigue sin ver otras empresas ni gestionar usuarios.",
+            "roles": [
+              "superadmin"
+            ],
+            "ruta": "/configuracion",
+            "boton": "Ir a Configuración"
+          },
+          {
+            "titulo": "Contraseña de tutor y correo de un super admin",
+            "texto": "La contraseña de un tutor la pueden poner el super admin y el admin (este, solo de sus campus). Un super admin puede cambiar el correo de otro super admin, y queda registrado.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/tutores",
+            "boton": "Ir a Tutores"
+          },
+          {
+            "titulo": "«Cobra desde» en Editar tutor",
+            "texto": "La fecha desde la que cobra un tutor se cambia en «Editar tutor», también hacia atrás para que cuadre. Y lo que factura avisa cuando ya está todo pagado.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/tutores",
+            "boton": "Ir a Tutores"
+          }
+        ]
+      },
+      {
+        "titulo": "Correos y detalles",
+        "items": [
+          {
+            "titulo": "Cada correo con la marca de su campus",
+            "texto": "Los avisos al equipo (bienvenida, prospecto asignado o sin contactar, solicitudes de cambio, Google Ads…) usan la plantilla común con el logo del campus y salen con el nombre de su marca.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          },
+          {
+            "titulo": "Ningún enlace a «Página no encontrada»",
+            "texto": "El buscador (Ctrl+K), los atajos y los avisos de la campana llevan siempre a una pantalla que existe. El filtro «Hoy» de Prospectos ya no salta a mañana por la noche en Latinoamérica.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "2.1.0",
     "fecha": "2026-10-07",
     "titulo": "Versión 2.1.0",

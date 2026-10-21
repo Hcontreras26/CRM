@@ -19,6 +19,7 @@ import tutoresModule from './modules/tutores/index.js';
 import notificationsModule from './modules/notifications/index.js';
 import metaAdsModule from './modules/meta-ads/index.js';
 import accountingModule from './modules/accounting/index.js';
+import expensesModule from './modules/expenses/index.js';
 import integrationsModule from './modules/integrations/index.js';
 import stripePaymentsModule from './modules/stripe-payments/index.js';
 import invoicesModule from './modules/invoices/index.js';
@@ -50,6 +51,7 @@ import installationModule from './modules/installation/index.js';
 import projectChannelsModule from './modules/project-channels/index.js';
 import permissionsModule from './modules/permissions/index.js';
 import connectorsModule from './modules/connectors/index.js';
+import webhooksSalientesModule from './modules/webhooks-salientes/index.js';
 import makeModule from './modules/make/index.js';
 import messagesModule from './modules/messages/index.js';
 import statusModule from './modules/status/index.js';
@@ -57,6 +59,9 @@ import registroModule from './modules/registro/index.js';
 import correosModule from './modules/correos/index.js';
 import certifexModule from './modules/certifex/index.js';
 import changeRequestsModule from './modules/change-requests/index.js';
+// Los errores del navegador (ErrorBoundary) llegan al registro del servidor, como en
+// CRM-ISEIE (paridad, 15/10). Público y con límite por IP.
+import clientErrorsModule from './modules/client-errors/index.js';
 import mcpModule from './modules/mcp/index.js';
 import tasksModule from './modules/tasks/index.js';
 import facturasColaboradorModule from './modules/facturas-colaborador/index.js';
@@ -79,6 +84,7 @@ import { startMcpVigilanciaScheduler } from './jobs/mcpVigilanciaScheduler.js';
 import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js';
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
+import { startWebhooksSalientesScheduler } from './jobs/webhooksSalientesScheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
 import { startTasksDailySummaryScheduler } from './jobs/tasksDailySummaryJob.js';
 import { startFacturasColaboradorScheduler } from './jobs/facturasColaboradorJob.js';
@@ -139,6 +145,71 @@ app.get('/api/health', (_req, res) => {
   res.json({ success: true, data: { status: 'ok', timestamp: new Date().toISOString() } });
 });
 
+// Traído de CRM-ISEIE (paridad, 15/10).
+// Health detallado: DB ping + estado de credenciales externas + uptime +
+// memoria. NO requiere auth (operativo para monitoring externo) pero NO
+// expone secretos (solo presencia/ausencia y last_test_result).
+app.get('/api/health/detailed', async (_req, res) => {
+  const start = Date.now();
+  const checks = { timestamp: new Date().toISOString() };
+
+  // Uptime + memoria del proceso
+  checks.process = {
+    uptime_seconds: Math.round(process.uptime()),
+    node_version: process.version,
+    memory_mb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+  };
+
+  // DB connectivity (timeout 3s)
+  try {
+    const { query } = await import('./shared/config/db.js');
+    const r = await Promise.race([
+      query('SELECT 1 AS ping, COUNT(*)::int AS user_count FROM users'),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('DB timeout 3s')), 3000)),
+    ]);
+    checks.database = { status: 'ok', user_count: r.rows[0].user_count };
+  } catch (err) {
+    checks.database = { status: 'fail', error: err.message };
+  }
+
+  // Credenciales externas configuradas (sin exponer valores)
+  try {
+    const { query } = await import('./shared/config/db.js');
+    const { rows } = await query(
+      `SELECT service, last_test_result, last_tested_at
+         FROM api_credentials
+        WHERE active = true`
+    );
+    checks.integrations = rows.reduce((acc, r) => {
+      acc[r.service] = {
+        configured: true,
+        last_test: r.last_test_result || 'never',
+        last_tested_at: r.last_tested_at || null,
+      };
+      return acc;
+    }, {});
+    const expected = ['brevo', 'google_ads', 'gsc', 'stripe', 'claude', 'meta'];
+    for (const svc of expected) {
+      if (!checks.integrations[svc]) checks.integrations[svc] = { configured: false };
+    }
+  } catch (err) {
+    checks.integrations = { error: err.message };
+  }
+
+  // Schedulers: leemos de variables de entorno qué están activos
+  checks.schedulers = {
+    email_sequence: process.env.EMAIL_SEQ_DISABLED !== '1',
+    document_orphan: process.env.DOC_ORPHAN_DISABLED !== '1',
+    google_ads_token: process.env.GOOGLE_ADS_TOKEN_DISABLED !== '1',
+    reminder: process.env.REMINDER_DISABLED !== '1',
+    woocommerce_sync: process.env.WC_SYNC_DISABLED !== '1',
+  };
+
+  checks.elapsed_ms = Date.now() - start;
+  const overallOk = checks.database?.status === 'ok';
+  res.status(overallOk ? 200 : 503).json({ success: overallOk, data: checks });
+});
+
 // Registro automatico de modulos
 // Mapeo modulo-name -> { module, name }. El nombre debe coincidir con el manifest de bundles.
 const ALL_MODULES = [
@@ -159,6 +230,9 @@ const ALL_MODULES = [
   { name: 'notifications', mod: notificationsModule },
   { name: 'meta-ads', mod: metaAdsModule },
   { name: 'accounting', mod: accountingModule },
+  // Egresos, su propio modulo e igual que en CRM-ISEIE (#227). Va DESPUES de
+  // `accounting`: su alias /api/accounting/expenses cuelga de ese prefijo.
+  { name: 'expenses', mod: expensesModule },
   { name: 'integrations', mod: integrationsModule },
   { name: 'stripe-payments', mod: stripePaymentsModule },
   { name: 'invoices', mod: invoicesModule },
@@ -187,6 +261,9 @@ const ALL_MODULES = [
   { name: 'project-channels', mod: projectChannelsModule },
   { name: 'permissions', mod: permissionsModule },
   { name: 'connectors', mod: connectorsModule },
+  // Conexión → «Webhook de transferencias» (Diego, 15/10): avisa a fuera de
+  // los cobros por transferencia o depósito bancario. Migración 206.
+  { name: 'webhooks-salientes', mod: webhooksSalientesModule },
   { name: 'make', mod: makeModule },
   { name: 'messages', mod: messagesModule },
   { name: 'registro', mod: registroModule },
@@ -210,6 +287,8 @@ app.use(statusModule.prefix, statusModule.router);
 logger.info(`Modulo registrado: ${statusModule.prefix} (siempre activo, incluye rutas publicas)`);
 app.use(changeRequestsModule.prefix, changeRequestsModule.router);
 logger.info(`Modulo registrado: ${changeRequestsModule.prefix} (siempre activo)`);
+app.use(clientErrorsModule.prefix, clientErrorsModule.router);
+logger.info(`Modulo registrado: ${clientErrorsModule.prefix} (siempre activo, sin sesion)`);
 
 async function loadActiveBundles() {
   try {
@@ -342,6 +421,7 @@ if (process.env.NODE_ENV !== 'test') {
     startMcpRotacionScheduler();
     startMcpVigilanciaScheduler();
     startCorreoEntranteScheduler();
+    startWebhooksSalientesScheduler();
     if (tareasActivas()) startTasksDailySummaryScheduler();
     if (facturasColaboradorActivas()) startFacturasColaboradorScheduler();
     recuperarAdjuntosDeWhatsapp();

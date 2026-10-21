@@ -69,6 +69,11 @@ export const colaboracionSchema = z.object({
   desde: fecha,
   hasta: fecha.optional().nullable(),
   notas: z.string().optional().nullable(),
+  // La formacion es de un campus en el que el tutor no esta (#384). Sin esto
+  // se contesta 409 con ese campus, y la pantalla pregunta «¿la añado a este
+  // campus?»; con `true`, se le da de alta ahi y se crea la colaboracion, todo
+  // de una vez. Solo sobre un campus que vea quien lo pide.
+  anadirAlCampus: z.boolean().optional(),
 }).refine((d) => !d.hasta || d.hasta >= d.desde, {
   message: 'La fecha de fin no puede ser anterior a la de inicio',
   path: ['hasta'],
@@ -86,6 +91,21 @@ export const editarColaboracionSchema = z.object({
   entregoVideo: z.boolean().optional(),
   // Los tramos son excluyentes: nadie esta al 25 y al 50 a la vez.
   modulosPct: z.union([z.literal(0), z.literal(25), z.literal(50), z.literal(100)]).optional(),
+});
+
+/*
+  «Cobra desde» en Editar tutor (Diego, 13/10). Una fecha que pasa a ser el
+  inicio de todas sus colaboraciones activas.
+
+  Ademas del formato se exige que la fecha EXISTA: «2026-02-30» pasa la
+  expresion regular y Postgres la rechaza con un 500 que no dice nada. Se
+  comprueba en UTC para no meter la zona horaria del servidor.
+*/
+export const cobraDesdeSchema = z.object({
+  desde: fecha.refine((s) => {
+    const d = new Date(`${s}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+  }, 'Esa fecha no existe'),
 });
 
 export const ajustesSchema = z.object({

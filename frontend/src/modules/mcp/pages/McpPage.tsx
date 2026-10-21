@@ -9,7 +9,7 @@ import { mcpApi, urlDelMcp, type McpEstado, type McpPersona, type McpToken } fro
 import { nombreDelCliente } from '../lib/cliente';
 import ConexionesClaude from '../components/ConexionesClaude';
 import CodigoParaClaude from '../components/CodigoParaClaude';
-import EstadoCodigoUrl from '../components/EstadoCodigoUrl';
+import EstadoCodigoUrl, { FilaConexion } from '../components/EstadoCodigoUrl';
 import ActividadMcp from '../components/ActividadMcp';
 import InterruptorMcp from '../components/InterruptorMcp';
 
@@ -233,6 +233,20 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
           {/* Segundo factor (#192): solo con el interruptor encendido. */}
           {estado.codigo?.obligatorio && <CodigoParaClaude config={estado.codigo} onCambio={cargar} />}
 
+          {/* #326: el super admin puede rechazar cualquier Claude conectado, por si una URL se cuela. */}
+          {!!estado.conexionesDelEquipo?.length && (
+            <div className="bg-card border border-border rounded-lg p-4 space-y-2">
+              <h2 className="font-semibold text-sm">Claude conectados del equipo</h2>
+              <p className="text-xs text-muted-foreground">
+                Cada Claude conectado con la URL de otra persona. Los pendientes los autoriza su dueño;
+                tú puedes rechazar o quitar cualquiera si ves algo raro.
+              </p>
+              <ul className="space-y-1">
+                {estado.conexionesDelEquipo.map((c) => <FilaConexion key={c.id} conexion={c} onCambio={cargar} deOtraPersona />)}
+              </ul>
+            </div>
+          )}
+
           {/* El token recien creado, UNA vez. */}
           {nuevo && (
             <div className="border border-emerald-300 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-4 space-y-3">
@@ -368,15 +382,25 @@ Su URL no se borra: si le devuelves el acceso, volverá a funcionar sin que teng
                 <strong>Sin OAuth:</strong> deja vacíos «OAuth Client ID» y «OAuth Client Secret» (en «Configuración avanzada»).
                 La llave ya va en la URL; con OAuth puesto, Claude dice «Couldn&apos;t register with … sign-in service».
               </li>
-              <li>
-                Claude Code, o Claude Desktop por archivo de configuración: usa «Otras formas de conectar». <strong>Es la opción más segura</strong>:
-                la llave viaja en una cabecera y no en la dirección, así que no queda escrita en ningún registro.
-              </li>
-              {estado.codigo?.obligatorio && (
+              {estado.codigo?.obligatorio ? (<>
+                {/* #326: con el código encendido, cada Claude se conecta con la URL e inicia sesión; la llave sola en una cabecera ya no da datos. */}
                 <li>
-                  Cuando Claude te pida el código, pulsa <strong>Sacar código para Claude</strong> arriba y díselo.
-                  Te lo volverá a pedir tras un rato sin usarlo. Si tu Claude dice que no tiene la herramienta «desbloquear»,
-                  pulsa <strong>Desbloquear desde aquí</strong> junto a tu URL y pídele que vuelva a consultar.
+                  Al pulsar <strong>Conectar</strong>, Claude abre un momento el CRM en el navegador y vuelve: es su inicio de sesión.
+                  Con Claude Code, conéctalo también con tu URL: <code>claude mcp add --transport http crm &lt;tu URL&gt;</code>.
+                </li>
+                <li>
+                  Ese Claude aparece debajo de tu URL como <strong>pendiente</strong>: pulsa <strong>Autorizar</strong>. Si no lo has conectado tú,
+                  pulsa <strong>Rechazar</strong>: alguien tiene tu URL.
+                </li>
+                <li>
+                  Cuando Claude te pida el código, pulsa <strong>Sacar código para Claude</strong> arriba y díselo. Solo la primera vez:
+                  después no lo vuelve a pedir. Si tu Claude dice que no tiene la herramienta «desbloquear», pulsa
+                  <strong> Desbloquear desde aquí</strong> junto a tu URL y pídele que vuelva a consultar.
+                </li>
+              </>) : (
+                <li>
+                  Claude Code, o Claude Desktop por archivo de configuración: usa «Otras formas de conectar». <strong>Es la opción más segura</strong>:
+                  la llave viaja en una cabecera y no en la dirección, así que no queda escrita en ningún registro.
                 </li>
               )}
               <li>Pregúntale a Claude, por ejemplo: «¿cuántos prospectos nuevos entraron este mes en mis campus?».</li>

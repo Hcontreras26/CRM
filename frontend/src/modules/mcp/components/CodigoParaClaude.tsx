@@ -2,24 +2,22 @@ import { useEffect, useState } from 'react';
 import { Copy, LockKey } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import { mcpApi, type McpCodigo, type McpEstado } from '../api/mcp.api';
-import EstadoCodigoUrl from './EstadoCodigoUrl';
 
 /**
  * «Código para Claude» (#192): el segundo factor del MCP.
  *
  * Con el interruptor MCP_CODIGO_OBLIGATORIO encendido, Claude no saca datos
- * hasta que la persona le da este código. El desbloqueo es de la conexión y se
- * pierde tras un rato sin uso: entonces Claude lo vuelve a pedir y se saca otro
- * aquí.
+ * hasta que la persona le da este código. Desde la #326 el desbloqueo es de
+ * cada Claude conectado (autorizado por su dueño) y ya no caduca por horas.
  *
  * El código vive solo en este estado y se olvida al caducar: el servidor no lo
  * guarda, solo su huella.
  */
-const horas = (min: number) => (min % 60 === 0 ? `${min / 60} h` : `${min} min`);
 
-export default function CodigoParaClaude({ config, onCambio }: {
+export default function CodigoParaClaude({ config }: {
   config: NonNullable<McpEstado['codigo']>;
-  onCambio: () => void;
+  /** Ya no se usa aquí (#326): los botones van debajo de cada URL. */
+  onCambio?: () => void;
 }) {
   const [codigo, setCodigo] = useState<McpCodigo | null>(null);
   const [pidiendo, setPidiendo] = useState(false);
@@ -57,8 +55,8 @@ export default function CodigoParaClaude({ config, onCambio }: {
         <div className="flex-1 min-w-[200px]">
           <h2 className="font-semibold text-sm">Código para Claude</h2>
           <p className="text-xs text-muted-foreground">
-            Claude necesita este código para darte datos. Te lo pedirá al conectarte y otra vez tras {horas(config.inactividadMin)} sin
-            usarlo (como mucho cada {horas(config.maximoMin)}). Vale {config.minutosCodigo} minutos y una sola vez.
+            Claude te lo pedirá la primera vez que lo conectes con tu URL; después no vuelve a pedirlo. Además, cada Claude que se
+            conecte con tu URL tienes que autorizarlo debajo de ella: si no eres tú, recházalo. Vale {config.minutosCodigo} minutos y una sola vez.
           </p>
         </div>
         <button
@@ -70,14 +68,11 @@ export default function CodigoParaClaude({ config, onCambio }: {
 
       {/* El estado actual en una línea (#192, Diego 05/10): el de su URL o, si tiene varias,
           un resumen de todas. El detalle y el botón de cada una, en su tabla. */}
+      {/* #326: solo la línea; cada Claude conectado, con «Autorizar», sale debajo de su URL. */}
       {config.resumen && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-          {config.resumen.una ? (<>
-            <span>Tu URL ({config.resumen.una.nombre}):</span>
-            <EstadoCodigoUrl codigo={config.resumen.una} tokenId={config.resumen.una.id} onCambio={onCambio} />
-          </>) : (
-            <span className="inline-flex items-start gap-1"><LockKey size={12} weight="bold" className="mt-0.5 shrink-0" /> {config.resumen.texto}</span>
-          )}
+          {config.resumen.una && <span>Tu URL ({config.resumen.una.nombre}):</span>}
+          <span className="inline-flex items-start gap-1"><LockKey size={12} weight="bold" className="mt-0.5 shrink-0" /> {config.resumen.texto}</span>
         </div>
       )}
 

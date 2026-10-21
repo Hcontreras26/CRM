@@ -10,6 +10,19 @@
 // Ojo con las tres fechas, que son distintas: los leads cuentan por su fecha de
 // entrada, las ventas por su fecha de venta y los cobros por su fecha de cobro.
 // Por eso una asesora puede cobrar en julio una venta que cerró en mayo.
+//
+// CIFRAS SEPARADAS (Diego, 19/10/2026). Diana salió la primera de la semana con
+// 2.100 € cobrados y 0 ventas: era una venta del 30/09 cobrada el 16/10 y una
+// cuota. No estaba mal contado —«eso no hay que acomodar, porque está en
+// orden»—, pero la tabla no decía de dónde venía el dinero. Ahora:
+//   · cada cabecera dice por qué fecha cuenta (y cambia con la base elegida);
+//   · lo cobrado se parte en tres: de ventas del mes, de ventas anteriores (las
+//     grandes, con su nº y su fecha) y cuotas — la regla está en
+//     `claseDelCobro` (report.model.js) y el popup de cada parte la usa igual;
+//   · Facturado y Pendiente van al lado;
+//   · lo que no es de nadie sale como «Sin gestora», al final, y el «Total del
+//     mes» suma todas las filas.
+// Ninguna fecha ni ninguna base cambia; el Excel y el PDF siguen igual.
 import { useEffect, useMemo, useState } from 'react';
 import client from '@/shared/api/client';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -31,6 +44,31 @@ function nombreMes(mes) {
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   return `${nombres[Number(m) - 1] || mes} ${a}`;
 }
+/** «30/09» a partir de '2026-09-30'. */
+function diaMes(iso) {
+  const [, m, d] = String(iso || '').slice(0, 10).split('-');
+  return d && m ? `${d}/${m}` : '';
+}
+
+// POR QUÉ FECHA CUENTA CADA COLUMNA, según la base. Solo se dice: no cambia
+// ninguna (Diego, 19/10/2026). `corta` va bajo la cabecera; `larga`, en su
+// tooltip.
+const FECHAS = {
+  cobro: {
+    venta: { corta: 'por fecha de venta', larga: 'Por la fecha de la venta.' },
+    cobro: { corta: 'por fecha de cobro', larga: 'Por la fecha en que entró el dinero.' },
+  },
+  factura: {
+    venta: { corta: 'por su 1.ª factura', larga: 'Por la fecha de la factura de su primer cobro.' },
+    cobro: { corta: 'por fecha de factura', larga: 'Por la fecha de la factura de cada cobro.' },
+  },
+};
+
+// Un mes vacío, con todas las sumas que se pintan en su fila de total.
+const MES_VACIO = (mes) => ({
+  mes, asesoras: [], leads: 0, convertidos: 0, ventas: 0, vendido: 0, facturado: 0, pendiente: 0,
+  cobrado: 0, cobradoPeriodo: 0, cobradoAnteriores: 0, cobradoEnCuotas: 0, cuotas: 0,
+});
 
 export default function AsesorasPanel({ from, to }) {
   const { activeProject, activeIssuerId } = useProjectContext();
@@ -49,6 +87,7 @@ export default function AsesorasPanel({ from, to }) {
   const anio = new Date().getFullYear();
   const desde = ambito === 'anio' ? `${anio}-01-01` : from;
   const hasta = ambito === 'anio' ? new Date().toISOString().slice(0, 10) : to;
+  const fechas = FECHAS[base] || FECHAS.cobro;
 
   useEffect(() => {
     let vivo = true;
@@ -74,16 +113,24 @@ export default function AsesorasPanel({ from, to }) {
   const meses = useMemo(() => {
     const acc = {};
     for (const f of filas) {
-      acc[f.mes] = acc[f.mes] || { mes: f.mes, asesoras: [], leads: 0, convertidos: 0, ventas: 0, vendido: 0, cobrado: 0, cobradoVenta: 0, cobradoCuotas: 0, mensualidades: 0 };
-      acc[f.mes].asesoras.push(f);
-      acc[f.mes].leads += Number(f.leads || 0);
-      acc[f.mes].convertidos += Number(f.leads_convertidos || 0);
-      acc[f.mes].ventas += Number(f.ventas || 0);
-      acc[f.mes].vendido += Number(f.vendido || 0);
-      acc[f.mes].cobrado += Number(f.cobrado || 0);
-      acc[f.mes].cobradoVenta += Number(f.cobrado_venta || 0);
-      acc[f.mes].cobradoCuotas += Number(f.cobrado_cuotas || 0);
-      acc[f.mes].mensualidades += Number(f.mensualidades || 0);
+      acc[f.mes] = acc[f.mes] || MES_VACIO(f.mes);
+      const m = acc[f.mes];
+      m.asesoras.push(f);
+      m.leads += Number(f.leads || 0);
+      m.convertidos += Number(f.leads_convertidos || 0);
+      m.ventas += Number(f.ventas || 0);
+      m.vendido += Number(f.vendido || 0);
+      m.facturado += Number(f.facturado || 0);
+      m.pendiente += Number(f.pendiente || 0);
+      m.cobrado += Number(f.cobrado || 0);
+      m.cobradoPeriodo += Number(f.cobrado_del_periodo || 0);
+      m.cobradoAnteriores += Number(f.cobrado_anteriores || 0);
+      m.cobradoEnCuotas += Number(f.cobrado_en_cuotas || 0);
+      m.cuotas += Number(f.cobros_en_cuotas || 0);
+    }
+    // «Sin gestora» al final: no compite, pero cuenta en el total.
+    for (const m of Object.values(acc)) {
+      m.asesoras.sort((a, b) => (a.asesora_id == null) - (b.asesora_id == null));
     }
     return Object.values(acc).sort((a, b) => b.mes.localeCompare(a.mes));
   }, [filas]);
@@ -104,22 +151,36 @@ export default function AsesorasPanel({ from, to }) {
         // El popup cuenta con el mismo criterio que la tabla: si no, se ve 18
         // fuera y 16 dentro.
         base,
+        // El rango del panel: las tres partes de lo cobrado deciden «del
+        // periodo» con el mes RECORTADO al rango, como la fila.
+        from: desde || '',
+        to: hasta || '',
       },
-      subtitulo: `${nombreMes(mes)} · ${asesora ? asesora.asesora : 'todas las asesoras'}`,
+      subtitulo: `${nombreMes(mes)} · ${asesora ? nombreDe(asesora) : 'todas las asesoras'}`,
     });
   }
 
   // Número pulsable. Si vale 0 no abre nada: no hay nada que enseñar.
-  function Num({ tipo, mes, asesora, children, className = '' }) {
+  function Num({ tipo, mes, asesora, children, className = '', title = 'Ver los registros que hay detrás' }) {
     return (
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); abrir(tipo, mes, asesora); }}
         className={`tabular-nums underline decoration-dotted decoration-muted-foreground/40 underline-offset-2 hover:decoration-primary hover:text-primary transition-colors ${className}`}
-        title="Ver los registros que hay detrás"
+        title={title}
       >
         {children}
       </button>
+    );
+  }
+
+  // Una cabecera con su fecha debajo y la explicación entera en el tooltip.
+  function Th({ children, fecha, title, left = false }) {
+    return (
+      <th className={`${left ? 'text-left' : 'text-right'} px-3 py-2 font-bold align-bottom`} title={title}>
+        {children}
+        {fecha && <span className="block text-[9px] font-normal normal-case">{fecha}</span>}
+      </th>
     );
   }
 
@@ -146,17 +207,18 @@ export default function AsesorasPanel({ from, to }) {
           <UsersThree size={18} weight="regular" /> Asesoras, mes a mes
         </h2>
         <p className="text-xs text-muted-foreground">
-          Leads que le entraron, ventas cerradas y dinero cobrado. Los leads cuentan por
-          fecha de entrada, las ventas por fecha de venta y los cobros por fecha de cobro.
-          La tasa es leads convertidos sobre leads recibidos, ambos del periodo: quien solo
-          pagó una mensualidad no cuenta como conversión.
+          Leads que le entraron, ventas cerradas y dinero cobrado. Cada columna dice debajo por
+          qué fecha cuenta: los leads, por fecha de entrada; lo facturado, por fecha de factura;
+          las ventas y lo cobrado, según el botón de abajo. La tasa es leads convertidos sobre
+          leads recibidos, ambos del periodo: quien solo pagó una mensualidad no cuenta como conversión.
         </p>
         <p className="text-xs text-primary font-medium mt-1">
           Pulsa cualquier número para ver los registros que hay detrás, con buscador.
         </p>
-        <div className="mt-1.5 flex items-center gap-3 text-[10px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-success" /> cobro de la venta</span>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-info" /> cuota del plan de pago</span>
+        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-success" /> de ventas del mes</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-warning" /> de ventas anteriores</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-info" /> cuotas (plan de pago o mensualidad)</span>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-md border border-border overflow-hidden">
@@ -193,6 +255,14 @@ export default function AsesorasPanel({ from, to }) {
           se emitió la factura, que es como cuadra contabilidad. Un mismo pago puede caer en un
           mes o en otro según cuál mires.
         </p>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Lo cobrado se parte en tres. <strong>De ventas del mes</strong>: cobros de ventas hechas
+          ese mismo mes. <strong>De ventas anteriores</strong>: cobros de ventas de antes, sin las
+          cuotas; los de 300 € o más salen con su nº de venta y su fecha. <strong>Cuotas</strong>:
+          las de un plan de pago y las mensualidades (una cuota de una venta del mismo mes cuenta
+          como de ventas del mes). <strong>Pendiente</strong>: lo que aún les falta por cobrar, a día
+          de hoy, a las ventas del mes.
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -218,18 +288,20 @@ export default function AsesorasPanel({ from, to }) {
                   <Num tipo="leads" mes={m.mes}>{m.leads.toLocaleString('es-ES')}</Num> leads
                 </span>
                 <span className="text-[11px] text-muted-foreground">
-                  <Num tipo="ventas" mes={m.mes}>{m.ventas}</Num> ventas
+                  <Num tipo="ventas" mes={m.mes}>{m.ventas.toLocaleString('es-ES')}</Num> ventas
                 </span>
                 <span className="text-[11px] text-info">
-                  <Num tipo="mensualidades" mes={m.mes}>{m.mensualidades}</Num> mensual.
+                  <Num tipo="cobros-cuotas" mes={m.mes}>{m.cuotas.toLocaleString('es-ES')}</Num> cuotas
                 </span>
                 <span className="text-[11px] text-muted-foreground tabular-nums">{tasa.toFixed(2)}%</span>
-                {/* Reparto del cobro del mes: ventas nuevas vs cuotas del plan. */}
+                {/* De dónde viene lo cobrado del mes: ventas del mes, ventas
+                    anteriores y cuotas. */}
                 {m.cobrado > 0 && (
                   <span className="hidden md:flex h-2 w-28 rounded-full overflow-hidden bg-muted"
-                    title={`${fmtMoney(m.cobradoVenta)} de ventas · ${fmtMoney(m.cobradoCuotas)} de cuotas`}>
-                    <span className="bg-success" style={{ width: `${(m.cobradoVenta / m.cobrado) * 100}%` }} />
-                    <span className="bg-info" style={{ width: `${(m.cobradoCuotas / m.cobrado) * 100}%` }} />
+                    title={`${fmtMoney(m.cobradoPeriodo)} de ventas del mes · ${fmtMoney(m.cobradoAnteriores)} de ventas anteriores · ${fmtMoney(m.cobradoEnCuotas)} de cuotas`}>
+                    <span className="bg-success" style={{ width: `${Math.max(0, m.cobradoPeriodo / m.cobrado) * 100}%` }} />
+                    <span className="bg-warning" style={{ width: `${Math.max(0, m.cobradoAnteriores / m.cobrado) * 100}%` }} />
+                    <span className="bg-info" style={{ width: `${Math.max(0, m.cobradoEnCuotas / m.cobrado) * 100}%` }} />
                   </span>
                 )}
                 <span className="text-sm font-bold text-success w-28 text-right">
@@ -251,53 +323,74 @@ export default function AsesorasPanel({ from, to }) {
                   <table className="w-full text-[11px]">
                     <thead className="bg-muted/50 text-muted-foreground">
                       <tr>
-                        <th className="text-left px-3 py-2 font-bold">Asesora</th>
-                        <th className="text-right px-3 py-2 font-bold">Leads recibidos</th>
-                        <th className="text-right px-3 py-2 font-bold">Convertidos</th>
-                        <th className="text-right px-3 py-2 font-bold">Ventas</th>
-                        <th className="text-right px-3 py-2 font-bold">Mensualidades</th>
-                        <th className="text-right px-3 py-2 font-bold">Tasa</th>
-                        <th className="text-right px-3 py-2 font-bold">Vendido</th>
-                        <th className="text-right px-3 py-2 font-bold">Cobrado</th>
-                        <th className="text-right px-3 py-2 font-bold">· de ventas</th>
-                        <th className="text-right px-3 py-2 font-bold">· de cuotas</th>
-                        <th className="text-right px-3 py-2 font-bold">Ticket medio</th>
+                        <Th left>Asesora</Th>
+                        <Th fecha="por fecha de entrada" title="Los leads, por su fecha de solicitud.">Leads recibidos</Th>
+                        <Th fecha={fechas.venta.corta} title={`Las ventas del mes. ${fechas.venta.larga}`}>Convertidos</Th>
+                        <Th fecha={fechas.venta.corta} title={`${fechas.venta.larga} Sin mensualidades ni ventas sin ningún cobro (proformas sin pagar); una compartida cuenta su parte.`}>Ventas</Th>
+                        <Th title="Convertidos sobre leads recibidos.">Tasa</Th>
+                        <Th fecha={fechas.venta.corta} title={`Importe de las ventas del mes. ${fechas.venta.larga}`}>Vendido</Th>
+                        <Th fecha="por fecha de factura" title="Facturas y abonos emitidos ese mes, IVA incluido. Siempre por la fecha de emisión, sea cual sea el botón de arriba.">Facturado</Th>
+                        <Th fecha={fechas.cobro.corta} title={`Los pagos registrados. ${fechas.cobro.larga} Es la suma de las tres columnas de la derecha.`}>Cobrado</Th>
+                        <Th fecha="ventas del mes" title="Cobros de ventas cuya fecha de venta cae en ese mismo mes (dentro del rango).">· de ventas del mes</Th>
+                        <Th fecha="ventas de antes" title="Cobros de ventas de meses anteriores, sin las cuotas. Los de 300 € o más salen con su nº de venta y su fecha.">· de ventas anteriores</Th>
+                        <Th fecha="plan o mensualidad" title="Cobros que saldan una cuota de un plan de pago, o de una ficha marcada como mensualidad.">· cuotas</Th>
+                        <Th fecha="de las ventas del mes" title="De las ventas del mes, su importe menos todo lo cobrado de ellas hasta hoy. Una venta cobrada de más cuenta 0.">Pendiente</Th>
+                        <Th title="Vendido entre ventas.">Ticket medio</Th>
                       </tr>
                     </thead>
                     <tbody>
-                      {m.asesoras.map((a) => (
-                        <tr key={`${m.mes}-${a.asesora}`} className="border-b border-border/50 last:border-0">
-                          <td className="px-3 py-2 font-medium">{a.asesora}</td>
-                          <td className="px-3 py-2 text-right">
-                            <Num tipo="leads" mes={m.mes} asesora={a}>{Number(a.leads).toLocaleString('es-ES')}</Num>
-                          </td>
-                          <td className="px-3 py-2 text-right text-success">
-                            <Num tipo="leads-convertidos" mes={m.mes} asesora={a}>{Number(a.leads_convertidos || 0).toLocaleString('es-ES')}</Num>
-                          </td>
-                          <td className="px-3 py-2 text-right font-semibold">
-                            <Num tipo="ventas" mes={m.mes} asesora={a}>{a.ventas}</Num>
-                          </td>
-                          <td className="px-3 py-2 text-right text-info">
-                            <Num tipo="mensualidades" mes={m.mes} asesora={a}>{a.mensualidades}</Num>
-                          </td>
-                          <td className="px-3 py-2 text-right tabular-nums">{Number(a.tasa_conversion).toFixed(2)}%</td>
-                          <td className="px-3 py-2 text-right">
-                            <Num tipo="ventas" mes={m.mes} asesora={a}>{fmtMoney(a.vendido)}</Num>
-                          </td>
-                          <td className="px-3 py-2 text-right font-semibold text-success">
-                            <Num tipo="cobros" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado)}</Num>
-                          </td>
-                          <td className="px-3 py-2 text-right text-muted-foreground">
-                            <Num tipo="cobros-venta" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado_venta)}</Num>
-                          </td>
-                          <td className="px-3 py-2 text-right text-info">
-                            <Num tipo="mensualidades" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado_cuotas)}</Num>
-                          </td>
-                          <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{fmtMoney(a.ticket_medio)}</td>
-                        </tr>
-                      ))}
+                      {m.asesoras.map((a) => {
+                        const sin = a.asesora_id == null;
+                        const grandes = Array.isArray(a.anteriores_grandes) ? a.anteriores_grandes : [];
+                        return (
+                          <tr key={`${m.mes}-${a.asesora_id ?? 'sin'}`} className={`border-b border-border/50 last:border-0 ${sin ? 'text-muted-foreground' : ''}`}>
+                            <td className={`px-3 py-2 font-medium ${sin ? 'italic' : ''}`}
+                              title={sin ? 'Ventas sin vendedora de prospectos sin responsable: no compiten, pero cuentan en el total.' : undefined}>
+                              {nombreDe(a)}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <Num tipo="leads" mes={m.mes} asesora={a}>{Number(a.leads).toLocaleString('es-ES')}</Num>
+                            </td>
+                            <td className="px-3 py-2 text-right text-success">
+                              <Num tipo="leads-convertidos" mes={m.mes} asesora={a}>{Number(a.leads_convertidos || 0).toLocaleString('es-ES')}</Num>
+                            </td>
+                            <td className="px-3 py-2 text-right font-semibold">
+                              <Num tipo="ventas" mes={m.mes} asesora={a}>{Number(a.ventas || 0).toLocaleString('es-ES')}</Num>
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">{Number(a.tasa_conversion).toFixed(2)}%</td>
+                            <td className="px-3 py-2 text-right">
+                              <Num tipo="ventas" mes={m.mes} asesora={a}>{fmtMoney(a.vendido)}</Num>
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(a.facturado)}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-success">
+                              <Num tipo="cobros" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado)}</Num>
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <Num tipo="cobros-periodo" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado_del_periodo)}</Num>
+                            </td>
+                            <td className="px-3 py-2 text-right text-warning-soft-foreground">
+                              <Num tipo="cobros-anteriores" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado_anteriores)}</Num>
+                              {grandes.map((g) => (
+                                <span key={g.venta_id} className="block whitespace-nowrap text-[10px] text-muted-foreground">
+                                  {fmtMoney(g.importe)} · venta #{g.venta_id} del {diaMes(g.fecha_venta)}
+                                </span>
+                              ))}
+                            </td>
+                            <td className="px-3 py-2 text-right text-info">
+                              <Num tipo="cobros-cuotas" mes={m.mes} asesora={a}>{fmtMoney(a.cobrado_en_cuotas)}</Num>
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <Num tipo="ventas" mes={m.mes} asesora={a} title="Las ventas del mes, con lo cobrado de cada una">{fmtMoney(a.pendiente)}</Num>
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{fmtMoney(a.ticket_medio)}</td>
+                          </tr>
+                        );
+                      })}
                       <tr className="bg-muted/40 font-bold">
-                        <td className="px-3 py-2">Total del mes</td>
+                        <td className="px-3 py-2"
+                          title="Suma de todas las filas, «Sin gestora» incluida. Con «Por cobro» y «Solo el rango de arriba», los meses suman la tarjeta «Ingresos» de «Resumen del periodo» (no «Ventas cobradas», que es lo cobrado de las ventas del periodo, por fecha de venta); con «Por factura» un mismo cobro puede caer en otro mes. Con ventas compartidas puede haber un céntimo de redondeo.">
+                          Total del mes
+                        </td>
                         <td className="px-3 py-2 text-right">
                           <Num tipo="leads" mes={m.mes}>{m.leads.toLocaleString('es-ES')}</Num>
                         </td>
@@ -305,23 +398,27 @@ export default function AsesorasPanel({ from, to }) {
                           <Num tipo="leads-convertidos" mes={m.mes}>{m.convertidos.toLocaleString('es-ES')}</Num>
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <Num tipo="ventas" mes={m.mes}>{m.ventas}</Num>
-                        </td>
-                        <td className="px-3 py-2 text-right text-info">
-                          <Num tipo="mensualidades" mes={m.mes}>{m.mensualidades}</Num>
+                          <Num tipo="ventas" mes={m.mes}>{m.ventas.toLocaleString('es-ES')}</Num>
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">{tasa.toFixed(2)}%</td>
                         <td className="px-3 py-2 text-right">
                           <Num tipo="ventas" mes={m.mes}>{fmtMoney(m.vendido)}</Num>
                         </td>
+                        <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(m.facturado)}</td>
                         <td className="px-3 py-2 text-right text-success">
                           <Num tipo="cobros" mes={m.mes}>{fmtMoney(m.cobrado)}</Num>
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <Num tipo="cobros-venta" mes={m.mes}>{fmtMoney(m.cobradoVenta)}</Num>
+                          <Num tipo="cobros-periodo" mes={m.mes}>{fmtMoney(m.cobradoPeriodo)}</Num>
+                        </td>
+                        <td className="px-3 py-2 text-right text-warning-soft-foreground">
+                          <Num tipo="cobros-anteriores" mes={m.mes}>{fmtMoney(m.cobradoAnteriores)}</Num>
                         </td>
                         <td className="px-3 py-2 text-right text-info">
-                          <Num tipo="mensualidades" mes={m.mes}>{fmtMoney(m.cobradoCuotas)}</Num>
+                          <Num tipo="cobros-cuotas" mes={m.mes}>{fmtMoney(m.cobradoEnCuotas)}</Num>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Num tipo="ventas" mes={m.mes}>{fmtMoney(m.pendiente)}</Num>
                         </td>
                         <td className="px-3 py-2"></td>
                       </tr>
@@ -347,4 +444,9 @@ export default function AsesorasPanel({ from, to }) {
       />
     </section>
   );
+}
+
+/** «Sin gestora» para lo que no es de nadie; si no, su nombre. */
+function nombreDe(a) {
+  return a.asesora_id == null ? 'Sin gestora' : a.asesora;
 }

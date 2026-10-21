@@ -90,3 +90,40 @@ export async function saveRolePermissions(
   const res = await client.put(`/permissions/role-permissions/${roleKey}`, { permissions });
   return ((res.data as { permissions?: Record<string, boolean> })?.permissions || permissions);
 }
+
+// ── Una clave suelta por rol y por persona: «Diplomas (Certifex) · Ver» (#384) ──
+
+/** Una persona de un rol, con la clave como la tiene. */
+export interface PersonaConClave {
+  id: number;
+  nombre: string;
+  email: string;
+  /** Su excepción: true, false, o null si tiene lo que diga su rol. */
+  excepcion: boolean | null;
+  /** Lo que manda al final (rol + rol a medida + excepción). */
+  puede: boolean;
+}
+
+/** Si un rol (`gestor`, `soporte`… o `custom:<id>`) tiene la clave. */
+export async function getClaveDeRol(clave: string, roleKey: string): Promise<boolean> {
+  const res = await client.get(`/permissions/claves/${encodeURIComponent(clave)}/rol/${encodeURIComponent(roleKey)}`);
+  return (res.data as { permitido?: boolean })?.permitido === true;
+}
+
+/** Dársela o quitársela a un rol entero. Solo el superadmin. */
+export async function setClaveDeRol(clave: string, roleKey: string, permitido: boolean): Promise<boolean> {
+  const res = await client.put(`/permissions/claves/${encodeURIComponent(clave)}/rol/${encodeURIComponent(roleKey)}`, { permitido });
+  return (res.data as { permitido?: boolean })?.permitido === true;
+}
+
+/** Las personas de un rol (las de sus campus, si quien pregunta es admin). */
+export async function personasDeLaClave(clave: string, roleKey: string): Promise<PersonaConClave[]> {
+  const res = await client.get(`/permissions/claves/${encodeURIComponent(clave)}/personas?roleKey=${encodeURIComponent(roleKey)}`);
+  return (res.data as PersonaConClave[]) || [];
+}
+
+/** A una persona: true (dársela), false (quitársela) o null (como su rol). Solo ESA clave. */
+export async function setClaveDePersona(clave: string, userId: number, permitido: boolean | null): Promise<{ excepcion: boolean | null; puede: boolean }> {
+  const res = await client.put(`/permissions/claves/${encodeURIComponent(clave)}/personas/${userId}`, { permitido });
+  return res.data as { excepcion: boolean | null; puede: boolean };
+}

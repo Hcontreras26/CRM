@@ -16,6 +16,7 @@ function hoy() {
 
 const METODOS: Array<[string, string]> = [
   ['transferencia', 'Transferencia'],
+  ['deposito', 'Depósito bancario'],
   ['tarjeta', 'Tarjeta'],
   ['bizum', 'Bizum'],
   ['efectivo', 'Efectivo'],
@@ -36,6 +37,10 @@ export default function CobrarProformaDialog({ invoice, onClose, onSaved }: {
   const [importe, setImporte] = useState(pendiente > 0 ? pendiente.toFixed(2) : '');
   const [fecha, setFecha] = useState(hoy());
   const [metodo, setMetodo] = useState('transferencia');
+  // La referencia del banco de una transferencia o un depósito (va al webhook de
+  // transferencias de Conexión, si hay uno).
+  const [referencia, setReferencia] = useState('');
+  const bancario = metodo === 'transferencia' || metodo === 'deposito';
   const [working, setWorking] = useState(false);
 
   const cifra = Number(String(importe).replace(',', '.'));
@@ -46,7 +51,9 @@ export default function CobrarProformaDialog({ invoice, onClose, onSaved }: {
     if (!valido) return;
     setWorking(true);
     try {
-      const res = await invoicesApi.cobrarProforma(invoice.id, { importe: cifra, fecha, metodo });
+      const res = await invoicesApi.cobrarProforma(invoice.id, {
+        importe: cifra, fecha, metodo, referencia: bancario && referencia.trim() ? referencia.trim() : null,
+      });
       if (res.success) {
         const pagada = res.data?.estado === 'pagada';
         toast({
@@ -95,6 +102,14 @@ export default function CobrarProformaDialog({ invoice, onClose, onSaved }: {
               {METODOS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </label>
+          {bancario && (
+            <label className="space-y-1 block">
+              <span className="text-xs font-medium">Referencia del banco (opcional)</span>
+              <input value={referencia} maxLength={120} onChange={(e) => setReferencia(e.target.value)}
+                placeholder="Nº de operación o concepto"
+                className="w-full h-9 px-2 rounded-md border border-border bg-background text-sm" />
+            </label>
+          )}
           <p className="text-xs text-muted-foreground">
             Falta por cobrar de la venta: <strong className="tabular-nums">{fmt(pendiente)}</strong>.{' '}
             {valido && (salda

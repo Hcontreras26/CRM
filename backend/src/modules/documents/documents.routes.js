@@ -15,7 +15,7 @@ const heavyGenLimit = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `doc-gen-${req.user?.id || 'anon'}`,
+  keyGenerator: (req) => `doc-gen-${req.user?.userId || 'anon'}`,
   message: { success: false, error: 'Demasiadas generaciones de PDF. Intenta de nuevo en unos minutos.', code: 'RATE_LIMIT' },
 });
 

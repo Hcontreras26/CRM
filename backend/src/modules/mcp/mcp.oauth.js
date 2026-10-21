@@ -3,6 +3,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { huella, pareceToken, puedeUsarMcp } from './mcp.acceso.js';
 import * as model from './mcp.model.js';
+import * as conexiones from './mcp.conexiones.js';
 
 /**
  * Inicio de sesión OAuth para Claude (02/10/2026).
@@ -29,9 +30,11 @@ import * as model from './mcp.model.js';
  *   3. /authorize: comprueba que la URL del parametro `resource` es una URL
  *      personal viva y de alguien que puede usar Claude, y devuelve un codigo
  *      CIFRADO (lleva la llave dentro) que caduca en 5 minutos.
- *   4. /token: el codigo, con su verificador PKCE, se cambia por la llave. El
- *      refresco vuelve a mirar que la URL siga viva: anularla en el CRM corta
- *      tambien lo conectado por aqui.
+ *   4. /token: el codigo, con su verificador PKCE, se cambia por la llave de
+ *      una CONEXIÓN nueva (#326), no por la de la URL: cada Claude conectado
+ *      tiene la suya y queda pendiente hasta que el dueño la autoriza (ver
+ *      mcp.conexiones.js). El refresco vuelve a mirar que la URL siga viva:
+ *      anularla en el CRM corta tambien lo conectado por aqui.
  *
  * Dos limites que no se pueden saltar:
  *   · PKCE S256 obligatorio: quien intercepte el codigo no puede canjearlo.
@@ -224,19 +227,29 @@ router.get('/authorize', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// 5. Canjear el codigo (o refrescar) por la llave.
+// 5. Canjear el codigo (o refrescar) por la llave DE ESTA CONEXIÓN (#326).
+//
+// Antes se devolvía la llave de la URL: todos los Claude con la misma URL
+// llevaban la misma llave y el CRM no los distinguía. Ahora cada Claude que se
+// conecta es una conexión propia (mcp.conexiones.js), con su llave, y queda
+// pendiente hasta que el dueño de la URL la autoriza.
 router.post('/token', async (req, res, next) => {
   try {
     const b = req.body || {};
-    const respuesta = (secreto) => {
+    const respuesta = ({ llave, conexionId, secreto }) => {
       res.set('Cache-Control', 'no-store');
       return res.json({
-        access_token: secreto,
+        access_token: llave,
         token_type: 'Bearer',
         expires_in: DURACION_ACCESO_S,
-        refresh_token: sellar({ t: 'refresco', s: secreto, exp: Date.now() + DURACION_REFRESCO_MS }),
+        refresh_token: sellar({ t: 'refresco', s: secreto, x: conexionId, exp: Date.now() + DURACION_REFRESCO_MS }),
         scope: 'crm',
       });
+    };
+    const conexionNueva = async (secreto, vuelta) => {
+      const c = await conexiones.crear({ secreto, vuelta });
+      if (!c) return errorOAuth(res, 400, 'invalid_grant', 'La URL del CRM ya no es válida.');
+      return respuesta({ llave: c.llave, conexionId: c.id, secreto });
     };
 
     if (b.grant_type === 'authorization_code') {
@@ -247,14 +260,19 @@ router.post('/token', async (req, res, next) => {
         return errorOAuth(res, 400, 'invalid_grant', 'El verificador PKCE no coincide.');
       }
       if (!(await llaveViva(c.s))) return errorOAuth(res, 400, 'invalid_grant', 'La URL del CRM ya no es válida.');
-      return respuesta(c.s);
+      return conexionNueva(c.s, c.ru);
     }
 
     if (b.grant_type === 'refresh_token') {
       const r = abrir(b.refresh_token);
       if (!r || r.t !== 'refresco' || r.exp < Date.now()) return errorOAuth(res, 400, 'invalid_grant', 'Refresco no válido o caducado.');
       if (!(await llaveViva(r.s))) return errorOAuth(res, 400, 'invalid_grant', 'La URL del CRM ya no es válida.');
-      return respuesta(r.s);
+      // Un refresco de antes de la #326 no trae conexión: se le crea una, que
+      // queda pendiente como cualquier otra (o autorizada, si Diego lo enciende).
+      if (!r.x) return conexionNueva(r.s, '');
+      const renovada = await conexiones.renovarLlave(r.x);
+      if (!renovada) return errorOAuth(res, 400, 'invalid_grant', 'Esta conexión ya no existe: vuelve a conectar Claude.');
+      return respuesta({ llave: renovada.llave, conexionId: renovada.id, secreto: r.s });
     }
 
     return errorOAuth(res, 400, 'unsupported_grant_type', 'Solo authorization_code y refresh_token.');

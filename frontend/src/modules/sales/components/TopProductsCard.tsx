@@ -23,21 +23,33 @@ interface Props {
   limit?: number;
   title?: string;
   className?: string;
+  /** 'ventas' (por defecto): las ventas con algún cobro, como Ventas (#225).
+      'facturado': lo facturado, como el resto del Dashboard (#224). */
+  medida?: 'ventas' | 'facturado';
 }
 
 function fmt(n: number) {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 }
 
-interface SinAsignar { ventas: number; facturado: number; cobrado: number }
+interface SinAsignar { ventas: number; facturado: number; cobrado?: number }
+/** Ventas que aún no tienen ningún cobro (#225). */
+interface SinCobro { ventas: number; importe: number }
 
-export default function TopProductsCard({ projectId, issuerId = null, responsableId = null, days = null, from = null, to = null, limit = 5, title = 'Programas más vendidos', className = '' }: Props) {
+// Fecha local AAAA-MM-DD, sin toISOString para no desfasar por zona horaria.
+function isoLocal(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export default function TopProductsCard({ projectId, issuerId = null, responsableId = null, days = null, from = null, to = null, limit = 5, title = 'Programas más vendidos', className = '', medida = 'ventas' }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   // Las ventas que no dicen qué se vendió. Ya no compiten en el ranking —eran
   // el número uno en Psiko con 52— pero tampoco se esconden: se enseñan debajo
   // como lo que son, un agujero de registro.
   const [sinAsignar, setSinAsignar] = useState<SinAsignar | null>(null);
+  const [sinCobro, setSinCobro] = useState<SinCobro | null>(null);
   const [loading, setLoading] = useState(true);
+  const esFacturado = medida === 'facturado';
 
   useEffect(() => {
     let cancelled = false;
@@ -47,17 +59,41 @@ export default function TopProductsCard({ projectId, issuerId = null, responsabl
     if (issuerId) params.issuerId = issuerId;
     if (from && to) { params.from = from; params.to = to; } else if (days) params.days = days;
     if (responsableId) params.responsableId = responsableId;
-    client.get<Row[]>('/ventas/top-products', { params })
-      .then((r) => {
-        if (cancelled) return;
-        setRows(Array.isArray(r?.data) ? r.data : []);
-        const sa = (r as unknown as { sinAsignar?: SinAsignar })?.sinAsignar;
-        setSinAsignar(sa && sa.ventas > 0 ? sa : null);
-      })
-      .catch(() => { if (!cancelled) { setRows([]); setSinAsignar(null); } })
+    const peticion = esFacturado
+      // LO FACTURADO (#224): el mismo endpoint que el bloque del equipo y que
+      // «Productos vendidos». Los «últimos N días» se pasan a fechas.
+      ? (() => {
+        const fp: Record<string, string | number> = {};
+        if (projectId) fp.projectId = projectId;
+        if (params.issuerId) fp.issuerId = params.issuerId;
+        if (responsableId) fp.responsableId = responsableId;
+        if (from && to) { fp.from = from; fp.to = to; } else if (days) {
+          const d = new Date(); d.setDate(d.getDate() - days);
+          fp.from = isoLocal(d);
+        }
+        return client.get('/ventas/facturado', { params: fp }).then((r: any) => {
+          if (cancelled) return;
+          const d = r?.success ? r.data : null;
+          setRows(Array.isArray(d?.productos) ? d.productos.slice(0, limit) : []);
+          const sp = d?.sin_producto;
+          setSinAsignar(sp && sp.ventas > 0 ? sp : null);
+          setSinCobro(null);
+        });
+      })()
+      : client.get<Row[]>('/ventas/top-products', { params })
+        .then((r) => {
+          if (cancelled) return;
+          setRows(Array.isArray(r?.data) ? r.data : []);
+          const sa = (r as unknown as { sinAsignar?: SinAsignar })?.sinAsignar;
+          setSinAsignar(sa && sa.ventas > 0 ? sa : null);
+          const sc = (r as unknown as { sinCobro?: SinCobro })?.sinCobro;
+          setSinCobro(sc && sc.ventas > 0 ? sc : null);
+        });
+    peticion
+      .catch(() => { if (!cancelled) { setRows([]); setSinAsignar(null); setSinCobro(null); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [projectId, issuerId, responsableId, days, limit, from, to]);
+  }, [projectId, issuerId, responsableId, days, limit, from, to, esFacturado]);
 
   return (
     <div className={`bg-card border border-border rounded-lg p-4 ${className}`}>
@@ -88,7 +124,11 @@ export default function TopProductsCard({ projectId, issuerId = null, responsabl
               }`}>{i + 1}</span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium truncate" title={r.producto}>{r.producto}</p>
-                <p className="text-[11px] text-muted-foreground">{r.ventas} {r.ventas === 1 ? 'venta' : 'ventas'} · cobrado {fmt(r.cobrado)}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {r.ventas} {esFacturado
+                    ? (r.ventas === 1 ? 'venta facturada' : 'ventas facturadas')
+                    : <>{r.ventas === 1 ? 'venta' : 'ventas'} · cobrado {fmt(r.cobrado)}</>}
+                </p>
               </div>
               <span className="text-sm font-semibold tabular-nums">{fmt(r.facturado)}</span>
             </li>
@@ -103,6 +143,16 @@ export default function TopProductsCard({ projectId, issuerId = null, responsabl
           {' '}({fmt(sinAsignar.facturado)}). No entran en este ranking porque «pendiente
           de registrar» no es un programa: hay que atarlas a una formación del catálogo
           para que cuenten.
+        </p>
+      )}
+
+      {/* Las ventas sin ningún cobro no entran en el ranking —es la regla de
+          Ventas— pero se dicen (#225): cuando se cobren, contarán. */}
+      {sinCobro && (
+        <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">
+          <strong className="text-foreground">{sinCobro.ventas}</strong>{' '}
+          {sinCobro.ventas === 1 ? 'venta sin cobro' : 'ventas sin cobro'} ({fmt(sinCobro.importe)}, en proformas):
+          entran en el ranking cuando se cobran.
         </p>
       )}
     </div>

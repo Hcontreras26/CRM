@@ -1,7 +1,7 @@
 import * as salesService from './sales.service.js';
 import * as reportModel from '../reports/report.model.js';
 import * as goalsService from './sales.goals.js';
-import { createSaleSchema } from './sales.validation.js';
+import { createSaleSchema, facturadoQuerySchema } from './sales.validation.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
 
@@ -45,8 +45,41 @@ export async function topProducts(req, res, next) {
     if (req.user.role === 'gestor') responsableId = req.user.userId;
     const result = await salesService.getTopProducts({ projectId, projectIds, limit, days, from, to, responsableId });
     // `data` sigue siendo la lista, como siempre: el panel de inicio la lee así
-    // y no tiene por qué enterarse. Lo que no es un programa va aparte.
-    res.json({ success: true, data: result.productos, sinAsignar: result.sinAsignar });
+    // y no tiene por qué enterarse. Lo que no es un programa va aparte, y los
+    // totales y las ventas sin cobro también (#225): el total lo da el
+    // servidor, no la suma de las filas que caben en el LIMIT.
+    res.json({
+      success: true,
+      data: result.productos,
+      sinAsignar: result.sinAsignar,
+      totales: result.totales,
+      sinCobro: result.sinCobro,
+    });
+  } catch (err) { next(err); }
+}
+
+// GET /api/ventas/facturado?issuerId|projectId&from&to — lo FACTURADO del
+// Dashboard (#224): por gestora (con «Sin gestora») y por producto, de la
+// misma consulta. Lo pintan el bloque del equipo y «Productos vendidos», y
+// por eso no pueden dar dos cifras distintas.
+export async function facturado(req, res, next) {
+  try {
+    const parsed = facturadoQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    }
+    const { projectId, projectIds } = await proyectosDelAmbito(req);
+    // Una gestora, solo su parte, pida lo que pida.
+    const responsableId = req.user.role === 'gestor'
+      ? req.user.userId
+      : (parsed.data.responsableId ?? null);
+    const data = await salesService.getFacturado({
+      projectId, projectIds,
+      from: parsed.data.from ?? null,
+      to: parsed.data.to ?? null,
+      responsableId,
+    });
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 }
 

@@ -1,7 +1,12 @@
 import client from '@/shared/api/client';
 import type { ApiResponse } from '@/shared/types';
 
-export type MetodoPago = 'tarjeta' | 'tarjeta_stripe' | 'transferencia' | 'efectivo' | 'bizum' | 'paypal' | 'fraccionado' | 'otro';
+// 'deposito' (depósito bancario), 15/10: con 'transferencia', las dos que avisan al
+// webhook de transferencias (Conexión).
+export type MetodoPago = 'tarjeta' | 'tarjeta_stripe' | 'transferencia' | 'deposito' | 'efectivo' | 'bizum' | 'paypal' | 'fraccionado' | 'otro';
+
+/** Las formas de cobro que llevan referencia del banco (y disparan el webhook de transferencias). */
+export const METODOS_BANCARIOS: ReadonlyArray<string> = ['transferencia', 'deposito'];
 
 export interface Payment {
   id: number;
@@ -10,6 +15,8 @@ export interface Payment {
   fecha: string;
   notas?: string | null;
   metodo?: string | null;
+  /** Referencia del banco de una transferencia o un depósito. */
+  referencia?: string | null;
   cuota_numero?: number | null;
   pagado_por_stripe?: boolean;
   created_at?: string;
@@ -106,6 +113,8 @@ export interface AddPaymentInput {
   importe: number;
   fecha: string;
   notas?: string | null;
+  metodo?: MetodoPago | null;
+  referencia?: string | null;
   // Solo cuando el usuario confirma que son dos cobros iguales de verdad.
   permitir_duplicado?: boolean;
 }
@@ -149,7 +158,7 @@ export const conversionsApi = {
     client.get(`/conversions/${id}/installments`),
   payInstallment: (
     instId: number,
-    data: { importe_cobrado: number; fecha_cobro?: string; metodo?: string | null; notas?: string | null },
+    data: { importe_cobrado: number; fecha_cobro?: string; metodo?: string | null; notas?: string | null; referencia?: string | null },
   ): Promise<ApiResponse<any>> =>
     client.post(`/conversions/installments/${instId}/pay`, data),
   updateInstallment: (
@@ -161,7 +170,7 @@ export const conversionsApi = {
     client.delete(`/conversions/installments/${instId}`),
   editPaidInstallment: (
     instId: number,
-    data: { fecha_cobro?: string; importe_cobrado?: number },
+    data: { fecha_cobro?: string; importe_cobrado?: number; metodo?: string | null; referencia?: string | null },
   ): Promise<ApiResponse<any>> =>
     client.patch(`/conversions/installments/${instId}/paid`, data),
   unpayInstallment: (instId: number): Promise<ApiResponse<any>> =>

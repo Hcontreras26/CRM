@@ -132,6 +132,12 @@ export const TIPOS = {
     clase: AVISO, etiqueta: 'Factura de colaborador', agrupa: false,
     descripcion: 'Cuando un colaborador sube su factura del mes',
   },
+  // MCP (#326): un Claude se ha conectado con tu URL y espera a que lo autorices.
+  // Si no eres tú, es que la URL se ha colado: hay que rechazarlo.
+  mcp_conexion_nueva: {
+    clase: ACCION, etiqueta: 'Claude pide conectarse', agrupa: false,
+    descripcion: 'Un Claude se ha conectado con tu URL del MCP y espera a que lo autorices',
+  },
   task_aprobada: {
     clase: AVISO, etiqueta: 'Tarea aprobada', agrupa: false,
     descripcion: 'Cuando aprueban una tarea tuya y pasa a «Hecha»',

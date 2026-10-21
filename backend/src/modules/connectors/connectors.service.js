@@ -4,6 +4,7 @@ import { TARGETS_CATALOG, TRANSFORMS_CATALOG } from './connectors.targets.js';
 import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
 import { AppError } from '../../shared/utils/AppError.js';
+import { decodificarEntidades } from '../../shared/utils/entidadesHtml.js';
 
 // Aplica field_mapping a un item. Cada entry del mapping puede ser:
 //   - string ("path.dentro.del.json")
@@ -83,7 +84,9 @@ async function upsertProduct(projectId, mapped, originalItem) {
   const categoriaId = await resolveCategoryId(projectId, mapped.categoria_id);
 
   const fields = {
-    nombre: mapped.nombre,
+    // Con la letra, no con la entidad: lo que llega de WordPress trae «&amp;»
+    // y así salía en el filtro de cursos de Ingresos (#234).
+    nombre: decodificarEntidades(mapped.nombre),
     descripcion: mapped.descripcion || null,
     precio: mapped.precio !== undefined ? parseFloat(mapped.precio) || null : null,
     // `|| null` no vale aqui: `products.moneda` es NOT NULL con DEFAULT 'EUR'.

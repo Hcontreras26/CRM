@@ -22,15 +22,23 @@ const limite = (max) => rateLimit({
 });
 
 // El tipo de verdad se mira después, por los primeros bytes (`tipoReal`).
-const recibirArchivo = (req, res, next) => {
-  // Pocos campos y cortos: solo vienen el archivo, el importe y el número (revisión del 10/10).
+const recibir = (campo) => (req, res, next) => {
+  // Pocos campos y cortos (revisión del 10/10): la subida trae el importe, el número y el
+  // desglose (horas o líneas); el pago, las facturas, la fecha, la forma y la referencia.
   multer({ storage: multer.memoryStorage(), limits: { fileSize: TOPE_BYTES, files: 1, fields: 4, fieldSize: 10_000, parts: 6 } })
-    .single('archivo')(req, res, (err) => {
+    .single(campo)(req, res, (err) => {
       if (!err) return next();
-      if (err.code === 'LIMIT_FILE_SIZE') return next(new AppError('El archivo pasa de 10 MB', 400, 'FILE_TOO_LARGE'));
-      return next(new AppError('No se pudo leer el archivo', 400, 'INVALID_FILE'));
+      // «El justificante…» cuando es el del pago: «el archivo» se leía como el de la factura.
+      const que = campo === 'justificante' ? 'El justificante' : 'El archivo';
+      if (err.code === 'LIMIT_FILE_SIZE') return next(new AppError(`${que} pasa de 10 MB`, 400, 'FILE_TOO_LARGE'));
+      // El desglose por proyecto es el campo más largo: si pasa del límite, decirlo, no «el archivo».
+      if (err.code === 'LIMIT_FIELD_VALUE') {
+        return next(new AppError('El desglose es demasiado largo: acorta los encargos o júntalos en menos', 400, 'VALIDATION_ERROR'));
+      }
+      return next(new AppError(`No se pudo leer ${que === 'El justificante' ? 'el justificante' : 'el archivo'}`, 400, 'INVALID_FILE'));
     });
 };
+const recibirArchivo = recibir('archivo');
 
 router.get('/enlace/:token', limite(60), facturas.verEnlace);
 // El formato del código se mira ANTES de leer el archivo: con cualquier cadena se
@@ -40,6 +48,7 @@ const codigoConFormato = (req, res, next) => (/^[A-Za-z0-9_-]{40,60}$/.test(Stri
 router.post('/enlace/:token', limite(20), codigoConFormato, recibirArchivo, facturas.subir);
 // El archivo guardado en disco (sin R2), con enlace firmado de 15 min (revisión del 10/10).
 router.get('/archivo-local/:id', limite(60), facturas.archivoLocal);
+router.get('/justificante-local/:id', limite(60), facturas.justificanteLocal);
 
 // ─── «Mi factura»: el colaborador con usuario en el CRM, solo lo suyo ───
 // Son las únicas de este módulo que puede pedir el rol colaborador
@@ -57,6 +66,8 @@ router.get('/mias/:id/archivo', sube, facturas.archivoMio);
 const gestiona = [verifyToken, checkPermission('facturas_colaborador', 'gestionar')];
 const ve = [verifyToken, checkPermission('facturas_colaborador', 'ver_todas')];
 const anula = [verifyToken, checkPermission('facturas_colaborador', 'anular')];
+// «Marcar pagada»: solo un admin (segunda parte).
+const paga = [verifyToken, checkPermission('facturas_colaborador', 'pagar')];
 
 // Las empresas, para el filtro de «Del mes» (ver_todas) y para la ficha (gestionar).
 const veOGestiona = async (req, res, next) => {
@@ -65,7 +76,7 @@ const veOGestiona = async (req, res, next) => {
     for (const accion of ['ver_todas', 'gestionar']) {
       if (await resolvePermission(userId, role, customRoleId ?? null, 'facturas_colaborador', accion)) return next();
     }
-    next(new AppError('No tienes permiso para esta accion', 403, 'FORBIDDEN'));
+    next(new AppError('No tienes permiso para esta acción', 403, 'FORBIDDEN'));
   } catch (err) { next(err); }
 };
 
@@ -81,9 +92,21 @@ router.get('/colaboradores/:id/registro', gestiona, ctrl.registro);
 // ─── Administración: las facturas del mes ───
 
 router.get('/mes', ve, facturas.delMes);
+// Enviadas, Por pagar, Pagadas e Historial, y el coste por campus (segunda parte).
+router.get('/facturas', ve, facturas.deLaVista);
+router.get('/coste-por-campus', ve, facturas.costePorCampus);
+router.get('/zip', ve, facturas.zip);
 router.get('/facturas/:id/archivo', ve, facturas.archivo);
 router.get('/facturas/:id/registro', ve, facturas.registro);
+// El desglose de la factura (segunda parte): «Administración lo ve todo».
+router.get('/facturas/:id/desglose', ve, facturas.desglose);
 router.post('/facturas/:id/anular', anula, facturas.anular);
 router.post('/facturas/:id/reenviar', gestiona, facturas.reenviar);
+
+// ─── El pago (segunda parte): una o varias, con el justificante si se quiere ───
+
+router.post('/facturas/pagar', paga, recibir('justificante'), facturas.pagar);
+router.post('/facturas/:id/deshacer-pago', paga, facturas.deshacerPago);
+router.get('/facturas/:id/justificante', ve, facturas.justificante);
 
 export default router;

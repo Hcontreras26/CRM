@@ -8,7 +8,7 @@ export const BUNDLES = {
   core: {
     label: 'Core (obligatorio)',
     description: 'Auth, users, projects. Siempre activo.',
-    modules: ['auth', 'users', 'projects', 'credentials', 'field-definitions', 'project-channels', 'permissions', 'connectors', 'messages', 'notifications', 'registro', 'correos', 'novedades', 'mcp', 'certifex', 'tasks'],
+    modules: ['auth', 'users', 'projects', 'credentials', 'field-definitions', 'project-channels', 'permissions', 'connectors', 'webhooks-salientes', 'messages', 'notifications', 'registro', 'correos', 'novedades', 'mcp', 'certifex', 'tasks'],
     requires: [],
   },
   leads: {
@@ -26,7 +26,7 @@ export const BUNDLES = {
   accounting: {
     label: 'Contabilidad',
     description: 'Ingresos + egresos + cuentas por cobrar/pagar + integraciones (Stripe/Brevo)',
-    modules: ['accounting', 'accounts-payable', 'integrations', 'stripe-payments', 'invoices', 'facturas-colaborador'],
+    modules: ['accounting', 'expenses', 'accounts-payable', 'integrations', 'stripe-payments', 'invoices', 'facturas-colaborador'],
     requires: ['core'],
   },
   payroll: {

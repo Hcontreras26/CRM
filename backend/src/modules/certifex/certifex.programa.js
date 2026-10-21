@@ -29,6 +29,17 @@ import { AppError } from '../../shared/utils/AppError.js';
 const MAX_HORAS = 5000;
 const MAX_MODULOS = 100;
 const MAX_HORAS_MODULO = 2000;
+const MAX_MODALIDAD = 60;
+
+/**
+ * La modalidad del catálogo (`products.modalidad`: «Online», «Presencial»…), lista para
+ * Certifex, que la imprime en el diploma (Certifex#96). Texto corto o nada: si no cabe, no
+ * se manda y el diploma dice «Online», como siempre.
+ */
+export function modalidadDe(v) {
+  const t = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '';
+  return t && t.length <= MAX_MODALIDAD ? t : null;
+}
 
 const norm = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
   .replace(/[^a-z0-9]+/g, ' ').trim();
@@ -109,7 +120,8 @@ export function programaValido(p) {
     }
   }
   if (horas == null && modulos.length === 0) return null;
-  return { ...(horas != null ? { horas } : {}), modulos };
+  const modalidad = modalidadDe(p.modalidad);
+  return { ...(horas != null ? { horas } : {}), modulos, ...(modalidad ? { modalidad } : {}) };
 }
 
 function programaDe(producto, modulos) {
@@ -123,7 +135,9 @@ function programaDe(producto, modulos) {
     .filter(Boolean)
     .slice(0, MAX_MODULOS);
   if (horas == null && lista.length === 0) return null;
-  return { ...(horas != null ? { horas } : {}), modulos: lista };
+  // La modalidad viaja con las horas y el temario; sola no hace un programa.
+  const modalidad = modalidadDe(producto.modalidad);
+  return { ...(horas != null ? { horas } : {}), modulos: lista, ...(modalidad ? { modalidad } : {}) };
 }
 
 /** Los módulos del catálogo de esos productos, por producto y en su orden. */
@@ -169,7 +183,7 @@ export async function programasPara(candidatos, { estricto = false } = {}) {
       correos.length
         ? query(
           `SELECT lower(l.email) AS email, c.project_id, c.producto_contratado AS vendido,
-                  p.id AS product_id, p.nombre, p.horas, p.num_modulos
+                  p.id AS product_id, p.nombre, p.horas, p.num_modulos, p.modalidad
              FROM conversions c
              JOIN leads l ON l.id = c.lead_id
              LEFT JOIN products p ON p.id = c.producto_contratado_id
@@ -178,7 +192,7 @@ export async function programasPara(candidatos, { estricto = false } = {}) {
         )
         : { rows: [] },
       elegidos.length
-        ? query(`SELECT id AS product_id, nombre, horas, num_modulos FROM products WHERE id = ANY($1::int[])`, [elegidos])
+        ? query(`SELECT id AS product_id, nombre, horas, num_modulos, modalidad FROM products WHERE id = ANY($1::int[])`, [elegidos])
         : { rows: [] },
     ]);
     const productos = new Map(catalogo.map((p) => [p.product_id, p]));

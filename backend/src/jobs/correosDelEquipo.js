@@ -154,12 +154,116 @@ export function tarjetas(lista) {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px -5px 0">${filas.join('')}</table>`;
 }
 
-/** Una tabla sencilla: cabeceras y filas (la primera columna a la izquierda). */
-export function tabla(cabeceras, filas) {
+/**
+ * Una tabla sencilla: cabeceras y filas (la primera columna a la izquierda).
+ * `compacta` para las de muchas columnas (el ranking): letra de 12 y menos aire.
+ * Una fila puede ser `{ celdas, estilo }` para pintarla distinta (el Total).
+ */
+export function tabla(cabeceras, filas, { compacta = false } = {}) {
   if (!filas.length) return '';
-  const th = cabeceras.map((c, i) => `<th style="text-align:${i ? 'right' : 'left'};font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:${GRIS};padding:6px 8px;border-bottom:1px solid ${LINEA}">${esc(c)}</th>`).join('');
-  const tr = filas.map((f) => `<tr>${f.map((v, i) => `<td style="text-align:${i ? 'right' : 'left'};font-size:13px;padding:7px 6px;border-bottom:1px solid #f1f3f6;color:${TINTA}${i ? ';white-space:nowrap' : ''}">${v}</td>`).join('')}</tr>`).join('');
+  const pad = compacta ? '6px 4px' : '7px 6px';
+  const th = cabeceras.map((c, i) => `<th style="text-align:${i ? 'right' : 'left'};font-size:${compacta ? 10 : 11}px;text-transform:uppercase;letter-spacing:.5px;color:${GRIS};padding:6px ${compacta ? 4 : 8}px;border-bottom:1px solid ${LINEA}">${esc(c)}</th>`).join('');
+  const tr = filas.map((f) => {
+    const celdas = Array.isArray(f) ? f : f.celdas;
+    const extra = Array.isArray(f) ? '' : (f.estilo || '');
+    return `<tr>${celdas.map((v, i) => `<td style="text-align:${i ? 'right' : 'left'};font-size:${compacta ? 12 : 13}px;padding:${pad};border-bottom:1px solid #f1f3f6;color:${TINTA}${i ? ';white-space:nowrap' : ''}${extra}">${v}</td>`).join('')}</tr>`;
+  }).join('');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:8px">${`<tr>${th}</tr>`}${tr}</table>`;
+}
+
+// ─── Las cifras separadas del ranking (Diego, 19/10/2026) ────────────────────
+//
+// «Cobrado» se parte en tres —de ventas del periodo, de ventas anteriores y
+// cuotas— y al lado van Vendido, Facturado y Pendiente, cada uno diciendo por
+// qué fecha cuenta. Las cifras salen de `miPuesto`, como «Cómo voy»; aquí solo
+// se pintan. Ver `claseDelCobro` en report.model.js para la regla exacta.
+
+/** «30/09» a partir de '2026-09-30'. */
+export const diaMes = (isoDia) => {
+  const [, m, d] = String(isoDia || '').slice(0, 10).split('-');
+  return d && m ? `${d}/${m}` : '';
+};
+
+/** «1.975 € · venta #676 del 30/09», uno por cobro grande de una venta anterior. */
+export function anterioresGrandes(lista) {
+  return (Array.isArray(lista) ? lista : [])
+    .map((g) => `${eur(g.importe)} · venta #${esc(g.venta_id)} del ${esc(diaMes(g.fecha_venta))}`);
+}
+
+/** La nota que dice qué fecha usa cada columna. Va debajo de cada tabla. */
+export function notaDeLasFechas(periodo = 'semana') {
+  return `<p style="font-size:11px;line-height:1.5;color:${GRIS};margin:8px 0 0">
+    <strong>Vendido</strong> cuenta por fecha de venta (sin mensualidades ni ventas sin ningún cobro);
+    <strong>Facturado</strong>, por fecha de factura; <strong>Cobrado</strong>, por fecha de cobro.
+    Lo cobrado se parte en tres: <strong>de ventas de la ${periodo}</strong> (ventas hechas esta ${periodo}),
+    <strong>de ventas anteriores</strong> (ventas de antes, sin las cuotas) y <strong>cuotas</strong>
+    (de un plan de pago o mensualidades). <strong>Pendiente</strong>: lo que aún les falta por cobrar, a día de hoy,
+    a las ventas de la ${periodo}. El <strong>Total</strong> lleva también lo que no es de ninguna gestora
+    y es la cifra de «Cobrado» de arriba.</p>`;
+}
+
+/** Las celdas de una fila del ranking, de Vendido a Pendiente. */
+function celdasDeCifras(g) {
+  return [
+    `${entero(g.ventas)} · ${eur(g.vendido)}`,
+    eur(g.facturado),
+    `<strong>${eur(g.cobrado)}</strong>`,
+    eur(g.cobrado_del_periodo),
+    eur(g.cobrado_anteriores),
+    eur(g.cobrado_en_cuotas),
+    eur(g.pendiente),
+  ];
+}
+
+/**
+ * El ranking de dirección: una fila por gestora —por lo cobrado, como siempre—,
+ * «Sin gestora» y «Total». Si hay más de `tope` gestoras, las de abajo van
+ * juntas en «Otras N»: así las filas siguen sumando el Total.
+ */
+export function tablaDelRanking(puesto, { periodo = 'semana', tope = 12 } = {}) {
+  const filas = puesto?.tabla || [];
+  if (!filas.length && !n(puesto?.total?.cobrado)) return '';
+  const nombre = (g) => `${g.puesto}. ${esc(g.nombre || '—')}<div style="font-size:11px;color:${GRIS};white-space:nowrap">${entero(g.leads)} prosp. · ${entero(g.tasa)} % conv.</div>`;
+  const cuerpo = filas.slice(0, tope).map((g) => [nombre(g), ...celdasDeCifras(g)]);
+  const resto = filas.slice(tope);
+  if (resto.length) {
+    const suma = (k) => resto.reduce((s, g) => s + n(g[k]), 0);
+    const otras = Object.fromEntries(['ventas', 'vendido', 'facturado', 'cobrado', 'cobrado_del_periodo',
+      'cobrado_anteriores', 'cobrado_en_cuotas', 'pendiente'].map((k) => [k, suma(k)]));
+    cuerpo.push([`Otras ${resto.length}`, ...celdasDeCifras(otras)]);
+  }
+  const sg = puesto?.sin_gestora;
+  if (sg && (n(sg.cobrado) || n(sg.ventas) || n(sg.facturado))) {
+    cuerpo.push({ celdas: [`<em>Sin gestora</em>`, ...celdasDeCifras(sg)], estilo: `;color:${GRIS}` });
+  }
+  if (puesto?.total) {
+    cuerpo.push({ celdas: ['<strong>Total</strong>', ...celdasDeCifras(puesto.total).map((c) => `<strong>${c}</strong>`)], estilo: `;border-top:2px solid ${LINEA}` });
+  }
+  const grandes = [...filas.map((g) => ({ quien: g.nombre || '—', l: anterioresGrandes(g.anteriores_grandes) })),
+    ...(sg ? [{ quien: 'Sin gestora', l: anterioresGrandes(sg.anteriores_grandes) }] : [])]
+    .flatMap((x) => x.l.map((t) => `${esc(x.quien)} · ${t}`));
+  return `${tabla(['Gestora', 'Vendido', 'Facturado', 'Cobrado', `De la ${periodo}`, 'Anteriores', 'Cuotas', 'Pendiente'], cuerpo, { compacta: true })}
+    ${grandes.length ? `<div style="font-size:12px;color:${TINTA};margin:10px 0 0"><strong>De ventas anteriores, lo grande:</strong><br>${grandes.join('<br>')}</div>` : ''}
+    ${notaDeLasFechas(periodo)}`;
+}
+
+/** Lo de UNA gestora, en líneas: para «Tu semana». */
+export function desgloseDeUnaGestora(p, { periodo = 'semana' } = {}) {
+  if (!p) return '';
+  const fila = (texto, valor, { sangria = false, fuerte = false } = {}) => `<tr>
+    <td style="padding:6px 0 6px ${sangria ? '14px' : '0'};font-size:13px;color:${sangria ? GRIS : TINTA};border-bottom:1px solid #f1f3f6">${texto}</td>
+    <td style="padding:6px 0;font-size:13px;text-align:right;white-space:nowrap;color:${TINTA};border-bottom:1px solid #f1f3f6">${fuerte ? `<strong>${valor}</strong>` : valor}</td></tr>`;
+  const fecha = (t) => ` <span style="color:${GRIS};font-size:11px">(${t})</span>`;
+  const grandes = anterioresGrandes(p.anteriores_grandes);
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:8px">
+    ${fila(`<strong>Cobrado</strong>${fecha('por fecha de cobro')}`, eur(p.cobrado), { fuerte: true })}
+    ${fila(`de ventas de esta ${periodo}`, eur(p.cobrado_del_periodo), { sangria: true })}
+    ${fila(`de ventas anteriores${grandes.length ? `<div style="font-size:12px;margin-top:2px">${grandes.join('<br>')}</div>` : ''}`, eur(p.cobrado_anteriores), { sangria: true })}
+    ${fila('cuotas', eur(p.cobrado_en_cuotas), { sangria: true })}
+    ${fila(`Vendido${fecha('por fecha de venta')}`, `${entero(p.ventas)} ${n(p.ventas) === 1 ? 'venta' : 'ventas'} · ${eur(p.vendido)}`)}
+    ${fila(`Facturado${fecha('por fecha de factura')}`, eur(p.facturado))}
+    ${fila(`Pendiente${fecha(`de las ventas de esta ${periodo}, a día de hoy`)}`, eur(p.pendiente))}
+  </table>`;
 }
 
 /** Una línea con su número y un enlace «abrir →» al CRM ya filtrado. */
@@ -414,27 +518,38 @@ export async function correoSemanalGestora(persona, ahora = new Date()) {
   const ids = campus.map((c) => c.id);
   if (!ids.length) return null;
   const { semana, anterior } = semanas(ahora);
-  const [s, a, puesto, puestoAntes, cola] = await Promise.all([
-    informes.overview({ projectIds: ids, ...semana, asesoraId: persona.id }),
-    informes.overview({ projectIds: ids, ...anterior, asesoraId: persona.id }),
-    informes.miPuesto({ userId: persona.id, projectIds: ids, ...semana }).catch(() => null),
+  /*
+    SUS números, de SU fila del ranking (Diego, 19/10/2026). Antes los
+    prospectos y las ventas salían de `overview`, que aceptaba `asesoraId` y no
+    lo aplicaba: a cada gestora le llegaban los del equipo entero como suyos
+    (Diana, semana del 12 al 18/10: 408 prospectos y 8 ventas; los suyos, 32 y
+    0). `overview` ya filtra, pero aquí se usa la fila de `miPuesto`: es la
+    misma que ve en «Cómo voy» y la que lleva su nombre en el reporte de
+    dirección, con las mismas fechas y el mismo reparto de las compartidas.
+
+    La de esta semana no se traga el error: si falla, no se manda un correo con
+    ceros que parecen de verdad. La de la anterior solo compara.
+  */
+  const [puesto, puestoAntes, cola] = await Promise.all([
+    informes.miPuesto({ userId: persona.id, projectIds: ids, ...semana }),
     informes.miPuesto({ userId: persona.id, projectIds: ids, ...anterior }).catch(() => null),
     resumenDeLaCola({ projectIds: ids, asesoraId: persona.id }),
   ]);
-  const ls = s.leads || {}; const la = a.leads || {};
-  const cs = s.conversions || {}; const ca = a.conversions || {};
+  const antes = puestoAntes || {};
 
   const contenido = [
     apartado('Tu semana', { detalle: `del ${bonita(semana.from)} al ${bonita(semana.to)} · comparada con la anterior` }),
     tarjetas([
-      { etiqueta: 'Prospectos recibidos', valor: entero(ls.total), cmp: comparar(ls.total, la.total) },
-      { etiqueta: 'Ventas', valor: entero(cs.total), cmp: comparar(cs.total, ca.total), destaca: n(cs.total) > 0 },
-      { etiqueta: 'Tu conversión', valor: `${entero(puesto?.tasa)} %`, nota: puesto ? `equipo ${entero(puesto.tasa_equipo)} %` : '' },
-      { etiqueta: 'Tu puesto', valor: puesto?.puesto ? `${puesto.puesto}.º` : '—', nota: puesto?.puesto ? `de ${puesto.de} por lo cobrado${puestoAntes?.puesto ? ` · la semana anterior ${puestoAntes.puesto}.º` : ''}` : 'sin ventas ni prospectos' },
+      { etiqueta: 'Prospectos recibidos', valor: entero(puesto.leads), cmp: comparar(puesto.leads, antes.leads), nota: 'por fecha de entrada' },
+      { etiqueta: 'Ventas', valor: entero(puesto.ventas), cmp: comparar(puesto.ventas, antes.ventas), destaca: n(puesto.ventas) > 0, nota: 'por fecha de venta' },
+      { etiqueta: 'Tu conversión', valor: `${entero(puesto.tasa)} %`, nota: `equipo ${entero(puesto.tasa_equipo)} %` },
+      { etiqueta: 'Tu puesto', valor: puesto.puesto ? `${puesto.puesto}.º` : '—', nota: puesto.puesto ? `de ${puesto.de} por lo cobrado${antes.puesto ? ` · la semana anterior ${antes.puesto}.º` : ''}` : 'sin ventas ni prospectos' },
     ]),
-    parrafo(puesto?.faltan_para_subir > 0
+    apartado('Lo que cobraste, y de dónde viene', { detalle: 'cada cifra dice por qué fecha cuenta' }),
+    desgloseDeUnaGestora(puesto),
+    parrafo(puesto.faltan_para_subir > 0
       ? `Cobraste <strong>${eur(puesto.cobrado)}</strong>. Te faltaron <strong>${eur(puesto.faltan_para_subir)}</strong> para subir un puesto; la mejor de la semana cobró ${eur(puesto.mejor_cobrado)}.`
-      : (puesto?.puesto === 1 ? '<strong>Fuiste la primera de la semana.</strong> Enhorabuena.' : '')),
+      : (puesto.puesto === 1 ? '<strong>Fuiste la primera de la semana.</strong> Enhorabuena.' : '')),
     apartado('La semana que empieza', { detalle: 'tu cola del proceso comercial' }),
     tarjetas([
       { etiqueta: 'Pasos esta semana', valor: entero(cola.esta_semana), destaca: true },
@@ -546,19 +661,20 @@ export async function correoSemanalDireccion(persona, ahora = new Date()) {
     const cs = s.conversions || {}; const ca = a.conversions || {};
     const tasa = n(ls.total) ? Math.round((n(ls.convertido) / n(ls.total)) * 1000) / 10 : 0;
     const tasaA = n(la.total) ? Math.round((n(la.convertido) / n(la.total)) * 1000) / 10 : 0;
-    // Por lo cobrado (Diego, 08/10), que es por lo que ordena `miPuesto`.
-    const filas = (puesto?.tabla || []).slice(0, 12).map((g) => [
-      `${g.puesto}. ${esc(g.nombre || '—')}`, eur(g.cobrado), entero(g.ventas), `${entero(g.tasa)} %`, eur(g.facturado),
-    ]);
+    // Por lo cobrado (Diego, 08/10), que es por lo que ordena `miPuesto`. Con
+    // las cifras separadas, «Sin gestora» y el Total (19/10/2026): el Cobrado
+    // del Total es el de la tarjeta de arriba —los dos son los pagos
+    // registrados de la semana por su fecha de cobro—.
+    const ranking = tablaDelRanking(puesto, { periodo: 'semana' });
     partes.push([
       apartado(e.nombre, { logoUrl: e.logoUrl, detalle: e.campus.length > 1 ? `${e.campus.length} campus` : '' }),
       tarjetas([
         { etiqueta: 'Prospectos', valor: entero(ls.total), cmp: comparar(ls.total, la.total) },
         { etiqueta: 'Ventas', valor: entero(cs.total), cmp: comparar(cs.total, ca.total), destaca: true },
-        { etiqueta: 'Cobrado', valor: eur(cob), cmp: comparar(cob, cobA) },
+        { etiqueta: 'Cobrado', valor: eur(cob), cmp: comparar(cob, cobA), nota: 'por fecha de cobro' },
         { etiqueta: 'Conversión', valor: `${entero(tasa)} %`, nota: `la anterior ${entero(tasaA)} %` },
       ]),
-      filas.length ? `<div style="font-size:13px;font-weight:bold;color:${GRIS};margin:18px 0 0">Ranking de la semana</div>${tabla(['Gestora', 'Cobrado', 'Ventas', 'Conv.', 'Facturado'], filas)}` : '',
+      ranking ? `<div style="font-size:13px;font-weight:bold;color:${GRIS};margin:18px 0 0">Ranking de la semana · por lo cobrado</div>${ranking}` : '',
     ].join(''));
   }
   return {
@@ -567,7 +683,7 @@ export async function correoSemanalDireccion(persona, ahora = new Date()) {
       cabeceraUrl: empresas.length === 1 ? await cabeceraPara(empresas[0].campus) : await cabeceraPara([]),
       preTitulo: 'Reporte semanal',
       titulo: `Semana del ${bonita(semana.from)} al ${bonita(semana.to)}`,
-      subtitulo: `${empresas.length > 1 ? `Tus ${empresas.length} empresas, cada una con sus cifras. ` : ''}Comparada con la semana anterior. El ranking es por lo cobrado, como en «Cómo voy»; prospectos y ventas cuentan como Reportes, y lo cobrado sale de los pagos registrados.`,
+      subtitulo: `${empresas.length > 1 ? `Tus ${empresas.length} empresas, cada una con sus cifras. ` : ''}Comparada con la semana anterior. El ranking es por lo cobrado, como en «Cómo voy», y separa de dónde viene cada euro; prospectos y ventas cuentan como Reportes, y lo cobrado sale de los pagos registrados.`,
       contenido: partes.join('') + boton('Abrir Reportes', `${base()}${R.informes}`),
     }),
   };

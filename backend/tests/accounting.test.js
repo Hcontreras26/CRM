@@ -44,20 +44,20 @@ describe('POST /api/accounting/expenses - crear egreso', () => {
     createdExpenseIds.push(res.body.data.id);
   });
 
-  it('crea egreso sin proyecto (gasto general)', async () => {
+  // #227 (13/10): un gasto general --sin campus ni empresa-- cuenta en TODAS las
+  // empresas, así que solo lo apunta quien las ve todas (super admin o
+  // soporte). Un admin elige un campus o su empresa entera.
+  it('un admin NO crea un egreso general: elige campus o empresa', async () => {
     const res = await request.post('/api/accounting/expenses')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         concepto: 'Hosting cloudflare',
         importe: 25,
         categoria: 'software',
-        // `fecha` es obligatoria desde 2d9816e (24-abr). La prueba es del 23 y
-        // nunca se actualizo: llevaba rojo desde entonces.
+        // `fecha` es obligatoria desde 2d9816e (24-abr).
         fecha: '2026-04-15',
       });
-    expect(res.status).toBe(201);
-    expect(res.body.data.project_id).toBeNull();
-    createdExpenseIds.push(res.body.data.id);
+    expect(res.status).toBe(403);
   });
 
   it('falla con importe negativo', async () => {
@@ -106,7 +106,7 @@ describe('DELETE /api/accounting/expenses/:id', () => {
   it('elimina egreso', async () => {
     const temp = await request.post('/api/accounting/expenses')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ concepto: 'Temp', importe: 10, fecha: '2026-04-15' });
+      .send({ project_id: 1, concepto: 'Temp', importe: 10, fecha: '2026-04-15' });
     const id = temp.body.data.id;
 
     const res = await request.delete(`/api/accounting/expenses/${id}`)

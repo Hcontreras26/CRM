@@ -3,6 +3,7 @@ import { CalendarCheck, Check } from '@phosphor-icons/react';
 import Portal from '@/shared/components/ui/portal';
 import { toast } from '@/shared/hooks/useToast';
 import type { Reminder } from '@/shared/types';
+import { soloFecha } from '@/shared/lib/fechas';
 
 interface LeadRemindersCardProps {
   reminders: Reminder[];
@@ -48,7 +49,7 @@ export default function LeadRemindersCard({ reminders, onOpen, onComplete }: Lea
                   {rem.completado ? 'Completado' : 'Pendiente'}
                 </span>
                 <span className="text-[11px] text-muted-foreground font-semibold">
-                  {rem.fecha_recordatorio ? new Date(rem.fecha_recordatorio).toLocaleDateString('es-ES') : ''}
+                  {rem.fecha_recordatorio ? (soloFecha(rem.fecha_recordatorio)?.toLocaleDateString('es-ES') ?? '') : ''}
                 </span>
               </div>
               {rem.nota && <p className="text-[13px]">{rem.nota}</p>}
