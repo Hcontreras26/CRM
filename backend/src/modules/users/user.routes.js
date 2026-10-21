@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { verifyToken, roleGuard, soloRoles } from '../../shared/middleware/auth.js';
+import { verifyToken } from '../../shared/middleware/auth.js';
+import { puede } from '../../shared/middleware/permissions.js';
 import { uploadImage } from '../../shared/middleware/upload.js';
 import * as userController from './user.controller.js';
 import * as viewsController from './user.views.controller.js';
@@ -27,22 +28,21 @@ router.get('/mis-avisos', userController.misAvisos);
 router.patch('/mis-avisos', userController.cambiarMiAviso);
 
 // Resto admin/superadmin
-router.use(roleGuard('admin', 'superadmin'));
 
-router.get('/', userController.list);
+router.get('/', puede('users.view'), userController.list);
 // Disponibilidad (admin/superadmin). Va antes que /:id para no chocar.
-router.get('/availability', availabilityController.listAvailability);
-router.delete('/availability-blocks/:blockId', availabilityController.deleteBlock);
-router.get('/:id', userController.getById);
-router.post('/', userController.create);
-router.patch('/:id', userController.update);
-router.delete('/:id', userController.deactivate);
-router.patch('/:id/reactivate', userController.reactivate);
-router.patch('/:id/password', userController.setPassword);
+router.get('/availability', puede('users.view'), availabilityController.listAvailability);
+router.delete('/availability-blocks/:blockId', puede('users.edit'), availabilityController.deleteBlock);
+router.get('/:id', puede('users.view'), userController.getById);
+router.post('/', puede('users.create'), userController.create);
+router.patch('/:id', puede('users.edit'), userController.update);
+router.delete('/:id', puede('users.delete'), userController.deactivate);
+router.patch('/:id/reactivate', puede('users.edit'), userController.reactivate);
+router.patch('/:id/password', puede('users.contrasena'), userController.setPassword);
 // Antes de cambiar un correo, el aviso de Make (#248). `soloRoles`: roleGuard deja pasar a soporte.
-router.get('/:id/aviso-correo', soloRoles('superadmin'), userController.avisoCorreo);
-router.patch('/:id/availability', availabilityController.setAvailability);
-router.get('/:id/availability-blocks', availabilityController.listBlocks);
-router.post('/:id/availability-blocks', availabilityController.createBlock);
+router.get('/:id/aviso-correo', puede('users.aviso_correo'), userController.avisoCorreo);
+router.patch('/:id/availability', puede('users.edit'), availabilityController.setAvailability);
+router.get('/:id/availability-blocks', puede('users.view'), availabilityController.listBlocks);
+router.post('/:id/availability-blocks', puede('users.edit'), availabilityController.createBlock);
 
 export default router;

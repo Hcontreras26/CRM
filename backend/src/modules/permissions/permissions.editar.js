@@ -16,7 +16,7 @@
 import { query, getClient } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import * as model from './permissions.model.js';
-import { explicarPermisos } from './permissions.service.js';
+import { explicarPermisos, olvidarPermisos } from './permissions.service.js';
 import { ACCIONES, CLAVES, POR_CLAVE, ROLES_FIJOS, valoresPorDefecto } from './catalogo.js';
 import { permisosDelRol, permisosDelRolAMedida } from './resolver.js';
 
@@ -29,6 +29,9 @@ async function enTransaccion(fn) {
     await client.query('BEGIN');
     const r = await fn(client);
     await client.query('COMMIT');
+    // Lo recordado de cualquiera ya no vale: un rol o una excepción cambian lo
+    // que puede alguien (o muchos).
+    olvidarPermisos();
     return r;
   } catch (err) {
     await client.query('ROLLBACK');
@@ -160,6 +163,13 @@ async function exigirQuePuedaTocar(quien, persona, db) {
     throw new AppError('Los permisos de un admin los cambia el superadmin', 403, 'FORBIDDEN');
   }
   if (persona.id === quien.userId) throw new AppError('Tus propios permisos te los cambia otra persona', 403, 'FORBIDDEN');
+}
+
+/** Lo mismo, por su id: para quien cambia el rol de alguien desde Usuarios. */
+export async function exigirQuePuedaTocarA(quien, userId) {
+  if (quien.role === 'superadmin') return;
+  const datos = await model.datosDePermisos(userId);
+  await exigirQuePuedaTocar(quien, datos?.usuario);
 }
 
 /** Todo lo que puede una persona y de dónde le viene, para su ficha. */

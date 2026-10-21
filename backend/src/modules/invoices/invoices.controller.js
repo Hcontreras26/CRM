@@ -7,6 +7,7 @@ import { logger } from '../../shared/utils/logger.js';
 import { saveLocal, getLocal, deleteLocal } from '../../shared/services/localStorage.service.js';
 import { createInvoiceSchema, setSequenceSchema, updateConfigSchema, issuerSchema, cobrarProformaSchema } from './invoices.validation.js';
 import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
+import { tienePermiso } from '../../shared/middleware/permissions.js';
 
 function logoExt(mime) {
   if (mime === 'image/png') return 'png';
@@ -21,9 +22,6 @@ function logoMime(ext) {
   return 'image/jpeg';
 }
 
-function isAdmin(req) {
-  return ['admin', 'superadmin', 'soporte'].includes(req.user?.role);
-}
 
 function projectId(req) {
   const pid = Number(req.query.projectId || req.body?.projectId);
@@ -127,16 +125,14 @@ export async function create(req, res, next) {
 
     // Facturas de abono (rectificativas): admin/superadmin o una gestora con permiso
     // factura_manager (sobre sus propias ventas).
-    const esAdmin = req.user?.role === 'admin' || req.user?.role === 'superadmin';
-    // Proforma de una gestora: se queda esperando el visto bueno de quien
-    // lleva la facturacion. No gasta numero mientras tanto.
-    if (d.tipo === 'proforma' && !esAdmin) {
-      const mandaEllaMisma = await model.esFacturaManager(req.user?.userId);
-      if (!mandaEllaMisma) d.requiereAprobacion = true;
+    // Proforma de quien no pone números: se queda esperando el visto bueno de
+    // quien lleva la facturacion. No gasta numero mientras tanto. (#423: por
+    // permiso, «Poner número al cobrar»; antes, el rol o la casilla.)
+    if (d.tipo === 'proforma' && !(await tienePermiso(req, 'facturas.emitir'))) {
+      d.requiereAprobacion = true;
     }
-    if (d.tipo === 'rectificativa' && !esAdmin) {
-      const puede = req.user?.role === 'gestor' && await model.esFacturaManager(req.user.userId);
-      if (!puede) throw new AppError('No tienes permiso para emitir facturas de abono.', 403, 'FORBIDDEN');
+    if (d.tipo === 'rectificativa' && !(await tienePermiso(req, 'facturas.gestionar'))) {
+      throw new AppError('No tienes permiso para emitir facturas de abono.', 403, 'FORBIDDEN');
     }
 
     // REGLA: sin ningún pago no se puede emitir una FACTURA fiscal por la
@@ -231,7 +227,7 @@ export async function update(req, res, next) {
 export async function corregir(req, res, next) {
   try {
     const id = Number(req.params.id);
-    if (!(await model.puedeGestionarFactura(req.user.userId, req.user.role, id))) {
+    if (!(await model.esFacturaQueGestiona(req.user.userId, req.user.role, id))) {
       throw new AppError('Solo puedes editar tus propias facturas.', 403, 'FORBIDDEN');
     }
     const d = { ...(req.body || {}) };
@@ -298,7 +294,7 @@ export async function corregir(req, res, next) {
 export async function updateFechas(req, res, next) {
   try {
     const id = Number(req.params.id);
-    if (!(await model.puedeEditarFechas(req.user.userId, req.user.role))) {
+    if (!(await tienePermiso(req, 'facturas.editar_fechas'))) {
       throw new AppError('No tienes permiso para cambiar fechas de facturas.', 403, 'FORBIDDEN');
     }
     const { fechaEmision = null, fechaPago = null } = req.body || {};
@@ -321,7 +317,7 @@ export async function updateFechas(req, res, next) {
 export async function asociarVenta(req, res, next) {
   try {
     const id = Number(req.params.id);
-    if (!(await model.puedeGestionarFactura(req.user.userId, req.user.role, id))) {
+    if (!(await model.esFacturaQueGestiona(req.user.userId, req.user.role, id))) {
       throw new AppError('No tienes permiso para gestionar esta factura.', 403, 'FORBIDDEN');
     }
     const conversionId = Number(req.body?.conversionId);
@@ -447,7 +443,7 @@ export async function cancel(req, res, next) {
 export async function destroy(req, res, next) {
   try {
     const id = Number(req.params.id);
-    if (!(await model.puedeGestionarFactura(req.user.userId, req.user.role, id))) {
+    if (!(await model.esFacturaQueGestiona(req.user.userId, req.user.role, id))) {
       throw new AppError('Solo puedes eliminar tus propias facturas.', 403, 'FORBIDDEN');
     }
     const inv = await model.deleteInvoice(id);
@@ -462,7 +458,7 @@ export async function destroy(req, res, next) {
 export async function rectificar(req, res, next) {
   try {
     const id = Number(req.params.id);
-    if (!(await model.puedeGestionarFactura(req.user.userId, req.user.role, id))) {
+    if (!(await model.esFacturaQueGestiona(req.user.userId, req.user.role, id))) {
       throw new AppError('Solo puedes emitir abonos de tus propias facturas.', 403, 'FORBIDDEN');
     }
     const { motivo, parcial, issuerId } = req.body || {};
@@ -489,7 +485,7 @@ export async function listIssuers(req, res, next) {
 
 export async function createIssuer(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras pueden añadir empresas', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras pueden añadir empresas', 403, 'FORBIDDEN');
     const parsed = issuerSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'BAD_REQUEST');
     const iss = await model.createIssuer(parsed.data, req.user?.userId);
@@ -499,7 +495,7 @@ export async function createIssuer(req, res, next) {
 
 export async function updateIssuer(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     const parsed = issuerSchema.partial().safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'BAD_REQUEST');
     const iss = await model.updateIssuer(Number(req.params.id), parsed.data);
@@ -509,7 +505,7 @@ export async function updateIssuer(req, res, next) {
 
 export async function deleteIssuer(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     await model.deleteIssuer(Number(req.params.id));
     res.json({ success: true });
   } catch (e) { next(e); }
@@ -518,7 +514,7 @@ export async function deleteIssuer(req, res, next) {
 // Subir logo de empresa emisora al servidor (no solo URL).
 export async function uploadIssuerLogo(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     const id = Number(req.params.id);
     if (!id) throw new AppError('ID inválido', 400, 'INVALID_ID');
     if (!req.file) throw new AppError('Imagen requerida (campo file)', 400, 'FILE_REQUIRED');
@@ -554,7 +550,7 @@ export async function getIssuerLogo(req, res, next) {
 
 export async function deleteIssuerLogo(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     const id = Number(req.params.id);
     const iss = await model.getIssuer(id);
     if (!iss) throw new AppError('Empresa no encontrada', 404, 'NOT_FOUND');
@@ -587,19 +583,19 @@ export async function resolveRegimen(req, res, next) {
 }
 export async function createRegimen(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     res.json({ success: true, data: await model.createRegimen(req.body) });
   } catch (e) { next(e); }
 }
 export async function updateRegimen(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     res.json({ success: true, data: await model.updateRegimen(Number(req.params.id), req.body) });
   } catch (e) { next(e); }
 }
 export async function deleteRegimen(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     await model.deleteRegimen(Number(req.params.id));
     res.json({ success: true });
   } catch (e) { next(e); }
@@ -618,19 +614,19 @@ export async function getTemplate(req, res, next) {
 }
 export async function createTemplate(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     res.json({ success: true, data: await model.createTemplate(req.body, req.user?.userId) });
   } catch (e) { next(e); }
 }
 export async function updateTemplate(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     res.json({ success: true, data: await model.updateTemplate(Number(req.params.id), req.body) });
   } catch (e) { next(e); }
 }
 export async function deleteTemplate(req, res, next) {
   try {
-    if (!isAdmin(req)) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
+    if (!(await tienePermiso(req, 'facturas.configurar'))) throw new AppError('Solo administradoras', 403, 'FORBIDDEN');
     await model.deleteTemplate(Number(req.params.id));
     res.json({ success: true });
   } catch (e) { next(e); }
@@ -654,7 +650,7 @@ export async function listSequences(req, res, next) {
 
 export async function setSequence(req, res, next) {
   try {
-    if (!['admin', 'superadmin', 'soporte'].includes(req.user?.role)) {
+    if (!(await tienePermiso(req, 'facturas.configurar'))) {
       throw new AppError('Solo admin/superadmin/soporte', 403, 'FORBIDDEN');
     }
     const parsed = setSequenceSchema.safeParse(req.body);
@@ -674,7 +670,7 @@ export async function getConfig(req, res, next) {
 
 export async function updateConfig(req, res, next) {
   try {
-    if (!['admin', 'superadmin', 'soporte'].includes(req.user?.role)) {
+    if (!(await tienePermiso(req, 'facturas.configurar'))) {
       throw new AppError('Solo admin/superadmin/soporte', 403, 'FORBIDDEN');
     }
     const parsed = updateConfigSchema.safeParse(req.body);
@@ -704,10 +700,8 @@ export async function setFacturacionAlDia(req, res, next) {
     }
     // Solo quien lleva la facturacion mueve el corte. El superadmin siempre puede.
     // El flag no viaja en el token, asi que se consulta en la base de datos.
-    if (req.user?.role !== 'superadmin') {
-      if (!(await model.esFacturaManager(req.user?.userId))) {
-        throw new AppError('Solo quien gestiona la facturacion puede mover esta fecha', 403, 'FORBIDDEN');
-      }
+    if (!(await tienePermiso(req, 'facturas.cola'))) {
+      throw new AppError('Solo quien gestiona la facturacion puede mover esta fecha', 403, 'FORBIDDEN');
     }
     const r = await service.setFacturacionAlDia(projectId, alDiaHasta, req.user.userId, req.body?.stripeOkHasta || null);
     res.json({ success: true, data: r });
@@ -720,7 +714,7 @@ export async function generarDeCola(req, res, next) {
     const projectId = parseInt(req.body?.projectId);
     const paymentId = parseInt(req.body?.paymentId);
     if (!projectId || !paymentId) throw new AppError('projectId y paymentId requeridos', 400, 'BAD_REQUEST');
-    if (req.user?.role !== 'superadmin' && !(await model.esFacturaManager(req.user?.userId))) {
+    if (!(await tienePermiso(req, 'facturas.cola'))) {
       throw new AppError('Solo quien gestiona la facturacion puede emitir desde la cola', 403, 'FORBIDDEN');
     }
     const inv = await service.generarFacturaDePago(projectId, paymentId, req.user.userId, {
@@ -738,7 +732,7 @@ export async function emitirColaHasta(req, res, next) {
     const projectId = parseInt(req.body?.projectId);
     const hasta = req.body?.hasta;
     if (!projectId || !hasta) throw new AppError('projectId y hasta requeridos', 400, 'BAD_REQUEST');
-    if (req.user?.role !== 'superadmin' && !(await model.esFacturaManager(req.user?.userId))) {
+    if (!(await tienePermiso(req, 'facturas.cola'))) {
       throw new AppError('Solo quien gestiona la facturacion puede emitir desde la cola', 403, 'FORBIDDEN');
     }
     res.json({ success: true, data: await service.emitirColaHasta(projectId, hasta, req.user.userId) });

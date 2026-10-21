@@ -24,8 +24,14 @@ const { NAV_SECTIONS, entradasDeSeccion, canSeeItem, esSoloColaboraciones } = aw
 const { crearCan } = await import('@/shared/hooks/usePermission');
 const { rolesDe } = await import('@/shared/lib/roles');
 const legado = await import('../../../backend/src/modules/permissions/inventario/legado.js');
-// Los valores de serie de AHORA: los del catálogo (#423, fase 2).
-const { SYSTEM_ROLE_DEFAULTS } = await import('../../../backend/src/modules/permissions/permissions.defaults.js');
+// El mapa de AHORA: el resolver del servidor, con las casillas ya convertidas en
+// excepciones como hace la migración 222 (#423).
+const { resolverPermisos } = await import('../../../backend/src/modules/permissions/resolver.js');
+const { excepcionesDeCasillas } = await import('../../../backend/src/modules/permissions/casillas.js');
+const mapaDeAhora = (p) => resolverPermisos({
+  role: p.role, roles_extra: p.roles_extra, customRole: p.custom_role,
+  excepciones: { ...excepcionesDeCasillas(p), ...p.excepciones },
+}).mapa;
 
 const FOTO = path.resolve(__dirname, 'fixtures/menu-por-perfil-423.json');
 
@@ -81,10 +87,32 @@ export function menuDe(p, { mapa = legado.mapaDePermisos(p) } = {}) {
  * Lo que cambia a propósito respecto a la foto, por perfil: `+` aparece, `-`
  * desaparece. Cada línea es una diferencia que Diego aprueba en la #423.
  */
-export const CAMBIOS_APROBADOS = {};
+export const CAMBIOS_APROBADOS = {
+  // 1 · «Facturación» la veía solo el superadmin: preguntaba por la casilla
+  //     `factura_manager` como si fuera un permiso. Ahora, «Poner número al
+  //     cobrar»: el admin y quien factura.
+  admin: ['+ Finanzas › Facturación'],
+  'gestora con factura_manager': ['+ Finanzas › Facturación'],
+  // 2 · Los roles de más cuentan también en el menú, como en el servidor: una
+  //     gestora que además es admin ve lo del admin (el MCP y Facturación).
+  'gestora+admin': ['+ Conexión › MCP', '+ Finanzas › Facturación'],
+  // 3 · El menú ya no enseña lo que luego da 403. Soporte lo veía todo por un
+  //     atajo del menú, y el project manager las pantallas de la gestora.
+  soporte: [
+    '- Clientes › Diplomas', '- Conexión › Conectores', '- Conexión › Webhook de transferencias',
+    '- Equipo de Desarrollo › Mi factura', '- Equipo de Desarrollo › Tablero', '- Finanzas › Facturas de colaboradores',
+    '- Tutores › Comisiones', '- Tutores › Mis cursos', '- Tutores › Sin tutor', '- Tutores › Tutores',
+  ],
+  project_manager: ['- Clientes › Matrículas', '- Principal › WhatsApp › Chat', '- Principal › WhatsApp › Conexión'],
+  // 4 · Un permiso dado a una persona le enseña la pantalla (antes el menú solo
+  //     miraba su rol, aunque el servidor ya la dejaba entrar).
+  'gestora con tasks.close': [
+    '+ Equipo de Desarrollo › Configurar tablero', '+ Equipo de Desarrollo › Por revisar', '+ Equipo de Desarrollo › Tablero',
+  ],
+};
 
 describe('menú por perfil (#423)', () => {
-  const ahora = Object.fromEntries(Object.entries(PERFILES).map(([k, p]) => [k, menuDe(p, { mapa: legado.mapaDePermisos(p, SYSTEM_ROLE_DEFAULTS) })]));
+  const ahora = Object.fromEntries(Object.entries(PERFILES).map(([k, p]) => [k, menuDe(p, { mapa: mapaDeAhora(p) })]));
 
   if (process.env.ACTUALIZAR_MENU_423 === '1' || !fs.existsSync(FOTO)) {
     fs.mkdirSync(path.dirname(FOTO), { recursive: true });

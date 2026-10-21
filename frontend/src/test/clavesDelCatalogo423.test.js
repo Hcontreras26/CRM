@@ -17,11 +17,11 @@ const { CLAVES } = await import('../../../backend/src/modules/permissions/catalo
 const SRC = path.resolve(__dirname, '..');
 const PATRON = /\bcan\(\s*['"]([a-z_]+(?:\.[a-z_]+)?)['"]\s*\)|\b(?:o[Pp]ermiso|permiso)\s*:\s*['"]([a-z_.]+)['"]/g;
 
-/** Las que se arreglan en la fase 4, cuando la pantalla pase a preguntar al catálogo. */
-const PENDIENTES_FASE_4 = new Set([
-  'leads.reassign',   // no ha existido nunca: era `leads.assign` (SalesPage, IncomePage)
-  'factura_manager',  // es la casilla, no una clave: por eso «Facturación» solo la ve el superadmin
-]);
+/**
+ * Ninguna pendiente desde la fase 4: `leads.reassign` (que no existió nunca) es
+ * `leads.assign`, y «Facturación» ya no pregunta por la casilla `factura_manager`.
+ */
+const PENDIENTES_FASE_4 = new Set();
 
 function ficheros(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {

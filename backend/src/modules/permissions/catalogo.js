@@ -157,10 +157,10 @@ export const SECCIONES = [
       },
       {
         clave: 'webhooks', nombre: 'Webhooks de entrada', acciones: [
-          a('view', 'Ver webhooks', 'Los webhooks que reciben prospectos y su estado.', TODOS),
-          a('create', 'Crear webhooks', 'Un webhook nuevo.', ADMIN_SOPORTE),
-          a('edit', 'Editar webhooks', 'Cambiarlo o ponerlo a escuchar.', ADMIN_SOPORTE),
-          a('delete', 'Borrar webhooks', 'Quitar un webhook.', ADMIN_SOPORTE),
+          a('view', 'Ver webhooks', 'Los webhooks que reciben prospectos y su estado (de sus campus).', ADMIN),
+          a('create', 'Crear webhooks', 'Un webhook nuevo.', ADMIN),
+          a('edit', 'Editar webhooks', 'Cambiarlo o ponerlo a escuchar.', ADMIN),
+          a('delete', 'Borrar webhooks', 'Quitar un webhook.', ADMIN),
         ],
       },
       {

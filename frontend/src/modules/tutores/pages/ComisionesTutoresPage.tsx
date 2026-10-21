@@ -10,6 +10,7 @@ import { Button } from '@/shared/components/ui/button';
 import Entregables from '../components/Entregables';
 import LoQueFactura from '../components/LoQueFactura';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
+import usePermission from '@/shared/hooks/usePermission';
 import {
   tutoresApi,
   type ComisionReal, type ResumenComision, type AjustesTutores, type PagoSinFormacion, type AvisoAlTutor,
@@ -68,7 +69,9 @@ export default function ComisionesTutoresPage() {
   const [soloCampus, setSoloCampus] = useState<number | null>(null);
   useEffect(() => { setSoloCampus(null); }, [activeIssuerId, activeProject?.id]);
   const esAdmin = ['admin', 'superadmin'].includes(user?.role || '');
-  const puede = esAdmin || user?.gestor_colaboraciones === true;
+  // «Gestionar colaboraciones» del catálogo (#423; antes, admin o la casilla).
+  const { can } = usePermission();
+  const puede = can('tutores.gestionar');
   const elegido = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
   const projectId = elegido ?? soloCampus;
   // Con la empresa puesta y sin campus concreto, el servidor traduce `issuerId`

@@ -107,12 +107,13 @@ export const updateUserSchema = z.object({
   reenviarEnlace: z.boolean().optional(),
   role: z.enum(['admin', 'gestor', 'soporte', 'tutor', 'colaborador']).optional(),
   roles_extra: z.array(z.enum(['admin', 'gestor', 'soporte', 'tutor', 'colaborador'])).optional(),
-  factura_manager: z.boolean().optional(),
-  editar_fechas_factura: z.boolean().optional(),
+  // «Se dedica solo a colaboraciones»: no da permisos (eso es «Gestionar
+  // colaboraciones»), cambia lo que le toca: no entra en el reparto ni en las
+  // listas de gestoras.
   gestor_colaboraciones: z.boolean().optional(),
-  // Si usa el WhatsApp del CRM (#128). No es lo mismo que poder tenerlo: eso lo
-  // decide el rol. Esto dice si sale en el panel de sesiones y si puede enlazar.
-  usa_whatsapp: z.boolean().optional(),
+  // factura_manager, editar_fechas_factura y usa_whatsapp ya no se guardan
+  // aquí (#423): son permisos del catálogo y se dan en su ficha, con su
+  // registro. Si llegan, se ignoran.
   projectIds: z.array(z.number().int().positive()).optional(),
   projects: z.array(projectAssignmentSchema).optional(),
   // Las empresas enteras (#220). Una lista vacía las quita; sus campus se quedan.

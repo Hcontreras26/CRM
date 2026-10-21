@@ -105,7 +105,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   // en el otro fue como no ponerlo.
   const { can } = usePermission();
   const puedeSinGestora = can('conversions.sin_gestora');
-  const puedeDeOtra = can('leads.assign') || can('leads.reassign');
+  const puedeDeOtra = can('leads.assign');
   const [modoVenta, setModoVenta] = useState<'existing' | 'otra_gestora' | 'sin_gestora'>('existing');
   const [menuVenta, setMenuVenta] = useState(false);
   function abrirVenta(modo: 'existing' | 'otra_gestora' | 'sin_gestora') {

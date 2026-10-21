@@ -382,3 +382,31 @@ export async function setClaveDePersona(clave, userId, permitido, quien) {
     puede: await resolvePermission(u.id, u.role, u.custom_role_id, conf.resource, conf.action, u.roles_extra),
   };
 }
+
+/* ─── El mapa, recordado medio minuto, para lo que pregunta sin parar ─── */
+
+/*
+  El chat de WhatsApp pregunta cada tres segundos (mensajes sin leer, llamadas
+  sonando). Leer el mapa entero en cada vuelta serían varias consultas por
+  vuelta y persona para un dato que cambia dos veces al año. Antes la casilla
+  `usa_whatsapp` se recordaba medio minuto (#128); el permiso que la sustituye
+  (#423) se recuerda igual, y se OLVIDA en cuanto alguien cambia lo de esa
+  persona (`olvidarPermisos`): quien lo cambia lo ve al momento.
+*/
+const VIVE_MS = 30_000;
+const recordados = new Map();
+
+export async function explicarPermisosRecordados(userId) {
+  const id = Number(userId);
+  const r = recordados.get(id);
+  if (r && r.hasta > Date.now()) return r.e;
+  const e = await explicarPermisos(id);
+  recordados.set(id, { e, hasta: Date.now() + VIVE_MS });
+  return e;
+}
+
+/** Se acaba de cambiar algo de esta persona (o de todas, sin id). */
+export function olvidarPermisos(userId) {
+  if (userId === undefined || userId === null) recordados.clear();
+  else recordados.delete(Number(userId));
+}

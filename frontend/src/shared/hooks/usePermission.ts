@@ -59,9 +59,9 @@ export function crearCan(user: Parameters<typeof rolesDe>[0] | null | undefined,
     // nada — mejor un botón que tarda un instante en salir que uno que sale y
     // no debía.
     //
-    // No para quien es solo tutor: su pantalla es la suya (ProtectedRoute) y
-    // ningún botón del CRM normal le corresponde.
-    if (!permissions || user.role === 'tutor') return false;
+    // También para el tutor (#423): el servidor ya tiene su propio mapa (antes
+    // le calculaba el de una gestora); qué pantallas ve lo recorta ProtectedRoute.
+    if (!permissions) return false;
     if (permissions['*'] === true) return true;
     return permissions[permission] === true;
   };

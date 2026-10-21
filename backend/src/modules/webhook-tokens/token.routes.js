@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import { verifyToken, soloRoles } from '../../shared/middleware/auth.js';
+import { verifyToken } from '../../shared/middleware/auth.js';
+import { puede } from '../../shared/middleware/permissions.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { MAX_BYTES } from '../matriculas/admision.archivos.js';
 import * as ctrl from './token.controller.js';
@@ -54,13 +55,12 @@ router.post('/receive/:token', limite, conArchivos, ctrl.publicReceive);
 // admin (`soloRoles`, no `roleGuard`, que deja pasar también a soporte), y cada
 // uno en sus campus, que lo comprueba el controlador.
 router.use(verifyToken);
-router.use(soloRoles('admin', 'superadmin'));
-router.get('/', ctrl.list);
-router.get('/:id/status', ctrl.getStatus);
-router.post('/', ctrl.create);
-router.patch('/:id', ctrl.update);
-router.delete('/:id', ctrl.remove);
-router.post('/:id/listen', ctrl.startListening);
-router.post('/:id/listen/stop', ctrl.stopListening);
+router.get('/', puede('webhooks.view'), ctrl.list);
+router.get('/:id/status', puede('webhooks.view'), ctrl.getStatus);
+router.post('/', puede('webhooks.create'), ctrl.create);
+router.patch('/:id', puede('webhooks.edit'), ctrl.update);
+router.delete('/:id', puede('webhooks.delete'), ctrl.remove);
+router.post('/:id/listen', puede('webhooks.edit'), ctrl.startListening);
+router.post('/:id/listen/stop', puede('webhooks.edit'), ctrl.stopListening);
 
 export default router;

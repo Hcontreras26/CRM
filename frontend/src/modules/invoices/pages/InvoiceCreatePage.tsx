@@ -2,7 +2,6 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, FloppyDisk, MagnifyingGlass, User, Buildings, Money } from '@phosphor-icons/react';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { useAuth } from '@/contexts/AuthContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import client from '@/shared/api/client';
 import { CURRENCIES } from '../currencies';
@@ -21,6 +20,7 @@ import Select from '@/shared/components/ui/Select';
 // Si el servidor no manda una lista, la pantalla no se cae: se queda
 // vacia y se dice. (#113, el arreglo de las once pantallas en blanco.)
 import { lista } from '@/shared/lib/lista';
+import usePermission from '@/shared/hooks/usePermission';
 
 type Tipo = 'persona' | 'empresa' | 'contado';
 interface LeadHit { id: number; nombre: string; email?: string | null; telefono?: string | null }
@@ -51,9 +51,9 @@ export default function InvoiceCreatePage() {
   const projectOptions = socActual == null
     ? delAmbito
     : (projects || []).filter((p) => p.sociedad_emisora_id === socActual);
-  const { user } = useAuth() as { user: { role?: string; editar_fechas_factura?: boolean } | null };
-  // Cambiar fechas de la factura: admins o permiso acotado editar_fechas_factura.
-  const puedeFechas = user?.role === 'admin' || user?.role === 'superadmin' || !!user?.editar_fechas_factura;
+  // Cambiar fechas de la factura: «Cambiar fechas» del catálogo (#423).
+  const { can } = usePermission();
+  const puedeFechas = can('facturas.editar_fechas');
   const navigate = useNavigate();
   const loc = useLocation();
   const invBase = loc.pathname.split('/facturas')[0];

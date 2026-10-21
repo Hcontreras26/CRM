@@ -133,14 +133,14 @@ export const NAV_SECTIONS = [
           // `end` porque si no, estando en la cola o en el proceso este
           // tambien se marcaria activo: el resaltado diria que estas en dos
           // sitios a la vez.
-          { label: 'Lista de prospectos', to: '/prospectos', detail: 'Lista, pipeline y más', icon: Users, end: true },
-          { label: 'La cola del día', to: '/prospectos/cola', detail: 'A quién le toca hoy', icon: CalendarCheck },
+          { label: 'Lista de prospectos', to: '/prospectos', detail: 'Lista, pipeline y más', icon: Users, end: true, permiso: 'leads.view' },
+          { label: 'La cola del día', to: '/prospectos/cola', detail: 'A quién le toca hoy', icon: CalendarCheck, permiso: 'proceso.view' },
           // El quinto paso no cabe en la cola del dia: es toda la base que no
           // compro, y se repasa cuando se puede, no cada mañana.
-          { label: 'Seguimiento de fin de mes', to: '/prospectos/seguimiento', detail: 'La base que no compró', icon: ArrowCounterClockwise },
-          { label: 'Proceso comercial', to: '/prospectos/proceso', detail: 'Los cinco pasos', icon: ListChecks },
+          { label: 'Seguimiento de fin de mes', to: '/prospectos/seguimiento', detail: 'La base que no compró', icon: ArrowCounterClockwise, permiso: 'proceso.view' },
+          { label: 'Proceso comercial', to: '/prospectos/proceso', detail: 'Los cinco pasos', icon: ListChecks, permiso: 'proceso.view' },
           // Sin aprobar para producción (07/10): solo en /testeo.
-          { label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap },
+          { label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap, permiso: 'convocatorias.view' },
         ],
       },
       // WhatsApp cuelga de su propia entrada, con lo suyo escalonado debajo: son
@@ -157,8 +157,8 @@ export const NAV_SECTIONS = [
           // Abierto a todo el equipo por decision del owner. El aviso previo —lo
           // que puede pasarle a su numero— ya esta, con su casilla y su registro
           // de quien lo acepto (tarea #45).
-          { label: 'Chat', to: '/whatsapp/chat', detail: 'Conversaciones', icon: ChatText },
-          { label: 'Plantillas', to: '/whatsapp/plantillas', detail: 'Mensajes preparados', icon: ChatText },
+          { label: 'Chat', to: '/whatsapp/chat', detail: 'Conversaciones', icon: ChatText, permiso: 'whatsapp.usar' },
+          { label: 'Plantillas', to: '/whatsapp/plantillas', detail: 'Mensajes preparados', icon: ChatText, permiso: 'whatsapp.plantillas' },
           // El banco de mensajes (#101). Va aqui y no dentro del chat porque no
           // es el chat: uno sirve para conversar y este para buscar, auditar y
           // llevarse una copia. El servidor recorta lo que ve cada cual — un
@@ -173,7 +173,7 @@ export const NAV_SECTIONS = [
           // Sin recorte por rol: cada gestora enlaza SU numero, y el servidor solo
           // la deja tocar el suyo. Estaba solo para administradores, asi que la
           // pantalla existia pero ninguna gestora podia llegar a ella.
-          { label: 'Conexión', to: '/whatsapp/conexion', detail: 'Enlazar tu número', icon: QrCode },
+          { label: 'Conexión', to: '/whatsapp/conexion', detail: 'Enlazar tu número', icon: QrCode, permiso: 'whatsapp.usar' },
           // La guia, en el menu y no escondida: si hay que preguntar donde esta,
           // ya se ha perdido a quien tenia que leerla.
           { label: 'Cómo se usa', to: '/whatsapp/ayuda', detail: 'La guía, paso a paso', icon: BookOpen },
@@ -181,7 +181,7 @@ export const NAV_SECTIONS = [
       },
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
-      { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions' },
+      { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions', permiso: 'ventas.view' },
     ],
   },
   // El tablero del equipo (#210 y mejoras del 07/10). Es lo único que ve quien
@@ -193,22 +193,22 @@ export const NAV_SECTIONS = [
     label: 'Equipo de Desarrollo',
     icon: Code,
     items: [
-      { label: 'Tablero', to: '/tareas', detail: 'Las tareas del equipo, por áreas', icon: Kanban, roles: ROLES_TAREAS },
-      { label: 'Por revisar', to: '/tareas/revisar', detail: 'Aprobar o devolver', icon: CheckSquare, roles: ROLES_TAREAS, permiso: 'tasks.close' },
-      { label: 'Configurar tablero', to: '/tareas/configurar', detail: 'Columnas, áreas y proyectos', icon: SlidersHorizontal, roles: ROLES_TAREAS, permiso: 'tasks.manage' },
+      { label: 'Tablero', to: '/tareas', detail: 'Las tareas del equipo, por áreas', icon: Kanban, roles: ROLES_TAREAS, permiso: 'tasks.view_own', oPermiso: 'tasks.view_own' },
+      { label: 'Por revisar', to: '/tareas/revisar', detail: 'Aprobar o devolver', icon: CheckSquare, roles: ROLES_TAREAS, permiso: 'tasks.close', oPermiso: 'tasks.close' },
+      { label: 'Configurar tablero', to: '/tareas/configurar', detail: 'Columnas, áreas y proyectos', icon: SlidersHorizontal, roles: ROLES_TAREAS, permiso: 'tasks.manage', oPermiso: 'tasks.manage' },
       // «Mi factura» (#202): el colaborador con usuario sube aquí su factura del mes.
-      { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador'] },
+      { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador'], permiso: 'facturas_colaborador.subir' },
     ],
   },
   {
     label: 'Captación',
     icon: Funnel,
     items: [
-      { label: 'Email', to: '/secuencias-email', detail: 'Correos automáticos', icon: Envelope, roles: ['superadmin', 'admin'], module: 'email_sequences' },
-      { label: 'Formularios', to: '/captacion', detail: 'Formularios de la web', icon: Globe, roles: ['superadmin', 'admin'], module: 'forms' },
-      { label: 'Make', to: '/captacion/make', detail: 'Escenarios de Make', icon: Lightning, roles: ['superadmin', 'admin'], module: 'make' },
-      { label: 'Webhooks', to: '/captacion/webhooks', detail: 'Entradas de fuera', icon: WebhooksLogo, roles: ['superadmin', 'admin'], module: 'webhooks' },
-      { label: 'Widget web', to: '/captacion/whatsapp', detail: 'El botón de la web', icon: WhatsappLogo, roles: ['superadmin', 'admin', 'soporte'] },
+      { label: 'Email', to: '/secuencias-email', detail: 'Correos automáticos', icon: Envelope, roles: ['superadmin', 'admin'], module: 'email_sequences', permiso: 'email_sequences.view' },
+      { label: 'Formularios', to: '/captacion', detail: 'Formularios de la web', icon: Globe, roles: ['superadmin', 'admin'], module: 'forms', permiso: 'forms.view' },
+      { label: 'Make', to: '/captacion/make', detail: 'Escenarios de Make', icon: Lightning, roles: ['superadmin', 'admin'], module: 'make', permiso: 'make.view' },
+      { label: 'Webhooks', to: '/captacion/webhooks', detail: 'Entradas de fuera', icon: WebhooksLogo, roles: ['superadmin', 'admin'], module: 'webhooks', permiso: 'webhooks.view' },
+      { label: 'Widget web', to: '/captacion/whatsapp', detail: 'El botón de la web', icon: WhatsappLogo, roles: ['superadmin', 'admin', 'soporte'], permiso: 'widget.view' },
       { label: 'Campañas', to: '/campanas', detail: 'Campañas y resultados', icon: Megaphone, roles: ['superadmin', 'admin'] },
       { label: 'Tráfico orgánico', to: '/campanas/seo', detail: 'Búsquedas en Google', icon: MagnifyingGlass, roles: ['superadmin', 'admin'] },
     ],
@@ -217,7 +217,7 @@ export const NAV_SECTIONS = [
     label: 'Publicidad',
     icon: Megaphone,
     items: [
-      { label: 'Meta Ads', to: '/meta-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'] },
+      { label: 'Meta Ads', to: '/meta-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], permiso: 'meta_ads.view' },
       // `comingSoon` no hacía nada aquí: el menú solo miraba la lista de la beta,
       // así que fuera de ella Google Ads era un enlace a /google-ads, que no
       // tiene pantalla, y acababa en «Página no encontrada» (#226).
@@ -228,14 +228,14 @@ export const NAV_SECTIONS = [
     label: 'Catálogo',
     icon: Books,
     items: [
-      { label: 'Productos', to: '/productos', detail: 'Cursos a la venta', icon: Package, roles: ['superadmin', 'admin'], module: 'products' },
-      { label: 'Cursos pendientes', to: '/productos/pendientes', detail: 'Vendidos sin fecha', icon: Clock, roles: ['superadmin', 'admin'], module: 'products' },
-      { label: 'WooCommerce', to: '/productos/woocommerce', detail: 'Sincronía de tienda', icon: ShoppingBag, roles: ['superadmin', 'admin'], module: 'woocommerce' },
+      { label: 'Productos', to: '/productos', detail: 'Cursos a la venta', icon: Package, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.view' },
+      { label: 'Cursos pendientes', to: '/productos/pendientes', detail: 'Vendidos sin fecha', icon: Clock, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.view' },
+      { label: 'WooCommerce', to: '/productos/woocommerce', detail: 'Sincronía de tienda', icon: ShoppingBag, roles: ['superadmin', 'admin'], module: 'woocommerce', permiso: 'woocommerce.view' },
       // Cada entrada se llama como la pantalla que abre (#79). «Árbol de
       // categorías» apuntaba a /productos/arbol, que es OTRA pantalla, y el
       // árbol de verdad no tenía entrada en ningún sitio.
-      { label: 'Productos por categoría', to: '/productos/arbol', detail: 'Productos agrupados', icon: ListBullets, roles: ['superadmin', 'admin'], module: 'products' },
-      { label: 'Árbol de categorías', to: '/productos/categorias', detail: 'Jerarquía de categorías', icon: Tree, roles: ['superadmin', 'admin'], module: 'products' },
+      { label: 'Productos por categoría', to: '/productos/arbol', detail: 'Productos agrupados', icon: ListBullets, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.view' },
+      { label: 'Árbol de categorías', to: '/productos/categorias', detail: 'Jerarquía de categorías', icon: Tree, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.categorias' },
       // «Certificados» (/documentos) fuera del menú: estaba vacío, y los títulos
       // ahora los emite Certifex desde Matrículas → Certificaciones (Diego, 30/09).
     ],
@@ -244,44 +244,44 @@ export const NAV_SECTIONS = [
     label: 'Tutores',
     icon: ChalkboardTeacher,
     items: [
-      { label: 'Tutores', to: '/tutores', detail: 'Quién imparte qué', icon: GraduationCap, roles: ['superadmin', 'admin'], module: 'tutores' },
+      { label: 'Tutores', to: '/tutores', detail: 'Quién imparte qué', icon: GraduationCap, roles: ['superadmin', 'admin'], module: 'tutores', permiso: 'tutores.gestionar', oPermiso: 'tutores.gestionar' },
       // Lo unico que ve un tutor: sus cursos y lo que le corresponde.
-      { label: 'Mis cursos', to: '/mis-cursos', detail: 'Tus cursos y tu parte', icon: GraduationCap, roles: ['tutor'] },
+      { label: 'Mis cursos', to: '/mis-cursos', detail: 'Tus cursos y tu parte', icon: GraduationCap, roles: ['tutor'], permiso: 'tutores.mis_cursos' },
       // Consultas de alumnos (#188): el tutor, su bandeja; administración, todas.
-      { label: 'Consultas', to: '/consultas', detail: 'Las dudas de los alumnos', icon: ChatCircleText, roles: ['superadmin', 'admin', 'tutor'], module: 'tutores', statusTag: 'Pruebas' },
-      { label: 'Sin tutor', to: '/tutores/sin-tutor', detail: 'Formaciones sin asignar', icon: Warning, roles: ['superadmin', 'admin'], module: 'tutores' },
-      { label: 'Comisiones', to: '/tutores/comisiones', detail: 'Lo que se les debe', icon: Coins, roles: ['superadmin', 'admin'], module: 'tutores' },
+      { label: 'Consultas', to: '/consultas', detail: 'Las dudas de los alumnos', icon: ChatCircleText, roles: ['superadmin', 'admin', 'tutor'], module: 'tutores', statusTag: 'Pruebas', permiso: 'consultas.view' },
+      { label: 'Sin tutor', to: '/tutores/sin-tutor', detail: 'Formaciones sin asignar', icon: Warning, roles: ['superadmin', 'admin'], module: 'tutores', permiso: 'tutores.gestionar', oPermiso: 'tutores.gestionar' },
+      { label: 'Comisiones', to: '/tutores/comisiones', detail: 'Lo que se les debe', icon: Coins, roles: ['superadmin', 'admin'], module: 'tutores', permiso: 'tutores.gestionar', oPermiso: 'tutores.gestionar' },
     ],
   },
   {
     label: 'Finanzas',
     icon: Bank,
     items: [
-      { label: 'Dashboard', to: '/finanzas', detail: 'Caja del mes', icon: ChartBar, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
-      { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions', statusTag: 'Pruebas' },
-      { label: 'Ingresos', to: '/finanzas/ingresos', detail: 'Entradas de dinero', icon: TrendUp, roles: ['superadmin', 'admin'], module: 'accounting_income', statusTag: 'Pruebas' },
-      { label: 'Conversiones', to: '/finanzas/conversiones', detail: 'Los que compraron', icon: CurrencyEur, roles: ['superadmin', 'admin'], module: 'conversions', statusTag: 'Pruebas' },
-      { label: 'Egresos', to: '/finanzas/egresos', detail: 'Gastos y salidas', icon: TrendDown, roles: ['superadmin', 'admin'], module: 'accounting_expenses', statusTag: 'Pruebas' },
-      { label: 'Cuentas por cobrar', to: '/finanzas/por-cobrar', detail: 'Pendiente de cobro', icon: Wallet, roles: ['superadmin', 'admin', 'soporte', 'gestor'] },
-      { label: 'Cuentas por pagar', to: '/finanzas/por-pagar', detail: 'Pendiente de pago', icon: Receipt, roles: ['superadmin', 'admin'], module: 'accounting_payable', statusTag: 'Pruebas' },
-      { label: 'Comisiones', to: '/finanzas/comisiones', detail: 'Del equipo comercial', icon: HandCoins, roles: ['superadmin', 'admin'], module: 'commissions', statusTag: 'Pruebas' },
-      { label: 'Nóminas', to: '/finanzas/nominas', detail: 'Pagos al equipo', icon: Calculator, roles: ['superadmin', 'admin'], module: 'payroll', statusTag: 'Pruebas' },
-      { label: 'Pendientes de facturar', to: '/finanzas/pendiente-facturar', detail: 'Ventas sin factura', icon: WarningCircle, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
-      { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', detail: 'Cobros por Stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
-      { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'factura_manager' },
+      { label: 'Dashboard', to: '/finanzas', detail: 'Caja del mes', icon: ChartBar, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'accounting.view' },
+      { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions', statusTag: 'Pruebas', permiso: 'ventas.view' },
+      { label: 'Ingresos', to: '/finanzas/ingresos', detail: 'Entradas de dinero', icon: TrendUp, roles: ['superadmin', 'admin'], module: 'accounting_income', statusTag: 'Pruebas', permiso: 'conversions.view' },
+      { label: 'Conversiones', to: '/finanzas/conversiones', detail: 'Los que compraron', icon: CurrencyEur, roles: ['superadmin', 'admin'], module: 'conversions', statusTag: 'Pruebas', permiso: 'conversions.view' },
+      { label: 'Egresos', to: '/finanzas/egresos', detail: 'Gastos y salidas', icon: TrendDown, roles: ['superadmin', 'admin'], module: 'accounting_expenses', statusTag: 'Pruebas', permiso: 'expenses.view' },
+      { label: 'Cuentas por cobrar', to: '/finanzas/por-cobrar', detail: 'Pendiente de cobro', icon: Wallet, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'accounting.por_cobrar' },
+      { label: 'Cuentas por pagar', to: '/finanzas/por-pagar', detail: 'Pendiente de pago', icon: Receipt, roles: ['superadmin', 'admin'], module: 'accounting_payable', statusTag: 'Pruebas', permiso: 'accounts_payable.view' },
+      { label: 'Comisiones', to: '/finanzas/comisiones', detail: 'Del equipo comercial', icon: HandCoins, roles: ['superadmin', 'admin'], module: 'commissions', statusTag: 'Pruebas', permiso: 'commissions.view' },
+      { label: 'Nóminas', to: '/finanzas/nominas', detail: 'Pagos al equipo', icon: Calculator, roles: ['superadmin', 'admin'], module: 'payroll', statusTag: 'Pruebas', permiso: 'payroll.view' },
+      { label: 'Pendientes de facturar', to: '/finanzas/pendiente-facturar', detail: 'Ventas sin factura', icon: WarningCircle, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'facturas.view' },
+      { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', detail: 'Cobros por Stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'stripe.view' },
+      { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
-      { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'] },
-      { label: 'Integraciones', to: '/finanzas/integraciones', detail: 'Servicios conectados', icon: PlugsConnected, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
+      { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'], permiso: 'facturas_colaborador.ver_todas' },
+      { label: 'Integraciones', to: '/finanzas/integraciones', detail: 'Servicios conectados', icon: PlugsConnected, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'integrations.view' },
     ],
   },
   {
     label: 'Análisis',
     icon: ChartPieSlice,
     items: [
-      { label: 'Reportes', to: '/informes', detail: 'Números descargables', icon: ChartLineUp, roles: ['superadmin', 'admin'], module: 'reports' },
+      { label: 'Reportes', to: '/informes', detail: 'Números descargables', icon: ChartLineUp, roles: ['superadmin', 'admin'], module: 'reports', permiso: 'reports.view' },
       // Por que no compran: enviados, respondidos y motivos (#170).
-      { label: 'Feedback', to: '/informes/feedback', detail: 'Por qué no compran', icon: ChatCircleText, roles: ['superadmin', 'admin'], module: 'reports' },
-      { label: 'Análisis IA', to: '/informes/ia', detail: 'Lectura automática', icon: Sparkle, roles: ['superadmin', 'admin'], projectType: 'ia' },
+      { label: 'Feedback', to: '/informes/feedback', detail: 'Por qué no compran', icon: ChatCircleText, roles: ['superadmin', 'admin'], module: 'reports', permiso: 'feedback.view' },
+      { label: 'Análisis IA', to: '/informes/ia', detail: 'Lectura automática', icon: Sparkle, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'reports_ia.view' },
       // El Chat IA (#30) esta APARCADO hasta la fase 5: no se va a usar la API
       // todavia. La pantalla y la ruta se quedan —el trabajo esta hecho y
       // probado—, pero no se ofrece en el menu: enseñar una puerta que no
@@ -295,17 +295,17 @@ export const NAV_SECTIONS = [
     label: 'Clientes',
     icon: UsersThree,
     items: [
-      { label: 'Clientes', to: '/clientes', detail: 'Quién ya compró', icon: UserCheck, module: 'clients' },
-      { label: 'Revisión duplicados', to: '/prospectos/revision-duplicados', detail: 'Repetidos por webhook', icon: GitMerge, roles: ['superadmin', 'admin'], module: 'leads' },
-      { label: 'Buscar duplicados', to: '/prospectos/duplicados', detail: 'Buscarlos a mano', icon: CopySimple, roles: ['superadmin', 'admin'], module: 'leads' },
-      { label: 'Matrículas', to: '/clientes/matriculas', detail: 'Altas en cada curso', icon: GraduationCap, module: 'matriculas' },
+      { label: 'Clientes', to: '/clientes', detail: 'Quién ya compró', icon: UserCheck, module: 'clients', permiso: 'clients.view' },
+      { label: 'Revisión duplicados', to: '/prospectos/revision-duplicados', detail: 'Repetidos por webhook', icon: GitMerge, roles: ['superadmin', 'admin'], module: 'leads', permiso: 'leads.duplicados' },
+      { label: 'Buscar duplicados', to: '/prospectos/duplicados', detail: 'Buscarlos a mano', icon: CopySimple, roles: ['superadmin', 'admin'], module: 'leads', permiso: 'leads.duplicados' },
+      { label: 'Matrículas', to: '/clientes/matriculas', detail: 'Altas en cada curso', icon: GraduationCap, module: 'matriculas', permiso: 'matriculas.view' },
       // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
       // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin),
       // y además, para VERLO en solo lectura, quien tenga `diplomas.view` (#384,
       // `oPermiso`), y para emitir, quien tenga `diplomas.emit` (Diego, 22/10/2026:
       // «que Dayana pueda emitir»). Se enciende por configuración, como
       // Certificaciones (VITE_CERTIFEX_PANEL).
-      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'], oPermiso: ['diplomas.view', 'diplomas.emit'] }] : []),
+      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'], permiso: ['diplomas.view', 'diplomas.emit'], oPermiso: ['diplomas.view', 'diplomas.emit'] }] : []),
     ],
   },
   // Conexión (MCP de Claude). Diego: «estará en el menú en la sección de
@@ -322,10 +322,10 @@ export const NAV_SECTIONS = [
     icon: PlugsConnected,
     items: [
       { label: 'MCP', to: '/conexion/mcp', detail: 'Consultar desde Claude', icon: Robot, accesoMcp: true },
-      { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors' },
+      { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors', permiso: 'connectors.view' },
       // Diego, 15/10: «un apartado en Conexión para enviar esos datos ÚNICAMENTE
       // CUANDO SE PONGA DATOS POR TRANSFERENCIA BANCARIA / DEPÓSITO BANCARIO».
-      { label: 'Webhook de transferencias', to: '/conexion/webhook-transferencias', detail: 'Avisar de transferencias y depósitos', icon: Bank, roles: ['superadmin', 'admin'] },
+      { label: 'Webhook de transferencias', to: '/conexion/webhook-transferencias', detail: 'Avisar de transferencias y depósitos', icon: Bank, roles: ['superadmin', 'admin'], permiso: 'webhooks_salientes.view' },
     ],
   },
   {
@@ -333,9 +333,9 @@ export const NAV_SECTIONS = [
     icon: Gear,
     items: [
       // Lo que trae cada versión del CRM (Diego, 28/09). Para todo el equipo.
-      { label: 'Novedades', to: '/novedades', detail: 'Versión 2.0.0', icon: Sparkle, roles: ['superadmin', 'admin', 'gestor', 'soporte'] },
-      { label: 'Mensajes', to: '/mensajes', detail: 'Del equipo', icon: ChatsCircle },
-      { label: 'Solicitudes de cambio', to: '/solicitudes-cambio', detail: 'Pedir un cambio', icon: GitMerge },
+      { label: 'Novedades', to: '/novedades', detail: 'Versión 2.0.0', icon: Sparkle, roles: ['superadmin', 'admin', 'gestor', 'soporte'], permiso: 'novedades.view' },
+      { label: 'Mensajes', to: '/mensajes', detail: 'Del equipo', icon: ChatsCircle, permiso: 'mensajes.usar' },
+      { label: 'Solicitudes de cambio', to: '/solicitudes-cambio', detail: 'Pedir un cambio', icon: GitMerge, permiso: 'change_requests.view' },
       { label: 'Notificaciones', to: '/notificaciones', detail: 'Lo que ha pasado', icon: BookOpen },
       // El tutor entra aqui: es donde cambia su contraseña.
       { label: 'Mis preferencias', to: '/preferencias', detail: 'Tus ajustes', icon: UserCircle, roles: ['superadmin', 'admin', 'gestor', 'tutor', 'colaborador'] },
@@ -343,15 +343,15 @@ export const NAV_SECTIONS = [
       // Claves y variables (#80). Los mismos roles que exige el servidor con
       // `soloRoles`: ofrecer en el menu lo que la API va a negar es peor que
       // no ofrecerlo.
-      { label: 'Claves y variables', to: '/configuracion/claves', detail: 'Credenciales del proyecto', icon: Key, roles: ['superadmin', 'soporte'] },
+      { label: 'Claves y variables', to: '/configuracion/claves', detail: 'Credenciales del proyecto', icon: Key, roles: ['superadmin', 'soporte'], permiso: 'credentials.view' },
       // El registro (#111). Los mismos roles que exige el servidor con
       // `roleGuard('admin', 'superadmin')`: cruza todas las fichas y a todos
       // los compañeros, y ofrecerlo a quien la API va a negar es peor que no
       // ofrecerlo.
-      { label: 'Registro', to: '/registro', detail: 'Todo lo que ha pasado', icon: ClipboardText, roles: ['superadmin', 'admin'] },
+      { label: 'Registro', to: '/registro', detail: 'Todo lo que ha pasado', icon: ClipboardText, roles: ['superadmin', 'admin'], permiso: 'registro.view' },
       // Los correos que salen del CRM (#146). Mismos roles que el Registro, y
       // aqui pesa mas: esto enseña el TEXTO de correos a personas.
-      { label: 'Correos', to: '/correos', detail: 'Lo que ha mandado el CRM', icon: EnvelopeSimple, roles: ['superadmin', 'admin'] },
+      { label: 'Correos', to: '/correos', detail: 'Lo que ha mandado el CRM', icon: EnvelopeSimple, roles: ['superadmin', 'admin'], permiso: 'correos.view' },
       { label: 'Status', to: '/status', detail: 'Si algo está caído', icon: Activity },
       { label: 'Manual de usuario', to: '/manual', detail: 'Cómo se usa cada cosa', icon: BookOpen },
     ],
@@ -431,12 +431,9 @@ export function applyLabel(original, overrides) {
 // aviso de llamada entrante. Teniendolo en dos sitios se llega a que uno diga
 // que si y el otro que no.
 
-// Espejo de `puedeUsarMcp` (backend/src/modules/mcp/mcp.acceso.js). Con el rol
-// PRINCIPAL, como el servidor: un rol añadido no da el MCP.
-export function tieneAccesoMcp(role, permisos) {
-  if (role === 'superadmin' || role === 'admin') return true;
-  if (role === 'tutor' || role === 'colaborador') return false;
-  return permisos?.usa_mcp === true;
+// «Usar el MCP» del catálogo (#423), como el servidor (`puedeUsarMcp`).
+export function tieneAccesoMcp(can) {
+  return typeof can === 'function' && can('mcp.usar') === true;
 }
 
 /**
@@ -461,6 +458,13 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
   if (item.projectType && projectType !== item.projectType) return false;
+  // El permiso de la pantalla (#423): sin él no sale, sea quien sea. Es el mismo
+  // mapa que mira el servidor; quitarle a alguien «Ver prospectos» le quita
+  // también la entrada. Los `roles` de cada entrada siguen diciendo a quién se
+  // le enseña de serie.
+  // `permiso` también puede ser una lista: basta con uno (Diplomas: ver O emitir).
+  const tienePermisoDeLaPantalla = !item.permiso || (typeof can === 'function' && [].concat(item.permiso).some((p) => can(p) === true));
+  if (!tienePermisoDeLaPantalla) return false;
   // Un tutor solo ve lo suyo: lo que no le nombre expresamente queda fuera.
   // Al reves —listar lo prohibido— se olvida siempre algo, y lo que se olvida
   // es un tutor paseandose por Prospectos o por Finanzas.
@@ -476,7 +480,7 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   }
   // MCP de Claude: super admin y admin por su rol; el resto solo con la casilla.
   // Va ANTES del atajo de soporte: «roles únicamente», dijo Diego.
-  if (item.accesoMcp) return tieneAccesoMcp(suyos[0], permisos);
+  if (item.accesoMcp) return tieneAccesoMcp(can);
   // Un gestor de colaboraciones se dedica SOLO a los tutores: no lleva
   // prospectos, ni ventas, ni finanzas. Se declara lo que puede ver, igual que
   // con el tutor — enumerar lo prohibido deja fuera siempre la pantalla nueva.
@@ -510,7 +514,6 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   // soporte y superadmin se les ha dejado pasar justo arriba.
   // Se comprueba a quien NO tiene un rol de mando: si ademas es admin, puede
   // por ese otro rol y esconderselo seria quitarle lo que se le acaba de dar.
-  if (item.permiso && !es('admin', 'soporte', 'superadmin') && !permisos?.[item.permiso]) return false;
   if (item.roles && !item.roles.some((r) => suyos.includes(r)) && !porPermiso) return false;
   if (item.module && modules && modules[item.module] === false) return false;
   return true;

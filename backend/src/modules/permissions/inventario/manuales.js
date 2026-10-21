@@ -108,6 +108,13 @@ export const PUERTAS = [
     condicion: 'dar empresas enteras a un admin, o cambiar el correo de alguien',
   },
   {
+    // Nueva en #423: antes no había comprobación (bastaba con poder editar
+    // usuarios). Por eso su regla de antes es «sí».
+    id: 'users.cambiar_rol', modulo: 'users', regla: 'siempre',
+    donde: 'user.controller.js · update (cambiaQuienEs)', controladores: ['update'],
+    condicion: 'cambiar el rol, los roles de más o «se dedica a colaboraciones» de alguien',
+  },
+  {
     id: 'users.contrasena_ajena', modulo: 'users', regla: 'soloAdmin',
     donde: 'user.controller.js · setPassword', controladores: ['setPassword'],
     alcance: 'el admin, solo a tutores de sus campus; el superadmin, a cualquiera',

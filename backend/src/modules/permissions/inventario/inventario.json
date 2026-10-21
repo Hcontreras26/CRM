@@ -13,12 +13,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "accounting.view"
+    ]
    }
   ],
   "puertas": []
@@ -37,14 +35,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "accounting.por_cobrar"
+    ]
    }
   ],
   "puertas": []
@@ -63,12 +57,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "accounts_payable.view"
+    ]
    }
   ],
   "puertas": []
@@ -87,12 +79,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "accounts_payable.view"
+    ]
    }
   ],
   "puertas": []
@@ -111,12 +101,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "accounts_payable.view"
+    ]
    }
   ],
   "puertas": []
@@ -135,12 +123,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "accounts_payable.create"
+    ]
    }
   ],
   "puertas": []
@@ -159,12 +145,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "accounts_payable.edit"
+    ]
    }
   ],
   "puertas": []
@@ -183,12 +167,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "accounts_payable.delete"
+    ]
    }
   ],
   "puertas": []
@@ -207,12 +189,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "accounts_payable.edit"
+    ]
    }
   ],
   "puertas": []
@@ -229,6 +209,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "audiences.view"
+    ]
    }
   ],
   "puertas": []
@@ -247,13 +233,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "audiences.export"
+    ]
    }
   ],
   "puertas": []
@@ -272,13 +255,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "audiences.export"
+    ]
    }
   ],
   "puertas": []
@@ -295,6 +275,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "audiences.view"
+    ]
    }
   ],
   "puertas": []
@@ -311,6 +297,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "audiences.view"
+    ]
    }
   ],
   "puertas": []
@@ -426,6 +418,12 @@
   "publica": false,
   "guardias": [
    {
+    "tipo": "puede",
+    "claves": [
+     "cuenta.cambiar_correo"
+    ]
+   },
+   {
     "tipo": "token"
    }
   ],
@@ -483,12 +481,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -507,12 +503,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -531,12 +525,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -555,12 +547,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -579,12 +569,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -603,12 +591,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -627,12 +613,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -651,12 +635,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -675,12 +657,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -699,12 +679,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "clave": "diplomas.view"
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view"
+    ]
    }
   ],
   "puertas": []
@@ -723,13 +701,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "certifex_consultas.view"
+    ]
    }
   ],
   "puertas": []
@@ -748,13 +723,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "certifex_consultas.edit"
+    ]
    }
   ],
   "puertas": []
@@ -773,21 +745,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view_emisiones"
+    ]
    }
   ],
   "puertas": []
@@ -806,21 +767,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.aprobar"
+    ]
    }
   ],
   "puertas": []
@@ -839,21 +789,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.aprobar"
+    ]
    }
   ],
   "puertas": []
@@ -872,21 +811,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.aprobar"
+    ]
    }
   ],
   "puertas": []
@@ -905,21 +833,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.aprobar"
+    ]
    }
   ],
   "puertas": []
@@ -938,21 +855,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.aprobar"
+    ]
    }
   ],
   "puertas": []
@@ -971,21 +877,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.avisar"
+    ]
    }
   ],
   "puertas": []
@@ -1004,21 +899,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.avisar"
+    ]
    }
   ],
   "puertas": []
@@ -1037,21 +921,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.revocar"
+    ]
    }
   ],
   "puertas": []
@@ -1070,21 +943,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1103,21 +965,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1136,21 +987,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1169,21 +1009,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view_emisiones"
+    ]
    }
   ],
   "puertas": []
@@ -1202,21 +1031,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.aprobar"
+    ]
    }
   ],
   "puertas": []
@@ -1235,21 +1053,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.view_emisiones"
+    ]
    }
   ],
   "puertas": []
@@ -1268,21 +1075,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "diplomas.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1299,6 +1095,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "change_requests.view"
+    ]
    }
   ],
   "puertas": []
@@ -1315,6 +1117,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "change_requests.create"
+    ]
    }
   ],
   "puertas": []
@@ -1331,6 +1139,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "change_requests.view"
+    ]
    }
   ],
   "puertas": []
@@ -1347,6 +1161,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "change_requests.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1365,13 +1185,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "project_manager"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "change_requests.delete"
+    ]
    }
   ],
   "puertas": []
@@ -1390,13 +1207,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "project_manager"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "change_requests.reopen"
+    ]
    }
   ],
   "puertas": []
@@ -1413,6 +1227,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "change_requests.approve"
+    ]
    }
   ],
   "puertas": []
@@ -1429,6 +1249,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "change_requests.view"
+    ]
    }
   ],
   "puertas": []
@@ -1445,6 +1271,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "change_requests.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1461,6 +1293,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "change_requests.view"
+    ]
    }
   ],
   "puertas": []
@@ -1477,6 +1315,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "change_requests.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1493,6 +1337,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "chat_ia.usar"
+    ]
    }
   ],
   "puertas": []
@@ -1509,6 +1359,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "chat_ia.usar"
+    ]
    }
   ],
   "puertas": []
@@ -1525,6 +1381,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "chat_ia.usar"
+    ]
    }
   ],
   "puertas": []
@@ -1541,6 +1403,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "chat_ia.usar"
+    ]
    }
   ],
   "puertas": []
@@ -1571,12 +1439,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "commissions.view"
+    ]
    }
   ],
   "puertas": []
@@ -1595,11 +1461,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "commissions.reglas"
+    ]
    }
   ],
   "puertas": []
@@ -1618,11 +1483,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "commissions.reglas"
+    ]
    }
   ],
   "puertas": []
@@ -1641,11 +1505,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "commissions.reglas"
+    ]
    }
   ],
   "puertas": []
@@ -1696,12 +1559,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "commissions.view"
+    ]
    }
   ],
   "puertas": []
@@ -1720,12 +1581,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "commissions.view"
+    ]
    }
   ],
   "puertas": []
@@ -1744,12 +1603,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "commissions.pagar"
+    ]
    }
   ],
   "puertas": []
@@ -1768,12 +1625,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "commissions.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1792,12 +1647,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "connectors.view"
+    ]
    }
   ],
   "puertas": []
@@ -1816,12 +1669,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "connectors.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1840,12 +1691,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "connectors.view"
+    ]
    }
   ],
   "puertas": []
@@ -1864,12 +1713,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "connectors.create"
+    ]
    }
   ],
   "puertas": []
@@ -1888,12 +1735,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "connectors.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1912,12 +1757,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "connectors.delete"
+    ]
    }
   ],
   "puertas": []
@@ -1936,12 +1779,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "connectors.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1960,12 +1801,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "connectors.edit"
+    ]
    }
   ],
   "puertas": []
@@ -1982,6 +1821,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
    }
   ],
   "puertas": []
@@ -1998,6 +1843,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
    }
   ],
   "puertas": []
@@ -2014,6 +1865,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
    }
   ],
   "puertas": []
@@ -2030,6 +1887,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
    }
   ],
   "puertas": []
@@ -2046,6 +1909,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
    }
   ],
   "puertas": []
@@ -2062,6 +1931,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
    }
   ],
   "puertas": []
@@ -2078,6 +1953,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.create"
+    ]
    }
   ],
   "puertas": []
@@ -2094,6 +1975,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.edit"
+    ]
    }
   ],
   "puertas": []
@@ -2110,6 +1997,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.cobros"
+    ]
    }
   ],
   "puertas": []
@@ -2126,6 +2019,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.cobros"
+    ]
    }
   ],
   "puertas": []
@@ -2142,6 +2041,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
    }
   ],
   "puertas": []
@@ -2158,6 +2063,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.cobros"
+    ]
    }
   ],
   "puertas": []
@@ -2174,6 +2085,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.cobros"
+    ]
    }
   ],
   "puertas": []
@@ -2190,6 +2107,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.cobros"
+    ]
    }
   ],
   "puertas": []
@@ -2206,6 +2129,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.cobros"
+    ]
    }
   ],
   "puertas": []
@@ -2222,6 +2151,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.cobros"
+    ]
    }
   ],
   "puertas": []
@@ -2238,6 +2173,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.cobros"
+    ]
    }
   ],
   "puertas": []
@@ -2254,6 +2195,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
    }
   ],
   "puertas": []
@@ -2272,12 +2219,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "conversions.reparto"
+    ]
    }
   ],
   "puertas": []
@@ -2296,12 +2241,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "conversions.reparto"
+    ]
    }
   ],
   "puertas": []
@@ -2318,6 +2261,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
    }
   ],
   "puertas": []
@@ -2336,12 +2285,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "conversions.devoluciones"
+    ]
    }
   ],
   "puertas": []
@@ -2360,12 +2307,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "conversions.devoluciones"
+    ]
    }
   ],
   "puertas": []
@@ -2382,6 +2327,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.delete"
+    ]
    }
   ],
   "puertas": []
@@ -2398,6 +2349,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "convocatorias.view"
+    ]
    }
   ],
   "puertas": []
@@ -2414,6 +2371,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "convocatorias.view"
+    ]
    }
   ],
   "puertas": []
@@ -2430,6 +2393,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "convocatorias.view"
+    ]
    }
   ],
   "puertas": []
@@ -2446,6 +2415,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "convocatorias.ofrecer"
+    ]
    }
   ],
   "puertas": []
@@ -2462,6 +2437,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "convocatorias.ofrecer"
+    ]
    }
   ],
   "puertas": []
@@ -2478,6 +2459,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "convocatorias.view"
+    ]
    },
    {
     "tipo": "alcance",
@@ -2500,12 +2487,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "convocatorias.create"
+    ]
    },
    {
     "tipo": "alcance",
@@ -2528,12 +2513,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "convocatorias.edit"
+    ]
    },
    {
     "tipo": "alcance",
@@ -2556,12 +2539,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "correos.view"
+    ]
    }
   ],
   "puertas": []
@@ -2580,12 +2561,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "correos.view"
+    ]
    }
   ],
   "puertas": []
@@ -2604,12 +2583,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "correos.sincronizar"
+    ]
    }
   ],
   "puertas": []
@@ -2628,12 +2605,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "correos.view"
+    ]
    }
   ],
   "puertas": []
@@ -2652,12 +2627,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "credentials.view"
+    ]
    }
   ],
   "puertas": []
@@ -2676,12 +2649,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "credentials.view"
+    ]
    }
   ],
   "puertas": []
@@ -2700,12 +2671,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "credentials.view"
+    ]
    }
   ],
   "puertas": []
@@ -2724,12 +2693,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "credentials.edit"
+    ]
    }
   ],
   "puertas": []
@@ -2748,12 +2715,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "credentials.edit"
+    ]
    }
   ],
   "puertas": []
@@ -2772,12 +2737,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "credentials.revelar"
+    ]
    }
   ],
   "puertas": []
@@ -2796,12 +2759,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "credentials.edit"
+    ]
    }
   ],
   "puertas": []
@@ -2818,6 +2779,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "documents.view"
+    ]
    },
    {
     "tipo": "alcance",
@@ -2840,6 +2807,12 @@
     "tipo": "token"
    },
    {
+    "tipo": "puede",
+    "claves": [
+     "documents.view"
+    ]
+   },
+   {
     "tipo": "alcance",
     "nombre": "projectAccess"
    }
@@ -2860,11 +2833,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "documents.auditar"
+    ]
    },
    {
     "tipo": "alcance",
@@ -2887,12 +2859,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "documents.numeracion"
+    ]
    },
    {
     "tipo": "alcance",
@@ -2915,12 +2885,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "documents.numeracion"
+    ]
    },
    {
     "tipo": "alcance",
@@ -2943,12 +2911,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "documents.create"
+    ]
    }
   ],
   "puertas": []
@@ -2967,12 +2933,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "documents.create"
+    ]
    },
    {
     "tipo": "alcance",
@@ -2995,12 +2959,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "documents.create"
+    ]
    },
    {
     "tipo": "alcance",
@@ -3023,12 +2985,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "documents.create"
+    ]
    },
    {
     "tipo": "alcance",
@@ -3051,12 +3011,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "documents.delete"
+    ]
    },
    {
     "tipo": "alcance",
@@ -3079,12 +3037,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "dossiers.upload"
+    ]
    },
    {
     "tipo": "alcance",
@@ -3107,6 +3063,12 @@
     "tipo": "token"
    },
    {
+    "tipo": "puede",
+    "claves": [
+     "dossiers.view"
+    ]
+   },
+   {
     "tipo": "alcance",
     "nombre": "projectAccess"
    }
@@ -3127,6 +3089,12 @@
     "tipo": "token"
    },
    {
+    "tipo": "puede",
+    "claves": [
+     "dossiers.view"
+    ]
+   },
+   {
     "tipo": "alcance",
     "nombre": "projectAccess"
    }
@@ -3145,6 +3113,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "email_sequences.view"
+    ]
    }
   ],
   "puertas": []
@@ -3161,6 +3135,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "email_sequences.view"
+    ]
    }
   ],
   "puertas": []
@@ -3177,6 +3157,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "email_sequences.view"
+    ]
    }
   ],
   "puertas": []
@@ -3195,12 +3181,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "email_sequences.create"
+    ]
    }
   ],
   "puertas": []
@@ -3219,12 +3203,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "email_sequences.edit"
+    ]
    }
   ],
   "puertas": []
@@ -3243,12 +3225,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "email_sequences.delete"
+    ]
    }
   ],
   "puertas": []
@@ -3267,13 +3247,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "email_sequences.lanzar"
+    ]
    }
   ],
   "puertas": []
@@ -3292,13 +3269,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "email_sequences.lanzar"
+    ]
    }
   ],
   "puertas": []
@@ -3315,6 +3289,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "email_templates.view"
+    ]
    }
   ],
   "puertas": []
@@ -3331,6 +3311,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "email_templates.view"
+    ]
    },
    {
     "tipo": "alcance",
@@ -3353,6 +3339,12 @@
     "tipo": "token"
    },
    {
+    "tipo": "puede",
+    "claves": [
+     "email_templates.view"
+    ]
+   },
+   {
     "tipo": "alcance",
     "nombre": "projectAccess"
    }
@@ -3371,6 +3363,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "email_templates.view"
+    ]
    },
    {
     "tipo": "alcance",
@@ -3393,12 +3391,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "email_templates.create"
+    ]
    },
    {
     "tipo": "alcance",
@@ -3421,12 +3417,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "email_templates.edit"
+    ]
    },
    {
     "tipo": "alcance",
@@ -3449,12 +3443,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "email_templates.delete"
+    ]
    },
    {
     "tipo": "alcance",
@@ -3477,12 +3469,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "expenses.view"
+    ]
    }
   ],
   "puertas": []
@@ -3501,12 +3491,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "expenses.view"
+    ]
    }
   ],
   "puertas": []
@@ -3525,12 +3513,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "expenses.create"
+    ]
    }
   ],
   "puertas": []
@@ -3549,12 +3535,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "expenses.view"
+    ]
    }
   ],
   "puertas": []
@@ -3573,12 +3557,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "expenses.view"
+    ]
    }
   ],
   "puertas": []
@@ -3597,12 +3579,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "expenses.create"
+    ]
    }
   ],
   "puertas": []
@@ -3621,12 +3601,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "expenses.edit"
+    ]
    }
   ],
   "puertas": []
@@ -3645,12 +3623,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "expenses.delete"
+    ]
    }
   ],
   "puertas": []
@@ -3717,9 +3693,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.subir",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.subir"
+    ]
    }
   ],
   "puertas": []
@@ -3738,9 +3715,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.subir",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.subir"
+    ]
    }
   ],
   "puertas": []
@@ -3759,9 +3737,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.subir",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.subir"
+    ]
    }
   ],
   "puertas": []
@@ -3780,12 +3759,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "permisoAlguno",
+    "tipo": "puede",
     "claves": [
      "facturas_colaborador.ver_todas",
      "facturas_colaborador.gestionar"
-    ],
-    "conExtras": false
+    ]
    }
   ],
   "puertas": []
@@ -3804,9 +3782,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.gestionar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.gestionar"
+    ]
    }
   ],
   "puertas": []
@@ -3825,9 +3804,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.gestionar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.gestionar"
+    ]
    }
   ],
   "puertas": []
@@ -3846,9 +3826,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.gestionar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.gestionar"
+    ]
    }
   ],
   "puertas": []
@@ -3867,9 +3848,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.gestionar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.gestionar"
+    ]
    }
   ],
   "puertas": []
@@ -3888,9 +3870,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.gestionar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.gestionar"
+    ]
    }
   ],
   "puertas": []
@@ -3909,9 +3892,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.gestionar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.gestionar"
+    ]
    }
   ],
   "puertas": []
@@ -3930,9 +3914,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.gestionar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.gestionar"
+    ]
    }
   ],
   "puertas": []
@@ -3951,9 +3936,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.ver_todas",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.ver_todas"
+    ]
    }
   ],
   "puertas": []
@@ -3972,9 +3958,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.ver_todas",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.ver_todas"
+    ]
    }
   ],
   "puertas": []
@@ -3993,9 +3980,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.ver_todas",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.ver_todas"
+    ]
    }
   ],
   "puertas": []
@@ -4014,9 +4002,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.ver_todas",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.ver_todas"
+    ]
    }
   ],
   "puertas": []
@@ -4035,9 +4024,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.ver_todas",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.ver_todas"
+    ]
    }
   ],
   "puertas": []
@@ -4056,9 +4046,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.ver_todas",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.ver_todas"
+    ]
    }
   ],
   "puertas": []
@@ -4077,9 +4068,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.ver_todas",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.ver_todas"
+    ]
    }
   ],
   "puertas": []
@@ -4098,9 +4090,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.anular",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.anular"
+    ]
    }
   ],
   "puertas": []
@@ -4119,9 +4112,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.gestionar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.gestionar"
+    ]
    }
   ],
   "puertas": []
@@ -4140,9 +4134,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.pagar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.pagar"
+    ]
    }
   ],
   "puertas": []
@@ -4161,9 +4156,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.pagar",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.pagar"
+    ]
    }
   ],
   "puertas": []
@@ -4182,9 +4178,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "permiso",
-    "clave": "facturas_colaborador.ver_todas",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.ver_todas"
+    ]
    }
   ],
   "puertas": []
@@ -4201,6 +4198,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "feedback.view"
+    ]
    }
   ],
   "puertas": []
@@ -4217,6 +4220,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "feedback.view"
+    ]
    }
   ],
   "puertas": []
@@ -4233,6 +4242,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "feedback.view"
+    ]
    }
   ],
   "puertas": []
@@ -4249,6 +4264,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "feedback.enviar"
+    ]
    }
   ],
   "puertas": []
@@ -4265,6 +4286,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "feedback.enviar"
+    ]
    }
   ],
   "puertas": []
@@ -4341,6 +4368,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "field_defs.view"
+    ]
    }
   ],
   "puertas": []
@@ -4359,12 +4392,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "field_defs.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4383,12 +4414,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "field_defs.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4407,12 +4436,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "field_defs.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4431,12 +4458,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "field_defs.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4501,6 +4526,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "forms.view"
+    ]
    }
   ],
   "puertas": []
@@ -4517,6 +4548,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "forms.view"
+    ]
    }
   ],
   "puertas": []
@@ -4533,6 +4570,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "forms.view"
+    ]
    }
   ],
   "puertas": []
@@ -4549,6 +4592,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "forms.view"
+    ]
    }
   ],
   "puertas": []
@@ -4567,13 +4616,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "forms.create"
+    ]
    }
   ],
   "puertas": []
@@ -4592,13 +4638,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "forms.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4617,13 +4660,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "forms.delete"
+    ]
    }
   ],
   "puertas": []
@@ -4642,13 +4682,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "forms.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4667,13 +4704,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "forms.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4690,6 +4724,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ia.view"
+    ]
    }
   ],
   "puertas": []
@@ -4706,6 +4746,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ia.view"
+    ]
    }
   ],
   "puertas": []
@@ -4722,6 +4768,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "installation.view"
+    ]
    }
   ],
   "puertas": []
@@ -4740,11 +4792,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "installation.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4763,12 +4814,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "integrations.view"
+    ]
    }
   ],
   "puertas": []
@@ -4787,12 +4836,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "integrations.view"
+    ]
    }
   ],
   "puertas": []
@@ -4811,12 +4858,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "integrations.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4835,12 +4880,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "integrations.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4859,12 +4902,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "integrations.edit"
+    ]
    }
   ],
   "puertas": []
@@ -4893,6 +4934,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -4909,6 +4956,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.cola"
+    ]
    }
   ],
   "puertas": [
@@ -4927,6 +4980,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.cola"
+    ]
    }
   ],
   "puertas": [
@@ -4945,6 +5004,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.cola"
+    ]
    }
   ],
   "puertas": [
@@ -4963,6 +5028,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -4979,6 +5050,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -4995,6 +5072,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5011,6 +5094,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5027,6 +5116,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5043,6 +5138,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5059,6 +5160,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5077,6 +5184,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5095,6 +5208,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5113,6 +5232,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5129,6 +5254,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5147,6 +5278,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5163,6 +5300,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5181,6 +5324,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5199,6 +5348,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5215,6 +5370,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5233,6 +5394,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5251,6 +5418,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5269,6 +5442,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5287,6 +5466,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5305,6 +5490,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5321,6 +5512,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5339,6 +5536,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5355,6 +5558,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.configurar"
+    ]
    }
   ],
   "puertas": [
@@ -5373,6 +5582,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5389,6 +5604,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5405,6 +5626,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5421,6 +5648,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.create"
+    ]
    }
   ],
   "puertas": []
@@ -5439,12 +5672,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "facturas.edit"
+    ]
    }
   ],
   "puertas": []
@@ -5463,13 +5694,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -5488,6 +5716,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.editar_fechas"
+    ]
    }
   ],
   "puertas": [
@@ -5506,6 +5740,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.completar"
+    ]
    }
   ],
   "puertas": []
@@ -5524,13 +5764,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -5549,6 +5786,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
    }
   ],
   "puertas": []
@@ -5565,6 +5808,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.enviar"
+    ]
    }
   ],
   "puertas": []
@@ -5581,6 +5830,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.cobrar"
+    ]
    }
   ],
   "puertas": []
@@ -5599,13 +5854,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "facturas.cola"
+    ]
    }
   ],
   "puertas": [
@@ -5624,6 +5876,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.anular"
+    ]
    }
   ],
   "puertas": []
@@ -5642,13 +5900,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -5669,13 +5924,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -5694,6 +5946,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.emitir_borrador"
+    ]
    }
   ],
   "puertas": []
@@ -5710,6 +5968,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.completar"
+    ]
    }
   ],
   "puertas": []
@@ -5738,6 +6002,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -5754,6 +6024,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.exportar_wasapi"
+    ]
    }
   ],
   "puertas": []
@@ -5770,6 +6046,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -5786,6 +6068,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -5802,6 +6090,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -5818,6 +6112,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -5834,6 +6134,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -5850,6 +6156,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -5868,11 +6180,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.spam"
+    ]
    }
   ],
   "puertas": []
@@ -5891,11 +6202,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.spam"
+    ]
    }
   ],
   "puertas": []
@@ -5914,11 +6224,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.spam"
+    ]
    }
   ],
   "puertas": []
@@ -5937,12 +6246,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.duplicados"
+    ]
    }
   ],
   "puertas": []
@@ -5961,12 +6268,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.duplicados"
+    ]
    }
   ],
   "puertas": []
@@ -5985,12 +6290,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.duplicados"
+    ]
    }
   ],
   "puertas": []
@@ -6007,6 +6310,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -6023,6 +6332,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6039,6 +6354,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6055,6 +6376,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6071,6 +6398,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -6087,6 +6420,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6103,6 +6442,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6119,6 +6464,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.create"
+    ]
    }
   ],
   "puertas": []
@@ -6135,6 +6486,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.create"
+    ]
    }
   ],
   "puertas": []
@@ -6151,6 +6508,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6167,6 +6530,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6183,6 +6552,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6199,6 +6574,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6215,6 +6596,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6231,6 +6618,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6247,6 +6640,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6263,6 +6662,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -6279,6 +6684,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -6295,6 +6706,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.enviar_correo"
+    ]
    }
   ],
   "puertas": []
@@ -6311,6 +6728,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
    }
   ],
   "puertas": []
@@ -6329,12 +6752,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.assign"
+    ]
    }
   ],
   "puertas": []
@@ -6353,12 +6774,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.reportar_spam"
+    ]
    }
   ],
   "puertas": []
@@ -6377,14 +6796,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "rolOPermiso",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true,
-    "clave": "leads.delete",
-    "conExtras": false
+    "tipo": "puede",
+    "claves": [
+     "leads.delete"
+    ]
    }
   ],
   "puertas": []
@@ -6403,11 +6818,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.restaurar"
+    ]
    }
   ],
   "puertas": []
@@ -6426,12 +6840,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "leads.assign"
+    ]
    }
   ],
   "puertas": []
@@ -6450,12 +6862,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "make.view"
+    ]
    }
   ],
   "puertas": []
@@ -6474,12 +6884,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "make.view"
+    ]
    }
   ],
   "puertas": []
@@ -6498,12 +6906,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "make.create"
+    ]
    }
   ],
   "puertas": []
@@ -6522,12 +6928,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "make.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6546,12 +6950,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "make.delete"
+    ]
    }
   ],
   "puertas": []
@@ -6570,12 +6972,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "make.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6594,12 +6994,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "make.view"
+    ]
    }
   ],
   "puertas": []
@@ -6642,13 +7040,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "matriculas.view"
+    ]
    }
   ],
   "puertas": []
@@ -6667,13 +7062,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "matriculas.view"
+    ]
    }
   ],
   "puertas": []
@@ -6692,13 +7084,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "matriculas.create"
+    ]
    }
   ],
   "puertas": []
@@ -6717,13 +7106,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "matriculas.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6742,12 +7128,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "matriculas.delete"
+    ]
    }
   ],
   "puertas": []
@@ -6766,12 +7150,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "matriculas.cambiar_estado"
+    ]
    }
   ],
   "puertas": []
@@ -6790,13 +7172,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "matriculas.edit"
+    ]
    }
   ],
   "puertas": []
@@ -6829,6 +7208,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mcp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -6863,6 +7248,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mcp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -6881,6 +7272,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mcp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -6917,12 +7314,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "mcp.administrar"
+    ]
    }
   ],
   "puertas": []
@@ -6941,12 +7336,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "mcp.administrar"
+    ]
    }
   ],
   "puertas": []
@@ -6965,12 +7358,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "mcp.administrar"
+    ]
    }
   ],
   "puertas": []
@@ -6989,11 +7380,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "mcp.supervisar"
+    ]
    }
   ],
   "puertas": []
@@ -7170,6 +7560,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7186,6 +7582,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7202,6 +7604,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7218,6 +7626,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7234,6 +7648,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7250,6 +7670,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7266,6 +7692,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7282,6 +7714,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7298,6 +7736,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7314,6 +7758,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7330,6 +7780,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "mensajes.usar"
+    ]
    }
   ],
   "puertas": []
@@ -7348,12 +7804,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7372,12 +7826,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7396,12 +7848,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -7420,12 +7870,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -7444,12 +7892,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -7468,12 +7914,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -7492,12 +7936,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -7516,12 +7958,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7540,12 +7980,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7564,12 +8002,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7588,12 +8024,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7612,12 +8046,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7636,12 +8068,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7660,12 +8090,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -7684,12 +8112,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7708,12 +8134,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
    }
   ],
   "puertas": []
@@ -7732,12 +8156,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7756,12 +8178,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.view"
+    ]
    }
   ],
   "puertas": []
@@ -7890,6 +8310,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "novedades.view"
+    ]
    }
   ],
   "puertas": []
@@ -7906,6 +8332,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "novedades.view"
+    ]
    }
   ],
   "puertas": []
@@ -7924,13 +8356,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "soporte",
-     "admin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "novedades.envios"
+    ]
    }
   ],
   "puertas": []
@@ -7949,12 +8378,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "novedades.enviar"
+    ]
    }
   ],
   "puertas": []
@@ -7973,12 +8400,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.view"
+    ]
    }
   ],
   "puertas": []
@@ -7997,12 +8422,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8021,12 +8444,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.delete"
+    ]
    }
   ],
   "puertas": []
@@ -8045,12 +8466,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.view"
+    ]
    }
   ],
   "puertas": []
@@ -8069,13 +8488,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "gestor"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.create"
+    ]
    }
   ],
   "puertas": []
@@ -8094,12 +8510,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.delete"
+    ]
    }
   ],
   "puertas": []
@@ -8118,12 +8532,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.view"
+    ]
    }
   ],
   "puertas": []
@@ -8142,12 +8554,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.view"
+    ]
    }
   ],
   "puertas": []
@@ -8166,12 +8576,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8190,12 +8598,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8214,12 +8620,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8238,12 +8642,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8262,12 +8664,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "payroll.delete"
+    ]
    }
   ],
   "puertas": []
@@ -8812,6 +9212,12 @@
     "tipo": "token"
    },
    {
+    "tipo": "puede",
+    "claves": [
+     "proceso.view"
+    ]
+   },
+   {
     "tipo": "alcance",
     "nombre": "ambitoDelProceso"
    }
@@ -8832,12 +9238,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "proceso.configurar_pasos"
+    ]
    },
    {
     "tipo": "alcance",
@@ -8860,12 +9264,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "proceso.configurar_pasos"
+    ]
    },
    {
     "tipo": "alcance",
@@ -8888,12 +9290,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "proceso.configurar_pasos"
+    ]
    },
    {
     "tipo": "alcance",
@@ -8916,12 +9316,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "proceso.configurar_pasos"
+    ]
    },
    {
     "tipo": "alcance",
@@ -8942,6 +9340,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "proceso.view"
+    ]
    }
   ],
   "puertas": []
@@ -8958,6 +9362,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "proceso.view"
+    ]
    }
   ],
   "puertas": []
@@ -8974,6 +9384,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "proceso.view"
+    ]
    }
   ],
   "puertas": []
@@ -8990,6 +9406,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "proceso.view"
+    ]
    }
   ],
   "puertas": []
@@ -9006,6 +9428,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "proceso.view"
+    ]
    }
   ],
   "puertas": []
@@ -9022,6 +9450,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "proceso.view"
+    ]
    }
   ],
   "puertas": []
@@ -9040,12 +9474,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "proceso.replanificar"
+    ]
    }
   ],
   "puertas": []
@@ -9062,6 +9494,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "proceso.trabajar"
+    ]
    }
   ],
   "puertas": []
@@ -9078,6 +9516,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "proceso.trabajar"
+    ]
    }
   ],
   "puertas": []
@@ -9094,6 +9538,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
    }
   ],
   "puertas": []
@@ -9110,6 +9560,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
    }
   ],
   "puertas": []
@@ -9126,6 +9582,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
    }
   ],
   "puertas": []
@@ -9144,12 +9606,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.categorias"
+    ]
    }
   ],
   "puertas": []
@@ -9168,12 +9628,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.categorias"
+    ]
    }
   ],
   "puertas": []
@@ -9192,12 +9650,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.categorias"
+    ]
    }
   ],
   "puertas": []
@@ -9214,6 +9670,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9236,6 +9698,12 @@
     "tipo": "token"
    },
    {
+    "tipo": "puede",
+    "claves": [
+     "products.export"
+    ]
+   },
+   {
     "tipo": "alcance",
     "nombre": "projectAccess"
    }
@@ -9254,6 +9722,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9276,6 +9750,12 @@
     "tipo": "token"
    },
    {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
+   },
+   {
     "tipo": "alcance",
     "nombre": "projectAccess"
    }
@@ -9294,6 +9774,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9316,12 +9802,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.create"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9344,12 +9828,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.edit"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9372,12 +9854,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.delete"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9400,12 +9880,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.edit"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9428,12 +9906,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.edit"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9456,6 +9932,12 @@
     "tipo": "token"
    },
    {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
+   },
+   {
     "tipo": "alcance",
     "nombre": "projectAccess"
    }
@@ -9476,12 +9958,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.edit"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9504,12 +9984,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.edit"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9532,12 +10010,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.edit"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9560,12 +10036,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "products.edit"
+    ]
    },
    {
     "tipo": "alcance",
@@ -9586,6 +10060,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "channels.view"
+    ]
    }
   ],
   "puertas": []
@@ -9604,12 +10084,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "channels.edit"
+    ]
    }
   ],
   "puertas": []
@@ -9628,12 +10106,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "channels.edit"
+    ]
    }
   ],
   "puertas": []
@@ -9652,12 +10128,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "channels.edit"
+    ]
    }
   ],
   "puertas": []
@@ -9686,6 +10160,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "projects.view"
+    ]
    }
   ],
   "puertas": []
@@ -9702,6 +10182,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "projects.view"
+    ]
    }
   ],
   "puertas": []
@@ -9718,6 +10204,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "projects.view"
+    ]
    }
   ],
   "puertas": []
@@ -9736,11 +10228,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "projects.create"
+    ]
    }
   ],
   "puertas": []
@@ -9757,6 +10248,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "projects.view"
+    ]
    }
   ],
   "puertas": []
@@ -9773,6 +10270,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "projects.view"
+    ]
    }
   ],
   "puertas": []
@@ -9791,11 +10294,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "projects.create"
+    ]
    }
   ],
   "puertas": []
@@ -9814,11 +10316,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "projects.edit"
+    ]
    }
   ],
   "puertas": []
@@ -9837,11 +10338,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "projects.edit"
+    ]
    }
   ],
   "puertas": []
@@ -9860,12 +10360,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "projects.personalizar"
+    ]
    }
   ],
   "puertas": []
@@ -9884,12 +10382,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "projects.personalizar"
+    ]
    }
   ],
   "puertas": []
@@ -9908,12 +10404,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "projects.personalizar"
+    ]
    }
   ],
   "puertas": []
@@ -9930,6 +10424,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "projects.view"
+    ]
    }
   ],
   "puertas": []
@@ -9946,6 +10446,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "projects.view"
+    ]
    }
   ],
   "puertas": []
@@ -9964,12 +10470,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "registro.view"
+    ]
    }
   ],
   "puertas": []
@@ -9988,12 +10492,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "registro.view"
+    ]
    }
   ],
   "puertas": []
@@ -10012,12 +10514,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "registro.view"
+    ]
    }
   ],
   "puertas": []
@@ -10036,12 +10536,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "reports.view"
+    ]
    }
   ],
   "puertas": []
@@ -10058,6 +10556,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10074,6 +10578,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10090,6 +10600,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10106,6 +10622,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10122,6 +10644,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10138,6 +10666,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10154,6 +10688,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10170,6 +10710,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10186,6 +10732,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10202,6 +10754,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10218,6 +10776,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10234,6 +10798,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10250,6 +10820,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10266,6 +10842,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10282,6 +10864,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10298,6 +10886,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10314,6 +10908,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10330,6 +10930,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10346,6 +10952,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
    }
   ],
   "puertas": []
@@ -10362,6 +10974,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports_ia.view"
+    ]
    }
   ],
   "puertas": []
@@ -10378,6 +10996,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports_ia.view"
+    ]
    }
   ],
   "puertas": []
@@ -10396,13 +11020,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "reports_ia.generar"
+    ]
    }
   ],
   "puertas": []
@@ -10421,13 +11042,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "reports_ia.generar"
+    ]
    }
   ],
   "puertas": []
@@ -10446,13 +11064,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "gestor",
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "ventas.registrar"
+    ]
    }
   ],
   "puertas": []
@@ -10471,12 +11086,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "ventas.view_equipo"
+    ]
    }
   ],
   "puertas": []
@@ -10495,12 +11108,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "ventas.view_equipo"
+    ]
    }
   ],
   "puertas": []
@@ -10517,6 +11128,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ventas.view"
+    ]
    }
   ],
   "puertas": []
@@ -10533,6 +11150,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ventas.view"
+    ]
    }
   ],
   "puertas": []
@@ -10549,6 +11172,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ventas.view"
+    ]
    }
   ],
   "puertas": []
@@ -10567,12 +11196,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "ventas.view_equipo"
+    ]
    }
   ],
   "puertas": []
@@ -10589,6 +11216,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ventas.view"
+    ]
    }
   ],
   "puertas": []
@@ -10605,6 +11238,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ventas.view"
+    ]
    }
   ],
   "puertas": []
@@ -10621,6 +11260,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ventas.view"
+    ]
    }
   ],
   "puertas": []
@@ -10637,6 +11282,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ventas.view"
+    ]
    }
   ],
   "puertas": []
@@ -10653,6 +11304,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ventas.metas"
+    ]
    }
   ],
   "puertas": []
@@ -10669,6 +11326,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "ventas.metas"
+    ]
    }
   ],
   "puertas": []
@@ -10711,12 +11374,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "status.edit"
+    ]
    }
   ],
   "puertas": []
@@ -10735,12 +11396,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "status.edit"
+    ]
    }
   ],
   "puertas": []
@@ -10759,12 +11418,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "status.edit"
+    ]
    }
   ],
   "puertas": []
@@ -10783,12 +11440,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "status.view"
+    ]
    }
   ],
   "puertas": []
@@ -10807,12 +11462,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "status.view"
+    ]
    }
   ],
   "puertas": []
@@ -10831,12 +11484,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "status.view"
+    ]
    }
   ],
   "puertas": []
@@ -10855,12 +11506,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "status.vista_previa_correos"
+    ]
    }
   ],
   "puertas": []
@@ -10877,6 +11526,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "stripe.view"
+    ]
    }
   ],
   "puertas": []
@@ -10893,6 +11548,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "stripe.view"
+    ]
    }
   ],
   "puertas": []
@@ -10909,6 +11570,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "stripe.view"
+    ]
    }
   ],
   "puertas": []
@@ -10925,6 +11592,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "stripe.view"
+    ]
    }
   ],
   "puertas": []
@@ -10943,12 +11616,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "stripe.edit"
+    ]
    }
   ],
   "puertas": []
@@ -10967,12 +11638,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "stripe.edit"
+    ]
    }
   ],
   "puertas": []
@@ -10991,12 +11660,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "stripe.edit"
+    ]
    }
   ],
   "puertas": []
@@ -11027,13 +11694,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11052,13 +11717,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11077,13 +11740,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11102,13 +11763,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11127,13 +11786,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11152,13 +11809,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11177,13 +11832,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11202,13 +11855,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11227,13 +11878,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11252,13 +11901,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11277,13 +11924,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11302,13 +11947,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11327,13 +11970,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11352,13 +11993,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11377,13 +12016,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11402,13 +12039,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11427,13 +12062,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11452,13 +12085,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11477,13 +12108,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11502,13 +12131,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11527,13 +12154,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11552,13 +12177,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11577,13 +12200,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11602,13 +12223,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11627,13 +12246,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11652,13 +12269,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11677,13 +12292,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11702,13 +12315,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11727,13 +12338,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11752,13 +12361,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11777,13 +12384,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11802,13 +12407,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11827,13 +12430,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11852,13 +12453,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11877,13 +12476,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11902,13 +12499,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11927,13 +12522,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11952,13 +12545,11 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin",
-     "colaborador"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "tasks.view_own",
+     "tasks.view_all"
+    ]
    }
   ],
   "puertas": []
@@ -11975,6 +12566,13 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.mis_cursos",
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -11993,6 +12591,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12011,6 +12615,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12029,6 +12639,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12047,6 +12663,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12065,6 +12687,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.ajustes"
+    ]
    }
   ],
   "puertas": [
@@ -12083,6 +12711,13 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.mis_cursos",
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12101,6 +12736,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12119,6 +12760,13 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.mis_cursos",
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12137,6 +12785,13 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.mis_cursos",
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12155,6 +12810,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.liquidar"
+    ]
    }
   ],
   "puertas": [
@@ -12173,6 +12834,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.liquidar"
+    ]
    }
   ],
   "puertas": [
@@ -12191,6 +12858,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12209,6 +12882,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.avisar"
+    ]
    }
   ],
   "puertas": []
@@ -12225,6 +12904,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.avisar"
+    ]
    }
   ],
   "puertas": []
@@ -12241,6 +12926,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12259,6 +12950,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12277,6 +12974,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12295,6 +12998,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12313,6 +13022,13 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.mis_cursos",
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12331,6 +13047,13 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.mis_cursos",
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12349,6 +13072,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12367,6 +13096,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12417,6 +13152,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12435,6 +13176,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.contrasena"
+    ]
    }
   ],
   "puertas": [
@@ -12453,6 +13200,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12471,6 +13224,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
    }
   ],
   "puertas": [
@@ -12599,12 +13358,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.view"
+    ]
    }
   ],
   "puertas": []
@@ -12623,12 +13380,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.view"
+    ]
    }
   ],
   "puertas": []
@@ -12647,12 +13402,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.edit"
+    ]
    }
   ],
   "puertas": []
@@ -12671,12 +13424,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.view"
+    ]
    }
   ],
   "puertas": []
@@ -12695,12 +13446,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.create"
+    ]
    }
   ],
   "puertas": []
@@ -12719,12 +13468,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.edit"
+    ]
    }
   ],
   "puertas": []
@@ -12743,12 +13490,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.delete"
+    ]
    }
   ],
   "puertas": []
@@ -12767,12 +13512,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.edit"
+    ]
    }
   ],
   "puertas": []
@@ -12791,12 +13534,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.contrasena"
+    ]
    }
   ],
   "puertas": [
@@ -12817,19 +13558,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
-   },
-   {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "users.aviso_correo"
+    ]
    }
   ],
   "puertas": []
@@ -12848,12 +13580,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.edit"
+    ]
    }
   ],
   "puertas": []
@@ -12872,12 +13602,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.view"
+    ]
    }
   ],
   "puertas": []
@@ -12896,12 +13624,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.edit"
+    ]
    }
   ],
   "puertas": []
@@ -12930,6 +13656,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "webhooks.view"
+    ]
    }
   ],
   "puertas": []
@@ -12946,6 +13678,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "webhooks.view"
+    ]
    }
   ],
   "puertas": []
@@ -12964,13 +13702,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "webhooks.create"
+    ]
    }
   ],
   "puertas": []
@@ -12989,13 +13724,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "webhooks.edit"
+    ]
    }
   ],
   "puertas": []
@@ -13014,13 +13746,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "webhooks.delete"
+    ]
    }
   ],
   "puertas": []
@@ -13039,13 +13768,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "webhooks.edit"
+    ]
    }
   ],
   "puertas": []
@@ -13064,13 +13790,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin",
-     "soporte"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "webhooks.edit"
+    ]
    }
   ],
   "puertas": []
@@ -13089,12 +13812,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "webhooks_salientes.view"
+    ]
    }
   ],
   "puertas": []
@@ -13113,12 +13834,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "webhooks_salientes.view"
+    ]
    }
   ],
   "puertas": []
@@ -13137,12 +13856,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "webhooks_salientes.view"
+    ]
    }
   ],
   "puertas": []
@@ -13161,12 +13878,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "webhooks_salientes.edit"
+    ]
    }
   ],
   "puertas": []
@@ -13185,12 +13900,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "webhooks_salientes.view"
+    ]
    }
   ],
   "puertas": []
@@ -13209,12 +13922,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "webhooks_salientes.create"
+    ]
    }
   ],
   "puertas": []
@@ -13233,12 +13944,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "webhooks_salientes.edit"
+    ]
    }
   ],
   "puertas": []
@@ -13257,12 +13966,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "webhooks_salientes.delete"
+    ]
    }
   ],
   "puertas": []
@@ -13281,12 +13988,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "webhooks_salientes.edit"
+    ]
    }
   ],
   "puertas": []
@@ -13327,6 +14032,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.plantillas"
+    ]
    }
   ],
   "puertas": []
@@ -13343,6 +14054,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.plantillas"
+    ]
    }
   ],
   "puertas": []
@@ -13359,6 +14076,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.plantillas"
+    ]
    }
   ],
   "puertas": []
@@ -13375,6 +14098,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.plantillas"
+    ]
    }
   ],
   "puertas": []
@@ -13391,6 +14120,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.cola"
+    ]
    }
   ],
   "puertas": []
@@ -13425,12 +14160,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.forma_avisos"
+    ]
    }
   ],
   "puertas": []
@@ -13449,12 +14182,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "soporte",
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.forma_avisos"
+    ]
    }
   ],
   "puertas": []
@@ -13471,6 +14202,13 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar",
+     "whatsapp.supervisar"
+    ]
    }
   ],
   "puertas": [
@@ -13489,6 +14227,13 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar",
+     "whatsapp.supervisar"
+    ]
    }
   ],
   "puertas": [
@@ -13507,6 +14252,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13525,6 +14276,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13543,6 +14300,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13561,6 +14324,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13579,6 +14348,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13597,6 +14372,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13615,6 +14396,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13633,6 +14420,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13651,6 +14444,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13669,6 +14468,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13687,6 +14492,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13705,6 +14516,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13723,6 +14540,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13741,6 +14564,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13759,6 +14588,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13777,6 +14612,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13795,6 +14636,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13813,6 +14660,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13831,6 +14684,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13865,6 +14724,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13883,6 +14748,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13901,6 +14772,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "whatsapp.usar"
+    ]
    }
   ],
   "puertas": [
@@ -13919,6 +14796,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "widget.view"
+    ]
    }
   ],
   "puertas": []
@@ -13935,6 +14818,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "widget.edit"
+    ]
    }
   ],
   "puertas": []
@@ -13951,6 +14840,12 @@
   "guardias": [
    {
     "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "widget.edit"
+    ]
    }
   ],
   "puertas": []
@@ -13993,12 +14888,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.view"
+    ]
    }
   ],
   "puertas": []
@@ -14017,12 +14910,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.edit"
+    ]
    }
   ],
   "puertas": []
@@ -14041,12 +14932,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.edit"
+    ]
    }
   ],
   "puertas": []
@@ -14065,12 +14954,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.view"
+    ]
    }
   ],
   "puertas": []
@@ -14089,12 +14976,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.edit"
+    ]
    }
   ],
   "puertas": []
@@ -14113,12 +14998,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.view"
+    ]
    }
   ],
   "puertas": []
@@ -14137,12 +15020,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.view"
+    ]
    }
   ],
   "puertas": []
@@ -14161,12 +15042,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.sync"
+    ]
    }
   ],
   "puertas": []
@@ -14185,12 +15064,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.sync"
+    ]
    }
   ],
   "puertas": []
@@ -14209,12 +15086,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.view"
+    ]
    }
   ],
   "puertas": []
@@ -14233,12 +15108,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.edit"
+    ]
    }
   ],
   "puertas": []
@@ -14257,12 +15130,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.sync"
+    ]
    }
   ],
   "puertas": []
@@ -14386,6 +15257,18 @@
   "condicion": "dar empresas enteras a un admin, o cambiar el correo de alguien",
   "regla": "soloSuperadmin",
   "puerta": "users.empresas"
+ },
+ {
+  "id": "PATCH /api/users/:id · users.cambiar_rol",
+  "tipo": "condicion",
+  "modulo": "users",
+  "metodo": "PATCH",
+  "ruta": "/api/users/:id",
+  "controlador": "update",
+  "publica": false,
+  "condicion": "cambiar el rol, los roles de más o «se dedica a colaboraciones» de alguien",
+  "regla": "siempre",
+  "puerta": "users.cambiar_rol"
  },
  {
   "id": "PATCH /api/mcp/panel/conexiones/:id · mcp.rechazar_ajenas",

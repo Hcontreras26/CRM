@@ -18,7 +18,7 @@ import { fileURLToPath } from 'url';
  */
 
 const aqui = path.dirname(fileURLToPath(import.meta.url));
-const { construirInventario, inventarioEnMarkdown, inventarioEnJson, PUERTAS, personaDePrueba, puedeAntes } =
+const { construirInventario, inventarioEnMarkdown, inventarioEnJson, PUERTAS, personaDePrueba, puedeAntes, ANTES } =
   await import('../src/modules/permissions/inventario/index.js');
 const legado = await import('../src/modules/permissions/inventario/legado.js');
 
@@ -91,7 +91,8 @@ describe('la copia congelada (legado.js) lee los guardias como el código', () =
     const g = personaDePrueba('gestor', { roles_extra: ['admin'] });
     expect(puedeAntes(g, fila('GET /api/facturas-colaborador/colaboradores'))).toBe(false);
     // ...y con rolOPermiso (Diplomas) entra por el rol añadido.
-    const diplomas = filas.find((f) => f.tipo === 'ruta' && f.modulo === 'certifex'
+    // En el inventario CONGELADO: en el vivo ya no queda ningún rolOPermiso (#423, fase 4).
+    const diplomas = [...ANTES.values()].find((f) => f.tipo === 'ruta' && f.modulo === 'certifex'
       && f.guardias.some((x) => x.tipo === 'rolOPermiso'));
     expect(puedeAntes(g, diplomas)).toBe(true);
   });

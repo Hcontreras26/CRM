@@ -9,18 +9,24 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import { query } from '../../shared/config/db.js';
 import { respuestaLlamadaSchema } from './whatsapp.validation.js';
-import { porQueNoPuede, porQueNoUsa } from './roles.js';
-import { usaSuWhatsapp } from './usaWhatsapp.js';
+import { porQueNoPuede } from './roles.js';
+import { explicarPermisosRecordados } from '../permissions/permissions.service.js';
 import { proyectosDelAmbito, comoLista } from '../../shared/utils/ambito.js';
 
 import { TOPE_WHATSAPP_BYTES } from '../../shared/middleware/upload.js';
 
-const esAdmin = (req) => ['admin', 'superadmin', 'soporte'].includes(req.user.role);
 
 // Version del aviso que se acepta al enlazar. Se sube al cambiar el TEXTO, no
 // al mover un boton: sirve para saber que leyo cada persona el dia que haga
 // falta demostrarlo.
 const VERSION_AVISO = 1;
+
+// Lo que puede quien llama, recordado medio minuto (#423): el chat pregunta
+// cada tres segundos y el mapa entero son varias consultas. Se olvida en cuanto
+// alguien cambia sus permisos (`olvidarPermisos`).
+async function puedeWa(req, clave) {
+  return (await explicarPermisosRecordados(req.user.userId))?.mapa[clave] === true;
+}
 
 /**
  * De quien es la sesion sobre la que se esta trabajando.
@@ -52,25 +58,23 @@ export async function usuarioObjetivo(req) {
   // segundos con el chat abierto. La contrapartida es que un cambio de rol
   // tarda en aplicarse lo que dure el testigo —quince minutos— y eso vale para
   // quitar el acceso, no para darlo: quien lo gana entra en cuanto renueve.
-  const suyo = porQueNoPuede({ role: req.user.role, active: true });
-  if (suyo) throw new AppError(suyo, 403, 'SIN_WHATSAPP');
-
+  // #423: por permiso del catálogo. «Usar su WhatsApp» para la suya (antes,
+  // el rol y la casilla `usa_whatsapp`) y «Supervisar el WhatsApp de otros»
+  // para la de otra persona (antes, admin y superadmin por su rol).
   const pedido = parseInt(req.query?.usuarioId ?? req.body?.usuarioId ?? '', 10);
   if (!Number.isInteger(pedido) || pedido === propio) {
     // La casilla de su ficha (#128). El rol dice si le CORRESPONDE tener
     // WhatsApp y viaja en el testigo; esto dice si lo usa, y se pregunta a la
     // base porque el testigo dura ocho horas y apagar a alguien tiene que
     // notarse hoy. Se recuerda medio minuto: ver `usaWhatsapp.js`.
-    if (!await usaSuWhatsapp(propio)) {
-      throw new AppError(
-        'No tienes activado el WhatsApp del CRM. Lo enciende quien administra, en tu ficha de usuario.',
-        403, 'SIN_WHATSAPP'
-      );
+    if (!(await puedeWa(req, 'whatsapp.usar'))) {
+      const suyo = porQueNoPuede({ role: req.user.role, active: true });
+      throw new AppError(suyo || 'No tienes activado el WhatsApp del CRM. Lo enciende quien administra, en tu ficha de usuario.', 403, 'SIN_WHATSAPP');
     }
     return propio;
   }
 
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
+  if (!(await puedeWa(req, 'whatsapp.supervisar'))) {
     throw new AppError('Solo puedes trabajar con tu propio WhatsApp', 403, 'SOLO_EL_TUYO');
   }
 
@@ -96,9 +100,11 @@ export async function usuarioObjetivo(req) {
   // quien acertara el `usuarioId` de un tutor trabajaria sobre su sesion aunque
   // la pantalla no se la enseñara. La regla vive en `roles.js`, una sola vez.
   //
-  // `porQueNoUsa` es el mismo candado mas la casilla de su ficha: a quien esta
-  // apagado tampoco se le entra por el numero, no solo se le quita de la lista.
-  const noPuede = porQueNoUsa(u);
+  // Y que ESA persona tenga «Usar su WhatsApp» (#423; antes, su rol y la
+  // casilla): a quien no lo tiene tampoco se le entra por el numero, no solo se
+  // le quita de la lista.
+  const noPuede = porQueNoPuede(u)
+    || ((await explicarPermisosRecordados(u.id))?.mapa['whatsapp.usar'] ? null : 'No tiene activado el WhatsApp del CRM. Se enciende en su ficha de usuario.');
   if (noPuede) throw new AppError(noPuede, 403, 'SIN_WHATSAPP');
 
   // Queda escrito que ha entrado a mirar. AQUI, cuando ya se sabe que puede: un
@@ -147,21 +153,17 @@ async function miConversacion(req, id) {
  * Quien no lleva prospectos no entra, ni a lo suyo.
  */
 async function sesionesQuePuedeMirar(req) {
-  const suyo = porQueNoPuede({ role: req.user.role, active: true });
-  if (suyo) throw new AppError(suyo, 403, 'SIN_WHATSAPP');
-
-  if (['admin', 'superadmin'].includes(req.user.role)) return null;
+  // #423: quien supervisa ve todas las líneas; quien usa el suyo, la suya.
+  if (await puedeWa(req, 'whatsapp.supervisar')) return null;
   // Una gestora, a su numero y punto. Es un respaldo con conversaciones de
   // clientes dentro: nunca todas las lineas para cualquiera.
   //
   // Y si tiene la casilla apagada (#128), tampoco al suyo: apagar es dejar de
   // usar el WhatsApp del CRM, no solo dejar de salir en una lista. Quien manda
   // si entra, porque el banco es su herramienta de supervision.
-  if (!await usaSuWhatsapp(req.user.userId)) {
-    throw new AppError(
-      'No tienes activado el WhatsApp del CRM. Lo enciende quien administra, en tu ficha de usuario.',
-      403, 'SIN_WHATSAPP'
-    );
+  if (!(await puedeWa(req, 'whatsapp.usar'))) {
+    const suyo = porQueNoPuede({ role: req.user.role, active: true });
+    throw new AppError(suyo || 'No tienes activado el WhatsApp del CRM. Lo enciende quien administra, en tu ficha de usuario.', 403, 'SIN_WHATSAPP');
   }
   return [evolution.instanciaDe(req.user.userId)];
 }
@@ -1224,7 +1226,7 @@ export async function webhook(req, res) {
 export async function usuarios(req, res, next) {
   try {
     const yo = req.user.userId;
-    const soloMio = !['admin', 'superadmin'].includes(req.user.role);
+    const soloMio = !(await puedeWa(req, 'whatsapp.supervisar'));
 
     // El selector se acota a la EMPRESA elegida. Diego, 15/09: «el whatsapp es
     // por empresa, no puedo tener de varias alli».
@@ -1312,7 +1314,7 @@ export async function usuarios(req, res, next) {
       }
     }
 
-    res.json({ success: true, data: rows.map((u) => {
+    res.json({ success: true, data: await Promise.all(rows.map(async (u) => {
       const instancia = evolution.instanciaDe(u.id);
       const est = porInstancia.get(instancia) || {};
       // Se dice quien NO puede y por que, en vez de esconderlo. La pantalla lo
@@ -1322,7 +1324,9 @@ export async function usuarios(req, res, next) {
       // a WhatsApp y no usarlo —hoy son las gestoras y Daniela—, y entonces no
       // pinta en el selector aunque su rol lo permita. La pantalla lo esconde;
       // la API lo dice, para que no haya que adivinar por que falta alguien.
-      const usa = u.usa_whatsapp !== false;
+      // Desde #423, «Usar su WhatsApp» del catálogo (su rol, su rol a medida o
+      // una excepción suya), no la casilla.
+      const usa = (await explicarPermisosRecordados(u.id))?.mapa['whatsapp.usar'] === true;
       return {
         id: u.id, nombre: u.nombre, email: u.email, role: u.role,
         soyYo: u.id === yo,
@@ -1332,7 +1336,7 @@ export async function usuarios(req, res, next) {
         motivo,
         usa,
       };
-    })});
+    })) });
   } catch (err) { next(err); }
 }
 

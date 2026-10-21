@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { verifyToken, soloRoles } from '../../shared/middleware/auth.js';
+import { verifyToken } from '../../shared/middleware/auth.js';
+import { puede } from '../../shared/middleware/permissions.js';
 import * as ctrl from './credentials.controller.js';
 
 const router = Router();
@@ -11,17 +12,16 @@ router.use(verifyToken);
 // que aqui coincidia con lo que se queria por casualidad. Con `soloRoles` se
 // declara quien entra: si mañana aparece un rol nuevo, no hereda el acceso a
 // las credenciales por caer en un `else`.
-router.use(soloRoles('soporte', 'superadmin'));
 
-router.get('/', ctrl.list);
+router.get('/', puede('credentials.view'), ctrl.list);
 // Antes que `/:id/...` para que «paridad» y «registro» no se lean como un id.
-router.get('/paridad', ctrl.paridad);
-router.get('/registro', ctrl.registro);
+router.get('/paridad', puede('credentials.view'), ctrl.paridad);
+router.get('/registro', puede('credentials.view'), ctrl.registro);
 
-router.post('/', ctrl.upsert);
-router.post('/:id/test', ctrl.test);
+router.post('/', puede('credentials.edit'), ctrl.upsert);
+router.post('/:id/test', puede('credentials.edit'), ctrl.test);
 // El valor entero, uno a uno y dejando rastro. El listado no lo trae nunca.
-router.get('/:id/revelar', ctrl.revelar);
-router.delete('/:id', ctrl.remove);
+router.get('/:id/revelar', puede('credentials.revelar'), ctrl.revelar);
+router.delete('/:id', puede('credentials.edit'), ctrl.remove);
 
 export default router;

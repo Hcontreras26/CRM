@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Los permisos salen del catálogo (#423): sin base, el resolver de verdad con
+// las personas de cada `req` (tests/helpers/permisosSinBase.js).
+vi.mock('../src/modules/permissions/permissions.service.js', () => import('./helpers/permisosSinBase.js'));
+const { registrar } = await import('./helpers/permisosSinBase.js');
+
 // Cada usuario, su propia sesion de WhatsApp.
 //
 // Esto empezo siendo UNA sesion compartida por todo el CRM: quien enlazaba su
@@ -55,7 +60,7 @@ async function llamar(handler, req) {
 }
 
 const comoUsuario = (userId, extra = {}) => ({
-  user: { userId, role: 'gestor' }, params: {}, query: {}, body: {}, ...extra,
+  user: registrar({ userId, role: 'gestor' }), params: {}, query: {}, body: {}, ...extra,
 });
 
 describe('la instancia sale del usuario, no de lo que mande el cliente', () => {

@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Los permisos salen del catálogo (#423): sin base, el resolver de verdad con
+// las personas de cada `req` (tests/helpers/permisosSinBase.js).
+vi.mock('../src/modules/permissions/permissions.service.js', () => import('./helpers/permisosSinBase.js'));
+const { registrar } = await import('./helpers/permisosSinBase.js');
+
 // Poner una etiqueta de WhatsApp desde el CRM (#128, punto 2).
 //
 // Diego: «poder extraer las etiquetas de WhatsApp Y NOSOTROS PONER etiquetas
@@ -54,7 +59,7 @@ async function etiquetar(cuerpo) {
   res.json = (c) => { res.cuerpo = c; return res; };
   let error = null;
   await ctrl.etiquetarChat(
-    { user: { userId: 4, role: 'gestor' }, params: { id: '55' }, query: {}, body: cuerpo },
+    { user: registrar({ userId: 4, role: 'gestor' }), params: { id: '55' }, query: {}, body: cuerpo },
     res,
     (e) => { error = e; },
   );
@@ -121,7 +126,7 @@ describe('el filtro y la ficha', () => {
     // entera: el usuario ve que «el filtro no hace nada».
     const res = { json: vi.fn(), status: () => res };
     await ctrl.chats(
-      { user: { userId: 4, role: 'gestor' }, query: { etiquetaWa: '12' }, body: {} },
+      { user: registrar({ userId: 4, role: 'gestor' }), query: { etiquetaWa: '12' }, body: {} },
       res,
       () => {},
     );
@@ -132,7 +137,7 @@ describe('el filtro y la ficha', () => {
     // «Se enseñan las dos, no se pisa ninguna» — del ticket. Se pueden combinar.
     const res = { json: vi.fn(), status: () => res };
     await ctrl.chats(
-      { user: { userId: 4, role: 'gestor' }, query: { etiquetaWa: '12', estado: 'en_seguimiento' }, body: {} },
+      { user: registrar({ userId: 4, role: 'gestor' }), query: { etiquetaWa: '12', estado: 'en_seguimiento' }, body: {} },
       res,
       () => {},
     );

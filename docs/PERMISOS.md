@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-701 rutas en 56 módulos, y 24 acciones con condición dentro de una ruta.
+701 rutas en 56 módulos, y 25 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -919,6 +919,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | createBlock | `POST /api/users/:id/availability-blocks` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.edit` |
 | create · dar empresas enteras a un admin, o cambiar el correo de alguien | `POST /api/users/` | cuando dar empresas enteras a un admin, o cambiar el correo de alguien: a mano, user.controller.js · create/update | superadmin | `users.empresas` |
 | update · dar empresas enteras a un admin, o cambiar el correo de alguien | `PATCH /api/users/:id` | cuando dar empresas enteras a un admin, o cambiar el correo de alguien: a mano, user.controller.js · create/update | superadmin | `users.empresas` |
+| update · cambiar el rol, los roles de más o «se dedica a colaboraciones» de alguien | `PATCH /api/users/:id` | (no existía) | (ruta nueva) | `users.excepciones` |
 
 ## webhook-tokens
 

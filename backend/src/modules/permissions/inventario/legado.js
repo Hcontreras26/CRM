@@ -211,6 +211,8 @@ export const manual = {
   whatsappBanco: (u) => esRol(u, ...ADMIN) || (esRol(u, 'gestor', 'soporte') && u.usa_whatsapp !== false),
   // sales.controller.js: una venta «sin gestora» (resolvePermission, sin roles de más).
   ventaSinGestora: (u) => resolverPermiso(u, 'conversions.sin_gestora', false),
+  // Lo que antes no tenía comprobación propia.
+  siempre: () => true,
   // auth.controller.js: updateMyEmail.
   soloTutor: (u) => u.role === 'tutor',
 };

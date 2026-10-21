@@ -3,6 +3,11 @@ import express from 'express';
 import supertest from 'supertest';
 import jwt from 'jsonwebtoken';
 
+// Los permisos salen del catálogo (#423): sin base, el resolver de verdad con
+// las personas que firman token (tests/helpers/permisosSinBase.js).
+vi.mock('../src/modules/permissions/permissions.service.js', () => import('./helpers/permisosSinBase.js'));
+const { registrar } = await import('./helpers/permisosSinBase.js');
+
 /**
  * Un admin con la empresa entera, también los campus que se creen (#220).
  *
@@ -191,7 +196,7 @@ app.use(usuarios.prefix, usuarios.router);
 app.use(errorHandler);
 const request = supertest(app);
 
-const como = (id, role) => ({ Authorization: `Bearer ${jwt.sign({ userId: id, role }, process.env.JWT_SECRET, { expiresIn: '5m' })}` });
+const como = (id, role) => ({ Authorization: `Bearer ${jwt.sign(registrar({ userId: id, role }), process.env.JWT_SECRET, { expiresIn: '5m' })}` });
 const SUPER = como(1, 'superadmin');
 const ADMIN = como(2, 'admin');
 

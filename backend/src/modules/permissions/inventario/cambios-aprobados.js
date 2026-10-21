@@ -51,6 +51,15 @@ export const CAMBIOS = [
     aprobadoPor: null,
   },
   {
+    id: 'rol-de-otros-con-permiso',
+    que: 'Cambiar el rol, los roles de más o «se dedica a colaboraciones» de alguien: quien da permisos («Permisos de cada persona»), y el admin solo a gente de sus campus y que no sea admin. Soporte, no.',
+    motivo: 'Desde Usuarios, admin y soporte cambiaban el rol de cualquiera, de cualquier empresa: es la manera más corta de darle a alguien todo un rol. Ahora sigue las reglas de la ficha.',
+    filas: ['PATCH /api/users/:id · users.cambiar_rol'],
+    roles: ['soporte'],
+    sentido: 'pierde',
+    aprobadoPor: null,
+  },
+  {
     id: 'superadmin-su-correo',
     que: 'El superadmin también puede cambiar su propio correo desde «Mi perfil».',
     motivo: 'Hoy esa ruta es solo del tutor. En el catálogo el superadmin lo tiene todo, sin excepciones; el resto de roles sigue igual.',

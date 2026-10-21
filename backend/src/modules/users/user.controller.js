@@ -4,6 +4,7 @@ import { createUserSchema, updateUserSchema, listUsersSchema, adminSetPasswordSc
 import { AppError } from '../../shared/utils/AppError.js';
 import { saveLocal, getLocal, deleteLocal } from '../../shared/services/localStorage.service.js';
 import crypto from 'crypto';
+import { tienePermiso } from '../../shared/middleware/permissions.js';
 
 export async function list(req, res, next) {
   try {
@@ -39,7 +40,7 @@ export async function create(req, res, next) {
     // sigue como estaba —esto no lo amplia ni lo recorta—, pero dar una empresa
     // es dar los campus que se creen mañana, y eso no lo decide un admin, ni
     // para otro ni para si mismo. Se mira el rol del token, no la pantalla.
-    if (parsed.data.empresaIds?.length && req.user?.role !== 'superadmin') {
+    if (parsed.data.empresaIds?.length && !(await tienePermiso(req, 'users.empresas'))) {
       throw new AppError('Solo un superadmin puede dar una empresa entera', 403, 'FORBIDDEN');
     }
     const user = await userService.create(parsed.data, { porUserId: req.user?.userId ?? null });
@@ -58,16 +59,33 @@ export async function update(req, res, next) {
     // El correo de otro, solo el super admin (#248). Un admin que lo mande se
     // lleva un 403 aunque la pantalla no se lo ofrezca: no basta con ocultarlo.
     const { email, reenviarEnlace, ...resto } = parsed.data;
-    if (email !== undefined && req.user?.role !== 'superadmin') {
+    if (email !== undefined && !(await tienePermiso(req, 'users.empresas'))) {
       throw new AppError('Solo un superadmin puede cambiar el correo de otro usuario', 403, 'FORBIDDEN');
     }
     // Las empresas enteras (#220), lo mismo: solo el super admin, y también
     // para quitarlas (una lista vacía).
-    if (resto.empresaIds !== undefined && req.user?.role !== 'superadmin') {
+    if (resto.empresaIds !== undefined && !(await tienePermiso(req, 'users.empresas'))) {
       throw new AppError('Solo un superadmin puede dar o quitar una empresa entera', 403, 'FORBIDDEN');
     }
+
     // Como estaba ANTES, para saber si pierde el acceso a WhatsApp.
     const antes = await userService.getById(id).catch(() => null);
+    // El rol, los roles de más y «se dedica a colaboraciones» deciden lo que
+    // puede hacer: si CAMBIAN, con las mismas reglas que sus permisos en la
+    // ficha (#423). Antes, admin y soporte se los cambiaban a cualquiera, sin
+    // mirar campus. La pantalla manda el rol siempre: lo que cuenta es que cambie.
+    const mismaLista = (a, b) => [...(a || [])].sort().join() === [...(b || [])].sort().join();
+    const cambiaQuienEs = antes && (
+      (resto.role !== undefined && resto.role !== antes.role)
+      || (resto.roles_extra !== undefined && !mismaLista(resto.roles_extra, antes.roles_extra))
+      || (resto.gestor_colaboraciones !== undefined && resto.gestor_colaboraciones !== !!antes.gestor_colaboraciones));
+    if (cambiaQuienEs) {
+      if (!(await tienePermiso(req, 'users.excepciones'))) {
+        throw new AppError('Cambiar el rol de alguien es «Permisos de cada persona»', 403, 'FORBIDDEN');
+      }
+      const { exigirQuePuedaTocarA } = await import('../permissions/permissions.editar.js');
+      await exigirQuePuedaTocarA(req.user, id);
+    }
     // El correo va primero: si choca con el de otro (409), no se guarda nada a medias.
     const correo = email !== undefined
       ? await userService.cambiarCorreo(id, email, {
@@ -101,6 +119,8 @@ export async function update(req, res, next) {
     // deja de PODER tener WhatsApp, que es el bloque de arriba.
     const cache = await import('../whatsapp/usaWhatsapp.js');
     cache.olvidar(id);
+    // Y sus permisos recordados (#423): su rol puede haber cambiado.
+    (await import('../permissions/permissions.service.js')).olvidarPermisos(id);
 
     res.json({ success: true, data: correo ? { ...user, correo } : user });
   } catch (err) { next(err); }
@@ -137,10 +157,9 @@ export async function setPassword(req, res, next) {
     if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
     // El super admin, a cualquiera. El admin, solo a un TUTOR de sus campus (Diego,
     // 09/10, #246: «sí, y admin»). A nadie más: ni a una gestora ni a otro admin.
+    // Quién puede: la ruta pide «Contraseña de otros» (#423). A quién: el
+    // superadmin, a cualquiera; el resto, solo a tutores de sus campus.
     if (req.user?.role !== 'superadmin') {
-      if (req.user?.role !== 'admin') {
-        throw new AppError('Solo un superadmin puede cambiar la contraseña de otro usuario', 403, 'FORBIDDEN');
-      }
       const destino = await userModel.findById(id);
       if (!destino || destino.role !== 'tutor') {
         throw new AppError('Un admin solo puede cambiar la contraseña de un tutor', 403, 'FORBIDDEN');

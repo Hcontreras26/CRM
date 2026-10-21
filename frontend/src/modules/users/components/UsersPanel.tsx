@@ -96,12 +96,8 @@ export default function UsersPanel() {
           // mandar el formato viejo: `projects: []` el backend lo ignora.
           ...(sinProyectos ? { projectIds: [] } : { projects: values.projects }),
           whatsapp_phone: values.whatsapp_phone,
-          usa_whatsapp: values.usa_whatsapp,
-          // Estas dos las pedia el formulario y NO se mandaban: se marcaban, se
-          // guardaba, y volvian a salir como estaban. El valor de partida sale
-          // del listado, asi que mandarlas no pisa nada de quien no las toque.
-          factura_manager: values.factura_manager,
-          editar_fechas_factura: values.editar_fechas_factura,
+          // Facturación, fechas y WhatsApp ya no van aquí: son permisos y se
+          // dan en «Ver permisos» de la ficha (#423).
           // Las empresas enteras (#220): solo viajan si las ha podido tocar.
           ...(values.empresaIds !== undefined ? { empresaIds: values.empresaIds } : {}),
         });
