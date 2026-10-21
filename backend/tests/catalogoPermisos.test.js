@@ -46,6 +46,8 @@ describe('el catálogo de permisos (#423)', () => {
       const u = inv.personaDePrueba(rol);
       const mapa = SYSTEM_ROLE_DEFAULTS[rol] || {};
       for (const f of filas) {
+        // Una ruta nueva no tenía «antes»: sus pruebas son las suyas.
+        if (!inv.ANTES.has(f.id)) continue;
         const antes = inv.puedeAntes(u, f);
         const despues = inv.puedeDespues(u, f, mapa);
         if (antes !== despues && !cambioPrevisto(f.id, rol)) distintas.push(`${rol} · ${f.id}: ${antes} → ${despues}`);

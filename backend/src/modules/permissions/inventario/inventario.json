@@ -8305,6 +8305,176 @@
   "puertas": []
  },
  {
+  "id": "GET /api/permissions/roles",
+  "tipo": "ruta",
+  "modulo": "permissions",
+  "metodo": "GET",
+  "ruta": "/api/permissions/roles",
+  "relativa": "GET /roles",
+  "controlador": "roles",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "roles.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/permissions/roles/fijos/:rol",
+  "tipo": "ruta",
+  "modulo": "permissions",
+  "metodo": "PUT",
+  "ruta": "/api/permissions/roles/fijos/:rol",
+  "relativa": "PUT /roles/fijos/:rol",
+  "controlador": "guardarRolFijo",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/permissions/roles/a-medida",
+  "tipo": "ruta",
+  "modulo": "permissions",
+  "metodo": "POST",
+  "ruta": "/api/permissions/roles/a-medida",
+  "relativa": "POST /roles/a-medida",
+  "controlador": "crearRolAMedida",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PATCH /api/permissions/roles/a-medida/:id",
+  "tipo": "ruta",
+  "modulo": "permissions",
+  "metodo": "PATCH",
+  "ruta": "/api/permissions/roles/a-medida/:id",
+  "relativa": "PATCH /roles/a-medida/:id",
+  "controlador": "guardarRolAMedida",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/permissions/registro",
+  "tipo": "ruta",
+  "modulo": "permissions",
+  "metodo": "GET",
+  "ruta": "/api/permissions/registro",
+  "relativa": "GET /registro",
+  "controlador": "registro",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/permissions/personas/:id",
+  "tipo": "ruta",
+  "modulo": "permissions",
+  "metodo": "GET",
+  "ruta": "/api/permissions/personas/:id",
+  "relativa": "GET /personas/:id",
+  "controlador": "ficha",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/permissions/personas/:id/excepciones",
+  "tipo": "ruta",
+  "modulo": "permissions",
+  "metodo": "PUT",
+  "ruta": "/api/permissions/personas/:id/excepciones",
+  "relativa": "PUT /personas/:id/excepciones",
+  "controlador": "guardarExcepciones",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "users.excepciones"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/permissions/personas/:id/rol-a-medida",
+  "tipo": "ruta",
+  "modulo": "permissions",
+  "metodo": "PUT",
+  "ruta": "/api/permissions/personas/:id/rol-a-medida",
+  "relativa": "PUT /personas/:id/rol-a-medida",
+  "controlador": "cambiarRolAMedida",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "users.excepciones"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/permissions/custom-roles",
   "tipo": "ruta",
   "modulo": "permissions",
@@ -8318,12 +8488,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "roles.view"
+    ]
    }
   ],
   "puertas": []
@@ -8342,12 +8510,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "roles.view"
+    ]
    }
   ],
   "puertas": []
@@ -8366,12 +8532,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8390,12 +8554,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8414,11 +8576,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8437,12 +8598,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.excepciones"
+    ]
    }
   ],
   "puertas": []
@@ -8461,12 +8620,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "users.excepciones"
+    ]
    }
   ],
   "puertas": []
@@ -8485,12 +8642,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "roles.view"
+    ]
    }
   ],
   "puertas": []
@@ -8509,12 +8664,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8533,12 +8686,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "roles.view"
+    ]
    }
   ],
   "puertas": []
@@ -8557,11 +8708,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
    }
   ],
   "puertas": []
@@ -8580,12 +8730,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "users.excepciones"
+    ]
    }
   ],
   "puertas": []
@@ -8604,12 +8752,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "superadmin",
-     "admin"
-    ],
-    "atajoSoporte": false
+    "tipo": "puede",
+    "claves": [
+     "users.excepciones"
+    ]
    }
   ],
   "puertas": []
@@ -8644,12 +8790,10 @@
     "tipo": "token"
    },
    {
-    "tipo": "roles",
-    "roles": [
-     "admin",
-     "superadmin"
-    ],
-    "atajoSoporte": true
+    "tipo": "puede",
+    "claves": [
+     "roles.edit"
+    ]
    }
   ],
   "puertas": []

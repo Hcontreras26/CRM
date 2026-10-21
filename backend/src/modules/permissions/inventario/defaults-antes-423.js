@@ -1,6 +1,5 @@
 // Foto de SYSTEM_ROLE_DEFAULTS y ALL_RESOURCES el 21/10/2026, antes de #423.
 // NO SE EDITA: es el «antes» con el que se compara (inventario/legado.js).
-/* eslint-disable */
 export const SYSTEM_ROLE_DEFAULTS = {
  "superadmin": null,
  "admin": {

@@ -5,11 +5,11 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-693 rutas en 56 módulos, y 24 acciones con condición dentro de una ruta.
+701 rutas en 56 módulos, y 24 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
-**Cómo leerlo.** «Qué la protege hoy» es lo que hay en el código: `roleGuard` deja pasar
-además a superadmin y a soporte; `soloRoles` no. «Quién puede de verdad» lo calcula
+**Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
+además a superadmin y a soporte; `soloRoles` no. «Quién podía» lo calcula
 la copia congelada de esas reglas (`inventario/legado.js`) para cada rol, sin casillas
 ni excepciones, y dice qué casilla abre la puerta a quien no entra por su rol. El
 alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
@@ -19,14 +19,14 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## accounting
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | dashboard | `GET /api/accounting/dashboard` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `accounting.view` |
 | receivable | `GET /api/accounting/receivable` | sesión · roleGuard(admin, superadmin, soporte, gestor) +superadmin +soporte por el atajo | superadmin, admin, gestor, soporte | `accounting.por_cobrar` |
 
 ## accounts-payable
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/accounts-payable/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `accounts_payable.view` |
 | stats | `GET /api/accounts-payable/stats` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `accounts_payable.view` |
@@ -38,7 +38,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## audiences
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | preview | `POST /api/audiences/preview` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `audiences.view` |
 | exportCsv | `POST /api/audiences/export` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `audiences.export` |
@@ -48,7 +48,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## auth
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | login | `POST /api/auth/login` | nada (pública) | cualquiera, sin sesión | — |
 | refresh | `POST /api/auth/refresh` | nada (pública) | cualquiera, sin sesión | — |
@@ -61,7 +61,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## certifex
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | recibir | `POST /api/certifex/consultas` | nada (pública) | cualquiera, sin sesión | — |
 | recibirSolicitud | `POST /api/certifex/solicitudes` | nada (pública) | cualquiera, sin sesión | — |
@@ -98,7 +98,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## change-requests
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/change-requests/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `change_requests.view` |
 | create | `POST /api/change-requests/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `change_requests.create` |
@@ -114,7 +114,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## claude-chat
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | status | `GET /api/claude/status` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `chat_ia.usar` |
 | listConversations | `GET /api/claude/conversations` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `chat_ia.usar` |
@@ -123,13 +123,13 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## client-errors
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | (anónima) | `POST /api/client-errors/` | nada (pública) | cualquiera, sin sesión | — |
 
 ## commissions
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listRules | `GET /api/commissions/rules` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `commissions.view` |
 | createRule | `POST /api/commissions/rules` | sesión · roleGuard(superadmin) +superadmin +soporte por el atajo | superadmin, soporte | `commissions.reglas` |
@@ -144,7 +144,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## connectors
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/connectors/` | sesión · soloRoles(admin, superadmin) | superadmin, admin | `connectors.view` |
 | mcpUrl | `POST /api/connectors/:id/mcp-url` | sesión · soloRoles(admin, superadmin) | superadmin, admin | `connectors.edit` |
@@ -160,7 +160,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## conversions
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/conversions/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `conversions.view` |
 | listProductos | `GET /api/conversions/productos` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `conversions.view` |
@@ -190,7 +190,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## convocatorias
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | embudo | `GET /api/convocatorias/embudo` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `convocatorias.view` |
 | pendientes | `GET /api/convocatorias/pendientes` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `convocatorias.view` |
@@ -203,7 +203,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## correos
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listar | `GET /api/correos/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 | recuento | `GET /api/correos/recuento` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
@@ -212,7 +212,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## credentials
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/credentials/` | sesión · soloRoles(soporte, superadmin) | superadmin, soporte | `credentials.view` |
 | paridad | `GET /api/credentials/paridad` | sesión · soloRoles(soporte, superadmin) | superadmin, soporte | `credentials.view` |
@@ -224,7 +224,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## documents
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/documents/` | sesión · projectAccess (campus) | superadmin, admin, gestor, soporte, project_manager, tutor | `documents.view` |
 | download | `GET /api/documents/:id/download` | sesión · projectAccess (campus) | superadmin, admin, gestor, soporte, project_manager, tutor | `documents.view` |
@@ -239,7 +239,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## dossiers
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | upload | `POST /api/dossiers/upload` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo · projectAccess (campus) | superadmin, admin, soporte | `dossiers.upload` |
 | getPresignedUrl | `GET /api/dossiers/:id/url` | sesión · projectAccess (campus) | superadmin, admin, gestor, soporte, project_manager, tutor | `dossiers.view` |
@@ -247,7 +247,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## email-sequences
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/secuencias-email/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `email_sequences.view` |
 | listRuns | `GET /api/secuencias-email/runs` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `email_sequences.view` |
@@ -260,7 +260,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## email-templates
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getVariables | `GET /api/email-templates/variables` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `email_templates.view` |
 | list | `GET /api/email-templates/` | sesión · projectAccess (campus) | superadmin, admin, gestor, soporte, project_manager, tutor | `email_templates.view` |
@@ -272,7 +272,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## expenses
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listExpenses | `GET /api/expenses/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `expenses.view` |
 | resumen | `GET /api/expenses/resumen` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `expenses.view` |
@@ -285,7 +285,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## facturas-colaborador
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | (anónima) | `GET /api/facturas-colaborador/enlace/:token` | nada (pública) | cualquiera, sin sesión | — |
 | (anónima) | `POST /api/facturas-colaborador/enlace/:token` | nada (pública) | cualquiera, sin sesión | — |
@@ -317,7 +317,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## feedback
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | panel | `GET /api/feedback/panel` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `feedback.view` |
 | lista | `GET /api/feedback/lista` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `feedback.view` |
@@ -332,7 +332,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## field-definitions
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listByProject | `GET /api/field-definitions/project/:projectId` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `field_defs.view` |
 | create | `POST /api/field-definitions/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `field_defs.edit` |
@@ -342,7 +342,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## forms
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | publicMeta | `GET /api/forms/public/:embedId` | nada (pública) | cualquiera, sin sesión | — |
 | publicSubmit | `POST /api/forms/public/:embedId/submit` | nada (pública) | cualquiera, sin sesión | — |
@@ -360,21 +360,21 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## ia-monitor
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getMetrics | `GET /api/ia/metrics/:projectId` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `ia.view` |
 | getGasto | `GET /api/ia/gasto` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `ia.view` |
 
 ## installation
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getInstallation | `GET /api/installation/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `installation.view` |
 | updateInstallation | `PATCH /api/installation/` | sesión · roleGuard(superadmin) +superadmin +soporte por el atajo | superadmin, soporte | `installation.edit` |
 
 ## integrations
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/integrations/` | sesión · roleGuard(superadmin, admin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `integrations.view` |
 | getOne | `GET /api/integrations/:provider` | sesión · roleGuard(superadmin, admin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `integrations.view` |
@@ -384,7 +384,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## invoices
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getIssuerLogo | `GET /api/invoices/issuers/:id/logo` | nada (pública) | cualquiera, sin sesión | — |
 | facturacionAlDia | `GET /api/invoices/facturacion-al-dia` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `facturas.view` |
@@ -438,7 +438,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## leads
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | webhook | `POST /api/leads/webhooks/:slug` | nada (pública) | cualquiera, sin sesión | — |
 | list | `GET /api/leads/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `leads.view` |
@@ -484,7 +484,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## make
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/make-webhooks/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `make.view` |
 | getById | `GET /api/make-webhooks/:id` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `make.view` |
@@ -497,7 +497,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## matriculas
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getDoc | `GET /api/matriculas/:id/doc/:tipo` | nada (pública) | cualquiera, sin sesión | — |
 | list | `GET /api/matriculas/` | sesión · roleGuard(admin, superadmin, gestor) +superadmin +soporte por el atajo | superadmin, admin, gestor, soporte | `matriculas.view` |
@@ -510,7 +510,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## mcp
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | estado | `GET /api/mcp/panel/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | lo de cada uno |
 | crearToken | `POST /api/mcp/panel/tokens` | sesión · a mano: mcp.acceso.js · puedeUsarMcp | superadmin, admin y gestor/soporte/project_manager con «usa_mcp» | `mcp.usar` |
@@ -539,7 +539,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## messages
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listConversations | `GET /api/mensajes/conversations` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `mensajes.usar` |
 | unreadCount | `GET /api/mensajes/conversations/unread-count` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `mensajes.usar` |
@@ -555,7 +555,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## meta-ads
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listAccounts | `GET /api/meta-ads/accounts` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `meta_ads.view` |
 | getAccount | `GET /api/meta-ads/account` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `meta_ads.view` |
@@ -578,7 +578,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## notifications
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/notifications/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor, colaborador | lo de cada uno |
 | unreadCount | `GET /api/notifications/unread-count` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor, colaborador | lo de cada uno |
@@ -590,7 +590,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## novedades
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listar | `GET /api/novedades/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `novedades.view` |
 | pdf | `GET /api/novedades/:version/pdf` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `novedades.view` |
@@ -599,7 +599,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## payroll
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listPlans | `GET /api/payroll/plans` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `payroll.view` |
 | upsertPlan | `PUT /api/payroll/plans` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `payroll.edit` |
@@ -617,10 +617,18 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## permissions
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getCatalogo | `GET /api/permissions/catalogo` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | lo de cada uno |
 | getSystemDefaults | `GET /api/permissions/system-defaults` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | lo de cada uno |
+| roles | `GET /api/permissions/roles` | (no existía) | (ruta nueva) | `roles.view` |
+| guardarRolFijo | `PUT /api/permissions/roles/fijos/:rol` | (no existía) | (ruta nueva) | `roles.edit` |
+| crearRolAMedida | `POST /api/permissions/roles/a-medida` | (no existía) | (ruta nueva) | `roles.edit` |
+| guardarRolAMedida | `PATCH /api/permissions/roles/a-medida/:id` | (no existía) | (ruta nueva) | `roles.edit` |
+| registro | `GET /api/permissions/registro` | (no existía) | (ruta nueva) | `roles.edit` |
+| ficha | `GET /api/permissions/personas/:id` | (no existía) | (ruta nueva) | lo de cada uno |
+| guardarExcepciones | `PUT /api/permissions/personas/:id/excepciones` | (no existía) | (ruta nueva) | `users.excepciones` |
+| cambiarRolAMedida | `PUT /api/permissions/personas/:id/rol-a-medida` | (no existía) | (ruta nueva) | `users.excepciones` |
 | listCustomRoles | `GET /api/permissions/custom-roles` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `roles.view` |
 | getCustomRole | `GET /api/permissions/custom-roles/:id` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `roles.view` |
 | createCustomRole | `POST /api/permissions/custom-roles` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `roles.edit` |
@@ -639,7 +647,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## proceso
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listarPasos | `GET /api/proceso/pasos` | sesión · ambitoDelProceso (campus) | superadmin, admin, gestor, soporte, project_manager, tutor | `proceso.view` |
 | crearPaso | `POST /api/proceso/pasos` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo · ambitoDelProceso (campus) | superadmin, admin, soporte | `proceso.configurar_pasos` |
@@ -658,7 +666,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## product-categories
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getTree | `GET /api/product-categories/tree` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `products.view` |
 | listByProject | `GET /api/product-categories/project/:projectId` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `products.view` |
@@ -669,7 +677,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## products
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/products/` | sesión · projectAccess (campus) | superadmin, admin, gestor, soporte, project_manager, tutor | `products.view` |
 | exportAll | `GET /api/products/export` | sesión · projectAccess (campus) | superadmin, admin, gestor, soporte, project_manager, tutor | `products.export` |
@@ -689,7 +697,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## project-channels
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/project-channels/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `channels.view` |
 | create | `POST /api/project-channels/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `channels.edit` |
@@ -698,7 +706,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## projects
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getLogo | `GET /api/projects/:id/logo` | nada (pública) | cualquiera, sin sesión | — |
 | getCatalog | `GET /api/projects/shortcuts/catalog` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `projects.view` |
@@ -718,7 +726,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## registro
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listar | `GET /api/registro/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `registro.view` |
 | fuentes | `GET /api/registro/fuentes` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `registro.view` |
@@ -726,7 +734,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## reports
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | overview | `GET /api/informes/overview` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `reports.view` |
 | (anónima) | `GET /api/informes/resumen-mensual` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `reports.mis_informes` |
@@ -752,7 +760,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## reports-ia
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/reports-ia/:projectId` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `reports_ia.view` |
 | getDetail | `GET /api/reports-ia/detail/:id` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `reports_ia.view` |
@@ -761,7 +769,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## sales
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | create | `POST /api/ventas/` | sesión · roleGuard(gestor, admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, gestor, soporte | `ventas.registrar` |
 | resumenVentas | `GET /api/ventas/resumen` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `ventas.view_equipo` |
@@ -780,7 +788,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## status
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getStatus | `GET /api/status/` | nada (pública) | cualquiera, sin sesión | — |
 | getIncidents | `GET /api/status/incidents` | nada (pública) | cualquiera, sin sesión | — |
@@ -794,7 +802,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## stripe-payments
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | list | `GET /api/stripe-payments/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `stripe.view` |
 | stats | `GET /api/stripe-payments/stats` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `stripe.view` |
@@ -807,7 +815,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## tasks
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | (anónima) | `GET /api/tasks/metrics` | sesión · soloRoles(superadmin, admin, colaborador) | superadmin, admin, colaborador | `tasks.view_own` o `tasks.view_all` |
 | (anónima) | `GET /api/tasks/metrics/areas` | sesión · soloRoles(superadmin, admin, colaborador) | superadmin, admin, colaborador | `tasks.view_own` o `tasks.view_all` |
@@ -850,7 +858,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## tutores
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | colaboraciones | `GET /api/tutores/colaboraciones` | sesión · a mano: tutor.controller.js · esTutor \|\| exigirGestion | superadmin, admin, tutor y gestor/soporte/project_manager con «gestor_colaboraciones» | `tutores.mis_cursos` o `tutores.gestionar` |
 | crearColaboracion | `POST /api/tutores/colaboraciones` | sesión · a mano: tutor.controller.js · exigirGestion | superadmin, admin y gestor/soporte/project_manager/tutor con «gestor_colaboraciones» | `tutores.gestionar` |
@@ -887,7 +895,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## users
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getAvatar | `GET /api/users/:id/avatar` | nada (pública) | cualquiera, sin sesión | — |
 | uploadAvatar | `POST /api/users/:id/avatar` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor, colaborador | lo de cada uno |
@@ -914,7 +922,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## webhook-tokens
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | publicReceive | `POST /api/webhook-tokens/receive/:token` | nada (pública) | cualquiera, sin sesión | — |
 | list | `GET /api/webhook-tokens/` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `webhooks.view` |
@@ -927,7 +935,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## webhooks-salientes
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | listar | `GET /api/webhooks-salientes/` | sesión · soloRoles(admin, superadmin) | superadmin, admin | `webhooks_salientes.view` |
 | ejemplo | `GET /api/webhooks-salientes/ejemplo` | sesión · soloRoles(admin, superadmin) | superadmin, admin | `webhooks_salientes.view` |
@@ -943,7 +951,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## whatsapp
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | webhook | `POST /api/whatsapp/webhook` | nada (pública) | cualquiera, sin sesión | — |
 | verMedia | `GET /api/whatsapp/media/:mensajeId` | nada (pública) | cualquiera, sin sesión | — |
@@ -989,7 +997,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## widget
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getConfig | `GET /api/widget/config` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `widget.view` |
 | updateConfig | `PATCH /api/widget/config` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | `widget.edit` |
@@ -999,7 +1007,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 ## woocommerce
 
-| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | getCreds | `GET /api/woocommerce/credentials` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `woocommerce.view` |
 | upsertCreds | `PUT /api/woocommerce/credentials` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `woocommerce.edit` |

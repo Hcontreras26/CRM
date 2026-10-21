@@ -8,6 +8,8 @@
  * (`npm run permisos:inventario`), y la prueba falla si cualquiera de los dos
  * se queda viejo.
  */
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { leerRutas } from './rutas.js';
 import { PUERTAS, ALCANCE, YA_CON_PERMISO } from './manuales.js';
 import { puedeRuta, pasaRegla, manual, ROLES_DEL_SISTEMA } from './legado.js';
@@ -33,9 +35,12 @@ function puertasDe(ruta) {
 }
 
 /** ¿Entraba esta persona? Guardias de la ruta y puertas a mano, todas. */
-export function puedeAntes(u, entrada) {
+export function puedeAntes(u, fila) {
+  // Siempre con la fila CONGELADA: los guardias de ahora ya no son los de antes.
+  const entrada = ANTES.get(fila.id);
+  if (!entrada) return null; // ruta nueva: antes no existía
   if (entrada.tipo === 'condicion') {
-    const base = puedeRuta(u, entrada.ruta_base);
+    const base = puedeRuta(u, ANTES.get(entrada.id.split(' · ')[0]));
     if (base === null) return null;
     return base && manual[entrada.regla](u);
   }
@@ -43,6 +48,15 @@ export function puedeAntes(u, entrada) {
   if (r === null) return null;
   return r && entrada.puertas.every((id) => manual[PUERTAS.find((p) => p.id === id).regla](u));
 }
+
+/**
+ * EL INVENTARIO DE ANTES, congelado (#423). Es el de la fase 1 tal cual: cada
+ * ruta con los guardias que tenía antes de que se tocara nada. El «antes» se
+ * evalúa siempre aquí; el inventario vivo (`construirInventario`) dice qué
+ * clave pide cada ruta ahora.
+ */
+export const ANTES = new Map(
+  JSON.parse(fs.readFileSync(fileURLToPath(new URL('./antes-423.json', import.meta.url)), 'utf8')).map((f) => [f.id, f]));
 
 /**
  * ¿Entra con el catálogo? `mapa` es lo que puede la persona ({ clave: bool }),
@@ -80,7 +94,9 @@ function describirRegla(g) {
 }
 
 /** «Quién puede de verdad»: los roles que entran solos, y qué casilla abre la puerta a otros. */
-export function quienPuede(entrada) {
+export function quienPuede(fila) {
+  const entrada = ANTES.get(fila.id);
+  if (!entrada) return '(ruta nueva)';
   if (entrada.publica && entrada.tipo !== 'condicion') return 'cualquiera, sin sesión';
   const roles = ROLES_DEL_SISTEMA.filter((r) => puedeAntes(personaDePrueba(r), entrada) === true);
   const abre = [];
@@ -175,7 +191,9 @@ function catalogoEnMarkdown() {
   return lineas;
 }
 
-function protegeHoy(f) {
+function protegeHoy(fila) {
+  const f = ANTES.get(fila.id);
+  if (!f) return '(no existía)';
   if (f.tipo === 'condicion') {
     const p = PUERTAS.find((x) => x.id === f.puerta);
     return `cuando ${f.condicion}: a mano, ${p.donde}`;
@@ -205,8 +223,8 @@ export function inventarioEnMarkdown(filas) {
     `${total} rutas en ${porModulo.size} módulos, y ${filas.length - total} acciones con condición dentro de una ruta.`,
     sinRegla.length ? `**${sinRegla.length} rutas con un guardia sin clasificar.**` : 'Ningún guardia sin clasificar.',
     '',
-    '**Cómo leerlo.** «Qué la protege hoy» es lo que hay en el código: `roleGuard` deja pasar',
-    'además a superadmin y a soporte; `soloRoles` no. «Quién puede de verdad» lo calcula',
+    '**Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar',
+    'además a superadmin y a soporte; `soloRoles` no. «Quién podía» lo calcula',
     'la copia congelada de esas reglas (`inventario/legado.js`) para cada rol, sin casillas',
     'ni excepciones, y dice qué casilla abre la puerta a quien no entra por su rol. El',
     'alcance —qué campus, qué prospectos— no cambia quién entra y va al final.',
@@ -216,7 +234,7 @@ export function inventarioEnMarkdown(filas) {
     '',
   ];
   for (const [modulo, fs] of porModulo) {
-    lineas.push(`## ${modulo}`, '', '| Acción | Método y ruta | Qué la protege hoy | Quién puede de verdad | Permiso |', '|---|---|---|---|---|');
+    lineas.push(`## ${modulo}`, '', '| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |', '|---|---|---|---|---|');
     for (const f of fs) {
       const accion = f.tipo === 'condicion' ? `${f.controlador} · ${f.condicion}` : (f.controlador || '(anónima)');
       lineas.push(`| ${celda(accion)} | \`${f.metodo} ${celda(f.ruta)}\` | ${celda(protegeHoy(f))} | ${celda(quienPuede(f))} | ${celda(permisoDe(f))} |`);
@@ -235,5 +253,5 @@ export function inventarioEnMarkdown(filas) {
 
 /** Lo que se guarda en `inventario.json`: sin la ruta base repetida. */
 export function inventarioEnJson(filas) {
-  return JSON.stringify(filas.map(({ ruta_base, ...f }) => f), null, 1) + '\n';
+  return JSON.stringify(filas.map(({ ruta_base: _base, ...f }) => f), null, 1) + '\n';
 }

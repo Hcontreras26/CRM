@@ -1,384 +1,258 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Lock, Plus, ShieldCheck, UsersThree } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
-import { ShieldCheck, Plus, Lock, CheckCircle, Circle, PencilSimple } from '@phosphor-icons/react';
-import PestanaVista from '../components/PestanaVista';
-import PermisosTareas from '../components/PermisosTareas';
-import PermisoDiplomas from '../components/PermisoDiplomas';
 import usePermission, { type PermissionMap } from '@/shared/hooks/usePermission';
-import { FIXED_ROLES } from '@/shared/hooks/usePermission';
-import * as api from '../api/permissions.api';
-import type { CustomRole, SystemDefaults } from '../api/permissions.api';
 import { toast } from '@/shared/hooks/useToast';
+import { cn } from '@/shared/lib/utils';
+import PestanaVista from '../components/PestanaVista';
+import EditorDePermisos from '../components/EditorDePermisos';
+import * as api from '../api/permissions.api';
+import type { Catalogo, ListaDeRoles, SystemDefaults } from '../api/permissions.api';
+import { accionesDe, cambiadas } from '../lib/permisos';
 
-// Los colores de un rol son IDENTIDAD, no semántica: quien lo crea elige uno
-// para reconocerlo entre otros. Viven en `shared/lib/ui` junto a los de avatar,
-// que es la misma excepción y el mismo sitio único.
-import { ROLE_COLORS, type RoleColor } from '@/shared/lib/ui';
+/**
+ * Configuración › Roles (#423). Como en Shopify: a la izquierda los roles —los
+ * fijos y los a medida—, a la derecha todo lo que trae el elegido, por
+ * secciones del menú, con casillas.
+ *
+ * Cambiar un rol vale para todas las empresas, así que solo quien tiene
+ * «Cambiar roles» (de serie, el superadmin). El resto lo ve en solo lectura.
+ * Lo de una persona suelta se cambia en su ficha (Configuración › Usuarios).
+ */
 
-const COLOR_BG: Record<RoleColor, string> = ROLE_COLORS;
-
-// Las cuatro acciones que llevan columna propia; el resto van a «Otros».
-// Es el vocabulario del backend: `view`/`edit`, no `read`/`update`.
-const COLUMNAS = ['view', 'create', 'edit', 'delete'];
-
-// Nombre en castellano de cada accion. Cubre tambien las que no llevan columna
-// (`export`, `assign`, `upload`…) porque en movil se listan igual.
-const ACCION_ES: Record<string, string> = {
-  view: 'Ver', create: 'Crear', edit: 'Editar', delete: 'Eliminar',
-  export: 'Exportar', assign: 'Asignar', bulk_action: 'En bloque',
-  upload: 'Subir', sync: 'Sincronizar', sin_gestora: 'Sin gestora',
-  view_all: 'Ver todo', view_own: 'Ver lo suyo', close: 'Aprobar y cerrar', manage: 'Configurar',
-  // Facturas de colaboradores (#202).
-  ver_todas: 'Ver todas', gestionar: 'Gestionar', anular: 'Anular', pagar: 'Marcar pagada', subir: 'Subir la suya',
-  // Diplomas de Certifex (22/10/2026).
-  emit: 'Emitir',
-};
-
-// Qué permite cada clave, cuando el nombre no basta. Sale al pasar el ratón.
-// Las 8 de Tareas (#210): «Aprobar y cerrar» y «Configurar» deciden en el
-// servidor, no el rol.
-const AYUDA: Record<string, string> = {
-  'tasks.view_all': 'Ver el tablero de cualquier persona, «Todo el equipo» y sus métricas',
-  'tasks.view_own': 'Ver su propio tablero',
-  'tasks.create': 'Crearse tareas para sí',
-  'tasks.assign': 'Asignar o reasignar tareas a otras personas',
-  'tasks.edit': 'Editar las tareas que ve',
-  'tasks.delete': 'Archivar cualquier tarea y borrar comentarios de otros',
-  'tasks.close': 'Aprobar o devolver desde «Por revisar», y cerrar o reabrir una tarea («Hecha»)',
-  'tasks.manage': 'Configurar el tablero: columnas, áreas y proyectos propios',
-  // Diplomas de Certifex (#384 y 22/10/2026).
-  'diplomas.view': 'Ver la pantalla Diplomas en solo lectura, con sus campus',
-  'diplomas.emit': 'Revisar, pasar a Pendientes, aprobar y emitir y enviar el diploma al alumno, con sus campus. Rechazar, corregir y revocar, no',
-};
-
-// Los roles con tablero que no salen en FIXED_ROLES (que se usa en más sitios
-// y no se toca): también se les pueden cambiar los permisos de Tareas.
-const ROLES_CON_TABLERO: ReadonlyArray<{ key: string; label: string; desc: string; color: RoleColor }> = [
-  { key: 'colaborador', label: 'Colaborador', desc: 'Del grupo, sin campus. Solo el tablero de tareas.', color: 'sky' },
-];
-
-// A quién se le pueden cambiar los permisos de Tareas: a los roles con tablero
-// menos el superadmin (lo puede todo), y a los roles a medida. Gestora, soporte,
-// project manager y tutor no tienen tablero (Diego, 09/10). Igual que el servidor.
-const editaTareas = (key: string) => key === 'admin' || key === 'colaborador' || key.startsWith('custom:');
-
-// «Diplomas (Certifex) · Ver» (#384) y «· Emitir» (22/10/2026) se dan a los roles
-// que no los tienen por el suyo: admin y superadmin ya los tienen, y tutor y
-// colaborador no pueden. Igual que el servidor (CLAVES_SUELTAS en
-// permissions.service.js).
-const daDiplomas = (key: string) => key === 'gestor' || key === 'soporte' || key.startsWith('custom:');
-
-interface RoleEntry {
-  key: string;
-  label: string;
-  desc: string;
-  color: RoleColor;
-  custom?: CustomRole;
-}
+type Elegido = { tipo: 'fijo'; clave: string } | { tipo: 'medida'; id: number };
+const claveDe = (e: Elegido) => (e.tipo === 'fijo' ? e.clave : `custom:${e.id}`);
 
 export default function RolesPage() {
-  const [selectedRole, setSelectedRole] = useState<string>('superadmin');
-  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
-  const [customRolesAvailable, setCustomRolesAvailable] = useState<boolean | null>(null);
-  const [pestana, setPestana] = useState<'permisos' | 'vista'>('permisos');
+  const { can } = usePermission();
+  const puedeCambiar = can('roles.edit');
+  const [catalogo, setCatalogo] = useState<Catalogo | null>(null);
+  const [roles, setRoles] = useState<ListaDeRoles | null>(null);
   const [defaults, setDefaults] = useState<SystemDefaults | null>(null);
-  // El superadmin y el admin cambian los permisos de Tareas (Hugo, 09/10).
-  const { tieneRol } = usePermission();
-  const puedeEditarTareas = tieneRol('superadmin', 'admin');
+  const [error, setError] = useState<string | null>(null);
+  const [elegido, setElegido] = useState<Elegido>({ tipo: 'fijo', clave: 'admin' });
+  const [pestana, setPestana] = useState<'permisos' | 'vista'>('permisos');
+  const [borrador, setBorrador] = useState<PermissionMap | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [creando, setCreando] = useState<{ nombre: string; base: string } | null>(null);
 
-  // El catalogo del backend: recursos, acciones, widgets y elementos del menu,
-  // y los permisos de cada rol con lo cambiado aquí ya aplicado.
-  const cargarDefaults = useCallback(() => {
-    api.getSystemDefaults().then(setDefaults).catch(() => {});
-  }, []);
-  useEffect(() => { cargarDefaults(); }, [cargarDefaults]);
-
-  const cargarRolesMedida = useCallback(async () => {
+  const cargar = useCallback(async () => {
     try {
-      setCustomRoles(await api.listCustomRoles());
-      setCustomRolesAvailable(true);
-    } catch {
-      setCustomRolesAvailable(false);
+      const [c, r] = await Promise.all([api.getCatalogo(), api.getRoles()]);
+      setCatalogo(c);
+      setRoles(r);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudieron cargar los roles');
     }
   }, []);
+  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { api.getSystemDefaults().then(setDefaults).catch(() => {}); }, []);
 
-  // Los roles a medida son globales, no de un campus.
-  useEffect(() => { cargarRolesMedida(); }, [cargarRolesMedida]);
+  const fijo = elegido.tipo === 'fijo' ? roles?.fijos.find((r) => r.clave === elegido.clave) : null;
+  const medida = elegido.tipo === 'medida' ? roles?.aMedida.find((r) => r.id === elegido.id) : null;
+  const original = (fijo?.permisos || medida?.permisos || {}) as PermissionMap;
+  const valores = borrador || original;
+  const editable = puedeCambiar && (medida ? true : !!fijo?.editable);
+  const sucio = borrador !== null && cambiadas(original, borrador).length > 0;
 
-  const rolesDelSistema = [...FIXED_ROLES, ...ROLES_CON_TABLERO];
-  const allRoles: RoleEntry[] = [
-    ...rolesDelSistema.map((r): RoleEntry => ({ key: r.key, label: r.label, desc: r.desc, color: r.color })),
-    ...customRoles.map((r): RoleEntry => ({ key: `custom:${r.id}`, label: r.label, custom: r, color: 'amber', desc: r.description || '' })),
-  ];
-  const role = allRoles.find((r) => r.key === selectedRole);
+  // Lo que el catálogo no deja dar a este rol (`nunca`).
+  const bloqueadas = useMemo(() => {
+    if (!catalogo) return [];
+    const rol = fijo?.clave || medida?.base;
+    return accionesDe(catalogo).filter((a) => rol && a.nunca.includes(rol)).map((a) => a.clave);
+  }, [catalogo, fijo, medida]);
 
-  // Lo que manda de verdad: el servidor, con lo cambiado aquí. El espejo del
-  // frontal queda de respaldo mientras carga (y para el superadmin, «todo»).
-  // Un rol a medida es su rol base más sus propias claves.
-  function permisosDe(entrada: RoleEntry): PermissionMap {
-    const delServidor = (k: string) => {
-      const r = defaults?.roles?.[k];
-      return (r && typeof r === 'object') ? r : {};
-    };
-    if (entrada.custom) return { ...delServidor(entrada.custom.base_role || 'gestor'), ...(entrada.custom.permissions || {}) };
-    return delServidor(entrada.key);
+  function elegir(e: Elegido) {
+    if (sucio && !window.confirm('Hay cambios sin guardar en este rol. ¿Descartarlos?')) return;
+    setBorrador(null);
+    setElegido(e);
   }
-  const alGuardarTareas = () => { cargarDefaults(); cargarRolesMedida(); };
-  // Los recursos y sus acciones, del servidor (catálogo, #423).
-  const recursos = Object.entries(defaults?.resources || {}).map(([key, actions]) => ({ key, label: key, actions }));
+
+  async function guardar() {
+    if (!borrador) return;
+    setGuardando(true);
+    try {
+      if (fijo) await api.guardarRolFijo(fijo.clave, borrador);
+      else if (medida) await api.guardarRolAMedida(medida.id, { permisos: borrador });
+      toast({ title: 'Permisos guardados', description: 'Queda apuntado en el registro de cambios.' });
+      setBorrador(null);
+      await cargar();
+    } catch (e) {
+      toast({ title: 'No se ha guardado', description: e instanceof Error ? e.message : String(e), variant: 'destructive' });
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  async function crear() {
+    if (!creando?.nombre.trim()) return;
+    try {
+      const { id } = await api.crearRolAMedida({ nombre: creando.nombre.trim(), base: creando.base });
+      setCreando(null);
+      await cargar();
+      setBorrador(null);
+      setElegido({ tipo: 'medida', id });
+      toast({ title: 'Rol creado', description: `Parte de «${creando.base}». Ahora marca lo que cambia.` });
+    } catch (e) {
+      toast({ title: 'No se ha creado', description: e instanceof Error ? e.message : String(e), variant: 'destructive' });
+    }
+  }
+
+  const nombreRol = (k: string) => roles?.fijos.find((r) => r.clave === k)?.nombre || k;
 
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
-        title="Roles y Permisos"
+        title="Roles y permisos"
         backTo="/configuracion"
         backLabel="Configuración"
-        subtitle="Define qué puede hacer cada usuario según su rol"
-        actions={
-          <button
-            disabled={customRolesAvailable !== true}
-            onClick={() => toast({ title: 'Roles custom pendientes', description: 'CRM-228 backend en otra rama. Por ahora solo se pueden ver los 4 roles fijos.' })}
-            title={customRolesAvailable === false ? 'Pendiente CRM-228 (backend)' : ''}
-            aria-label="Crear rol custom"
-            className="flex items-center gap-1.5 h-9 px-3 sm:px-4 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus size={14} weight="bold" /> <span className="hidden sm:inline">Crear rol custom</span>
+        subtitle="Qué puede hacer cada rol. Lo de una persona suelta, en su ficha de Usuarios."
+        actions={puedeCambiar ? (
+          <button type="button" onClick={() => setCreando({ nombre: '', base: 'gestor' })}
+            className="flex h-9 items-center gap-1.5 rounded-xl bg-primary px-3 text-normal font-bold text-primary-foreground sm:px-4">
+            <Plus size={14} weight="bold" /> <span className="hidden sm:inline">Nuevo rol a medida</span>
           </button>
-        }
+        ) : null}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
-        {/* Panel izquierdo: lista de roles */}
-        <aside className="space-y-2">
-          <h3 className="text-xs font-bold uppercase text-muted-foreground px-1">Roles del sistema</h3>
-          {rolesDelSistema.map((r) => (
-            <button
-              key={r.key}
-              type="button"
-              onClick={() => setSelectedRole(r.key)}
-              className={`w-full text-left p-3 rounded-xl border transition-colors flex items-start gap-3 ${
-                selectedRole === r.key
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border bg-card hover:bg-muted/50'
-              }`}
-            >
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${COLOR_BG[r.color]}`}>
-                <ShieldCheck size={16} weight="bold" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-sm">{r.label}</span>
-                  <Lock size={10} className="text-muted-foreground" />
-                </div>
-                <p className="text-[11px] text-muted-foreground line-clamp-2">{r.desc}</p>
-              </div>
-            </button>
-          ))}
+      {error && <p className="rounded-lg border border-border bg-destructive-soft p-3 text-normal text-destructive-soft-foreground">{error}</p>}
 
-          {customRoles.length > 0 && (
+      {creando && (
+        <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
+          <h2 className="font-bold">Nuevo rol a medida</h2>
+          <p className="text-secundario text-muted-foreground">Parte de un rol fijo y luego cambias solo lo que lo hace distinto.</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input autoFocus value={creando.nombre} onChange={(e) => setCreando({ ...creando, nombre: e.target.value })}
+              placeholder="Nombre: «Gestora con facturación»" aria-label="Nombre del rol"
+              className="h-9 flex-1 rounded-lg border border-border bg-card px-3 text-normal" />
+            <select value={creando.base} onChange={(e) => setCreando({ ...creando, base: e.target.value })}
+              aria-label="Rol del que parte" className="h-9 rounded-lg border border-border bg-card px-2 text-normal">
+              {roles?.fijos.filter((r) => r.editable).map((r) => <option key={r.clave} value={r.clave}>Parte de {r.nombre}</option>)}
+            </select>
+            <button type="button" onClick={crear} disabled={!creando.nombre.trim()}
+              className="h-9 rounded-lg bg-primary px-4 text-normal font-semibold text-primary-foreground disabled:opacity-50">Crear</button>
+            <button type="button" onClick={() => setCreando(null)} className="h-9 rounded-lg border border-border px-3 text-normal">Cancelar</button>
+          </div>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="space-y-2">
+          <h3 className="px-1 text-secundario font-bold uppercase text-muted-foreground">Roles fijos</h3>
+          {roles?.fijos.map((r) => (
+            <BotonRol key={r.clave} activo={elegido.tipo === 'fijo' && elegido.clave === r.clave}
+              onClick={() => elegir({ tipo: 'fijo', clave: r.clave })}
+              nombre={r.nombre} detalle={r.descripcion} personas={r.personas} cambiado={r.cambiados.length > 0} fijo />
+          ))}
+          {roles && roles.aMedida.length > 0 && (
             <>
-              <h3 className="text-xs font-bold uppercase text-muted-foreground px-1 pt-3">Roles personalizados</h3>
-              {customRoles.map((cr) => {
-                const k = `custom:${cr.id}`;
-                return (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setSelectedRole(k)}
-                    className={`w-full text-left p-3 rounded-xl border transition-colors flex items-start gap-3 ${
-                      selectedRole === k ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${COLOR_BG.emerald}`}>
-                      <ShieldCheck size={16} weight="bold" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm">{cr.label}</p>
-                      <p className="text-[11px] text-muted-foreground line-clamp-2">{cr.description || 'Hereda de ' + (cr.base_role || '—')}</p>
-                    </div>
-                  </button>
-                );
-              })}
+              <h3 className="px-1 pt-3 text-secundario font-bold uppercase text-muted-foreground">Roles a medida</h3>
+              {roles.aMedida.map((r) => (
+                <BotonRol key={r.id} activo={elegido.tipo === 'medida' && elegido.id === r.id}
+                  onClick={() => elegir({ tipo: 'medida', id: r.id })}
+                  nombre={r.nombre} detalle={r.descripcion || `Parte de ${nombreRol(r.base)}`} personas={r.personas}
+                  inactivo={!r.activo} />
+              ))}
             </>
           )}
         </aside>
 
-        {/* Panel derecho: matriz de permisos del rol seleccionado */}
-        <section className="bg-card border border-border rounded-2xl p-4 space-y-3">
-          {role ? (
+        <section className="min-w-0 space-y-3 rounded-2xl border border-border bg-card p-4">
+          {(fijo || medida) && catalogo ? (
             <>
-              <header className="flex items-center justify-between gap-3 pb-3 border-b border-border">
-                <div>
-                  <h2 className="text-lg font-bold">{role.label}</h2>
-                  <p className="text-xs text-muted-foreground">{role.desc}</p>
+              <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold">{fijo?.nombre || medida?.nombre}</h2>
+                  <p className="text-secundario text-muted-foreground">
+                    {fijo ? fijo.descripcion : `Rol a medida. Parte de ${nombreRol(medida!.base)}${medida!.activo ? '' : ' · desactivado: no se aplica a nadie'}.`}
+                    {' '}{(fijo || medida)!.personas} {(fijo || medida)!.personas === 1 ? 'persona' : 'personas'}.
+                  </p>
                 </div>
-                {puedeEditarTareas && editaTareas(role.key) ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/10 text-primary font-bold">
-                    <PencilSimple size={10} /> Tareas editables
+                {!editable && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-secundario font-bold">
+                    <Lock size={12} /> {fijo?.clave === 'superadmin' ? 'Lo tiene todo' : 'Solo lectura'}
                   </span>
-                ) : puedeEditarTareas && daDiplomas(role.key) ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/10 text-primary font-bold">
-                    <PencilSimple size={10} /> Diplomas editable
-                  </span>
-                ) : !role.custom && (
-                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-muted font-bold">
-                    <Lock size={10} /> Solo lectura
-                  </span>
+                )}
+                {medida && puedeCambiar && (
+                  <button type="button" className="h-8 rounded-lg border border-border px-3 text-secundario font-semibold hover:bg-muted"
+                    onClick={async () => { await api.guardarRolAMedida(medida.id, { activo: !medida.activo }); await cargar(); }}>
+                    {medida.activo ? 'Desactivar' : 'Activar'}
+                  </button>
                 )}
               </header>
 
-              <nav className="flex items-center gap-1 -mt-1">
+              <nav className="-mt-1 flex items-center gap-1">
                 {([['permisos', 'Permisos'], ['vista', 'Vista']] as const).map(([id, texto]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setPestana(id)}
-                    className={`h-8 px-3 rounded-lg text-sm font-semibold transition-colors ${
-                      pestana === id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
+                  <button key={id} type="button" onClick={() => setPestana(id)}
+                    className={cn('h-8 rounded-lg px-3 text-normal font-semibold transition-colors',
+                      pestana === id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted')}>
                     {texto}
                   </button>
                 ))}
               </nav>
 
               {pestana === 'vista' ? (
-                <PestanaVista
-                  roleKey={role.key}
-                  esFijo={!role.custom}
-                  customId={role.custom?.id}
-                  defaults={defaults}
-                />
+                <PestanaVista roleKey={claveDe(elegido)} esFijo={elegido.tipo === 'fijo'} customId={medida?.id} defaults={defaults} />
               ) : (
-              <>
-
-              {puedeEditarTareas && editaTareas(role.key) && (
-                <PermisosTareas roleKey={role.key} onGuardado={alGuardarTareas} />
-              )}
-
-              {puedeEditarTareas && daDiplomas(role.key) && (
-                <PermisoDiplomas
-                  clave="diplomas.view"
-                  roleKey={role.key}
-                  rolLabel={role.label}
-                  puedeCambiarRol={tieneRol('superadmin')}
-                  onGuardado={alGuardarTareas}
-                />
-              )}
-
-              {/* Emitir (Diego, 22/10/2026: «que Dayana pueda emitir»): igual, por rol o por persona. */}
-              {puedeEditarTareas && daDiplomas(role.key) && (
-                <PermisoDiplomas
-                  clave="diplomas.emit"
-                  roleKey={role.key}
-                  rolLabel={role.label}
-                  puedeCambiarRol={tieneRol('superadmin')}
-                  onGuardado={alGuardarTareas}
-                />
-              )}
-
-              {/* Desktop table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 pr-4 text-xs font-bold uppercase text-muted-foreground">Recurso</th>
-                      <th className="text-center py-2 px-2 text-xs font-bold uppercase text-muted-foreground">Ver</th>
-                      <th className="text-center py-2 px-2 text-xs font-bold uppercase text-muted-foreground">Crear</th>
-                      <th className="text-center py-2 px-2 text-xs font-bold uppercase text-muted-foreground">Editar</th>
-                      <th className="text-center py-2 px-2 text-xs font-bold uppercase text-muted-foreground">Eliminar</th>
-                      <th className="text-center py-2 px-2 text-xs font-bold uppercase text-muted-foreground">Otros</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recursos.map((res) => {
-                      const perms = permisosDe(role);
-                      const all = perms['*'] === true;
-                      const has = (a: string): boolean => all || perms[`${res.key}.${a}`] === true;
-                      const others = res.actions.filter((a) => !COLUMNAS.includes(a));
-                      return (
-                        <tr key={res.key} className="border-b border-border last:border-0">
-                          <td className="py-2 pr-4 font-medium">{res.label}</td>
-                          {COLUMNAS.map((a) => (
-                            <td key={a} className="py-2 px-2 text-center">
-                              {res.actions.includes(a) ? (
-                                has(a) ? (
-                                  <CheckCircle size={16} weight="fill" className="inline text-success" />
-                                ) : (
-                                  <Circle size={16} className="inline text-muted-foreground/40" />
-                                )
-                              ) : (
-                                <span className="text-muted-foreground/30">—</span>
-                              )}
-                            </td>
-                          ))}
-                          <td className="py-2 px-2 text-center text-[11px] text-muted-foreground">
-                            {others.length === 0 ? '—' : others.map((a) => (
-                              <span key={a} title={AYUDA[`${res.key}.${a}`]} className={`inline-block px-1.5 mx-0.5 rounded ${has(a) ? 'bg-success/15 text-success-soft-foreground' : 'bg-muted/40'}`}>
-                                {ACCION_ES[a] || a}
-                              </span>
-                            ))}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile cards */}
-              <div className="md:hidden space-y-2">
-                {recursos.map((res) => {
-                  const perms = permisosDe(role);
-                  const all = perms['*'] === true;
-                  const has = (a: string): boolean => all || perms[`${res.key}.${a}`] === true;
-                  const others = res.actions.filter((a) => !COLUMNAS.includes(a));
-                  return (
-                    <div key={res.key} className="bg-muted/30 border border-border rounded-lg p-3">
-                      <p className="text-sm font-semibold mb-2">{res.label}</p>
-                      <div className="grid grid-cols-2 gap-y-1 gap-x-3 text-[11px]">
-                        {COLUMNAS.map((a) => (
-                          <div key={a} className="flex items-center gap-1.5">
-                            {res.actions.includes(a) ? (
-                              has(a) ? (
-                                <CheckCircle size={14} weight="fill" className="text-success flex-shrink-0" />
-                              ) : (
-                                <Circle size={14} className="text-muted-foreground/40 flex-shrink-0" />
-                              )
-                            ) : (
-                              <span className="text-muted-foreground/30 w-3.5 text-center">—</span>
-                            )}
-                            <span className="text-muted-foreground">{ACCION_ES[a] || a}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {others.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-border/50 flex flex-wrap gap-1">
-                          {others.map((a) => (
-                            <span key={a} title={AYUDA[`${res.key}.${a}`]} className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${has(a) ? 'bg-success/15 text-success-soft-foreground' : 'bg-muted/40 text-muted-foreground'}`}>
-                              {ACCION_ES[a] || a}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                <>
+                  <EditorDePermisos
+                    catalogo={catalogo}
+                    valores={valores}
+                    soloLectura={!editable}
+                    bloqueadas={bloqueadas}
+                    onCambiar={setBorrador}
+                    marca={(k) => ((fijo?.cambiados || medida?.cambiados || []).includes(k)
+                      ? <span className="rounded bg-info-soft px-1.5 text-secundario text-info-soft-foreground" title="Distinto de lo que trae de serie">cambiado</span>
+                      : null)}
+                  />
+                  {editable && (
+                    <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border bg-card pt-3">
+                      <button type="button" onClick={guardar} disabled={!sucio || guardando}
+                        className="h-9 rounded-lg bg-primary px-4 text-normal font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
+                        {guardando ? 'Guardando…' : 'Guardar'}
+                      </button>
+                      <button type="button" onClick={() => setBorrador(null)} disabled={!sucio || guardando}
+                        className="h-9 rounded-lg border border-border bg-card px-3 text-normal font-medium hover:bg-muted disabled:opacity-50">
+                        Descartar
+                      </button>
+                      {sucio && <span className="text-secundario text-muted-foreground">{cambiadas(original, valores).length} cambios sin guardar</span>}
                     </div>
-                  );
-                })}
-              </div>
-
-              <p className="text-[11px] text-muted-foreground italic pt-2">
-                Los permisos de los roles del sistema viven en el backend. Desde aquí el superadmin y el admin solo
-                cambian «Aprobar y cerrar» y «Configurar» de Tareas, y «Diplomas (Certifex) · Ver» (el rol entero, solo
-                el superadmin); esta tabla enseña lo que manda ahora.
-              </p>
-              </>
+                  )}
+                </>
               )}
             </>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-12">Selecciona un rol para ver su matriz de permisos.</p>
+            <p className="text-normal text-muted-foreground">{error ? '' : 'Cargando…'}</p>
           )}
         </section>
       </div>
     </div>
+  );
+}
+
+function BotonRol({ activo, onClick, nombre, detalle, personas, fijo = false, cambiado = false, inactivo = false }: {
+  activo: boolean; onClick: () => void; nombre: string; detalle: string; personas: number;
+  fijo?: boolean; cambiado?: boolean; inactivo?: boolean;
+}) {
+  return (
+    <button type="button" onClick={onClick} aria-current={activo ? 'true' : undefined}
+      className={cn('flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-colors',
+        activo ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/50', inactivo && 'opacity-60')}>
+      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <ShieldCheck size={16} weight="bold" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5">
+          <span className="truncate text-normal font-semibold">{nombre}</span>
+          {fijo && <Lock size={10} className="text-muted-foreground" aria-label="Rol fijo" />}
+          {cambiado && <span className="rounded bg-info-soft px-1 text-secundario text-info-soft-foreground">cambiado</span>}
+        </span>
+        <span className="line-clamp-2 block text-secundario text-muted-foreground">{detalle}</span>
+        <span className="mt-0.5 flex items-center gap-1 text-secundario text-muted-foreground">
+          <UsersThree size={12} /> {personas}
+        </span>
+      </span>
+    </button>
   );
 }

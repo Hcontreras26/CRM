@@ -69,6 +69,16 @@ const db = vi.hoisted(() => {
     if (s.startsWith('SELECT u.id, u.nombre, u.email, u.role')) {
       return { rows: estado.users.filter((u) => u.id === Number(params[0])) };
     }
+    // Registro de permisos (#423): cómo estaba la persona, y el apunte.
+    if (s.startsWith('SELECT u.role::text AS role, COALESCE(u.roles_extra::text[]')) {
+      return { rows: estado.users.filter((u) => u.id === Number(params[0])).map((u) => ({
+        role: u.role, roles_extra: u.roles_extra || [], factura_manager: false, editar_fechas_factura: false,
+        gestor_colaboraciones: false, usa_whatsapp: true })) };
+    }
+    if (s.startsWith('INSERT INTO permisos_registro')) {
+      (estado.registro ||= []).push(params);
+      return { rows: [] };
+    }
     if (s.startsWith('SELECT role FROM users WHERE id')) {
       return { rows: estado.users.filter((u) => u.id === Number(params[0])).map((u) => ({ role: u.role })) };
     }

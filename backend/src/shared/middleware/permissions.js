@@ -61,3 +61,42 @@ export function rolOPermiso(roles, resource, action) {
     }
   }, { tipo: 'rolOPermiso', roles, clave: `${resource}.${acciones[0]}`, claves: acciones.map((a) => `${resource}.${a}`) });
 }
+
+/* ─── #423 · Cada acción con su permiso del catálogo ─────────────────────── */
+
+/**
+ * Lo que puede quien hace la petición, leído UNA vez por petición. Va a la
+ * base, no al token: quitarle algo a alguien surte efecto ya.
+ */
+export function cargarPermisos(req) {
+  if (!req._permisos) {
+    req._permisos = import('../../modules/permissions/permissions.service.js')
+      .then((s) => s.explicarPermisos(req.user.userId));
+  }
+  return req._permisos;
+}
+
+/** Para un controlador: `if (!(await tienePermiso(req, 'facturas.emitir'))) …` */
+export async function tienePermiso(req, ...claves) {
+  if (!req.user) return false;
+  const e = await cargarPermisos(req);
+  return Boolean(e) && claves.some((c) => e.mapa[c] === true);
+}
+
+/**
+ * El guardia de una ruta: pasa quien tenga la clave (o alguna de ellas). La
+ * regla queda pegada (`conRegla`) para que el inventario sepa qué pide.
+ */
+export function puede(...claves) {
+  return conRegla(async (req, _res, next) => {
+    try {
+      if (!req.user) return next(new AppError('No autenticado', 401, 'AUTH_REQUIRED'));
+      if (!(await tienePermiso(req, ...claves))) {
+        return next(new AppError('No tienes permiso para esta accion', 403, 'FORBIDDEN'));
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
+  }, { tipo: 'puede', claves });
+}

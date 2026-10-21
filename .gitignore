@@ -111,3 +111,6 @@ backups/
 # Temporales del arranque de Evolution en local
 backend/.evolution-arranque
 backend/.env.respaldo-*
+
+# Temporales de Vite al cargar la configuración
+frontend/vite.config.*.timestamp-*

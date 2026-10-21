@@ -262,6 +262,8 @@ export const ASIGNACION = {
   },
   permissions: {
     'GET /catalogo': PROPIA,
+    // La ficha: la suya, cualquiera; la de otro, con «Ver usuarios» (lo mira el controlador).
+    'GET /personas/:id': PROPIA,
     // El catálogo de menú y bloques lo lee «Mis preferencias» de cualquiera.
     'GET /system-defaults': PROPIA, 'GET /role-views/:roleKey': PROPIA,
     'GET /custom-roles': 'roles.view', 'GET /custom-roles/:id': 'roles.view', 'GET /claves/:clave/rol/:roleKey': 'roles.view',
@@ -427,9 +429,14 @@ export const CONDICIONES = {
   'reports.puesto_ajeno': 'reports.puesto_ajeno',
 };
 
-/** La clave (o claves) de una fila del inventario. `undefined` si no está asignada. */
+/**
+ * La clave (o claves) de una fila del inventario. `undefined` si no está asignada.
+ * Si la ruta ya lleva su `puede('…')` (fase 4), manda eso: es lo que hace el código.
+ */
 export function claveDe(fila) {
   if (fila.tipo === 'condicion') return CONDICIONES[fila.puerta];
+  const delCodigo = (fila.guardias || []).find((g) => g.tipo === 'puede');
+  if (delCodigo) return delCodigo.claves.length === 1 ? delCodigo.claves[0] : delCodigo.claves;
   const delModulo = ASIGNACION[fila.modulo];
   if (fila.publica) return (typeof delModulo === 'object' && delModulo[fila.relativa]) || null;
   if (delModulo === '*tasks') return ['tasks.view_own', 'tasks.view_all'];

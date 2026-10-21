@@ -74,56 +74,99 @@ export async function setRoleView(id: number, view: RoleView): Promise<RoleView>
   return ((res.data as { default_view?: RoleView })?.default_view || view) as RoleView;
 }
 
-/**
- * Los 8 permisos de Tareas de un rol (`admin`, `gestor`… o `custom:<id>`), como
- * mandan ahora. Los cambian superadmin y admin (Diego, 08/10, #210).
- */
-export async function getRolePermissions(roleKey: string): Promise<Record<string, boolean>> {
-  const res = await client.get(`/permissions/role-permissions/${roleKey}`);
-  return ((res.data as { permissions?: Record<string, boolean> })?.permissions || {});
-}
+/* ─── #423 · El catálogo, los roles y la ficha de permisos de cada persona ─── */
 
-export async function saveRolePermissions(
-  roleKey: string,
-  permissions: Record<string, boolean>,
-): Promise<Record<string, boolean>> {
-  const res = await client.put(`/permissions/role-permissions/${roleKey}`, { permissions });
-  return ((res.data as { permissions?: Record<string, boolean> })?.permissions || permissions);
-}
-
-// ── Una clave suelta por rol y por persona: «Diplomas (Certifex) · Ver» (#384) ──
-
-/** Una persona de un rol, con la clave como la tiene. */
-export interface PersonaConClave {
-  id: number;
+export interface AccionDelCatalogo {
+  clave: string;
+  accion: string;
   nombre: string;
-  email: string;
-  /** Su excepción: true, false, o null si tiene lo que diga su rol. */
-  excepcion: boolean | null;
-  /** Lo que manda al final (rol + rol a medida + excepción). */
-  puede: boolean;
+  descripcion: string;
+  /** Roles fijos que la traen de serie. */
+  roles: string[];
+  /** Lo que necesita para tener sentido (editar pide ver). */
+  requiere: string[];
+  /** Roles a los que no se les puede dar nunca. */
+  nunca: string[];
+  soloPantalla: boolean;
+}
+export interface RecursoDelCatalogo { clave: string; nombre: string; acciones: AccionDelCatalogo[] }
+export interface SeccionDelCatalogo { clave: string; nombre: string; recursos: RecursoDelCatalogo[] }
+export interface RolFijoDelCatalogo { clave: string; nombre: string; descripcion: string }
+export interface Catalogo { roles: RolFijoDelCatalogo[]; secciones: SeccionDelCatalogo[] }
+
+export async function getCatalogo(): Promise<Catalogo> {
+  const res = await client.get('/permissions/catalogo');
+  return res.data as Catalogo;
 }
 
-/** Si un rol (`gestor`, `soporte`… o `custom:<id>`) tiene la clave. */
-export async function getClaveDeRol(clave: string, roleKey: string): Promise<boolean> {
-  const res = await client.get(`/permissions/claves/${encodeURIComponent(clave)}/rol/${encodeURIComponent(roleKey)}`);
-  return (res.data as { permitido?: boolean })?.permitido === true;
+export interface RolFijo {
+  clave: string; nombre: string; descripcion: string;
+  permisos: PermissionMap; cambiados: string[]; personas: number; editable: boolean;
+}
+export interface RolAMedida {
+  id: number; nombre: string; descripcion: string | null; base: string; activo: boolean;
+  permisos: PermissionMap; cambiados: string[]; personas: number;
+}
+export interface ListaDeRoles { fijos: RolFijo[]; aMedida: RolAMedida[] }
+
+export async function getRoles(): Promise<ListaDeRoles> {
+  const res = await client.get('/permissions/roles');
+  return res.data as ListaDeRoles;
 }
 
-/** Dársela o quitársela a un rol entero. Solo el superadmin. */
-export async function setClaveDeRol(clave: string, roleKey: string, permitido: boolean): Promise<boolean> {
-  const res = await client.put(`/permissions/claves/${encodeURIComponent(clave)}/rol/${encodeURIComponent(roleKey)}`, { permitido });
-  return (res.data as { permitido?: boolean })?.permitido === true;
+export async function guardarRolFijo(rol: string, permisos: PermissionMap): Promise<PermissionMap> {
+  const res = await client.put(`/permissions/roles/fijos/${rol}`, { permisos });
+  return res.data as PermissionMap;
 }
 
-/** Las personas de un rol (las de sus campus, si quien pregunta es admin). */
-export async function personasDeLaClave(clave: string, roleKey: string): Promise<PersonaConClave[]> {
-  const res = await client.get(`/permissions/claves/${encodeURIComponent(clave)}/personas?roleKey=${encodeURIComponent(roleKey)}`);
-  return (res.data as PersonaConClave[]) || [];
+export interface DatosRolAMedida { nombre?: string; descripcion?: string | null; base?: string; activo?: boolean; permisos?: PermissionMap }
+
+export async function crearRolAMedida(datos: DatosRolAMedida): Promise<{ id: number }> {
+  const res = await client.post('/permissions/roles/a-medida', datos);
+  return res.data as { id: number };
 }
 
-/** A una persona: true (dársela), false (quitársela) o null (como su rol). Solo ESA clave. */
-export async function setClaveDePersona(clave: string, userId: number, permitido: boolean | null): Promise<{ excepcion: boolean | null; puede: boolean }> {
-  const res = await client.put(`/permissions/claves/${encodeURIComponent(clave)}/personas/${userId}`, { permitido });
-  return res.data as { excepcion: boolean | null; puede: boolean };
+export async function guardarRolAMedida(id: number, datos: DatosRolAMedida): Promise<void> {
+  await client.patch(`/permissions/roles/a-medida/${id}`, datos);
+}
+
+export type Origen =
+  | { tipo: 'superadmin' }
+  | { tipo: 'rol'; rol: string }
+  | { tipo: 'ajuste_rol'; rol: string }
+  | { tipo: 'rol_a_medida'; id: number; nombre: string }
+  | { tipo: 'excepcion' }
+  | { tipo: 'nunca'; roles: string[] }
+  | { tipo: 'ninguno' };
+
+export interface ApunteDelRegistro {
+  id: number; cuando: string; quien_nombre: string | null; clave: string;
+  antes: string | null; despues: string | null; origen: string;
+}
+
+export interface FichaDePermisos {
+  persona: { id: number; nombre: string; email: string; role: string; roles_extra: string[]; active: boolean };
+  mapa: PermissionMap;
+  origenes: Record<string, Origen>;
+  excepciones: PermissionMap;
+  rolAMedida: { id: number; nombre: string; activo: boolean } | null;
+  rolesAMedida: { id: number; nombre: string; base: string }[];
+  registro: ApunteDelRegistro[];
+  puedeEditar: boolean;
+}
+
+export async function getFicha(userId: number): Promise<FichaDePermisos> {
+  const res = await client.get(`/permissions/personas/${userId}`);
+  return res.data as FichaDePermisos;
+}
+
+/** `null` = como diga su rol. */
+export async function guardarExcepciones(userId: number, cambios: Record<string, boolean | null>): Promise<PermissionMap> {
+  const res = await client.put(`/permissions/personas/${userId}/excepciones`, { cambios });
+  return res.data as PermissionMap;
+}
+
+export async function cambiarRolAMedida(userId: number, customRoleId: number | null): Promise<PermissionMap> {
+  const res = await client.put(`/permissions/personas/${userId}/rol-a-medida`, { customRoleId });
+  return res.data as PermissionMap;
 }

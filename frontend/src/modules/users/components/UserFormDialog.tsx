@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Lock } from '@phosphor-icons/react';
+import { X, Lock, ShieldCheck } from '@phosphor-icons/react';
 import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import type { Project, UserRole } from '@/shared/types';
 import Portal from '@/shared/components/ui/portal';
@@ -12,6 +12,7 @@ import type { AvisoCambioCorreo, CrmUser, Empresa, ProjectAssignment } from '../
 import { ASSIGNABLE_ROLES } from '../lib/usersUi';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '../lib/credenciales';
 import ProjectSelector from './ProjectSelector';
+import PermisosDePersona from '@/modules/permissions/components/PermisosDePersona';
 
 export interface UserFormValues {
   nombre: string;
@@ -93,6 +94,8 @@ export default function UserFormDialog({
   const faltaMigracionWhatsapp = esEdicion && user?.usa_whatsapp === null;
   const [usaWhatsapp, setUsaWhatsapp] = useState(!!user?.usa_whatsapp);
 
+  // Sus permisos y de dónde le viene cada uno (#423).
+  const [verPermisos, setVerPermisos] = useState(false);
   const [nuevaPass, setNuevaPass] = useState('');
   const [repetirPass, setRepetirPass] = useState('');
   const [guardandoPass, setGuardandoPass] = useState(false);
@@ -450,6 +453,27 @@ export default function UserFormDialog({
                 )}
               </div>
             )}
+
+            {/* Todo lo que puede hacer y de dónde le viene (#423): su rol, su rol a
+                medida o una excepción suya. Ahí mismo se le cambian. */}
+            {esEdicion && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                <span className="text-sm">
+                  Permisos
+                  <span className="block text-secundario text-muted-foreground">
+                    Lo que puede hacer, de dónde le viene y sus excepciones.
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setVerPermisos(true)}
+                  className="inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium hover:bg-muted"
+                >
+                  <ShieldCheck size={14} weight="bold" /> Ver permisos
+                </button>
+              </div>
+            )}
+            {verPermisos && user && <PermisosDePersona userId={user.id} onClose={() => setVerPermisos(false)} />}
 
             {esEdicion && (
               <Field label="Teléfono (WhatsApp)" htmlFor="user-tel" hint="Se usa para el widget de WhatsApp y el contacto del gestor.">

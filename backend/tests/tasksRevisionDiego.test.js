@@ -318,13 +318,15 @@ describe('C · Configuración › Roles: permisos de Tareas por rol', () => {
     try {
       expect((await request.patch(`/api/tasks/${t.id}/approve`).set(como('pm'))).status).toBe(403);
 
-      // Lo cambia el admin.
-      const res = await permisosDeRol('adminA', 'colaborador', { 'tasks.close': true });
+      // Un rol vale para todas las empresas: desde #423 lo cambia el
+      // superadmin, no el admin (cambio aprobado «roles-solo-superadmin»).
+      expect((await permisosDeRol('adminA', 'colaborador', { 'tasks.close': true })).status).toBe(403);
+      const res = await permisosDeRol('superadmin', 'colaborador', { 'tasks.close': true });
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       expect(res.body.data.permissions['tasks.close']).toBe(true);
       // Solo se guarda lo que se aparta del código.
       expect(await q(`SELECT action, allowed, updated_by FROM role_permission_overrides WHERE role = 'colaborador'`))
-        .toEqual([{ action: 'close', allowed: true, updated_by: U.adminA.id }]);
+        .toEqual([{ action: 'close', allowed: true, updated_by: U.superadmin.id }]);
 
       const me = await request.get('/api/auth/me').set(como('pm'));
       expect(me.body.data.permissions['tasks.close']).toBe(true);

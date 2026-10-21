@@ -141,7 +141,7 @@ export async function cambiarAcceso(req, res, next) {
     if (quien.role !== 'superadmin' && !(await model.comparteProyecto(quien.id, persona.id))) {
       throw new AppError('Solo puedes dar acceso a personas de tus campus.', 403, 'FORBIDDEN');
     }
-    await model.setUsaMcp(persona.id, usa_mcp);
+    await model.setUsaMcp(persona.id, usa_mcp, quien.id);
     logger.info({ por: quien.id, userId: persona.id, usa_mcp }, 'MCP: acceso cambiado');
     res.json({ success: true, data: { id: persona.id, usa_mcp } });
   } catch (err) { next(err); }
