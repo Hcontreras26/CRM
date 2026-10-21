@@ -560,7 +560,11 @@ export async function list({ projectId, issuerId, estado, search, from, to, tipo
   // Busca por nombre, NIF, codigo y tambien por NUMERO de factura (escribir "641").
   // Recortado: un espacio pegado al nombre dejaba el buscador a cero.
   const termino = typeof search === 'string' ? search.trim() : '';
-  if (termino) { conds.push(`(LOWER(i.cliente_nombre) LIKE $${idx} OR LOWER(i.cliente_nif) LIKE $${idx} OR i.codigo LIKE $${idx} OR i.numero::text LIKE $${idx})`); params.push(`%${termino.toLowerCase()}%`); idx++; }
+  // Y por el ALUMNO de la venta (nombre y correo) y el correo de la factura (19/10): una
+  // factura a nombre de su EMPRESA no salía buscando a la persona. Adriana facturó el
+  // cobro de Monica Estrada (venta 701 de ISEIE, de Fabiola) a «ETC Expert Techonology
+  // Consultants SAS», y buscando «Monica» la lista quedaba vacía.
+  if (termino) { conds.push(`(LOWER(i.cliente_nombre) LIKE $${idx} OR LOWER(i.cliente_nif) LIKE $${idx} OR i.codigo LIKE $${idx} OR i.numero::text LIKE $${idx} OR LOWER(COALESCE(i.cliente_email, '')) LIKE $${idx} OR LOWER(COALESCE(l.nombre, '')) LIKE $${idx} OR LOWER(COALESCE(l.email, '')) LIKE $${idx})`); params.push(`%${termino.toLowerCase()}%`); idx++; }
   if (from) { conds.push(`i.fecha_emision >= $${idx++}`); params.push(from); }
   if (to)   { conds.push(`i.fecha_emision <= $${idx++}`); params.push(to); }
   const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
@@ -928,7 +932,7 @@ async function numerarBorrador(invoiceId) {
 // Si había borrador → se numera tal cual. Si no había factura → se crea emitida
 // con los datos de la conversión + lo que el lead tenga (faltantes = '—').
 // Los datos incompletos NO bloquean la numeración, solo enviar/descargar.
-const METODOS_PAGO_VALIDOS = ['transferencia', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro'];
+const METODOS_PAGO_VALIDOS = ['transferencia', 'deposito', 'tarjeta', 'tarjeta_stripe', 'efectivo', 'bizum', 'paypal', 'fraccionado', 'otro'];
 
 // Datos fiscales del cliente + snapshot de la conversión, para armar la factura.
 async function _convDataParaFactura(conversionId) {
@@ -1098,13 +1102,19 @@ export async function emitirFacturaDePago(conversionId, { paymentId, importe, sa
   // mano y luego se asocia el pago de Stripe). Si ya hay una factura de esta venta por
   // ese mismo importe y sin pago vinculado, se le engancha este pago en vez de emitir
   // otra: así queda vinculada y NO se duplica el importe facturado.
+  //
+  // Pero solo si ESTE cobro es el suyo (13/10, ver HUERFANA_ES_DE): una venta a
+  // plazos tiene varios cobros del mismo importe, y la factura del pago inicial no
+  // puede quedarse con la cuota de la semana siguiente.
   const { rows: huerfana } = await query(
-    `SELECT * FROM invoices
-      WHERE conversion_id = $1 AND payment_id IS NULL
-        AND tipo = 'normal' AND estado <> 'cancelada'
-        AND ABS(total - $2::numeric) < 0.01
-      ORDER BY id LIMIT 1`,
-    [conversionId, monto]
+    `SELECT h.* FROM invoices h
+       JOIN conversion_payments cp ON cp.id = $3
+      WHERE h.conversion_id = $1 AND h.payment_id IS NULL
+        AND h.tipo = 'normal' AND h.estado <> 'cancelada'
+        AND ABS(h.total - $2::numeric) < 0.01
+        AND ${HUERFANA_ES_DE('h', 'cp')}
+      ORDER BY h.id LIMIT 1`,
+    [conversionId, monto, paymentId]
   );
   if (huerfana[0]) {
     const { rows: upd } = await query(
@@ -1449,6 +1459,26 @@ export async function emitirBorrador(id, patch = {}) {
   }
 }
 
+// Un cobro es «de Stripe» cuando tiene enganchado un cargo de Stripe cobrado:
+// entonces su importe es el que cobro Stripe, dinero real, y nada de la factura
+// lo cambia (15/10, venta 643). Un cobro apuntado a mano no entra aqui aunque
+// diga «tarjeta_stripe»: ese importe lo tecleo una persona.
+const ES_COBRO_DE_STRIPE = (cp) => `EXISTS (
+          SELECT 1 FROM stripe_payments sp
+           WHERE sp.conversion_payment_id = ${cp}.id AND sp.status = 'succeeded')`;
+
+/** El cobro de una factura: su importe y si entro por Stripe. Null si no tiene. */
+export async function cobroDeLaFactura(invoiceId) {
+  const { rows: [r] } = await query(
+    `SELECT cp.id, cp.importe, ${ES_COBRO_DE_STRIPE('cp')} AS de_stripe
+       FROM invoices i
+       JOIN conversion_payments cp ON cp.id = i.payment_id
+      WHERE i.id = $1`,
+    [invoiceId]
+  );
+  return r ? { id: r.id, importe: Number(r.importe), deStripe: !!r.de_stripe } : null;
+}
+
 // Edición COMPLETA de una factura en BORRADOR (solo admin/superadmin vía ruta).
 // Permite cambiar cliente, conceptos, importes, fecha, emisor, moneda… Nunca toca
 // una factura ya emitida (fiscalmente inmutable). Los importes llegan ya
@@ -1532,7 +1562,28 @@ export async function updateBorrador(id, data, { soloBorrador = true } = {}) {
       // cliente aparece el monto corregido (ej.: era 300 y se puso 250, se corrige).
       const nuevoTotal = Number(rows[0].total);
       const viejoTotal = Number(inv.total);
-      if (inv.payment_id && Number.isFinite(nuevoTotal) && Math.abs(nuevoTotal - viejoTotal) > 0.001) {
+      const cambiaElTotal = inv.payment_id && Number.isFinite(nuevoTotal) && Math.abs(nuevoTotal - viejoTotal) > 0.001;
+      // SALVO SI EL COBRO ES DE STRIPE (15/10, venta 643). Ese cobro es lo que
+      // cobro Stripe: dinero real, con el IVA dentro si lo lleva. Una factura no lo
+      // cambia. Antes se sincronizaba igual, y corregir la 2026/0196 para ponerle
+      // el IVA convirtio un cobro de 412,25 € en uno de 498,82 que nadie pago.
+      const { rows: [cobro] } = cambiaElTotal
+        ? await client.query(
+          `SELECT cp.importe, ${ES_COBRO_DE_STRIPE('cp')} AS de_stripe
+             FROM conversion_payments cp WHERE cp.id = $1`, [inv.payment_id])
+        : { rows: [] };
+      if (cambiaElTotal && cobro?.de_stripe) {
+        // Llevar la factura a lo cobrado se puede (es arreglarla); otro importe no.
+        if (Math.abs(nuevoTotal - Number(cobro.importe)) > 0.01) {
+          const eur = (n) => `${Number(n).toFixed(2)} €`;
+          throw new AppError(
+            `Esta factura es de un cobro de Stripe de ${eur(cobro.importe)} y su total tiene que ser ese: `
+            + `es lo que pago el cliente, con el IVA dentro si lo lleva. Con estos cambios saldria de ${eur(nuevoTotal)}. `
+            + 'Si lleva IVA, marca «El precio ya incluye IVA». Si el importe de verdad es otro, '
+            + 'hace falta una factura rectificativa, no cambiar el cobro.',
+            409, 'COBRO_DE_STRIPE');
+        }
+      } else if (cambiaElTotal) {
         await client.query(`UPDATE conversion_payments SET importe = $1 WHERE id = $2`, [nuevoTotal, inv.payment_id]);
         await client.query(`UPDATE conversion_installments SET importe_cobrado = $1 WHERE payment_id = $2 AND fecha_cobro IS NOT NULL`, [nuevoTotal, inv.payment_id]);
         if (inv.conversion_id) {
@@ -1948,13 +1999,40 @@ export async function listProformasPendientes(projectId) {
   Si el CRM la considera suya para engancharla, la cola tiene que considerarla
   suya para no volver a pedirla.
 */
+/*
+  PERO UNA FACTURA HUERFANA CUBRE UN SOLO COBRO (13/10).
+
+  Diego: «esta factura del 12 que fue automatica no salio en facturacion». Mirna
+  Flores, venta 628 de Psiko Aprende: pago inicial de 150 € el 05/10, facturado
+  desde la venta (2026/0177, sin cobro enganchado), y cuota de 150 € por Stripe el
+  12/10. La regla de arriba daba la 0177 por buena para CUALQUIER cobro de 150 €
+  de esa venta, asi que la cuota desaparecia de la cola sin factura. Y «Generar
+  factura» le habria enganchado la 0177 en vez de emitir la suya.
+
+  Ahora la huerfana es de UN cobro: el del mismo importe, todavia sin factura
+  propia, con la fecha mas cercana a la de la factura (a igual distancia, el de id
+  mas bajo). En los dos casos reales sale bien: la 0177 (06/10) va con el cobro del
+  05/10, y la 2026/0004 de la venta 89 (19/07) con el del 19/07, no con los de
+  marzo a junio del mismo importe.
+*/
+const HUERFANA_ES_DE = (h, cp) => `NOT EXISTS (
+        SELECT 1 FROM conversion_payments q
+         WHERE q.conversion_id = ${cp}.conversion_id
+           AND q.id <> ${cp}.id
+           AND ABS(q.importe - ${h}.total) < 0.01
+           AND NOT EXISTS (SELECT 1 FROM invoices iq
+                            WHERE iq.payment_id = q.id AND iq.estado <> 'cancelada')
+           AND (ABS(q.fecha - ${h}.fecha_emision::date), q.id)
+             < (ABS(${cp}.fecha - ${h}.fecha_emision::date), ${cp}.id))`;
+
 const FACTURA_HUERFANA_LO_CUBRE = `AND NOT EXISTS (
         SELECT 1 FROM invoices h
          WHERE h.conversion_id = cp.conversion_id
            AND h.payment_id IS NULL
            AND h.tipo = 'normal'
            AND h.estado <> 'cancelada'
-           AND ABS(h.total - cp.importe) < 0.01)`;
+           AND ABS(h.total - cp.importe) < 0.01
+           AND ${HUERFANA_ES_DE('h', 'cp')})`;
 
 /*
   Y UNA FACTURA QUE YA CUBRE LA VENTA ENTERA, TAMBIEN (06/10).

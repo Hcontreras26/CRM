@@ -36,19 +36,31 @@ const decodificar = (s) => String(s)
  * separa. Solo cuenta si empiezan en el 1 y son al menos dos seguidos: una mención suelta
  * («el módulo 3 trata…») no es un temario.
  */
-export function extraerModulosDeHtml(html) {
-  const texto = String(html || '')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ');
+// «Módulo» como lo escriben las páginas (con tilde, sin ella, en mayúsculas, con entidad).
+const MODULO = 'M(?:ó|o|&oacute;|&#243;|&#xf3;|&#211;|&#xd3;)dulo';
+// ISEIE (19/10) llama «TEMA 1: …» a los módulos de algunos cursos. Solo se mira si la
+// página no tiene ningún «Módulo N».
+const TEMA = 'Tema';
+
+function modulosConPalabra(texto, palabra) {
   // Un elemento cuyo texto EMPIEZA por «Módulo N» + separador; el título es lo que sigue
   // hasta la siguiente etiqueta. Las páginas repiten el temario (móvil y escritorio), así
   // que se queda la primera aparición de cada número.
-  const re = /<(?:h[1-6]|strong|b|summary|span|button|p|div|li|a|dt|label)\b[^>]*>\s*M(?:ó|o|&oacute;|&#243;|&#xf3;)dulo\s*0*(\d{1,3})\s*(?::|\.|-|–|—|&ndash;|&mdash;|&#8211;|&#8212;)\s*([^<]{2,300})/gi;
+  //  · Delante puede ir el icono del acordeón: ISAEG (19/10) pone
+  //    `<button><span class="pe-icon">+</span> MÓDULO 1: …</button>`.
+  //  · El título puede ir en el elemento siguiente: Psiko (19/10) pone
+  //    `<p><strong>Módulo 1:</strong></p><ul><li><strong>Introducción a…`.
+  const re = new RegExp(
+    '<(?:h[1-6]|strong|b|summary|span|button|p|div|li|a|dt|label)\\b[^>]*>\\s*(?:<(span|i|em)\\b[^>]*>[^<]{0,3}<\\/\\1>\\s*)?'
+    + `${palabra}\\s*0*(\\d{1,3})\\s*(?::|\\.|-|–|—|&ndash;|&mdash;|&#8211;|&#8212;)\\s*`
+    + '(?:([^<\\s][^<]{1,299})|(?:<\\/[a-z0-9]+>\\s*)+(?:<[a-z0-9]+\\b[^>]*>\\s*){1,4}([^<]{2,300}))',
+    'gi',
+  );
   const porNumero = new Map();
   let m;
   while ((m = re.exec(texto)) !== null) {
-    const n = Number(m[1]);
-    const titulo = decodificar(m[2]).replace(/\s+/g, ' ').trim().replace(/[:.\s]+$/, '');
+    const n = Number(m[2]);
+    const titulo = decodificar(m[3] ?? m[4] ?? '').replace(/\s+/g, ' ').trim().replace(/[:.\s]+$/, '');
     if (!titulo || porNumero.has(n)) continue;
     porNumero.set(n, titulo.slice(0, 300));
   }
@@ -59,7 +71,21 @@ export function extraerModulosDeHtml(html) {
     if (n !== seguidos.length + 1) break;
     seguidos.push({ n, titulo });
   }
+  // Salvo un temario largo con algún número mal puesto en la web: ISEIE (19/10) pasa del
+  // «MÓDULO 1» al «MÓDULO 3». Si empieza en el 1, tiene al menos 4 y apenas hay huecos,
+  // es el temario entero: se queda en su orden, numerado de nuevo.
+  if (seguidos.length < lista.length && lista[0]?.[0] === 1 && lista.length >= 4 && lista.at(-1)[0] <= lista.length + 2) {
+    return lista.map(([, titulo], i) => ({ n: i + 1, titulo }));
+  }
   return seguidos.length >= 2 ? seguidos : [];
+}
+
+export function extraerModulosDeHtml(html) {
+  const texto = String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  const modulos = modulosConPalabra(texto, MODULO);
+  return modulos.length ? modulos : modulosConPalabra(texto, TEMA);
 }
 
 /**
@@ -79,7 +105,15 @@ export async function sincronizarTemario(productId, { leer = fetchHtmlWithRetry 
     logger.warn({ err: err.message, productId, url: p.url_info }, 'Temario: no se pudo leer la página');
     return { modulos: [], fuente: p.url_info, motivo: 'No se pudo abrir la página del curso. Prueba más tarde o escribe los módulos a mano.' };
   }
-  const modulos = extraerModulosDeHtml(html);
+  let modulos = extraerModulosDeHtml(html);
+  let fuente = p.url_info;
+  // La ficha de la tienda sin temario: se prueba la página del curso (Academia IA).
+  for (const alt of modulos.length ? [] : paginasDelCurso(p.url_info)) {
+    try {
+      const m = extraerModulosDeHtml(await leer(alt, 20000));
+      if (m.length) { modulos = m; fuente = alt; break; }
+    } catch { /* esa no existe (404) o no abre: la siguiente */ }
+  }
   if (!modulos.length) {
     return { modulos: [], fuente: p.url_info, motivo: 'La página del curso no separa el temario en «Módulo 1, 2…»: escribe los módulos a mano.' };
   }
@@ -99,6 +133,19 @@ export async function sincronizarTemario(productId, { leer = fetchHtmlWithRetry 
   } finally {
     c.release();
   }
-  logger.info({ productId, modulos: modulos.length, url: p.url_info }, 'Temario sincronizado con la página del curso');
-  return { modulos: modulos.map((x) => ({ titulo: x.titulo })), fuente: p.url_info, motivo: null };
+  logger.info({ productId, modulos: modulos.length, url: fuente }, 'Temario sincronizado con la página del curso');
+  return { modulos: modulos.map((x) => ({ titulo: x.titulo })), fuente, motivo: null };
+}
+
+/**
+ * Academia IA (19/10): el catálogo apunta a la ficha de la TIENDA
+ * (`academiaia.ai/product/<curso>-16412/`), que no trae el temario; el temario está en la
+ * página del CURSO, con el mismo nombre sin el número y bajo su nivel
+ * (`/principiantes/`, `/avanzado/` o `/expertos/<curso>/`). Las tres direcciones a probar,
+ * o ninguna si la ficha no es de esa tienda.
+ */
+export function paginasDelCurso(urlInfo) {
+  const m = /^https?:\/\/(?:www\.)?academiaia\.ai\/product\/([a-z0-9-]+?)(?:-\d+)?\/?(?:[?#].*)?$/i.exec(String(urlInfo || '').trim());
+  if (!m) return [];
+  return ['principiantes', 'avanzado', 'expertos'].map((nivel) => `https://academiaia.ai/${nivel}/${m[1]}/`);
 }

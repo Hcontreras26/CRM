@@ -44,6 +44,11 @@ const ALL_PROJECTS_OK = [
   // proyectos»): el servidor enseña a cada uno lo suyo.
   /^\/conexion\/mcp$/,
   /^\/conexion\/conectores$/,
+  // El webhook de transferencias SÍ es de empresa (y con «todos», de todas): se diseñó
+  // con ámbito «toda la empresa» (migración 206) y la pantalla y el servidor ya lo
+  // resuelven. El muro lo dejaba usable solo con un campus elegido. Diego, 19/10: «los
+  // webhooks en producción solo se ven por campus y debe ser por empresa».
+  /^\/conexion\/webhook-transferencias$/,
   /^\/profile$/,
   /^\/preferences$/,
   // Las de verdad. Solo estaban las rutas viejas en ingles (/profile,
@@ -65,6 +70,11 @@ const ALL_PROJECTS_OK = [
   /^\/ai-chat$/,
   /^\/tareas(?:\/.*)?$/,
   /^\/prueba_ui(?:_[a-z]+)?$/,
+  // Facturas de colaboradores (#202). Diego, 10/10: «son por EMPRESA, no por
+  // campus». Con «Todos los proyectos», todas las empresas que ve cada uno; y
+  // «Mi factura» son las del propio colaborador, a todas sus empresas.
+  /^\/finanzas\/facturas-colaboradores$/,
+  /^\/mi-factura$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -95,6 +105,11 @@ const CON_SOCIEDAD_OK = [
   // Conexión: MCP y Conectores, con una empresa puesta, lo de esa empresa.
   /^\/conexion\/mcp$/,
   /^\/conexion\/conectores$/,
+  // El webhook de transferencias SÍ es de empresa (y con «todos», de todas): se diseñó
+  // con ámbito «toda la empresa» (migración 206) y la pantalla y el servidor ya lo
+  // resuelven. El muro lo dejaba usable solo con un campus elegido. Diego, 19/10: «los
+  // webhooks en producción solo se ven por campus y debe ser por empresa».
+  /^\/conexion\/webhook-transferencias$/,
   // Feedback suma los campus de la empresa (Diego, 28/09: «tiene que ser campus
   // y no empresas… lo hemos dicho»): la pantalla ya manda issuerId y el
   // backend lo resuelve con proyectosDelAmbito. Solo faltaba esta línea.
@@ -239,6 +254,12 @@ const CON_SOCIEDAD_OK = [
   // porque cada uno pertenece a un proyecto y «la nomina de CEDIA» no existe.
   /^\/finanzas\/nominas$/,
   /^\/finanzas\/ventas\/\d+$/,
+  // Facturas de colaboradores (#202). Diego, 10/10: «las facturas de
+  // colaboradores son por EMPRESA, no por campus»: las factura la sociedad
+  // (`issuer_id`), y la pantalla sigue a la empresa de la cabecera. «Mi
+  // factura» no depende de la cabecera: son las del propio colaborador.
+  /^\/finanzas\/facturas-colaboradores$/,
+  /^\/mi-factura$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {
@@ -290,8 +311,10 @@ const NEW_ACTIONS = {
   '/captacion': { url: '/captacion?new=1', label: 'formulario' },
   '/captacion/webhooks': { url: '/captacion/webhooks?new=1', label: 'webhook' },
   '/secuencias-email': { url: '/secuencias-email?new=1', label: 'secuencia' },
-  '/accounting/expenses': { url: '/accounting/expenses?new=1', label: 'egreso' },
-  '/accounting/payable': { url: '/accounting/payable?new=1', label: 'cuenta por pagar' },
+  // Egresos vive en /finanzas/egresos: /accounting/expenses no existe en este CRM (#227).
+  '/finanzas/egresos': { url: '/finanzas/egresos?new=1', label: 'egreso' },
+  // Las rutas en inglés (/accounting/…) no existen en este CRM: llevaban a «no encontrada».
+  '/finanzas/por-pagar': { url: '/finanzas/por-pagar?new=1', label: 'cuenta por pagar' },
 };
 
 // Navegación rápida G + tecla
@@ -301,7 +324,7 @@ const G_TARGETS = {
   c: '/clientes',
   p: '/productos',
   r: '/informes',
-  a: '/accounting',
+  a: '/finanzas',
   s: '/configuracion',
 };
 

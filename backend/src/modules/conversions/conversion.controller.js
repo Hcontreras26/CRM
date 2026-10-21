@@ -6,7 +6,10 @@ import {
   updateConversionSchema,
   createPaymentSchema,
   listConversionsSchema,
+  payInstallmentSchema,
+  editPaidInstallmentSchema,
 } from './conversion.validation.js';
+import { METODOS_QUE_DISPARAN } from '../webhooks-salientes/webhooks-salientes.validation.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
 
@@ -122,7 +125,7 @@ export async function addPayment(req, res, next) {
     if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
     const parsed = createPaymentSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
-    const result = await conversionService.addPayment(id, parsed.data);
+    const result = await conversionService.addPayment(id, parsed.data, { userId: req.user.userId });
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 }
@@ -215,15 +218,18 @@ export async function updateInstallment(req, res, next) {
 export async function payInstallment(req, res, next) {
   try {
     const instId = parseInt(req.params.instId);
-    const { fecha_cobro, importe_cobrado, metodo, notas } = req.body;
-    if (!fecha_cobro) throw new AppError('fecha_cobro requerida', 400, 'INVALID');
-    const r = await installmentsModel.markPaid(instId, { fecha_cobro, importe_cobrado, metodo, notas });
+    const parsed = payInstallmentSchema.safeParse(req.body || {});
+    if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    const { fecha_cobro, importe_cobrado, metodo, notas, referencia } = parsed.data;
+    const r = await installmentsModel.markPaid(instId, { fecha_cobro, importe_cobrado, metodo, notas, referencia });
     if (!r) throw new AppError('Cuota no encontrada', 404, 'NOT_FOUND');
     // Auto-factura POR PAGO: cobrar una cuota genera su factura por el importe
     // de ESA cuota (no una general por el total).
     if (r.conversion_id && r.payment_id) {
       conversionService.autoInvoice(r.conversion_id, req.user?.userId || null,
         { paymentId: r.payment_id, importe: Number(r.importe_cobrado) });
+      // Cuota cobrada por transferencia o depósito: el webhook (206).
+      conversionService.cobroApuntado(r.payment_id, { userId: req.user?.userId || null, metodo: r.metodo });
     }
     res.json({ success: true, data: r });
   } catch (err) {
@@ -240,17 +246,23 @@ export async function deleteInstallment(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// PATCH /installments/:instId/paid  { fecha_cobro?, importe_cobrado? }
+// PATCH /installments/:instId/paid  { fecha_cobro?, importe_cobrado?, metodo?, referencia? }
 // Edita un pago YA realizado (no marcar pagada de nuevo, eso es payInstallment).
 export async function editPaidInstallment(req, res, next) {
   try {
     const instId = parseInt(req.params.instId);
-    const { fecha_cobro, importe_cobrado } = req.body || {};
-    if (!fecha_cobro && importe_cobrado === undefined) {
-      throw new AppError('Indica fecha_cobro o importe_cobrado', 400, 'INVALID');
-    }
-    const r = await installmentsModel.editPaid(instId, { fecha_cobro, importe_cobrado });
+    const parsed = editPaidInstallmentSchema.safeParse(req.body || {});
+    if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    const r = await installmentsModel.editPaid(instId, parsed.data);
     if (!r) throw new AppError('Cuota no encontrada', 404, 'NOT_FOUND');
+    // Si el cobro acaba de pasar A transferencia o depósito, el webhook (206).
+    // Cambiar solo el importe o la fecha de uno que ya lo era no avisa otra vez:
+    // lo avisado es que entró la transferencia, y eso no ha cambiado.
+    const pasaATransferencia = METODOS_QUE_DISPARAN.includes(r.metodo)
+      && !METODOS_QUE_DISPARAN.includes(r.metodo_antes);
+    if (r.payment_id && pasaATransferencia) {
+      conversionService.cobroApuntado(r.payment_id, { userId: req.user?.userId || null, metodo: r.metodo });
+    }
     res.json({ success: true, data: r });
   } catch (err) {
     if (err.message === 'Cuota no pagada') return next(new AppError(err.message, 400, 'NOT_PAID'));

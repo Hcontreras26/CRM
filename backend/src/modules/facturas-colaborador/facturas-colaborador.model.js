@@ -63,7 +63,12 @@ const EMPRESAS_VISIBLES = `
     SELECT json_agg(json_build_object(
              'issuer_id', ce.issuer_id,
              'razon_social', ii.razon_social,
-             'importe_acordado', ce.importe_acordado
+             'importe_acordado', ce.importe_acordado,
+             'modalidad', ce.modalidad,
+             'importe_fijo', ce.importe_fijo,
+             'tarifa_hora', ce.tarifa_hora,
+             'iva_pct', ce.iva_pct,
+             'irpf_pct', ce.irpf_pct
            ) ORDER BY ii.razon_social)
       FROM colaborador_empresas ce
       JOIN invoice_issuers ii ON ii.id = ce.issuer_id
@@ -116,14 +121,37 @@ export async function porId(id, issuerIds) {
 /** Sus empresas, todas, para saber qué cambia al guardar. */
 export async function empresasDe(colaboradorId, db = pool) {
   const { rows } = await db.query(
-    `SELECT issuer_id, importe_acordado FROM colaborador_empresas
+    `SELECT issuer_id, importe_acordado, modalidad, importe_fijo, tarifa_hora, iva_pct, irpf_pct
+       FROM colaborador_empresas
       WHERE colaborador_id = $1 ORDER BY issuer_id`,
     [colaboradorId],
   );
+  const num = (v) => (v === null ? null : Number(v));
   return rows.map((r) => ({
     issuer_id: Number(r.issuer_id),
-    importe_acordado: r.importe_acordado === null ? null : Number(r.importe_acordado),
+    importe_acordado: num(r.importe_acordado),
+    modalidad: r.modalidad,
+    importe_fijo: num(r.importe_fijo),
+    tarifa_hora: num(r.tarifa_hora),
+    iva_pct: num(r.iva_pct),
+    irpf_pct: num(r.irpf_pct),
   }));
+}
+
+/**
+ * Lo que se guarda de una empresa: solo lo de su modalidad. Una ficha fija no
+ * guarda tarifa, una por horas no guarda importe fijo, y sin modalidad (como
+ * en la primera parte) no hay nada de cómo cobra.
+ */
+export function comoCobra(e) {
+  const m = e.modalidad ?? null;
+  return {
+    modalidad: m,
+    importe_fijo: m === 'fijo' ? e.importe_fijo ?? null : null,
+    tarifa_hora: m === 'hora' || m === 'proyecto' ? e.tarifa_hora ?? null : null,
+    iva_pct: m ? e.iva_pct ?? null : null,
+    irpf_pct: m ? e.irpf_pct ?? null : null,
+  };
 }
 
 /**
@@ -186,12 +214,18 @@ export async function volverDeAlta(db, id, desde) {
   );
 }
 
-export async function ponerEmpresa(db, colaboradorId, issuerId, importeAcordado) {
+export async function ponerEmpresa(db, colaboradorId, empresa) {
+  const c = comoCobra(empresa);
   await db.query(
-    `INSERT INTO colaborador_empresas (colaborador_id, issuer_id, importe_acordado)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (colaborador_id, issuer_id) DO UPDATE SET importe_acordado = EXCLUDED.importe_acordado`,
-    [colaboradorId, issuerId, importeAcordado ?? null],
+    `INSERT INTO colaborador_empresas
+       (colaborador_id, issuer_id, importe_acordado, modalidad, importe_fijo, tarifa_hora, iva_pct, irpf_pct)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (colaborador_id, issuer_id) DO UPDATE SET
+       importe_acordado = EXCLUDED.importe_acordado, modalidad = EXCLUDED.modalidad,
+       importe_fijo = EXCLUDED.importe_fijo, tarifa_hora = EXCLUDED.tarifa_hora,
+       iva_pct = EXCLUDED.iva_pct, irpf_pct = EXCLUDED.irpf_pct`,
+    [colaboradorId, empresa.issuer_id, empresa.importe_acordado ?? null,
+      c.modalidad, c.importe_fijo, c.tarifa_hora, c.iva_pct, c.irpf_pct],
   );
 }
 

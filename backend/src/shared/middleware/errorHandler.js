@@ -87,6 +87,9 @@ export function errorHandler(err, req, res, _next) {
     error: displayMessage,
     error_type: errorType, // 'validation' | 'auth' | 'not_found' | 'business' | 'system'
     ...(err.code && { code: err.code }),
+    // Lo que acompaña a un rechazo para poder resolverlo (AppError#data). Solo
+    // en los errores previstos y nunca en un 5xx: ahi no hay nada que ofrecer.
+    ...(err.isOperational && statusCode < 500 && err.data !== undefined && { data: err.data }),
     ...(ref && { ref }),
   });
 }

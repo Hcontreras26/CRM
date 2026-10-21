@@ -146,11 +146,13 @@ export async function create(data) {
         || (metodo_pago && metodo_pago !== 'fraccionado' ? metodo_pago : 'tarjeta');
       const { rows: firstPay } = await client.query(
         `INSERT INTO conversion_payments (conversion_id, importe, fecha, notas, metodo)
-         VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5) RETURNING id, importe`,
+         VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5) RETURNING id, importe, metodo`,
         [conversion.id, importe_pagado, fecha_conversion, 'Pago inicial', metodoInicial]
       );
       conversion._initial_payment_id = firstPay[0].id;
       conversion._initial_payment_importe = Number(firstPay[0].importe);
+      // Para el webhook de transferencias (206): el servicio avisa tras el COMMIT.
+      conversion._initial_payment_metodo = firstPay[0].metodo;
     }
 
     // Cambiar status del lead a convertido
@@ -204,7 +206,7 @@ export async function findById(id) {
   // Cada pago trae SU factura (una factura por pago). Enlazamos por payment_id
   // e incluimos los datos de cliente para que el front sepa si faltan datos.
   const { rows: payments } = await query(
-    `SELECT cp.id, cp.importe, cp.fecha, cp.notas, cp.metodo, cp.created_at,
+    `SELECT cp.id, cp.importe, cp.fecha, cp.notas, cp.metodo, cp.referencia, cp.created_at,
             ci.numero AS cuota_numero,
             (cp.metodo = 'tarjeta_stripe' OR EXISTS (
               SELECT 1 FROM stripe_payments sp
@@ -754,7 +756,8 @@ export async function update(id, fields) {
 // opts.allowOverpay: permite registrar un cobro que supere el importe_total de la venta.
 // Lo usa el cobro automático de Stripe: el dinero entró de verdad, y cuando excede el total
 // lo que suele estar mal es el total previsto, no el cobro. El flujo manual sigue bloqueado.
-export async function addPayment(conversionId, { importe, fecha, notas, metodo }, opts = {}) {
+// `referencia`: la del banco en una transferencia o un depósito (migración 206).
+export async function addPayment(conversionId, { importe, fecha, notas, metodo, referencia }, opts = {}) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -795,10 +798,10 @@ export async function addPayment(conversionId, { importe, fecha, notas, metodo }
 
     // INSERT payment
     const { rows: payRows } = await client.query(
-      `INSERT INTO conversion_payments (conversion_id, importe, fecha, notas, metodo)
-       VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5)
+      `INSERT INTO conversion_payments (conversion_id, importe, fecha, notas, metodo, referencia)
+       VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5, $6)
        RETURNING *`,
-      [conversionId, importe, fecha, notas, metodo || null]
+      [conversionId, importe, fecha, notas, metodo || null, referencia || null]
     );
 
     // UPDATE conversion.importe_pagado

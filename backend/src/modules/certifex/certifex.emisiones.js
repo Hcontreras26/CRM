@@ -2,8 +2,9 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
 import { veTodoElCrm } from '../../shared/utils/ambito.js';
+import { tieneRol } from '../../shared/utils/roles.js';
 import { listarEmisionesSchema, decisionesSchema, emitirSchema, cursosSchema, mensajeDeValidacion } from './certifex.validation.js';
-import { config, urlPublica, certifex, recorrer } from './certifex.cliente.js';
+import { config, urlPublica, direccionPublica, certifex, recorrer } from './certifex.cliente.js';
 import { alcanceDe, centrosPermitidos, acotar, exigirCentro, exigirMatriculas, exigirExpedientes } from './certifex.alcance.js';
 import { datosPara, emitirMatriculas } from './certifex.emision.js';
 
@@ -31,7 +32,9 @@ export { certifex };
  */
 
 /** Forma de un numero de expediente de Certifex: CTF-2026-000123-AB12. */
-export const NEXP = /^[A-Z]{3}-\d{4}-\d{6}-[A-Z0-9]{4}$/;
+// El prefijo es el de la empresa que numera (Certifex 0035: CEDIA, ISEIE, ICTESS, LTS) o
+// el CTF de los antiguos: de 2 a 6 letras, lo mismo que acepta la verificación de Certifex.
+export const NEXP = /^[A-Z]{2,6}-\d{4}-\d{6}-[A-Z0-9]{4}$/;
 
 function parsear(schema, datos) {
   const r = schema.safeParse(datos);
@@ -54,7 +57,10 @@ export async function estado(req, res, next) {
     }
     const alcance = await centrosPermitidos(req.user, yo.centros);
     const centros = alcance && Array.isArray(yo.centros) ? yo.centros.filter((c) => alcance.has(String(c).toUpperCase())) : yo.centros;
-    res.json({ success: true, data: { conectado: true, nombre: yo.nombre, centros, urlPublica: urlPublica() } });
+    // Un enlace local no llega a la pantalla: sin direccion publica, urlPublica va a null
+    // y el panel dice por que (Certifex#96).
+    const dir = direccionPublica(yo);
+    res.json({ success: true, data: { conectado: true, nombre: yo.nombre, centros, urlPublica: dir.url, direccionPublica: { ok: dir.ok, motivos: dir.motivos } } });
   } catch (err) { next(err); }
 }
 
@@ -213,6 +219,11 @@ export async function diploma(req, res, next) {
     // El A3 de imprenta (#95 de Certifex) NO es publico: se pide con la clave del CRM.
     const formato = req.query.formato == null || req.query.formato === '' ? 'digital' : String(req.query.formato);
     if (formato !== 'digital' && formato !== 'imprenta') throw new AppError('Formato desconocido: usa «digital» o «imprenta».', 400, 'VALIDATION_ERROR');
+    // Quien solo VE Diplomas (`diplomas.view`, #384) ve el digital, el que le llega al
+    // alumno. El A3 es para mandarlo a imprenta: eso lo hace administracion.
+    if (formato === 'imprenta' && !tieneRol(req.user, 'admin', 'superadmin')) {
+      throw new AppError('El PDF de imprenta (A3) lo descarga administración.', 403, 'FORBIDDEN');
+    }
     if (formato === 'imprenta') return await enviarImprenta(res, nexp);
     let r;
     try {

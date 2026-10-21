@@ -13,7 +13,7 @@ import {
   Brevo. Lo enciende Diego en producción. Igual que los de tareas de Hugo.
 
   Los textos, de la «Definición acordada · Diego, 01/10» → «Ideas de formato».
-  El aviso de pago es de la segunda PR.
+  El aviso de pago, de su «Añadido 01/10 (tarde)» (segunda PR).
 */
 
 export const correosActivos = () => {
@@ -131,7 +131,54 @@ export function armarAcuse({ f, marca = null }) {
   };
 }
 
+// «transferencia del 05/10» (segunda parte, «Aviso al colaborador»).
+const FORMAS_PAGO = { transferencia: 'transferencia', bizum: 'Bizum', paypal: 'PayPal', efectivo: 'efectivo', otro: 'pago' };
+
+/**
+ * El aviso de pago: «Tu factura de septiembre para CEDIA está pagada ·
+ * 636,00 € · transferencia del 05/10» (el ejemplo de Diego, 01/10 tarde).
+ */
+export function armarAvisoDePago({ f, marca = null }) {
+  const mes = mesDe(f.periodo);
+  const corta = empresaCorta(f.razon_social);
+  // La fecha del pago es un día («2026-10-05»): «05/10», con sus dos cifras, como en el ejemplo.
+  const dia = String(f.pagada_at).slice(0, 10);
+  const como = `${FORMAS_PAGO[f.forma_pago] || 'pago'} del ${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
+  const linea = [`Tu factura de ${mes} para ${corta} está pagada`,
+    f.importe !== null && f.importe !== undefined ? euros(f.importe) : null, como].filter(Boolean).join(' · ');
+  const { htmlContent, textContent } = correo({
+    proyecto: marca || {},
+    titulo: 'Factura pagada',
+    saludo: f.colaborador_nombre,
+    resumen: linea,
+    bloques: [
+      parrafo(esc(linea) + '.'),
+      nota([
+        f.numero_factura ? `Tu factura: <strong>${esc(f.numero_factura)}</strong>` : null,
+        f.numero_recepcion ? `Número de recepción: <strong>${esc(f.numero_recepcion)}</strong>` : null,
+        f.referencia_pago ? `Referencia del pago: <strong>${esc(f.referencia_pago)}</strong>` : null,
+      ].filter(Boolean).join('<br>')),
+    ],
+  });
+  return { asunto: linea, htmlContent, textContent, fromName: `${corta} · Facturación` };
+}
+
 const para = (f) => [{ email: f.colaborador_email, name: f.colaborador_nombre }];
+
+/**
+ * Manda el aviso de pago. La clave lleva la vez que se paga: un reintento no lo
+ * repite, y si se deshace y se vuelve a pagar (aunque sea el mismo día) sale otro.
+ */
+export async function enviarAvisoDePago({ f, vez = 1, marca = null }) {
+  const c = armarAvisoDePago({ f, marca });
+  return despachar({
+    projectId: marca?.id ?? null,
+    to: para(f), subject: c.asunto, htmlContent: c.htmlContent, textContent: c.textContent,
+    fromName: c.fromName,
+    tags: ['facturas-colaborador', 'pago'],
+    clave: `facturas-colaborador-pago-${f.id}-${vez}`,
+  });
+}
 
 /** Manda el del mes (o el recordatorio, o el enlace nuevo). La clave evita repetirlo. */
 export async function enviarCorreoDelMes({ f, token, recordatorio = false, nuevo = false, clave, marca = null }) {

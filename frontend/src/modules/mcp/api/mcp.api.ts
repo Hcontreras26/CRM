@@ -31,10 +31,27 @@ export interface McpToken {
  * servidor, con la hora de Madrid: aquí solo se enseña `texto`.
  */
 export interface McpEstadoCodigo {
-  estado: 'sin_desbloquear' | 'desbloqueada' | 'bloqueada';
-  /** La hora a la que lo pedirá, o hasta la que está bloqueada. */
+  estado: 'sin_desbloquear' | 'desbloqueada' | 'bloqueada' | 'pendiente';
+  /** Hasta cuándo está bloqueada por códigos falsos. Ya no hay horas de caducidad (#326). */
   hasta: string | null;
   texto: string;
+  /** Cada Claude conectado con esta URL, para autorizarlo o rechazarlo (#326). */
+  conexiones?: McpConexionClaude[];
+}
+
+/** Un Claude conectado a una URL (#326): queda pendiente hasta que su dueño lo autoriza. */
+export interface McpConexionClaude {
+  id: number;
+  token_id: number;
+  cliente: 'claude' | 'claude_code';
+  estado: 'pendiente' | 'autorizada' | 'rechazada';
+  desbloqueada: boolean;
+  created_at: string;
+  last_used_at: string | null;
+  decidida_at: string | null;
+  /** Solo en la lista del super admin. */
+  persona?: string;
+  url?: string;
 }
 
 export interface McpProyecto {
@@ -66,7 +83,7 @@ export interface McpEstado {
   puedeApagar?: boolean;
   /** Código de desbloqueo (#192): si hace falta y cuánto dura cada cosa. */
   codigo?: {
-    obligatorio: boolean; minutosCodigo: number; inactividadMin: number; maximoMin: number;
+    obligatorio: boolean; minutosCodigo: number;
     /**
      * El estado actual en una línea, de todas sus URLs. Con una sola, `una`
      * trae la suya (y su botón); con varias, `texto` las resume.
@@ -77,6 +94,8 @@ export interface McpEstado {
       texto: string;
     } | null;
   };
+  /** Super admin: los Claude conectados de otras personas, para poder rechazarlos (#326). */
+  conexionesDelEquipo?: McpConexionClaude[] | null;
 }
 
 export interface McpInterruptor {
@@ -157,6 +176,9 @@ export const mcpApi = {
   revocarToken: (id: number) => client.delete(`/mcp/panel/tokens/${id}`),
   /** «Desbloquear desde aquí» (#192): sin pasar por Claude. Solo una URL tuya. */
   desbloquearUrl: (id: number) => client.post(`/mcp/panel/tokens/${id}/desbloquear`, {}),
+  /** Autorizar o rechazar un Claude conectado a una URL (#326). */
+  decidirConexion: (id: number, decision: 'autorizar' | 'rechazar') =>
+    client.patch(`/mcp/panel/conexiones/${id}`, { decision }),
   personas: () => client.get('/mcp/panel/personas'),
   /** Interruptor de emergencia (#196): solo super admin. */
   cambiarInterruptor: (apagado: boolean, motivo?: string) => client.post('/mcp/panel/interruptor', { apagado, motivo }),

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, WarningCircle, Lock } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -7,7 +7,8 @@ import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import Card from '@/shared/components/ui/Card';
 import { toast } from '@/shared/hooks/useToast';
 import {
-  avisoCambioCorreo, createUser, deactivateUser, reactivateUser, setUserPassword, updateUser, type CrmUser,
+  avisoCambioCorreo, createUser, deactivateUser, listEmpresas, reactivateUser, setUserPassword, updateUser,
+  type CrmUser, type Empresa,
 } from '../api/users.api';
 import useUsers from '../hooks/useUsers';
 import useAvailabilityMap from '../hooks/useAvailabilityMap';
@@ -46,6 +47,16 @@ export default function UsersPanel() {
   const [invitacion, setInvitacion] = useState<{ email: string; url: string } | null>(null);
   const [porAusencias, setPorAusencias] = useState<CrmUser | null>(null);
 
+  // Las empresas, para dar una entera a un admin (#220). Solo el super admin:
+  // al resto el servidor no se lo deja guardar, así que ni se piden.
+  const [empresas, setEmpresas] = useState<Empresa[] | undefined>(undefined);
+  useEffect(() => {
+    if (!esSuperadmin) return;
+    listEmpresas().then(setEmpresas).catch(() => setEmpresas(undefined));
+  }, [esSuperadmin]);
+  // Sin la migración 203 el listado trae `empresa_ids: null` en todos.
+  const faltaMigracionEmpresas = lista.visibles.length > 0 && lista.visibles.every((u) => u.empresa_ids === null);
+
   async function guardar(values: UserFormValues) {
     setGuardando(true);
     try {
@@ -56,6 +67,7 @@ export default function UsersPanel() {
           role: values.role,
           roles_extra: values.roles_extra,
           projects: values.projects,
+          ...(values.empresaIds?.length ? { empresaIds: values.empresaIds } : {}),
         });
         if (setPasswordToken) {
           const base = (import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '');
@@ -68,7 +80,7 @@ export default function UsersPanel() {
           toast({ title: 'Usuario creado', description: `Email de bienvenida enviado a ${values.email}` });
         }
       } else if (dialogo?.modo === 'editar') {
-        const sinProyectos = values.projects.length === 0;
+        const sinProyectos = values.projects.length === 0 && !values.empresaIds?.length;
         // El correo solo si ha cambiado, y solo lo cambia el super admin (#248):
         // a cualquier otro el servidor le contesta 403.
         const correoNuevo = values.email.trim().toLowerCase();
@@ -90,6 +102,8 @@ export default function UsersPanel() {
           // del listado, asi que mandarlas no pisa nada de quien no las toque.
           factura_manager: values.factura_manager,
           editar_fechas_factura: values.editar_fechas_factura,
+          // Las empresas enteras (#220): solo viajan si las ha podido tocar.
+          ...(values.empresaIds !== undefined ? { empresaIds: values.empresaIds } : {}),
         });
         toast(sinProyectos
           ? {
@@ -286,6 +300,8 @@ export default function UsersPanel() {
           onClose={() => setDialogo(null)}
           onSubmit={guardar}
           onResetPassword={reiniciarPassword}
+          empresas={esSuperadmin ? empresas : undefined}
+          faltaMigracionEmpresas={faltaMigracionEmpresas}
         />
       )}
 

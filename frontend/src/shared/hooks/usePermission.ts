@@ -50,7 +50,9 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     'roles.view': true,   'roles.edit': false,
     'tasks.view_all': true, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': true, 'tasks.edit': true, 'tasks.delete': true, 'tasks.close': true, 'tasks.manage': true,
     // Facturas de colaboradores (#202): las de las empresas de sus campus.
-    'facturas_colaborador.ver_todas': true, 'facturas_colaborador.gestionar': true, 'facturas_colaborador.anular': true, 'facturas_colaborador.subir': false,
+    'facturas_colaborador.ver_todas': true, 'facturas_colaborador.gestionar': true, 'facturas_colaborador.anular': true, 'facturas_colaborador.pagar': true, 'facturas_colaborador.subir': false,
+    // Diplomas de Certifex (#384): verlos. El admin además los maneja, por su rol.
+    'diplomas.view': true,
   },
   gestor: {
     'leads.view': true,          'leads.create': true,        'leads.edit': true,          'leads.delete': false,       'leads.export': false,       'leads.assign': false,       'leads.bulk_action': false,
@@ -78,7 +80,9 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     // Sin tablero (Diego, 09/10: «las gestoras no tienen tareas»): ni menú ni API.
     'tasks.view_all': false, 'tasks.view_own': false, 'tasks.create': false, 'tasks.assign': false, 'tasks.edit': false, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): no las ve.
-    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.subir': false,
+    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.pagar': false, 'facturas_colaborador.subir': false,
+    // Diplomas de Certifex (#384): apagado de serie; se da por rol o por persona.
+    'diplomas.view': false,
   },
   // Soporte NO es acceso total: el backend lo define como mirar y poco mas.
   // Antes `can()` lo saltaba con un `return true` y veia todos los botones.
@@ -107,7 +111,9 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     // Sin tablero (Diego, 09/10: «las gestoras no tienen tareas»): ni menú ni API.
     'tasks.view_all': false, 'tasks.view_own': false, 'tasks.create': false, 'tasks.assign': false, 'tasks.edit': false, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): no las ve.
-    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.subir': false,
+    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.pagar': false, 'facturas_colaborador.subir': false,
+    // Diplomas de Certifex (#384): no los ve (como hasta ahora).
+    'diplomas.view': false,
   },
   // Un tutor no tiene permisos de gestion: entra a lo suyo —sus cursos y sus
   // comisiones— y el menu ya se lo recorta enumerando lo que puede ver. Vacio
@@ -118,7 +124,9 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
   colaborador: {
     'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): sube la suya («Mi factura»).
-    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.subir': true,
+    'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.pagar': false, 'facturas_colaborador.subir': true,
+    // Diplomas de Certifex (#384): no.
+    'diplomas.view': false,
   },
 };
 
@@ -148,7 +156,9 @@ export const PERMISSION_RESOURCES: ReadonlyArray<PermissionResource> = [
   { key: 'channels',         label: 'Canales',              actions: ['view', 'edit'] },
   { key: 'roles',            label: 'Roles',                actions: ['view', 'edit'] },
   { key: 'tasks',            label: 'Tareas',               actions: ['view_all', 'view_own', 'create', 'assign', 'edit', 'delete', 'close', 'manage'] },
-  { key: 'facturas_colaborador', label: 'Facturas de colaboradores', actions: ['ver_todas', 'gestionar', 'anular', 'subir'] },
+  { key: 'facturas_colaborador', label: 'Facturas de colaboradores', actions: ['ver_todas', 'gestionar', 'anular', 'pagar', 'subir'] },
+  // #384: ver la pantalla Diplomas en solo lectura. Manejarla sigue siendo del admin.
+  { key: 'diplomas',         label: 'Diplomas (Certifex)',  actions: ['view'] },
 ];
 
 export const FIXED_ROLES: ReadonlyArray<FixedRole> = [

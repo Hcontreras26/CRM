@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 import { Suspense, lazy, useEffect } from 'react';
 import { useProjectContext } from './contexts/ProjectContext';
 import { tituloDeRuta } from './shared/lib/rutasTitulos';
@@ -18,7 +17,7 @@ function ScrollToTop() {
 
 function DocumentTitle() {
   const { pathname } = useLocation();
-  const { activeProject: project } = useProjectContext();
+  const { activeProject: project, activeIssuer } = useProjectContext();
   useEffect(() => {
     const base = 'MultiCRM';
     // El nombre sale del mismo sitio que usa la cabecera: una pantalla no
@@ -26,13 +25,19 @@ function DocumentTitle() {
     const route = tituloDeRuta(pathname);
     // «Sin proyecto» es el hueco de cuando no hay ninguno (la página del enlace
     // del colaborador, sin sesión): no es un nombre que poner en la pestaña.
-    const proj = project?.id ? project.nombre : null;
+    //
+    // CON UNA EMPRESA ELEGIDA manda la empresa (#224). El proyecto activo es
+    // entonces el pseudo-proyecto -1, que se llama «Todos los proyectos», y la
+    // pestaña decía eso con CEDIA puesta. La cabecera del Dashboard ya ponía
+    // la empresa: la pestaña dice lo mismo que la cabecera.
+    const proj = activeIssuer?.nombre
+      || (project?.id ? project.nombre : null);
     // Formato: "Prospectos · Psiko Aprende — MultiCRM"
     if (route && proj) document.title = `${route} · ${proj} — ${base}`;
     else if (route) document.title = `${route} — ${base}`;
     else if (proj) document.title = `${proj} — ${base}`;
     else document.title = base;
-  }, [pathname, project?.id, project?.nombre]);
+  }, [pathname, project?.id, project?.nombre, activeIssuer?.nombre]);
   return null;
 }
 
@@ -86,7 +91,8 @@ const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPa
 const AIChatPage = lazy(() => import('./modules/ai-chat/pages/AIChatPage'));
 const SettingsPage = lazy(() => import('./modules/settings/pages/SettingsPage'));
 const AccountingDashboardPage = lazy(() => import('./modules/accounting/pages/AccountingDashboardPage'));
-const ExpensesPage = lazy(() => import('./modules/accounting/pages/ExpensesPage'));
+// Egresos: su propio módulo, la misma pantalla que en CRM-ISEIE (#227).
+const ExpensesPage = lazy(() => import('./modules/expenses/pages/ExpensesPage'));
 const IncomePage = lazy(() => import('./modules/accounting/pages/IncomePage'));
 const IntegrationsPage = lazy(() => import('./modules/accounting/pages/IntegrationsPage'));
 const PendienteFacturarPage = lazy(() => import('./modules/accounting/pages/PendienteFacturarPage'));
@@ -142,6 +148,8 @@ const RolesPage = lazy(() => import('./modules/permissions/pages/RolesPage'));
 const CategoriesTreePage = lazy(() => import('./modules/product-categories/pages/CategoriesTreePage'));
 const ChannelsConfigPage = lazy(() => import('./modules/settings/pages/ChannelsConfigPage'));
 const ConnectorsPage = lazy(() => import('./modules/connectors/pages/ConnectorsPage'));
+// Conexión → Webhook de transferencias (Diego, 15/10): avisa a fuera de los cobros por transferencia o depósito.
+const WebhookTransferenciasPage = lazy(() => import('./modules/webhooks-salientes/pages/WebhookTransferenciasPage'));
 const ShortcutsConfigPage = lazy(() => import('./modules/settings/pages/ShortcutsConfigPage'));
 const EmailTemplatesPage = lazy(() => import('./modules/email-templates/pages/EmailTemplatesPage'));
 const PayrollPage = lazy(() => import('./modules/payroll/pages/PayrollPage'));
@@ -171,7 +179,11 @@ const SuiteDashCrmPreviewPage = IS_TESTEO2_BASE ? lazy(() => import('./modules/s
 // misma puerta que las demas pantallas de previsualizacion —desarrollo y
 // /testeo—, que es donde hay que poder mirarlo. En produccion sigue fuera, y
 // Vite elimina la rama entera al construir.
-const DevComponentsPage = UI_PREVIEW_ENABLED
+//
+// Y en /testeo2: el menú enseña «Las 22 primitivas» allí también (`previewOnly`
+// mira /testeo2), y sin la ruta la entrada acababa en «Página no encontrada»
+// (#226). Sigue sin entrar en producción.
+const DevComponentsPage = (UI_PREVIEW_ENABLED || IS_TESTEO2_BASE)
   ? lazy(() => import('./modules/dev/pages/DevComponentsPage'))
   : null;
 
@@ -207,7 +219,7 @@ function App() {
           <Route path="/prospectos/cola" element={<ColaDelDiaPage />} />
           <Route path="/prospectos/seguimiento" element={<SeguimientoPage />} />
           <Route path="/prospectos/proceso" element={<ProcesoPage />} />
-          <Route path="/prospectos/convocatorias" element={SOLO_EN_PRUEBAS ? <ConvocatoriasPage /> : <Navigate to="/prospectos" replace />} />
+          <Route path="/prospectos/convocatorias" element={<ConvocatoriasPage />} />
           <Route path="/prospectos/:id" element={<LeadDetailPage />} />
 
           {/* Clientes — tabs */}
@@ -290,7 +302,7 @@ function App() {
             <Route path="facturas/configuracion" element={<InvoicingConfigPage />} />
             <Route path="facturas/plantillas" element={<InvoiceTemplateEditorPage />} />
             {/* #202: en evaluación, solo en /testeo y en local, como el tablero (#210). */}
-            <Route path="facturas-colaboradores" element={SOLO_EN_PRUEBAS ? <FacturasColaboradoresPage /> : <Navigate to="/finanzas" replace />} />
+            <Route path="facturas-colaboradores" element={<FacturasColaboradoresPage />} />
           </Route>
 
           <Route path="/secuencias-email" element={<EmailSequencesPage />} />
@@ -304,6 +316,8 @@ function App() {
           {/* Conexión → Conectores (WordPress, tiendas, APIs). Estaba en Captación
               hasta el 29/09; la dirección vieja lleva a la nueva. */}
           <Route path="/conexion/conectores" element={<ConnectorsPage />} />
+          {/* Conexión → Webhook de transferencias. Solo super admin y admin: lo corta el servidor. */}
+          <Route path="/conexion/webhook-transferencias" element={<WebhookTransferenciasPage />} />
           <Route path="/configuracion/roles" element={<RolesPage />} />
           <Route path="/configuracion/canales" element={<ChannelsConfigPage />} />
           <Route path="/configuracion/proceso" element={<Navigate to="/prospectos/proceso" replace />} />
@@ -331,10 +345,10 @@ function App() {
           <Route path="/documentos" element={<DocumentsPage />} />
           <Route path="/preferencias" element={<PreferencesPage />} />
           {/* El tablero (#210): solo en pruebas hasta que Diego lo apruebe (07/10). */}
-          <Route path="/tareas" element={SOLO_EN_PRUEBAS ? <TasksPage /> : <Navigate to="/" replace />} />
-          <Route path="/tareas/revisar" element={SOLO_EN_PRUEBAS ? <TasksPage /> : <Navigate to="/" replace />} />
-          <Route path="/tareas/configurar" element={SOLO_EN_PRUEBAS ? <TaskBoardConfigPage /> : <Navigate to="/" replace />} />
-          <Route path="/mi-factura" element={SOLO_EN_PRUEBAS ? <MiFacturaPage /> : <Navigate to="/" replace />} />
+          <Route path="/tareas" element={<TasksPage />} />
+          <Route path="/tareas/revisar" element={<TasksPage />} />
+          <Route path="/tareas/configurar" element={<TaskBoardConfigPage />} />
+          <Route path="/mi-factura" element={<MiFacturaPage />} />
           <Route path="/external/:panelId" element={<ExternalPanelPage />} />
           <Route path="/configuracion" element={<SettingsPage />} />
           <Route path="/perfil" element={<ProfilePage />} />

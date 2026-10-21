@@ -26,6 +26,17 @@ router.put('/users/:userId/permissions', roleGuard('admin', 'superadmin'), ctrl.
 router.get('/role-permissions/:roleKey', soloRoles('superadmin', 'admin'), ctrl.getRolePermissions);
 router.put('/role-permissions/:roleKey', soloRoles('superadmin', 'admin'), ctrl.saveRolePermissions);
 
+// Una clave suelta por rol y por persona (#384: «Diplomas (Certifex) · Ver»).
+// A una persona se la dan el superadmin y el admin —este, solo a gente de sus
+// campus—, y solo ESA clave, sin pisar el resto de sus excepciones. A un rol
+// entero, solo el superadmin: un rol es de todas las empresas, y un admin lo es
+// de la suya.
+const daPermisos = soloRoles('superadmin', 'admin');
+router.get('/claves/:clave/rol/:roleKey', daPermisos, ctrl.getClaveDeRol);
+router.put('/claves/:clave/rol/:roleKey', soloRoles('superadmin'), ctrl.setClaveDeRol);
+router.get('/claves/:clave/personas', daPermisos, ctrl.personasDeLaClave);
+router.put('/claves/:clave/personas/:userId', daPermisos, ctrl.setClaveDePersona);
+
 // Vistas por rol (sidebar/dashboard/landing)
 router.get('/role-views/:roleKey', ctrl.getRoleView);
 router.put('/role-views/:roleKey', roleGuard('admin', 'superadmin'), ctrl.setRoleView);

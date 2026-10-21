@@ -100,7 +100,7 @@ export default function NotificationsBell({ collapsed = false, className = '' })
             kind: 'urgent',
             title: 'Cobros vencidos',
             body: `${today.cobros_vencidos} pagos atrasados pendientes`,
-            href: '/accounting/receivable',
+            href: '/finanzas/por-cobrar',
             when: new Date().toISOString(),
           });
         }

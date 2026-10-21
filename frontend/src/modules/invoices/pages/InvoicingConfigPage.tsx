@@ -190,6 +190,7 @@ export default function InvoicingConfigPage() {
           <select value={metodoDefault} onChange={(e) => setMetodoDefault(e.target.value)}
             className="w-full h-9 px-2 rounded-md border border-border bg-background text-sm mt-1">
             <option value="transferencia">Transferencia bancaria</option>
+            <option value="deposito">Depósito bancario</option>
             <option value="tarjeta">Tarjeta</option>
             <option value="tarjeta_stripe">Tarjeta (Stripe)</option>
             <option value="efectivo">Efectivo</option>

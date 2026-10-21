@@ -76,7 +76,6 @@ import { isFloatingDockHidden, setFloatingDockHidden } from './FloatingDock';
 import { toast } from '@/shared/hooks/useToast';
 import { isBetaAllowed, BETA_MODE, BETA_VERSION } from '@/shared/config/betaConfig';
 import { moduloApagado } from '@/shared/lib/modulos';
-import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 
 const ProjectSettingsDialog = lazy(() => import('@/modules/settings/components/ProjectSettingsDialog'));
@@ -90,7 +89,12 @@ const IS_REDESIGN_NAV_ENABLED = import.meta.env.DEV
 // Quién tiene tablero de tareas: el mismo `ROLES_TAREAS` que el backend.
 const ROLES_TAREAS = ['superadmin', 'admin', 'colaborador'];
 
-const NAV_SECTIONS = [
+// Ninguna entrada puede llevar a «Página no encontrada» (#226). Diego, 10/10:
+// lo que no existe se marca «Próximamente» (sin enlace, `comingSoon: true`); lo
+// que existe, que funcione y esté en el menú. Lo vigila
+// `test/menuSinRutasRotas.test.jsx`: cada `to` tiene su <Route> en App.jsx, o
+// lleva `comingSoon`. Las de `href` salen a otra compilación y no cuentan.
+export const NAV_SECTIONS = [
   {
     label: 'Testeo',
     icon: Flask,
@@ -136,7 +140,7 @@ const NAV_SECTIONS = [
           { label: 'Seguimiento de fin de mes', to: '/prospectos/seguimiento', detail: 'La base que no compró', icon: ArrowCounterClockwise },
           { label: 'Proceso comercial', to: '/prospectos/proceso', detail: 'Los cinco pasos', icon: ListChecks },
           // Sin aprobar para producción (07/10): solo en /testeo.
-          ...(SOLO_EN_PRUEBAS ? [{ label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap }] : []),
+          { label: 'Convocatorias', to: '/prospectos/convocatorias', detail: 'Las becas y su embudo', icon: GraduationCap },
         ],
       },
       // WhatsApp cuelga de su propia entrada, con lo suyo escalonado debajo: son
@@ -184,9 +188,8 @@ const NAV_SECTIONS = [
   // es solo colaborador. «Por revisar» y «Configurar tablero» se enseñan por
   // permiso (`permiso`), no por rol: lo que se cambie en Configuración › Roles
   // manda también aquí.
-  // Toda la sección, solo en pruebas hasta que Diego la apruebe (07/10): en
-  // producción no sale ni en el menú ni por la dirección.
-  ...(SOLO_EN_PRUEBAS ? [{
+  // Aprobada para producción en la 2.2.0 (Diego, 16/10).
+  {
     label: 'Equipo de Desarrollo',
     icon: Code,
     items: [
@@ -196,7 +199,7 @@ const NAV_SECTIONS = [
       // «Mi factura» (#202): el colaborador con usuario sube aquí su factura del mes.
       { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador'] },
     ],
-  }] : []),
+  },
   {
     label: 'Captación',
     icon: Funnel,
@@ -215,7 +218,10 @@ const NAV_SECTIONS = [
     icon: Megaphone,
     items: [
       { label: 'Meta Ads', to: '/meta-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'] },
-      { label: 'Google Ads', to: '/google-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], comingSoon: true, statusTag: 'Próx.' },
+      // `comingSoon` no hacía nada aquí: el menú solo miraba la lista de la beta,
+      // así que fuera de ella Google Ads era un enlace a /google-ads, que no
+      // tiene pantalla, y acababa en «Página no encontrada» (#226).
+      { label: 'Google Ads', to: '/google-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], comingSoon: true },
     ],
   },
   {
@@ -262,7 +268,7 @@ const NAV_SECTIONS = [
       { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', detail: 'Cobros por Stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'factura_manager' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
-      ...(SOLO_EN_PRUEBAS ? [{ label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'] }] : []),
+      { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'] },
       { label: 'Integraciones', to: '/finanzas/integraciones', detail: 'Servicios conectados', icon: PlugsConnected, roles: ['superadmin', 'admin'], statusTag: 'Pruebas' },
     ],
   },
@@ -292,9 +298,11 @@ const NAV_SECTIONS = [
       { label: 'Buscar duplicados', to: '/prospectos/duplicados', detail: 'Buscarlos a mano', icon: CopySimple, roles: ['superadmin', 'admin'], module: 'leads' },
       { label: 'Matrículas', to: '/clientes/matriculas', detail: 'Altas en cada curso', icon: GraduationCap, module: 'matriculas' },
       // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
-      // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin).
-      // Se enciende por configuración, como Certificaciones (VITE_CERTIFEX_PANEL).
-      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'] }] : []),
+      // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin),
+      // y además, para VERLO en solo lectura, quien tenga `diplomas.view` (#384,
+      // `oPermiso`). Se enciende por configuración, como Certificaciones
+      // (VITE_CERTIFEX_PANEL).
+      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'], oPermiso: 'diplomas.view' }] : []),
     ],
   },
   // Conexión (MCP de Claude). Diego: «estará en el menú en la sección de
@@ -312,6 +320,9 @@ const NAV_SECTIONS = [
     items: [
       { label: 'MCP', to: '/conexion/mcp', detail: 'Consultar desde Claude', icon: Robot, accesoMcp: true },
       { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors' },
+      // Diego, 15/10: «un apartado en Conexión para enviar esos datos ÚNICAMENTE
+      // CUANDO SE PONGA DATOS POR TRANSFERENCIA BANCARIA / DEPÓSITO BANCARIO».
+      { label: 'Webhook de transferencias', to: '/conexion/webhook-transferencias', detail: 'Avisar de transferencias y depósitos', icon: Bank, roles: ['superadmin', 'admin'] },
     ],
   },
   {
@@ -431,10 +442,16 @@ export function tieneAccesoMcp(role, permisos) {
  * Recibe TODOS sus roles, no uno: desde que se puede tener mas de uno, «es
  * gestor» dejo de ser una pregunta de igualdad. Quien es gestora y ademas
  * tutora ve lo de las dos.
+ *
+ * `can` es el de usePermission: lo usa `oPermiso`, una entrada que se ve por
+ * su rol O por un permiso del sistema de Roles (Diplomas, #384).
  */
-function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permisos) {
+export function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permisos, can) {
   const suyos = Array.isArray(roles) ? roles.filter(Boolean) : [roles].filter(Boolean);
   const es = (...r) => r.some((x) => suyos.includes(x));
+  // «Por su rol o porque se le ha dado»: quien tiene el permiso la ve aunque su
+  // rol no esté en `roles`. Lo que ve dentro lo recorta la pantalla (y la API).
+  const porPermiso = Boolean(item.oPermiso && typeof can === 'function' && can(item.oPermiso) === true);
   if (item.apagable && moduloApagado(item.apagable)) return false;
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
@@ -467,8 +484,9 @@ function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permi
     //
     // Van las TRES del apartado. «Mis cursos» no: esa es la de un tutor
     // mirando lo suyo, no la de quien los organiza.
+    // Y lo que se le haya dado a propósito (`oPermiso`, #384).
     return ['/tutores', '/tutores/sin-tutor', '/tutores/comisiones', '/preferencias']
-      .includes(item.to);
+      .includes(item.to) || porPermiso;
   }
 
   // soporte ve todo (rol generico tipo dev)
@@ -488,15 +506,52 @@ function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permi
   // Se comprueba a quien NO tiene un rol de mando: si ademas es admin, puede
   // por ese otro rol y esconderselo seria quitarle lo que se le acaba de dar.
   if (item.permiso && !es('admin', 'soporte', 'superadmin') && !permisos?.[item.permiso]) return false;
-  if (item.roles && !item.roles.some((r) => suyos.includes(r))) return false;
+  if (item.roles && !item.roles.some((r) => suyos.includes(r)) && !porPermiso) return false;
   if (item.module && modules && modules[item.module] === false) return false;
   return true;
 }
 
-function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, projectType, soloColab, permisos, labelOverrides, onNavigate, collapsed, onExpandSidebar }) {
+/**
+ * Una entrada del menú que todavía no lleva a ninguna parte (#226).
+ *
+ * Diego, 10/10: lo que no existe, «Próximamente» y sin enlace. Es un <div> y
+ * no un enlace: no navega, el tabulador no se para en ella y no hay forma de
+ * acabar en «Página no encontrada». La etiqueta dice siempre «Próximamente»:
+ * antes salía «Próx.» o el `statusTag` —«Pruebas»—, y «Pruebas» es otra cosa,
+ * esa SÍ se abre.
+ *
+ * El mismo aspecto que en CRM-ISEIE. `compacta` es la de dentro de un grupo,
+ * que va sin icono y en letra más pequeña, como sus hermanas.
+ */
+export function EntradaProximamente({ label, icon: Icon, collapsed = false, compacta = false }) {
+  return (
+    <div
+      aria-disabled="true"
+      data-proximamente=""
+      title={`${label} — Próximamente`}
+      aria-label={`${label} — Próximamente`}
+      className={cn(
+        'relative flex items-center text-muted-foreground/50 cursor-not-allowed select-none',
+        compacta ? 'gap-2 px-3 py-1.5 rounded-lg text-[12px]' : 'rounded-md text-[13px]',
+        !compacta && (collapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-1.5'),
+      )}
+    >
+      {!compacta && Icon && <Icon size={18} weight="regular" />}
+      {!collapsed && (
+        <>
+          <span className="truncate">{label}</span>
+          <span className="ml-auto text-[9px] uppercase tracking-wider bg-muted/60 text-muted-foreground/70 px-1.5 py-0.5 rounded">Próximamente</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, projectType, soloColab, permisos, can, labelOverrides, onNavigate, collapsed, onExpandSidebar }) {
   const visible = children
-    .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos))  // `role` ya llega como lista
-    .map((c) => ({ ...c, comingSoon: !isBetaAllowed(c.to) }));
+    .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos, can))  // `role` ya llega como lista
+    // Lo marcado en el propio menú cuenta, no solo la lista de la beta (#226).
+    .map((c) => ({ ...c, comingSoon: c.comingSoon || !isBetaAllowed(c.to) }));
   const location = useLocation();
   const hasActiveChild = visible.some((c) => !c.comingSoon && (location.pathname === c.to || location.pathname.startsWith(c.to + '/')));
   // En BETA: si TODO el grupo está coming-soon lo mantenemos visible (deshabilitado)
@@ -545,14 +600,7 @@ function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, pro
         <div className="ml-4 mt-0.5 pl-4 border-l border-border space-y-0.5">
           {visible.map((child) => (
             child.comingSoon ? (
-              <div
-                key={child.to}
-                title={child.statusTag ? `${applyLabel(child.label, labelOverrides)} — ${child.statusTag}` : 'Próximamente'}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] text-muted-foreground/50 cursor-not-allowed select-none"
-              >
-                <span className="truncate">{applyLabel(child.label, labelOverrides)}</span>
-                <span className="ml-auto text-[9px] uppercase tracking-wider bg-muted/60 text-muted-foreground/70 px-1.5 py-0.5 rounded">{child.statusTag || 'Próximamente'}</span>
-              </div>
+              <EntradaProximamente key={child.to} label={applyLabel(child.label, labelOverrides)} compacta />
             ) : (
               <NavLink
                 key={child.to}
@@ -664,29 +712,15 @@ function ExternalPanelItem({ panel, collapsed, onClick }) {
  */
 const MOSTRAR_SUBTITULOS = import.meta.env.MODE !== 'production';
 
-function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, onClick, collapsed, featured }) {
+// Exportada para la prueba del menú (#226): una entrada marcada no puede ser un enlace.
+export function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverrides, onClick, collapsed, featured, comingSoon: marcadaProximamente }) {
   const displayLabel = applyLabel(label, labelOverrides);
   const location = useLocation();
-  const comingSoon = !href && !isBetaAllowed(to);
+  // La marca del propio menú (`comingSoon: true`) o la lista de la beta. Antes
+  // solo contaba la beta, y Google Ads, marcada, seguía siendo un enlace (#226).
+  const comingSoon = !href && (marcadaProximamente || !isBetaAllowed(to));
   if (comingSoon) {
-    return (
-      <div
-        title={`${displayLabel} — Próximamente`}
-        aria-label={`${displayLabel} — Próximamente`}
-        className={cn(
-          'relative flex items-center rounded-md text-[13px] text-muted-foreground/50 cursor-not-allowed select-none',
-          collapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-1.5'
-        )}
-      >
-        <Icon size={18} weight="regular" />
-        {!collapsed && (
-          <>
-            <span className="truncate">{displayLabel}</span>
-            <span className="ml-auto text-[9px] uppercase tracking-wider bg-muted/60 text-muted-foreground/70 px-1.5 py-0.5 rounded">Próximamente</span>
-          </>
-        )}
-      </div>
-    );
+    return <EntradaProximamente label={displayLabel} icon={Icon} collapsed={collapsed} />;
   }
   if (href) {
     const hrefPath = href.replace(/\/$/, '');
@@ -1160,7 +1194,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
           // Filtrar items que el usuario puede ver
           const visibleItems = section.items
             .filter((item) => !item.permiso || can(item.permiso))
-            .filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
+            .filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user, can));
           if (visibleItems.length === 0) return null;
           const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
@@ -1179,6 +1213,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                 projectType={activeProject?.type}
                 soloColab={soloColab}
                 permisos={user}
+                can={can}
                 labelOverrides={activeProject?.sidebar_labels}
                 onNavigate={onNavigate}
                 collapsed={collapsed}

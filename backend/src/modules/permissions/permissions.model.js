@@ -85,6 +85,23 @@ export async function saveOverridesForUser(userId, overrides) {
 }
 
 /**
+ * UNA excepción de una persona, sin tocar las demás (#384). `allowed` null la
+ * quita: la persona vuelve a lo que diga su rol.
+ */
+export async function setUserOverride(userId, resource, action, allowed) {
+  if (allowed === null || allowed === undefined) {
+    await query(
+      'DELETE FROM user_permission_overrides WHERE user_id = $1 AND resource = $2 AND action = $3',
+      [userId, resource, action]);
+    return;
+  }
+  await query(
+    `INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id, resource, action) DO UPDATE SET allowed = EXCLUDED.allowed`,
+    [userId, resource, action, allowed === true]);
+}
+
+/**
  * Lo que se ha cambiado desde Roles para estos roles del sistema (migración
  * 197). Sin la tabla todavía —servidor sin migrar— cada rol se queda con lo
  * que dice el código, igual que antes.

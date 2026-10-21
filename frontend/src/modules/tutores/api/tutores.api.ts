@@ -60,6 +60,19 @@ export interface Colaboracion {
   modulos_pct: number;
 }
 
+/** Lo que contesta «Cobra desde»: que formaciones se movieron y cuales no. */
+export interface ResultadoCobraDesde {
+  desde: string;
+  /** Colaboraciones activas que tenia. */
+  total: number;
+  cambiadas: Array<{ id: number; formacion: string; antes: string; desde: string }>;
+  /** Las que no se movieron, con el motivo: solaparian con otro tramo suyo de
+   *  esa formacion, o terminarian antes de empezar. */
+  noCambiadas: Array<{ id: number; formacion: string; desde: string; hasta: string | null; motivo: string }>;
+  /** Las que ya tenian esa fecha. */
+  sinCambio: number;
+}
+
 export interface LineaSimulacion {
   tutor_id: number;
   tutor: string;
@@ -237,12 +250,23 @@ export const tutoresApi = {
   colaboraciones: (tutorId?: number | null) =>
     client.get(`/tutores/colaboraciones${tutorId ? `?tutorId=${tutorId}` : ''}`) as Promise<ApiResponse<Colaboracion[]>>,
 
+  /** Con `anadirAlCampus`, si la formación es de un campus en el que el tutor no
+   *  está, se le da de alta ahí en el mismo paso (#384). Sin él, ese caso es un
+   *  409 `OTRO_PROYECTO` con el campus en `data`. */
   crearColaboracion: (datos: {
     tutorId: number; productId: number; pct: number; desde: string; hasta?: string | null; notas?: string;
-  }) => client.post('/tutores/colaboraciones', datos) as Promise<ApiResponse<Colaboracion>>,
+    anadirAlCampus?: boolean;
+  }) => client.post('/tutores/colaboraciones', datos) as Promise<ApiResponse<Colaboracion & {
+    campusAnadido?: { projectId: number; proyecto: string | null };
+  }>>,
 
   editarColaboracion: (id: number, datos: Record<string, unknown>) =>
     client.patch(`/tutores/colaboraciones/${id}`, datos) as Promise<ApiResponse<Colaboracion>>,
+
+  /** «Cobra desde» (Diego, 13/10): la misma fecha de inicio para TODAS sus
+   *  colaboraciones activas. No genera comisiones: eso es «Calcular». */
+  cambiarCobraDesde: (tutorId: number, desde: string) =>
+    client.patch(`/tutores/${tutorId}/cobra-desde`, { desde }) as Promise<ApiResponse<ResultadoCobraDesde>>,
 
   // «Avisar tutor» (#145 / nota del 14/09). La vista previa y el envio van
   // separados: nadie deberia mandar un correo sin ver antes lo que sale.

@@ -245,8 +245,13 @@ export async function colaboraciones({ tutorId, productId, soloActivas = false }
 // pueden solaparse. Si lo hicieran no habria forma de saber que porcentaje
 // aplicar a un pago de esas fechas, y el tutor cobraria de mas o de menos sin
 // que nadie lo notara.
-export async function haySolape({ tutorId, productId, desde, hasta, excluirId = null }) {
-  const { rows } = await query(
+//
+// `ejecutar` es por donde va la consulta: el pool, por defecto, o el cliente de
+// una transaccion. «Cobra desde» mueve varias a la vez y cada comprobacion
+// tiene que ver lo que la anterior ya cambio, o dos tramos podrian pasar el
+// filtro por separado y chocar juntos.
+export async function haySolape({ tutorId, productId, desde, hasta, excluirId = null }, ejecutar = query) {
+  const { rows } = await ejecutar(
     `SELECT id, vigente_desde, vigente_hasta FROM tutor_collaborations
       WHERE tutor_id = $1 AND product_id = $2
         AND ($5::int IS NULL OR id <> $5)
@@ -255,6 +260,97 @@ export async function haySolape({ tutorId, productId, desde, hasta, excluirId = 
     [tutorId, productId, desde, hasta || null, excluirId]
   );
   return rows;
+}
+
+/**
+ * «Cobra desde» de un tutor: la misma fecha de inicio para TODAS sus
+ * colaboraciones activas.
+ *
+ * Diego, 13/10, al abrir «Editar tutor»: «ni me deja poner la fecha de inicio
+ * del tutor». Y Carlos queria «colocar fecha de ingreso en el CRM y poder
+ * cambiarla a más antes para que cuadren». Hasta hoy solo se podia formacion a
+ * formacion, con «Editar» en cada fila.
+ *
+ * Lo que NO hace, a proposito:
+ *   - no genera comisiones. Eso sigue siendo el boton «Calcular», que no
+ *     duplica y se puede revisar antes de pagar;
+ *   - no toca las comisiones ya generadas: la generacion usa ON CONFLICT DO
+ *     NOTHING, asi que adelantar la fecha solo AÑADE las que falten al pulsar
+ *     Calcular, y retrasarla no borra nada del historial;
+ *   - no salta el corte general: la generacion cuenta desde
+ *     GREATEST(aplica_desde, vigente_desde), y poner 2025 aqui no paga nada
+ *     anterior a `tutor_settings.aplica_desde`.
+ *
+ * Una colaboracion que no se puede mover se deja como esta y se devuelve en
+ * `noCambiadas` con el motivo: o terminaria antes de empezar (la base lo
+ * prohibe con un CHECK) o se solaparia con otro tramo suyo de esa misma
+ * formacion. Mejor que mover las demas y decir «hecho» en bloque.
+ *
+ * Todo en una transaccion: si algo falla a medias, no se queda ninguna movida.
+ */
+export async function cambiarCobraDesde(tutorId, desde) {
+  const client = await getClient();
+  const ejecutar = (sql, params) => client.query(sql, params);
+  try {
+    await client.query('BEGIN');
+    // FOR UPDATE: que nadie edite una de estas filas mientras se repasan.
+    const { rows: colabs } = await client.query(
+      `SELECT c.id, c.product_id, c.vigente_desde, c.vigente_hasta, p.nombre AS formacion
+         FROM tutor_collaborations c
+         JOIN products p ON p.id = c.product_id
+        WHERE c.tutor_id = $1 AND c.activa
+        ORDER BY p.nombre, c.id
+          FOR UPDATE OF c`,
+      [tutorId]
+    );
+
+    const cambiadas = [];
+    const noCambiadas = [];
+    let sinCambio = 0;
+    for (const c of colabs) {
+      const antes = String(c.vigente_desde).slice(0, 10);
+      const hasta = c.vigente_hasta ? String(c.vigente_hasta).slice(0, 10) : null;
+      if (antes === desde) { sinCambio += 1; continue; }
+
+      if (hasta && hasta < desde) {
+        noCambiadas.push({
+          id: c.id, formacion: c.formacion, desde: antes, hasta,
+          motivo: `Termina el ${hasta}, antes de esa fecha.`,
+        });
+        continue;
+      }
+
+      const choques = await haySolape(
+        { tutorId, productId: c.product_id, desde, hasta, excluirId: c.id }, ejecutar);
+      if (choques.length) {
+        const o = choques[0];
+        const oDesde = String(o.vigente_desde).slice(0, 10);
+        const oHasta = o.vigente_hasta ? String(o.vigente_hasta).slice(0, 10) : null;
+        noCambiadas.push({
+          id: c.id, formacion: c.formacion, desde: antes, hasta,
+          motivo: `Se solaparía con otro tramo suyo de esa formación (${oDesde}`
+            + `${oHasta ? ' a ' + oHasta : ' en adelante'}).`,
+        });
+        continue;
+      }
+
+      await client.query(
+        `UPDATE tutor_collaborations
+            SET vigente_desde = $2, updated_at = NOW()
+          WHERE id = $1`,
+        [c.id, desde]
+      );
+      cambiadas.push({ id: c.id, formacion: c.formacion, antes, desde });
+    }
+
+    await client.query('COMMIT');
+    return { desde, total: colabs.length, cambiadas, noCambiadas, sinCambio };
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 export async function colaboracionPorId(id) {
@@ -271,6 +367,71 @@ export async function crearColaboracion({ tutorId, productId, pct, desde, hasta,
     [tutorId, productId, pct, desde, hasta || null, notas || null, createdBy]
   );
   return c;
+}
+
+/**
+ * Dar de alta al tutor en el campus de la formacion y asignarsela, de una vez
+ * (#384). Diego: «si no está en ese campus debe de salir "¿deseas añadirla a
+ * este campus?"». Hasta hoy el CRM contestaba «añádelo a ese proyecto primero»
+ * y no habia desde donde: quien lleva las colaboraciones no da de alta usuarios.
+ *
+ * Es el mismo alta en un campus que la de un tutor nuevo con `projectIds`
+ * (`user_projects` activo, sin recibir prospectos), y si ya tuvo ese campus y
+ * se le quito, se le vuelve a activar.
+ *
+ * Todo en una transaccion: si la colaboracion no se puede crear —se solapa con
+ * otro tramo suyo, o falla la base— el tutor NO se queda en el campus.
+ *
+ * Solo un TUTOR (rol principal, el mismo criterio que la lista de Tutores): por
+ * aqui no se mete a una gestora ni a un admin en un campus ajeno. Devuelve null
+ * si ese id no es un tutor.
+ */
+export async function crearColaboracionEnOtroCampus({
+  tutorId, projectId, productId, pct, desde, hasta, notas, createdBy,
+}) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const { rows: [tutor] } = await client.query(
+      `SELECT id FROM users WHERE id = $1 AND role = 'tutor' FOR UPDATE`, [tutorId]);
+    if (!tutor) { await client.query('ROLLBACK'); return null; }
+
+    await client.query(
+      `INSERT INTO user_projects (user_id, project_id, orden_cola, recibe_leads)
+       VALUES ($1, $2, (SELECT COALESCE(MAX(orden_cola), 0) + 1 FROM user_projects WHERE project_id = $2), false)
+       ON CONFLICT (user_id, project_id) DO UPDATE SET active = true`,
+      [tutorId, projectId]
+    );
+
+    // Dentro de la transaccion: lo que se comprueba es lo que se va a escribir.
+    const choques = await haySolape({ tutorId, productId, desde, hasta },
+      (sql, params) => client.query(sql, params));
+    if (choques.length) {
+      const c = choques[0];
+      throw new AppError(
+        `Ya hay una colaboracion suya en esa formacion del ${String(c.vigente_desde).slice(0, 10)}`
+        + `${c.vigente_hasta ? ' al ' + String(c.vigente_hasta).slice(0, 10) : ' en adelante'}.`
+        + ' Ciérrala antes de abrir otra.',
+        409, 'SOLAPE'
+      );
+    }
+
+    const { rows: [colab] } = await client.query(
+      `INSERT INTO tutor_collaborations
+         (tutor_id, product_id, pct, vigente_desde, vigente_hasta, notas, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [tutorId, productId, pct, desde, hasta || null, notas || null, createdBy]
+    );
+    await client.query('COMMIT');
+    return colab;
+  } catch (e) {
+    // Tambien el solape: el alta en el campus se deshace con la colaboracion.
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 export async function actualizarColaboracion(id, datos = {}) {
@@ -415,17 +576,29 @@ export async function simular({ desde, hasta, tutorId = null, projectId = null }
 // comprobar "un" proyecto: se mira si el de la formacion esta entre los suyos.
 // Sin esto se le podia colgar a un tutor de ISEIH un curso de ICTESS, y cobraria
 // de una marca en la que no da clase.
+//
+// Devuelve tambien de QUE campus es la formacion (`projectId`, `proyecto`): si
+// el tutor no esta ahi, la pantalla ofrece añadirlo a ese campus (#384). Un
+// `projectId` nulo es que la formacion no existe.
+//
+// Cuenta solo un campus ACTIVO: si se le quito, no se le cuelgan cursos de ahi
+// sin preguntar —se ofrece volver a añadirlo, que lo reactiva—.
 export async function formacionEsDeSuProyecto(tutorId, productId) {
   const { rows } = await query(
     `SELECT EXISTS (
        SELECT 1 FROM products p
         WHERE p.id = $2
           AND EXISTS (SELECT 1 FROM user_projects up
-                       WHERE up.user_id = $1 AND up.project_id = p.project_id)) AS ok,
-       (SELECT pr.nombre FROM products p JOIN projects pr ON pr.id = p.project_id WHERE p.id = $2) AS proyecto`,
+                       WHERE up.user_id = $1 AND up.project_id = p.project_id AND up.active)) AS ok,
+       (SELECT pr.nombre FROM products p JOIN projects pr ON pr.id = p.project_id WHERE p.id = $2) AS proyecto,
+       (SELECT p.project_id FROM products p WHERE p.id = $2) AS project_id`,
     [tutorId, productId]
   );
-  return { ok: rows[0]?.ok === true, proyecto: rows[0]?.proyecto || null };
+  return {
+    ok: rows[0]?.ok === true,
+    proyecto: rows[0]?.proyecto || null,
+    projectId: rows[0]?.project_id != null ? Number(rows[0].project_id) : null,
+  };
 }
 
 // ── El dinero de verdad ─────────────────────────────────────────────────────
