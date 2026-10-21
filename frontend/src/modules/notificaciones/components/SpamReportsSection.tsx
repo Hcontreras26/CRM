@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 import { useAuth } from '@/contexts/AuthContext';
+import usePermission from '@/shared/hooks/usePermission';
 
 interface SpamReport {
   id: number;
@@ -23,6 +24,8 @@ interface SpamReport {
 // Lista de reportes de spam pendientes. Solo visible al superadmin.
 // Cada reporte se puede confirmar (soft-delete el lead) o descartar.
 export default function SpamReportsSection() {
+  // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
+  const { can } = usePermission();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [reports, setReports] = useState<SpamReport[]>([]);
@@ -43,10 +46,10 @@ export default function SpamReportsSection() {
   }, []);
 
   useEffect(() => {
-    if (user?.role === 'superadmin') fetchReports();
+    if (user?.role === 'superadmin' && can('leads.spam')) fetchReports();
   }, [user?.role, fetchReports]);
 
-  if (user?.role !== 'superadmin') return null;
+  if (user?.role !== 'superadmin' || !can('leads.spam')) return null;
 
   async function resolve(reportId: number, action: 'confirm' | 'dismiss') {
     setResolvingId(reportId);

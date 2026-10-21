@@ -19,6 +19,7 @@ import type { User } from '@/shared/types';
 import { formatCurrencyShort as fmt, formatDate } from '@/shared/lib/format';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
+import usePermission from '@/shared/hooks/usePermission';
 
 const RulesDialog = lazy(() => import('../components/RulesDialog'));
 const ExportDialog = lazy(() => import('@/shared/components/export/ExportDialog'));
@@ -34,6 +35,8 @@ type PeriodMode = 'all' | 'month';
 
 export default function CommissionsPage() {
   const { user } = useAuth();
+  // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
+  const { can } = usePermission();
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const [items, setItems] = useState<CommissionRow[]>([]);
   const [stats, setStats] = useState<CommissionStats | null>(null);
@@ -197,7 +200,7 @@ export default function CommissionsPage() {
                 <Lock size={14} weight="bold" /> <span className="hidden sm:inline">Cerrar mes</span>
               </button>
             )}
-            {isAdmin && user?.role === 'superadmin' && (
+            {isAdmin && user?.role === 'superadmin' && can('commissions.reglas') && (
               <button onClick={() => setRulesOpen(true)} className="inline-flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
                 <Gear size={14} weight="bold" /> <span className="hidden sm:inline">Reglas (% por gestor)</span><span className="sm:hidden">Reglas</span>
               </button>
@@ -292,7 +295,7 @@ export default function CommissionsPage() {
         </div>
 
         {/* Bulk actions bar (CRM-138) */}
-        {isAdmin && selected.size > 0 && (
+        {isAdmin && can('commissions.pagar') && selected.size > 0 && (
           <div className="px-4 py-2 border-b border-border bg-primary/5 flex items-center justify-between gap-2 flex-wrap">
             <span className="text-xs font-semibold text-primary">
               {selected.size} seleccionada{selected.size !== 1 ? 's' : ''} para pagar
@@ -438,7 +441,7 @@ export default function CommissionsPage() {
                       {formatDate(r.created_at)}
                       {isAdmin && r.user_nombre && <span> · <span className="font-medium text-foreground">{r.user_nombre}</span></span>}
                     </div>
-                    {isAdmin && r.estado === 'pendiente' && Number(r.importe_comision) > 0 && (
+                    {isAdmin && can('commissions.pagar') && r.estado === 'pendiente' && Number(r.importe_comision) > 0 && (
                       <button onClick={() => handlePay(r.id)} className="px-2 py-1 rounded bg-success-soft text-success text-[11px] font-semibold hover:bg-success-soft flex-shrink-0">
                         Pagar
                       </button>

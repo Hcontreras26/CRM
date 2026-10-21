@@ -98,8 +98,8 @@ export default function MatriculasPage() {
   const enCertifex = enCertificaciones || enDiplomas;
   // Los mismos roles que la API: emitir es de administración; las consultas de la web
   // las ve también soporte.
-  const verEmisiones = tieneRol('superadmin', 'admin');
-  const verConsultas = tieneRol('superadmin', 'admin', 'soporte');
+  const verEmisiones = tieneRol('superadmin', 'admin') && can('diplomas.view_emisiones');
+  const verConsultas = tieneRol('superadmin', 'admin', 'soporte') && can('certifex_consultas.view');
   // Diplomas: administración los maneja; quien tenga `diplomas.view` (#384) los
   // VE, en solo lectura y con sus campus. Quien tenga `diplomas.emit` (Diego,
   // 22/10/2026: «que Dayana pueda emitir») los revisa, aprueba, emite y envía,

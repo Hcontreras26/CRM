@@ -9,6 +9,7 @@ import { useReportsIA } from '../hooks/useReportsIA';
 import { exportReportPdf } from '../api/reports-ia.api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import usePermission from '@/shared/hooks/usePermission';
 
 interface Project {
   id: string | number;
@@ -43,6 +44,8 @@ export default function ReportsIAView({ project, showGenerateButton = true }: Re
   const { user } = useAuth();
   const reportsIA = useReportsIA(project?.id);
   const [pdfLoading, setPdfLoading] = useState(false);
+  // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
+  const { can } = usePermission();
   const isAdmin = user?.role === 'superadmin' || user?.role === 'admin';
 
   async function handleGenerate() {
@@ -71,7 +74,7 @@ export default function ReportsIAView({ project, showGenerateButton = true }: Re
 
   return (
     <div className="space-y-3">
-      {showGenerateButton && isAdmin && (
+      {showGenerateButton && isAdmin && can('reports_ia.generar') && (
         <div className="flex justify-end">
           <button
             onClick={handleGenerate}
@@ -107,7 +110,7 @@ export default function ReportsIAView({ project, showGenerateButton = true }: Re
             <div className="p-5 text-center">
               <FileText size={28} weight="regular" className="text-muted-foreground mx-auto mb-2" />
               <p className="text-xs text-muted-foreground">Sin reportes aún</p>
-              {isAdmin && (
+              {isAdmin && can('reports_ia.generar') && (
                 <button onClick={handleGenerate} className="mt-3 text-xs text-primary font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-primary/40 rounded">
                   Generar el primero
                 </button>

@@ -18,10 +18,13 @@ import TablePagination from './TablePagination';
 import UserFormDialog, { type UserFormValues } from './UserFormDialog';
 import InviteLinkBanner from './InviteLinkBanner';
 import AvailabilityDialog from './AvailabilityDialog';
+import usePermission from '@/shared/hooks/usePermission';
 
 export default function UsersPanel() {
   const { projects, user: me } = useAuth();
   const { activeProject } = useProjectContext();
+  // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
+  const { can } = usePermission();
   const esSuperadmin = me?.role === 'superadmin';
 
   // Mientras nadie toque el filtro vale el proyecto activo; en cuanto se elige
@@ -289,14 +292,14 @@ export default function UsersPanel() {
           key={dialogo.modo === 'editar' ? dialogo.user.id : 'nuevo'}
           user={dialogo.modo === 'editar' ? dialogo.user : null}
           projects={projects || []}
-          canResetPassword={esSuperadmin}
-          canChangeEmail={esSuperadmin}
+          canResetPassword={esSuperadmin && can('users.contrasena')}
+          canChangeEmail={esSuperadmin && can('users.empresas')}
           onCheckEmail={() => (dialogo.modo === 'editar' ? avisoCambioCorreo(dialogo.user.id) : Promise.resolve(null))}
           loading={guardando}
           onClose={() => setDialogo(null)}
           onSubmit={guardar}
           onResetPassword={reiniciarPassword}
-          empresas={esSuperadmin ? empresas : undefined}
+          empresas={esSuperadmin && can('users.empresas') ? empresas : undefined}
           faltaMigracionEmpresas={faltaMigracionEmpresas}
         />
       )}

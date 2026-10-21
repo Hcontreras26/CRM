@@ -18,6 +18,7 @@ import {
 import SearchableSelect from '@/shared/components/ui/SearchableSelect';
 import DateRangeFilter from './DateRangeFilter';
 import MultiProjectPicker from '@/shared/components/ui/MultiProjectPicker';
+import usePermission from '@/shared/hooks/usePermission';
 
 const STATUS_LABELS: Record<string, string> = {
   nuevo: 'Nuevo',
@@ -102,6 +103,8 @@ export default function LeadsFiltersBar(props: Props) {
     stats, leadsCount, filteredCount, onAssignPending,
   } = props;
 
+  // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
+  const { can } = usePermission();
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
   // Cruce Gestor ↔ Proyecto:
@@ -203,7 +206,7 @@ export default function LeadsFiltersBar(props: Props) {
     setFilterReincidente(false);
   }
 
-  const showAssignBtn = isAdmin
+  const showAssignBtn = isAdmin && can('leads.assign')
     && ((stats?.sin_asignar ?? 0) > 0 || filterResponsable === 'unassigned')
     && activeProject?.id && activeProject.id > 0;
 

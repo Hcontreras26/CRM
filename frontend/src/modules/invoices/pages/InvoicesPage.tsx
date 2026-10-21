@@ -734,7 +734,7 @@ export default function InvoicesPage() {
                         className="h-7 px-2 rounded border border-border text-[11px] hover:bg-muted inline-flex items-center gap-1">
                         <DownloadSimple size={11} />
                       </button>
-                      {inv.estado === 'borrador' && isAdmin && (
+                      {inv.estado === 'borrador' && isAdmin && can('facturas.edit') && (
                         <Link to={`nueva?editId=${inv.id}`}
                           title="Editar esta factura abierta (solo admin/superadmin)"
                           className="h-7 px-2 rounded border border-info/30 text-info-soft-foreground text-[11px] font-semibold hover:bg-info-soft inline-flex items-center gap-1">

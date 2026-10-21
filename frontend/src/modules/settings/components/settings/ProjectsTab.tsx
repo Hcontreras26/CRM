@@ -7,6 +7,7 @@ import ProjectSettingsDialog from '../ProjectSettingsDialog';
 import ProjectDialog from './ProjectDialog';
 import { lista } from '@/shared/lib/lista';
 import { ProjectAvatar } from '@/shared/components/ui/ProjectAvatar';
+import usePermission from '@/shared/hooks/usePermission';
 
 export default function ProjectsTab() {
   const { user, refreshUser } = useAuth();
@@ -16,7 +17,9 @@ export default function ProjectsTab() {
   const [editing, setEditing] = useState(null);
   const [configProject, setConfigProject] = useState(null);
 
-  const canCreate = user?.role === 'superadmin';
+  // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
+  const { can } = usePermission();
+  const canCreate = user?.role === 'superadmin' && can('projects.create');
 
   async function load() {
     setLoading(true);

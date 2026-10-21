@@ -98,8 +98,8 @@ export default function TutoresPage() {
   const puede = can('tutores.gestionar');
   // El correo de un tutor, solo el super admin (#248). La contraseña, también el
   // admin (Diego, 09/10, #246).
-  const esSuperadmin = user?.role === 'superadmin';
-  const puedeContrasena = esSuperadmin || user?.role === 'admin';
+  const esSuperadmin = user?.role === 'superadmin' && can('tutores.cambiar_correo');
+  const puedeContrasena = (user?.role === 'superadmin' || user?.role === 'admin') && can('tutores.contrasena');
   const proyectoFijado = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
   // Con una sociedad elegida se ven sus campus; sin nada, todos. La lista se
   // lee siempre: quien lleva las colaboraciones trabaja con la plantilla

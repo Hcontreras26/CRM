@@ -10,6 +10,7 @@ import client from '@/shared/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/shared/hooks/useToast';
 import type { ApiResponse } from '@/shared/types';
+import usePermission from '@/shared/hooks/usePermission';
 
 interface ShortcutCatalogItem {
   id: string;
@@ -59,7 +60,9 @@ function iconFor(name: string): Icon {
 export default function ShortcutsConfigPage() {
   const { user, projects } = useAuth();
   const role = (user as { role?: string } | null)?.role;
-  const isAdmin = role === 'superadmin' || role === 'admin';
+  // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
+  const { can } = usePermission();
+  const isAdmin = (role === 'superadmin' || role === 'admin') && can('projects.personalizar');
 
   const [catalog, setCatalog] = useState<ShortcutCatalogItem[] | null>(null);
   // CRM-147: ahora la estructura es projectId -> (shortcutId -> roles[]).

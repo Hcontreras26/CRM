@@ -87,12 +87,16 @@ export async function tienePermiso(req, ...claves) {
  * El guardia de una ruta: pasa quien tenga la clave (o alguna de ellas). La
  * regla queda pegada (`conRegla`) para que el inventario sepa qué pide.
  */
-export function puede(...claves) {
+export function puede(...args) {
+  // Opcional, al final: `{ mensaje, code }` para el 403, cuando la pantalla
+  // tiene su propio aviso (WhatsApp: «No tienes activado el WhatsApp del CRM…»).
+  const opciones = args.length && typeof args[args.length - 1] === 'object' ? args.pop() : {};
+  const claves = args;
   return conRegla(async (req, _res, next) => {
     try {
       if (!req.user) return next(new AppError('No autenticado', 401, 'AUTH_REQUIRED'));
       if (!(await tienePermiso(req, ...claves))) {
-        return next(new AppError('No tienes permiso para esta accion', 403, 'FORBIDDEN'));
+        return next(new AppError(opciones.mensaje || 'No tienes permiso para esta accion', 403, opciones.code || 'FORBIDDEN'));
       }
       next();
     } catch (err) {
