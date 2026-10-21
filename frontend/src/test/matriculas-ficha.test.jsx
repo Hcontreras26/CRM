@@ -95,10 +95,19 @@ describe('la ficha en panel lateral, como la de los prospectos', () => {
     abrir();
     expect(screen.getByText('DNI 11111111A')).toBeTruthy();
     expect(screen.getByText('12/04/1995')).toBeTruthy();
-    expect(screen.getByText('Calle 1, Madrid, España')).toBeTruthy();
+    expect(screen.getByText('Calle 1, Madrid')).toBeTruthy();
+    expect(screen.getByText('España')).toBeTruthy();
     expect(screen.getByText('Grado')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Copiar teléfono' }));
     expect(writeText).toHaveBeenCalledWith('+34600111222');
+  });
+
+  it('el país va en su fila: sin dirección, «Dirección» no enseña el país (#198, prueba a mano)', () => {
+    abrir({ ...FICHA, datos_admision: { ...FICHA.datos_admision, direccion: undefined } });
+    const fila = (etiqueta) => screen.getByText(etiqueta, { selector: 'p, span, dt, div' }).parentElement?.textContent || '';
+    expect(fila('Dirección')).not.toContain('España');
+    expect(fila('Dirección')).toContain('No indicado');
+    expect(fila('País')).toContain('España');
   });
 
   it('#198: con el webhook mapeado, los datos salen de los campos propios aunque el formulario los llame de otra forma', async () => {
@@ -112,7 +121,8 @@ describe('la ficha en panel lateral, como la de los prospectos', () => {
     abrir(mapeada);
     expect(screen.getByText('NIE X1234567L')).toBeTruthy();
     expect(screen.getByText('17/05/1990')).toBeTruthy();
-    expect(screen.getByText('C/ Mayor 1, Portugal')).toBeTruthy();
+    expect(screen.getByText('C/ Mayor 1')).toBeTruthy();
+    expect(screen.getByText('Portugal')).toBeTruthy();
     expect(screen.getByText('Máster')).toBeTruthy();
   });
 

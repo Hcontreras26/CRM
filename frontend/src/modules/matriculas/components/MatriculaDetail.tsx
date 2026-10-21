@@ -224,13 +224,14 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
   };
 
   const documento = [delFormulario(m, 'documento_tipo'), delFormulario(m, 'documento') || m.dni].filter(Boolean).join(' ');
-  const direccion = [delFormulario(m, 'direccion'), delFormulario(m, 'pais')].filter(Boolean).join(', ');
   const nacimiento = delFormulario(m, 'fecha_nacimiento');
   const datos: Array<{ etiqueta: string; valor: string }> = [
     { etiqueta: 'Documento', valor: documento },
     // La del campo propio llega como «1990-05-17» o «1990-05-17T00:00:00.000Z»: vale el día.
     { etiqueta: 'Fecha de nacimiento', valor: /^\d{4}-\d{2}-\d{2}/.test(nacimiento) ? nacimiento.slice(0, 10).split('-').reverse().join('/') : nacimiento },
-    { etiqueta: 'Dirección', valor: direccion },
+    // El país, en su fila: junto a la dirección, sin dirección salía «Dirección: España» (#198, prueba a mano).
+    { etiqueta: 'Dirección', valor: delFormulario(m, 'direccion') },
+    { etiqueta: 'País', valor: delFormulario(m, 'pais') },
     { etiqueta: 'Estudios', valor: delFormulario(m, 'estudios') },
     { etiqueta: 'Correo', valor: m.lead_email || delFormulario(m, 'email') },
     { etiqueta: 'Teléfono', valor: m.lead_telefono || delFormulario(m, 'telefono') },
@@ -276,7 +277,8 @@ export default function MatriculaDetail({ matricula, onClose, onChange, onEstado
                   <div key={etiqueta} className="flex items-center justify-between gap-3 px-3 py-2">
                     <div className="min-w-0">
                       <dt className="text-[11px] text-muted-foreground">{etiqueta}</dt>
-                      <dd className="text-sm truncate">{valor || <span className="text-muted-foreground">—</span>}</dd>
+                      {/* «No indicado» y no «—»: la raya casi no se veía y parecía que el dato de debajo era el suyo (#198, prueba a mano). */}
+                      <dd className="text-sm truncate">{valor || <span className="text-muted-foreground italic">No indicado</span>}</dd>
                     </div>
                     {valor && (
                       <button type="button" onClick={() => copiar(valor, etiqueta)} aria-label={`Copiar ${etiqueta.toLowerCase()}`}
