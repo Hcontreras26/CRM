@@ -29,6 +29,8 @@ vi.mock('@/contexts/ProjectContext', () => ({
 }));
 vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: 'dark', toggleTheme: vi.fn() }),
+  // El avatar de proyecto (#222) lee el tema con useOptionalTheme.
+  useOptionalTheme: () => 'dark',
 }));
 vi.mock('@/shared/api/client', () => ({
   default: { get: vi.fn().mockResolvedValue({ success: true, data: [] }), post: vi.fn() },

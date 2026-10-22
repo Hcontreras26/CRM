@@ -6,6 +6,7 @@ import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import ProjectSettingsDialog from '../ProjectSettingsDialog';
 import ProjectDialog from './ProjectDialog';
 import { lista } from '@/shared/lib/lista';
+import { ProjectAvatar } from '@/shared/components/ui/ProjectAvatar';
 
 export default function ProjectsTab() {
   const { user, refreshUser } = useAuth();
@@ -34,7 +35,7 @@ export default function ProjectsTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-seccion">Proyectos</h2>
-          <p className="text-normal text-muted-foreground mt-0.5">Psiko, ISEIH, Fono Aprende + plataformas IA</p>
+          <p className="text-normal text-muted-foreground mt-0.5">Campus y empresas del CRM</p>
         </div>
         {canCreate && (
           <button onClick={() => { setEditing(null); setDialogOpen(true); }} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 whitespace-nowrap flex-shrink-0">
@@ -50,11 +51,7 @@ export default function ProjectsTab() {
           {projects.map((p) => (
             <div key={p.id} className="bg-card rounded-lg border border-border overflow-hidden hover:border-foreground/20 transition-colors">
               <div className="p-5 flex items-start gap-4">
-                <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center text-2xl flex-shrink-0 overflow-hidden">
-                  {p.logo_url ? (
-                    <img src={`${(import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '')}/api/projects/${p.id}/logo`} alt="" width={48} height={48} loading="lazy" decoding="async" className="w-full h-full object-contain" />
-                  ) : (p.emoji || '📁')}
-                </div>
+                <ProjectAvatar project={p} size="lg" soloIniciales />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-sm truncate">{p.nombre}</p>

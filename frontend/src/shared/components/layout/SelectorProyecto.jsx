@@ -3,7 +3,7 @@ import { CaretDown } from '@phosphor-icons/react';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import Portal from '@/shared/components/ui/portal';
 import { cn } from '@/shared/lib/utils';
-import { ProjectAvatar } from './Sidebar';
+import { ProjectAvatar } from '@/shared/components/ui/ProjectAvatar';
 
 /**
  * En qué marca estás, y cómo cambiarla.
