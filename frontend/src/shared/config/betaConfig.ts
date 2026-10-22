@@ -11,7 +11,7 @@
 // Se activa con VITE_BETA_MODE=true (lo pone el build de producción).
 // ============================================================
 
-export const BETA_VERSION = '2.1.0';
+export const BETA_VERSION = '2.2.0';
 
 export const BETA_MODE: boolean = String(import.meta.env.VITE_BETA_MODE || '').toLowerCase() === 'true';
 

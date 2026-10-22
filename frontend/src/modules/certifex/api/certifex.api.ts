@@ -63,7 +63,7 @@ export interface ConexionCertifex {
 export interface Candidato {
   matriculaId: number;
   centro: string;
-  /** `dni` viene en el contrato, pero el CRM no lo usa ni lo enseña (decisión del 08/10). */
+  /** `dni`: el DNI / NIE / pasaporte que se imprime. Obligatorio para emitir (Diego, 20/10). */
   titular: { nombre: string | null; email: string | null; dni: string | null };
   curso: { ref: number; nombre: string };
   notaFinal: number | null;
@@ -165,8 +165,10 @@ export interface ResultadoEmision {
   nexpediente?: string;
   yaExistia?: boolean;
   error?: string;
-  /** 'emitir_bloqueado': revisada a mano y sin programa; no se ha emitido. */
+  /** 'emitir_bloqueado': sin DNI, o revisada a mano y sin programa; no se ha emitido. */
   fase?: string;
+  /** Por qué se bloqueó: 'FALTA_DNI' (sin DNI, que es obligatorio) o 'DNI_SIN_COMPROBAR'. */
+  codigo?: 'FALTA_DNI' | 'DNI_SIN_COMPROBAR' | string;
   /** Con programa del CRM: lo que se mandó. */
   programa?: { horas: number | null; modulos: number; formacion: string | null; editado?: boolean };
   /** Sin programa del CRM (se usó lo de Moodle): por qué. */
@@ -304,9 +306,23 @@ export interface CatalogoDelCampus {
 export interface CambiosSolicitud {
   matriculaId: number;
   nombre?: string;
+  /** El DNI / NIE / pasaporte que se imprime en el diploma (vive en Certifex). null = quitarlo. */
+  dni?: string | null;
   emailCrm?: string | null;
   productoId?: number | null;
   programa?: ProgramaOficial | null;
+}
+
+/**
+ * De dónde sale la firma del alumno que se imprimirá sobre «El interesado» (CRM #349):
+ * la subida a mano en «Revisar datos», o la de su matrícula de admisión.
+ */
+export interface FirmaDelAlumno {
+  origen: 'subida' | 'admision';
+  por: string | null;
+  en: string | null;
+  /** La matrícula de admisión de la que sale (solo con origen «admision»). */
+  matriculaCrm: number | null;
 }
 
 /** Una solicitud de diploma: un candidato de Certifex que lo pidió desde Moodle. */
@@ -315,6 +331,8 @@ export interface Solicitud extends Candidato {
   programaCrm?: ProgramaDelCrm | null;
   /** Solo sin diploma: lo revisado a mano antes de aprobar. */
   edicion?: EdicionSolicitud | null;
+  /** Solo sin diploma: la firma del alumno. null = no tiene; sin el campo = no se pudo mirar. */
+  firma?: FirmaDelAlumno | null;
   /** El aviso de rechazo que ya se aprobó (solo en las rechazadas). */
   avisoRechazo?: { en: string; por: string; resultado: string } | null;
   /** Solo en «por avisar»: el diploma emitido. */
@@ -379,7 +397,10 @@ export interface FiltrosDiplomas {
 export interface ResultadoAprobarEmitir {
   matriculaId: number;
   ok: boolean;
+  /** 'emitir_bloqueado': sin DNI, o revisada a mano y sin programa; ni se aprueba ni se emite. */
   fase?: 'aprobar' | 'emitir' | 'emitir_bloqueado';
+  /** Por qué se bloqueó: 'FALTA_DNI' (sin DNI, que es obligatorio) o 'DNI_SIN_COMPROBAR'. */
+  codigo?: 'FALTA_DNI' | 'DNI_SIN_COMPROBAR' | string;
   nexpediente?: string;
   yaExistia?: boolean;
   error?: string;
@@ -427,6 +448,48 @@ export const diplomasApi = {
    * CRM, la formación y el programa se guardan en el CRM. Devuelve la fila actualizada.
    */
   editar: (cambios: CambiosSolicitud) => client.post('/certifex/diplomas/editar', cambios) as R<Solicitud>,
+  /**
+   * Subir o cambiar la firma del alumno (CRM #349): PNG, JPG o WEBP. El servidor le quita
+   * el fondo y la recorta al trazo. Devuelve la fila actualizada.
+   */
+  subirFirma: (matriculaId: number, archivo: File) => {
+    const fd = new FormData();
+    // El id antes que el archivo: multer lee los campos en orden.
+    fd.append('matriculaId', String(matriculaId));
+    fd.append('file', archivo);
+    return client.post('/certifex/diplomas/firma', fd) as R<Solicitud>;
+  },
+  /** La firma que se imprimirá (PNG transparente), para verla. */
+  firma: async (matriculaId: number): Promise<Blob> => {
+    const t = getAccessToken();
+    const r = await fetch(`${API_BASE_URL}/certifex/diplomas/firma/${matriculaId}`, {
+      credentials: 'include',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d?.error || `Error ${r.status}`);
+    }
+    return r.blob();
+  },
+  /**
+   * «Nuevo diploma» (19/10): la solicitud desde cero, eligiendo el cliente y la formación.
+   * Queda en «Por decidir» para aprobarla y emitirla como las que llegan de Moodle. El DNI es
+   * obligatorio (20/10); si Certifex no lo acepta, se crea igual y `avisoDni` dice por qué.
+   */
+  nuevo: (d: { centro: string; leadId: number; productoId: number; nombre?: string; dni: string }) =>
+    client.post('/certifex/diplomas/nuevo', d) as R<{
+      matriculaId: number; yaExistia: boolean; centro: string; curso: string; nombre: string; vinculadaMoodle?: boolean;
+      dni?: string | null; avisoDni?: string | null;
+    }>,
+  /**
+   * «Pasar a pendientes» (22/10/2026): pide el diploma en Certifex sobre la matrícula de
+   * Moodle de quien terminó sin pedirlo (o que Moodle no da por terminada). El servidor pone
+   * el nombre, el correo y el curso con lo que dice Certifex; `cursoRef` solo ayuda a
+   * encontrarla. Queda en «Por decidir».
+   */
+  pedir: (d: { matriculaId: number; centro: string; cursoRef?: number }) =>
+    client.post('/certifex/diplomas/pedir', d) as R<{ matriculaId: number; centro: string; curso: string; nombre: string; yaPedido: boolean }>,
   /** Las formaciones del catálogo del proyecto de ese campus, para elegir la vendida. */
   formaciones: (centro: string) => client.get(`/certifex/diplomas/formaciones?${qs({ centro })}`) as R<CatalogoDelCampus>,
   /** Los módulos de esa formación, leídos de la página del curso y guardados en el catálogo (12/10). */

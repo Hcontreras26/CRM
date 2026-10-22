@@ -10,11 +10,12 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { role: 'superadmin' } }) }));
-vi.mock('@/contexts/ProjectContext', () => ({
-  useProjectContext: () => ({ activeProject: { id: 1 }, projects: [{ id: 1, nombre: 'Psiko' }], activeIssuer: null, activeIssuerId: null }),
-}));
-// La misma lista siempre: una nueva en cada pintado relanza la carga sin fin.
+// La misma lista siempre: una nueva en cada pintado relanza la carga sin fin
+// (también la de las formaciones de «Añadir formación», que mira `projects`, #384).
 const CAMPUS = vi.hoisted(() => [{ id: 1, nombre: 'Psiko' }]);
+vi.mock('@/contexts/ProjectContext', () => ({
+  useProjectContext: () => ({ activeProject: { id: 1 }, projects: CAMPUS, activeIssuer: null, activeIssuerId: null }),
+}));
 vi.mock('@/shared/hooks/useAmbito', () => ({ useProyectosDelAmbito: () => CAMPUS }));
 vi.mock('@/shared/api/client', () => ({
   default: {
@@ -23,6 +24,8 @@ vi.mock('@/shared/api/client', () => ({
   },
 }));
 vi.mock('@/modules/tutores/components/Entregables', () => ({ default: () => null }));
+// La ficha también enseña sus consultas (#187): tienen su propia prueba.
+vi.mock('@/modules/tutores/components/ConsultasDelTutor', () => ({ default: () => null }));
 vi.mock('@/modules/users/api/users.api', () => ({ avisoCambioCorreo: vi.fn() }));
 vi.mock('@/modules/tutores/api/tutores.api', () => ({
   tutoresApi: {

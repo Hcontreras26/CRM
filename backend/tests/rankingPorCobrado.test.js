@@ -76,7 +76,11 @@ describe('la consulta de lo facturado (sigue saliendo, ya no ordena)', () => {
     expect(sql).toMatch(/i\.tipo IN \('normal', 'rectificativa'\)/);
     expect(sql).toMatch(/i\.estado NOT IN \('cancelada', 'borrador'\)/);
     expect(sql).toMatch(/SUM\(i\.total \* r\.peso\)/);
-    expect(sql).toMatch(/date_trunc\('month', i\.fecha_emision\)/);
+    // Por la fecha de EMISION. Desde el 19/10 el ranking agrupa por el rango
+    // entero y no por mes (ver `claseDelCobro`), asi que ya no hay date_trunc:
+    // lo que se comprueba es el filtro de fechas de las facturas.
+    expect(sql).toMatch(/i\.fecha_emision::date >= \$\d+::date/);
+    expect(sql).toMatch(/i\.fecha_emision::date <= \$\d+::date/);
   });
 
   it('los parámetros van numerados sin huecos ni de más, con y sin gestora', async () => {

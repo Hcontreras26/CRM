@@ -67,6 +67,15 @@ export default function MatriculasPage() {
   // las ve también soporte.
   const verEmisiones = tieneRol('superadmin', 'admin');
   const verConsultas = tieneRol('superadmin', 'admin', 'soporte');
+  // Diplomas: administración los maneja; quien tenga `diplomas.view` (#384) los
+  // VE, en solo lectura y con sus campus. Quien tenga `diplomas.emit` (Diego,
+  // 22/10/2026: «que Dayana pueda emitir») los revisa, aprueba, emite y envía,
+  // también con sus campus; rechazar, corregir y revocar siguen siendo de
+  // administración. Es la misma regla que la API.
+  const emiteDiplomas = verEmisiones || can('diplomas.emit');
+  const verDiplomas = emiteDiplomas || can('diplomas.view');
+  const diplomasSoloLectura = !emiteDiplomas;
+  const diplomasSoloEmitir = emiteDiplomas && !verEmisiones;
   const vistaCert = params.get('vista') === 'consultas' || !verEmisiones ? 'consultas' : 'emisiones';
   const [data, setData] = useState([]);
   const [stats, setStats] = useState<{ total: number; pendientes: number; validadas: number; rechazadas: number }>({ total: 0, pendientes: 0, validadas: 0, rechazadas: 0 });
@@ -160,7 +169,7 @@ export default function MatriculasPage() {
             <Certificate size={14} /> Certificaciones
           </button>
         )}
-        {CERTIFEX_PANEL && verEmisiones && (
+        {CERTIFEX_PANEL && verDiplomas && (
           <button
             ref={pestanaDiplomas}
             aria-current={enDiplomas ? 'page' : undefined}
@@ -173,11 +182,11 @@ export default function MatriculasPage() {
       </div>
 
       {enDiplomas ? (
-        !verEmisiones ? (
-          <EmptyState icon={SealCheck} title="Solo administración" description="Los diplomas los aprueba, envía y revoca administración." />
+        !verDiplomas ? (
+          <EmptyState icon={SealCheck} title="Solo administración" description="Los diplomas los aprueba, envía y revoca administración. Para verlos, pide que te den «Diplomas (Certifex) · Ver»." />
         ) : (
           <Suspense fallback={<SkeletonTable rows={5} columns={6} />}>
-            <CertifexDiplomasPage />
+            <CertifexDiplomasPage soloLectura={diplomasSoloLectura} soloEmitir={diplomasSoloEmitir} />
           </Suspense>
         )
       ) : enCertificaciones ? (

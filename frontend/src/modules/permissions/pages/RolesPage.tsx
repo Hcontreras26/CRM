@@ -3,6 +3,7 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import { ShieldCheck, Plus, Lock, CheckCircle, Circle, PencilSimple } from '@phosphor-icons/react';
 import PestanaVista from '../components/PestanaVista';
 import PermisosTareas from '../components/PermisosTareas';
+import PermisoDiplomas from '../components/PermisoDiplomas';
 import usePermission, { type PermissionMap } from '@/shared/hooks/usePermission';
 import {
   FIXED_ROLES,
@@ -34,6 +35,8 @@ const ACCION_ES: Record<string, string> = {
   view_all: 'Ver todo', view_own: 'Ver lo suyo', close: 'Aprobar y cerrar', manage: 'Configurar',
   // Facturas de colaboradores (#202).
   ver_todas: 'Ver todas', gestionar: 'Gestionar', anular: 'Anular', pagar: 'Marcar pagada', subir: 'Subir la suya',
+  // Diplomas de Certifex (22/10/2026).
+  emit: 'Emitir',
 };
 
 // Qué permite cada clave, cuando el nombre no basta. Sale al pasar el ratón.
@@ -48,6 +51,9 @@ const AYUDA: Record<string, string> = {
   'tasks.delete': 'Archivar cualquier tarea y borrar comentarios de otros',
   'tasks.close': 'Aprobar o devolver desde «Por revisar», y cerrar o reabrir una tarea («Hecha»)',
   'tasks.manage': 'Configurar el tablero: columnas, áreas y proyectos propios',
+  // Diplomas de Certifex (#384 y 22/10/2026).
+  'diplomas.view': 'Ver la pantalla Diplomas en solo lectura, con sus campus',
+  'diplomas.emit': 'Revisar, pasar a Pendientes, aprobar y emitir y enviar el diploma al alumno, con sus campus. Rechazar, corregir y revocar, no',
 };
 
 // Los roles con tablero que no salen en FIXED_ROLES (que se usa en más sitios
@@ -60,6 +66,12 @@ const ROLES_CON_TABLERO: ReadonlyArray<{ key: string; label: string; desc: strin
 // menos el superadmin (lo puede todo), y a los roles a medida. Gestora, soporte,
 // project manager y tutor no tienen tablero (Diego, 09/10). Igual que el servidor.
 const editaTareas = (key: string) => key === 'admin' || key === 'colaborador' || key.startsWith('custom:');
+
+// «Diplomas (Certifex) · Ver» (#384) y «· Emitir» (22/10/2026) se dan a los roles
+// que no los tienen por el suyo: admin y superadmin ya los tienen, y tutor y
+// colaborador no pueden. Igual que el servidor (CLAVES_SUELTAS en
+// permissions.service.js).
+const daDiplomas = (key: string) => key === 'gestor' || key === 'soporte' || key.startsWith('custom:');
 
 interface RoleEntry {
   key: string;
@@ -207,6 +219,10 @@ export default function RolesPage() {
                   <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/10 text-primary font-bold">
                     <PencilSimple size={10} /> Tareas editables
                   </span>
+                ) : puedeEditarTareas && daDiplomas(role.key) ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-primary/10 text-primary font-bold">
+                    <PencilSimple size={10} /> Diplomas editable
+                  </span>
                 ) : !role.custom && (
                   <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-muted font-bold">
                     <Lock size={10} /> Solo lectura
@@ -241,6 +257,27 @@ export default function RolesPage() {
 
               {puedeEditarTareas && editaTareas(role.key) && (
                 <PermisosTareas roleKey={role.key} onGuardado={alGuardarTareas} />
+              )}
+
+              {puedeEditarTareas && daDiplomas(role.key) && (
+                <PermisoDiplomas
+                  clave="diplomas.view"
+                  roleKey={role.key}
+                  rolLabel={role.label}
+                  puedeCambiarRol={tieneRol('superadmin')}
+                  onGuardado={alGuardarTareas}
+                />
+              )}
+
+              {/* Emitir (Diego, 22/10/2026: «que Dayana pueda emitir»): igual, por rol o por persona. */}
+              {puedeEditarTareas && daDiplomas(role.key) && (
+                <PermisoDiplomas
+                  clave="diplomas.emit"
+                  roleKey={role.key}
+                  rolLabel={role.label}
+                  puedeCambiarRol={tieneRol('superadmin')}
+                  onGuardado={alGuardarTareas}
+                />
               )}
 
               {/* Desktop table */}
@@ -334,7 +371,8 @@ export default function RolesPage() {
 
               <p className="text-[11px] text-muted-foreground italic pt-2">
                 Los permisos de los roles del sistema viven en el backend. Desde aquí el superadmin y el admin solo
-                cambian «Aprobar y cerrar» y «Configurar» de Tareas; esta tabla enseña lo que manda ahora.
+                cambian «Aprobar y cerrar» y «Configurar» de Tareas, y «Diplomas (Certifex) · Ver» (el rol entero, solo
+                el superadmin); esta tabla enseña lo que manda ahora.
               </p>
               </>
               )}

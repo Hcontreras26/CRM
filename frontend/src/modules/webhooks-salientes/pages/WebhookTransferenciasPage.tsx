@@ -165,6 +165,12 @@ export default function WebhookTransferenciasPage() {
     }
   }
 
+  // De quién se está mirando, dicho como lo dice la pantalla.
+  const deQuien = conEmpresa
+    ? `toda la empresa ${activeIssuer?.nombre || ''}`.trim()
+    : projectId ? `${activeProject?.nombre || 'este campus'} (y de su empresa)` : 'todas las empresas';
+  const hostDe = (u: string) => { try { return new URL(u).hostname; } catch { return u; } };
+
   const botonNuevo = (
     <button type="button" onClick={() => setEditando(null)}
       className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-primary-foreground hover:opacity-90">
@@ -197,6 +203,35 @@ export default function WebhookTransferenciasPage() {
         Con tarjeta, Stripe, efectivo, Bizum o PayPal no se envía nada. Una venta con forma de pago transferencia pero
         sin nada pagado tampoco avisa: avisará el cobro cuando llegue.
       </p>
+
+      {/* Diego, 19/10: «pon que se vea claro ese webhook». De un vistazo: de quién se mira,
+          si ahora mismo se avisa a alguien y a quién. */}
+      {!cargando && !error && (
+        webhooks.some((w) => w.activo) ? (
+          <div className="rounded-md border border-success/40 bg-success-soft p-3 text-sm text-success-soft-foreground" role="status">
+            <p className="font-semibold">
+              Las transferencias y depósitos de {deQuien} se avisan a {webhooks.filter((w) => w.activo).length === 1 ? 'este destino' : 'estos destinos'}:
+            </p>
+            <ul className="mt-1 space-y-0.5 text-xs">
+              {webhooks.filter((w) => w.activo).map((w) => (
+                <li key={w.id} className="flex flex-wrap items-center gap-1.5">
+                  <ParaQuien w={w} /> <span className="font-semibold">{w.nombre}</span>
+                  <span className="font-mono opacity-80">→ {hostDe(w.url)}</span>
+                  <span className="opacity-80">· último envío {hace(w.ultimo_envio_at)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning-soft p-3 text-sm text-warning-soft-foreground" role="status">
+            <p>
+              <strong>Ahora mismo no se avisa a nadie</strong> de las transferencias y depósitos de {deQuien}
+              {webhooks.length ? ' (hay webhooks, pero están apagados)' : ''}. Pulsa «Nuevo webhook» y pon la dirección que debe recibirlos.
+            </p>
+            {botonNuevo}
+          </div>
+        )
+      )}
 
       {secretoNuevo && (
         <SecretoUnaVez nombre={secretoNuevo.nombre} secreto={secretoNuevo.secreto} onCerrar={() => setSecretoNuevo(null)} />
@@ -284,6 +319,8 @@ export default function WebhookTransferenciasPage() {
           version={versionRegistro}
           webhookId={verEnviosDe}
           onWebhookId={setVerEnviosDe}
+          projectId={projectId}
+          issuerId={conEmpresa ? activeIssuerId : null}
         />
       )}
 

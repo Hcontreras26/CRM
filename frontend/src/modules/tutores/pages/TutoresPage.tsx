@@ -13,16 +13,19 @@ import BuscadorEnLista from '@/shared/components/ui/BuscadorEnLista';
 import Field from '@/shared/components/ui/Field';
 import FilaCampos from '@/shared/components/ui/FilaCampos';
 import { inputClass } from '@/shared/lib/ui';
+import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import Entregables from '../components/Entregables';
 import CampoCobraDesde from '../components/CampoCobraDesde';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import {
   lasQueYaRigen, laQueDuerme, cursosParaElAlta, avisoDelAlta, type CursoDelAlta, type CursoQueFallo,
   cobraDesdeActual, hayQueMandarCobraDesde, confirmacionCobraDesde, avisoCobraDesde,
+  campusDelRechazo, formacionesConCampus, type CampusDeLaFormacion, type FormacionConCampus,
 } from '../lib/colaboraciones';
 import { tutoresApi, type Tutor, type Colaboracion, type AjustesTutores } from '../api/tutores.api';
 import { avisoCambioCorreo } from '@/modules/users/api/users.api';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '@/modules/users/lib/credenciales';
+import ConsultasDelTutor from '../components/ConsultasDelTutor';
 
 // Tutores y sus colaboraciones.
 //
@@ -161,6 +164,16 @@ export default function TutoresPage() {
   const [claveCopiada, setClaveCopiada] = useState(false);
   const [popupRetiro, setPopupRetiro] = useState(false);
   const [procesando, setProcesando] = useState(false);
+  // «Añadir formación» ofrece las de TODOS los campus de quien asigna, cada una
+  // con el suyo (#384), no solo las del campus de arriba.
+  const [formacionesColab, setFormacionesColab] = useState<FormacionConCampus[] | null>(null);
+  // La formación es de un campus en el que el tutor no está: lo que se iba a
+  // guardar, esperando a que se diga si se le añade a ese campus.
+  const [otroCampus, setOtroCampus] = useState<{
+    campus: CampusDeLaFormacion;
+    datos: Parameters<typeof tutoresApi.crearColaboracion>[0];
+    formacion: string;
+  } | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -199,6 +212,23 @@ export default function TutoresPage() {
     return () => { vivo = false; };
   }, [projectId, campus]);
 
+  // Las de «Añadir formación»: las de todos los campus de quien asigna, sin
+  // juntar por nombre, cada una con su campus (#384). Se piden al abrirlo por
+  // primera vez; si cambian sus campus, se vuelven a pedir.
+  useEffect(() => { setFormacionesColab(null); }, [projects]);
+  useEffect(() => {
+    if (!popupColab || formacionesColab) return;
+    const suyos = (projects || []).filter((p) => p?.id && p.id !== -1);
+    if (!suyos.length) { setFormacionesColab([]); return; }
+    let vivo = true;
+    Promise.all(suyos.map((p) =>
+      client.get(`/products?projectId=${p.id}&limit=500`)
+        .then((r) => ({ projectId: p.id, campus: p.nombre, formaciones: (r.success ? (r.data || []) : []) as Formacion[] }))
+        .catch(() => ({ projectId: p.id, campus: p.nombre, formaciones: [] as Formacion[] }))))
+      .then((tandas) => { if (vivo) setFormacionesColab(formacionesConCampus(tandas)); });
+    return () => { vivo = false; };
+  }, [popupColab, formacionesColab, projects]);
+
   // El arranque del modulo manda sobre la fecha por defecto: si las comisiones
   // empiezan en agosto, proponer hoy solo invita a ponerlo mal.
   useEffect(() => {
@@ -213,11 +243,12 @@ export default function TutoresPage() {
   // Cerrar con Escape, que es lo que hace todo el mundo antes de buscar la X.
   // Todas las ventanas, no solo el alta y la formación; y con un desplegable
   // abierto, Escape cierra solo el desplegable, como en los demás (#106).
+  // Con la pregunta del campus abierta (#384), Escape la cierra solo a ella.
   const cerrarVentanas = useCallback(() => {
     setPopupAlta(false); setPopupColab(false); setPopupPago(false);
     setPopupClave(false); setPopupRetiro(false);
   }, []);
-  useEscapeKey(cerrarVentanas, popupAlta || popupColab || popupPago || popupClave || popupRetiro);
+  useEscapeKey(cerrarVentanas, (popupAlta || popupColab || popupPago || popupClave || popupRetiro) && !otroCampus);
 
   function anadirCursoAlAlta() {
     const id = Number(nuevoCurso);
@@ -493,6 +524,12 @@ export default function TutoresPage() {
         }
       }
       toast(avisoDelAlta(Boolean(r.data?.entraYa), cursos.length - fallidos.length, fallidos));
+      // #187: si en algún campus conectado su correo no es usuario, queda
+      // pendiente de matrícula, y se dice aquí mismo.
+      const enElCampus = (r.data as { avisosDelCampus?: string[] } | undefined)?.avisosDelCampus || [];
+      if (enElCampus.length) {
+        toast({ title: 'Revisa la matrícula en el campus', description: enElCampus.join(' '), variant: 'destructive' });
+      }
       setPopupAlta(false);
       setCursosAlta([]);
       setNuevoCurso('');
@@ -581,19 +618,54 @@ export default function TutoresPage() {
         cargar();
         return;
       }
-      const r = await tutoresApi.crearColaboracion({
+      const datos = {
         tutorId: elegido.id,
         productId,
         pct: Number(f.get('pct')),
         desde: String(f.get('desde')),
         hasta: String(f.get('hasta') || '') || null,
-      });
-      if (!r.success) throw new Error(r.error || 'no se pudo');
+      };
+      try {
+        const r = await tutoresApi.crearColaboracion(datos);
+        if (!r.success) throw new Error(r.error || 'no se pudo');
+      } catch (err) {
+        // Es de un campus en el que no está: se pregunta si añadirlo, en vez
+        // de dejar un «no» sin salida (#384).
+        const campusDeLaFormacion = campusDelRechazo(err);
+        if (!campusDeLaFormacion) throw err;
+        setOtroCampus({
+          campus: campusDeLaFormacion,
+          datos,
+          formacion: formacionesColab?.find((x) => x.id === productId)?.nombre || 'Esa formación',
+        });
+        return;
+      }
       setPopupColab(false);
       cargarColabs(elegido);
       cargar();
     } catch (err) {
       toast({ title: 'No se ha podido añadir', description: err instanceof Error && err.message ? err.message : 'Inténtalo de nuevo en un momento.', variant: 'destructive' });
+    } finally { setGuardando(false); }
+  }
+
+  /** «Sí, añádela a este campus»: el mismo alta, con `anadirAlCampus`. */
+  async function anadirAlCampusYAsignar() {
+    if (!otroCampus || !elegido) return;
+    const { campus: c, datos } = otroCampus;
+    const nombreCampus = c.proyecto || 'ese campus';
+    setGuardando(true);
+    try {
+      const r = await tutoresApi.crearColaboracion({ ...datos, anadirAlCampus: true });
+      if (!r.success) throw new Error(r.error || 'no se pudo');
+      toast({ title: `Añadida a ${nombreCampus} y formación asignada`, description: `${elegido.nombre} ya está en ${nombreCampus}.` });
+      setOtroCampus(null);
+      setPopupColab(false);
+      cargarColabs(elegido);
+      cargar();
+    } catch (err) {
+      // 403 si ese campus no es de quien lo pide: el servidor dice por qué.
+      toast({ title: `No se ha podido añadir a ${nombreCampus}`, description: err instanceof Error ? err.message : '', variant: 'destructive' });
+      setOtroCampus(null);
     } finally { setGuardando(false); }
   }
 
@@ -969,6 +1041,8 @@ export default function TutoresPage() {
                   </table>
                 </div>
               )}
+              {/* Consultas de alumnos (#187): campus, empresas y matrícula. */}
+              <ConsultasDelTutor key={elegido.id} tutorId={elegido.id} puedeGestionar />
             </>
           )}
         </div>
@@ -1266,13 +1340,15 @@ export default function TutoresPage() {
                 se lleva por delante el historico—. El mensaje ademas mentia: decia
                 «ningun curso con ese nombre» mientras la tabla de al lado lo
                 estaba enseñando. */}
-            {/* Con su etiqueta, como en «Nuevo tutor» (#106). */}
+            {/* Con su etiqueta, como en «Nuevo tutor» (#106). Las de todos los
+                campus de quien asigna, cada una con el suyo a la derecha (#384).
+                Una de un campus en el que el tutor no está se puede elegir: al
+                guardar se pregunta si añadirlo a ese campus. */}
             <Field label="Curso" required htmlFor="colab-curso">
               <BuscadorEnLista
                 id="colab-curso"
-                opciones={formaciones.map((f) => ({ ...f, nota: f.precio }))}
-                comoDinero
-                placeholder="Escribe para buscar un curso…"
+                opciones={formacionesColab ?? []}
+                placeholder={formacionesColab ? 'Escribe para buscar un curso o un campus…' : 'Cargando las formaciones…'}
                 sinResultados="Ningún curso con «{texto}». Prueba con una palabra suelta."
                 valor={cursoColab}
                 onElegir={setCursoColab}
@@ -1282,6 +1358,11 @@ export default function TutoresPage() {
               />
             </Field>
             <input type="hidden" name="productId" value={cursoColab ?? ''} />
+            {elegido.marcas && (
+              <p className="text-[11px] text-muted-foreground">
+                Está en: {elegido.marcas}. Si eliges una de otro campus, te preguntaremos si añadirlo.
+              </p>
+            )}
 
             <FilaCampos columnas={3}>
               <Field label="Porcentaje" required htmlFor="colab-pct">
@@ -1310,6 +1391,23 @@ export default function TutoresPage() {
           </form>
         </div>
       )}
+
+      {/* La formación es de un campus en el que no está (#384). */}
+      <ConfirmDialog
+        open={!!otroCampus && !!elegido}
+        title={`Esta tutora no está en ${otroCampus?.campus.proyecto || 'ese campus'}`}
+        message={otroCampus && elegido ? (
+          <>
+            «{otroCampus.formacion}» es de <strong>{otroCampus.campus.proyecto || 'otro campus'}</strong>. ¿Quieres añadirla a
+            este campus? {elegido.nombre} queda en {otroCampus.campus.proyecto || 'ese campus'} con esta formación asignada: las
+            dos cosas a la vez.
+          </>
+        ) : null}
+        confirmLabel={`Añadir a ${otroCampus?.campus.proyecto || 'ese campus'}`}
+        loading={guardando}
+        onConfirm={anadirAlCampusYAsignar}
+        onCancel={() => setOtroCampus(null)}
+      />
 
       {popupClave && elegido && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"

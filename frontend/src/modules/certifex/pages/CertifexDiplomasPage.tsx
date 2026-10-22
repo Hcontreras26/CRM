@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ArrowClockwise, ArrowCounterClockwise, ArrowSquareOut, BookOpenText, Certificate, CheckCircle, DownloadSimple, Envelope, FileXls, FilePdf,
-  FlagCheckered, HourglassMedium, LinkSimple, NotePencil, PaperPlaneTilt, PencilSimple, PlugsConnected, Plus, Printer, Prohibit, SealCheck, Trash, Warning, X, XCircle,
+  ArrowClockwise, ArrowCounterClockwise, ArrowSquareOut, BookOpenText, Certificate, CheckCircle, DownloadSimple, Envelope, Eye, FileXls, FilePdf,
+  FlagCheckered, HourglassMedium, LinkSimple, NotePencil, PaperPlaneTilt, PencilSimple, PlugsConnected, Plus, Printer, Prohibit, SealCheck, Signature, Trash, UploadSimple, Warning, X, XCircle,
 } from '@phosphor-icons/react';
 import { toast, useToast } from '@/shared/hooks/useToast';
 import { useModalAccesible } from '@/shared/hooks/useDialogA11y';
@@ -19,12 +19,15 @@ import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { copyToClipboard } from '@/shared/lib/clipboard';
 import { runExport, type ExportColumn } from '@/shared/lib/export';
+import client from '@/shared/api/client';
 import {
   diplomasApi, emisionesApi,
   type CambiosSolicitud, type CampusCertifex, type CatalogoDelCampus, type ConexionCertifex, type CursoCertifex, type Diploma, type FiltroAviso,
   type PestanaDiplomas, type ProgramaDelCrm, type ProgramaOficial, type ResultadoAprobarEmitir, type ResumenDiplomas, type Solicitud, type Terminado,
 } from '../api/certifex.api';
-import { Avance, AvisoCasiListo, AvisoDireccionPublica, Buscador, EnElCrmEtiqueta, Etiqueta, Pestana } from '../components/piezas';
+import {
+  Avance, AvisoCasiListo, AvisoDireccionPublica, Buscador, EnElCrmEtiqueta, Etiqueta, FIRMA_EN_DIPLOMA, PON_EL_DNI, Pestana, TITULO_SIN_DNI, tieneDni,
+} from '../components/piezas';
 
 /**
  * Certifex · Diplomas (#272): lo que los alumnos piden desde Moodle y los diplomas ya
@@ -35,10 +38,13 @@ import { Avance, AvisoCasiListo, AvisoDireccionPublica, Buscador, EnElCrmEtiquet
  *  1. El alumno termina, escribe su nombre (sin DNI) y lo pide. Llega aquí y suena la
  *     campana. El nombre que escribió es el que se imprime: va destacado junto al de
  *     Moodle para revisarlo.
- *  2. «Aprobar y emitir»: visto bueno y diploma, en un paso. NO avisa al alumno.
- *  3. El diploma queda «pendiente de aviso»: se ve el PDF y, si está bien, «Enviar
+ *  2. El DNI (o NIE o pasaporte) se pone aquí («Sin DNI · Poner») y es OBLIGATORIO (Diego,
+ *     20/10): sin él, «Aprobar y emitir» y «Emitir» no se pueden pulsar, y el servidor
+ *     tampoco lo aprueba ni lo emite. La firma del alumno no va (FIRMA_EN_DIPLOMA).
+ *  3. «Aprobar y emitir»: visto bueno y diploma, en un paso. NO avisa al alumno.
+ *  4. El diploma queda «pendiente de aviso»: se ve el PDF y, si está bien, «Enviar
  *     diploma al alumno». Solo entonces sale el correo, y solo si una persona lo aprueba.
- *  4. Un nombre mal escrito se CORRIGE (mismo número, queda registrado); revocar es para
+ *  5. Un nombre mal escrito se CORRIGE (mismo número, queda registrado); revocar es para
  *     lo que no debía emitirse.
  */
 
@@ -89,6 +95,19 @@ function nombreValido(v: string): string | null {
 }
 const MSG_NOMBRE = 'Escribe el nombre completo (nombre y apellidos), de 3 a 160 caracteres, solo con letras.';
 
+/** El DNI como lo guarda Certifex: en mayúsculas y sin espacios de más. */
+const normalizarDni = (t: string) => t.replace(/\s+/g, ' ').trim().toUpperCase();
+/** La misma regla que el servidor (`dniDiploma`): letras y números, con «-» o «.» por dentro; de 5 a 20. */
+const errorDeDni = (n: string) => (n && (!/^[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?$/.test(n) || n.replace(/[.-]/g, '').length < 5 || n.replace(/[.-]/g, '').length > 20)
+  ? 'Solo letras y números (con «-» o «.» por dentro), de 5 a 20.' : null);
+const MSG_FALTA_DNI = 'Falta el DNI (o NIE o pasaporte): es obligatorio en el diploma.';
+
+/** Lo que se añade al aviso de un lote si el servidor dejó alguna fuera por el DNI. */
+const avisoSinDni = (res: ResultadoAprobarEmitir[]) => {
+  const n = res.filter((r) => r.codigo === 'FALTA_DNI').length;
+  return n ? ` ${n} sin DNI, que es obligatorio: ponlo con «Sin DNI · Poner» y vuelve a emitir.` : '';
+};
+
 /** «8,8 · aprobado desde 5». */
 const notaTexto = (nota: number | null, umbral: number | null) => (nota == null
   ? '—'
@@ -97,8 +116,9 @@ const notaTexto = (nota: number | null, umbral: number | null) => (nota == null
 type Fallo = { quien: string; error: string };
 type Dialogo =
   | null
-  | { tipo: 'aprobarEmitir'; ids: number[] }
-  | { tipo: 'emitir'; ids: number[] }
+  // `sinDni`: las que se quedaron fuera por no tener DNI (se dice en la confirmación).
+  | { tipo: 'aprobarEmitir'; ids: number[]; sinDni?: number }
+  | { tipo: 'emitir'; ids: number[]; sinDni?: number }
   | { tipo: 'rechazar'; ids: number[] }
   | { tipo: 'avisos'; exps: string[]; reenvio: boolean; fuera?: boolean }
   | { tipo: 'avisoRechazo'; ids: number[] }
@@ -194,7 +214,14 @@ function Modulos({ programa, rotulo }: { programa: ProgramaOficial; rotulo: stri
  * Lo que se imprimirá en el diploma si se aprueba ahora: el programa de la formación
  * vendida (horas y módulos), o el aviso de que se usará lo de Moodle, con el motivo.
  */
-function ProgramaAImprimir({ p }: { p: ProgramaDelCrm | null | undefined }) {
+/**
+ * ¿La solicitud va sobre una matrícula de Moodle? Las creadas desde cero en el CRM llevan
+ * una referencia de curso desde 900.000.000 (Certifex, REF_CURSO_CRM); las de Moodle, el id
+ * de su curso. Con Moodle, si el catálogo no trae módulos se imprimen los del curso de Moodle.
+ */
+const esDeMoodle = (c: Solicitud) => Number(c.curso?.ref) > 0 && Number(c.curso.ref) < 900_000_000;
+
+function ProgramaAImprimir({ p, deMoodle = false }: { p: ProgramaDelCrm | null | undefined; deMoodle?: boolean }) {
   if (p === undefined) return null;
   if (p?.programa) {
     const rotulo = p.editado
@@ -203,6 +230,15 @@ function ProgramaAImprimir({ p }: { p: ProgramaDelCrm | null | undefined }) {
     return (
       <>
         <Modulos programa={p.programa} rotulo={rotulo} />
+        {/* Diego, 19/10: «todo tiene que tener módulos». Academia IA no los tiene en
+            ningún sitio: se escriben a mano en «Editar» antes de aprobar. */}
+        {p.programa.modulos.length === 0 && (
+          // Con matrícula de Moodle no falta nada: Certifex imprime los módulos del curso de
+          // Moodle cuando el catálogo no trae (Carlos, 20/10: «que tome los datos de Moodle»).
+          <div className="mt-1">{deMoodle
+            ? <Etiqueta tono="info">Módulos: los del curso de Moodle</Etiqueta>
+            : <Etiqueta tono="destructive">Sin módulos: escríbelos en «Editar»</Etiqueta>}</div>
+        )}
         {p.elegida && p.formacion && (
           <p className="mt-0.5 max-w-[280px] truncate text-[11px] text-muted-foreground" title={p.formacion.nombre}>Formación: {p.formacion.nombre}</p>
         )}
@@ -214,6 +250,126 @@ function ProgramaAImprimir({ p }: { p: ProgramaDelCrm | null | undefined }) {
       <Etiqueta tono="warning">Sin programa del CRM: se usará lo de Moodle</Etiqueta>
       {p?.motivo && <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{p.motivo}</p>}
     </div>
+  );
+}
+
+/**
+ * La firma del alumno en la fila (CRM #349): si la tiene, se dice; si no, se ofrece
+ * subirla (abre «Revisar datos»). Sin el dato (no se pudo mirar), no se dice nada.
+ */
+function FirmaEnFila({ c, alSubir, deshabilitado }: { c: Solicitud; alSubir: () => void; deshabilitado?: boolean }) {
+  if (c.firma === undefined) return null;
+  if (c.firma) {
+    return (
+      <div className="mt-1" title={c.firma.origen === 'admision' ? 'La de su matrícula de admisión' : `Subida por ${c.firma.por ?? '—'}`}>
+        <Etiqueta tono="success"><Signature size={12} className="mr-1 inline" />Con firma</Etiqueta>
+      </div>
+    );
+  }
+  return (
+    <button type="button" onClick={alSubir} disabled={deshabilitado}
+      className="mt-1 inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-warning-soft-foreground hover:bg-warning-soft/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
+      <Signature size={12} /> Sin firma · Subir
+    </button>
+  );
+}
+
+/**
+ * El DNI en la fila (Carlos, 20/10: «los DNI se colocan en el diploma»): si lo tiene, se ve;
+ * si no, se ofrece ponerlo (abre «Revisar datos»). Es obligatorio (Diego, 20/10): sin él no
+ * se emite, y el aviso lo dice en rojo.
+ */
+function DniEnFila({ c, alPoner, deshabilitado }: { c: Solicitud; alPoner: () => void; deshabilitado?: boolean }) {
+  if (tieneDni(c)) {
+    return <div className="mt-1"><Etiqueta tono="neutral">DNI {c.titular.dni}</Etiqueta></div>;
+  }
+  return (
+    <button type="button" onClick={alPoner} disabled={deshabilitado} title={TITULO_SIN_DNI}
+      className="mt-1 inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive-soft px-1.5 py-0.5 text-[11px] font-medium text-destructive-soft-foreground hover:bg-destructive-soft/70 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
+      <Warning size={12} weight="bold" aria-hidden /> Sin DNI · Poner <span className="font-normal">(obligatorio)</span>
+    </button>
+  );
+}
+
+/** El fondo de cuadros para ver que la firma es transparente. */
+const CUADROS = { backgroundImage: 'conic-gradient(#e5e7eb 25%, #ffffff 0 50%, #e5e7eb 0 75%, #ffffff 0)', backgroundSize: '16px 16px' };
+
+/**
+ * «Firma del alumno» en «Revisar datos antes de aprobar» (CRM #349; Diego, 19/10: «si no
+ * la tiene debe salir para cargarla»). Se ve la que se imprimirá sobre «El interesado»
+ * (la subida a mano o la de su matrícula de admisión) y se puede subir o cambiar. La
+ * subida se guarda en el momento, sin esperar a «Guardar».
+ */
+function FirmaDelAlumnoBloque({ c, alCambiar }: { c: Solicitud; alCambiar: () => void }) {
+  const [firma, setFirma] = useState(c.firma);
+  const [url, setUrl] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!firma) { setUrl(null); return undefined; }
+    let vivo = true;
+    let u: string | null = null;
+    setCargando(true);
+    diplomasApi.firma(c.matriculaId)
+      .then((b) => { if (vivo) { u = URL.createObjectURL(b); setUrl(u); setError(null); } })
+      .catch((e) => { if (vivo) setError(`No se pudo ver la firma: ${(e as Error).message}`); })
+      .finally(() => { if (vivo) setCargando(false); });
+    return () => { vivo = false; if (u) URL.revokeObjectURL(u); };
+  }, [c.matriculaId, firma, version]);
+
+  async function subir(archivo: File | undefined) {
+    if (!archivo || subiendo) return;
+    setSubiendo(true);
+    setError(null);
+    try {
+      const r = await diplomasApi.subirFirma(c.matriculaId, archivo);
+      setFirma(r.data.firma ?? null);
+      setVersion((v) => v + 1);
+      alCambiar();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSubiendo(false);
+      if (input.current) input.current.value = '';
+    }
+  }
+
+  return (
+    <fieldset className="min-w-0 rounded-md border border-border p-3 [min-inline-size:0]">
+      <legend className="px-1 text-xs font-medium text-muted-foreground">Firma del alumno</legend>
+      {firma ? (
+        <>
+          <div className="flex h-28 items-center justify-center overflow-hidden rounded-md border border-border" style={CUADROS}>
+            {url ? <img src={url} alt="Firma del alumno" className="max-h-24 max-w-[90%] object-contain" />
+              : <span className="text-xs text-muted-foreground">{cargando ? 'Cargando la firma…' : '—'}</span>}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {firma.origen === 'admision'
+              ? `La de su matrícula de admisión${firma.matriculaCrm ? ` (nº ${firma.matriculaCrm})` : ''}.`
+              : `Subida por ${firma.por ?? '—'}${firma.en ? ` el ${fechaHora(firma.en)}` : ''}.`}
+            {' '}Saldrá sobre «El interesado».
+          </p>
+        </>
+      ) : (
+        <div className="rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-xs text-warning-soft-foreground">
+          {firma === null
+            ? 'Este alumno no tiene firma. Súbela para que salga en el diploma, sobre «El interesado».'
+            : 'No se pudo comprobar si tiene firma. Puedes subirla igualmente.'}
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void subir(e.target.files?.[0])} />
+        <Button type="button" size="sm" variant={firma ? 'outline' : 'default'} onClick={() => input.current?.click()} disabled={subiendo} aria-busy={subiendo}>
+          <UploadSimple size={14} className="mr-1.5" /> {subiendo ? 'Subiendo…' : firma ? 'Cambiar firma' : 'Subir firma'}
+        </Button>
+        <span className="text-[11px] text-muted-foreground">PNG, JPG o WEBP. Se quita el fondo y se recorta al trazo.</span>
+      </div>
+      {error && <p className="mt-2 text-xs text-destructive" role="alert">{error}</p>}
+    </fieldset>
   );
 }
 
@@ -349,7 +505,22 @@ function SaludCampus({ campus }: { campus: CampusCertifex[] | null }) {
 
 // ─────────────────────────────────────────────────────────────── página
 
-export default function CertifexDiplomasPage() {
+/**
+ * `soloLectura` (#384): para quien tiene «Diplomas (Certifex) · Ver» sin ser admin.
+ * Ve lo mismo —sus campus, los contadores, las cinco pestañas, el PDF digital—, pero
+ * sin ningún botón que cambie nada: ni aprobar, emitir, rechazar, editar, poner el DNI,
+ * enviar, corregir, revocar ni «Nuevo diploma». El servidor tampoco se lo deja.
+ *
+ * `soloEmitir` (Diego, 22/10/2026: «que Dayana pueda emitir, no la dejan; puede
+ * hacerlo»): para quien tiene «Diplomas (Certifex) · Emitir» sin ser admin. Hace el
+ * recorrido de emitir —editar, poner el DNI, «Nuevo diploma», aprobar y emitir,
+ * reintentar y enviar el diploma al alumno—, siempre en sus campus. Lo que sigue siendo
+ * de administración no le sale: rechazar, el aviso de rechazo, corregir, revocar, la
+ * firma, sincronizar el temario del catálogo y el A3 de imprenta.
+ */
+export default function CertifexDiplomasPage({ soloLectura = false, soloEmitir = false }: { soloLectura?: boolean; soloEmitir?: boolean } = {}) {
+  // Administración: todo. Con `soloEmitir`, solo lo de emitir; con `soloLectura`, nada.
+  const administra = !soloLectura && !soloEmitir;
   const [params, setParams] = useSearchParams();
   const pestana: PestanaDiplomas = (PESTANAS.find((p) => p.clave === params.get('pestana'))?.clave) ?? 'pendientes';
   const irA = (p: PestanaDiplomas) => setParams(p === 'pendientes' ? {} : { pestana: p }, { replace: true });
@@ -396,6 +567,10 @@ export default function CertifexDiplomasPage() {
   const [versiones, setVersiones] = useState<Record<string, number>>({});
   // «Editar»: revisar los datos de una solicitud antes de aprobarla.
   const [editando, setEditando] = useState<Solicitud | null>(null);
+  // «Nuevo diploma» (19/10): desde cero, eligiendo cliente y formación.
+  const [creandoNuevo, setCreandoNuevo] = useState(false);
+  // «Pasar a pendientes» (22/10/2026): la matrícula que se está pidiendo, para su botón.
+  const [pidiendo, setPidiendo] = useState<number | null>(null);
   // El error del servidor en un diálogo con texto (rechazar, revocar, corregir): el
   // diálogo sigue abierto y no pierde lo escrito.
   const [errorDialogo, setErrorDialogo] = useState<string | null>(null);
@@ -404,6 +579,8 @@ export default function CertifexDiplomasPage() {
   useEffect(() => addListener(), [addListener]);
 
   const recargar = () => setRecarga((n) => n + 1);
+  // Subir la firma en «Revisar datos» la guarda en el momento: al cerrar, se recarga.
+  const firmaCambiada = useRef(false);
   const abrir = (d: Dialogo) => { setErrorDialogo(null); setDialogo(d); };
 
   // ── carga ───────────────────────────────────────────────────────
@@ -541,6 +718,12 @@ export default function CertifexDiplomasPage() {
     if (n.has(k)) n.delete(k); else n.add(k);
     return n;
   });
+  // El DNI es obligatorio para emitir (Diego, 20/10): lo que no lo tiene no entra en un lote.
+  const elegidasPendientes = pestana === 'pendientes' ? solicitudes.filter((c) => elegidas.has(String(c.matriculaId))) : [];
+  const elegidasConDni = elegidasPendientes.filter(tieneDni).map((c) => c.matriculaId);
+  const elegidasSinDni = elegidasPendientes.length - elegidasConDni.length;
+  const sinEmitirConDni = despues.sinEmitir.filter(tieneDni);
+  const sinEmitirSinDni = despues.sinEmitir.length - sinEmitirConDni.length;
   const conFechas = pestana !== 'terminados';
   const hayFiltros = !!(centro || curso || (conFechas && (desde || hasta)) || buscar || filtroAviso);
   const contar = (p: PestanaDiplomas) => {
@@ -602,7 +785,7 @@ export default function CertifexDiplomasPage() {
     setHechos(emitidasDe(res));
     toast({
       title: `${ok} ${ok === 1 ? 'diploma emitido' : 'diplomas emitidos'}`,
-      description: ok ? 'Quedan pendientes de aviso: revisa el PDF y envíalo al alumno.' : 'Ninguno se ha podido emitir: el motivo, en pantalla.',
+      description: (ok ? 'Quedan pendientes de aviso: revisa el PDF y envíalo al alumno.' : 'Ninguno se ha podido emitir: el motivo, en pantalla.') + avisoSinDni(res),
       variant: ok ? undefined : 'destructive',
     });
   }, 'No se pudo aprobar y emitir');
@@ -616,8 +799,8 @@ export default function CertifexDiplomasPage() {
     setFallos(res.filter((r) => !r.ok).map((r) => ({ quien: nombre(r.matriculaId), error: r.error ?? 'Error' })));
     setHechos(emitidasDe(res));
     toast(ok
-      ? { title: `${ok} ${ok === 1 ? 'diploma emitido' : 'diplomas emitidos'}`, description: res.length > ok ? `Quedan pendientes de aviso. ${res.length - ok} sin emitir: el motivo, en pantalla.` : 'Quedan pendientes de aviso.' }
-      : { title: 'No se ha emitido ninguno', description: 'El motivo de cada uno, en pantalla.', variant: 'destructive' });
+      ? { title: `${ok} ${ok === 1 ? 'diploma emitido' : 'diplomas emitidos'}`, description: (res.length > ok ? `Quedan pendientes de aviso. ${res.length - ok} sin emitir: el motivo, en pantalla.` : 'Quedan pendientes de aviso.') + avisoSinDni(res) }
+      : { title: 'No se ha emitido ninguno', description: `El motivo de cada uno, en pantalla.${avisoSinDni(res)}`, variant: 'destructive' });
   }, 'No se pudo emitir');
 
   const rechazar = (ids: number[], motivo: string) => ejecutarEnDialogo(async () => {
@@ -669,6 +852,27 @@ export default function CertifexDiplomasPage() {
       description: d.aviso ? 'Mismo número y mismo QR. El alumno ya recibió el anterior: usa «Reenviar» si quieres mandarle el corregido.' : 'Mismo número y mismo QR. Revisa el PDF antes de enviarlo.',
     });
   });
+
+  /**
+   * «Pasar a pendientes» (Diego, 22/10/2026: «que se pueda pasar de sin emitir a
+   * pendientes»): pide el diploma en Certifex sobre la matrícula de Moodle de quien terminó
+   * sin pedirlo. Queda en «Por decidir», con el nombre de Moodle: se revisa con «Editar».
+   */
+  async function pasarAPendientes(c: Terminado) {
+    setPidiendo(c.matriculaId);
+    try {
+      const r = await diplomasApi.pedir({ matriculaId: c.matriculaId, centro: c.centro, cursoRef: c.curso.ref });
+      toast({
+        title: r.data.yaPedido ? 'Ya estaba en Pendientes' : 'Pasado a Pendientes',
+        description: `${r.data.nombre} · ${r.data.curso}. Apruébalo y emítelo desde allí; revisa antes su nombre y su DNI con «Editar».`,
+      });
+      recargar();
+    } catch (e) {
+      toast({ title: 'No se ha pasado a Pendientes', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setPidiendo(null);
+    }
+  }
 
   async function copiarEnlace(d: Diploma) {
     if (!d.verificarUrl) {
@@ -824,9 +1028,21 @@ export default function CertifexDiplomasPage() {
           {conexion?.conectado
             ? <StatusDot tono="success">Conectado{conexion.nombre ? ` como ${conexion.nombre}` : ''}</StatusDot>
             : 'Conectando con Certifex…'}
-          <span>· Emitir no avisa al alumno: el correo sale solo cuando lo apruebas aquí</span>
+          {soloLectura ? (
+            <span role="status" title="Puedes ver los diplomas de tus campus. Aprobar, emitir y enviar lo hace administración o quien tenga «Diplomas (Certifex) · Emitir»; corregir y revocar, administración."
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+              <Eye size={12} aria-hidden /> Solo lectura
+            </span>
+          ) : (
+            <span>· Emitir no avisa al alumno: el correo sale solo cuando lo apruebas aquí</span>
+          )}
         </span>
         <div className="flex flex-wrap gap-2">
+          {!soloLectura && (
+            <Button size="sm" onClick={() => setCreandoNuevo(true)} disabled={!conexion?.conectado || !campus?.length}>
+              <Plus size={13} weight="bold" className="mr-1.5" /> Nuevo diploma
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={recargar} disabled={trabajando || !conexion?.conectado}>
             <ArrowClockwise size={13} weight="bold" className="mr-1.5" /> Actualizar
           </Button>
@@ -974,6 +1190,7 @@ export default function CertifexDiplomasPage() {
         {pestana === 'terminados' && (
           <CardSection className="text-sm text-muted-foreground">
             Moodle da la formación por terminada, pero el alumno aún no ha pedido su diploma. Cuando lo pida, pasará a Pendientes.
+            {!soloLectura && ' Si no lo va a pedir, pásalo tú con «Pasar a pendientes» y emítelo desde allí.'}
           </CardSection>
         )}
         {pestana === 'enviados' && (
@@ -1003,7 +1220,8 @@ export default function CertifexDiplomasPage() {
                     <Th>Formación</Th>
                     <Th className="text-right">Nota · avance</Th>
                     <Th>En el CRM</Th>
-                    <Th className="pr-4">Aviso de Certifex</Th>
+                    <Th className={soloLectura ? 'pr-4' : undefined}>Aviso de Certifex</Th>
+                    {!soloLectura && <Th className="pr-4 text-right">Acción</Th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -1022,9 +1240,19 @@ export default function CertifexDiplomasPage() {
                         <div className="mt-1"><Avance hechas={c.actividades.calificadas} total={c.actividades.total} /></div>
                       </td>
                       <td className="px-2 py-3"><EnElCrmEtiqueta crm={c.crm} /></td>
-                      <td className="whitespace-nowrap px-2 py-3 pr-4 text-xs">
+                      <td className={cn('whitespace-nowrap px-2 py-3 text-xs', soloLectura && 'pr-4')}>
                         {c.aviso?.recibidoEn ? fechaHora(c.aviso.recibidoEn) : <span className="text-muted-foreground">Sin aviso</span>}
                       </td>
+                      {!soloLectura && (
+                        <td className="px-2 py-3 pr-4 text-right">
+                          <Button size="sm" variant="secondary" disabled={trabajando || pidiendo !== null} aria-busy={pidiendo === c.matriculaId}
+                            aria-label={`Pasar a pendientes a ${c.titular.nombre || c.titular.email || `la matrícula ${c.matriculaId}`}`}
+                            title="Pide el diploma por el alumno: pasa a Pendientes para revisarlo, aprobarlo y emitirlo"
+                            onClick={() => void pasarAPendientes(c)}>
+                            <HourglassMedium size={14} className="mr-1.5" /> {pidiendo === c.matriculaId ? 'Pasando…' : 'Pasar a pendientes'}
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -1041,8 +1269,9 @@ export default function CertifexDiplomasPage() {
                 alternar={(k) => alternar(setElegidasAviso, k)}
                 todas={() => setElegidasAviso(elegidasAviso.size === despues.porAvisar.length ? new Set() : new Set(despues.porAvisar.map((c) => c.nexpediente!)))}
                 ocupado={trabajando}
-                verPdf={(c) => c.diploma && setVisor({ d: c.diploma, enviable: true })}
+                verPdf={(c) => c.diploma && setVisor({ d: c.diploma, enviable: !soloLectura })}
                 enviar={(exps) => setDialogo({ tipo: 'avisos', exps, reenvio: false })}
+                soloLectura={soloLectura}
               />
             )}
             {despues.sinEmitir.length > 0 && (
@@ -1052,20 +1281,34 @@ export default function CertifexDiplomasPage() {
                     <p className="text-sm font-semibold">Aprobados sin diploma ({despues.sinEmitir.length})</p>
                     <p className="text-xs text-muted-foreground">El visto bueno está dado, pero la emisión no terminó. Se puede reintentar.</p>
                   </div>
-                  <Button size="sm" variant="secondary" disabled={trabajando} onClick={() => setDialogo({ tipo: 'emitir', ids: despues.sinEmitir.map((c) => c.matriculaId) })}>
-                    <Certificate size={14} className="mr-1.5" /> Emitir {despues.sinEmitir.length}
-                  </Button>
+                  {!soloLectura && (
+                    <div className="flex flex-col items-end gap-1">
+                      <Button size="sm" variant="secondary" disabled={trabajando || sinEmitirConDni.length === 0}
+                        title={sinEmitirConDni.length === 0 ? TITULO_SIN_DNI : undefined}
+                        onClick={() => setDialogo({ tipo: 'emitir', ids: sinEmitirConDni.map((c) => c.matriculaId), sinDni: sinEmitirSinDni })}>
+                        <Certificate size={14} className="mr-1.5" /> Emitir {sinEmitirConDni.length}
+                      </Button>
+                      {sinEmitirSinDni > 0 && (
+                        <span className="text-[11px] font-medium text-destructive" role="status">
+                          {sinEmitirConDni.length === 0 ? `${PON_EL_DNI}: ` : ''}{sinEmitirSinDni} sin DNI no {sinEmitirSinDni === 1 ? 'se emite' : 'se emiten'} (es obligatorio)
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <ul className="mt-2 flex flex-wrap gap-1.5">
                   {despues.sinEmitir.slice(0, 20).map((c) => (
                     <li key={c.matriculaId} className="inline-flex items-center gap-1">
-                      <Etiqueta tono={c.programaCrm?.programa ? 'info' : 'warning'}>
-                        {nombre(c.matriculaId)}{c.solicitud?.revisado ? ' (nombre revisado)' : ''} · {c.curso.nombre} · {lineaPrograma(c.programaCrm)}
+                      <Etiqueta tono={!tieneDni(c) ? 'destructive' : c.programaCrm?.programa ? 'info' : 'warning'}>
+                        {nombre(c.matriculaId)}{c.solicitud?.revisado ? ' (nombre revisado)' : ''} · {c.curso.nombre} · {lineaPrograma(c.programaCrm)}{tieneDni(c) ? '' : ' · falta el DNI'}
                       </Etiqueta>
-                      <button type="button" disabled={trabajando} onClick={() => setEditando(c)} aria-label={`Editar los datos de ${nombre(c.matriculaId)}`}
-                        className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
-                        <NotePencil size={12} /> Editar
-                      </button>
+                      {!soloLectura && (
+                        <button type="button" disabled={trabajando} onClick={() => setEditando(c)}
+                          aria-label={tieneDni(c) ? `Editar los datos de ${nombre(c.matriculaId)}` : `Poner el DNI de ${nombre(c.matriculaId)}`}
+                          className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50">
+                          <NotePencil size={12} /> {tieneDni(c) ? 'Editar' : 'Poner DNI'}
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -1073,7 +1316,7 @@ export default function CertifexDiplomasPage() {
             )}
             <div className="flex items-baseline justify-between gap-2 px-4 pt-3">
               <h3 className="text-sm font-semibold">Por decidir</h3>
-              <span className="text-xs text-muted-foreground">Revisa el nombre que se imprimirá antes de aprobar</span>
+              {!soloLectura && <span className="text-xs text-muted-foreground">Revisa el nombre que se imprimirá antes de aprobar</span>}
             </div>
             {solicitudes.length === 0 ? (
               <EmptyState
@@ -1086,13 +1329,13 @@ export default function CertifexDiplomasPage() {
                 <table className="w-full min-w-[980px] text-sm">
                   <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                     <tr className="border-b border-border">
-                      <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>
-                      <Th>Nombre para el diploma</Th>
+                      {!soloLectura && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>}
+                      <Th className={soloLectura ? 'pl-4' : undefined}>Nombre para el diploma</Th>
                       <Th>Formación · programa a imprimir</Th>
                       <Th>Solicitado</Th>
                       <Th className="text-right">Nota · avance</Th>
-                      <Th>En el CRM</Th>
-                      <Th className="pr-4 text-right">Acciones</Th>
+                      <Th className={soloLectura ? 'pr-4' : undefined}>En el CRM</Th>
+                      {!soloLectura && <Th className="pr-4 text-right">Acciones</Th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -1100,35 +1343,53 @@ export default function CertifexDiplomasPage() {
                       const k = String(c.matriculaId);
                       return (
                         <tr key={k} className={cn('align-top transition-colors', elegidas.has(k) ? 'bg-primary/5' : 'hover:bg-muted/40')}>
-                          <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir a ${nombre(c.matriculaId)}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>
-                          <td className="px-2 py-3">
+                          {!soloLectura && <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir a ${nombre(c.matriculaId)}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>}
+                          <td className={cn('px-2 py-3', soloLectura && 'pl-4')}>
                             <NombreDiploma c={c} />
                             <CorreoDelAlumno c={c} />
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {FIRMA_EN_DIPLOMA && administra && <FirmaEnFila c={c} alSubir={() => setEditando(c)} deshabilitado={trabajando} />}
+                              {soloLectura
+                                ? (tieneDni(c)
+                                  ? <div className="mt-1"><Etiqueta tono="neutral">DNI {c.titular.dni}</Etiqueta></div>
+                                  : <div className="mt-1"><Etiqueta tono="destructive">Sin DNI</Etiqueta></div>)
+                                : <DniEnFila c={c} alPoner={() => setEditando(c)} deshabilitado={trabajando} />}
+                            </div>
                           </td>
                           <td className="px-2 py-3">
                             <div className="max-w-[260px] truncate" title={c.curso.nombre}>{c.curso.nombre}</div>
                             <div className="text-xs text-muted-foreground">{nombreCampus(c.centro)}</div>
-                            <ProgramaAImprimir p={c.programaCrm} />
+                            <ProgramaAImprimir p={c.programaCrm} deMoodle={esDeMoodle(c)} />
                           </td>
                           <td className="whitespace-nowrap px-2 py-3 text-xs">{fecha(c.solicitud?.en)}</td>
                           <td className="px-2 py-3 text-right">
                             <div className="tabular-nums">{c.notaFinal == null ? <span className="text-muted-foreground">—</span> : notaTexto(c.notaFinal, c.umbral)}</div>
                             <div className="mt-1"><Avance hechas={c.actividades.calificadas} total={c.actividades.total} /></div>
                           </td>
-                          <td className="px-2 py-3"><EnElCrmEtiqueta crm={c.crm} /></td>
-                          <td className="px-2 py-3 pr-4">
-                            <div className="flex flex-col items-stretch gap-1.5">
-                              <Button size="sm" disabled={trabajando} onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: [c.matriculaId] })}>
-                                <SealCheck size={14} className="mr-1.5" /> Aprobar y emitir
-                              </Button>
-                              <Button size="sm" variant="outline" disabled={trabajando} onClick={() => abrir({ tipo: 'rechazar', ids: [c.matriculaId] })}>
-                                <XCircle size={14} className="mr-1.5" /> Rechazar
-                              </Button>
-                              <Button size="sm" variant="ghost" disabled={trabajando} onClick={() => setEditando(c)} aria-label={`Editar los datos de ${nombre(c.matriculaId)}`}>
-                                <NotePencil size={14} className="mr-1.5" /> Editar
-                              </Button>
-                            </div>
-                          </td>
+                          <td className={cn('px-2 py-3', soloLectura && 'pr-4')}><EnElCrmEtiqueta crm={c.crm} /></td>
+                          {!soloLectura && (
+                            <td className="px-2 py-3 pr-4">
+                              <div className="flex flex-col items-stretch gap-1.5">
+                                <Button size="sm" disabled={trabajando || !tieneDni(c)} title={tieneDni(c) ? undefined : TITULO_SIN_DNI}
+                                  aria-describedby={tieneDni(c) ? undefined : `diplomas-sin-dni-${k}`}
+                                  onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: [c.matriculaId] })}>
+                                  <SealCheck size={14} className="mr-1.5" /> Aprobar y emitir
+                                </Button>
+                                {!tieneDni(c) && (
+                                  <span id={`diplomas-sin-dni-${k}`} className="text-center text-[11px] font-medium text-destructive" title={TITULO_SIN_DNI}>{PON_EL_DNI}</span>
+                                )}
+                                {/* Rechazar sigue siendo de administración (22/10/2026). */}
+                                {administra && (
+                                  <Button size="sm" variant="outline" disabled={trabajando} onClick={() => abrir({ tipo: 'rechazar', ids: [c.matriculaId] })}>
+                                    <XCircle size={14} className="mr-1.5" /> Rechazar
+                                  </Button>
+                                )}
+                                <Button size="sm" variant="ghost" disabled={trabajando} onClick={() => setEditando(c)} aria-label={`Editar los datos de ${nombre(c.matriculaId)}`}>
+                                  <NotePencil size={14} className="mr-1.5" /> Editar
+                                </Button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -1146,13 +1407,14 @@ export default function CertifexDiplomasPage() {
               <table className="w-full min-w-[980px] text-sm">
                 <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr className="border-b border-border">
-                    <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>
-                    <Th>Alumno</Th>
+                    {/* El aviso de rechazo es de administración: quien solo emite, aquí solo mira. */}
+                    {administra && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>}
+                    <Th className={!administra ? 'pl-4' : undefined}>Alumno</Th>
                     <Th>Formación</Th>
                     <Th>Motivo</Th>
                     <Th>Rechazada</Th>
-                    <Th>Aviso de rechazo</Th>
-                    <Th className="pr-4 text-right">Acción</Th>
+                    <Th className={!administra ? 'pr-4' : undefined}>Aviso de rechazo</Th>
+                    {administra && <Th className="pr-4 text-right">Acción</Th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -1161,26 +1423,28 @@ export default function CertifexDiplomasPage() {
                     const a = c.avisoRechazo;
                     return (
                       <tr key={k} className={cn('align-top transition-colors', elegidas.has(k) ? 'bg-primary/5' : 'hover:bg-muted/40')}>
-                        <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir a ${nombre(c.matriculaId)}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>
-                        <td className="px-2 py-3">
+                        {administra && <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir a ${nombre(c.matriculaId)}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>}
+                        <td className={cn('px-2 py-3', !administra && 'pl-4')}>
                           <NombreDiploma c={c} />
                           <div className="mt-0.5 max-w-[260px] truncate text-xs text-muted-foreground">{c.titular.email || 'sin correo'}</div>
                         </td>
                         <td className="px-2 py-3"><div className="max-w-[200px] truncate" title={c.curso.nombre}>{c.curso.nombre}</div><div className="text-xs text-muted-foreground">{nombreCampus(c.centro)}</div></td>
                         <td className="px-2 py-3"><p className="max-w-[260px] text-sm italic text-muted-foreground">«{c.decision?.motivo || 'sin motivo'}»</p></td>
                         <td className="whitespace-nowrap px-2 py-3 text-xs">{fecha(c.decision?.decididoEn)}<div className="max-w-[160px] truncate text-muted-foreground" title={c.decision?.decididoPor}>{c.decision?.decididoPor}</div></td>
-                        <td className="px-2 py-3">
+                        <td className={cn('px-2 py-3', !administra && 'pr-4')}>
                           {!a ? <StatusDot tono="neutral">Sin avisar</StatusDot>
                             : a.resultado === 'enviado' ? <StatusDot tono="success">Enviado</StatusDot>
                               : a.resultado === 'correo_apagado' ? <StatusDot tono="warning">Aviso aprobado (correo apagado)</StatusDot>
                                 : <StatusDot tono="danger">{ROTULO_AVISO[a.resultado] ?? a.resultado}</StatusDot>}
                           {a && <div className="mt-0.5 max-w-[170px] truncate text-[11px] text-muted-foreground" title={a.por}>{fecha(a.en)} · {a.por}</div>}
                         </td>
-                        <td className="px-2 py-3 pr-4 text-right">
-                          <Button size="sm" variant={a?.resultado === 'enviado' ? 'outline' : 'secondary'} disabled={trabajando} onClick={() => setDialogo({ tipo: 'avisoRechazo', ids: [c.matriculaId] })}>
-                            <Envelope size={14} className="mr-1.5" /> {a ? 'Reenviar aviso' : 'Enviar aviso de rechazo'}
-                          </Button>
-                        </td>
+                        {administra && (
+                          <td className="px-2 py-3 pr-4 text-right">
+                            <Button size="sm" variant={a?.resultado === 'enviado' ? 'outline' : 'secondary'} disabled={trabajando} onClick={() => setDialogo({ tipo: 'avisoRechazo', ids: [c.matriculaId] })}>
+                              <Envelope size={14} className="mr-1.5" /> {a ? 'Reenviar aviso' : 'Enviar aviso de rechazo'}
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -1199,8 +1463,8 @@ export default function CertifexDiplomasPage() {
             <table className="w-full min-w-[980px] text-sm">
               <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr className="border-b border-border">
-                  {pestana === 'enviados' && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>}
-                  <Th className={pestana === 'revocados' ? 'pl-4' : undefined}>Alumno</Th>
+                  {pestana === 'enviados' && !soloLectura && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-elegir-todas" etiqueta="Elegir toda la página" marcada={todas} alCambiar={() => setElegidas(todas ? new Set() : new Set(filasClave))} /></th>}
+                  <Th className={pestana === 'revocados' || soloLectura ? 'pl-4' : undefined}>Alumno</Th>
                   <Th>Titulación</Th>
                   <Th>Emitido</Th>
                   {pestana === 'enviados' ? <Th>Aviso al alumno</Th> : <><Th>Revocado</Th><Th>Motivo</Th></>}
@@ -1212,8 +1476,8 @@ export default function CertifexDiplomasPage() {
                   const k = d.nexpediente;
                   return (
                     <tr key={k} className={cn('align-top transition-colors', elegidas.has(k) ? 'bg-primary/5' : 'hover:bg-muted/40')}>
-                      {pestana === 'enviados' && <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir ${k}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>}
-                      <td className={cn('px-2 py-3', pestana === 'revocados' && 'pl-4')}>
+                      {pestana === 'enviados' && !soloLectura && <td className="px-4 py-3"><Casilla id={`diplomas-elegir-${k}`} etiqueta={`Elegir ${k}`} marcada={elegidas.has(k)} alCambiar={() => alternar(setElegidas, k)} /></td>}
+                      <td className={cn('px-2 py-3', (pestana === 'revocados' || soloLectura) && 'pl-4')}>
                         <div className="max-w-[180px] truncate font-semibold" title={d.alumno}>{d.alumno}</div>
                         <div className="select-all font-mono text-[11px] text-primary">{d.nexpediente}</div>
                       </td>
@@ -1229,7 +1493,7 @@ export default function CertifexDiplomasPage() {
                       )}
                       <td className="px-2 py-3 pr-4">
                         <div className="flex justify-end gap-1.5 whitespace-nowrap">
-                          {pestana === 'enviados' && (
+                          {pestana === 'enviados' && !soloLectura && (
                             !d.aviso && !delCrm(d) ? (
                               // Emitido fuera del CRM: nadie lo tiene pendiente. Reenviar es secundario y pide confirmación.
                               <Button size="sm" variant="ghost" disabled={trabajando}
@@ -1244,9 +1508,9 @@ export default function CertifexDiplomasPage() {
                             )
                           )}
                           {/* Revocado, Certifex ya no sirve su PDF (404): solo el enlace, que dice «revocado». */}
-                          {pestana === 'enviados' && <IconoAccion etiqueta="Ver PDF" onClick={() => setVisor({ d, enviable: !d.aviso && delCrm(d) })}><FilePdf size={15} /></IconoAccion>}
+                          {pestana === 'enviados' && <IconoAccion etiqueta="Ver PDF" onClick={() => setVisor({ d, enviable: !soloLectura && !d.aviso && delCrm(d) })}><FilePdf size={15} /></IconoAccion>}
                           <IconoAccion etiqueta={d.verificarUrl ? 'Copiar enlace de verificación' : 'Sin enlace público: Certifex no tiene una dirección que abra desde fuera'} disabled={!d.verificarUrl} onClick={() => copiarEnlace(d)}><LinkSimple size={15} /></IconoAccion>
-                          {pestana === 'enviados' && (
+                          {pestana === 'enviados' && administra && (
                             <>
                               <IconoAccion etiqueta="Corregir nombre" disabled={trabajando} onClick={() => abrir({ tipo: 'corregir', d })}><PencilSimple size={15} /></IconoAccion>
                               <IconoAccion etiqueta="Revocar" peligro disabled={trabajando} onClick={() => abrir({ tipo: 'revocar', d })}><Prohibit size={15} /></IconoAccion>
@@ -1276,8 +1540,8 @@ export default function CertifexDiplomasPage() {
         )}
       </Card>
 
-      {/* Barra de acciones en bloque */}
-      {elegidas.size > 0 && (
+      {/* Barra de acciones en bloque (en solo lectura no hay nada que hacer en bloque) */}
+      {elegidas.size > 0 && !soloLectura && (
         // Con avisos (toasts) a la vista, la barra sube por encima de ellos: si no, los
         // avisos tapaban sus botones.
         <div className="sticky z-30 flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-card px-4 py-3 shadow-lg transition-[bottom]"
@@ -1287,16 +1551,27 @@ export default function CertifexDiplomasPage() {
           <div className="ml-auto flex flex-wrap gap-2">
             {pestana === 'pendientes' && (
               <>
-                <Button variant="outline" size="sm" disabled={trabajando} onClick={() => abrir({ tipo: 'rechazar', ids: [...elegidas].map(Number) })}>
-                  <XCircle size={14} className="mr-1.5" /> Rechazar ({elegidas.size})
-                </Button>
-                <Button size="sm" disabled={trabajando} onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: [...elegidas].map(Number) })}>
+                {administra && (
+                  <Button variant="outline" size="sm" disabled={trabajando} onClick={() => abrir({ tipo: 'rechazar', ids: [...elegidas].map(Number) })}>
+                    <XCircle size={14} className="mr-1.5" /> Rechazar ({elegidas.size})
+                  </Button>
+                )}
+                {/* Sin DNI no se emite: las que no lo tienen se quedan fuera, y se dice. */}
+                {elegidasSinDni > 0 && (
+                  <span className="self-center text-xs font-medium text-destructive" role="status">
+                    {elegidasConDni.length === 0
+                      ? 'Ninguna tiene DNI: ponlo para poder emitir'
+                      : `${elegidasSinDni} sin DNI ${elegidasSinDni === 1 ? 'se queda' : 'se quedan'} fuera (es obligatorio)`}
+                  </span>
+                )}
+                <Button size="sm" disabled={trabajando || elegidasConDni.length === 0} title={elegidasConDni.length === 0 ? TITULO_SIN_DNI : undefined}
+                  onClick={() => setDialogo({ tipo: 'aprobarEmitir', ids: elegidasConDni, sinDni: elegidasSinDni })}>
                   <SealCheck size={14} className="mr-1.5" />
-                  {trabajando && lote ? `Emitiendo ${lote.hechas} de ${lote.total}…` : `Aprobar y emitir (${elegidas.size})`}
+                  {trabajando && lote ? `Emitiendo ${lote.hechas} de ${lote.total}…` : `Aprobar y emitir (${elegidasConDni.length})`}
                 </Button>
               </>
             )}
-            {pestana === 'rechazados' && (
+            {pestana === 'rechazados' && administra && (
               <Button size="sm" variant="secondary" disabled={trabajando} onClick={() => setDialogo({ tipo: 'avisoRechazo', ids: [...elegidas].map(Number) })}>
                 <Envelope size={14} className="mr-1.5" /> Enviar aviso de rechazo ({elegidas.size})
               </Button>
@@ -1320,6 +1595,11 @@ export default function CertifexDiplomasPage() {
           <>
             {dialogo?.tipo === 'aprobarEmitir' ? 'Se aprueban y se emite su diploma en Certifex con el nombre que escribió cada alumno. ' : 'Se emite el diploma de lo ya aprobado. '}
             <strong>No se avisa al alumno</strong>: el diploma queda pendiente de aviso hasta que revises el PDF y lo envíes. Cada diploma gasta un número de expediente en un registro que no se borra. Queda a tu nombre.
+            {(dialogo?.tipo === 'aprobarEmitir' || dialogo?.tipo === 'emitir') && !!dialogo.sinDni && (
+              <strong className="mt-2 block text-destructive">
+                {dialogo.sinDni} sin DNI no {dialogo.sinDni === 1 ? 'entra' : 'entran'}: el DNI es obligatorio en el diploma. Pónselo y emítelo después.
+              </strong>
+            )}
           </>
         }
         confirmLabel="Emitir"
@@ -1412,10 +1692,33 @@ export default function CertifexDiplomasPage() {
         />
       )}
 
+      {creandoNuevo && campus && (
+        <DialogoNuevoDiploma
+          campus={campus}
+          alCerrar={() => setCreandoNuevo(false)}
+          alCrear={(r) => {
+            setCreandoNuevo(false);
+            toast(r.avisoDni
+              ? { title: r.yaExistia ? 'Ya estaba creado, sin DNI' : 'Diploma creado, sin DNI', description: `${r.nombre} · ${r.curso}. ${r.avisoDni}`, variant: 'destructive' }
+              : {
+                title: r.yaExistia ? 'Ya estaba creado' : 'Diploma creado',
+                description: `${r.nombre} · ${r.curso}. ${r.vinculadaMoodle ? 'Va sobre su matrícula de Moodle: saldrá con sus datos de Moodle. ' : ''}Está en «Por decidir»: apruébalo y emítelo cuando quieras.`,
+              });
+            irA('pendientes');
+            recargar();
+          }}
+        />
+      )}
+
       {editando && (
         <DialogoEditar
           c={editando}
-          alCerrar={() => setEditando(null)}
+          puedeSincronizar={administra}
+          alCambiarFirma={() => { firmaCambiada.current = true; }}
+          alCerrar={() => {
+            setEditando(null);
+            if (firmaCambiada.current) { firmaCambiada.current = false; recargar(); }
+          }}
           alGuardar={(fila) => {
             setEditando(null);
             toast({ title: 'Datos revisados', description: `${fila.solicitud?.nombre || nombre(fila.matriculaId)}: «Aprobar y emitir» usará lo que has guardado.` });
@@ -1429,7 +1732,8 @@ export default function CertifexDiplomasPage() {
           d={visor.d}
           version={versiones[visor.d.nexpediente]}
           alCerrar={() => setVisor(null)}
-          alEnviar={visor.enviable ? () => { const exp = visor.d.nexpediente; setVisor(null); setDialogo({ tipo: 'avisos', exps: [exp], reenvio: false }); } : undefined}
+          alEnviar={visor.enviable && !soloLectura ? () => { const exp = visor.d.nexpediente; setVisor(null); setDialogo({ tipo: 'avisos', exps: [exp], reenvio: false }); } : undefined}
+          sinImprenta={!administra}
         />
       )}
     </div>
@@ -1439,7 +1743,7 @@ export default function CertifexDiplomasPage() {
 // ─────────────────────────────────────────────────────────────── bloques
 
 /** Lo emitido que espera a que alguien vea el PDF y lo envíe al alumno. */
-function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupado, verPdf, enviar }: {
+function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupado, verPdf, enviar, soloLectura = false }: {
   filas: Solicitud[];
   nombreCampus: (codigo: string) => string;
   elegidas: Set<string>;
@@ -1448,6 +1752,8 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
   ocupado: boolean;
   verPdf: (c: Solicitud) => void;
   enviar: (exps: string[]) => void;
+  /** Solo ver el PDF: el envío al alumno es de administración (#384). */
+  soloLectura?: boolean;
 }) {
   const marcadas = filas.filter((c) => elegidas.has(c.nexpediente!)).map((c) => c.nexpediente!);
   return (
@@ -1455,9 +1761,13 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3">
         <div>
           <h3 className="text-sm font-semibold">Emitidos, falta enviarlos al alumno ({filas.length})</h3>
-          <p className="text-xs text-muted-foreground">Revisa el PDF de cada uno; el correo sale solo cuando pulsas «Enviar».</p>
+          <p className="text-xs text-muted-foreground">
+            {soloLectura
+              ? 'Administración revisa el PDF de cada uno y lo envía al alumno.'
+              : 'Revisa el PDF de cada uno; el correo sale solo cuando pulsas «Enviar».'}
+          </p>
         </div>
-        {marcadas.length > 0 && (
+        {marcadas.length > 0 && !soloLectura && (
           <Button size="sm" disabled={ocupado} onClick={() => enviar(marcadas)}>
             <PaperPlaneTilt size={14} className="mr-1.5" /> Enviar {marcadas.length} al alumno
           </Button>
@@ -1467,8 +1777,8 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
         <table className="mt-2 w-full min-w-[860px] text-sm">
           <thead className="text-[11px] uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border">
-              <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-aviso-todas" etiqueta="Elegir todos los pendientes de aviso" marcada={marcadas.length === filas.length} alCambiar={todas} /></th>
-              <Th>Nombre en el diploma</Th>
+              {!soloLectura && <th className="w-10 px-4 py-2 text-left"><Casilla id="diplomas-aviso-todas" etiqueta="Elegir todos los pendientes de aviso" marcada={marcadas.length === filas.length} alCambiar={todas} /></th>}
+              <Th className={soloLectura ? 'pl-4' : undefined}>Nombre en el diploma</Th>
               <Th>Formación</Th>
               <Th>Nº de expediente</Th>
               <Th>Emitido</Th>
@@ -1480,8 +1790,8 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
               const k = c.nexpediente!;
               return (
                 <tr key={k} className="align-top">
-                  <td className="px-4 py-2.5"><Casilla id={`diplomas-aviso-${k}`} etiqueta={`Elegir ${k}`} marcada={elegidas.has(k)} alCambiar={() => alternar(k)} /></td>
-                  <td className="px-2 py-2.5">
+                  {!soloLectura && <td className="px-4 py-2.5"><Casilla id={`diplomas-aviso-${k}`} etiqueta={`Elegir ${k}`} marcada={elegidas.has(k)} alCambiar={() => alternar(k)} /></td>}
+                  <td className={cn('px-2 py-2.5', soloLectura && 'pl-4')}>
                     <div className="max-w-[260px] truncate font-semibold">{c.diploma?.alumno ?? c.solicitud?.nombre}</div>
                     <div className="max-w-[260px] truncate text-xs text-muted-foreground">{c.titular.email || 'sin correo'}</div>
                   </td>
@@ -1497,7 +1807,7 @@ function BloquePorAvisar({ filas, nombreCampus, elegidas, alternar, todas, ocupa
                   <td className="px-2 py-2.5 pr-4">
                     <div className="flex justify-end gap-1.5">
                       <Button size="sm" variant="outline" onClick={() => verPdf(c)}><FilePdf size={14} className="mr-1.5" /> Ver PDF</Button>
-                      <Button size="sm" disabled={ocupado} onClick={() => enviar([k])}><PaperPlaneTilt size={14} className="mr-1.5" /> Enviar diploma al alumno</Button>
+                      {!soloLectura && <Button size="sm" disabled={ocupado} onClick={() => enviar([k])}><PaperPlaneTilt size={14} className="mr-1.5" /> Enviar diploma al alumno</Button>}
                     </div>
                   </td>
                 </tr>
@@ -1533,13 +1843,9 @@ function deForm(f: ProgramaForm): { programa: ProgramaOficial | null; error: str
   for (const [i, m] of f.modulos.entries()) {
     const titulo = m.titulo.replace(/\s+/g, ' ').trim();
     if (!titulo || titulo.length > 300) return { programa: null, error: `El módulo ${i + 1} necesita un título (hasta 300 caracteres).` };
-    if (m.horas.trim()) {
-      const h = entero(m.horas);
-      if (!Number.isInteger(h) || h < 0 || h > 2000) return { programa: null, error: `Las horas del módulo ${i + 1} van de 0 a 2.000 (número entero).` };
-      modulos.push({ titulo, horas: h });
-    } else {
-      modulos.push({ titulo });
-    }
+    // Sin horas por módulo (Diego, 22/10/2026: «no hay horas por módulos, sino en general»):
+    // las horas van solo en «Horas totales».
+    modulos.push({ titulo });
   }
   if (horas == null && modulos.length === 0) return { programa: null, error: 'Pon las horas totales o al menos un módulo.' };
   return { programa: { ...(horas != null ? { horas } : {}), modulos }, error: null };
@@ -1547,7 +1853,7 @@ function deForm(f: ProgramaForm): { programa: ProgramaOficial | null; error: str
 
 const mismoPrograma = (a: ProgramaOficial | null | undefined, b: ProgramaOficial | null | undefined) => {
   const n = (p: ProgramaOficial | null | undefined) => (p
-    ? JSON.stringify({ horas: p.horas ?? null, modulos: p.modulos.map((m) => ({ titulo: m.titulo, horas: m.horas ?? null })) })
+    ? JSON.stringify({ horas: p.horas ?? null, modulos: p.modulos.map((m) => m.titulo) })
     : null);
   return n(a) === n(b);
 };
@@ -1559,13 +1865,222 @@ const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * se imprimirá. El nombre se guarda en Certifex (es quien imprime); el correo del CRM,
  * la formación vendida y el programa, en el CRM. Solo antes de emitir: después, Corregir.
  */
-function DialogoEditar({ c, alCerrar, alGuardar }: {
+/** Un prospecto o cliente del proyecto del campus, tal y como lo da la búsqueda. */
+interface ClienteLite { id: number; nombre: string | null; email: string | null; telefono?: string | null }
+
+/**
+ * «Nuevo diploma» (Diego, 19/10: «Academia IA está sin Moodle, así que tiene que crear el
+ * diploma desde 0, seleccionando el cliente; igual para los demás»). Campus, cliente (de ese
+ * campus), formación del catálogo y el nombre que se imprimirá. Crea la solicitud en
+ * Certifex: queda en «Por decidir» para aprobarla y emitirla como las de Moodle.
+ */
+function DialogoNuevoDiploma({ campus, alCerrar, alCrear }: {
+  campus: CampusCertifex[]; alCerrar: () => void;
+  alCrear: (r: { matriculaId: number; yaExistia: boolean; curso: string; nombre: string; vinculadaMoodle?: boolean; avisoDni?: string | null }) => void;
+}) {
+  const [centro, setCentro] = useState(campus.length === 1 ? campus[0]!.codigo : '');
+  const [catalogo, setCatalogo] = useState<CatalogoDelCampus | null>(null);
+  const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [resultados, setResultados] = useState<ClienteLite[]>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [cliente, setCliente] = useState<ClienteLite | null>(null);
+  const [producto, setProducto] = useState('');
+  const [nombreD, setNombreD] = useState('');
+  // El DNI que se imprimirá: obligatorio (Diego, 20/10), como en «Revisar datos».
+  const [dniD, setDniD] = useState('');
+  const [creando, setCreando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // El catálogo (y el proyecto del CRM) del campus elegido.
+  useEffect(() => {
+    setCatalogo(null); setErrorCatalogo(null); setCliente(null); setResultados([]); setProducto('');
+    if (!centro) return;
+    let vivo = true;
+    diplomasApi.formaciones(centro)
+      .then((r) => { if (vivo) setCatalogo(r.data); })
+      .catch((e) => { if (vivo) setErrorCatalogo((e as Error).message); });
+    return () => { vivo = false; };
+  }, [centro]);
+
+  // Buscar al cliente en el proyecto del campus: por nombre, teléfono o correo.
+  const proyectoId = catalogo?.proyecto?.id ?? null;
+  useEffect(() => {
+    const q = busqueda.trim();
+    if (!proyectoId || q.length < 2 || cliente) { setResultados([]); return; }
+    let vivo = true;
+    const t = setTimeout(async () => {
+      setBuscando(true);
+      try {
+        const r = q.includes('@')
+          ? await client.get(`/leads/lookup-by-email?email=${encodeURIComponent(q)}&projectId=${proyectoId}`)
+          : await client.get(`/leads?projectId=${proyectoId}&search=${encodeURIComponent(q)}&limit=10`);
+        if (vivo) setResultados(((r as { data?: ClienteLite[] }).data ?? []).slice(0, 10));
+      } catch { if (vivo) setResultados([]); }
+      finally { if (vivo) setBuscando(false); }
+    }, 350);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [busqueda, proyectoId, cliente]);
+
+  const elegirCliente = (c: ClienteLite) => {
+    setCliente(c);
+    setResultados([]);
+    // El nombre impreso arranca con el de la ficha (sin lo que no puede ir en un diploma).
+    setNombreD((c.nombre ?? '').replace(/[()[\]{}0-9_@#*]+/g, ' ').replace(/\s+/g, ' ').trim());
+  };
+
+  const errorNombre = !cliente ? null : !nombreD.trim() ? 'Falta el nombre: es el que se imprimirá en el diploma.' : !nombreValido(nombreD) ? MSG_NOMBRE : null;
+  const dniN = normalizarDni(dniD);
+  const errorDni = !cliente ? null : !dniN ? MSG_FALTA_DNI : errorDeDni(dniN);
+  const sinCorreo = !!cliente && !(cliente.email ?? '').trim();
+  const listo = !creando && !!centro && !!cliente && !sinCorreo && !!producto && !errorNombre && !errorDni;
+
+  const ref = useRef<HTMLFormElement>(null);
+  useModalAccesible(ref, { onClose: () => !creando && alCerrar(), bloqueado: creando });
+
+  async function crear() {
+    if (!listo || !cliente) return;
+    setCreando(true);
+    setError(null);
+    try {
+      const r = await diplomasApi.nuevo({ centro, leadId: cliente.id, productoId: Number(producto), nombre: nombreValido(nombreD) ?? undefined, dni: dniN });
+      alCrear(r.data);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setCreando(false);
+    }
+  }
+
+  const campo = 'mt-1 h-10 w-full rounded-md border border-border bg-muted/30 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
+  const formaciones = (catalogo?.formaciones ?? []).filter((f) => f.activa).concat((catalogo?.formaciones ?? []).filter((f) => !f.activa));
+  const elegida = formaciones.find((f) => String(f.id) === producto) ?? null;
+
+  return (
+    <Portal>
+      <div className="fixed inset-0 !m-0 z-[80] flex items-center justify-center sm:p-4">
+        <div className="fixed inset-0 !m-0 bg-black/60 backdrop-blur-sm" onClick={() => !creando && alCerrar()} />
+        <form
+          ref={ref}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="nuevo-diploma-titulo"
+          onSubmit={(e) => { e.preventDefault(); void crear(); }}
+          className="relative flex max-h-[100dvh] w-full max-w-xl flex-col border border-border bg-card sm:max-h-[92vh] sm:rounded-lg"
+        >
+          <div className="flex items-start gap-3 border-b border-border px-5 pb-3 pt-5">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Certificate size={20} /></div>
+            <div className="min-w-0 flex-1">
+              <h2 id="nuevo-diploma-titulo" className="text-base font-semibold">Nuevo diploma</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Para un cliente que no pide el diploma desde Moodle. Quedará en «Por decidir» para aprobarlo y emitirlo.</p>
+            </div>
+            <button type="button" onClick={alCerrar} disabled={creando} aria-label="Cerrar" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X size={16} /></button>
+          </div>
+
+          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+            <label className="block text-sm">
+              <span className="text-xs font-medium text-muted-foreground">Campus</span>
+              <Select<string> value={centro} onChange={setCentro} ariaLabel="Campus" className="mt-1 w-full"
+                options={[{ value: '', label: 'Elige el campus' }, ...campus.map((c) => ({ value: c.codigo, label: c.nombre }))]} />
+              {errorCatalogo && <span className="mt-1 block text-xs text-destructive" role="alert">{errorCatalogo}</span>}
+              {catalogo && !catalogo.proyecto && <span className="mt-1 block text-xs text-destructive" role="alert">{catalogo.motivo || 'Ese campus no tiene proyecto en el CRM.'}</span>}
+            </label>
+
+            <div className="block text-sm">
+              <span className="text-xs font-medium text-muted-foreground">Cliente</span>
+              {cliente ? (
+                <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-foreground">{cliente.nombre || 'Sin nombre'}</div>
+                    <div className="truncate text-xs text-muted-foreground">{cliente.email || 'sin correo'}{cliente.telefono ? ` · ${cliente.telefono}` : ''}</div>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setCliente(null); setBusqueda(''); }} disabled={creando}>Cambiar</Button>
+                </div>
+              ) : (
+                <>
+                  <input data-autofocus value={busqueda} onChange={(e) => setBusqueda(e.target.value)} disabled={!proyectoId} aria-label="Buscar cliente"
+                    placeholder={proyectoId ? 'Busca por nombre, teléfono o correo…' : 'Elige antes el campus'} className={campo} />
+                  {buscando && <span className="mt-1 block text-xs text-muted-foreground">Buscando…</span>}
+                  {resultados.length > 0 && (
+                    <ul className="mt-1 max-h-56 overflow-y-auto rounded-md border border-border" role="listbox" aria-label="Clientes encontrados">
+                      {resultados.map((c) => (
+                        <li key={c.id}>
+                          <button type="button" role="option" aria-selected="false" onClick={() => elegirCliente(c)}
+                            className="block w-full px-3 py-2 text-left hover:bg-muted focus:bg-muted focus:outline-none">
+                            <span className="block truncate text-sm text-foreground">{c.nombre || 'Sin nombre'}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{c.email || 'sin correo'}{c.telefono ? ` · ${c.telefono}` : ''}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {!buscando && busqueda.trim().length >= 2 && resultados.length === 0 && proyectoId && (
+                    <span className="mt-1 block text-xs text-muted-foreground">Nadie con eso en {catalogo?.proyecto?.nombre}. Si no está, créalo antes como prospecto.</span>
+                  )}
+                </>
+              )}
+              {sinCorreo && <span className="mt-1 block text-xs text-destructive" role="alert">Este cliente no tiene correo: añádelo en su ficha para poder enviarle el diploma.</span>}
+            </div>
+
+            <label className="block text-sm">
+              <span className="text-xs font-medium text-muted-foreground">Formación</span>
+              <SearchableSelect value={producto} onChange={setProducto} ariaLabel="Formación" placeholder="Buscar formación…" allLabel="Elige la formación"
+                className="mt-1 w-full" options={formaciones.map((f) => ({ value: String(f.id), label: [f.nombre, f.horas ? `${miles(f.horas)} h` : null, f.activa ? null : 'inactiva'].filter(Boolean).join(' · ') }))} />
+              {elegida && (
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {elegida.modulos.length ? `${elegida.modulos.length} módulos` : 'Sin módulos en el catálogo: podrás añadirlos con «Editar» antes de aprobar'}
+                  {elegida.horas ? ` · ${miles(elegida.horas)} h` : ''}
+                </span>
+              )}
+            </label>
+
+            {cliente && (
+              <label className="block text-sm">
+                <span className="text-xs font-medium text-muted-foreground">Nombre para el diploma</span>
+                <input value={nombreD} onChange={(e) => setNombreD(e.target.value)} maxLength={160} aria-invalid={!!errorNombre} className={campo} />
+                {errorNombre && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorNombre}</span>}
+              </label>
+            )}
+
+            {cliente && (
+              <label className="block text-sm">
+                <span className="text-xs font-medium text-muted-foreground">DNI / NIE / pasaporte (obligatorio)</span>
+                <input value={dniD} onChange={(e) => setDniD(e.target.value)} maxLength={30} placeholder="Ej.: 12345678Z" aria-invalid={!!errorDni} aria-required="true"
+                  autoComplete="off" className={cn(campo, 'uppercase')} />
+                <span className="mt-1 block text-xs text-muted-foreground">Se imprime en el diploma junto al nombre. Sin él no se puede emitir.</span>
+                {errorDni && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorDni}</span>}
+              </label>
+            )}
+
+            {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{error}</p>}
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+            <Button type="button" variant="outline" onClick={alCerrar} disabled={creando}>Cancelar</Button>
+            <Button type="submit" disabled={!listo}>{creando ? 'Creando…' : 'Crear diploma'}</Button>
+          </div>
+        </form>
+      </div>
+    </Portal>
+  );
+}
+
+function DialogoEditar({ c, alCerrar, alGuardar, alCambiarFirma, puedeSincronizar = true }: {
   c: Solicitud; alCerrar: () => void; alGuardar: (fila: Solicitud) => void;
+  /**
+   * «Sincronizar módulos con el producto» escribe en el catálogo: es de administración.
+   * Quien solo emite (22/10/2026) revisa y edita el programa, pero no toca el catálogo.
+   */
+  puedeSincronizar?: boolean;
+  /** La firma se guarda al subirla: el panel recarga al cerrar aunque no se pulse «Guardar». */
+  alCambiarFirma?: () => void;
 }) {
   const ed = c.edicion ?? null;
   const [catalogo, setCatalogo] = useState<CatalogoDelCampus | null>(null);
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
   const [nombreD, setNombreD] = useState(c.solicitud?.nombre ?? '');
+  // El DNI que se imprimirá (Carlos, 20/10): hasta que llegue de la admisión, a mano.
+  const [dniD, setDniD] = useState(c.titular.dni ?? '');
   const [correo, setCorreo] = useState(ed?.emailCrm ?? '');
   const [producto, setProducto] = useState(ed?.productoId ? String(ed.productoId) : '');
   // `tocado`: el programa es el escrito a mano. Si no, se imprime el del catálogo.
@@ -1640,18 +2155,20 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
   const correoN = correo.trim().toLowerCase();
   const errorCorreo = correoN && !CORREO.test(correoN) ? 'Ese correo no es válido.' : null;
   const prog = tocado ? deForm(form) : { programa: null, error: null };
-  const sumaModulos = form.modulos.reduce((s, m) => s + (/^\d+$/.test(m.horas.trim()) ? Number(m.horas) : 0), 0);
-  const horasTotales = /^\d+$/.test(form.horas.trim()) ? Number(form.horas) : null;
+
+  const dniN = normalizarDni(dniD);
+  const errorDni = errorDeDni(dniN);
 
   const cambios: CambiosSolicitud = { matriculaId: c.matriculaId };
   if (nombreN !== normalizarNombre(c.solicitud?.nombre ?? '')) cambios.nombre = nombreN;
+  if (dniN !== (c.titular.dni ?? '').toUpperCase()) cambios.dni = dniN || null;
   if (correoN !== (ed?.emailCrm ?? '')) cambios.emailCrm = correoN || null;
   const productoN = producto ? Number(producto) : null;
   if (productoN !== (ed?.productoId ?? null)) cambios.productoId = productoN;
   if (tocado && prog.programa && !mismoPrograma(prog.programa, ed?.programaEditado)) cambios.programa = prog.programa;
   if (!tocado && ed?.programaEditado) cambios.programa = null;
   const hayCambios = Object.keys(cambios).length > 1;
-  const listo = !guardando && hayCambios && !errorNombre && !errorCorreo && !prog.error;
+  const listo = !guardando && hayCambios && !errorNombre && !errorDni && !errorCorreo && !prog.error;
 
   // Con cambios sin guardar, Escape, el fondo o «Cancelar» preguntan antes de descartar.
   const [preguntar, setPreguntar] = useState(false);
@@ -1717,6 +2234,22 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
               {errorNombre && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorNombre}</span>}
             </label>
 
+            {/* DNI: vive en Certifex, en el alumno, y se imprime junto al nombre (Carlos, 20/10). */}
+            <label className="block text-sm">
+              <span className="text-xs font-medium text-muted-foreground">DNI / NIE / pasaporte (obligatorio)</span>
+              <input value={dniD} onChange={(e) => setDniD(e.target.value)} maxLength={30} placeholder="Ej.: 12345678Z" aria-invalid={!!errorDni}
+                autoComplete="off" className={cn(campo, 'uppercase')} />
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Se imprime en el diploma junto al nombre. Es obligatorio: sin él no se puede aprobar ni emitir.
+              </span>
+              {!dniN && (
+                <span className="mt-0.5 block text-xs font-medium text-destructive" role="status">
+                  {c.titular.dni ? 'Si lo quitas, no se podrá emitir el diploma.' : 'Todavía no lo tiene: escríbelo para poder emitir.'}
+                </span>
+              )}
+              {errorDni && <span className="mt-0.5 block text-xs text-destructive" role="alert">{errorDni}</span>}
+            </label>
+
             <label className="block text-sm">
               <span className="text-xs font-medium text-muted-foreground">Correo del alumno en el CRM</span>
               <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} maxLength={254} placeholder={c.titular.email || 'correo@ejemplo.com'} aria-invalid={!!errorCorreo} className={campo} />
@@ -1739,12 +2272,14 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
                 {correoN !== (ed?.emailCrm ?? '') && !producto ? ' Con otro correo, la automática se recalcula al guardar.' : ''}
               </span>
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {puedeSincronizar && (
                 <Button type="button" size="sm" variant="outline" onClick={() => void sincronizar()}
                   disabled={!formacionActual || sincronizando || !catalogo} aria-busy={sincronizando}
                   title={formacionActual ? 'Lee los módulos de la página del curso y los guarda en el catálogo' : 'Elige antes la formación vendida'}>
                   <ArrowClockwise size={14} className={cn('mr-1.5', sincronizando && 'animate-spin')} />
                   {sincronizando ? 'Sincronizando…' : 'Sincronizar módulos con el producto'}
                 </Button>
+                )}
                 {avisoTemario && <span className="text-xs text-muted-foreground" role="status">{avisoTemario}</span>}
               </div>
             </div>
@@ -1773,14 +2308,13 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
               <div className="mt-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-xs font-medium text-muted-foreground">Módulos ({form.modulos.length})</span>
-                  {form.modulos.length > 0 && (
-                    <span className={cn('text-[11px]', horasTotales != null && sumaModulos !== horasTotales ? 'text-warning-soft-foreground' : 'text-muted-foreground')}>
-                      Suman {miles(sumaModulos)} h{horasTotales != null && sumaModulos !== horasTotales ? ` (el total dice ${miles(horasTotales)} h)` : ''}
-                    </span>
-                  )}
                 </div>
                 {form.modulos.length === 0 ? (
-                  <p className="mt-1 text-xs italic text-muted-foreground">Sin módulos.</p>
+                  esDeMoodle(c)
+                    ? <p className="mt-1 text-xs text-muted-foreground" role="status">Sin módulos en el catálogo: saldrán los del curso de Moodle. Si escribes alguno, mandan los tuyos.</p>
+                    : <p className="mt-1 text-xs font-medium text-destructive" role="status">
+                        Sin módulos: el diploma saldría sin temario. Sincronízalos con el producto o escríbelos con «Añadir módulo».
+                      </p>
                 ) : (
                   <ol className="mt-1 space-y-1.5">
                     {form.modulos.map((m, i) => (
@@ -1789,9 +2323,6 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
                         <input value={m.titulo} maxLength={300} aria-label={`Título del módulo ${i + 1}`} placeholder="Título del módulo"
                           onChange={(e) => cambiarForm((f) => ({ ...f, modulos: f.modulos.map((x, j) => (j === i ? { ...x, titulo: e.target.value } : x)) }))}
                           className="h-9 min-w-0 flex-1 rounded-md border border-border bg-muted/30 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
-                        <input value={m.horas} inputMode="numeric" aria-label={`Horas del módulo ${i + 1}`} placeholder="h"
-                          onChange={(e) => cambiarForm((f) => ({ ...f, modulos: f.modulos.map((x, j) => (j === i ? { ...x, horas: e.target.value } : x)) }))}
-                          className="h-9 w-20 flex-none rounded-md border border-border bg-muted/30 px-2.5 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40" />
                         <IconoAccion etiqueta={`Quitar el módulo ${i + 1}`} peligro onClick={() => cambiarForm((f) => ({ ...f, modulos: f.modulos.filter((_, j) => j !== i) }))}>
                           <Trash size={14} />
                         </IconoAccion>
@@ -1806,6 +2337,9 @@ function DialogoEditar({ c, alCerrar, alGuardar }: {
               </div>
               {prog.error && <p className="mt-2 text-xs text-destructive">{prog.error}</p>}
             </fieldset>
+
+            {/* La firma del alumno no va en el diploma (Diego, 20/10): sin bloque ni subida. */}
+            {FIRMA_EN_DIPLOMA && <FirmaDelAlumnoBloque c={c} alCambiar={() => alCambiarFirma?.()} />}
 
             {ed?.por && (
               <p className="text-xs text-muted-foreground">Correo, formación o programa revisados por {ed.por} el {fechaHora(ed.en)}.</p>
@@ -1909,11 +2443,16 @@ function DialogoCorregir({ d, ocupado, error, alCancelar, alConfirmar }: {
 }
 
 /** El PDF del diploma, traído por el servidor del CRM (Certifex no se deja incrustar). */
-function VisorPdf({ d, version, alCerrar, alEnviar }: {
+function VisorPdf({ d, version, alCerrar, alEnviar, sinImprenta = false }: {
   d: Pick<Diploma, 'nexpediente' | 'alumno' | 'titulacion' | 'centro' | 'diplomaUrl' | 'imprenta'>;
   version?: number;
   alCerrar: () => void;
   alEnviar?: () => void;
+  /**
+   * Quien no es de administración —solo ve Diplomas (#384) o solo emite (22/10/2026)—:
+   * el digital sí; el A3 de imprenta es de administración.
+   */
+  sinImprenta?: boolean;
 }) {
   const [pdf, setPdf] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1949,7 +2488,7 @@ function VisorPdf({ d, version, alCerrar, alEnviar }: {
                   <Button variant="outline" size="sm" asChild><a href={pdf} download={`${d.nexpediente}.pdf`}><DownloadSimple size={14} className="mr-1.5" /> Descargar</a></Button>
                 </>
               )}
-              {d.imprenta && <BotonImprenta nexpediente={d.nexpediente} />}
+              {d.imprenta && !sinImprenta && <BotonImprenta nexpediente={d.nexpediente} />}
               {alEnviar && <Button size="sm" disabled={!pdf} onClick={alEnviar}><PaperPlaneTilt size={14} className="mr-1.5" /> Está bien: enviar al alumno</Button>}
             </div>
           </div>

@@ -69,6 +69,11 @@ export const colaboracionSchema = z.object({
   desde: fecha,
   hasta: fecha.optional().nullable(),
   notas: z.string().optional().nullable(),
+  // La formacion es de un campus en el que el tutor no esta (#384). Sin esto
+  // se contesta 409 con ese campus, y la pantalla pregunta «¿la añado a este
+  // campus?»; con `true`, se le da de alta ahi y se crea la colaboracion, todo
+  // de una vez. Solo sobre un campus que vea quien lo pide.
+  anadirAlCampus: z.boolean().optional(),
 }).refine((d) => !d.hasta || d.hasta >= d.desde, {
   message: 'La fecha de fin no puede ser anterior a la de inicio',
   path: ['hasta'],
@@ -141,4 +146,21 @@ export const busquedaDeTutorSchema = z.object({
   adsetId: z.string().trim().max(50).nullable().optional(),
   campaignId: z.string().trim().max(50).nullable().optional(),
   nota: z.string().trim().max(500).nullable().optional(),
+});
+
+/*
+  Consultas de alumnos, fase 1 (#187): una empresa entera, un campus y
+  «No disponible» (vacaciones o baja).
+*/
+export const empresaDelTutorSchema = z.object({
+  issuerId: z.coerce.number({ invalid_type_error: 'Elige una empresa' }).int().positive('Elige una empresa'),
+});
+
+export const campusDelTutorSchema = z.object({
+  projectId: z.coerce.number({ invalid_type_error: 'Elige un campus' }).int().positive('Elige un campus'),
+});
+
+export const disponibleSchema = z.object({
+  disponible: z.boolean({ required_error: 'Falta si está disponible o no' }),
+  motivo: z.string().trim().max(200, 'El motivo, en 200 caracteres como mucho').nullable().optional(),
 });

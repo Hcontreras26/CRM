@@ -1,17 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { AvisoCasiListo } from '@/modules/certifex/components/piezas';
+import { AvisoCasiListo, FIRMA_EN_DIPLOMA } from '@/modules/certifex/components/piezas';
 
-// Certificaciones sube a producción «casi listo» (Diego, 16/10): funciona, pero los diplomas
-// aún no llevan la firma del alumno sobre «El interesado» (#349). Las dos pantallas que
-// emiten lo dicen arriba; esto comprueba que el aviso pinta y dice lo que falta.
-describe('aviso «casi listo» de Certifex', () => {
-  it('dice que falta la firma del alumno y de dónde saldrá', () => {
+// El aviso de arriba de las dos pantallas que emiten. Diego, 20/10/2026: «las firmas no van
+// en los diplomas, solo el DNI» y el DNI «es obligatorio». Vuelve a ser el de antes de la firma
+// (la de la institución impresa; sobre «El interesado», solo el nombre), y dice que el DNI es
+// obligatorio y dónde se pone.
+describe('aviso de lo que lleva el diploma en Certifex', () => {
+  it('la firma del alumno no va', () => {
+    expect(FIRMA_EN_DIPLOMA).toBe(false);
+  });
+
+  it('dice que el DNI es obligatorio y dónde se pone, y que la firma del alumno no va', () => {
     render(<AvisoCasiListo />);
     const aviso = screen.getByRole('note');
-    expect(aviso.textContent).toContain('Casi listo');
-    expect(aviso.textContent).toContain('sin la firma del alumno');
-    expect(aviso.textContent).toContain('solicitud de admisión');
-    expect(aviso.textContent).toContain('«El interesado»');
+    expect(aviso.textContent).toContain('El DNI del alumno es obligatorio en el diploma');
+    expect(aviso.textContent).toContain('sin él no se aprueba ni se emite');
+    expect(aviso.textContent).toContain('«Sin DNI · Poner»');
+    expect(aviso.textContent).toContain('La firma de la institución ya va impresa');
+    expect(aviso.textContent).toContain('sobre «El interesado» sale solo su nombre');
+    expect(aviso.textContent).not.toContain('se sube en «Revisar datos antes de aprobar»');
+    expect(aviso.textContent).not.toContain('La firma del alumno va en el diploma');
   });
 });

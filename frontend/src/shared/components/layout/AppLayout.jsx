@@ -29,6 +29,9 @@ const ALL_PROJECTS_OK = [
   /^\/tutores$/,
   /^\/tutores\/sin-tutor$/,
   /^\/tutores\/comisiones$/,
+  // Consultas de alumnos (#188, #189): cada fila dice de qué campus es, y el
+  // tutor ve lo suyo sin mirar la cabecera.
+  /^\/consultas(?:\/.*)?$/,
   /^\/prospectos\/pipeline$/,      // Kanban
   /^\/prospectos\/audiencias$/,    // Audiencias Meta
   /^\/prospectos\/\d+$/,           // Detalle de prospecto
@@ -44,6 +47,11 @@ const ALL_PROJECTS_OK = [
   // proyectos»): el servidor enseña a cada uno lo suyo.
   /^\/conexion\/mcp$/,
   /^\/conexion\/conectores$/,
+  // El webhook de transferencias SÍ es de empresa (y con «todos», de todas): se diseñó
+  // con ámbito «toda la empresa» (migración 206) y la pantalla y el servidor ya lo
+  // resuelven. El muro lo dejaba usable solo con un campus elegido. Diego, 19/10: «los
+  // webhooks en producción solo se ven por campus y debe ser por empresa».
+  /^\/conexion\/webhook-transferencias$/,
   /^\/profile$/,
   /^\/preferences$/,
   // Las de verdad. Solo estaban las rutas viejas en ingles (/profile,
@@ -100,6 +108,11 @@ const CON_SOCIEDAD_OK = [
   // Conexión: MCP y Conectores, con una empresa puesta, lo de esa empresa.
   /^\/conexion\/mcp$/,
   /^\/conexion\/conectores$/,
+  // El webhook de transferencias SÍ es de empresa (y con «todos», de todas): se diseñó
+  // con ámbito «toda la empresa» (migración 206) y la pantalla y el servidor ya lo
+  // resuelven. El muro lo dejaba usable solo con un campus elegido. Diego, 19/10: «los
+  // webhooks en producción solo se ven por campus y debe ser por empresa».
+  /^\/conexion\/webhook-transferencias$/,
   // Feedback suma los campus de la empresa (Diego, 28/09: «tiene que ser campus
   // y no empresas… lo hemos dicho»): la pantalla ya manda issuerId y el
   // backend lo resuelve con proyectosDelAmbito. Solo faltaba esta línea.
@@ -154,6 +167,9 @@ const CON_SOCIEDAD_OK = [
   /^\/tutores$/,
   /^\/tutores\/comisiones$/,
   /^\/tutores\/sin-tutor$/,
+  // Consultas de alumnos (#188, #189): el servidor acota a los campus de la
+  // empresa con `proyectosDelAmbito`; sin esto el muro tapaba la bandeja.
+  /^\/consultas(?:\/.*)?$/,
   // «Mis cursos» es lo del propio tutor: no filtra por proyecto NI por empresa,
   // asi que pedirle que elija un campus no significaba nada.
   /^\/mis-cursos$/,

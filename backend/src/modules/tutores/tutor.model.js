@@ -369,6 +369,71 @@ export async function crearColaboracion({ tutorId, productId, pct, desde, hasta,
   return c;
 }
 
+/**
+ * Dar de alta al tutor en el campus de la formacion y asignarsela, de una vez
+ * (#384). Diego: «si no está en ese campus debe de salir "¿deseas añadirla a
+ * este campus?"». Hasta hoy el CRM contestaba «añádelo a ese proyecto primero»
+ * y no habia desde donde: quien lleva las colaboraciones no da de alta usuarios.
+ *
+ * Es el mismo alta en un campus que la de un tutor nuevo con `projectIds`
+ * (`user_projects` activo, sin recibir prospectos), y si ya tuvo ese campus y
+ * se le quito, se le vuelve a activar.
+ *
+ * Todo en una transaccion: si la colaboracion no se puede crear —se solapa con
+ * otro tramo suyo, o falla la base— el tutor NO se queda en el campus.
+ *
+ * Solo un TUTOR (rol principal, el mismo criterio que la lista de Tutores): por
+ * aqui no se mete a una gestora ni a un admin en un campus ajeno. Devuelve null
+ * si ese id no es un tutor.
+ */
+export async function crearColaboracionEnOtroCampus({
+  tutorId, projectId, productId, pct, desde, hasta, notas, createdBy,
+}) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const { rows: [tutor] } = await client.query(
+      `SELECT id FROM users WHERE id = $1 AND role = 'tutor' FOR UPDATE`, [tutorId]);
+    if (!tutor) { await client.query('ROLLBACK'); return null; }
+
+    await client.query(
+      `INSERT INTO user_projects (user_id, project_id, orden_cola, recibe_leads)
+       VALUES ($1, $2, (SELECT COALESCE(MAX(orden_cola), 0) + 1 FROM user_projects WHERE project_id = $2), false)
+       ON CONFLICT (user_id, project_id) DO UPDATE SET active = true`,
+      [tutorId, projectId]
+    );
+
+    // Dentro de la transaccion: lo que se comprueba es lo que se va a escribir.
+    const choques = await haySolape({ tutorId, productId, desde, hasta },
+      (sql, params) => client.query(sql, params));
+    if (choques.length) {
+      const c = choques[0];
+      throw new AppError(
+        `Ya hay una colaboracion suya en esa formacion del ${String(c.vigente_desde).slice(0, 10)}`
+        + `${c.vigente_hasta ? ' al ' + String(c.vigente_hasta).slice(0, 10) : ' en adelante'}.`
+        + ' Ciérrala antes de abrir otra.',
+        409, 'SOLAPE'
+      );
+    }
+
+    const { rows: [colab] } = await client.query(
+      `INSERT INTO tutor_collaborations
+         (tutor_id, product_id, pct, vigente_desde, vigente_hasta, notas, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [tutorId, productId, pct, desde, hasta || null, notas || null, createdBy]
+    );
+    await client.query('COMMIT');
+    return colab;
+  } catch (e) {
+    // Tambien el solape: el alta en el campus se deshace con la colaboracion.
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 export async function actualizarColaboracion(id, datos = {}) {
   // Lo que NO viene no se toca. Antes `vigente_hasta = $4` iba siempre, asi que
   // una llamada que solo cambiaba el porcentaje --o ahora una casilla de
@@ -511,17 +576,29 @@ export async function simular({ desde, hasta, tutorId = null, projectId = null }
 // comprobar "un" proyecto: se mira si el de la formacion esta entre los suyos.
 // Sin esto se le podia colgar a un tutor de ISEIH un curso de ICTESS, y cobraria
 // de una marca en la que no da clase.
+//
+// Devuelve tambien de QUE campus es la formacion (`projectId`, `proyecto`): si
+// el tutor no esta ahi, la pantalla ofrece añadirlo a ese campus (#384). Un
+// `projectId` nulo es que la formacion no existe.
+//
+// Cuenta solo un campus ACTIVO: si se le quito, no se le cuelgan cursos de ahi
+// sin preguntar —se ofrece volver a añadirlo, que lo reactiva—.
 export async function formacionEsDeSuProyecto(tutorId, productId) {
   const { rows } = await query(
     `SELECT EXISTS (
        SELECT 1 FROM products p
         WHERE p.id = $2
           AND EXISTS (SELECT 1 FROM user_projects up
-                       WHERE up.user_id = $1 AND up.project_id = p.project_id)) AS ok,
-       (SELECT pr.nombre FROM products p JOIN projects pr ON pr.id = p.project_id WHERE p.id = $2) AS proyecto`,
+                       WHERE up.user_id = $1 AND up.project_id = p.project_id AND up.active)) AS ok,
+       (SELECT pr.nombre FROM products p JOIN projects pr ON pr.id = p.project_id WHERE p.id = $2) AS proyecto,
+       (SELECT p.project_id FROM products p WHERE p.id = $2) AS project_id`,
     [tutorId, productId]
   );
-  return { ok: rows[0]?.ok === true, proyecto: rows[0]?.proyecto || null };
+  return {
+    ok: rows[0]?.ok === true,
+    proyecto: rows[0]?.proyecto || null,
+    projectId: rows[0]?.project_id != null ? Number(rows[0].project_id) : null,
+  };
 }
 
 // ── El dinero de verdad ─────────────────────────────────────────────────────

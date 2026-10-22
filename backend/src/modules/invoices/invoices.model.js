@@ -560,7 +560,11 @@ export async function list({ projectId, issuerId, estado, search, from, to, tipo
   // Busca por nombre, NIF, codigo y tambien por NUMERO de factura (escribir "641").
   // Recortado: un espacio pegado al nombre dejaba el buscador a cero.
   const termino = typeof search === 'string' ? search.trim() : '';
-  if (termino) { conds.push(`(LOWER(i.cliente_nombre) LIKE $${idx} OR LOWER(i.cliente_nif) LIKE $${idx} OR i.codigo LIKE $${idx} OR i.numero::text LIKE $${idx})`); params.push(`%${termino.toLowerCase()}%`); idx++; }
+  // Y por el ALUMNO de la venta (nombre y correo) y el correo de la factura (19/10): una
+  // factura a nombre de su EMPRESA no salía buscando a la persona. Adriana facturó el
+  // cobro de Monica Estrada (venta 701 de ISEIE, de Fabiola) a «ETC Expert Techonology
+  // Consultants SAS», y buscando «Monica» la lista quedaba vacía.
+  if (termino) { conds.push(`(LOWER(i.cliente_nombre) LIKE $${idx} OR LOWER(i.cliente_nif) LIKE $${idx} OR i.codigo LIKE $${idx} OR i.numero::text LIKE $${idx} OR LOWER(COALESCE(i.cliente_email, '')) LIKE $${idx} OR LOWER(COALESCE(l.nombre, '')) LIKE $${idx} OR LOWER(COALESCE(l.email, '')) LIKE $${idx})`); params.push(`%${termino.toLowerCase()}%`); idx++; }
   if (from) { conds.push(`i.fecha_emision >= $${idx++}`); params.push(from); }
   if (to)   { conds.push(`i.fecha_emision <= $${idx++}`); params.push(to); }
   const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
@@ -1841,7 +1845,7 @@ export async function listVentasSinFactura({ projectId = null, projectIds = null
   const lista = comoLista(projectId, projectIds);
   const { rows } = await query(
     `SELECT c.id AS conversion_id, c.lead_id, l.nombre AS cliente_nombre,
-            c.producto_contratado, c.importe_total, c.fecha_conversion, c.metodo_pago,
+            c.producto_contratado, c.importe_total, c.importe_pagado, c.fecha_conversion, c.metodo_pago,
             c.project_id, pr.nombre AS proyecto_nombre
        FROM conversions c
        JOIN leads l ON l.id = c.lead_id

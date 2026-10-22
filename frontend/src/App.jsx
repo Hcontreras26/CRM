@@ -112,6 +112,14 @@ const TutoresPage = lazy(() => import('./modules/tutores/pages/TutoresPage'));
 const ComisionesTutoresPage = lazy(() => import('./modules/tutores/pages/ComisionesTutoresPage'));
 const FormacionesSinTutorPage = lazy(() => import('./modules/tutores/pages/FormacionesSinTutorPage'));
 const MisCursosPage = lazy(() => import('./modules/tutores/pages/MisCursosPage'));
+// Consultas de alumnos (#188): la bandeja del tutor y el panel de administración.
+const ConsultasPage = lazy(() => import('./modules/consultas/pages/ConsultasPage'));
+const ConsultaPage = lazy(() => import('./modules/consultas/pages/ConsultaPage'));
+// Fase 3 (#189): alumnos sin mensajes, carga de trabajo, panel de tutores y métricas.
+const AlumnosSinMensajesPage = lazy(() => import('./modules/consultas/pages/AlumnosSinMensajesPage'));
+const MiCargaPage = lazy(() => import('./modules/consultas/pages/MiCargaPage'));
+const TutoresConsultasPage = lazy(() => import('./modules/consultas/pages/TutoresConsultasPage'));
+const MetricasConsultasPage = lazy(() => import('./modules/consultas/pages/MetricasConsultasPage'));
 const InvoicesPage = lazy(() => import('./modules/invoices/pages/InvoicesPage'));
 const InvoicingConfigPage = lazy(() => import('./modules/invoices/pages/InvoicingConfigPage'));
 const InvoiceTemplateEditorPage = lazy(() => import('./modules/invoices/pages/InvoiceTemplateEditorPage'));
@@ -247,6 +255,12 @@ function App() {
           <Route path="/tutores/comisiones" element={<ComisionesTutoresPage />} />
           <Route path="/tutores/sin-tutor" element={<FormacionesSinTutorPage />} />
           <Route path="/mis-cursos" element={<MisCursosPage />} />
+          <Route path="/consultas" element={<ConsultasPage />} />
+          <Route path="/consultas/alumnos" element={<AlumnosSinMensajesPage />} />
+          <Route path="/consultas/carga" element={<MiCargaPage />} />
+          <Route path="/consultas/tutores" element={<TutoresConsultasPage />} />
+          <Route path="/consultas/metricas" element={<MetricasConsultasPage />} />
+          <Route path="/consultas/:id" element={<ConsultaPage />} />
 
           {/* Captación — tabs */}
           <Route path="/captacion" element={<CaptacionLayout />}>

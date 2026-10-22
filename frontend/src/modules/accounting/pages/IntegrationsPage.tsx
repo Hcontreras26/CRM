@@ -5,11 +5,11 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import { toast } from '@/shared/hooks/useToast';
 import {
   CreditCard, EnvelopeSimple, CheckCircle, WarningCircle, Eye, EyeSlash,
-  ArrowSquareOut, FloppyDisk, PlugsConnected, Trash, Question,
+  ArrowSquareOut, FloppyDisk, PlugsConnected, Trash, Question, GraduationCap,
 } from '@phosphor-icons/react';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────
-type Provider = 'stripe' | 'brevo';
+type Provider = 'stripe' | 'brevo' | 'moodle';
 interface Integration {
   id?: number;
   project_id?: number;
@@ -77,7 +77,7 @@ export default function IntegrationsPage() {
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning-soft text-warning-soft-foreground">PRUEBAS</span>
           </span>
         ) as unknown as string}
-        subtitle={`Configura conexiones externas (Stripe, Brevo) para ${activeProject?.nombre || 'el proyecto activo'}.`}
+        subtitle={`Configura conexiones externas (Stripe, Brevo, el campus Moodle) para ${activeProject?.nombre || 'el proyecto activo'}.`}
       />
 
       <div className="bg-info-soft border border-info/30 rounded-lg p-4 text-sm space-y-2">
@@ -90,6 +90,7 @@ export default function IntegrationsPage() {
           <p><strong>3) Uso real:</strong></p>
           <ul className="list-disc list-inside pl-2 space-y-0.5">
             <li><strong>Stripe:</strong> en proyectos IA, el dashboard hace live fetch de MRR / suscripciones / cobros fallidos. El webhook de pagos para crear conversions automáticas <em>está en desarrollo</em>.</li>
+            <li><strong>Campus (Moodle):</strong> las consultas de alumnos. Con el token del campus, el CRM comprueba que cada tutor es usuario del campus de su proyecto.</li>
             <li><strong>Brevo:</strong> envía emails transaccionales (lead asignado, recordatorios, confirmación de pago) usando el From email validado. La automatización de resúmenes diarios / SLA 30min está en desarrollo.</li>
           </ul>
           <p className="text-warning-soft-foreground pt-1">
@@ -106,6 +107,7 @@ export default function IntegrationsPage() {
         <div className="space-y-5">
           <StripeCard projectId={pid} />
           <BrevoCard projectId={pid} />
+          <MoodleCard projectId={pid} />
         </div>
       )}
     </div>
@@ -516,6 +518,194 @@ function BrevoCard({ projectId }: { projectId: number }) {
             <button onClick={clear}
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-destructive/30 bg-card text-sm font-semibold text-destructive hover:bg-destructive-soft ml-auto">
               <Trash size={14} weight="bold" /> Eliminar
+            </button>
+          )}
+        </div>
+      </div>
+      {loading && <div className="px-5 py-3 text-xs text-muted-foreground border-t border-border">Cargando…</div>}
+    </div>
+  );
+}
+
+// ─── Campus (Moodle) ───────────────────────────────────────────────────────
+// Consultas de alumnos (#187): el campus del proyecto. La dirección va en
+// config_public.url y el token, cifrado, como las demás claves. Con él, el CRM
+// comprueba que el correo de cada tutor es usuario del campus.
+function MoodleCard({ projectId }: { projectId: number }) {
+  const [data, setData] = useState<Integration | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
+  const [token, setToken] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [url, setUrl] = useState('');
+  // #188: leer las consultas de los alumnos de este campus.
+  const [consultas, setConsultas] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await client.get<Integration>(`/integrations/moodle?projectId=${projectId}`);
+      if (res.success) {
+        const d = res.data || EMPTY('moodle');
+        setData(d);
+        setUrl((d.config_public?.url as string) || '');
+        setConsultas(String(d.config_public?.consultas) === 'true');
+      }
+    } catch {/* ignore */} finally { setLoading(false); }
+  }, [projectId]);
+  useEffect(() => { load(); }, [load]);
+
+  async function save() {
+    if (!url.trim()) {
+      toast({ title: 'Falta la dirección del campus', description: 'Escríbela en «Dirección del campus» (por ejemplo, https://iseih.com/campus).', variant: 'destructive' });
+      return;
+    }
+    if (!data?.has_secret && !token.trim()) {
+      toast({ title: 'Falta el token', description: 'Pega en «Token del campus» el token del servicio web del Moodle.', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        projectId, provider: 'moodle', active: true,
+        config_public: { url: url.trim(), consultas },
+      };
+      if (token.trim()) body.api_key = token.trim();
+      const res = await client.put<Integration>('/integrations', body);
+      if (res.success) {
+        setData(res.data);
+        setUrl((res.data?.config_public?.url as string) || url.trim());
+        setToken('');
+        toast({ title: 'Campus guardado', description: 'El token queda cifrado. Pulsa «Probar conexión».' });
+      }
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string }; message?: string };
+      toast({ title: 'No se ha podido guardar', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally { setSaving(false); }
+  }
+
+  async function test() {
+    setTesting(true);
+    try {
+      const res = await client.post<{ ok: boolean; message: string }>(`/integrations/moodle/test?projectId=${projectId}`);
+      if (res.success) {
+        toast({ title: '✓ Conexión OK', description: res.data?.message });
+      } else {
+        toast({ title: 'La prueba ha fallado', description: res.data?.message || (res as { error?: string }).error || 'El campus no ha contestado.', variant: 'destructive' });
+      }
+      await load();
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string } };
+      toast({ title: 'La prueba ha fallado', description: err?.data?.error || 'Error de red', variant: 'destructive' });
+    } finally { setTesting(false); }
+  }
+
+  async function clear() {
+    if (!confirm('¿Quitar el campus (Moodle) de este proyecto? Se dejará de comprobar a sus tutores.')) return;
+    try {
+      await client.delete(`/integrations/moodle?projectId=${projectId}`);
+      toast({ title: 'Campus quitado' });
+      setData(EMPTY('moodle')); setToken(''); setUrl('');
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      toast({ title: 'No se ha podido quitar', description: err?.message, variant: 'destructive' });
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-info-soft text-info-soft-foreground flex items-center justify-center flex-shrink-0">
+          <GraduationCap size={22} weight="duotone" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-base">Campus (Moodle)</h3>
+          <p className="text-xs text-muted-foreground">Consultas de alumnos: comprobar que cada tutor es usuario del campus de este proyecto.</p>
+        </div>
+        <StatusPill data={data} />
+      </div>
+
+      <div className="p-5 space-y-4">
+        <button onClick={() => setShowHelp((v) => !v)}
+          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+          <Question size={12} weight="bold" /> {showHelp ? 'Ocultar tutorial' : 'Cómo obtener el token del campus'}
+        </button>
+        {showHelp && (
+          <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-2">
+            <p className="font-semibold">En el Moodle del campus, con un usuario administrador:</p>
+            <ol className="list-decimal list-inside space-y-1 pl-1 text-muted-foreground">
+              <li><strong>Administración del sitio → Servidor → Servicios web</strong>: que estén habilitados los servicios web y el protocolo <strong>REST</strong>.</li>
+              <li><strong>Servicios externos → Agregar</strong>: un servicio para el CRM, habilitado.</li>
+              <li>En ese servicio, <strong>Funciones → Agregar</strong>: <code className="px-1 rounded bg-card">core_webservice_get_site_info</code> y <code className="px-1 rounded bg-card">core_user_get_users_by_field</code>. Solo leen.</li>
+              <li><strong>Administrar tokens → Crear token</strong> para ese servicio y cópialo.</li>
+              <li>Pega abajo la dirección del campus y el token, guarda y pulsa <strong>«Probar conexión»</strong>.</li>
+            </ol>
+          </div>
+        )}
+
+        <div>
+          <label htmlFor={`moodle-url-${projectId}`} className="text-[11px] font-semibold text-muted-foreground mb-1 block">Dirección del campus *</label>
+          <input id={`moodle-url-${projectId}`} value={url} onChange={(e) => setUrl(e.target.value)} autoComplete="off"
+            placeholder="https://iseih.com/campus"
+            className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
+        </div>
+
+        <div>
+          <label htmlFor={`moodle-token-${projectId}`} className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+            Token del campus * {data?.has_secret && <span className="font-normal text-muted-foreground/80 ml-1">(actualmente: <code className="bg-muted px-1 rounded text-[10px]">{data.secret_preview}</code> — deja vacío para no cambiar)</span>}
+          </label>
+          <div className="relative">
+            <input
+              id={`moodle-token-${projectId}`}
+              type={showKey ? 'text' : 'password'}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              autoComplete="off"
+              placeholder={data?.has_secret ? 'Sin cambios' : 'El token del servicio web'}
+              className="w-full h-10 pl-3 pr-10 rounded-md border border-border bg-card text-sm font-mono"
+            />
+            <button type="button" onClick={() => setShowKey((v) => !v)} aria-label={showKey ? 'Ocultar el token' : 'Ver el token'}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground">
+              {showKey ? <EyeSlash size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border p-3 space-y-1">
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input type="checkbox" checked={consultas} onChange={(e) => setConsultas(e.target.checked)} />
+            Leer las consultas de este campus
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Cada 5 minutos el CRM lee los mensajes que los alumnos escriben a sus tutores en el campus y los pone en «Consultas».
+            Solo lo escrito desde que se marca (no el historial). El token tiene que poder leer los mensajes de todos
+            (usuario administrador) y su servicio, tener <code>core_message_get_conversations</code> y <code>core_message_get_conversation_messages</code>,
+            y para «Alumnos sin mensajes», <code>core_enrol_get_users_courses</code> y <code>core_enrol_get_enrolled_users</code>.
+            «Probar conexión» dice si falta alguna.
+          </p>
+          {consultas && data?.config_public?.consultas_desde && (
+            <p className="text-xs text-muted-foreground">Leyendo desde el {fmt(String(data.config_public.consultas_desde))}.</p>
+          )}
+        </div>
+
+        <TestStatus data={data} />
+
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+          <button onClick={save} disabled={saving}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+            <FloppyDisk size={14} weight="bold" /> {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+          <button onClick={test} disabled={testing || !data?.has_secret}
+            title={!data?.has_secret ? 'Guarda primero el token' : 'Probar la conexión con el campus'}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-sm font-semibold hover:bg-muted disabled:opacity-50">
+            <PlugsConnected size={14} weight="bold" /> {testing ? 'Probando…' : 'Probar conexión'}
+          </button>
+          {data?.has_secret && (
+            <button onClick={clear}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-destructive/30 bg-card text-sm font-semibold text-destructive hover:bg-destructive-soft ml-auto">
+              <Trash size={14} weight="bold" /> Quitar
             </button>
           )}
         </div>

@@ -121,14 +121,16 @@ export const emitirSchema = z.object({
 
 const centro = z.string().trim().regex(/^[A-Za-z0-9]{2,10}$/, 'Centro no valido');
 const dia = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha no valida (AAAA-MM-DD)');
-const nexp = z.string().trim().toUpperCase().regex(/^[A-Z]{3}-\d{4}-\d{6}-[A-Z0-9]{4}$/, 'Numero de expediente no valido');
+// Prefijo de 2 a 6 letras: el de la empresa que numera (Certifex 0035) o el CTF de los antiguos.
+const nexp = z.string().trim().toUpperCase().regex(/^[A-Z]{2,6}-\d{4}-\d{6}-[A-Z0-9]{4}$/, 'Numero de expediente no valido');
 const ids = (max, msg) => z.array(z.number().int().positive()).min(1, 'Elige al menos una').max(max, msg);
 const motivo = z.string({ required_error: 'Indica el motivo', invalid_type_error: 'Indica el motivo' }).trim()
   .min(3, 'El motivo debe tener al menos 3 caracteres').max(500, 'El motivo no puede pasar de 500 caracteres');
 
 /**
  * Lo que manda Certifex al pedir un alumno su diploma. SIN DNI (decision del 08/10):
- * el alumno solo escribe su nombre, y ese es el que se imprimira.
+ * el alumno solo escribe su nombre, y ese es el que se imprimira. El DNI, obligatorio en el
+ * diploma desde el 20/10, no llega por aqui: lo pone el CRM en Certifex (ver `dniDiploma`).
  *
  * Una solicitud legitima no se rechaza entera por un detalle: Certifex no la reenvia y
  * nadie se enteraria. Un correo vacio o mal escrito queda en null (no se enlaza con la
@@ -231,18 +233,69 @@ const programaEditado = z.object({
  * «Editar» antes de aprobar. null en un campo = quitar esa edicion. El nombre no tiene
  * null: es el que se imprime, y vive en Certifex (3 a 160 caracteres, como alli).
  */
+/**
+ * El DNI / NIE / pasaporte que se imprime en el diploma (Carlos, 20/10: «los DNI se colocan
+ * en el diploma, eso es importante… que salga un rellenable»). Mayúsculas, letras y números,
+ * con «-» o «.» por dentro; de 5 a 20 sin contar separadores. Vacío = quitarlo. Certifex lo
+ * vuelve a validar.
+ */
+export const dniDiploma = z.preprocess(
+  (v) => (typeof v === 'string' ? (v.replace(/\s+/g, ' ').trim().toUpperCase() || null) : v),
+  z.union([
+    z.string()
+      .regex(/^[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?$/, 'El documento solo lleva letras, números y, por dentro, «-» o «.»')
+      .refine((s) => { const n = s.replace(/[.-]/g, '').length; return n >= 5 && n <= 20; }, 'El documento tiene entre 5 y 20 caracteres'),
+    z.null(),
+  ]),
+);
+
+/**
+ * El DNI cuando no puede faltar (Diego, 20/10: «es obligatorio»): la misma regla que
+ * `dniDiploma`, pero vacío o sin él no vale.
+ */
+export const MSG_FALTA_DNI = 'Falta el DNI (o NIE o pasaporte) del alumno: es obligatorio en el diploma.';
+export const dniObligatorio = z.preprocess((v) => (v === undefined ? null : v), dniDiploma)
+  .refine((v) => v !== null, { message: MSG_FALTA_DNI });
+
 export const editarSchema = z.object({
   matriculaId: z.number().int().positive(),
   nombre: nombreDiploma.optional(),
+  dni: dniDiploma.optional(),
   emailCrm: z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
     z.union([z.string().trim().toLowerCase().email('Correo no valido').max(254), z.null()]),
   ).optional(),
   productoId: z.union([z.number().int().positive(), z.null()]).optional(),
   programa: z.union([programaEditado, z.null()]).optional(),
-}).refine((d) => ['nombre', 'emailCrm', 'productoId', 'programa'].some((k) => d[k] !== undefined), { message: 'No hay nada que guardar' });
+}).refine((d) => ['nombre', 'dni', 'emailCrm', 'productoId', 'programa'].some((k) => d[k] !== undefined), { message: 'No hay nada que guardar' });
 
 export const formacionesSchema = z.object({ centro });
+
+/**
+ * «Nuevo diploma» (Diego, 19/10: «crear el diploma desde 0, seleccionando el cliente»): el
+ * campus, el cliente (un prospecto o cliente del proyecto de ese campus) y la formación del
+ * catálogo. `nombre`, el que se imprimirá; sin él, el de la ficha del cliente. `dni`,
+ * obligatorio (20/10): sin él no se podría emitir.
+ */
+export const nuevoDiplomaSchema = z.object({
+  centro,
+  leadId: z.number().int().positive(),
+  productoId: z.number().int().positive(),
+  nombre: nombreDiploma.optional(),
+  dni: dniObligatorio,
+});
+
+/**
+ * «Pasar a pendientes» (Diego, 22/10/2026: «que se pueda pasar de sin emitir a
+ * pendientes»): la matrícula de Moodle y su campus. Nada más: el nombre, el correo y el
+ * curso los pone el servidor con lo que dice Certifex de esa matrícula, no el panel.
+ * `cursoRef` solo sirve para encontrarla antes (si no casa, no se encuentra).
+ */
+export const pedirDiplomaSchema = z.object({
+  matriculaId: z.number().int().positive(),
+  centro,
+  cursoRef: z.number().int().positive().optional(),
+});
 
 /** Sincronizar el temario de una formación del catálogo con la página del curso (12/10). */
 export const sincronizarTemarioSchema = z.object({ centro, productoId: z.coerce.number().int().positive() });
