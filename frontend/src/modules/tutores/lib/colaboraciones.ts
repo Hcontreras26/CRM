@@ -237,3 +237,63 @@ export function avisoCobraDesde(r: ResultadoDelCambio) {
     duration: 0,
   };
 }
+
+// ── Una formación de otro campus (#384) ─────────────────────────────────────
+
+/** El campus de una formación, tal como lo devuelve el servidor en el 409. */
+export interface CampusDeLaFormacion { projectId: number; proyecto: string | null }
+
+/**
+ * Si el error es «esa formación es de un campus en el que el tutor no está»,
+ * de qué campus. Cualquier otro error, `null`.
+ *
+ * Diego (#384): «a Vanessa no le deja agregar formaciones de otro campus a una
+ * tutora [...] debe de salir "¿deseas añadirla a este campus?"». El servidor
+ * contesta 409 `OTRO_PROYECTO` con el campus en `data`; la pantalla lo pregunta
+ * y, si se acepta, lo vuelve a pedir con `anadirAlCampus`.
+ */
+export function campusDelRechazo(err: unknown): CampusDeLaFormacion | null {
+  const cuerpo = (err as { data?: { code?: string; data?: Partial<CampusDeLaFormacion> } } | null)?.data;
+  if (cuerpo?.code !== 'OTRO_PROYECTO') return null;
+  const projectId = Number(cuerpo.data?.projectId);
+  if (!Number.isInteger(projectId) || projectId <= 0) return null;
+  return { projectId, proyecto: cuerpo.data?.proyecto || null };
+}
+
+/** Una formación del buscador de «Añadir formación», con su campus. */
+export interface FormacionConCampus { id: number; nombre: string; nota: string; projectId: number }
+
+const eurosDe = (precio: unknown) => {
+  const n = Number(precio);
+  return precio == null || precio === '' || !Number.isFinite(n)
+    ? '' : `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+};
+
+/**
+ * Las formaciones de TODOS los campus de quien asigna, cada una con el suyo.
+ *
+ * Antes salían solo las del campus elegido arriba, o las de la empresa juntadas
+ * por nombre: un curso repetido en dos campus aparecía una vez, de uno
+ * cualquiera, y si era de un campus en el que el tutor no estaba, el servidor lo
+ * rechazaba sin que se viera por qué. Ahora cada fila dice de qué campus es, y
+ * una de otro campus se puede elegir: al guardar se pregunta si añadirlo.
+ */
+export function formacionesConCampus(
+  tandas: Array<{ projectId: number; campus: string; formaciones: Array<{ id: number; nombre: string; precio?: string | number | null }> }>,
+): FormacionConCampus[] {
+  const vistas = new Set<number>();
+  const salida: FormacionConCampus[] = [];
+  for (const t of tandas) {
+    for (const f of t.formaciones || []) {
+      if (!f?.id || vistas.has(f.id)) continue;
+      vistas.add(f.id);
+      salida.push({
+        id: f.id,
+        nombre: String(f.nombre || ''),
+        nota: [t.campus, eurosDe(f.precio)].filter(Boolean).join(' · '),
+        projectId: t.projectId,
+      });
+    }
+  }
+  return salida.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es') || a.nota.localeCompare(b.nota, 'es'));
+}

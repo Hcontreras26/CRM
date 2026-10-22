@@ -243,6 +243,12 @@ const candidato = (id, en, extra = {}) => ({
   curso: { ref: 12, nombre: 'Máster' }, notaFinal: 8, umbral: 5, completado: true, actividades: { total: 4, calificadas: 4 },
   propuesto: true, nexpediente: null, solicitud: { en, nombre: `Nombre Diploma ${id}` }, decision: null, ...extra,
 });
+// Con DNI: es obligatorio para aprobar y emitir (Diego, 20/10/2026). Vive en Certifex, en el
+// titular, y el CRM se lo pregunta antes de decidir nada.
+const DNI = '12345678Z';
+const conDni = (id, en = '2026-10-08T10:00:00Z', extra = {}) => candidato(id, en, {
+  ...extra, titular: { nombre: `Alumno ${id}`, email: null, dni: DNI, ...(extra.titular ?? {}) },
+});
 const diploma = (nexpediente, emitidoEn, extra = {}) => ({
   nexpediente, centro: 'ISEIE', alumno: 'Alumno', titulacion: 'Máster', cursoRef: 12, emitidoEn, emitidaPor: 'manuel@empresa.com (CRM local)',
   revocada: false, revocacion: null, verificarUrl: `https://certifex.test/c/${nexpediente}`, diplomaUrl: 'https://certifex.test/diploma', aviso: null, ...extra,
@@ -383,14 +389,14 @@ describe('diplomas emitidos', () => {
 describe('aprobar y emitir', () => {
   it('aprueba y emite en un paso, a nombre del usuario con sesion, y NO avisa', async () => {
     responder = (p) => p.ruta === '/candidatos'
-      ? { status: 200, body: { filas: [], total: 0, pagina: 1, tam: 200 } }
+      ? { status: 200, body: { filas: [conDni(7), conDni(8)], total: 2, pagina: 1, tam: 200 } }
       : p.ruta === '/decisiones'
         ? { status: 200, body: { resultados: [{ matriculaId: 7, ok: true, decision: 'aprobada' }, { matriculaId: 8, ok: false, error: 'Ya está rechazada' }] } }
         : { status: 200, body: { resultados: [{ matriculaId: 7, ok: true, nexpediente: 'CTF-2026-000007-AAAA' }] } };
     const r = await sa(request.post('/api/certifex/diplomas/aprobar-emitir'))
       .send({ matriculaIds: [7, 8], decididoPor: 'otra@persona.test', emitidaPor: 'otra@persona.test' });
     expect(r.status).toBe(200);
-    // Primero se busca la matricula (para su programa), luego se decide y se emite.
+    // Primero se busca la matricula (para su programa y su DNI), luego se decide y se emite.
     expect(pedidas.map((p) => p.ruta)).toEqual(['/candidatos', '/decisiones', '/emitir']);
     expect(pedidas[1].cuerpo.decisiones).toEqual([
       { matriculaId: 7, decision: 'aprobada', decididoPor: 'manuel@empresa.com' },
@@ -399,7 +405,7 @@ describe('aprobar y emitir', () => {
     // Solo se emite lo que se aprobo.
     expect(pedidas[2].cuerpo).toEqual({ items: [{ matriculaId: 7 }], emitidaPor: 'manuel@empresa.com' });
     expect(r.body.data.resultados).toEqual([
-      { matriculaId: 7, ok: true, nexpediente: 'CTF-2026-000007-AAAA', fase: 'emitir', firmaAlumno: false, sinPrograma: 'No se encontró la matrícula para buscar su venta.' },
+      { matriculaId: 7, ok: true, nexpediente: 'CTF-2026-000007-AAAA', fase: 'emitir', firmaAlumno: false, sinPrograma: 'Sin correo: no se puede buscar su venta en el CRM.' },
       { matriculaId: 8, ok: false, fase: 'aprobar', error: 'Ya está rechazada' },
     ]);
     expect(pedidas.some((p) => p.ruta.startsWith('/avisos'))).toBe(false);
@@ -407,7 +413,7 @@ describe('aprobar y emitir', () => {
 
   it('si la emision falla, se dice que quedo aprobada sin diploma', async () => {
     responder = (p) => p.ruta === '/candidatos'
-      ? { status: 200, body: { filas: [], total: 0, pagina: 1, tam: 200 } }
+      ? { status: 200, body: { filas: [conDni(7)], total: 1, pagina: 1, tam: 200 } }
       : p.ruta === '/decisiones'
         ? { status: 200, body: { resultados: [{ matriculaId: 7, ok: true }] } }
         : { status: 500, body: { error: 'Moodle no responde' } };
@@ -557,6 +563,11 @@ describe('el programa oficial de la formacion vendida', () => {
   const otro = `sinventa.${sufijo}@prueba.test`;
   const doble = `doble.${sufijo}@prueba.test`;
   const ids = { conVenta: base + 50, sinVenta: base + 51, doble: base + 52, sinGuardar: base + 53 };
+  // Lo que Certifex devuelve de las guardadas en el CRM: de ahí sale solo el DNI (obligatorio).
+  const enCertifex = (dni = DNI) => [ids.conVenta, ids.sinVenta, ids.doble, base + 54].map((id) => conDni(id, '2026-10-08T10:00:00Z', {
+    centro: 'ZPRUEBA', titular: { dni }, curso: { ref: 1, nombre: 'Programa IA Experto' },
+  }));
+  const listaCertifex = (filas) => ({ status: 200, body: { filas, total: filas.length, pagina: 1, tam: 200 } });
   let proyecto;
   let productos = [];
   let leads = [];
@@ -642,13 +653,14 @@ describe('el programa oficial de la formacion vendida', () => {
     responder = (p) => {
       if (p.ruta === '/decisiones') return { status: 200, body: { resultados: p.cuerpo.decisiones.map((d) => ({ matriculaId: d.matriculaId, ok: true })) } };
       if (p.ruta === '/emitir') return { status: 200, body: { resultados: p.cuerpo.items.map((i) => ({ matriculaId: i.matriculaId, ok: true, nexpediente: 'CTF-2026-000001-AAAA' })) } };
-      return { status: 200, body: { filas: [], total: 0, pagina: 1, tam: 200 } };
+      return listaCertifex(enCertifex());
     };
     const r = await sa(request.post('/api/certifex/diplomas/aprobar-emitir')).send({ matriculaIds: [ids.conVenta, ids.sinVenta, ids.doble] });
     expect(r.status).toBe(200);
-    // Todo estaba guardado en el CRM: no hace falta preguntar a Certifex por ellas.
-    expect(pedidas.map((p) => p.ruta)).toEqual(['/decisiones', '/emitir']);
-    const items = pedidas[1].cuerpo.items;
+    // Todo estaba guardado en el CRM, pero el DNI vive en Certifex: se le pregunta una vez por
+    // todas, y el programa sale de lo guardado.
+    expect(pedidas.map((p) => p.ruta)).toEqual(['/candidatos', '/decisiones', '/emitir']);
+    const items = pedidas[2].cuerpo.items;
     expect(items[0]).toEqual({ matriculaId: ids.conVenta, programa: { horas: 1500, modulos: [{ titulo: 'Fundamentos de IA', horas: 800 }, { titulo: 'Modelos de lenguaje', horas: 700 }], modalidad: 'Semipresencial' } });
     expect(items[1]).toEqual({ matriculaId: ids.sinVenta });
     expect(items[2]).toEqual({ matriculaId: ids.doble });
@@ -662,8 +674,8 @@ describe('el programa oficial de la formacion vendida', () => {
     responder = (p) => {
       if (p.ruta === '/candidatos') {
         return { status: 200, body: { total: 2, pagina: 1, tam: 200, filas: [
-          candidato(ids.sinGuardar, '2026-10-08T10:00:00Z', { centro: 'ZPRUEBA', titular: { nombre: 'X', email: correo, dni: null }, curso: { ref: 1, nombre: 'Programa IA Experto' } }),
-          candidato(ids.sinGuardar + 1, '2026-10-08T10:00:00Z', { centro: 'NOEXISTE', titular: { nombre: 'Y', email: correo, dni: null } }),
+          candidato(ids.sinGuardar, '2026-10-08T10:00:00Z', { centro: 'ZPRUEBA', titular: { nombre: 'X', email: correo, dni: DNI }, curso: { ref: 1, nombre: 'Programa IA Experto' } }),
+          candidato(ids.sinGuardar + 1, '2026-10-08T10:00:00Z', { centro: 'NOEXISTE', titular: { nombre: 'Y', email: correo, dni: 'X1234567L' } }),
         ] } };
       }
       return { status: 200, body: { resultados: (p.cuerpo.items ?? []).map((i) => ({ matriculaId: i.matriculaId, ok: true })) } };
@@ -692,10 +704,10 @@ describe('el programa oficial de la formacion vendida', () => {
   const todoBien = (extra = {}) => (p) => {
     if (p.ruta === '/decisiones') return { status: 200, body: { resultados: p.cuerpo.decisiones.map((d) => ({ matriculaId: d.matriculaId, ok: true })) } };
     if (p.ruta === '/emitir') return { status: 200, body: { resultados: p.cuerpo.items.map((i) => ({ matriculaId: i.matriculaId, ok: true, nexpediente: 'CTF-2026-000001-AAAA', ...extra })) } };
-    return { status: 200, body: { filas: [], total: 0, pagina: 1, tam: 200 } };
+    return listaCertifex(enCertifex());
   };
 
-  it('si la base del CRM no contesta, no se aprueba ni se emite nada: error claro antes de Certifex', async () => {
+  it('si la base del CRM no contesta, no se aprueba ni se emite nada: error claro antes de decidir nada en Certifex', async () => {
     responder = todoBien();
     // Las solicitudes guardadas.
     fallaConsulta = /FROM certifex_solicitudes/;
@@ -708,7 +720,8 @@ describe('el programa oficial de la formacion vendida', () => {
     r = await sa(request.post('/api/certifex/diplomas/aprobar-emitir')).send({ matriculaIds: [ids.conVenta] });
     expect(r.status).toBe(503);
     expect(r.body.error).toMatch(/programa de la formación/);
-    expect(pedidas).toHaveLength(0);
+    // Solo se ha leído (el DNI, de Certifex): nada decidido ni emitido.
+    expect(pedidas.map((p) => p.ruta)).toEqual(['/candidatos']);
     // Lo mismo al reintentar «Emitir» y desde la pestaña antigua de Emisiones.
     r = await sa(request.post('/api/certifex/diplomas/emitir')).send({ matriculaIds: [ids.conVenta] });
     expect(r.status).toBe(503);
@@ -761,7 +774,7 @@ describe('el programa oficial de la formacion vendida', () => {
     try {
       responder = (p) => (p.ruta === '/candidatos'
         ? { status: 200, body: { total: 1, pagina: 1, tam: 200, filas: [
-          candidato(aMedias, '2026-10-08T10:00:00Z', { centro: 'ZPRUEBA', titular: { nombre: 'X', email: otro, dni: null }, curso: { ref: 1, nombre: 'Programa IA Experto' } }),
+          candidato(aMedias, '2026-10-08T10:00:00Z', { centro: 'ZPRUEBA', titular: { nombre: 'X', email: otro, dni: DNI }, curso: { ref: 1, nombre: 'Programa IA Experto' } }),
         ] } }
         : todoBien()(p));
       const r = await sa(request.post('/api/certifex/diplomas/emitir')).send({ matriculaIds: [aMedias] });
@@ -770,6 +783,88 @@ describe('el programa oficial de la formacion vendida', () => {
     } finally {
       await pool.query('DELETE FROM certifex_solicitudes WHERE matricula_id = $1', [aMedias]);
     }
+  });
+
+  // ── El DNI es obligatorio (Diego, 20/10/2026) ──────────────────────────────────
+
+  it('sin DNI ni se aprueba ni se emite; con DNI, sí; en un lote mezclado, solo lo que lo tiene', async () => {
+    const [conV, sinV, doble] = enCertifex();
+    sinV.titular.dni = null;
+    doble.titular.dni = '   ';
+    responder = (p) => (p.ruta === '/candidatos' ? listaCertifex([conV, sinV, doble]) : todoBien()(p));
+    const r = await sa(request.post('/api/certifex/diplomas/aprobar-emitir')).send({ matriculaIds: [ids.conVenta, ids.sinVenta, ids.doble] });
+    expect(r.status).toBe(200);
+    expect(pedidas.map((p) => p.ruta)).toEqual(['/candidatos', '/decisiones', '/emitir']);
+    expect(pedidas[1].cuerpo.decisiones.map((d) => d.matriculaId)).toEqual([ids.conVenta]);
+    expect(pedidas[2].cuerpo.items.map((i) => i.matriculaId)).toEqual([ids.conVenta]);
+    const [a, b, c] = r.body.data.resultados;
+    expect(a).toMatchObject({ matriculaId: ids.conVenta, ok: true, fase: 'emitir' });
+    for (const x of [b, c]) {
+      expect(x).toMatchObject({ ok: false, fase: 'emitir_bloqueado', codigo: 'FALTA_DNI' });
+      expect(x.error).toMatch(/falta el DNI \(o NIE o pasaporte\) del alumno, que es obligatorio en el diploma/);
+    }
+
+    // Todas sin DNI: ni una llamada a /decisiones ni a /emitir.
+    pedidas = [];
+    responder = (p) => (p.ruta === '/candidatos' ? listaCertifex(enCertifex(null)) : todoBien()(p));
+    const s = await sa(request.post('/api/certifex/diplomas/aprobar-emitir')).send({ matriculaIds: [ids.conVenta, ids.sinVenta] });
+    expect(s.body.data.resultados.every((x) => x.fase === 'emitir_bloqueado' && x.codigo === 'FALTA_DNI')).toBe(true);
+    // Y lo mismo al reintentar «Emitir» y desde la pestaña antigua de Emisiones.
+    const e = await sa(request.post('/api/certifex/diplomas/emitir')).send({ matriculaIds: [ids.conVenta] });
+    expect(e.body.data.resultados[0]).toMatchObject({ ok: false, fase: 'emitir_bloqueado', codigo: 'FALTA_DNI' });
+    const v = await sa(request.post('/api/certifex/emisiones/emitir')).send({ matriculaIds: [ids.conVenta] });
+    expect(v.body.data.resultados[0]).toMatchObject({ ok: false, fase: 'emitir_bloqueado', codigo: 'FALTA_DNI' });
+    expect(pedidas.some((p) => p.ruta === '/decisiones' || p.ruta === '/emitir')).toBe(false);
+  });
+
+  it('si Certifex no contesta al pedir el DNI: 503 claro y nada aprobado ni emitido', async () => {
+    for (const caido of [
+      () => { throw new Error('red caída (simulado)'); },
+      () => ({ status: 500, body: { error: 'Certifex se ha caído' } }),
+    ]) {
+      responder = (p) => (p.ruta === '/candidatos' ? caido() : todoBien()(p));
+      pedidas = [];
+      for (const ruta of ['/api/certifex/diplomas/aprobar-emitir', '/api/certifex/diplomas/emitir', '/api/certifex/emisiones/emitir']) {
+        const r = await sa(request.post(ruta)).send({ matriculaIds: [ids.conVenta] });
+        expect(r.status, ruta).toBe(503);
+        expect(r.body.code).toBe('CERTIFEX_NO_CONTESTA');
+        expect(r.body.error).toMatch(/No se ha podido comprobar en Certifex el DNI .*no se ha aprobado ni emitido nada/);
+      }
+      expect(pedidas.some((p) => p.ruta === '/decisiones' || p.ruta === '/emitir')).toBe(false);
+    }
+  });
+
+  it('«Nuevo diploma»: el DNI es obligatorio, y va a Certifex en cuanto existe la matrícula', async () => {
+    const nuevo = (cuerpo) => sa(request.post('/api/certifex/diplomas/nuevo')).send({ centro: 'zprueba', leadId: leads[0], productoId: productos[0], ...cuerpo });
+    for (const dni of [undefined, '', '   ']) {
+      const r = await nuevo(dni === undefined ? {} : { dni });
+      expect(r.status).toBe(400);
+      expect(r.body.error).toBe('Falta el DNI (o NIE o pasaporte) del alumno: es obligatorio en el diploma.');
+    }
+    expect(pedidas).toHaveLength(0);
+
+    responder = (p) => {
+      if (p.ruta === '/matriculas') return { status: 200, body: { matriculaId: base + 60, cursoRef: 900000000 + productos[0], yaExistia: false, vinculadaMoodle: false } };
+      if (p.ruta === '/solicitudes/dni') return { status: 200, body: { dni: p.cuerpo.dni } };
+      return { status: 200, body: {} };
+    };
+    const r = await nuevo({ dni: ' 12345678z ', editadoPor: 'otra@persona.test' });
+    expect(r.status).toBe(200);
+    expect(pedidas.map((p) => p.ruta)).toEqual(['/matriculas', '/solicitudes/dni']);
+    expect(pedidas[1].cuerpo).toEqual({ matriculaId: base + 60, dni: '12345678Z', editadoPor: pedidas[0].cuerpo.creadoPor });
+    expect(r.body.data).toMatchObject({ matriculaId: base + 60, dni: '12345678Z', avisoDni: null });
+
+    // Si Certifex no lo acepta, la solicitud ya está creada: se dice por qué, sin DNI.
+    pedidas = [];
+    responder = (p) => {
+      if (p.ruta === '/matriculas') return { status: 200, body: { matriculaId: base + 61, cursoRef: 900000000 + productos[0], yaExistia: false, vinculadaMoodle: false } };
+      if (p.ruta === '/solicitudes/dni') return { status: 409, body: { error: 'Ese DNI ya figura en otra ficha de alumno de Certifex.' } };
+      return { status: 200, body: {} };
+    };
+    const c = await nuevo({ dni: '12345678Z' });
+    expect(c.status).toBe(200);
+    expect(c.body.data.dni).toBeNull();
+    expect(c.body.data.avisoDni).toMatch(/se ha creado, pero Certifex no ha guardado su DNI: Ese DNI ya figura en otra ficha de alumno de Certifex\. Ponlo con «Sin DNI · Poner»/);
   });
 
   it('con yaExistia (doble clic) no se dice que se mando un programa', async () => {
@@ -901,14 +996,14 @@ describe('editar: revisar los datos con los que se trabaja antes de aprobar', ()
     responder = (p) => {
       if (p.ruta === '/decisiones') return { status: 200, body: { resultados: p.cuerpo.decisiones.map((d) => ({ matriculaId: d.matriculaId, ok: true })) } };
       if (p.ruta === '/emitir') return { status: 200, body: { resultados: p.cuerpo.items.map((i) => ({ matriculaId: i.matriculaId, ok: true, nexpediente: 'CTF-2026-000070-AAAA' })) } };
-      return { status: 200, body: { filas: [], total: 0, pagina: 1, tam: 200 } };
+      return { status: 200, body: { filas: [fila({ titular: { nombre: 'Sofía Prueba Blanco', email: moodle, dni: DNI } })], total: 1, pagina: 1, tam: 200 } };
     };
     pedidas = [];
     const e = await sa(request.post('/api/certifex/diplomas/aprobar-emitir')).send({ matriculaIds: [id] });
     expect(e.status).toBe(200);
-    // La fila del CRM ya existe: no hace falta preguntar a Certifex por la matricula.
-    expect(pedidas.map((p) => p.ruta)).toEqual(['/decisiones', '/emitir']);
-    expect(pedidas[1].cuerpo.items).toEqual([{ matriculaId: id, programa: limpio }]);
+    // La fila del CRM ya existe: de Certifex solo hace falta el DNI; el programa es el editado.
+    expect(pedidas.map((p) => p.ruta)).toEqual(['/candidatos', '/decisiones', '/emitir']);
+    expect(pedidas[2].cuerpo.items).toEqual([{ matriculaId: id, programa: limpio }]);
     expect(e.body.data.resultados[0].programa).toEqual({ horas: 1200, modulos: 3, formacion: 'Otra Formación B', editado: true });
   });
 

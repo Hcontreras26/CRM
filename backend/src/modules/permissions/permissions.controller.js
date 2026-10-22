@@ -50,6 +50,45 @@ export async function saveRolePermissions(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// ── Una clave suelta por rol y por persona: «Diplomas (Certifex) · Ver» (#384) ──
+
+const claveDeRolSchema = z.object({ permitido: z.boolean() });
+// null = sin excepción: la persona tiene lo que diga su rol.
+const claveDePersonaSchema = z.object({ permitido: z.boolean().nullable() });
+
+export async function getClaveDeRol(req, res, next) {
+  try {
+    res.json({ success: true, data: await service.getClaveDeRol(req.params.clave, req.params.roleKey) });
+  } catch (err) { next(err); }
+}
+
+export async function setClaveDeRol(req, res, next) {
+  try {
+    const parsed = claveDeRolSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError('Di si se le da o no (permitido: sí o no)', 400, 'VALIDATION_ERROR');
+    res.json({ success: true, data: await service.setClaveDeRol(
+      req.params.clave, req.params.roleKey, parsed.data.permitido, req.user.userId) });
+  } catch (err) { next(err); }
+}
+
+export async function personasDeLaClave(req, res, next) {
+  try {
+    res.json({ success: true, data: await service.personasDeLaClave(
+      req.params.clave, String(req.query.roleKey || ''), req.user) });
+  } catch (err) { next(err); }
+}
+
+export async function setClaveDePersona(req, res, next) {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    if (!Number.isInteger(userId) || userId <= 0) throw new AppError('userId inválido', 400, 'INVALID_ID');
+    const parsed = claveDePersonaSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError('Di si se le da, se le quita o queda como su rol (permitido: sí, no o null)', 400, 'VALIDATION_ERROR');
+    res.json({ success: true, data: await service.setClaveDePersona(
+      req.params.clave, userId, parsed.data.permitido, req.user) });
+  } catch (err) { next(err); }
+}
+
 export async function listCustomRoles(req, res, next) {
   try {
     const roles = await service.listCustomRoles();

@@ -63,7 +63,7 @@ export interface ConexionCertifex {
 export interface Candidato {
   matriculaId: number;
   centro: string;
-  /** `dni` viene en el contrato, pero el CRM no lo usa ni lo enseña (decisión del 08/10). */
+  /** `dni`: el DNI / NIE / pasaporte que se imprime. Obligatorio para emitir (Diego, 20/10). */
   titular: { nombre: string | null; email: string | null; dni: string | null };
   curso: { ref: number; nombre: string };
   notaFinal: number | null;
@@ -165,8 +165,10 @@ export interface ResultadoEmision {
   nexpediente?: string;
   yaExistia?: boolean;
   error?: string;
-  /** 'emitir_bloqueado': revisada a mano y sin programa; no se ha emitido. */
+  /** 'emitir_bloqueado': sin DNI, o revisada a mano y sin programa; no se ha emitido. */
   fase?: string;
+  /** Por qué se bloqueó: 'FALTA_DNI' (sin DNI, que es obligatorio) o 'DNI_SIN_COMPROBAR'. */
+  codigo?: 'FALTA_DNI' | 'DNI_SIN_COMPROBAR' | string;
   /** Con programa del CRM: lo que se mandó. */
   programa?: { horas: number | null; modulos: number; formacion: string | null; editado?: boolean };
   /** Sin programa del CRM (se usó lo de Moodle): por qué. */
@@ -395,7 +397,10 @@ export interface FiltrosDiplomas {
 export interface ResultadoAprobarEmitir {
   matriculaId: number;
   ok: boolean;
+  /** 'emitir_bloqueado': sin DNI, o revisada a mano y sin programa; ni se aprueba ni se emite. */
   fase?: 'aprobar' | 'emitir' | 'emitir_bloqueado';
+  /** Por qué se bloqueó: 'FALTA_DNI' (sin DNI, que es obligatorio) o 'DNI_SIN_COMPROBAR'. */
+  codigo?: 'FALTA_DNI' | 'DNI_SIN_COMPROBAR' | string;
   nexpediente?: string;
   yaExistia?: boolean;
   error?: string;
@@ -469,10 +474,14 @@ export const diplomasApi = {
   },
   /**
    * «Nuevo diploma» (19/10): la solicitud desde cero, eligiendo el cliente y la formación.
-   * Queda en «Por decidir» para aprobarla y emitirla como las que llegan de Moodle.
+   * Queda en «Por decidir» para aprobarla y emitirla como las que llegan de Moodle. El DNI es
+   * obligatorio (20/10); si Certifex no lo acepta, se crea igual y `avisoDni` dice por qué.
    */
-  nuevo: (d: { centro: string; leadId: number; productoId: number; nombre?: string }) =>
-    client.post('/certifex/diplomas/nuevo', d) as R<{ matriculaId: number; yaExistia: boolean; centro: string; curso: string; nombre: string; vinculadaMoodle?: boolean }>,
+  nuevo: (d: { centro: string; leadId: number; productoId: number; nombre?: string; dni: string }) =>
+    client.post('/certifex/diplomas/nuevo', d) as R<{
+      matriculaId: number; yaExistia: boolean; centro: string; curso: string; nombre: string; vinculadaMoodle?: boolean;
+      dni?: string | null; avisoDni?: string | null;
+    }>,
   /** Las formaciones del catálogo del proyecto de ese campus, para elegir la vendida. */
   formaciones: (centro: string) => client.get(`/certifex/diplomas/formaciones?${qs({ centro })}`) as R<CatalogoDelCampus>,
   /** Los módulos de esa formación, leídos de la página del curso y guardados en el catálogo (12/10). */

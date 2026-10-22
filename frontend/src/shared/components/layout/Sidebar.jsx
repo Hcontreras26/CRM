@@ -299,9 +299,11 @@ export const NAV_SECTIONS = [
       { label: 'Buscar duplicados', to: '/prospectos/duplicados', detail: 'Buscarlos a mano', icon: CopySimple, roles: ['superadmin', 'admin'], module: 'leads' },
       { label: 'Matrículas', to: '/clientes/matriculas', detail: 'Altas en cada curso', icon: GraduationCap, module: 'matriculas' },
       // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
-      // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin).
-      // Se enciende por configuración, como Certificaciones (VITE_CERTIFEX_PANEL).
-      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'] }] : []),
+      // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin),
+      // y además, para VERLO en solo lectura, quien tenga `diplomas.view` (#384,
+      // `oPermiso`). Se enciende por configuración, como Certificaciones
+      // (VITE_CERTIFEX_PANEL).
+      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'], oPermiso: 'diplomas.view' }] : []),
     ],
   },
   // Conexión (MCP de Claude). Diego: «estará en el menú en la sección de
@@ -441,10 +443,16 @@ export function tieneAccesoMcp(role, permisos) {
  * Recibe TODOS sus roles, no uno: desde que se puede tener mas de uno, «es
  * gestor» dejo de ser una pregunta de igualdad. Quien es gestora y ademas
  * tutora ve lo de las dos.
+ *
+ * `can` es el de usePermission: lo usa `oPermiso`, una entrada que se ve por
+ * su rol O por un permiso del sistema de Roles (Diplomas, #384).
  */
-function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permisos) {
+export function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permisos, can) {
   const suyos = Array.isArray(roles) ? roles.filter(Boolean) : [roles].filter(Boolean);
   const es = (...r) => r.some((x) => suyos.includes(x));
+  // «Por su rol o porque se le ha dado»: quien tiene el permiso la ve aunque su
+  // rol no esté en `roles`. Lo que ve dentro lo recorta la pantalla (y la API).
+  const porPermiso = Boolean(item.oPermiso && typeof can === 'function' && can(item.oPermiso) === true);
   if (item.apagable && moduloApagado(item.apagable)) return false;
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
@@ -477,8 +485,9 @@ function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permi
     //
     // Van las TRES del apartado. «Mis cursos» no: esa es la de un tutor
     // mirando lo suyo, no la de quien los organiza.
+    // Y lo que se le haya dado a propósito (`oPermiso`, #384).
     return ['/tutores', '/tutores/sin-tutor', '/tutores/comisiones', '/preferencias']
-      .includes(item.to);
+      .includes(item.to) || porPermiso;
   }
 
   // soporte ve todo (rol generico tipo dev)
@@ -498,7 +507,7 @@ function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permi
   // Se comprueba a quien NO tiene un rol de mando: si ademas es admin, puede
   // por ese otro rol y esconderselo seria quitarle lo que se le acaba de dar.
   if (item.permiso && !es('admin', 'soporte', 'superadmin') && !permisos?.[item.permiso]) return false;
-  if (item.roles && !item.roles.some((r) => suyos.includes(r))) return false;
+  if (item.roles && !item.roles.some((r) => suyos.includes(r)) && !porPermiso) return false;
   if (item.module && modules && modules[item.module] === false) return false;
   return true;
 }
@@ -539,9 +548,9 @@ export function EntradaProximamente({ label, icon: Icon, collapsed = false, comp
   );
 }
 
-function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, projectType, soloColab, permisos, labelOverrides, onNavigate, collapsed, onExpandSidebar }) {
+function NavGroup({ icon: Icon, label, children, defaultOpen, role, modules, projectType, soloColab, permisos, can, labelOverrides, onNavigate, collapsed, onExpandSidebar }) {
   const visible = children
-    .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos))  // `role` ya llega como lista
+    .filter((c) => canSeeItem(c, role, modules, projectType, soloColab, permisos, can))  // `role` ya llega como lista
     // Lo marcado en el propio menú cuenta, no solo la lista de la beta (#226).
     .map((c) => ({ ...c, comingSoon: c.comingSoon || !isBetaAllowed(c.to) }));
   const location = useLocation();
@@ -1273,7 +1282,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
           // Filtrar items que el usuario puede ver
           const visibleItems = section.items
             .filter((item) => !item.permiso || can(item.permiso))
-            .filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user));
+            .filter((item) => canSeeItem(item, rolesDe(user), activeProject?.modules, activeProject?.type, soloColab, user, can));
           if (visibleItems.length === 0) return null;
           const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
@@ -1292,6 +1301,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                 projectType={activeProject?.type}
                 soloColab={soloColab}
                 permisos={user}
+                can={can}
                 labelOverrides={activeProject?.sidebar_labels}
                 onNavigate={onNavigate}
                 collapsed={collapsed}

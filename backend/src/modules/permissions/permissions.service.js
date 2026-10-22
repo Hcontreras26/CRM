@@ -2,6 +2,7 @@ import * as model from './permissions.model.js';
 import { SYSTEM_ROLE_DEFAULTS, ALL_RESOURCES } from './permissions.defaults.js';
 import { SYSTEM_ROLE_VIEWS, DASHBOARD_WIDGETS_CATALOG, SIDEBAR_ITEMS_CATALOG } from './role-views.defaults.js';
 import { query } from '../../shared/config/db.js';
+import { AppError } from '../../shared/utils/AppError.js';
 // Un array de un ENUM puede llegar como texto crudo: se entiende en un sitio.
 import { comoLista } from '../../shared/utils/roles.js';
 
@@ -127,8 +128,11 @@ export async function saveUserPermissions(userId, overrides) {
 }
 
 export async function getSystemDefaults() {
-  // Con lo cambiado en Roles ya aplicado: la pantalla enseña lo que manda.
-  const filas = await model.getRoleOverrides(ROLES_EDITABLES);
+  // Con lo cambiado en Roles ya aplicado: la pantalla enseña lo que manda. Los
+  // roles a los que se les da una clave suelta (Diplomas, #384) también.
+  const filas = await model.getRoleOverrides([...new Set([
+    ...ROLES_EDITABLES, ...Object.values(CLAVES_SUELTAS).flatMap((c) => c.roles),
+  ])]);
   return {
     resources: ALL_RESOURCES,
     roles: {
@@ -269,4 +273,146 @@ export async function saveRoleTaskPermissions(roleKey, permissions, updatedBy) {
     .map((k) => ({ action: k.slice('tasks.'.length), allowed: deseados[k] === true }));
   await model.saveRoleOverrides(r.role, 'tasks', filas, updatedBy);
   return getRoleTaskPermissions(roleKey);
+}
+
+/* --- Una clave suelta, por rol y por persona: «Diplomas (Certifex) · Ver» (#384) --- */
+
+/*
+  Diego (#384): «Adriana, Daniela, Yosbely, Dayana, Mireia y Ana deben de tener
+  para ver los de Certifex». Se da desde Configuración › Roles a un rol entero
+  (todo «Gestor») o a una persona.
+
+  `roles`: a qué roles del sistema se les puede dar, y de qué rol PRINCIPAL
+  tiene que ser una persona para dárselo suelto. Admin y superadmin, no: lo ven
+  por su rol, y quitárselo aquí no cambiaría nada. Un tutor tampoco —vería los
+  diplomas de los alumnos de sus campus—, ni un colaborador, al que el servidor
+  no deja entrar a Certifex. Un rol a medida, siempre.
+
+  Va aparte de los permisos de Tareas a propósito: aquello es de Hugo y está
+  probado; esto no tiene por qué tocarlo.
+*/
+export const CLAVES_SUELTAS = {
+  'diplomas.view': { roles: ['gestor', 'soporte', 'project_manager'] },
+};
+
+function laClave(clave) {
+  const conf = CLAVES_SUELTAS[clave];
+  if (!conf) throw new AppError(`Ese permiso no se cambia desde aquí (${clave})`, 400, 'CLAVE_NO_EDITABLE');
+  const i = clave.indexOf('.');
+  return { ...conf, resource: clave.slice(0, i), action: clave.slice(i + 1) };
+}
+
+function elRol(conf, roleKey) {
+  const m = /^custom:(\d+)$/.exec(String(roleKey || ''));
+  if (m) return { custom: Number(m[1]) };
+  if (!conf.roles.includes(roleKey)) {
+    throw new AppError('A ese rol no se le cambia esto: admin y superadmin ya lo tienen por su rol, y tutor y colaborador no lo pueden tener', 400, 'ROLE_NOT_EDITABLE');
+  }
+  return { role: roleKey };
+}
+
+/** Si un rol tiene la clave, como manda ahora (lo cambiado en Roles incluido). */
+export async function getClaveDeRol(clave, roleKey) {
+  const conf = laClave(clave);
+  const r = elRol(conf, roleKey);
+  if (r.custom) {
+    const custom = await model.findCustomRoleById(r.custom);
+    if (!custom) throw new AppError('Ese rol no existe', 404, 'NOT_FOUND');
+    const base = custom.base_role || 'gestor';
+    const efectivos = {
+      ...defaultsDelRol(base, await model.getRoleOverrides([base]), SYSTEM_ROLE_DEFAULTS.gestor),
+      ...(custom.permissions || {}),
+    };
+    return { roleKey, clave, permitido: efectivos[clave] === true };
+  }
+  const efectivos = defaultsDelRol(r.role, await model.getRoleOverrides([r.role]), SYSTEM_ROLE_DEFAULTS.gestor);
+  return { roleKey, clave, permitido: efectivos[clave] === true };
+}
+
+/**
+ * Dársela o quitársela a un rol entero. En uno del sistema se apunta solo si se
+ * aparta del código (tabla de la 197), sin tocar las demás acciones del recurso;
+ * en uno a medida se fusiona en su JSON.
+ */
+export async function setClaveDeRol(clave, roleKey, permitido, updatedBy) {
+  const conf = laClave(clave);
+  const r = elRol(conf, roleKey);
+  if (r.custom) {
+    if (!(await model.findCustomRoleById(r.custom))) throw new AppError('Ese rol no existe', 404, 'NOT_FOUND');
+    await model.mergeCustomRolePermissions(r.custom, { [clave]: permitido === true });
+    return getClaveDeRol(clave, roleKey);
+  }
+  const deFabrica = SYSTEM_ROLE_DEFAULTS[r.role]?.[clave] === true;
+  const otras = (await model.getRoleOverrides([r.role]))
+    .filter((f) => f.role === r.role && f.resource === conf.resource && f.action !== conf.action)
+    .map(({ action, allowed }) => ({ action, allowed }));
+  const filas = (permitido === true) === deFabrica ? otras : [...otras, { action: conf.action, allowed: permitido === true }];
+  await model.saveRoleOverrides(r.role, conf.resource, filas, updatedBy);
+  return getClaveDeRol(clave, roleKey);
+}
+
+const esSuperadmin = (quien) => quien?.role === 'superadmin';
+
+/**
+ * Las personas de un rol, con la clave como la tienen: por su rol, o con una
+ * excepción suya (`excepcion`: true, false o null si no la hay).
+ *
+ * Un admin ve solo a quien comparte algún campus con él (#245): no se reparten
+ * permisos a la gente de otra empresa. El super admin, a todos.
+ */
+export async function personasDeLaClave(clave, roleKey, quien) {
+  const conf = laClave(clave);
+  const r = elRol(conf, roleKey);
+  const { rows } = await query(
+    `SELECT u.id, u.nombre, u.email, u.role, u.custom_role_id, u.roles_extra::text[] AS roles_extra,
+            o.allowed AS excepcion
+       FROM users u
+       LEFT JOIN user_permission_overrides o
+              ON o.user_id = u.id AND o.resource = $1 AND o.action = $2
+      WHERE u.active
+        AND ${r.custom ? 'u.custom_role_id = $3::int' : 'u.role::text = $3 AND u.custom_role_id IS NULL'}
+        AND u.role::text = ANY($5::text[])
+        AND ($4::int IS NULL OR EXISTS (
+              SELECT 1 FROM user_projects mio
+                JOIN user_projects suyo ON suyo.project_id = mio.project_id AND suyo.active
+               WHERE mio.user_id = $4 AND mio.active AND suyo.user_id = u.id))
+      ORDER BY u.nombre`,
+    [conf.resource, conf.action, r.custom ?? r.role, esSuperadmin(quien) ? null : quien?.userId ?? -1, conf.roles]
+  );
+  return Promise.all(rows.map(async (u) => ({
+    id: u.id,
+    nombre: u.nombre,
+    email: u.email,
+    excepcion: u.excepcion === null || u.excepcion === undefined ? null : u.excepcion === true,
+    puede: await resolvePermission(u.id, u.role, u.custom_role_id, conf.resource, conf.action, u.roles_extra),
+  })));
+}
+
+/**
+ * Dársela (`true`), quitársela (`false`) o dejarla como diga su rol (`null`) a
+ * una persona. Solo cambia ESA clave: las demás excepciones suyas se quedan
+ * como estaban (el PUT de /users/:id/permissions las sustituye todas).
+ */
+export async function setClaveDePersona(clave, userId, permitido, quien) {
+  const conf = laClave(clave);
+  const { rows: [u] } = await query(
+    'SELECT id, role, custom_role_id, roles_extra::text[] AS roles_extra FROM users WHERE id = $1', [userId]);
+  const esDeLosSuyos = u && (esSuperadmin(quien) || (await query(
+    `SELECT 1 FROM user_projects mio
+       JOIN user_projects suyo ON suyo.project_id = mio.project_id AND suyo.active
+      WHERE mio.user_id = $1 AND mio.active AND suyo.user_id = $2 LIMIT 1`,
+    [quien?.userId ?? -1, userId])).rows.length > 0);
+  if (!esDeLosSuyos) throw new AppError('Usuario no encontrado', 404, 'NOT_FOUND');
+  if (['superadmin', 'admin'].includes(u.role)) {
+    throw new AppError('Ya lo tiene por su rol: no hace falta dárselo', 400, 'YA_LO_TIENE');
+  }
+  if (!conf.roles.includes(u.role)) {
+    throw new AppError('A una persona con ese rol no se le puede dar esto', 400, 'ROLE_NOT_EDITABLE');
+  }
+  await model.setUserOverride(userId, conf.resource, conf.action, permitido);
+  return {
+    id: u.id,
+    excepcion: permitido,
+    puede: await resolvePermission(u.id, u.role, u.custom_role_id, conf.resource, conf.action, u.roles_extra),
+  };
 }
