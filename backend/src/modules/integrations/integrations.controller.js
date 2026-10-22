@@ -3,8 +3,11 @@ import * as model from './integrations.model.js';
 import { encrypt, decrypt, maskSecret } from '../../shared/utils/crypto.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
+import { infoDelCampus, urlDelCampus } from '../../shared/services/moodle.client.js';
 
-const SUPPORTED = ['stripe', 'brevo'];
+// moodle: el campus del proyecto, para las consultas de alumnos (#187). La
+// dirección va en config_public.url y el token, cifrado, como api_key.
+const SUPPORTED = ['stripe', 'brevo', 'moodle'];
 
 // Sólo aceptamos los providers conocidos. Cada provider tiene su shape de
 // config_public propia, pero validamos lo mínimo aquí (el detalle de cada
@@ -99,6 +102,16 @@ export async function upsert(req, res, next) {
     // guardar cualquier otra cosa borraria el secreto sin que nadie se entere.
     const anterior = await model.get(pid, provider);
     let config = { ...(anterior?.config_public || {}), ...(config_public || {}) };
+    if (provider === 'moodle') {
+      // Sin la dirección del campus el token no sirve de nada: se pide aquí y
+      // no al probar, para que no se guarde algo que nunca va a funcionar.
+      const url = urlDelCampus(config.url);
+      // Un dominio (iseih.com/campus) o localhost, para el Moodle de pruebas.
+      if (!url || !/^https?:\/\/(?:localhost(?::\d+)?|[^/\s]+\.[^/\s]+)(?:\/|$)/i.test(url)) {
+        throw new AppError('Falta la dirección del campus: escríbela en «Dirección del campus» (por ejemplo, https://iseih.com/campus).', 400, 'VALIDATION_ERROR');
+      }
+      config = { ...config, url };
+    }
     if (webhook_secret && webhook_secret.trim()) {
       const w = encrypt(webhook_secret.trim());
       config = {
@@ -143,6 +156,7 @@ export async function test(req, res, next) {
     try {
       if (provider === 'stripe') testResult = await testStripe(apiKey);
       else if (provider === 'brevo') testResult = await testBrevo(apiKey);
+      else if (provider === 'moodle') testResult = await testMoodle(apiKey, row.config_public?.url);
     } catch (e) {
       testResult = { ok: false, message: e.message };
     }
@@ -197,4 +211,20 @@ async function testBrevo(apiKey) {
   }
   if (r.status === 401) return { ok: false, message: 'API key inválida (401 Unauthorized)' };
   return { ok: false, message: `Brevo HTTP ${r.status}` };
+}
+
+// Moodle: core_webservice_get_site_info es de solo lectura y es la que valida
+// el token. Además dice qué funciones tiene el servicio: si falta la de buscar
+// usuarios, el token «vale» pero no sirve para comprobar a los tutores.
+export async function testMoodle(token, url, opciones) {
+  try {
+    const info = await infoDelCampus({ url, token }, opciones);
+    const quien = [info.sitio, info.version && `Moodle ${info.version}`].filter(Boolean).join(' · ');
+    if (info.faltan.length) {
+      return { ok: false, message: `Conecta con ${quien || 'el campus'}, pero al servicio del token le falta: ${info.faltan.join(', ')}.` };
+    }
+    return { ok: true, message: `Conexión OK con ${quien || 'el campus'}.`, sitio: info.sitio, version: info.version };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
 }
