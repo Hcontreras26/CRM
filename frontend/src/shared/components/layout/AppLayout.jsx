@@ -130,6 +130,10 @@ const CON_SOCIEDAD_OK = [
   /^\/prospectos\/\d+$/,
   /^\/clientes$/,
   /^\/clientes\/\d+$/,
+  // Matrículas (#199): «por empresa y con "Todos los proyectos", como el resto
+  // del CRM». El listado manda issuerId y el servidor lo resuelve con
+  // proyectosDelAmbito; la pestaña de webhooks pide elegir un campus.
+  /^\/clientes\/matriculas$/,
   // Facturas es la pantalla que Diego pone de ejemplo: sabia filtrar por
   // sociedad antes que nadie. Dejarla fuera era mandarle el aviso de «elige un
   // campus» justo a la unica que no lo necesitaba.

@@ -119,6 +119,18 @@ export async function create(data) {
     );
     const conversion = convRows[0];
 
+    // La solicitud de admisión de esa persona (#198): suele llegar ANTES que la
+    // venta («una solicitud llega antes de que haya venta», Diego 01/10). Si está
+    // en este campus y aún no tiene venta, se une ahora a esta (la más reciente).
+    await client.query(
+      `UPDATE matriculas SET conversion_id = $1, updated_at = NOW()
+        WHERE id = (SELECT id FROM matriculas
+                     WHERE project_id = $2 AND lead_id = $3 AND conversion_id IS NULL
+                     ORDER BY COALESCE(webhook_received_at, created_at) DESC, id DESC
+                     LIMIT 1)`,
+      [conversion.id, project_id, lead_id]
+    );
+
     // INSERT items (si vienen)
     if (Array.isArray(items) && items.length > 0) {
       for (let i = 0; i < items.length; i++) {

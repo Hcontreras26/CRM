@@ -62,6 +62,8 @@ const PAREJAS = [
   ['warning-foreground', 'warning'], ['destructive-foreground', 'destructive'],
   ['success-soft-foreground', 'success-soft'], ['info-soft-foreground', 'info-soft'],
   ['warning-soft-foreground', 'warning-soft'], ['destructive-soft-foreground', 'destructive-soft'],
+  // El índigo de «Datos validados» (#199).
+  ['indigo-foreground', 'indigo'], ['indigo-soft-foreground', 'indigo-soft'],
 ];
 
 describe('contraste de los tokens (#32)', () => {
