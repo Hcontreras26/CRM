@@ -33,6 +33,9 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'tasks.view_all': true, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': true, 'tasks.edit': true, 'tasks.delete': true, 'tasks.close': true, 'tasks.manage': true,
     // Facturas de colaboradores (#202): las de las empresas de sus campus.
     'facturas_colaborador.ver_todas': true, 'facturas_colaborador.gestionar': true, 'facturas_colaborador.anular': true, 'facturas_colaborador.pagar': true, 'facturas_colaborador.subir': false,
+    // Diplomas de Certifex (#384): VER la pantalla, en solo lectura. El admin
+    // la ve y la maneja por su rol; esto es para darsela a quien no lo es.
+    'diplomas.view': true,
   },
 
   gestor: {
@@ -70,6 +73,9 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'tasks.view_all': false, 'tasks.view_own': false, 'tasks.create': false, 'tasks.assign': false, 'tasks.edit': false, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): no las ve.
     'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.pagar': false, 'facturas_colaborador.subir': false,
+    // Diplomas de Certifex (#384): apagado de serie; se da por rol o por persona
+    // desde Configuración › Roles. Solo VER, y solo sus campus.
+    'diplomas.view': false,
   },
 
   soporte: {
@@ -99,6 +105,8 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'tasks.view_all': false, 'tasks.view_own': false, 'tasks.create': false, 'tasks.assign': false, 'tasks.edit': false, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): no las ve.
     'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.pagar': false, 'facturas_colaborador.subir': false,
+    // Diplomas de Certifex (#384): no los ve (como hasta ahora).
+    'diplomas.view': false,
   },
   // Colaborador (#210, fase 5): solo su tablero de tareas. Lo que no esta aqui
   // es «no»: `resolvePermission` solo da por bueno un `true` explicito, y el
@@ -107,6 +115,8 @@ export const SYSTEM_ROLE_DEFAULTS = {
     'tasks.view_all': false, 'tasks.view_own': true, 'tasks.create': true, 'tasks.assign': false, 'tasks.edit': true, 'tasks.delete': false, 'tasks.close': false, 'tasks.manage': false,
     // Facturas de colaboradores (#202): sube la suya («Mi factura»).
     'facturas_colaborador.ver_todas': false, 'facturas_colaborador.gestionar': false, 'facturas_colaborador.anular': false, 'facturas_colaborador.pagar': false, 'facturas_colaborador.subir': true,
+    // Diplomas de Certifex (#384): no.
+    'diplomas.view': false,
   },
 };
 
@@ -134,4 +144,7 @@ export const ALL_RESOURCES = {
   roles:            ['view', 'edit'],
   tasks:            ['view_all', 'view_own', 'create', 'assign', 'edit', 'delete', 'close', 'manage'],
   facturas_colaborador: ['ver_todas', 'gestionar', 'anular', 'pagar', 'subir'],
+  // Diplomas de Certifex (#384). Solo `view`: aprobar, emitir, enviar, rechazar,
+  // corregir y revocar siguen siendo de admin y superadmin, por su rol.
+  diplomas:         ['view'],
 };

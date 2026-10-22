@@ -44,10 +44,15 @@ vi.mock('../src/shared/config/db.js', () => ({
     if (sql.includes('FROM user_projects WHERE user_id = $1 AND active = true')) {
       return { rows: (USER_PROJECTS[params[0]] || []).map((project_id) => ({ project_id })) };
     }
-    if (sql.includes('SELECT id FROM projects WHERE sociedad_emisora_id = $1')) {
+    // Solo la consulta suelta (ámbito.js, campusDeContexto): el listado de webhooks por empresa la
+    // lleva dentro como subconsulta y no es esto.
+    if (sql.trim().startsWith('SELECT id FROM projects WHERE sociedad_emisora_id = $1')) {
       return { rows: Object.entries(CAMPUS).filter(([, e]) => e === params[0]).map(([id]) => ({ id: Number(id) })) };
     }
     if (sql.includes('SELECT 1 FROM projects WHERE id = $1')) return { rows: CAMPUS[params[0]] ? [{}] : [] };
+    if (sql.trim().startsWith('SELECT sociedad_emisora_id FROM projects WHERE id = $1')) {
+      return { rows: CAMPUS[params[0]] ? [{ sociedad_emisora_id: CAMPUS[params[0]] }] : [] };
+    }
     if (sql.includes('SELECT 1 FROM invoice_issuers WHERE id = $1')) return { rows: [CEDIA, ICTESS].includes(params[0]) ? [{}] : [] };
 
     // ── el cobro
@@ -83,7 +88,17 @@ vi.mock('../src/shared/config/db.js', () => ({
     if (sql.includes('FROM webhooks_salientes w')) {
       // listar: si viene la lista de campus de un admin, la regla de verdad.
       const mios = Array.isArray(params[0]) ? params[0] : null;
-      const lista = webhooks.filter((w) => {
+      // El ámbito de arriba (21/10): un campus o una empresa, como la consulta de verdad.
+      const ctx = params.find((p) => typeof p === 'number');
+      const porEmpresa = sql.includes('IN (SELECT id FROM projects WHERE sociedad_emisora_id');
+      const porCampus = !porEmpresa && sql.includes('sociedad_emisora_id FROM projects WHERE id');
+      const enAmbito = (w) => {
+        if (ctx == null || (!porEmpresa && !porCampus)) return true;
+        if (w.ambito === 'todas') return true;
+        if (porEmpresa) return w.ambito === 'empresa' ? w.issuer_id === ctx : CAMPUS[w.project_id] === ctx;
+        return w.ambito === 'campus' ? (w.project_id === ctx || CAMPUS[w.project_id] === CAMPUS[ctx]) : w.issuer_id === CAMPUS[ctx];
+      };
+      const lista = webhooks.filter(enAmbito).filter((w) => {
         if (!mios) return true;
         if (w.ambito === 'campus') return mios.includes(w.project_id);
         if (w.ambito === 'empresa') {
@@ -137,7 +152,15 @@ vi.mock('../src/shared/config/db.js', () => ({
     if (sql.includes('SELECT * FROM webhooks_salientes_envios WHERE id = $1')) {
       return { rows: envios.filter((e) => e.id === params[0]).map((e) => ({ ...e })) };
     }
-    if (sql.includes('FROM webhooks_salientes_envios e')) return { rows: envios.map((e) => ({ ...e })) };
+    if (sql.includes('FROM webhooks_salientes_envios e')) {
+      const ids = Array.isArray(params[0]) ? params[0] : null;
+      return { rows: envios.filter((e) => !ids || ids.includes(e.webhook_id)).map((e) => ({ ...e })) };
+    }
+    if (sql.includes('/* prueba del webhook */')) {
+      return { rows: [{ campus_id: params[0] ?? null, campus_nombre: params[0] ? 'ACADEMIA IA' : null,
+        empresa_id: 5, empresa_razon_social: 'Lateral Thinking Solutions SL', empresa_nif: 'B2', iban: 'ES11 2', bic: 'BICY',
+        registrado_id: params[2], registrado_nombre: params[2] ? 'Diego' : null, registrado_email: params[2] ? 'd@example.com' : null }] };
+    }
     return { rows: [] };
   }),
 }));
@@ -226,6 +249,12 @@ describe('qué forma de cobro dispara el webhook', () => {
       cuenta_destino: { iban: 'ES00 1', bic: 'BICX' },
       gestora: { nombre: 'Gestora', email: 'g@example.com' },
       registrado_por: { id: 3, nombre: 'Quien apunta' },
+    });
+    expect(p.importe).toBe(450);   // arriba, el de ESTE cobro (21/10)
+    // Y plano, con los nombres de los escenarios de Make montados así (21/10).
+    expect(p).toMatchObject({
+      'Nombre completo': 'Ana', Email: 'ana@example.com', 'Teléfono': '+34600', 'Formación': 'Máster X',
+      Importe: 450, Moneda: 'EUR', 'Fecha de pago': '2026-10-15', Referencia: 'TRF-1', Comercial: 'Gestora',
     });
     expect(typeof p.enviado_at).toBe('string');
     expect(envios[0].estado).toBe('enviado');
@@ -411,6 +440,24 @@ describe('reintentos y duplicados', () => {
     expect(p.evento).toBe('cobro.deposito');
     expect(r.estado).toBe('fallido');   // la prueba no se reintenta
   });
+
+  it('«Enviar prueba» lleva lo real del webhook, cliente y producto de prueba y el importe de la transferencia, no el total', async () => {
+    const w = webhook({ ambito: 'campus', project_id: 5 });
+    await service.enviarPrueba(webhooks.find((x) => x.id === w), 9);
+    const p = JSON.parse(fetchFalso.mock.calls[0][1].body);
+    expect(p.prueba).toBe(true);
+    expect(p.campus).toMatchObject({ id: 5, nombre: 'ACADEMIA IA' });
+    expect(p.empresa).toMatchObject({ razon_social: 'Lateral Thinking Solutions SL' });
+    expect(p.cuenta_destino).toMatchObject({ iban: 'ES11 2', bic: 'BICY' });
+    expect(p.registrado_por).toMatchObject({ id: 9, nombre: 'Diego' });
+    // Los correos de la prueba van a quien la lanza (Make no puede escribir a example.com).
+    expect(p.cliente).toMatchObject({ nombre: 'Cliente de prueba', email: 'd@example.com' });
+    expect(p.gestora.email).toBe('d@example.com');
+    expect(p.venta.producto).toBe('Producto de prueba');
+    expect(p.importe).toBe(250);
+    expect(p.cobro.importe).toBe(250);
+    expect(p.venta.importe_total).toBe(1000);
+  });
 });
 
 // ─── URLs ───────────────────────────────────────────────────────────────────
@@ -499,6 +546,37 @@ describe('quién puede', () => {
     envios.push({ id: 999, webhook_id: ajeno, estado: 'fallido', idempotency_key: 'k', payload: {} });
     const reenvio = await request(app).post('/api/webhooks-salientes/envios/999/reenviar').set('Authorization', token(BERTA));
     expect(reenvio.status).toBe(403);
+  });
+
+  it('con una empresa elegida arriba, los envíos de los webhooks de otra empresa no se ven (21/10)', async () => {
+    const deCedia = webhook({ ambito: 'campus', project_id: 1 });
+    const deIctess = webhook({ ambito: 'campus', project_id: 3 });
+    envios.push({ id: 801, webhook_id: deCedia, estado: 'enviado', idempotency_key: 'a', payload: {} });
+    envios.push({ id: 802, webhook_id: deIctess, estado: 'enviado', idempotency_key: 'b', payload: {} });
+    const ictess = await request(app).get(`/api/webhooks-salientes/envios?issuerId=${ICTESS}`).set('Authorization', token(MANUEL));
+    expect(ictess.status).toBe(200);
+    expect(ictess.body.data.map((e) => e.id)).toEqual([802]);
+    const campus1 = await request(app).get('/api/webhooks-salientes/envios?projectId=1').set('Authorization', token(MANUEL));
+    expect(campus1.body.data.map((e) => e.id)).toEqual([801]);
+    const todo = await request(app).get('/api/webhooks-salientes/envios').set('Authorization', token(MANUEL));
+    expect(todo.body.data.map((e) => e.id).sort()).toEqual([801, 802]);
+    const berta = await request(app).get(`/api/webhooks-salientes/envios?issuerId=${ICTESS}`).set('Authorization', token(BERTA));
+    expect(berta.body.data).toEqual([]);   // ICTESS no es de sus campus
+  });
+
+  it('desde un campus se ven los webhooks de los demás campus de su empresa, no los de otra (21/10)', async () => {
+    const campus1 = webhook({ ambito: 'campus', project_id: 1 });
+    const campus2 = webhook({ ambito: 'campus', project_id: 2 });   // CEDIA, como el 1
+    const campus3 = webhook({ ambito: 'campus', project_id: 3 });   // ICTESS
+    const lista = await request(app).get('/api/webhooks-salientes?projectId=1').set('Authorization', token(MANUEL));
+    expect(lista.body.data.map((w) => w.id).sort()).toEqual([campus1, campus2].sort());
+    envios.push({ id: 811, webhook_id: campus2, estado: 'enviado', idempotency_key: 'c', payload: {} });
+    envios.push({ id: 812, webhook_id: campus3, estado: 'enviado', idempotency_key: 'd', payload: {} });
+    const env = await request(app).get('/api/webhooks-salientes/envios?projectId=1').set('Authorization', token(MANUEL));
+    expect(env.body.data.map((e) => e.id)).toEqual([811]);
+    // Berta solo tiene el campus 1: el del campus 2 no es suyo y no lo ve, aunque sea de su empresa.
+    const berta = await request(app).get('/api/webhooks-salientes?projectId=1').set('Authorization', token(BERTA));
+    expect(berta.body.data.map((w) => w.id)).toEqual([campus1]);
   });
 
   it('una URL sin https se rechaza al guardar', async () => {

@@ -5,6 +5,10 @@ import sharp from 'sharp';
 // la firma del alumno para cargar, y si no la tiene debe salir para cargarla», siempre con
 // el fondo transparente. Aquí, sin base: el procesado de la imagen y que la firma viaje a
 // Certifex al emitir.
+//
+// Desde el 20/10/2026 la firma NO va en el diploma (Diego: «las firmas no van en los
+// diplomas, solo el DNI»): con FIRMA_EN_DIPLOMA apagado no se manda nunca a Certifex, aunque
+// quien emite la traiga. La subida y el procesado siguen, por si se vuelve a encender.
 
 const llamadas = [];
 vi.mock('../src/modules/certifex/certifex.cliente.js', () => ({
@@ -17,7 +21,7 @@ vi.mock('../src/modules/certifex/certifex.cliente.js', () => ({
 vi.mock('../src/shared/config/db.js', () => ({ query: vi.fn(async () => ({ rows: [] })), getClient: vi.fn() }));
 
 const { firmaTransparente } = await import('../src/modules/certifex/certifex.firma.js');
-const { emitirConPrograma } = await import('../src/modules/certifex/certifex.emision.js');
+const { emitirConPrograma, FIRMA_EN_DIPLOMA } = await import('../src/modules/certifex/certifex.emision.js');
 
 beforeEach(() => { llamadas.length = 0; });
 
@@ -89,16 +93,21 @@ describe('la firma con el fondo transparente', () => {
   });
 });
 
-describe('la firma viaja a Certifex al emitir', () => {
+describe('la firma NO viaja a Certifex al emitir (Diego, 20/10: «solo el DNI»)', () => {
   const sinBloqueos = { bloqueadas: new Map(), programas: new Map([[1, { programa: { horas: 750, modulos: [{ titulo: 'Uno' }] }, formacion: { nombre: 'Diplomado X' } }]]) };
 
-  it('con firma, el item lleva `firmaAlumno` y el resultado lo dice; sin firma, el item es el de siempre', async () => {
+  it('está apagada', () => {
+    expect(FIRMA_EN_DIPLOMA).toBe(false);
+  });
+
+  it('aunque quien emite traiga la firma, el item va sin `firmaAlumno` y el resultado dice que no la lleva', async () => {
     const firma = 'data:image/png;base64,iVBORw0KGgo=';
-    const { porId } = await emitirConPrograma('ana@crm', [1, 2], { ...sinBloqueos, firmas: new Map([[1, firma]]) });
+    const { porId } = await emitirConPrograma('ana@crm', [1, 2], { ...sinBloqueos, firmas: new Map([[1, firma], [2, firma]]) });
     const items = llamadas.find((l) => l.ruta === '/emitir').cuerpo.items;
-    expect(items[0]).toEqual({ matriculaId: 1, programa: { horas: 750, modulos: [{ titulo: 'Uno' }] }, firmaAlumno: firma });
+    expect(items[0]).toEqual({ matriculaId: 1, programa: { horas: 750, modulos: [{ titulo: 'Uno' }] } });
     expect(items[1]).toEqual({ matriculaId: 2 });
-    expect(porId.get(1)).toMatchObject({ ok: true, firmaAlumno: true, programa: { horas: 750 } });
+    expect(JSON.stringify(items)).not.toContain('firmaAlumno');
+    expect(porId.get(1)).toMatchObject({ ok: true, firmaAlumno: false, programa: { horas: 750 } });
     expect(porId.get(2)).toMatchObject({ ok: true, firmaAlumno: false });
   });
 

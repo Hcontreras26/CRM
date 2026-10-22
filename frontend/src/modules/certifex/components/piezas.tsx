@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LinkBreak, MagnifyingGlass, Signature } from '@phosphor-icons/react';
+import { IdentificationCard, LinkBreak, MagnifyingGlass } from '@phosphor-icons/react';
 import StatusDot from '@/shared/components/ui/StatusDot';
 import { cn } from '@/shared/lib/utils';
 import { emisionesApi, type CampusCertifex, type Candidato, type ConexionCertifex } from '../api/certifex.api';
@@ -200,20 +200,36 @@ export function AvisoDireccionPublica({ conexion }: { conexion: ConexionCertifex
 }
 
 /**
- * «Casi listo» (Diego, 16/10, al subir Certificaciones a producción): los diplomas ya se
- * aprueban, emiten y envían de verdad, pero la línea «El interesado» aún no lleva la firma
- * del alumno. La de la institución va impresa en el diseño de cada campus. Se quita este
- * aviso al cerrar #349, cuando el CRM mande a Certifex la firma de la solicitud de admisión.
+ * ¿Va la firma del alumno en el diploma? Diego, 20/10/2026: «las firmas no van en los
+ * diplomas, solo el DNI». Apagado, el panel no enseña ni sube firmas, y el servidor no las
+ * manda a Certifex (FIRMA_EN_DIPLOMA en backend/src/modules/certifex/certifex.emision.js).
+ * Para volver a ponerla, true aquí y allí.
+ */
+export const FIRMA_EN_DIPLOMA = false;
+
+/** ¿Tiene DNI (o NIE o pasaporte)? Es obligatorio para emitir el diploma (Diego, 20/10). */
+export const tieneDni = (c: { titular?: { dni?: string | null } | null }) => !!c.titular?.dni?.trim();
+
+/** Lo que se dice junto a un botón de emitir que no se puede pulsar por falta de DNI. */
+export const PON_EL_DNI = 'Pon el DNI para poder emitir';
+export const TITULO_SIN_DNI = 'Falta el DNI (o NIE o pasaporte) del alumno: es obligatorio en el diploma. Ponlo con «Sin DNI · Poner».';
+
+/**
+ * Lo que lleva el diploma, arriba de las dos pantallas que emiten. Como antes de la firma
+ * (Diego, 16/10: la de la institución impresa; sobre «El interesado», solo el nombre), y
+ * desde el 20/10, el DNI: obligatorio. Con FIRMA_EN_DIPLOMA, dice de dónde sale la firma.
  */
 export function AvisoCasiListo() {
   return (
     <div role="note" className="flex items-start gap-3 rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-sm text-info-soft-foreground">
-      <Signature size={18} weight="bold" className="mt-0.5 flex-none" aria-hidden />
+      <IdentificationCard size={18} weight="bold" className="mt-0.5 flex-none" aria-hidden />
       <div>
-        <p className="font-medium">La firma del alumno va en el diploma</p>
+        <p className="font-medium">El DNI del alumno es obligatorio en el diploma</p>
         <p className="mt-0.5 text-xs">
-          Se coge la de su solicitud de admisión y, si no la tiene, se sube en «Revisar datos antes de aprobar» (foto o
-          escaneo: el CRM le quita el fondo). Se imprime sobre «El interesado»; sin firma, en esa línea sale solo su nombre.
+          {FIRMA_EN_DIPLOMA
+            ? 'La firma del alumno se coge de su solicitud de admisión o se sube en «Revisar datos antes de aprobar», y se imprime sobre «El interesado». '
+            : 'La firma de la institución ya va impresa. La del alumno no va en el diploma: sobre «El interesado» sale solo su nombre. '}
+          Junto al nombre se imprime su DNI (o NIE o pasaporte): sin él no se aprueba ni se emite. Si falta, ponlo con «Sin DNI · Poner».
         </p>
       </div>
     </div>

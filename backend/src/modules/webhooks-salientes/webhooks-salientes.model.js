@@ -53,8 +53,12 @@ export async function listar({ misCampus = null, projectId = null, issuerId = nu
   if (projectId) {
     params.push(projectId);
     const n = params.length;
+    // Un campus ve también los webhooks de los demás campus de SU empresa (Diego, 21/10: «los
+    // hooks de empresas se pueden ver entre campus de la misma empresa»). Nunca los de otra.
     conds.push(`(w.ambito = 'todas'
-      OR (w.ambito = 'campus' AND w.project_id = $${n})
+      OR (w.ambito = 'campus' AND (w.project_id = $${n} OR w.project_id IN (
+            SELECT pe.id FROM projects pe
+             WHERE pe.sociedad_emisora_id = (SELECT sociedad_emisora_id FROM projects WHERE id = $${n}))))
       OR (w.ambito = 'empresa' AND w.issuer_id = (SELECT sociedad_emisora_id FROM projects WHERE id = $${n})))`);
   } else if (issuerId) {
     params.push(issuerId);
@@ -189,6 +193,34 @@ export async function datosDelCobro(paymentId, userId = null) {
   return rows[0] || null;
 }
 
+/**
+ * Para «Enviar prueba»: el campus, la empresa, la cuenta de destino y quien la lanza, de verdad.
+ * Un webhook de empresa toma su primer campus; uno de «todas», nada (se queda de ejemplo). La
+ * cuenta sale igual que en un cobro real (`datosDelCobro`).
+ */
+export async function datosParaPrueba({ projectId = null, issuerId = null, userId = null } = {}) {
+  const { rows } = await query(
+    `/* prueba del webhook */
+     SELECT p.id AS campus_id, p.nombre AS campus_nombre,
+            s.id AS empresa_id, s.razon_social AS empresa_razon_social, s.nif AS empresa_nif,
+            COALESCE(NULLIF(TRIM(s.iban), ''), ic.iban) AS iban,
+            CASE WHEN NULLIF(TRIM(s.iban), '') IS NOT NULL THEN s.bic ELSE COALESCE(ic.bic, s.bic) END AS bic,
+            r.id AS registrado_id, r.nombre AS registrado_nombre, r.email AS registrado_email
+       FROM (SELECT 1) AS uno
+       LEFT JOIN projects p ON p.id = COALESCE($1::int,
+            (SELECT pp.id FROM projects pp WHERE pp.sociedad_emisora_id = $2::int ORDER BY pp.id LIMIT 1))
+       LEFT JOIN invoice_issuers s ON s.id = COALESCE($2::int, p.sociedad_emisora_id)
+       LEFT JOIN LATERAL (
+         SELECT ii.iban, ii.bic FROM invoice_issuers ii
+          WHERE ii.project_id = p.id AND ii.activo AND NULLIF(TRIM(ii.iban), '') IS NOT NULL
+          ORDER BY ii.es_default DESC, ii.id LIMIT 1
+       ) ic ON true
+       LEFT JOIN users r ON r.id = $3::int`,
+    [projectId, issuerId, userId]
+  );
+  return rows[0] || {};
+}
+
 /** Los webhooks encendidos que se disparan con un cobro de esa forma, ese campus y esa empresa. */
 export async function webhooksParaCobro({ metodo, projectId, issuerId }) {
   const { rows } = await query(
@@ -312,12 +344,35 @@ export async function rescatarAtascados(maxIntentos) {
 }
 
 /** Los últimos envíos, de los webhooks que la persona puede ver (`webhookIds` null = todos). */
-export async function listarEnvios({ webhookIds = null, webhookId = null, estado = null, limit = 50 } = {}) {
+/** Los campus del ámbito elegido arriba: los de una empresa, o los de la empresa del campus elegido. */
+export async function campusDeContexto({ projectId = null, issuerId = null } = {}) {
+  if (projectId) {
+    const { rows: [p] } = await query('SELECT sociedad_emisora_id FROM projects WHERE id = $1', [projectId]);
+    if (!p?.sociedad_emisora_id) return [Number(projectId)];
+    issuerId = p.sociedad_emisora_id;
+  }
+  if (!issuerId) return null;
+  const { rows } = await query('SELECT id FROM projects WHERE sociedad_emisora_id = $1', [issuerId]);
+  return rows.map((r) => Number(r.id));
+}
+
+/**
+ * Con `campusContexto` (una empresa o un campus elegidos arriba), un webhook «de todas las
+ * empresas» solo enseña sus envíos de cobros de esos campus: sus pruebas y los cobros de otras
+ * empresas no (Diego, 21/10: «los registros de Make de una empresa no se pueden ver en otra»).
+ */
+export async function listarEnvios({ webhookIds = null, webhookId = null, estado = null, limit = 50, campusContexto = null } = {}) {
   const params = [];
   const conds = [];
   if (webhookIds) { params.push(webhookIds); conds.push(`e.webhook_id = ANY($${params.length}::int[])`); }
   if (webhookId) { params.push(webhookId); conds.push(`e.webhook_id = $${params.length}`); }
   if (estado) { params.push(estado); conds.push(`e.estado = $${params.length}`); }
+  if (campusContexto) {
+    params.push(campusContexto);
+    conds.push(`(w.ambito <> 'todas' OR e.payment_id IN (
+      SELECT cp.id FROM conversion_payments cp JOIN conversions c ON c.id = cp.conversion_id
+       WHERE c.project_id = ANY($${params.length}::int[])))`);
+  }
   params.push(limit);
   const { rows } = await query(
     `SELECT e.id, e.webhook_id, w.nombre AS webhook_nombre, e.payment_id, e.evento, e.idempotency_key,

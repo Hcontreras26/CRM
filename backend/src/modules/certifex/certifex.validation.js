@@ -129,7 +129,8 @@ const motivo = z.string({ required_error: 'Indica el motivo', invalid_type_error
 
 /**
  * Lo que manda Certifex al pedir un alumno su diploma. SIN DNI (decision del 08/10):
- * el alumno solo escribe su nombre, y ese es el que se imprimira.
+ * el alumno solo escribe su nombre, y ese es el que se imprimira. El DNI, obligatorio en el
+ * diploma desde el 20/10, no llega por aqui: lo pone el CRM en Certifex (ver `dniDiploma`).
  *
  * Una solicitud legitima no se rechaza entera por un detalle: Certifex no la reenvia y
  * nadie se enteraria. Un correo vacio o mal escrito queda en null (no se enlaza con la
@@ -248,6 +249,14 @@ export const dniDiploma = z.preprocess(
   ]),
 );
 
+/**
+ * El DNI cuando no puede faltar (Diego, 20/10: «es obligatorio»): la misma regla que
+ * `dniDiploma`, pero vacío o sin él no vale.
+ */
+export const MSG_FALTA_DNI = 'Falta el DNI (o NIE o pasaporte) del alumno: es obligatorio en el diploma.';
+export const dniObligatorio = z.preprocess((v) => (v === undefined ? null : v), dniDiploma)
+  .refine((v) => v !== null, { message: MSG_FALTA_DNI });
+
 export const editarSchema = z.object({
   matriculaId: z.number().int().positive(),
   nombre: nombreDiploma.optional(),
@@ -265,13 +274,15 @@ export const formacionesSchema = z.object({ centro });
 /**
  * «Nuevo diploma» (Diego, 19/10: «crear el diploma desde 0, seleccionando el cliente»): el
  * campus, el cliente (un prospecto o cliente del proyecto de ese campus) y la formación del
- * catálogo. `nombre`, el que se imprimirá; sin él, el de la ficha del cliente.
+ * catálogo. `nombre`, el que se imprimirá; sin él, el de la ficha del cliente. `dni`,
+ * obligatorio (20/10): sin él no se podría emitir.
  */
 export const nuevoDiplomaSchema = z.object({
   centro,
   leadId: z.number().int().positive(),
   productoId: z.number().int().positive(),
   nombre: nombreDiploma.optional(),
+  dni: dniObligatorio,
 });
 
 /** Sincronizar el temario de una formación del catálogo con la página del curso (12/10). */

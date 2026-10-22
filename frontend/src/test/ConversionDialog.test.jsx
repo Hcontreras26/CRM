@@ -215,6 +215,8 @@ describe('ConversionDialog — submit', () => {
     );
     fireEvent.change(container.querySelector('input[placeholder*="producto"]'), { target: { value: 'X' } });
     fireEvent.change(precioBase(container), { target: { value: '100' } });
+    // Desde el 21/10 hay que decir si ha pagado: sin eso ni se llama a la API.
+    pagoTotal();
     fireEvent.submit(container.querySelector('form'));
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
@@ -267,5 +269,37 @@ describe('ConversionDialog — payment links derivados', () => {
     render(<ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={1} />);
     pickProduct('Sin enlaces');
     expect(screen.getByText(/no tiene enlaces configurados/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * 21/10/2026, Diego: eligió «Transferencia» como forma de pago, se quedó en «Sin pago» —que
+ * venía marcado— y la venta salió sin cobro, sin factura y sin aviso a Make. Ahora no viene
+ * nada marcado y hay que elegirlo.
+ */
+describe('ConversionDialog — hay que decir si ha pagado', () => {
+  it('sin elegir «Sin pago», «Parcial» o «Pagó TODO» no registra la venta', async () => {
+    const { container } = render(
+      <ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={7} onCreated={vi.fn()} />,
+    );
+    fireEvent.change(container.querySelector('input[placeholder*="producto"]'), { target: { value: 'Diplomado n8n' } });
+    fireEvent.change(precioBase(container), { target: { value: '965' } });
+    expect(screen.getByText(/la forma de pago sola no registra el cobro/i)).toBeInTheDocument();
+    fireEvent.submit(container.querySelector('form'));
+    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Falta decir si ha pagado', variant: 'destructive' })));
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('con «Sin pago» elegido sí la registra, con 0 pagado', async () => {
+    const { container } = render(
+      <ConversionDialog open onClose={vi.fn()} lead={baseLead} projectId={7} onCreated={vi.fn()} />,
+    );
+    fireEvent.change(container.querySelector('input[placeholder*="producto"]'), { target: { value: 'Diplomado n8n' } });
+    fireEvent.change(precioBase(container), { target: { value: '965' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Sin pago$/i }));
+    fireEvent.submit(container.querySelector('form'));
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
+    expect(createMock.mock.calls[0][0]).toMatchObject({ importe_total: 965, importe_pagado: 0 });
   });
 });
