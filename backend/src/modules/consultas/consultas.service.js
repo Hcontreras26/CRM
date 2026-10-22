@@ -36,6 +36,7 @@ import {
 } from '../../shared/services/moodle.client.js';
 import { tutoresQueRecibenConsultas, conexionDelCampus } from '../tutores/tutor.campus.js';
 import * as model from './consultas.model.js';
+import { marcarContactado } from './consultas.alumnos.js';
 
 // ─── Reparto ─────────────────────────────────────────────────────────────────
 
@@ -47,9 +48,16 @@ import * as model from './consultas.model.js';
  *     más tiempo sin recibir una, y luego el de id más bajo (para que sea fijo);
  *   · null si no hay nadie: la consulta queda «sin tutor» en el panel.
  */
-export async function elegirTutor(projectId, { preferido = null } = {}) {
-  const candidatos = await tutoresQueRecibenConsultas(projectId);
+export async function elegirTutor(projectId, { preferido = null, nueva = true } = {}) {
+  let candidatos = await tutoresQueRecibenConsultas(projectId);
   if (!candidatos.length) return null;
+  // Decisión 10 (#189): con la carga «completa» no recibe consultas NUEVAS si
+  // hay otro tutor en el campus. Si es el único, sí (no se deja sin tutor). Una
+  // que se reabre sigue con el tutor que ya la llevaba: no es nueva.
+  const completos = nueva ? await tutoresConCargaCompleta(candidatos.map((t) => t.id)) : new Set();
+  if (completos.size && candidatos.some((t) => !completos.has(t.id))) {
+    candidatos = candidatos.filter((t) => !completos.has(t.id));
+  }
   if (preferido && candidatos.some((t) => t.id === Number(preferido))) return Number(preferido);
   const carga = await model.abiertasPorTutor(candidatos.map((t) => t.id));
   const ordenados = [...candidatos].sort((a, b) => {
@@ -64,6 +72,15 @@ export async function elegirTutor(projectId, { preferido = null } = {}) {
   return ordenados[0].id;
 }
 
+/** Los tutores cuya carga de ahora (la última que pusieron) es «completa». */
+async function tutoresConCargaCompleta(tutorIds) {
+  if (!tutorIds.length) return new Set();
+  const { rows } = await query(
+    `SELECT DISTINCT ON (tutor_id) tutor_id, nivel FROM tutor_carga
+      WHERE tutor_id = ANY($1::int[]) ORDER BY tutor_id, created_at DESC, id DESC`, [tutorIds]);
+  return new Set(rows.filter((r) => r.nivel === 'completa').map((r) => Number(r.tutor_id)));
+}
+
 // ─── Entrada ─────────────────────────────────────────────────────────────────
 
 /**
@@ -74,8 +91,12 @@ export async function entraMensajeDelAlumno(datos, { tutorPreferido = null, avis
   // Al reabrir, primero el tutor que ya la lleva (puede ser otro que el de la
   // conversación, si se reasignó); en una nueva, al que escribió el alumno.
   const r = await model.guardarMensajeDelAlumno(datos,
-    (actual) => elegirTutor(datos.projectId, { preferido: actual ?? tutorPreferido }));
+    (actual) => elegirTutor(datos.projectId, { preferido: actual ?? tutorPreferido, nueva: actual == null }));
   if (r.duplicado) return r;
+  // #189: ya tiene conversación con su tutor, sale de «Alumnos sin mensajes».
+  if (r.nueva && r.consulta.tutor_id) {
+    await marcarContactado(datos.projectId, r.consulta.tutor_id, datos.alumno.moodleId, datos.escritoAt || new Date());
+  }
   if (avisar && r.consulta.tutor_id) {
     await avisarAlTutor(r.consulta, datos.texto, { nueva: r.nueva || r.reabierta })
       .catch((err) => logger.warn({ consultaId: r.consulta.id, err: err.message }, 'consultas: el aviso al tutor ha fallado'));
@@ -145,6 +166,13 @@ export async function leerCampus(projectId, { desde = new Date(0), ...opciones }
       const alumno = conv.miembros.find((m) => m.id !== tutor.moodleId);
       if (!alumno) continue;
       resumen.conversaciones += 1;
+      // #189: una conversación que empezó el tutor desde el CRM («Escribir al
+      // alumno») aún no sabe cuál es en el campus: se le pone ahora, para que
+      // la respuesta del alumno vaya a esa misma consulta.
+      await query(
+        `UPDATE consultas SET conversacion_externa_id = $4
+          WHERE project_id = $1 AND alumno_moodle_id = $2 AND tutor_id = $3 AND conversacion_externa_id IS NULL`,
+        [projectId, alumno.id, tutor.tutorId, conv.id]);
       // Desde el último mensaje guardado, con un margen: la hora de una
       // respuesta enviada desde el CRM es la del CRM, y el reloj del campus
       // puede ir unos segundos por detrás. Lo repetido lo descarta su id.

@@ -41,6 +41,15 @@ router.get('/adjuntos/:id', ctrl.adjunto);
 router.post('/mensajes/:mensajeId/reintentar', ctrl.reintentar);
 router.get('/tutores/:tutorId/tokens', ctrl.tokensDelTutor);
 router.put('/tutores/:tutorId/token', ctrl.guardarToken);
+// Fase 3 (#189).
+router.get('/alumnos-sin-mensajes', ctrl.alumnosSinMensajes);
+router.post('/alumnos/:id/escribir', ctrl.escribirAlAlumno);
+router.get('/carga', ctrl.miCarga);
+router.post('/carga', ctrl.guardarMiCarga);
+router.get('/tutores-panel', ctrl.panelDeTutores);
+router.get('/campus-sin-tutor', ctrl.campusSinTutor);
+router.post('/sincronizar-alumnos', ctrl.sincronizarAlumnosAhora);
+router.get('/metricas', ctrl.verMetricas);
 
 router.get('/', ctrl.panel);
 router.get('/:id', ctrl.ver);

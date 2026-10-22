@@ -10,6 +10,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 const api = vi.hoisted(() => ({
   mias: vi.fn(), panel: vi.fn(), ver: vi.fn(), responder: vi.fn(), reintentar: vi.fn(), cerrar: vi.fn(),
   tutoresPosibles: vi.fn(), reasignar: vi.fn(), leerAhora: vi.fn(), abrirAdjunto: vi.fn(), toast: vi.fn(),
+  campusSinTutor: vi.fn(),
   user: { role: 'tutor' },
 }));
 vi.mock('@/modules/consultas/api/consultas.api', async (original) => {
@@ -52,6 +53,7 @@ beforeEach(() => {
   api.mias.mockResolvedValue({ success: true, data: { consultas: [fila()], plazoHoras: 24 } });
   api.panel.mockResolvedValue({ success: true, data: { consultas: [fila({ tutor: null, tutor_id: null })], plazoHoras: 24 } });
   api.ver.mockResolvedValue({ success: true, data: detalle() });
+  api.campusSinTutor.mockResolvedValue({ success: true, data: [] });
   api.tutoresPosibles.mockResolvedValue({ success: true, data: [{ id: 7, nombre: 'Tutora' }, { id: 8, nombre: 'Otro tutor' }] });
 });
 

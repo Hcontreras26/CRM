@@ -681,7 +681,9 @@ function MoodleCard({ projectId }: { projectId: number }) {
           <p className="text-xs text-muted-foreground">
             Cada 5 minutos el CRM lee los mensajes que los alumnos escriben a sus tutores en el campus y los pone en «Consultas».
             Solo lo escrito desde que se marca (no el historial). El token tiene que poder leer los mensajes de todos
-            (usuario administrador) y su servicio, tener <code>core_message_get_conversations</code> y <code>core_message_get_conversation_messages</code>.
+            (usuario administrador) y su servicio, tener <code>core_message_get_conversations</code> y <code>core_message_get_conversation_messages</code>,
+            y para «Alumnos sin mensajes», <code>core_enrol_get_users_courses</code> y <code>core_enrol_get_enrolled_users</code>.
+            «Probar conexión» dice si falta alguna.
           </p>
           {consultas && data?.config_public?.consultas_desde && (
             <p className="text-xs text-muted-foreground">Leyendo desde el {fmt(String(data.config_public.consultas_desde))}.</p>

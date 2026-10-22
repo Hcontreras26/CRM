@@ -10,8 +10,10 @@ import { Button } from '@/shared/components/ui/button';
 import { inputClass } from '@/shared/lib/ui';
 import { tieneRol } from '@/shared/lib/roles';
 import {
-  consultasApi, semaforo, haceCuanto, type ConsultaFila, type FiltrosConsultas,
+  consultasApi, semaforo, haceCuanto, type ConsultaFila, type FiltrosConsultas, type CampusSinTutor,
 } from '../api/consultas.api';
+import ConsultasNav from '../components/ConsultasNav';
+import CampusSinTutorAviso from '../components/CampusSinTutorAviso';
 
 /*
   Consultas de alumnos (#188).
@@ -102,6 +104,13 @@ export default function ConsultasPage() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Campus conectados sin tutor para las consultas (#189): solo administración.
+  const [sinTutorCampus, setSinTutorCampus] = useState<CampusSinTutor[]>([]);
+  useEffect(() => {
+    if (!esAdmin || vista !== 'todas') { setSinTutorCampus([]); return; }
+    consultasApi.campusSinTutor(ambito).then((r) => setSinTutorCampus(r.data || [])).catch(() => setSinTutorCampus([]));
+  }, [esAdmin, vista, ambito]);
+
   async function leerAhora() {
     setLeyendo(true);
     try {
@@ -125,6 +134,7 @@ export default function ConsultasPage() {
 
   return (
     <div className="space-y-4 pb-8">
+      <ConsultasNav />
       <PageHeader
         title="Consultas de alumnos"
         subtitle={vista === 'mias'
@@ -136,6 +146,8 @@ export default function ConsultasPage() {
           </Button>
         ) : undefined}
       />
+
+      <CampusSinTutorAviso campus={sinTutorCampus} />
 
       {esTutor && esAdmin && (
         <div role="tablist" aria-label="Qué consultas" className="inline-flex rounded-md border border-border bg-muted p-0.5">
