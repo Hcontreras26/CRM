@@ -16,6 +16,7 @@ import conversionsModule from './modules/conversions/index.js';
 import salesModule from './modules/sales/index.js';
 import whatsappModule from './modules/whatsapp/index.js';
 import tutoresModule from './modules/tutores/index.js';
+import consultasModule from './modules/consultas/index.js';
 import notificationsModule from './modules/notifications/index.js';
 import metaAdsModule from './modules/meta-ads/index.js';
 import accountingModule from './modules/accounting/index.js';
@@ -75,6 +76,12 @@ import { startDocumentOrphanScheduler } from './jobs/documentOrphanScheduler.js'
 import { startGoogleAdsTokenScheduler } from './jobs/googleAdsTokenScheduler.js';
 import { startMetaAdsSyncScheduler } from './jobs/metaAdsSyncScheduler.js';
 import { startTutorCommissionsScheduler } from './jobs/tutorCommissionsScheduler.js';
+import { startTutoresCampusScheduler } from './jobs/tutoresCampusScheduler.js';
+import { startConsultasCampusScheduler } from './jobs/consultasCampusScheduler.js';
+import { startConsultasAlumnosScheduler } from './jobs/consultasAlumnosScheduler.js';
+import { startConsultasResumenScheduler } from './jobs/consultasResumenScheduler.js';
+import { startConsultasPlazoScheduler } from './jobs/consultasPlazoScheduler.js';
+import { startConsultasCargaScheduler } from './jobs/consultasCargaScheduler.js';
 import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoScheduler.js';
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
@@ -234,6 +241,8 @@ const ALL_MODULES = [
   { name: 'sales', mod: salesModule },
   { name: 'whatsapp', mod: whatsappModule },
   { name: 'tutores', mod: tutoresModule },
+  // Consultas de alumnos (#188): la bandeja del tutor y el panel.
+  { name: 'consultas', mod: consultasModule },
   { name: 'notifications', mod: notificationsModule },
   { name: 'meta-ads', mod: metaAdsModule },
   { name: 'accounting', mod: accountingModule },
@@ -418,6 +427,12 @@ if (process.env.NODE_ENV !== 'test') {
     startGoogleAdsTokenScheduler();
     startMetaAdsSyncScheduler();
     startTutorCommissionsScheduler();
+    startTutoresCampusScheduler();
+    startConsultasCampusScheduler();
+    startConsultasAlumnosScheduler();
+    startConsultasResumenScheduler();
+    startConsultasPlazoScheduler();
+    startConsultasCargaScheduler();
     startVigilanteCatalogoScheduler();
     startLeadSinTocarScheduler();
     startPasoVencidoScheduler();

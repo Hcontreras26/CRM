@@ -20,7 +20,7 @@ export const BUNDLES = {
   comercial: {
     label: 'Comercial / Ventas',
     description: 'Productos + conversiones + comisiones + tutores + matriculas + dossiers',
-    modules: ['products', 'product-categories', 'conversions', 'sales', 'commissions', 'tutores', 'matriculas', 'dossiers', 'documents'],
+    modules: ['products', 'product-categories', 'conversions', 'sales', 'commissions', 'tutores', 'consultas', 'matriculas', 'dossiers', 'documents'],
     requires: ['core'],
   },
   accounting: {

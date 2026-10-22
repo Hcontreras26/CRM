@@ -64,7 +64,7 @@ import {
   Flask, House, Funnel, Books, ChalkboardTeacher, Bank, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
-import { rolesDe, soloEsColaborador } from '@/shared/lib/roles';
+import { rolesDe, soloEsColaborador, soloEsTutor } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/shared/lib/utils';
@@ -248,6 +248,8 @@ export const NAV_SECTIONS = [
       { label: 'Tutores', to: '/tutores', detail: 'Quién imparte qué', icon: GraduationCap, roles: ['superadmin', 'admin'], module: 'tutores' },
       // Lo unico que ve un tutor: sus cursos y lo que le corresponde.
       { label: 'Mis cursos', to: '/mis-cursos', detail: 'Tus cursos y tu parte', icon: GraduationCap, roles: ['tutor'] },
+      // Consultas de alumnos (#188): el tutor, su bandeja; administración, todas.
+      { label: 'Consultas', to: '/consultas', detail: 'Las dudas de los alumnos', icon: ChatCircleText, roles: ['superadmin', 'admin', 'tutor'], module: 'tutores', statusTag: 'Pruebas' },
       { label: 'Sin tutor', to: '/tutores/sin-tutor', detail: 'Formaciones sin asignar', icon: Warning, roles: ['superadmin', 'admin'], module: 'tutores' },
       { label: 'Comisiones', to: '/tutores/comisiones', detail: 'Lo que se les debe', icon: Coins, roles: ['superadmin', 'admin'], module: 'tutores' },
     ],
@@ -301,9 +303,10 @@ export const NAV_SECTIONS = [
       // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
       // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin),
       // y además, para VERLO en solo lectura, quien tenga `diplomas.view` (#384,
-      // `oPermiso`). Se enciende por configuración, como Certificaciones
-      // (VITE_CERTIFEX_PANEL).
-      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'], oPermiso: 'diplomas.view' }] : []),
+      // `oPermiso`), y para emitir, quien tenga `diplomas.emit` (Diego, 22/10/2026:
+      // «que Dayana pueda emitir»). Se enciende por configuración, como
+      // Certificaciones (VITE_CERTIFEX_PANEL).
+      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'], oPermiso: ['diplomas.view', 'diplomas.emit'] }] : []),
     ],
   },
   // Conexión (MCP de Claude). Diego: «estará en el menú en la sección de
@@ -452,7 +455,9 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   const es = (...r) => r.some((x) => suyos.includes(x));
   // «Por su rol o porque se le ha dado»: quien tiene el permiso la ve aunque su
   // rol no esté en `roles`. Lo que ve dentro lo recorta la pantalla (y la API).
-  const porPermiso = Boolean(item.oPermiso && typeof can === 'function' && can(item.oPermiso) === true);
+  // `oPermiso` puede ser una lista: basta con uno (Diplomas: ver O emitir).
+  const porPermiso = Boolean(item.oPermiso && typeof can === 'function'
+    && [].concat(item.oPermiso).some((p) => can(p) === true));
   if (item.apagable && moduloApagado(item.apagable)) return false;
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
@@ -1066,7 +1071,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   useEffect(() => { setUserMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
-    if (!activeProject?.id || soloEsColaborador(user)) return;
+    // El tutor tampoco: no ve prospectos y el servidor se los niega (#187).
+    if (!activeProject?.id || soloEsColaborador(user) || soloEsTutor(user)) return;
     let cancelled = false;
     let interval = null;
 

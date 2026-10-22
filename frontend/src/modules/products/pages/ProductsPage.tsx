@@ -307,7 +307,7 @@ export default function ProductsPage() {
                 <div className="text-xs text-muted-foreground p-4 text-center">
                   Sin categorías.<br />
                   Sincroniza WC desde<br />
-                  <a href={`${(import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '')}/configuracion/categorias-arbol`} className="text-primary hover:underline">Configuración</a>.
+                  <a href={`${(import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '')}/productos/categorias`} className="text-primary hover:underline">Configuración</a>.
                 </div>
               )}
             </div>

@@ -55,4 +55,13 @@ router.post('/:id/contrasena', ctrl.cambiarContrasena);
 router.post('/:id/reactivar', ctrl.reactivarTutor);
 router.delete('/:id', ctrl.retirarTutor);
 
+// Consultas de alumnos, fase 1 (#187): en qué campus atiende, por campus o por
+// empresa entera, si está matriculado en cada uno y «No disponible».
+router.get('/:id/campus', ctrl.campusDelTutor);
+router.post('/:id/campus', ctrl.asignarCampus);
+router.post('/:id/campus/comprobar', ctrl.comprobarCampus);
+router.post('/:id/empresas', ctrl.asignarEmpresa);
+router.delete('/:id/empresas/:issuerId', ctrl.quitarEmpresa);
+router.patch('/:id/disponible', ctrl.cambiarDisponible);
+
 export default router;

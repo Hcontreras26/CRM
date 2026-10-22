@@ -132,11 +132,33 @@ export const TIPOS = {
     clase: AVISO, etiqueta: 'Factura de colaborador', agrupa: false,
     descripcion: 'Cuando un colaborador sube su factura del mes',
   },
+  // Consultas de alumnos (#190, decisión 4): al tutor, cuando una consulta
+  // abierta llega a las 3/4 partes del plazo; a administración del campus,
+  // cuando se pasa (para reasignarla). Y al tutor, la carga sin actualizar.
+  consulta_cerca_del_plazo: {
+    clase: ACCION, etiqueta: 'Consulta cerca del plazo', agrupa: false,
+    descripcion: 'Un alumno lleva casi el plazo esperando tu respuesta',
+  },
+  consulta_fuera_de_plazo: {
+    clase: ACCION, etiqueta: 'Consulta fuera de plazo', agrupa: false,
+    descripcion: 'Una consulta de tus campus se ha pasado del plazo sin respuesta',
+  },
+  carga_desactualizada: {
+    clase: ACCION, etiqueta: 'Carga de trabajo sin actualizar', agrupa: false,
+    descripcion: 'Llevas más de una semana sin actualizar tu carga de trabajo',
+  },
   // MCP (#326): un Claude se ha conectado con tu URL y espera a que lo autorices.
   // Si no eres tú, es que la URL se ha colado: hay que rechazarlo.
   mcp_conexion_nueva: {
     clase: ACCION, etiqueta: 'Claude pide conectarse', agrupa: false,
     descripcion: 'Un Claude se ha conectado con tu URL del MCP y espera a que lo autorices',
+  },
+  // MCP (Diego, 22/10): tu Claude consulta con la URL sola, conectado como antes
+  // de la #326, y el CRM no le da datos. Hay que conectarlo una vez. Como mucho
+  // uno al día por URL (mcp.conexiones.js).
+  mcp_conector_antiguo: {
+    clase: ACCION, etiqueta: 'Conectar Claude una vez', agrupa: false,
+    descripcion: 'Tu Claude intenta consultar con tu URL del MCP sin haber iniciado sesión y hay que conectarlo una vez',
   },
   task_aprobada: {
     clase: AVISO, etiqueta: 'Tarea aprobada', agrupa: false,

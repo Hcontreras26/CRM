@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/AppError.js';
 // Una persona puede tener mas de un rol: el principal y los añadidos. Quien
 // decide cuales son vive en un solo sitio.
-import { tieneRol, soloEsColaborador, colaboradorPuede } from '../utils/roles.js';
+import { tieneRol, rutaDeRolCerrado } from '../utils/roles.js';
 
 export function verifyToken(req, _res, next) {
   const authHeader = req.headers.authorization;
@@ -18,10 +18,11 @@ export function verifyToken(req, _res, next) {
     return next(new AppError('Token invalido o expirado', 401, 'TOKEN_INVALID'));
   }
 
-  // El colaborador solo ve «Tareas» (#210, fase 5). Se corta aqui y no en cada
-  // modulo porque muchas rutas solo piden token —/api/leads entre ellas— y un
-  // roleGuard olvidado le abriria prospectos, ventas o finanzas.
-  if (soloEsColaborador(req.user) && !colaboradorPuede(req.originalUrl)) {
+  // El colaborador solo ve «Tareas» (#210, fase 5) y el tutor, lo suyo (#187).
+  // Se corta aqui y no en cada modulo porque muchas rutas solo piden token
+  // —/api/leads entre ellas— y un roleGuard olvidado les abriria prospectos,
+  // ventas o finanzas. Quien ademas tiene otro rol (gestora, admin…) no se toca.
+  if (rutaDeRolCerrado(req.user, req.originalUrl) === false) {
     return next(new AppError('No tienes permisos para esta accion', 403, 'FORBIDDEN'));
   }
   next();
