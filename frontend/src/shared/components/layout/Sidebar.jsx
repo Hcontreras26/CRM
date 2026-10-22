@@ -301,9 +301,10 @@ export const NAV_SECTIONS = [
       // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
       // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin),
       // y además, para VERLO en solo lectura, quien tenga `diplomas.view` (#384,
-      // `oPermiso`). Se enciende por configuración, como Certificaciones
-      // (VITE_CERTIFEX_PANEL).
-      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'], oPermiso: 'diplomas.view' }] : []),
+      // `oPermiso`), y para emitir, quien tenga `diplomas.emit` (Diego, 22/10/2026:
+      // «que Dayana pueda emitir»). Se enciende por configuración, como
+      // Certificaciones (VITE_CERTIFEX_PANEL).
+      ...(CERTIFEX_PANEL ? [{ label: 'Diplomas', to: '/clientes/matriculas/diplomas', detail: 'Solicitudes y enviados', icon: Certificate, roles: ['superadmin', 'admin'], oPermiso: ['diplomas.view', 'diplomas.emit'] }] : []),
     ],
   },
   // Conexión (MCP de Claude). Diego: «estará en el menú en la sección de
@@ -452,7 +453,9 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   const es = (...r) => r.some((x) => suyos.includes(x));
   // «Por su rol o porque se le ha dado»: quien tiene el permiso la ve aunque su
   // rol no esté en `roles`. Lo que ve dentro lo recorta la pantalla (y la API).
-  const porPermiso = Boolean(item.oPermiso && typeof can === 'function' && can(item.oPermiso) === true);
+  // `oPermiso` puede ser una lista: basta con uno (Diplomas: ver O emitir).
+  const porPermiso = Boolean(item.oPermiso && typeof can === 'function'
+    && [].concat(item.oPermiso).some((p) => can(p) === true));
   if (item.apagable && moduloApagado(item.apagable)) return false;
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
