@@ -82,7 +82,7 @@ export default function MatriculasPage() {
   const campusElegido = !activeIssuerId && activeProject?.id && activeProject.id !== TODOS_LOS_PROYECTOS ? activeProject : null;
   const nombreAmbito = activeIssuerId ? (activeIssuer?.nombre || 'esta empresa')
     : campusElegido ? (campusElegido.nombre || 'este campus') : 'todos los campus';
-  const { tieneRol } = usePermission();
+  const { can, tieneRol } = usePermission();
   const [tab, setTab] = useState('list');
   // Certificaciones tiene dirección propia (/clientes/matriculas/certificaciones):
   // la campana enlaza ahí y no depende del proyecto elegido, porque Certifex va por
