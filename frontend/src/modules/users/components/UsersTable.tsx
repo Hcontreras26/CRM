@@ -102,42 +102,57 @@ export default function UsersTable({
   return (
     <>
       {/* Tabla en pantallas anchas */}
-      <div className="hidden xl:block">
+      <div className="hidden xl:block overflow-x-auto">
         <table className="w-full text-normal">
           <thead className="bg-muted/50 border-b">
             <tr>
               <th className="px-4 py-2.5 text-left text-tabla uppercase text-muted-foreground whitespace-nowrap">Usuario</th>
-              <th className="px-4 py-2.5 text-left text-tabla uppercase text-muted-foreground whitespace-nowrap hidden 2xl:table-cell">Email</th>
+              <th className="px-4 py-2.5 text-left text-tabla uppercase text-muted-foreground whitespace-nowrap hidden min-[1800px]:table-cell">Email</th>
               <th className="px-4 py-2.5 text-left text-tabla uppercase text-muted-foreground whitespace-nowrap">Rol</th>
               <th className="px-4 py-2.5 text-left text-tabla uppercase text-muted-foreground whitespace-nowrap">Proyectos</th>
-              <th className="px-4 py-2.5 text-left text-tabla uppercase text-muted-foreground whitespace-nowrap hidden 2xl:table-cell">Última conexión</th>
+              <th className="px-4 py-2.5 text-left text-tabla uppercase text-muted-foreground whitespace-nowrap hidden min-[1800px]:table-cell">Última conexión</th>
               <th className="px-4 py-2.5 text-left text-tabla uppercase text-muted-foreground whitespace-nowrap">Estado</th>
-              <th className="px-4 py-2.5 text-right text-tabla uppercase text-muted-foreground whitespace-nowrap">Acciones</th>
+              {/* Fija a la derecha (#221): editar y desactivar siempre a la vista, aunque
+                  la tabla tenga que desplazarse. Necesita fondo opaco para tapar lo que pasa
+                  por debajo: el de la tarjeta con el mismo gris al 50 % encima, que es el
+                  color que se ve en el resto de la cabecera. El borde (token del CRM, sin
+                  colores a mano) la separa de lo que se desliza por debajo. */}
+              <th className="sticky right-0 bg-card bg-gradient-to-r from-muted/50 to-muted/50 border-l border-border px-4 py-2.5 text-right text-tabla uppercase text-muted-foreground whitespace-nowrap">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {users.map((u) => {
               const proyectos = nombresDeProyectos(u, projects);
+              // Un usuario desactivado se ve atenuado, pero celda a celda: con la
+              // opacidad en la fila, también la celda fija de Acciones quedaba al 50 %
+              // y lo que se desliza por debajo se transparentaba (#221).
+              const apagada = !u.active ? 'opacity-50' : '';
               return (
                 <tr
                   key={u.id}
-                  className={`border-b last:border-0 hover:bg-muted/50 transition-colors ${!u.active ? 'opacity-50' : ''}`}
+                  className="group border-b last:border-0 hover:bg-muted/50 transition-colors"
                 >
-                  <td className="px-4 py-3">
+                  <td className={`px-4 py-3 ${apagada}`}>
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-secundario font-semibold flex-shrink-0 ${avatarColorFor(u.id)}`}>
                         {getInitials(u.nombre)}
                       </div>
-                      <div className="min-w-0">
+                      {/* Ancho máximo en un bloque, no en la celda: una <td> ignora
+                          max-width y el texto largo ensanchaba la tabla (#221). */}
+                      <div className="min-w-0 max-w-[200px]" title={u.nombre || undefined}>
                         <span className="font-semibold block truncate">{u.nombre || 'Sin nombre'}</span>
-                        <span className="text-secundario text-muted-foreground 2xl:hidden truncate block">{u.email}</span>
+                        <span className="text-secundario text-muted-foreground min-[1800px]:hidden truncate block">{u.email}</span>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground hidden 2xl:table-cell truncate max-w-[200px]">{u.email}</td>
-                  <td className="px-4 py-3"><RolBadge user={u} /></td>
-                  <td className="px-4 py-3 text-muted-foreground max-w-[160px] truncate" title={proyectos}>{proyectos}</td>
-                  <td className="px-4 py-3 text-muted-foreground hidden 2xl:table-cell">
+                  <td className={`px-4 py-3 text-muted-foreground hidden min-[1800px]:table-cell ${apagada}`}>
+                    <div className="max-w-[220px] truncate" title={u.email}>{u.email}</div>
+                  </td>
+                  <td className={`px-4 py-3 ${apagada}`}><RolBadge user={u} /></td>
+                  <td className={`px-4 py-3 text-muted-foreground ${apagada}`}>
+                    <div className="max-w-[160px] truncate" title={proyectos}>{proyectos}</div>
+                  </td>
+                  <td className={`px-4 py-3 text-muted-foreground hidden min-[1800px]:table-cell ${apagada}`}>
                     {u.last_login_at ? (
                       <span className="flex items-center gap-1.5 text-secundario">
                         <Clock size={12} weight="regular" />
@@ -147,23 +162,26 @@ export default function UsersTable({
                       <span className="text-secundario italic text-muted-foreground/60">Nunca</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={`px-4 py-3 ${apagada}`}>
                     <div className="flex flex-col gap-1">
                       <EstadoBadge user={u} />
                       <AusenciaBadge estado={disponibilidad.get(u.id)} />
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-right">
+                  <td className="sticky right-0 bg-card group-hover:bg-gradient-to-r group-hover:from-muted/50 group-hover:to-muted/50 border-l border-border px-4 py-3 text-right whitespace-nowrap">
+                    {/* La celda, siempre opaca; atenuado solo el botón. */}
                     {u.role !== 'superadmin' && (
-                      <UserActionsMenu
-                        isActive={u.active}
-                        isOpen={openMenuId === u.id}
-                        onToggle={() => onOpenMenu(openMenuId === u.id ? null : u.id)}
-                        onClose={() => onOpenMenu(null)}
-                        onEdit={() => onEdit(u)}
-                        onToggleActive={() => onToggleActive(u)}
-                        onAvailability={disponibilidad.has(u.id) ? () => onAvailability(u) : undefined}
-                      />
+                      <span className={`inline-block ${apagada}`}>
+                        <UserActionsMenu
+                          isActive={u.active}
+                          isOpen={openMenuId === u.id}
+                          onToggle={() => onOpenMenu(openMenuId === u.id ? null : u.id)}
+                          onClose={() => onOpenMenu(null)}
+                          onEdit={() => onEdit(u)}
+                          onToggleActive={() => onToggleActive(u)}
+                          onAvailability={disponibilidad.has(u.id) ? () => onAvailability(u) : undefined}
+                        />
+                      </span>
                     )}
                   </td>
                 </tr>

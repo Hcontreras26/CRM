@@ -224,15 +224,15 @@ export default function UsersPanel() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
           <h2 className="text-seccion">Gestión de usuarios</h2>
           <p className="text-normal text-muted-foreground mt-0.5">Quién entra al CRM, con qué rol y en qué proyectos</p>
         </div>
         <button
           onClick={() => setDialogo({ modo: 'crear' })}
           aria-label="Crear usuario"
-          className="flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          className="flex-shrink-0 flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
         >
           <Plus size={14} weight="bold" /> <span className="hidden sm:inline">Crear usuario</span>
         </button>

@@ -75,7 +75,7 @@ export default function SettingsPage() {
           })}
         </div>
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <TabContent />
         </div>
       </div>
