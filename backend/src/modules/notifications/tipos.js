@@ -132,6 +132,21 @@ export const TIPOS = {
     clase: AVISO, etiqueta: 'Factura de colaborador', agrupa: false,
     descripcion: 'Cuando un colaborador sube su factura del mes',
   },
+  // Consultas de alumnos (#190, decisión 4): al tutor, cuando una consulta
+  // abierta llega a las 3/4 partes del plazo; a administración del campus,
+  // cuando se pasa (para reasignarla). Y al tutor, la carga sin actualizar.
+  consulta_cerca_del_plazo: {
+    clase: ACCION, etiqueta: 'Consulta cerca del plazo', agrupa: false,
+    descripcion: 'Un alumno lleva casi el plazo esperando tu respuesta',
+  },
+  consulta_fuera_de_plazo: {
+    clase: ACCION, etiqueta: 'Consulta fuera de plazo', agrupa: false,
+    descripcion: 'Una consulta de tus campus se ha pasado del plazo sin respuesta',
+  },
+  carga_desactualizada: {
+    clase: ACCION, etiqueta: 'Carga de trabajo sin actualizar', agrupa: false,
+    descripcion: 'Llevas más de una semana sin actualizar tu carga de trabajo',
+  },
   // MCP (#326): un Claude se ha conectado con tu URL y espera a que lo autorices.
   // Si no eres tú, es que la URL se ha colado: hay que rechazarlo.
   mcp_conexion_nueva: {

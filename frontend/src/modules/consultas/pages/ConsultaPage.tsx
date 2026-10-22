@@ -22,6 +22,9 @@ const fecha = (iso: string | null) => (iso ? new Date(iso).toLocaleString('es-ES
 const QUE_PASO: Record<string, string> = {
   entrada: 'Entró la consulta', asignada: 'Asignada', reasignada: 'Reasignada', leida: 'La abrió su tutor',
   respondida: 'Respondida', cerrada: 'Cerrada', reabierta: 'El alumno volvió a escribir: reabierta',
+  iniciada_por_tutor: 'La empezó el tutor («Escribir al alumno»)',
+  recordatorio_plazo: 'Recordatorio al tutor: se acerca el plazo',
+  fuera_de_plazo: 'Fuera de plazo: avisada administración',
 };
 
 const MAX_ADJUNTOS = 5;
