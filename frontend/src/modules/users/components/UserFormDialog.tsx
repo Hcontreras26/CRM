@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { X, Key, Info, Lock } from '@phosphor-icons/react';
+import { X, Lock } from '@phosphor-icons/react';
+import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import type { Project, UserRole } from '@/shared/types';
 import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
+import Field from '@/shared/components/ui/Field';
 import { avatarColorFor, getInitials, inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
+import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
 import type { AvisoCambioCorreo, CrmUser, Empresa, ProjectAssignment } from '../api/users.api';
 import { ASSIGNABLE_ROLES } from '../lib/usersUi';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '../lib/credenciales';
@@ -60,6 +63,8 @@ export default function UserFormDialog({
   empresas, faltaMigracionEmpresas = false,
 }: Props) {
   const esEdicion = !!user;
+  // Escape cierra, como los demás formularios (#106).
+  useEscapeKey(onClose);
 
   const [nombre, setNombre] = useState(user?.nombre ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
@@ -131,36 +136,35 @@ export default function UserFormDialog({
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
+    // Todo lo que falta o está mal, de una vez (#106).
+    // Un admin con una empresa entera ya tiene de dónde le llegan campus,
+    // aunque esa empresa aún no tenga ninguno (#220).
+    const conEmpresa = role === 'admin' && puedeDarEmpresas && empresasEnteras.length > 0;
+    const faltan: Falta[] = [];
+    if (!nombre.trim()) faltan.push({ title: 'Falta el nombre', description: 'Escríbelo en «Nombre».', que: 'el nombre en «Nombre»' });
     // El backend pide 2 caracteres minimo; validarlo aqui evita el viaje.
-    if (nombre.trim().length < 2) {
-      toast({ title: 'Nombre demasiado corto', description: 'Mínimo 2 caracteres.', variant: 'destructive' });
-      return;
+    else if (nombre.trim().length < 2) faltan.push({ title: 'Nombre demasiado corto', description: 'En «Nombre», al menos 2 caracteres.', que: 'un nombre de al menos 2 letras en «Nombre»' });
+    if (!esEdicion && !email.trim()) faltan.push({ title: 'Falta el email', description: 'Escríbelo en «Email» como nombre@dominio.com.', que: 'el email en «Email»' });
+    else if (!esEdicion && !EMAIL_RE.test(email.trim())) {
+      faltan.push({ title: 'Email no válido', description: 'Escríbelo en «Email» como nombre@dominio.com.', que: 'un email válido en «Email» (nombre@dominio.com)' });
     }
-    if (!esEdicion) {
-      if (!EMAIL_RE.test(email.trim())) {
-        toast({ title: 'Email inválido', description: 'Revisa el formato del email.', variant: 'destructive' });
-        return;
-      }
-      // Un admin con una empresa entera ya tiene de dónde le llegan campus,
-      // aunque esa empresa aún no tenga ninguno (#220).
-      const conEmpresa = role === 'admin' && puedeDarEmpresas && empresasEnteras.length > 0;
-      if (seleccionados.length === 0 && !conEmpresa) {
-        toast({
-          title: 'Falta el proyecto',
-          description: role === 'admin' && puedeDarEmpresas
-            ? 'Marca al menos un campus o una empresa entera.'
-            : 'Asigna al menos un proyecto.',
-          variant: 'destructive',
-        });
-        return;
-      }
+    if (!esEdicion && seleccionados.length === 0 && !conEmpresa) {
+      faltan.push({
+        title: 'Falta el proyecto',
+        description: role === 'admin' && puedeDarEmpresas
+          ? 'Marca al menos un campus o una empresa entera.'
+          : 'Asigna al menos un proyecto.',
+        que: 'al menos un proyecto en «Proyectos asignados»',
+      });
     }
+    const falta = avisoDeLoQueFalta(faltan);
+    if (falta) { toast(falta); return; }
     // El correo de otro (#248): solo el super admin, y avisando antes de guardar
     // de lo que supone, sobre todo si recibe prospectos por Make.
     const correoNuevo = email.trim().toLowerCase();
     if (esEdicion && canChangeEmail && correoNuevo !== user!.email.toLowerCase()) {
       if (!EMAIL_RE.test(correoNuevo)) {
-        toast({ title: 'Email inválido', description: 'Revisa el formato del email.', variant: 'destructive' });
+        toast({ title: 'Email no válido', description: 'Escríbelo en «Email» como nombre@dominio.com.', variant: 'destructive' });
         return;
       }
       const aviso = await onCheckEmail().catch(() => null);
@@ -229,7 +233,9 @@ export default function UserFormDialog({
             </button>
           </div>
 
-          <form onSubmit={enviar} className="space-y-4">
+          {/* noValidate: avisa el CRM (enviar), diciendo qué falta y dónde,
+              y no el globo del navegador (#106). */}
+          <form onSubmit={enviar} noValidate className="space-y-4">
             {esEdicion && (
               <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-semibold ${avatarColorFor(user!.id)}`}>
@@ -242,9 +248,8 @@ export default function UserFormDialog({
               </div>
             )}
 
-            <div>
-              <label htmlFor="user-nombre" className="text-xs text-muted-foreground mb-1.5 block px-1">Nombre *</label>
-              <input
+            <Field label="Nombre" required htmlFor="user-nombre">
+              <input autoComplete="off"
                 id="user-nombre"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
@@ -253,12 +258,11 @@ export default function UserFormDialog({
                 className={inputClass}
                 required
               />
-            </div>
+            </Field>
 
             {!esEdicion ? (
-              <div>
-                <label htmlFor="user-email" className="text-xs text-muted-foreground mb-1.5 block px-1">Email *</label>
-                <input
+              <Field label="Email" required htmlFor="user-email">
+                <input autoComplete="off"
                   id="user-email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -267,24 +271,21 @@ export default function UserFormDialog({
                   className={inputClass}
                   required
                 />
-              </div>
+              </Field>
             ) : canChangeEmail ? (
               <div>
-                <label htmlFor="user-email" className="text-xs text-muted-foreground mb-1.5 block px-1">Email *</label>
-                <input
-                  id="user-email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  type="email"
-                  maxLength={255}
-                  className={inputClass}
-                  required
-                />
-                <p className="text-secundario text-muted-foreground mt-1 px-1 flex items-start gap-1">
-                  <Info size={11} className="mt-px flex-shrink-0" />
-                  Es con lo que entra: al cambiarlo, con el viejo ya no podrá, y se cierran sus sesiones.
-                  Se le avisa por correo en la dirección vieja. Si recibe prospectos por Make, cámbialo también allí.
-                </p>
+                <Field label="Email" required htmlFor="user-email"
+                  hint="Es con lo que entra: al cambiarlo, con el viejo ya no podrá, y se cierran sus sesiones. Se le avisa por correo en la dirección vieja. Si recibe prospectos por Make, cámbialo también allí.">
+                  <input autoComplete="off"
+                    id="user-email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    maxLength={255}
+                    className={inputClass}
+                    required
+                  />
+                </Field>
                 {/* «Reenviar enlace de acceso» al correo nuevo (#246). A un tutor no le
                     sale ningún correo mientras siga el freno: se dice en vez de esconderlo. */}
                 {cambiaCorreo && (
@@ -311,28 +312,20 @@ export default function UserFormDialog({
                 )}
               </div>
             ) : (
-              <div>
-                <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Email</label>
-                <input value={user!.email} readOnly disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
-                <p className="text-secundario text-muted-foreground mt-1 px-1 flex items-start gap-1">
-                  <Info size={11} className="mt-px flex-shrink-0" />
-                  Solo un superadmin puede cambiar el correo.
-                </p>
-              </div>
+              <Field label="Email" disabled htmlFor="user-email-fijo" hint="Solo un superadmin puede cambiar el correo.">
+                <input autoComplete="off" id="user-email-fijo" value={user!.email} readOnly disabled className={`${inputClass} opacity-60 cursor-not-allowed`} />
+              </Field>
             )}
 
-            <div>
-              <label className="mb-1.5 block px-1 text-secundario text-muted-foreground">Rol *</label>
+            <Field label="Rol" required htmlFor="user-rol" hint={ASSIGNABLE_ROLES.find((r) => r.value === role)?.hint}>
               <Select<UserRole>
+                id="user-rol"
                 value={role}
                 onChange={setRole}
                 options={ASSIGNABLE_ROLES.map((r) => ({ value: r.value, label: r.label }))}
                 ariaLabel="Rol"
               />
-              <p className="text-secundario text-muted-foreground mt-1 px-1">
-                {ASSIGNABLE_ROLES.find((r) => r.value === role)?.hint}
-              </p>
-            </div>
+            </Field>
 
             {/* Y ADEMÁS. Hay quien lleva prospectos y también da clase: antes
                 había que elegir, y lo que no se eligiera se perdía.
@@ -394,7 +387,7 @@ export default function UserFormDialog({
                 rol, asi que para el las casillas no cambian nada y no se pintan. */}
             {(role === 'gestor' || role === 'soporte') && (
               <div className="rounded-lg border border-border p-3 space-y-2">
-                <p className="text-xs text-muted-foreground px-1">Facturación</p>
+                <p className="text-secundario text-muted-foreground px-1">Facturación</p>
                 <label className="flex items-start gap-2 cursor-pointer px-1">
                   <input
                     type="checkbox"
@@ -459,9 +452,8 @@ export default function UserFormDialog({
             )}
 
             {esEdicion && (
-              <div>
-                <label htmlFor="user-tel" className="text-xs text-muted-foreground mb-1.5 block px-1">Teléfono (WhatsApp)</label>
-                <input
+              <Field label="Teléfono (WhatsApp)" htmlFor="user-tel" hint="Se usa para el widget de WhatsApp y el contacto del gestor.">
+                <input autoComplete="off"
                   id="user-tel"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
@@ -469,10 +461,7 @@ export default function UserFormDialog({
                   maxLength={30}
                   className={inputClass}
                 />
-                <p className="text-secundario text-muted-foreground mt-1 px-1">
-                  Se usa para el widget de WhatsApp y el contacto del gestor.
-                </p>
-              </div>
+              </Field>
             )}
 
             {esEdicion && !canResetPassword && (
@@ -486,10 +475,8 @@ export default function UserFormDialog({
             )}
 
             {esEdicion && canResetPassword && (
-              <div className="border-t border-border pt-3 mt-1">
-                <label htmlFor="user-pass" className="text-xs font-semibold flex items-center gap-1.5 mb-1.5 px-1">
-                  <Key size={12} weight="bold" /> Reiniciar contraseña
-                </label>
+              <Field label="Reiniciar contraseña" htmlFor="user-pass" className="border-t border-border pt-3 mt-1"
+                hint="Mínimo 8 caracteres, con una mayúscula y un número. Se la comunicas tú al usuario. Al cambiarla se cierran sus sesiones activas.">
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     id="user-pass"
@@ -521,11 +508,7 @@ export default function UserFormDialog({
                     {guardandoPass ? '…' : 'Cambiar'}
                   </button>
                 </div>
-                <p className="text-secundario text-muted-foreground mt-1 px-1">
-                  Mínimo 8 caracteres, con una mayúscula y un número. Se la comunicas tú al usuario.
-                  Al cambiarla se cierran sus sesiones activas.
-                </p>
-              </div>
+              </Field>
             )}
 
             <div className="flex justify-end gap-2 pt-2">

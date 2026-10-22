@@ -84,9 +84,10 @@ export default function ProjectSelector({
 
   return (
     <div>
-      <label className="text-xs text-muted-foreground mb-1.5 block px-1">
-        Proyectos asignados{required && ' *'}
-      </label>
+      <p className="mb-1.5 block px-1 text-secundario text-muted-foreground">
+        Proyectos asignados
+        {required && <span className="text-destructive"> *<span className="sr-only"> (obligatorio)</span></span>}
+      </p>
       <p className="text-secundario text-muted-foreground mb-2 px-1">
         {required
           ? (conEmpresas

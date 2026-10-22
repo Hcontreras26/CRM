@@ -20,9 +20,11 @@ interface Props {
   projectId: number | null | undefined;
   projectLabel?: string;
   onProductCreated?: (p: ProductOption) => void;
+  /** El `id` del botón, para que la etiqueta de un `Field` (`htmlFor`) lo enfoque. */
+  id?: string;
 }
 
-export default function ProductCombobox({ value, onChange, products, projectId, projectLabel = 'Producto', onProductCreated }: Props) {
+export default function ProductCombobox({ value, onChange, products, projectId, projectLabel = 'Producto', onProductCreated, id }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [newOpen, setNewOpen] = useState(false);
@@ -45,8 +47,11 @@ export default function ProductCombobox({ value, onChange, products, projectId, 
   return (
     <div className="relative" ref={ref}>
       <button
+        id={id}
         type="button"
         onClick={() => setOpen(!open)}
+        aria-haspopup="listbox"
+        aria-expanded={open ? 'true' : 'false'}
         className={inputClass + ' flex items-center justify-between text-left'}
       >
         <span className={selected ? '' : 'text-muted-foreground'}>
@@ -60,7 +65,7 @@ export default function ProductCombobox({ value, onChange, products, projectId, 
           <div className="p-2 border-b border-border">
             <div className="relative">
               <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
+              <input autoComplete="off"
                 autoFocus
                 value={search}
                 onChange={e => setSearch(e.target.value)}
@@ -185,7 +190,7 @@ function NewProductDialog({ projectId, projectLabel, initialName = '', onClose, 
             <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1.5 rounded hover:bg-muted"><X size={18} /></button>
           </div>
           <div className="space-y-3">
-            <input
+            <input autoComplete="off"
               autoFocus required placeholder={`Nombre del ${projectLabel.toLowerCase()}`}
               value={data.nombre} onChange={e => setData({ ...data, nombre: e.target.value })}
               className={inputClass}
@@ -206,7 +211,7 @@ function NewProductDialog({ projectId, projectLabel, initialName = '', onClose, 
                 subcategoria_id: '',
               })}
             />
-            <textarea
+            <textarea autoComplete="off"
               placeholder="Descripción (opcional)"
               value={data.descripcion} onChange={e => setData({ ...data, descripcion: e.target.value })}
               className={inputClass + ' h-20 py-2 resize-none'}

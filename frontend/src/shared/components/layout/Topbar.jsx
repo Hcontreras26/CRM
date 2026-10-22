@@ -42,7 +42,11 @@ export default function Topbar({ onAbrirMenu, className }) {
         className,
       )}
     >
-      <div className="flex min-h-14 items-center gap-3 px-4 py-2 lg:px-6 xl:px-8">
+      {/* En el móvil, dos filas: arriba menú, selector y campana; debajo, a
+          todo el ancho, el título y los botones de la pantalla. En una sola
+          fila no cabían a 390 px: el selector se montaba encima de «Nuevo» y
+          el título se quedaba en una letra (visto en la prueba de la #106). */}
+      <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:flex-nowrap lg:px-6 xl:px-8">
         {/* En movil el menu se abre desde aqui: es donde se busca. */}
         <button
           type="button"
@@ -57,14 +61,14 @@ export default function Topbar({ onAbrirMenu, className }) {
             para que la pantalla lo encuentre en cuanto se pinta. */}
         <div
           ref={ctx?.registrarHueco}
-          className={cn('min-w-0 items-center gap-3', ocupado ? 'flex flex-1' : 'hidden')}
+          className={cn('min-w-0 items-center gap-3', ocupado ? 'order-last flex basis-full sm:order-none sm:flex-1 sm:basis-auto' : 'hidden')}
         />
 
         {/* Pantalla sin cabecera propia: el nombre de la ruta.
             Si la ruta no esta en el mapa —un enlace roto, un 404— no se pinta
             un <h1> vacio: la pantalla ya trae el suyo y saldrian dos. */}
         {!ocupado && (
-          <div className="min-w-0 flex-1">
+          <div className="order-last min-w-0 basis-full sm:order-none sm:flex-1 sm:basis-auto">
             {titulo && (
               <h1 className="truncate text-base font-semibold leading-tight">{titulo}</h1>
             )}
@@ -75,7 +79,7 @@ export default function Topbar({ onAbrirMenu, className }) {
             Era una píldora que solo informaba: para cambiar de marca había que
             bajar al menú lateral — donde además el nombre salía otras dos veces
             (#79, punto 2). Ahora sale una vez y desde aquí se cambia. */}
-        <SelectorProyecto className="flex-shrink-0" />
+        <SelectorProyecto className="ml-auto min-w-0 flex-shrink sm:ml-0 sm:flex-shrink-0" />
 
         {/* La campana estaba al fondo del menu lateral, junto al usuario. Aqui
             arriba es donde se busca, y se ve sin desplegar nada. */}

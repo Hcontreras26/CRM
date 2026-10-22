@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const leadSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   // Email opcional: si viene, debe ser válido; vacío también acepta
-  email: z.string().email('Email no valido').optional().or(z.literal('')),
+  email: z.string().email('Email no válido: escríbelo como nombre@dominio.com').optional().or(z.literal('')),
   telefono: z.string().optional().or(z.literal('')),
   // Quien se contacta por usuario y no da numero. No sustituye al
   // telefono: mucha gente tiene los dos.
