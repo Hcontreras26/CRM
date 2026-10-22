@@ -365,6 +365,72 @@ describe('idempotente y con su llave', () => {
   });
 });
 
+describe('lo que salió en la auditoría (22/10)', () => {
+  it('una IP interna escrita como IPv6 (::ffff:127.0.0.1, ::7f00:1, NAT64) tampoco se descarga', async () => {
+    for (const ip of ['::ffff:7f00:1', '::ffff:a9fe:a9fe', '::7f00:1', '64:ff9b::7f00:1', '2002:7f00:1::']) expect(ipPrivada(ip)).toBe(true);
+    expect(ipPrivada('::ffff:8.8.8.8')).toBe(false);
+    await expect(desdeUrl('http://[::ffff:127.0.0.1]:3001/api/health')).rejects.toThrow('La dirección del archivo no es pública.');
+    await expect(desdeUrl('http://localhost:3001/api/health')).rejects.toThrow('La dirección del archivo no es pública.');
+  });
+
+  it('el «titulo» que llega como ENLACE al archivo (Gravity, Elementor) se descarga como documento', async () => {
+    const srv = http.createServer((_req, res) => { res.writeHead(200, { 'content-type': 'application/pdf' }); res.end(PDF); });
+    await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+    try {
+      const { recibirAdmision } = await import('../src/modules/matriculas/admision.service.js');
+      const r = await recibirAdmision({ project_id: PROYECTO.id, field_mapping: {} },
+        { email: correo('titulo-url'), titulo: `http://127.0.0.1:${srv.address().port}/uploads/titulo.pdf` }, [], { permitirRedLocal: true });
+      expect(r.data.documentos.guardados).toEqual(['titulo_doc']);
+      const m = await matricula(r.data.matricula_id);
+      expect(m.titulo_doc_key).toMatch(/\.pdf$/);
+      expect(m.titulo).toBeNull(); // no se guarda el enlace como «Título / Programa»
+    } finally { srv.close(); }
+  });
+
+  it('dos envíos A LA VEZ de la misma persona (mismo DNI, algo distintos): uno entra y el otro es repetido, sin 500', async () => {
+    const base = { email: correo('a-la-vez'), dni: 'Z1111111A', nombre: 'A La Vez' };
+    const [a, b] = await Promise.all([recibir().send({ ...base, curso_solicitado: 'Curso 1' }), recibir().send({ ...base, curso_solicitado: 'Curso 2' })]);
+    expect([a.status, b.status].sort()).toEqual([200, 201]);
+    const ids = [a.body.data.matricula_id, b.body.data.matricula_id];
+    expect(ids[0]).toBe(ids[1]);
+    expect((await q('SELECT count(*)::int AS n FROM matriculas WHERE project_id = $1 AND dni = $2', [PROYECTO.id, 'Z1111111A']))[0].n).toBe(1);
+  });
+
+  it('un correo largo (151 a 200 caracteres) ya no hace fallar la solicitud', async () => {
+    const largo = `${'a'.repeat(170)}@${MARCA.toLowerCase()}.test`;
+    const r = await recibir().send({ email: largo });
+    expect(r.status).toBe(201);
+    expect((await matricula(r.body.data.matricula_id)).dedupe_key).toBe(largo);
+  });
+
+  it('borrar la venta NO borra la solicitud de admisión: se queda suelta', async () => {
+    const [l] = await q(`INSERT INTO leads (project_id, nombre, email) VALUES ($1, 'Venta Borrada', $2) RETURNING id`, [PROYECTO.id, correo('venta-borrada')]);
+    const [c] = await q(`INSERT INTO conversions (lead_id, project_id, producto_contratado, importe_total) VALUES ($1, $2, 'Curso X', 100) RETURNING id`, [l.id, PROYECTO.id]);
+    const r = await recibir().send({ nombre: 'Venta Borrada', email: correo('venta-borrada') });
+    expect(r.body.data.conversion_id).toBe(c.id);
+    await q('DELETE FROM conversions WHERE id = $1', [c.id]);
+    const m = await matricula(r.body.data.matricula_id);
+    expect(m).toBeTruthy();
+    expect(m.conversion_id).toBeNull();
+  });
+
+  it('con la app de verdad, un token inventado da 404 SIN leer el envío (antes se leían hasta 25 MB)', async () => {
+    const { default: appReal } = await import('../src/app.js');
+    const r = await supertest(appReal).post('/api/webhook-tokens/receive/matriculas_inventado').send({ email: correo('inventado'), relleno: 'x'.repeat(1024) });
+    expect(r.status).toBe(404);
+    expect(r.body.error).toMatch(/Token/);
+  });
+
+  it('la lista no trae de la base el envío entero (datos_admision), solo la ficha', async () => {
+    const r = await recibir().send({ email: correo('lista-ligera'), nombre: 'Lista Ligera', firma: `data:image/png;base64,${FIRMA_BLANCA.toString('base64')}` });
+    const { matriculas } = await matriculaModel.findAll({ projectId: PROYECTO.id, search: correo('lista-ligera') });
+    const fila = matriculas.find((x) => x.id === r.body.data.matricula_id);
+    expect(fila).toBeTruthy();
+    expect(fila).not.toHaveProperty('datos_admision');
+    expect(fila.lead_nombre).toBe('Lista Ligera');
+  });
+});
+
 describe('el contrato de la lista y la ficha (Diego, 01/10)', () => {
   const ADMIN_ID = { id: null };
   const como = () => ({ Authorization: `Bearer ${jwt.sign({ userId: ADMIN_ID.id, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '5m' })}` });

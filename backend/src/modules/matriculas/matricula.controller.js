@@ -78,23 +78,26 @@ export async function list(req, res, next) {
     // de quien mira (#199, como el resto del CRM).
     const ambito = await proyectosDelAmbito(req);
     const fecha = (v) => (FECHA.test(v || '') ? v : undefined);
-    const data = await model.findAll({
-      ...ambito,
-      estado: req.query.estado,
-      // Los filtros de Diego (#199): campus, curso y fechas (AAAA-MM-DD).
-      campusId: parseInt(req.query.campusId) || undefined,
-      curso: typeof req.query.curso === 'string' && req.query.curso.trim() ? req.query.curso.trim() : undefined,
-      desde: fecha(req.query.desde),
-      hasta: fecha(req.query.hasta),
-      search: req.query.search,
-      page: parseInt(req.query.page) || 1,
-      limit: parseInt(req.query.limit) || 50,
-    });
-    // Las cifras, del ámbito y, si se filtra uno, de ese campus (que cuadren con la lista).
-    const stats = await model.getStats({ ...ambito, campusId: parseInt(req.query.campusId) || null });
-    // Los cursos y los campus del ámbito, para los desplegables de los filtros.
-    const cursos = await model.getCursos(ambito);
-    const campus = await model.getCampus(ambito);
+    // Las cuatro a la vez: no dependen unas de otras.
+    const [data, stats, cursos, campus] = await Promise.all([
+      model.findAll({
+        ...ambito,
+        estado: req.query.estado,
+        // Los filtros de Diego (#199): campus, curso y fechas (AAAA-MM-DD).
+        campusId: parseInt(req.query.campusId) || undefined,
+        curso: typeof req.query.curso === 'string' && req.query.curso.trim() ? req.query.curso.trim() : undefined,
+        desde: fecha(req.query.desde),
+        hasta: fecha(req.query.hasta),
+        search: req.query.search,
+        page: parseInt(req.query.page) || 1,
+        limit: parseInt(req.query.limit) || 50,
+      }),
+      // Las cifras, del ámbito y, si se filtra uno, de ese campus (que cuadren con la lista).
+      model.getStats({ ...ambito, campusId: parseInt(req.query.campusId) || null }),
+      // Los cursos y los campus del ámbito, para los desplegables de los filtros.
+      model.getCursos(ambito),
+      model.getCampus(ambito),
+    ]);
     res.json({ success: true, data: data.matriculas.map(filaDeLaLista), pagination: { total: data.total, page: data.page, limit: data.limit, totalPages: data.totalPages }, stats, cursos, campus });
   } catch (err) { next(err); }
 }

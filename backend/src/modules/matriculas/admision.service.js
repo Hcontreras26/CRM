@@ -47,6 +47,15 @@ const esArchivo = (v) => (v && typeof v === 'object' && !Array.isArray(v) && v._
   || (typeof v === 'string' && /^data:[\w.+/-]+;base64,/i.test(v.trim()));
 
 /**
+ * Para el `titulo` del contrato, que puede ser el archivo o el texto «Título /
+ * Programa»: además de lo anterior, un enlace al archivo (lo normal en Gravity y
+ * Elementor) o una lista de archivos o enlaces (`titulo[]`).
+ */
+const pareceArchivo = (v) => esArchivo(v)
+  || (typeof v === 'string' && /^https?:\/\/\S+$/i.test(v.trim()))
+  || (Array.isArray(v) && v.length > 0 && v.every((x) => x == null || x === '' || pareceArchivo(x)) && v.some(pareceArchivo));
+
+/**
  * Un texto limpio, recortado a lo que cabe en su columna; null si viene vacío.
  * Gravity manda algunos campos compuestos (el nombre como `{ first, last }`, la
  * dirección por partes): se juntan sus partes, en el orden en que llegan.
@@ -171,7 +180,10 @@ export async function recibirAdmision(token, body, archivos = [], opcionesArchiv
   // al número; el CRM ya usaba `titulo` para el texto «Título / Programa» y `dni`
   // para el número. Se aceptan los dos: un `titulo` que es un archivo va como
   // documento, y `documento` vale como `dni`.
-  if (mapeado.titulo_doc == null && esArchivo(mapeado.titulo)) mapeado.titulo_doc = mapeado.titulo;
+  if (mapeado.titulo_doc == null && pareceArchivo(mapeado.titulo)) {
+    mapeado.titulo_doc = mapeado.titulo;
+    delete mapeado.titulo; // no es el texto «Título / Programa»
+  }
   if (mapeado.dni == null && mapeado.documento != null) mapeado.dni = mapeado.documento;
 
   const persona = {};
@@ -193,41 +205,57 @@ export async function recibirAdmision(token, body, archivos = [], opcionesArchiv
     // Sin prospecto la solicitud se guarda igual; se puede vincular después.
     logger.warn({ err: err.message, projectId }, 'Admisión: no se pudo unir ni crear el prospecto');
   }
-  const conversionId = await ventaDe(projectId, prospecto.leadId);
+  let conversionId = await ventaDe(projectId, prospecto.leadId);
+
+  const crear = () => model.create({
+    project_id: projectId,
+    conversion_id: conversionId,
+    lead_id: prospecto.leadId,
+    ...persona,
+    // El envío tal cual llegó (Diego, 01/10), también las imágenes en texto; los
+    // archivos del multipart, como su marca «📎». En la lista no sale (va en la ficha).
+    datos_admision: envio,
+    source: 'webhook',
+    dedupe_key: dedupe,
+    envio_huella: huella,
+    estado: 'solicitud_admision',
+  });
 
   let matricula;
   try {
-    matricula = await model.create({
-      project_id: projectId,
-      conversion_id: conversionId,
-      lead_id: prospecto.leadId,
-      ...persona,
-      // El envío tal cual llegó (Diego, 01/10), también las imágenes en texto; los
-      // archivos del multipart, como su marca «📎». En la lista no sale (va en la ficha).
-      datos_admision: envio,
-      source: 'webhook',
-      dedupe_key: dedupe,
-      envio_huella: huella,
-      estado: 'solicitud_admision',
-    });
+    matricula = await crear();
   } catch (err) {
-    // Dos envíos iguales a la vez: el índice único deja entrar solo uno.
-    if (err.code === '23505') {
-      const otra = await query('SELECT id FROM matriculas WHERE project_id = $1 AND envio_huella = $2', [projectId, huella]);
-      if (otra.rows[0]) return { status: 200, data: { matricula_id: otra.rows[0].id, action: 'duplicate_skipped' } };
+    if (err.code !== '23505') throw err;
+    // Dos envíos a la vez: el índice único deja entrar solo uno, y el otro es
+    // «repetido», no un 500. Puede chocar en la huella (el mismo envío), en el DNI o
+    // correo (la misma persona, con un envío algo distinto) o en la venta (dos
+    // solicitudes del mismo prospecto a la vez: la segunda entra sin venta).
+    if (err.constraint === 'uq_matricula_conversion' && conversionId) {
+      conversionId = null;
+      matricula = await crear();
+    } else {
+      const otra = (await query('SELECT id FROM matriculas WHERE project_id = $1 AND envio_huella = $2', [projectId, huella])).rows[0]
+        || (dedupe ? await model.findByDedupe(projectId, dedupe) : null);
+      if (!otra) throw err;
+      return { status: 200, data: { matricula_id: otra.id, action: 'duplicate_skipped' } };
     }
-    throw err;
   }
+
+  // Los documentos se descargan A LA VEZ (un formulario puede mandar cinco
+  // enlaces: uno detrás de otro, la web daba el envío por fallido esperando) y se
+  // guardan después, de uno en uno, cada uno con su línea del historial.
+  const pendientes = Object.entries(DOCUMENTOS).filter(([destino]) => mapeado[destino] != null && mapeado[destino] !== '');
+  const obtenidos = await Promise.all(pendientes.map(([destino]) => obtenerArchivo(mapeado[destino], archivos, opcionesArchivo)
+    .then((archivo) => ({ archivo }), (error) => ({ error }))));
 
   const guardados = [];
   const rechazados = [];
-  for (const [destino, tipo] of Object.entries(DOCUMENTOS)) {
-    const valor = mapeado[destino];
-    if (valor == null || valor === '') continue;
+  for (let i = 0; i < pendientes.length; i++) {
+    const [destino, tipo] = pendientes[i];
     try {
-      const archivo = await obtenerArchivo(valor, archivos, opcionesArchivo);
-      if (!archivo) continue;
-      await guardarDocumento(matricula, tipo, archivo);
+      if (obtenidos[i].error) throw obtenidos[i].error;
+      if (!obtenidos[i].archivo) continue;
+      await guardarDocumento(matricula, tipo, obtenidos[i].archivo);
       guardados.push(destino);
     } catch (err) {
       const motivo = err.isOperational ? err.message : 'No se ha podido guardar.';

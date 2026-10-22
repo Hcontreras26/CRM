@@ -41,6 +41,26 @@ const CURSO = "COALESCE(m.curso_solicitado, m.datos_admision->>'curso_solicitado
 /** El día de llegada, en hora de Madrid. */
 const DIA_DE_LLEGADA = "(COALESCE(m.webhook_received_at, m.created_at) AT TIME ZONE 'Europe/Madrid')::date";
 
+/**
+ * Las columnas de la matrícula para la LISTA: todas menos `datos_admision`.
+ *
+ * Es el envío entero tal cual llegó (#198), con las imágenes en texto (megas por
+ * solicitud): con `m.*` la lista lo traía de la base en cada fila para tirarlo
+ * después (en el contrato va solo en la ficha). Se leen del catálogo una vez, así
+ * que una columna nueva sale sola. Sin respuesta del catálogo, `m.*` como antes.
+ */
+let columnasDeLaLista = null;
+async function columnasSinElEnvio() {
+  if (columnasDeLaLista) return columnasDeLaLista;
+  const { rows } = await query(
+    `SELECT column_name FROM information_schema.columns
+      WHERE table_schema = current_schema() AND table_name = $1 AND column_name <> 'datos_admision'
+      ORDER BY ordinal_position`, ['matriculas']);
+  if (!rows.length) return 'm.*';
+  columnasDeLaLista = rows.map((r) => `m."${r.column_name}"`).join(', ');
+  return columnasDeLaLista;
+}
+
 export async function findAll({ projectId, projectIds = null, estado, search, campusId, curso, desde, hasta, page = 1, limit = 50 }) {
   const params = [];
   const conditions = [alcance(projectId, projectIds, params)];
@@ -72,8 +92,9 @@ export async function findAll({ projectId, projectIds = null, estado, search, ca
   const { rows: cnt } = await query(
     `SELECT COUNT(*) FROM matriculas m LEFT JOIN leads l ON l.id = m.lead_id LEFT JOIN conversions c ON c.id = m.conversion_id ${where}`, params);
   const total = parseInt(cnt[0].count);
+  const columnas = await columnasSinElEnvio();
   const { rows } = await query(
-    `SELECT m.*,
+    `SELECT ${columnas},
             -- La persona: la del prospecto y, si aún no está vinculada, la del
             -- formulario (contrato de la #198: persona { nombre, email, telefono }).
             COALESCE(l.nombre, m.nombre, m.datos_admision->>'nombre') as lead_nombre,

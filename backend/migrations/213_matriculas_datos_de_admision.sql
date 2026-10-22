@@ -34,4 +34,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_matriculas_envio_huella
 -- Buscar la solicitud de una persona por su correo (vincularla, la firma de Certifex).
 CREATE INDEX IF NOT EXISTS idx_matriculas_email ON matriculas (project_id, lower(email));
 
+-- El correo es la clave de «no repetir» cuando no hay DNI, y su columna admite 200:
+-- con 150, un correo de 151 a 200 caracteres hacía fallar la solicitud entera.
+ALTER TABLE matriculas ALTER COLUMN dedupe_key TYPE VARCHAR(255);
+
+-- Borrar una venta ya no borra su solicitud de admisión. La matrícula nacía de la
+-- venta (019) y caía con ella; ahora llega ANTES, por el webhook, con sus
+-- documentos y su historial, y se une a la venta después. Si la venta se borra
+-- (una equivocada), la solicitud se queda, suelta, y se puede volver a unir.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'matriculas_conversion_id_fkey'
+               AND pg_get_constraintdef(oid) ILIKE '%ON DELETE CASCADE%') THEN
+    ALTER TABLE matriculas DROP CONSTRAINT matriculas_conversion_id_fkey;
+    ALTER TABLE matriculas ADD CONSTRAINT matriculas_conversion_id_fkey
+      FOREIGN KEY (conversion_id) REFERENCES conversions(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
 COMMIT;

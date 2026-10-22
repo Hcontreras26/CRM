@@ -1,4 +1,6 @@
-import dns from 'node:dns/promises';
+import dns from 'node:dns';
+import http from 'node:http';
+import https from 'node:https';
 import net from 'node:net';
 import { AppError } from '../../shared/utils/AppError.js';
 
@@ -63,59 +65,97 @@ function desdeTexto(texto) {
 
 // ── URL ───────────────────────────────────────────────────────────────────────
 
+/**
+ * Las direcciones a las que no se descarga nunca: la red interna, el propio
+ * equipo, los metadatos de la nube y los rangos reservados. Con `BlockList` y no
+ * comparando texto: una IPv4 escrita como IPv6 (`::ffff:7f00:1` es 127.0.0.1, y
+ * así la escribe el navegador) se colaba por la comprobación anterior.
+ */
+const PROHIBIDAS = new net.BlockList();
+for (const [ip, mascara] of [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
+  ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
+  ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 4], ['240.0.0.0', 4],
+]) PROHIBIDAS.addSubnet(ip, mascara, 'ipv4');
+for (const [ip, mascara] of [
+  ['::', 127], // :: y ::1
+  ['::', 96], // IPv4 «compatible» (::7f00:1)
+  ['64:ff9b::', 96], ['64:ff9b:1::', 48], // NAT64: una IPv4 dentro
+  ['100::', 64], ['2001::', 23], ['2001:db8::', 32], ['2002::', 16], // reservadas, Teredo, 6to4
+  ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8],
+]) PROHIBIDAS.addSubnet(ip, mascara, 'ipv6');
+
 /** ¿Es una dirección de la red interna, del propio equipo o de servicio? */
 export function ipPrivada(ip) {
-  if (net.isIPv4(ip)) {
-    const [a, b] = ip.split('.').map(Number);
-    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
-      || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
-  }
-  const v6 = ip.toLowerCase();
-  if (v6.startsWith('::ffff:')) return ipPrivada(v6.slice(7));
-  return v6 === '::' || v6 === '::1' || v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80');
+  const familia = net.isIP(ip);
+  if (!familia) return true; // lo que no es una IP no se da por buena
+  // Las IPv4 escritas como IPv6 (::ffff:a.b.c.d) las compara BlockList con las reglas IPv4.
+  return PROHIBIDAS.check(ip, familia === 4 ? 'ipv4' : 'ipv6');
 }
 
-async function urlPublica(url) {
+/** La URL, si es http(s) y su servidor escrito como IP no es interno. */
+function urlValida(url) {
   let u;
   try { u = new URL(url); } catch { throw rechazo('La dirección del archivo no es válida.'); }
   if (!['http:', 'https:'].includes(u.protocol)) throw rechazo('La dirección del archivo tiene que ser http o https.');
-  const host = u.hostname.replace(/^\[|\]$/g, '');
-  const ips = net.isIP(host) ? [host] : (await dns.lookup(host, { all: true }).catch(() => [])).map((r) => r.address);
-  if (!ips.length) throw rechazo('No se encuentra el servidor del archivo.');
-  if (ips.some(ipPrivada)) throw rechazo('La dirección del archivo no es pública.');
   return u;
 }
 
 /**
- * Descarga un archivo de una URL pública. `opciones.fetch` y
- * `opciones.permitirRedLocal` son para las pruebas (un servidor en 127.0.0.1).
+ * Resolver el nombre Y conectar a esa misma IP. Antes se resolvía para comprobar
+ * y `fetch` volvía a resolver al conectar: un dominio preparado podía contestar
+ * una IP pública la primera vez y 127.0.0.1 la segunda.
  */
-export async function desdeUrl(url, { fetch: fetchImpl = globalThis.fetch, permitirRedLocal = false } = {}) {
-  let actual = url;
+const resolverPublica = (permitirRedLocal) => (hostname, opciones, listo) => {
+  dns.lookup(hostname, { all: true }, (err, direcciones) => {
+    if (err || !direcciones?.length) return listo(rechazo('No se encuentra el servidor del archivo.'));
+    if (!permitirRedLocal && direcciones.some((d) => ipPrivada(d.address))) return listo(rechazo('La dirección del archivo no es pública.'));
+    if (opciones?.all) return listo(null, direcciones);
+    return listo(null, direcciones[0].address, direcciones[0].family);
+  });
+};
+
+/** Un GET, sin seguir redirecciones: { status, location, cuerpo } (el cuerpo, ya leído con su tope). */
+function pedir(u, permitirRedLocal) {
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  if (net.isIP(host) && !permitirRedLocal && ipPrivada(host)) return Promise.reject(rechazo('La dirección del archivo no es pública.'));
+  const cliente = u.protocol === 'https:' ? https : http;
+  return new Promise((ok, mal) => {
+    const req = cliente.get(u, { lookup: resolverPublica(permitirRedLocal), timeout: TIEMPO_MAX_MS, headers: { 'User-Agent': 'CRM-Admision/1.0' } }, (res) => {
+      const status = res.statusCode || 0;
+      if (status >= 300 && status < 400) { res.resume(); return ok({ status, location: res.headers.location }); }
+      if (status < 200 || status >= 300) { res.resume(); return ok({ status }); }
+      if (Number(res.headers['content-length']) > MAX_BYTES) { res.destroy(); return mal(rechazo('El archivo pasa de 10 MB.')); }
+      const partes = [];
+      let total = 0;
+      res.on('data', (parte) => {
+        total += parte.length;
+        if (total > MAX_BYTES) { res.destroy(); mal(rechazo('El archivo pasa de 10 MB.')); return; }
+        partes.push(parte);
+      });
+      res.on('end', () => ok({ status, cuerpo: Buffer.concat(partes) }));
+      res.on('error', () => mal(rechazo('No se ha podido descargar el archivo.')));
+    });
+    req.on('timeout', () => req.destroy(rechazo('No se ha podido descargar el archivo.')));
+    req.on('error', (err) => mal(err?.isOperational ? err : rechazo('No se ha podido descargar el archivo.')));
+  });
+}
+
+/**
+ * Descarga un archivo de una URL pública. `opciones.permitirRedLocal` es para
+ * las pruebas (un servidor en 127.0.0.1).
+ */
+export async function desdeUrl(url, { permitirRedLocal = false } = {}) {
+  let actual = urlValida(url);
   for (let salto = 0; salto <= MAX_REDIRECCIONES; salto++) {
-    if (!permitirRedLocal) await urlPublica(actual);
-    else if (!/^https?:\/\//i.test(actual)) throw rechazo('La dirección del archivo tiene que ser http o https.');
-    let res;
-    try {
-      res = await fetchImpl(actual, { redirect: 'manual', signal: AbortSignal.timeout(TIEMPO_MAX_MS) });
-    } catch {
-      throw rechazo('No se ha podido descargar el archivo.');
-    }
-    if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+    const res = await pedir(actual, permitirRedLocal);
+    if (res.status >= 300 && res.status < 400 && res.location) {
       // Cada salto se vuelve a comprobar: una dirección pública puede redirigir a una interna.
-      actual = new URL(res.headers.get('location'), actual).toString();
+      actual = urlValida(new URL(res.location, actual).toString());
       continue;
     }
-    if (!res.ok) throw rechazo(`El servidor del archivo contestó ${res.status}.`);
-    if (Number(res.headers.get('content-length')) > MAX_BYTES) throw rechazo('El archivo pasa de 10 MB.');
-    const partes = [];
-    let total = 0;
-    for await (const parte of res.body) {
-      total += parte.length;
-      if (total > MAX_BYTES) throw rechazo('El archivo pasa de 10 MB.');
-      partes.push(Buffer.from(parte));
-    }
-    return Buffer.concat(partes);
+    if (res.status < 200 || res.status >= 300) throw rechazo(`El servidor del archivo contestó ${res.status}.`);
+    return res.cuerpo;
   }
   throw rechazo('Demasiadas redirecciones al descargar el archivo.');
 }

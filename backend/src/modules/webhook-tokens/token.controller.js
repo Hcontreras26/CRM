@@ -112,7 +112,8 @@ export async function getStatus(req, res, next) {
 // PUBLICO: recibe payload via webhook token, crea entidad segun kind
 export async function publicReceive(req, res, next) {
   try {
-    const tok = await model.findByToken(req.params.token);
+    // Ya lo buscó el portero (portero.js) antes de leer el envío; si se llega sin él, se busca aquí.
+    const tok = req.webhookToken || await model.findByToken(req.params.token);
     if (!tok) throw new AppError('Token invalido o inactivo', 404, 'INVALID_TOKEN');
 
     // Modo escucha: capturar payload sin procesar

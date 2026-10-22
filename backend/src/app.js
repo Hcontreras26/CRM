@@ -89,6 +89,7 @@ import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
 import { startTasksDailySummaryScheduler } from './jobs/tasksDailySummaryJob.js';
 import { startFacturasColaboradorScheduler } from './jobs/facturasColaboradorJob.js';
 import { tareasActivas, facturasColaboradorActivas } from './shared/config/soloEnPruebas.js';
+import { porteroDelWebhook } from './modules/webhook-tokens/portero.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -118,7 +119,9 @@ app.use('/api/whatsapp/webhook', express.json({ limit: '25mb' }));
 // El webhook de admisión (#198): el formulario puede mandar los documentos como
 // imagen en texto (DNI por las dos caras, foto, título, firma), y con 5 MB se
 // perdía la solicitud entera. Solo esta ruta, y los mismos 25 MB que Nginx.
-app.use('/api/webhook-tokens/receive', express.json({ limit: '25mb' }), express.urlencoded({ extended: true, limit: '25mb' }));
+// Antes de leerlo, el portero: el token tiene que existir (si no, se leían 25 MB
+// para nada con cualquier token inventado).
+app.use('/api/webhook-tokens/receive/:token', porteroDelWebhook, express.json({ limit: '25mb' }), express.urlencoded({ extended: true, limit: '25mb' }));
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));  // Elementor envía form-encoded
