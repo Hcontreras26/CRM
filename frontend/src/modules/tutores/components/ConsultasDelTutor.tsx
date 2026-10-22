@@ -9,6 +9,7 @@ import { inputClass } from '@/shared/lib/ui';
 import {
   campusTutorApi, type CampusDelTutor, type EstadoMatricula, type PanelCampusTutor,
 } from '../api/campusTutor.api';
+import { consultasApi } from '@/modules/consultas/api/consultas.api';
 
 /*
   Consultas de alumnos, fase 1 (#187), en la ficha del tutor:
@@ -50,6 +51,36 @@ export default function ConsultasDelTutor({ tutorId, puedeGestionar }: { tutorId
   const [campusNuevo, setCampusNuevo] = useState<number | null>(null);
   const [empresaNueva, setEmpresaNueva] = useState<number | null>(null);
   const [motivo, setMotivo] = useState('');
+  // #188: el token del tutor en cada campus, para que la respuesta salga en su nombre.
+  const [tokens, setTokens] = useState<Array<{ project_id: number; campus: string; estado: string | null; tiene_token: boolean }>>([]);
+  const [campusToken, setCampusToken] = useState<number | null>(null);
+  const [token, setToken] = useState('');
+
+  useEffect(() => {
+    if (!puedeGestionar) return;
+    consultasApi.tokensDelTutor(tutorId).then((r) => { if (r.success && r.data) setTokens(r.data); }).catch(() => {});
+  }, [tutorId, puedeGestionar, panel]);
+
+  async function guardarToken(quitar = false) {
+    if (!campusToken) return;
+    if (!quitar && !token.trim()) {
+      toast({ title: 'Falta el token', description: 'Pégalo en «Token del tutor en ese campus».', variant: 'destructive' });
+      return;
+    }
+    setOcupado(true);
+    try {
+      const r = await consultasApi.guardarToken(tutorId, campusToken, quitar ? null : token.trim());
+      if (r.success) {
+        toast({ title: quitar ? 'Token quitado' : 'Token guardado', description: quitar ? '' : 'Sus respuestas saldrán en su nombre en ese campus.' });
+        setToken('');
+        const t = await consultasApi.tokensDelTutor(tutorId);
+        if (t.success && t.data) setTokens(t.data);
+      }
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string }; message?: string };
+      toast({ title: 'No se ha podido guardar', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally { setOcupado(false); }
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -211,6 +242,46 @@ export default function ConsultasDelTutor({ tutorId, puedeGestionar }: { tutorId
               )}
             </span>
           ))}
+        </div>
+      )}
+
+      {puedeGestionar && tokens.some((t) => t.estado === 'activa') && (
+        // #188: para que su respuesta salga en su nombre en el campus hace falta
+        // SU token de ese Moodle (con un token común saldría firmada por otro).
+        <div className="rounded-md border border-border p-3 space-y-2">
+          <p className="text-sm font-semibold">Responder en su nombre</p>
+          <ul className="flex flex-wrap gap-2 text-xs" aria-label="Token del tutor por campus">
+            {tokens.filter((t) => t.estado === 'activa').map((t) => (
+              <li key={t.project_id} className={`rounded px-1.5 py-0.5 font-semibold ${t.tiene_token ? 'bg-success-soft text-success-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'}`}>
+                {t.campus}: {t.tiene_token ? 'token puesto' : 'falta su token'}
+              </li>
+            ))}
+          </ul>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.4fr_auto] sm:items-end">
+            <Field label="Campus">
+              <Select<number | null>
+                value={campusToken}
+                onChange={setCampusToken}
+                ariaLabel="Campus del token"
+                options={[{ value: null, label: 'Elige el campus…' },
+                  ...tokens.filter((t) => t.estado === 'activa').map((t) => ({ value: t.project_id, label: t.campus }))]}
+              />
+            </Field>
+            <Field label="Token del tutor en ese campus" htmlFor={`token-tutor-${tutorId}`}>
+              <input id={`token-tutor-${tutorId}`} type="password" value={token} onChange={(e) => setToken(e.target.value)}
+                autoComplete="off" placeholder="El token de su usuario en el Moodle" className={`${inputClass} font-mono`} />
+            </Field>
+            <div className="flex gap-2">
+              <Button size="sm" disabled={ocupado || !campusToken} onClick={() => guardarToken(false)}>Guardar</Button>
+              {tokens.find((t) => t.project_id === campusToken)?.tiene_token && (
+                <Button size="sm" variant="outline" disabled={ocupado} onClick={() => guardarToken(true)}>Quitar</Button>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            En el Moodle: <strong>Administración del sitio → Servidor → Servicios web → Administrar tokens → Crear token</strong>,
+            para su usuario y el servicio del CRM (con <code>core_message_send_instant_messages</code>). Su rol necesita el permiso <code>webservice/rest:use</code>.
+          </p>
         </div>
       )}
 

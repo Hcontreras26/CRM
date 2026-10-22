@@ -248,6 +248,8 @@ export const NAV_SECTIONS = [
       { label: 'Tutores', to: '/tutores', detail: 'Quién imparte qué', icon: GraduationCap, roles: ['superadmin', 'admin'], module: 'tutores' },
       // Lo unico que ve un tutor: sus cursos y lo que le corresponde.
       { label: 'Mis cursos', to: '/mis-cursos', detail: 'Tus cursos y tu parte', icon: GraduationCap, roles: ['tutor'] },
+      // Consultas de alumnos (#188): el tutor, su bandeja; administración, todas.
+      { label: 'Consultas', to: '/consultas', detail: 'Las dudas de los alumnos', icon: ChatCircleText, roles: ['superadmin', 'admin', 'tutor'], module: 'tutores', statusTag: 'Pruebas' },
       { label: 'Sin tutor', to: '/tutores/sin-tutor', detail: 'Formaciones sin asignar', icon: Warning, roles: ['superadmin', 'admin'], module: 'tutores' },
       { label: 'Comisiones', to: '/tutores/comisiones', detail: 'Lo que se les debe', icon: Coins, roles: ['superadmin', 'admin'], module: 'tutores' },
     ],
