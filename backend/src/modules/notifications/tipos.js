@@ -138,6 +138,13 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Claude pide conectarse', agrupa: false,
     descripcion: 'Un Claude se ha conectado con tu URL del MCP y espera a que lo autorices',
   },
+  // MCP (Diego, 22/10): tu Claude consulta con la URL sola, conectado como antes
+  // de la #326, y el CRM no le da datos. Hay que conectarlo una vez. Como mucho
+  // uno al día por URL (mcp.conexiones.js).
+  mcp_conector_antiguo: {
+    clase: ACCION, etiqueta: 'Conectar Claude una vez', agrupa: false,
+    descripcion: 'Tu Claude intenta consultar con tu URL del MCP sin haber iniciado sesión y hay que conectarlo una vez',
+  },
   task_aprobada: {
     clase: AVISO, etiqueta: 'Tarea aprobada', agrupa: false,
     descripcion: 'Cuando aprueban una tarea tuya y pasa a «Hecha»',
