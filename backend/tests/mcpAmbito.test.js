@@ -157,6 +157,7 @@ const ARGS = {
   cuentas_publicitarias: {},
   resumen_publicidad: { desde: '2026-09-01', hasta: '2026-09-30' },
   campanas_publicitarias: { desde: '2026-09-01', hasta: '2026-09-30', limite: 50 },
+  actividad_por_comercial: { desde: '2026-09-30', hasta: '2026-09-30' },
 };
 
 const ejecutarTodas = async (ambito, extra = {}, omitir = []) => {
@@ -249,6 +250,18 @@ describe('cada consulta va acotada a los campus de la persona', () => {
         expect(consultas.length).toBeGreaterThan(0);
         for (const { params } of consultas) expect(params).toContain(7);
       }
+    }
+  });
+
+  it('actividad_por_comercial: a una gestora se le impone su id en los contactos y en los WhatsApp', async () => {
+    // La prueba de arriba deja fuera las consultas de `lead_interactions`;
+    // esta mira las de la actividad (#203).
+    consultas.length = 0;
+    await HERRAMIENTAS.find((h) => h.nombre === 'actividad_por_comercial').ejecutar(ambitoDe('gestor'), ARGS.actividad_por_comercial);
+    expect(consultas.length).toBe(3);
+    for (const { sql, params } of consultas) {
+      expect(sql).toMatch(/li\.created_by = \$\d|m\.enviado_por = \$\d/);
+      expect(params).toContain(7);
     }
   });
 

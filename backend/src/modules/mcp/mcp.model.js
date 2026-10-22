@@ -1189,3 +1189,114 @@ export async function campanasPublicitarias({ projectIds, desde, hasta, limite =
     campanas: filas,
   };
 }
+
+// ─── Actividad por comercial (#203, parte A) ──────────────────────────────
+//
+// Ficha de Diego del 07/10. Cada contacto cuenta para QUIÉN LO HIZO
+// (`lead_interactions.created_by`), no para la dueña de la ficha: una llamada
+// de Ana a un prospecto de Dayana es actividad de Ana. El día se corta a
+// medianoche de Madrid. Las notas no son contactos: se dan aparte y no entran
+// en «toques» ni en «personas» (contarlas inflaba «Trabajo hecho»: 729
+// contactos cuando eran 312). Sin fichas borradas; los campus de pruebas ya no
+// están en el ámbito.
+
+/** «Hoy» en Madrid, AAAA-MM-DD. */
+export const hoyEnMadrid = (ahora = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(ahora);
+
+/** «Ayer» en Madrid, AAAA-MM-DD. */
+export function ayerEnMadrid(ahora = new Date()) {
+  const d = new Date(`${hoyEnMadrid(ahora)}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export async function actividadPorComercial({ projectIds, responsableId = null, desde, hasta }) {
+  const f = condiciones('l.project_id', projectIds);
+  f.cond.push('l.deleted_at IS NULL');
+  // Quien solo ve lo suyo se ve a sí misma: sus contactos, en la ficha que sea.
+  if (responsableId) f.add('li.created_by = ?', responsableId);
+  f.add(`${fechaLocal('li.fecha')} >= ?::date`, desde);
+  f.add(`${fechaLocal('li.fecha')} <= ?::date`, hasta);
+  const { rows: contactos } = await query(
+    `SELECT u.id AS user_id, u.nombre AS comercial,
+            COUNT(*) FILTER (WHERE li.tipo = 'llamada')::int  AS llamadas,
+            COUNT(*) FILTER (WHERE li.tipo = 'whatsapp')::int AS whatsapp,
+            COUNT(*) FILTER (WHERE li.tipo = 'email')::int    AS correos,
+            COUNT(*) FILTER (WHERE li.tipo = 'nota')::int     AS notas,
+            COUNT(DISTINCT li.lead_id) FILTER (WHERE li.tipo <> 'nota')::int AS personas,
+            COUNT(*) FILTER (WHERE li.tipo <> 'nota')::int    AS toques
+       FROM lead_interactions li
+       JOIN leads l ON l.id = li.lead_id
+       JOIN users u ON u.id = li.created_by
+      ${f.where()}
+      GROUP BY u.id, u.nombre`,
+    f.params
+  );
+  // «Personas» del equipo no es la suma: dos comerciales pueden haber tocado a
+  // la misma persona.
+  const { rows: [eq] } = await query(
+    `SELECT COUNT(DISTINCT li.lead_id) FILTER (WHERE li.tipo <> 'nota')::int AS personas
+       FROM lead_interactions li
+       JOIN leads l ON l.id = li.lead_id
+      ${f.where()}`,
+    f.params
+  );
+
+  // WhatsApp escrito y por voz (la issue: «sacados de `wa_mensajes`, que ya se
+  // calcula para el equipo (#128)»). Las mismas reglas que `seguimientoYTiempos`:
+  // solo lo SALIENTE (lo que hace la gestora, no lo que le mandan), «texto» es
+  // escrito y «audio» es voz. Cuenta para quien lo mandó (`enviado_por`); lo que
+  // no tiene autora va a «Sin asignar», para que el total cuadre (#128).
+  const w = condiciones('l.project_id', projectIds);
+  w.cond.push('l.deleted_at IS NULL', `m.direccion = 'saliente'`);
+  if (responsableId) w.add('m.enviado_por = ?', responsableId);
+  w.add(`${fechaLocal('m.ts')} >= ?::date`, desde);
+  w.add(`${fechaLocal('m.ts')} <= ?::date`, hasta);
+  const { rows: mensajes } = await query(
+    `SELECT m.enviado_por AS user_id, u.nombre AS comercial,
+            COUNT(*) FILTER (WHERE m.tipo = 'texto')::int AS whatsapp_texto,
+            COUNT(*) FILTER (WHERE m.tipo = 'audio')::int AS whatsapp_voz
+       FROM wa_mensajes m
+       JOIN wa_conversaciones c ON c.id = m.conversacion_id
+       JOIN leads l ON l.id = c.lead_id
+       LEFT JOIN users u ON u.id = m.enviado_por
+      ${w.where()}
+      GROUP BY m.enviado_por, u.nombre`,
+    w.params
+  ).catch((err) => {
+    // Sin las tablas de WhatsApp (un CRM donde no se ha instalado), sin desglose.
+    if (err.code !== '42P01') throw err;
+    return { rows: [] };
+  });
+
+  const CERO = { llamadas: 0, whatsapp: 0, whatsapp_texto: 0, whatsapp_voz: 0, correos: 0, notas: 0, personas: 0, toques: 0 };
+  const porPersona = new Map();
+  const de = (id, comercial) => {
+    if (!porPersona.has(id)) porPersona.set(id, { comercial: comercial || 'Sin asignar', ...CERO });
+    return porPersona.get(id);
+  };
+  for (const { user_id: id, comercial, ...n } of contactos) Object.assign(de(id, comercial), n);
+  for (const m of mensajes) {
+    const fila = de(m.user_id, m.comercial);
+    fila.whatsapp_texto = m.whatsapp_texto;
+    fila.whatsapp_voz = m.whatsapp_voz;
+  }
+  const filas = [...porPersona.values()].filter((r) => r.toques + r.notas + r.whatsapp_texto + r.whatsapp_voz > 0)
+    .sort((a, b) => b.llamadas - a.llamadas || b.toques - a.toques || a.comercial.localeCompare(b.comercial, 'es'));
+  const suma = (k) => filas.reduce((s, r) => s + r[k], 0);
+  return {
+    desde,
+    hasta,
+    filas,
+    equipo: {
+      llamadas: suma('llamadas'),
+      whatsapp: suma('whatsapp'),
+      whatsapp_texto: suma('whatsapp_texto'),
+      whatsapp_voz: suma('whatsapp_voz'),
+      correos: suma('correos'),
+      notas: suma('notas'),
+      personas: eq ? eq.personas : 0,
+      toques: suma('toques'),
+    },
+  };
+}

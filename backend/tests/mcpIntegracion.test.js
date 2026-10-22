@@ -249,7 +249,8 @@ describe('el protocolo, con la base de verdad', () => {
     // 13 desde el 01/10: «listar_tutores», «comisiones_tutores» y «formaciones_sin_tutor».
     // 16 desde el 06/10 (#215): «listar_formaciones», «resumen_catalogo» y «ver_formacion».
     // 19 desde #235: «cuentas_publicitarias», «resumen_publicidad» y «campanas_publicitarias».
-    expect(list.body.result.tools.length).toBe(19);
+    // 20 desde #203 (parte A): «actividad_por_comercial».
+    expect(list.body.result.tools.length).toBe(20);
     expect(list.body.result.tools.map((t) => t.name)).toEqual(expect.arrayContaining(['listar_formaciones', 'resumen_catalogo', 'ver_formacion']));
   });
 

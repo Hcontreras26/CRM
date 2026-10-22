@@ -406,6 +406,33 @@ export const HERRAMIENTAS = [
       return model.campanasPublicitarias({ projectIds, desde: a.desde, hasta: a.hasta, limite: a.limite });
     },
   },
+  // Actividad por comercial (#203, parte A; ficha de Diego del 07/10). La usan
+  // todos los roles con MCP: a quien solo ve lo suyo se le impone su id y se
+  // ve a sí misma.
+  {
+    nombre: 'actividad_por_comercial',
+    titulo: 'Actividad por comercial',
+    descripcion: 'Llamadas, WhatsApp y correos registrados en el CRM por cada comercial en un periodo, contados por quien los registró '
+      + '(también en fichas de otra), con el día de Madrid. «personas» son las distintas que contactó y «toques», los contactos. '
+      + 'Las notas internas no son contactos: van aparte y no cuentan en «toques» ni en «personas». '
+      + '«whatsapp» son los WhatsApp apuntados como contacto (los que suman en «toques»); «whatsapp_texto» y «whatsapp_voz» son los mensajes '
+      + 'que salieron por WhatsApp, escritos y en nota de voz; los que no tienen autora salen en «Sin asignar». '
+      + 'Sin fechas, el día de ayer. Las llamadas son las REGISTRADAS en el CRM: las apuntadas a mano y las que entraron por WhatsApp '
+      + 'a su línea (también perdidas o rechazadas); las del móvil que no se apuntan no están. Dilo así («llamadas registradas»), '
+      + 'no como que las hizo ella. '
+      + 'Ejemplo: «Ayer, Victoria hizo 4 llamadas, Malena 3 y el resto ninguna registrada». '
+      + 'Quien no es super admin ni admin solo se ve a sí misma.',
+    entrada: { ...AMBITO, ...PERIODO },
+    ejecutar: async (ambito, a) => {
+      const { projectIds, responsableId } = acotar(ambito, a);
+      const desde = a.desde || a.hasta || model.ayerEnMadrid();
+      const hasta = a.hasta || (a.desde ? model.hoyEnMadrid() : desde);
+      if (desde > hasta) {
+        throw new AppError(`«desde» (${desde}) es posterior a «hasta» (${hasta}).`, 400, 'MCP_PERIODO_AL_REVES');
+      }
+      return model.actividadPorComercial({ projectIds, responsableId, desde, hasta });
+    },
+  },
   {
     nombre: 'informe',
     titulo: 'Informe del CRM',
