@@ -4,6 +4,9 @@ import express from 'express';
 import supertest from 'supertest';
 import sharp from 'sharp';
 import jwt from 'jsonwebtoken';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 /**
  * El webhook de admisión (#198), contra la base de verdad.
@@ -17,6 +20,13 @@ import jwt from 'jsonwebtoken';
  *   docker compose -f docker-compose.dev.yml up -d && npm run db:preparar
  *   npx vitest run tests/webhookAdmision.test.js
  */
+
+// Los documentos se guardan de verdad (se mira la firma transparente), en una
+// carpeta propia que se borra al acabar. Sin esto iban a /var/crm-uploads, que en
+// la CI de GitHub (Linux) no se puede escribir: «No se ha podido guardar».
+// Antes de importar nada: el almacenamiento lee la carpeta al cargarse.
+const CARPETA = fs.mkdtempSync(path.join(os.tmpdir(), 'webhook-admision-'));
+process.env.UPLOADS_DIR = CARPETA;
 
 const { default: pool } = await import('../src/shared/config/db.js');
 const { default: webhookTokens } = await import('../src/modules/webhook-tokens/index.js');
@@ -67,6 +77,7 @@ beforeAll(async () => {
 }, 60000);
 
 afterAll(async () => {
+  fs.rmSync(CARPETA, { recursive: true, force: true });
   await q(`DELETE FROM matriculas WHERE project_id = $1`, [PROYECTO.id]);
   await q(`DELETE FROM conversions WHERE project_id = $1`, [PROYECTO.id]);
   await q(`DELETE FROM leads WHERE project_id = $1`, [PROYECTO.id]);
