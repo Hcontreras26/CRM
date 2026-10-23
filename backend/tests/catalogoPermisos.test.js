@@ -1,3 +1,4 @@
+import { EN_EL_SERVIDOR } from '../src/modules/permissions/inventario/en-uso-antes.js';
 import { describe, it, expect, beforeAll } from 'vitest';
 
 /**
@@ -76,7 +77,8 @@ describe('el catálogo de permisos (#423)', () => {
   });
 
   it('las claves que ya se aplicaban conservan sus valores de serie', () => {
-    const APLICADAS = ['facturas_colaborador', 'diplomas.view', 'tasks', 'conversions.sin_gestora', 'leads.delete'];
+    // Las que ya miraba el servidor (en-uso-antes.js, con `diplomas.emit` desde el 22/10).
+    const APLICADAS = EN_EL_SERVIDOR.map((p) => p.replace(/\.%$/, ''));
     const cambian = [];
     for (const [rol, valores] of Object.entries(legado.DEFAULTS_ANTES)) {
       if (!valores) continue;

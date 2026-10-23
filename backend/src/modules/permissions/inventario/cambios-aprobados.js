@@ -113,6 +113,13 @@ export const CAMBIOS_POR_DATOS = [
     aprobadoPor: null,
   },
   {
+    id: 'pantalla-y-servidor',
+    que: 'Lo que se le dio o se le quitó a alguien (excepción o rol a medida) sobre una clave que antes solo miraba la pantalla —asignar, crear o editar prospectos, editar ventas, crear, editar o borrar productos, sincronizar WooCommerce— ahora vale también en el servidor.',
+    motivo: 'Antes ese valor solo enseñaba o escondía el botón; la ruta miraba el rol. Diego (QA, punto 5): no se archiva ninguna clave en uso. Se quedan, y desde #423 la ruta y el botón dicen lo mismo.',
+    explica: ({ antes, despuesSin }) => despuesSin('sinClavesDePantalla') === antes,
+    aprobadoPor: null,
+  },
+  {
     id: 'superadmin-todo',
     que: 'El superadmin lo puede todo, también lo que una casilla o una regla suelta le quitaba (su WhatsApp apagado, el correo de «Mi perfil»).',
     motivo: 'En el catálogo el superadmin no tiene excepciones.',

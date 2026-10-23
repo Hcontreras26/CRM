@@ -64,7 +64,7 @@ beforeAll(async () => {
   await q(`INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES ($1, 'users', 'view', true), ($1, 'diplomas', 'view', true)`, [g.id]);
   // Un rol a medida con lo mismo en su JSON.
   [rolMedida] = await q(`INSERT INTO custom_roles (label, base_role, permissions) VALUES ($1, 'gestor', $2) RETURNING id`,
-    [`${MARCA} medida`, JSON.stringify({ 'leads.export': true, 'tasks.close': true })]);
+    [`${MARCA} medida`, JSON.stringify({ 'leads.export': true, 'reports.view': true, 'tasks.close': true })]);
 
   await pasarLa222();
   await pasarLa222(); // dos veces: no repite nada
@@ -111,10 +111,10 @@ describe('migración 222: las casillas, como excepciones (#423)', () => {
       .toEqual([{ clave: 'users.view', valor: true }]);
   });
 
-  it('en un rol a medida, igual: fuera lo que no hacía nada, dentro lo de Tareas', async () => {
+  it('en un rol a medida, igual: fuera lo que no hacía nada; dentro lo de Tareas y lo que miraba la pantalla (punto 5)', async () => {
     const [cr] = await q('SELECT permissions FROM custom_roles WHERE id = $1', [rolMedida.id]);
-    expect(cr.permissions).toEqual({ 'tasks.close': true });
+    expect(cr.permissions).toEqual({ 'leads.export': true, 'tasks.close': true });
     expect(await q(`SELECT clave, valor FROM permisos_inertes_archivo WHERE custom_role_id = $1`, [rolMedida.id]))
-      .toEqual([{ clave: 'leads.export', valor: true }]);
+      .toEqual([{ clave: 'reports.view', valor: true }]);
   });
 });

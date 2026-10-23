@@ -37,6 +37,10 @@ const inv = await import('../src/modules/permissions/inventario/index.js');
 const { perfilDesdeFilas } = await import('../src/modules/permissions/inventario/legado.js');
 const { cambioPrevisto, CAMBIOS, CAMBIOS_POR_DATOS } = await import('../src/modules/permissions/inventario/cambios-aprobados.js');
 const { resolverPermisos } = await import('../src/modules/permissions/resolver.js');
+const { soloEnLaPantallaAntes } = await import('../src/modules/permissions/inventario/en-uso-antes.js');
+
+/** Sin lo guardado sobre claves que antes solo miraba la pantalla. */
+const sinPantalla = (o) => Object.fromEntries(Object.entries(o || {}).filter(([k]) => !soloEnLaPantallaAntes(k)));
 
 /** Todas las personas activas, con lo de antes (casillas, excepciones) y lo de ahora. */
 export async function leerPersonas(client) {
@@ -92,12 +96,13 @@ export async function leerPersonasAntesDeLa222(client) {
 
 /** El mapa de ahora de una persona, con alguna parte deshecha para explicar diferencias. */
 function mapaDeAhora(p, variante = null) {
-  const custom = p.custom_role && variante === 'rolAMedidaActivo' ? { ...p.custom_role, active: true } : p.custom_role;
+  let custom = p.custom_role && variante === 'rolAMedidaActivo' ? { ...p.custom_role, active: true } : p.custom_role;
+  if (custom && variante === 'sinClavesDePantalla') custom = { ...custom, permissions: sinPantalla(custom.permissions) };
   return resolverPermisos({
     role: p.role,
     roles_extra: variante === 'sinRolesDeMas' ? [] : p.roles_extra,
     customRole: custom,
-    excepciones: p.excepciones,
+    excepciones: variante === 'sinClavesDePantalla' ? sinPantalla(p.excepciones) : p.excepciones,
     ajustesRol: p.ajustesRol,
   }).mapa;
 }

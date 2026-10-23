@@ -81,6 +81,10 @@ beforeAll(async () => {
   await persona('gestor', { excepciones: { 'facturas_colaborador.ver_todas': true } });
   await persona('gestor', { excepciones: { 'users.view': true, 'reports.view': true } }); // no surtían efecto
   await persona('admin', { excepciones: { 'tasks.close': false } });
+  // Claves que antes solo miraba la pantalla (punto 5): se quedan y ahora valen
+  // también en el servidor (cambio `pantalla-y-servidor`).
+  await persona('gestor', { excepciones: { 'leads.assign': true, 'leads.export': true } });
+  await persona('admin', { excepciones: { 'products.delete': false } });
 
   // El «antes», tal cual, antes de pasar nada (lo que hace --simular).
   antes = await leerPersonas(m.cliente);
@@ -111,6 +115,13 @@ describe('antes y después de #423, persona por persona (#423)', () => {
   it('compara a todo el equipo de prueba', () => {
     const suyas = resultado.personas.filter((p) => ids.users.includes(p.id));
     expect(suyas.length).toBe(ids.users.length);
+  });
+
+  it('lo que solo miraba la pantalla y ahora mira también el servidor sale en la lista (punto 5)', () => {
+    const ids5 = resultado.diferencias.filter((d) => ids.users.includes(d.persona.id) && d.cambio?.id === 'pantalla-y-servidor')
+      .map((d) => `${d.persona.role} ${d.antes ? 'pierde' : 'gana'} ${d.fila.id}`);
+    expect(ids5.some((x) => x.startsWith('gestor gana') && x.includes('/leads'))).toBe(true);
+    expect(ids5.some((x) => x.startsWith('admin pierde') && x.includes('/products'))).toBe(true);
   });
 
   it('toda diferencia la explica un cambio aprobado', () => {
