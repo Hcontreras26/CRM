@@ -22,6 +22,10 @@
  *                principal (WhatsApp, MCP) y no puede cambiar con #423
  *   soloPrincipal de serie la trae solo el rol PRINCIPAL; los roles de más no
  *                la suman (WhatsApp y MCP lo miraban así antes de #423)
+ *   propia       solo sobre lo suyo (sus cursos, su correo, su factura): no da
+ *                poder sobre nada de otros. Quien da un rol no necesita
+ *                tenerla (un admin da de alta a un tutor, o a una gestora
+ *                aunque su propio WhatsApp esté apagado)
  *   soloPantalla esconde o enseña algo en la pantalla y ninguna ruta lo pide
  *                (exportar lo que ya se ve, por ejemplo)
  *   independiente no pide el `view` de su recurso: es otra pantalla (cuentas por
@@ -94,10 +98,10 @@ export const SECCIONES = [
           // (chat.controller.js · usuarioObjetivo, el banco): un rol de más no sumaba, y un tutor o un
           // project manager con otro rol de más seguía sin WhatsApp (QA de Diego, punto 6).
           a('usar', 'Usar su WhatsApp', 'Enlazar su número y atender sus chats desde el CRM.', COMERCIAL,
-            { nunca: ['tutor', 'colaborador'], nuncaPrincipal: ['tutor', 'colaborador', 'project_manager'], soloPrincipal: true }),
+            { nunca: ['tutor', 'colaborador'], nuncaPrincipal: ['tutor', 'colaborador', 'project_manager'], soloPrincipal: true, propia: true }),
           a('supervisar', 'Supervisar el WhatsApp de otros', 'Abrir la sesión de otra persona de sus campus y el banco de mensajes de todas.', ADMIN, { nunca: ['tutor', 'colaborador'], soloPrincipal: true }),
           a('cola', 'Ver la cola de WhatsApp', 'Los prospectos que esperan respuesta por WhatsApp.', TODOS),
-          a('plantillas', 'Sus plantillas', 'Crear y usar sus propias plantillas de mensaje.', TODOS),
+          a('plantillas', 'Sus plantillas', 'Crear y usar sus propias plantillas de mensaje.', TODOS, { propia: true }),
           a('plantillas_compartidas', 'Plantillas compartidas', 'Crear y cambiar las plantillas de todo el equipo, y las de otras personas.', ADMIN_SOPORTE, { requiere: ['whatsapp.plantillas'], soloPrincipal: true }),
           a('forma_avisos', 'Forma de los avisos', 'Ver y reiniciar cómo llegan los avisos de WhatsApp (diagnóstico).', SOPORTE),
         ],
@@ -231,7 +235,7 @@ export const SECCIONES = [
     recursos: [
       {
         clave: 'tutores', nombre: 'Tutores', acciones: [
-          a('mis_cursos', 'Sus cursos y comisiones', 'El tutor ve sus colaboraciones, sus cursos y sus comisiones.', ['tutor']),
+          a('mis_cursos', 'Sus cursos y comisiones', 'El tutor ve sus colaboraciones, sus cursos y sus comisiones.', ['tutor'], { propia: true }),
           a('gestionar', 'Gestionar colaboraciones', 'Dar de alta tutores, asignarles cursos, calcular sus comisiones y ver las fichas de los de sus campus.', ADMIN),
           a('avisar', 'Avisar de comisiones', 'Ver el aviso de comisiones y mandarlo al tutor.', TODOS),
           a('liquidar', 'Liquidar comisiones', 'Pagar o revertir las comisiones de un tutor (mueve dinero).', ADMIN, { requiere: ['tutores.gestionar'] }),
@@ -245,7 +249,7 @@ export const SECCIONES = [
         clave: 'consultas', nombre: 'Consultas de alumnos', acciones: [
           a('view', 'Ver el panel de consultas', 'Las consultas de los alumnos de sus campus, la carga de cada tutor y las métricas de todos.', ADMIN_SOPORTE),
           a('gestionar', 'Gestionar consultas', 'Reasignar una consulta a otro tutor, leer los campus ahora, sincronizar alumnos y el token de cada tutor.', ADMIN_SOPORTE),
-          a('atender', 'Atender sus consultas', 'Su bandeja: responder y cerrar sus consultas, escribir a sus alumnos, su carga de trabajo y sus métricas.', ['tutor'], { independiente: true }),
+          a('atender', 'Atender sus consultas', 'Su bandeja: responder y cerrar sus consultas, escribir a sus alumnos, su carga de trabajo y sus métricas.', ['tutor'], { independiente: true, propia: true }),
         ],
       },
     ],
@@ -328,7 +332,7 @@ export const SECCIONES = [
       },
       {
         clave: 'facturas_colaborador', nombre: 'Facturas de colaboradores', acciones: [
-          a('subir', 'Subir su factura', '«Mi factura»: el colaborador sube la suya del mes.', ['colaborador']),
+          a('subir', 'Subir su factura', '«Mi factura»: el colaborador sube la suya del mes.', ['colaborador'], { propia: true }),
           a('ver_todas', 'Ver las facturas', 'Las facturas de los colaboradores de sus empresas.', ADMIN),
           a('gestionar', 'Gestionar colaboradores', 'Dar de alta colaboradores y reenviarles el enlace.', ADMIN),
           a('anular', 'Anular facturas de colaboradores', 'Anular una factura recibida.', ADMIN, { requiere: ['facturas_colaborador.ver_todas'] }),
@@ -561,7 +565,7 @@ export const SECCIONES = [
       },
       {
         clave: 'cuenta', nombre: 'Su cuenta', acciones: [
-          a('cambiar_correo', 'Cambiar su correo', 'Cambiar el correo con el que entra (el de su factura).', ['tutor']),
+          a('cambiar_correo', 'Cambiar su correo', 'Cambiar el correo con el que entra (el de su factura).', ['tutor'], { propia: true }),
         ],
       },
     ],

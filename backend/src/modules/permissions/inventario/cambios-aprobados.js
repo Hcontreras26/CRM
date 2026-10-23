@@ -192,3 +192,19 @@ export function cambiosDeMenuPorPerfil() {
   }
   return out;
 }
+
+/**
+ * Reglas nuevas que dependen de lo que se MANDA, no de quién entra a la ruta:
+ * la comparación no las ve (la ruta sigue abierta), pero cambian lo que se
+ * puede hacer. Van en la misma lista para Diego.
+ */
+export const CAMBIOS_DE_REGLA = [
+  {
+    id: 'nadie-da-lo-que-no-tiene',
+    que: 'Dar de alta a alguien o cambiarle el rol o los roles de más: solo si quien lo hace tiene todo lo que esa persona ganaría (salvo lo que es solo sobre lo suyo: sus cursos, su correo, su factura, su WhatsApp). Un admin ya no hace soporte a nadie; soporte ya no da de alta admins, gestoras ni colaboradores.',
+    motivo: 'QA de Diego, punto 7: al cambiar el rol se podía dar más de lo que tenía quien lo cambiaba. «Nadie puede dar un rol o permiso que no tenga», como ya pasaba con las excepciones y el rol a medida.',
+    roles: ['admin', 'soporte'],
+    sentido: 'pierde',
+    aprobadoPor: null,
+  },
+];

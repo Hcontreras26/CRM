@@ -43,6 +43,9 @@ export async function create(req, res, next) {
     if (parsed.data.empresaIds?.length && !(await tienePermiso(req, 'users.empresas'))) {
       throw new AppError('Solo un superadmin puede dar una empresa entera', 403, 'FORBIDDEN');
     }
+    // Dar de alta con un rol es darle ese rol: nadie da lo que no tiene (QA de Diego, punto 7).
+    const { exigirQueNoDeMasDeLoQueTiene } = await import('../permissions/permissions.editar.js');
+    await exigirQueNoDeMasDeLoQueTiene(req.user, null, { role: parsed.data.role, roles_extra: parsed.data.roles_extra || [] });
     const user = await userService.create(parsed.data, { porUserId: req.user?.userId ?? null });
     res.status(201).json({ success: true, data: user });
   } catch (err) { next(err); }
@@ -83,8 +86,10 @@ export async function update(req, res, next) {
       if (!(await tienePermiso(req, 'users.excepciones'))) {
         throw new AppError('Cambiar el rol de alguien es «Permisos de cada persona»', 403, 'FORBIDDEN');
       }
-      const { exigirQuePuedaTocarA } = await import('../permissions/permissions.editar.js');
+      const { exigirQuePuedaTocarA, exigirQueNoDeMasDeLoQueTiene } = await import('../permissions/permissions.editar.js');
       await exigirQuePuedaTocarA(req.user, id);
+      // Y nada de lo que gane puede faltarle a quien lo cambia (QA, punto 7).
+      await exigirQueNoDeMasDeLoQueTiene(req.user, id, { role: resto.role, roles_extra: resto.roles_extra });
     }
     // El correo va primero: si choca con el de otro (409), no se guarda nada a medias.
     const correo = email !== undefined

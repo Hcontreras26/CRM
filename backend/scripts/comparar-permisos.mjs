@@ -35,7 +35,7 @@ const opcion = (n) => { const i = args.indexOf(n); return i >= 0 ? (args[i + 1] 
 
 const inv = await import('../src/modules/permissions/inventario/index.js');
 const { perfilDesdeFilas } = await import('../src/modules/permissions/inventario/legado.js');
-const { cambioPrevisto, CAMBIOS, CAMBIOS_POR_DATOS, CAMBIOS_DE_MENU } = await import('../src/modules/permissions/inventario/cambios-aprobados.js');
+const { cambioPrevisto, CAMBIOS, CAMBIOS_POR_DATOS, CAMBIOS_DE_MENU, CAMBIOS_DE_REGLA } = await import('../src/modules/permissions/inventario/cambios-aprobados.js');
 const { resolverPermisos } = await import('../src/modules/permissions/resolver.js');
 const { soloEnLaPantallaAntes } = await import('../src/modules/permissions/inventario/en-uso-antes.js');
 
@@ -158,6 +158,9 @@ function informe({ personas, filas, diferencias, sinExplicar }, detalle) {
     L.push(`  ${c.id} — ${c.que}`);
     for (const [perfil, lineas] of Object.entries(c.perfiles)) L.push(`    ${perfil}: ${lineas.join(', ')}`);
   }
+  L.push('');
+  L.push('Reglas nuevas sobre lo que se manda (la ruta sigue abierta; no salen en la comparación):');
+  for (const c of CAMBIOS_DE_REGLA) L.push(`  ${c.id} — ${c.que}`);
   if (detalle || sinExplicar.length) {
     L.push('');
     L.push(detalle ? 'Cada diferencia:' : 'Las que no explica ningún cambio:');

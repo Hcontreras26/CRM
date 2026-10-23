@@ -18,7 +18,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import * as model from './permissions.model.js';
 import { explicarPermisos, olvidarPermisos } from './permissions.service.js';
 import { ACCIONES, CLAVES, POR_CLAVE, ROLES_FIJOS, valoresPorDefecto, vetada } from './catalogo.js';
-import { permisosDelRol, permisosDelRolAMedida } from './resolver.js';
+import { permisosDelRol, permisosDelRolAMedida, resolverPermisos } from './resolver.js';
 
 const SERIE = valoresPorDefecto();
 const ROLES_EDITABLES = ROLES_FIJOS.map((r) => r.clave).filter((r) => r !== 'superadmin');
@@ -170,6 +170,31 @@ export async function exigirQuePuedaTocarA(quien, userId) {
   if (quien.role === 'superadmin') return;
   const datos = await model.datosDePermisos(userId);
   await exigirQuePuedaTocar(quien, datos?.usuario);
+}
+
+/**
+ * Nadie da lo que no tiene (QA de Diego, punto 7): al dar de alta a alguien o
+ * cambiarle el rol o los roles de más, todo lo que GANE tiene que tenerlo
+ * quien lo cambia, como con las excepciones y el rol a medida. `userId` null
+ * es un alta: no tenía nada. Lo que ya tenía no cuenta (quitar no es dar), ni
+ * lo `propia` del catálogo (sus cursos, su factura: un admin da de alta a un tutor).
+ */
+export async function exigirQueNoDeMasDeLoQueTiene(quien, userId, { role, roles_extra }) {
+  if (quien.role === 'superadmin') return;
+  const datos = userId ? await model.datosDePermisos(userId) : null;
+  const ajustesRol = datos ? datos.ajustesRol : await model.ajustesDeRoles();
+  const comoEs = datos
+    ? { role: datos.usuario.role, roles_extra: datos.usuario.roles_extra, customRole: datos.customRole, excepciones: datos.excepciones }
+    : { role: null, roles_extra: [], customRole: null, excepciones: {} };
+  const antes = datos ? resolverPermisos({ ...comoEs, ajustesRol }).mapa : {};
+  const despues = resolverPermisos({
+    ...comoEs, ajustesRol, role: role ?? comoEs.role, roles_extra: roles_extra ?? comoEs.roles_extra,
+  }).mapa;
+  const mios = (await explicarPermisos(quien.userId)).mapa;
+  const deMas = ACCIONES.filter((x) => !x.propia && despues[x.clave] && !antes[x.clave] && !mios[x.clave]).map((x) => x.nombre);
+  if (deMas.length) {
+    throw new AppError(`Ese rol le daría lo que tú no tienes: ${deMas.slice(0, 3).join(', ')}${deMas.length > 3 ? '…' : ''}`, 403, 'NO_LO_TIENES');
+  }
 }
 
 /** Todo lo que puede una persona y de dónde le viene, para su ficha. */
