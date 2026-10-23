@@ -20,7 +20,9 @@
 --
 -- LO QUE HOY NO SURTE EFECTO. Antes de #423 solo cinco grupos de claves se
 -- miraban de verdad: leads.delete, facturas_colaborador.*, diplomas.view,
--- tasks.* y conversions.sin_gestora. Lo guardado sobre cualquier otra clave
+-- diplomas.emit (#437/#438, 22/10: las gestoras que emiten diplomas, como
+-- Dayana), tasks.* y conversions.sin_gestora. Esas se quedan TAL CUAL: la clave
+-- se llama igual en el catálogo y quiere decir lo mismo. Lo guardado sobre cualquier otra clave
 -- —en excepciones personales y en roles a medida— no hacía nada, y ahora sí lo
 -- haría: alguien ganaría acceso sin que nadie lo decidiera. Se copia a
 -- `permisos_inertes_archivo` (221) y se quita. Si Diego quiere activarlo, está
@@ -61,7 +63,8 @@ ON CONFLICT (user_id, resource, action) DO NOTHING;
 -- ── 2 · Lo que hoy no surte efecto, al archivo ──────────────────────────────
 -- Las claves que SÍ se miraban antes de #423 se quedan donde están.
 CREATE TEMP TABLE _aplicadas (patron text) ON COMMIT DROP;
-INSERT INTO _aplicadas VALUES ('leads.delete'), ('facturas_colaborador.%'), ('diplomas.view'), ('tasks.%'), ('conversions.sin_gestora');
+INSERT INTO _aplicadas VALUES ('leads.delete'), ('facturas_colaborador.%'), ('diplomas.view'), ('diplomas.emit'),
+  ('tasks.%'), ('conversions.sin_gestora');
 
 -- Excepciones personales sobre claves sin efecto. Las que acaba de poner el
 -- punto 1 tampoco se tocan (son claves nuevas, del catálogo).
@@ -86,7 +89,7 @@ CREATE TEMP TABLE _inertes ON COMMIT DROP AS
      AND ((o.resource = 'leads' AND o.action = 'delete'
            AND (u.role::text IN ('admin', 'superadmin', 'soporte')
                 OR COALESCE(u.roles_extra::text[], '{}') && ARRAY['admin', 'superadmin', 'soporte']))
-       OR (o.resource = 'diplomas' AND o.action = 'view'
+       OR (o.resource = 'diplomas' AND o.action IN ('view', 'emit')
            AND (u.role::text IN ('admin', 'superadmin')
                 OR COALESCE(u.roles_extra::text[], '{}') && ARRAY['admin', 'superadmin'])));
 
