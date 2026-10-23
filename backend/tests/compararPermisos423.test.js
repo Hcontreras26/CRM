@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import pool from '../src/shared/config/db.js';
+import { abrir } from './helpers/migracion222Aparte.js';
 
 /**
  * #423, fase 5 · «Nadie gana ni pierde acceso», con gente variada de verdad.
@@ -14,27 +11,19 @@ import pool from '../src/shared/config/db.js';
  * con `comparar()` de `scripts/comparar-permisos.mjs`: lo mismo que se pasa
  * contra producción. Toda diferencia tiene que estar explicada por un cambio
  * de `cambios-aprobados.js`.
+ *
+ * QA de Diego (22/10):
+ *   - punto 4: el «antes» se lee ANTES de pasar la 222 (como --simular), y el
+ *     que se rehace con la 222 ya pasada tiene que salir igual;
+ *   - punto 9: la 222 se pasa sobre copias temporales de las tablas con solo
+ *     este equipo (helpers/migracion222Aparte.js), no sobre la base compartida.
  */
 
-const aqui = path.dirname(fileURLToPath(import.meta.url));
-const SQL = fs.readFileSync(path.resolve(aqui, '../migrations/222_permisos_casillas_a_excepciones.sql'), 'utf8');
-// La 222 se pasa con un candado: las pruebas van en paralelo y dos migraciones
-// a la vez sobre la misma base se pisarían (en un despliegue va una sola vez).
-async function pasarLa222() {
-  const c = await pool.connect();
-  try {
-    await c.query('SELECT pg_advisory_lock(423)');
-    await c.query(SQL);
-  } finally {
-    await c.query('SELECT pg_advisory_unlock(423)');
-    c.release();
-  }
-}
-
-const { comparar } = await import('../scripts/comparar-permisos.mjs');
+const { comparar, leerPersonas, leerPersonasAntesDeLa222 } = await import('../scripts/comparar-permisos.mjs');
 
 const MARCA = `CMP423_${Date.now().toString(36)}`;
-const q = (sql, p) => pool.query(sql, p).then((r) => r.rows);
+let m;
+const q = (sql, p) => m.q(sql, p);
 const ids = { users: [], roles: [] };
 let n = 0;
 
@@ -63,8 +52,11 @@ async function rolAMedida(base, permisos, activo = true) {
 }
 
 let resultado;
+let antes;
+let antesRehecho;
 
 beforeAll(async () => {
+  m = await abrir();
   // Cada rol, con y sin cada casilla.
   for (const role of ['admin', 'gestor', 'soporte', 'project_manager', 'tutor', 'colaborador']) {
     await persona(role);
@@ -90,23 +82,32 @@ beforeAll(async () => {
   await persona('gestor', { excepciones: { 'users.view': true, 'reports.view': true } }); // no surtían efecto
   await persona('admin', { excepciones: { 'tasks.close': false } });
 
-  await pasarLa222();
-  const client = await pool.connect();
-  try {
-    resultado = await comparar(client);
-  } finally {
-    client.release();
-  }
+  // El «antes», tal cual, antes de pasar nada (lo que hace --simular).
+  antes = await leerPersonas(m.cliente);
+  await m.pasar();
+  await m.pasar(); // dos veces: no cambia nada
+  antesRehecho = await leerPersonasAntesDeLa222(m.cliente);
+  resultado = await comparar({ antes, despues: await leerPersonas(m.cliente) });
 }, 120000);
 
-afterAll(async () => {
-  await q('DELETE FROM permisos_registro WHERE usuario_id = ANY($1::int[]) OR custom_role_id = ANY($2::int[])', [ids.users, ids.roles]);
-  await q('DELETE FROM permisos_inertes_archivo WHERE usuario_id = ANY($1::int[]) OR custom_role_id = ANY($2::int[])', [ids.users, ids.roles]);
-  await q('DELETE FROM users WHERE id = ANY($1::int[])', [ids.users]);
-  await q('DELETE FROM custom_roles WHERE id = ANY($1::int[])', [ids.roles]);
-});
+// Las tablas eran copias temporales: se borran y la base compartida no se entera.
+afterAll(async () => { await m?.cerrar(); });
 
 describe('antes y después de #423, persona por persona (#423)', () => {
+  it('el «antes» es el de antes de la 222: lo que ella archiva cuenta en el «antes» (punto 4)', () => {
+    const g = antes.find((p) => p.excepciones['reports.view'] === true);
+    expect(g).toBeTruthy();
+    const despues = resultado.personas.find((p) => p.id === g.id);
+    // La 222 la archivó, y el «antes» la sigue teniendo.
+    expect(despues.excepciones['reports.view']).toBeUndefined();
+  });
+
+  it('sin --simular (la 222 ya pasada), el «antes» rehecho sale igual que el leído antes (punto 4)', () => {
+    const solo = (lista) => lista.filter((p) => ids.users.includes(p.id))
+      .map((p) => ({ id: p.id, excepciones: Object.fromEntries(Object.entries(p.excepciones).sort()), rol: p.custom_role?.permissions || null }));
+    expect(solo(antesRehecho)).toEqual(solo(antes));
+  });
+
   it('compara a todo el equipo de prueba', () => {
     const suyas = resultado.personas.filter((p) => ids.users.includes(p.id));
     expect(suyas.length).toBe(ids.users.length);

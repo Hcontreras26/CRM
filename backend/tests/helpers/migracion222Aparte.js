@@ -30,6 +30,7 @@ export async function abrir() {
   const c = await pool.connect();
   for (const t of TABLAS) await c.query(`CREATE TEMP TABLE ${t} (LIKE public.${t} INCLUDING ALL)`);
   return {
+    cliente: c,
     q: (sql, p) => c.query(sql, p).then((r) => r.rows),
     pasar: () => c.query(SQL),
     async cerrar() {

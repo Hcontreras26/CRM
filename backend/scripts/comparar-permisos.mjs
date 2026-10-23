@@ -11,8 +11,13 @@
 //   --detalle                                          cada diferencia, una a una
 //
 // «Antes» son las reglas de antes, congeladas (inventario/legado.js) sobre el
-// inventario congelado (inventario/antes-423.json). «Después», el resolver de
-// verdad (resolver.js) con lo que hay en la base. Una diferencia o la explica
+// inventario congelado (inventario/antes-423.json), con los permisos de cada
+// persona TAL COMO ERAN antes de la 222 (QA de Diego, punto 4):
+//   - con --simular, leídos de la base ANTES de pasar la 221 y la 222;
+//   - sin él (la 222 ya pasada), rehechos deshaciendo lo que la 222 dejó
+//     apuntado: lo archivado vuelve y lo que puso por las casillas se quita.
+// «Después», el resolver de verdad (resolver.js) con lo que hay en la base.
+// Una diferencia o la explica
 // un cambio de `inventario/cambios-aprobados.js` o es un fallo: el script sale
 // con código 1.
 //
@@ -55,6 +60,36 @@ export async function leerPersonas(client) {
   }));
 }
 
+/**
+ * Las personas como estaban ANTES de la 222, con la 222 ya pasada: se le
+ * devuelve a cada una lo que la 222 archivó (`permisos_inertes_archivo`) y se
+ * le quita lo que puso por las casillas (`permisos_registro`, origen
+ * 'migracion_222'). `null` si la 222 no está pasada (entonces, --simular).
+ */
+export async function leerPersonasAntesDeLa222(client) {
+  const hay = (await client.query(`SELECT to_regclass('permisos_registro') AS r, to_regclass('permisos_inertes_archivo') AS a`)).rows[0];
+  if (!hay.r || !hay.a) return null;
+  const pasada = (await client.query(`SELECT 1 FROM permisos_registro WHERE origen = 'migracion_222' LIMIT 1`)).rows.length > 0;
+  if (!pasada) return null;
+  const personas = await leerPersonas(client);
+  const { rows: puestas } = await client.query(
+    `SELECT usuario_id, clave FROM permisos_registro WHERE origen = 'migracion_222' AND destino_tipo = 'usuario' AND antes = 'como su rol'`);
+  const { rows: archivo } = await client.query('SELECT de_donde, usuario_id, custom_role_id, clave, valor FROM permisos_inertes_archivo');
+  return personas.map((p) => {
+    const excepciones = { ...p.excepciones };
+    for (const x of puestas) if (x.usuario_id === p.id) delete excepciones[x.clave];
+    for (const x of archivo) if (x.de_donde === 'excepcion' && x.usuario_id === p.id) excepciones[x.clave] = x.valor;
+    let customRole = p.custom_role;
+    if (customRole) {
+      const vuelven = archivo.filter((x) => x.de_donde === 'rol_medida' && x.custom_role_id === customRole.id);
+      if (vuelven.length) {
+        customRole = { ...customRole, permissions: { ...(customRole.permissions || {}), ...Object.fromEntries(vuelven.map((x) => [x.clave, x.valor])) } };
+      }
+    }
+    return { ...p, excepciones, custom_role: customRole };
+  });
+}
+
 /** El mapa de ahora de una persona, con alguna parte deshecha para explicar diferencias. */
 function mapaDeAhora(p, variante = null) {
   const custom = p.custom_role && variante === 'rolAMedidaActivo' ? { ...p.custom_role, active: true } : p.custom_role;
@@ -68,24 +103,26 @@ function mapaDeAhora(p, variante = null) {
 }
 
 /**
- * Compara a todas las personas. Devuelve las diferencias, cada una con el
+ * Compara a todas las personas: `antes`, como estaban antes de la 222;
+ * `despues`, como están con ella. Devuelve las diferencias, cada una con el
  * cambio aprobado que la explica (o ninguno).
  */
-export async function comparar(client) {
+export async function comparar({ antes: personasAntes, despues: personas }) {
   const filas = (await inv.construirInventario()).filter((f) => inv.ANTES.has(f.id));
-  const personas = await leerPersonas(client);
+  const deAntes = new Map(personasAntes.map((p) => [p.id, p]));
   const diferencias = [];
   for (const p of personas) {
+    const pa = deAntes.get(p.id) || p;
     const mapa = mapaDeAhora(p);
     const variantes = {};
     const despuesSin = (fila) => (v) => inv.puedeDespues(p, fila, (variantes[v] ||= mapaDeAhora(p, v)));
     for (const fila of filas) {
-      const antes = inv.puedeAntes(p, fila);
+      const antes = inv.puedeAntes(pa, fila);
       const despues = inv.puedeDespues(p, fila, mapa);
       if (antes === despues) continue;
       const porRol = [p.role, ...p.roles_extra].map((r) => cambioPrevisto(fila.id, r)).find(Boolean);
       const porDatos = porRol ? null : CAMBIOS_POR_DATOS.find((c) => c.explica({ persona: p, fila, antes, despues, despuesSin: despuesSin(fila) }));
-      diferencias.push({ persona: p, fila, antes, despues, cambio: porRol || porDatos || null });
+      diferencias.push({ persona: p, personaAntes: pa, fila, antes, despues, cambio: porRol || porDatos || null });
     }
   }
   return { personas, filas, diferencias, sinExplicar: diferencias.filter((d) => !d.cambio) };
@@ -126,19 +163,29 @@ if (esPrincipal) {
   const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   let codigo = 0;
+  let antesDeLa222 = null;
   try {
     if (opcion('--simular')) {
       await client.query('BEGIN');
+      // El «antes», de la base tal cual, ANTES de pasar nada.
+      antesDeLa222 = await leerPersonas(client);
       for (const m of ['221_permisos_registro.sql', '222_permisos_casillas_a_excepciones.sql']) {
         await client.query(sinTransaccion(fs.readFileSync(path.resolve(aqui, '../migrations', m), 'utf8')));
       }
-      console.log('(simulación: la 221 y la 222 aplicadas dentro de una transacción que se deshace al acabar)\n');
+      console.log('(simulación: el «antes» leído ANTES de pasar la 221 y la 222, dentro de una transacción que se deshace al acabar)\n');
     } else {
       await client.query('BEGIN TRANSACTION READ ONLY');
+      antesDeLa222 = await leerPersonasAntesDeLa222(client);
+      if (antesDeLa222) {
+        console.log('(el «antes», rehecho deshaciendo la 222: lo archivado vuelve, lo de las casillas se quita)\n');
+      } else {
+        console.log('La 222 no está pasada en esta base: usa --simular para ver qué cambiaría.\n');
+        antesDeLa222 = await leerPersonas(client);
+      }
     }
     if (opcion('--solo-antes')) {
       const filas = (await inv.construirInventario()).filter((f) => inv.ANTES.has(f.id));
-      const personas = await leerPersonas(client);
+      const personas = antesDeLa222;
       const m = {};
       console.log(`${personas.length} personas activas · ${filas.length} acciones\n`);
       for (const p of personas) {
@@ -148,7 +195,7 @@ if (esPrincipal) {
       const guardar = opcion('--guardar');
       if (typeof guardar === 'string') fs.writeFileSync(guardar, JSON.stringify({ cuando: new Date().toISOString(), matriz: m }, null, 1));
     } else {
-      const r = await comparar(client);
+      const r = await comparar({ antes: antesDeLa222, despues: await leerPersonas(client) });
       console.log(informe(r, Boolean(opcion('--detalle'))));
       codigo = r.sinExplicar.length ? 1 : 0;
     }
