@@ -9,7 +9,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import { query } from '../../shared/config/db.js';
 import { respuestaLlamadaSchema } from './whatsapp.validation.js';
-import { porQueNoPuede } from './roles.js';
+import { porQueNoPuede, porQueNoUsa, tienePermisoDeUsar } from './roles.js';
 import { explicarPermisosRecordados } from '../permissions/permissions.service.js';
 import { proyectosDelAmbito, comoLista } from '../../shared/utils/ambito.js';
 
@@ -63,10 +63,10 @@ export async function usuarioObjetivo(req) {
   // para la de otra persona (antes, admin y superadmin por su rol).
   const pedido = parseInt(req.query?.usuarioId ?? req.body?.usuarioId ?? '', 10);
   if (!Number.isInteger(pedido) || pedido === propio) {
-    // La casilla de su ficha (#128). El rol dice si le CORRESPONDE tener
-    // WhatsApp y viaja en el testigo; esto dice si lo usa, y se pregunta a la
-    // base porque el testigo dura ocho horas y apagar a alguien tiene que
-    // notarse hoy. Se recuerda medio minuto: ver `usaWhatsapp.js`.
+    // «Usar su WhatsApp» (#423; antes, la casilla de su ficha, #128). Se
+    // pregunta a la base y no al testigo, que dura ocho horas: quitárselo a
+    // alguien tiene que notarse hoy. Se recuerda medio minuto
+    // (`explicarPermisosRecordados`).
     if (!(await puedeWa(req, 'whatsapp.usar'))) {
       const suyo = porQueNoPuede({ role: req.user.role, active: true });
       throw new AppError(suyo || 'No tienes activado el WhatsApp del CRM. Lo enciende quien administra, en tu ficha de usuario.', 403, 'SIN_WHATSAPP');
@@ -80,11 +80,6 @@ export async function usuarioObjetivo(req) {
 
   const { rows } = await query(
     `SELECT u.id, u.nombre, u.active, u.role, u.gestor_colaboraciones,
-            -- Con to_jsonb para que no reviente mientras la 156 no este
-            -- aplicada: sin la columna vale cierto y todo sigue como hoy.
-            -- (Sin comillas invertidas aqui dentro: esto va en una plantilla de
-            --  texto de JavaScript y cerrarian la cadena.)
-            COALESCE((to_jsonb(u) ->> 'usa_whatsapp')::boolean, true) AS usa_whatsapp,
             EXISTS (
               SELECT 1 FROM user_projects a
               JOIN user_projects b ON b.project_id = a.project_id AND b.active
@@ -103,8 +98,7 @@ export async function usuarioObjetivo(req) {
   // Y que ESA persona tenga «Usar su WhatsApp» (#423; antes, su rol y la
   // casilla): a quien no lo tiene tampoco se le entra por el numero, no solo se
   // le quita de la lista.
-  const noPuede = porQueNoPuede(u)
-    || ((await explicarPermisosRecordados(u.id))?.mapa['whatsapp.usar'] ? null : 'No tiene activado el WhatsApp del CRM. Se enciende en su ficha de usuario.');
+  const noPuede = await porQueNoUsa(u);
   if (noPuede) throw new AppError(noPuede, 403, 'SIN_WHATSAPP');
 
   // Queda escrito que ha entrado a mirar. AQUI, cuando ya se sabe que puede: un
@@ -1251,8 +1245,7 @@ export async function usuarios(req, res, next) {
 
     const { rows } = await query(
       soloMio
-        ? `SELECT u.id, u.nombre, u.email, u.role, u.active, u.gestor_colaboraciones,
-                  COALESCE((to_jsonb(u) ->> 'usa_whatsapp')::boolean, true) AS usa_whatsapp
+        ? `SELECT u.id, u.nombre, u.email, u.role, u.active, u.gestor_colaboraciones
              FROM users u WHERE u.id = $1`
         : (req.user.role === 'superadmin'
             // NO se filtra por rol aqui.
@@ -1262,8 +1255,7 @@ export async function usuarios(req, res, next) {
             // que, y no salir es la peor forma de negar algo: parece un fallo.
             // Ahora salen todos y cada uno dice si puede tener WhatsApp y, si no,
             // por que. Quien decide es `roles.js`, en un solo sitio.
-            ? `SELECT u.id, u.nombre, u.email, u.role, u.active, u.gestor_colaboraciones,
-                      COALESCE((to_jsonb(u) ->> 'usa_whatsapp')::boolean, true) AS usa_whatsapp
+            ? `SELECT u.id, u.nombre, u.email, u.role, u.active, u.gestor_colaboraciones
                  FROM users u
                 WHERE u.active
                   ${deLaEmpresa}
@@ -1279,8 +1271,7 @@ export async function usuarios(req, res, next) {
             //
             // Con EXISTS no hacen falta ni el DISTINCT ni la deduplicacion: se
             // pregunta si comparte algun proyecto y se para en el primero.
-            : `SELECT u.id, u.nombre, u.email, u.role, u.active, u.gestor_colaboraciones,
-                      COALESCE((to_jsonb(u) ->> 'usa_whatsapp')::boolean, true) AS usa_whatsapp
+            : `SELECT u.id, u.nombre, u.email, u.role, u.active, u.gestor_colaboraciones
                  FROM users u
                 WHERE u.active
                   AND EXISTS (
@@ -1326,7 +1317,7 @@ export async function usuarios(req, res, next) {
       // la API lo dice, para que no haya que adivinar por que falta alguien.
       // Desde #423, «Usar su WhatsApp» del catálogo (su rol, su rol a medida o
       // una excepción suya), no la casilla.
-      const usa = (await explicarPermisosRecordados(u.id))?.mapa['whatsapp.usar'] === true;
+      const usa = await tienePermisoDeUsar(u.id);
       return {
         id: u.id, nombre: u.nombre, email: u.email, role: u.role,
         soyYo: u.id === yo,

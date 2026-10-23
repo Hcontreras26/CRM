@@ -183,7 +183,6 @@ vi.mock('../src/modules/auth/auth.model.js', () => ({ revokeAllUserTokens: vi.fn
 vi.mock('../src/modules/notifications/notifications.service.js', () => ({ notifyUsers: vi.fn(async () => {}) }));
 vi.mock('../src/modules/mcp/mcp.model.js', () => ({ revocarTodasDeLaPersona: vi.fn(async () => {}) }));
 vi.mock('../src/modules/whatsapp/roles.js', () => ({ puedeTenerWhatsapp: () => false, alPerderAcceso: vi.fn(async () => {}) }));
-vi.mock('../src/modules/whatsapp/usaWhatsapp.js', () => ({ olvidar: () => {} }));
 
 const { default: usuarios } = await import('../src/modules/users/index.js');
 const proyectos = await import('../src/modules/projects/project.service.js');

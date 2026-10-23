@@ -1,108 +1,74 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { porQueNoPuede, porQueNoUsa, usaWhatsapp } from '../src/modules/whatsapp/roles.js';
 
-// La casilla «usa el WhatsApp del CRM» (#128, punto 1).
+// Si alguien USA el WhatsApp del CRM (#128, punto 1), desde #423 con el permiso
+// «Usar su WhatsApp» del catálogo y no con la casilla `usa_whatsapp` de la
+// ficha (QA de Diego, punto 8: `roles.js` seguía mirando la casilla). La 222
+// convirtió la casilla apagada en una excepción «no».
 //
 // Diego, 07/09: «Ni Vanesa, ni Adriana, sus WhatsApp apareceran ahi. Debe ser
-// una opcion para activar o no». Hasta ahora la puerta era el ROL, y el rol no
-// distingue entre dos gestoras.
-//
-// Lo que se prueba aqui es la REGLA, no la consulta: que sean dos preguntas
-// separadas —puede / usa— es justamente lo que evita que apagar una casilla
-// desvincule el numero de alguien.
+// una opcion para activar o no». Lo que se prueba aqui es la REGLA: que sean
+// dos preguntas separadas —puede / usa— es justamente lo que evita que quitar
+// el permiso desvincule el numero de alguien.
 
-const gestora = { role: 'gestor', active: true, gestor_colaboraciones: false };
+const mapas = new Map();
+vi.mock('../src/modules/permissions/permissions.service.js', () => ({
+  explicarPermisosRecordados: vi.fn(async (id) => (mapas.has(id) ? { mapa: mapas.get(id) } : null)),
+}));
 
-describe('la casilla de WhatsApp', () => {
-  it('apagada, no lo usa — y se dice donde se enciende', () => {
-    const motivo = porQueNoUsa({ ...gestora, usa_whatsapp: false });
+const { porQueNoPuede, porQueNoUsa, usaWhatsapp, tienePermisoDeUsar } = await import('../src/modules/whatsapp/roles.js');
+
+const gestora = { id: 1, role: 'gestor', active: true, gestor_colaboraciones: false };
+
+beforeEach(() => {
+  mapas.clear();
+  mapas.set(1, { 'whatsapp.usar': true });
+});
+
+describe('«Usar su WhatsApp» (#423, punto 8)', () => {
+  it('sin el permiso, no lo usa — y se dice donde se enciende', async () => {
+    mapas.set(1, { 'whatsapp.usar': false });
+    const motivo = await porQueNoUsa(gestora);
     expect(motivo).toBeTruthy();
     // El motivo no es adorno: sin la segunda frase, quien lo lea no sabe que
     // hacer con ello. Es lo mismo que se aprendio en la #68.
     expect(motivo).toMatch(/ficha de usuario/i);
   });
 
-  it('encendida, lo usa', () => {
-    expect(usaWhatsapp({ ...gestora, usa_whatsapp: true })).toBe(true);
+  it('con el permiso, lo usa', async () => {
+    expect(await usaWhatsapp(gestora)).toBe(true);
+    expect(await tienePermisoDeUsar(1)).toBe(true);
   });
 
-  it('SIN la migracion 156 aplicada, todo sigue como hoy', () => {
-    // La columna se pide con to_jsonb y sin coalesce, asi que mientras no este
-    // la migracion llega `null`. Eso NO puede apagar a nadie: la migracion la
-    // aprueba Diego y hasta entonces el CRM tiene que comportarse igual que
-    // antes de escribir nada de esto.
-    expect(usaWhatsapp({ ...gestora, usa_whatsapp: null })).toBe(true);
-    expect(usaWhatsapp({ ...gestora })).toBe(true);
-  });
-
-  it('apagada NO es lo mismo que no poder: `porQueNoPuede` no se entera', () => {
-    // Esta es LA prueba de este fichero.
-    //
-    // `user.controller` compara `puedeTenerWhatsapp` antes y despues de cada
-    // cambio y, si se pierde, DESVINCULA el numero. Si la casilla entrara en esa
-    // funcion, apagarla soltaria la sesion de la gestora y habria que volver a
-    // enlazar el movil con ella delante — por una casilla de reparto.
-    expect(porQueNoPuede({ ...gestora, usa_whatsapp: false })).toBeNull();
-  });
-
-  it('lo que no puede, tampoco lo usa — y manda el motivo del rol', () => {
-    // Un tutor con la casilla encendida sigue sin tener WhatsApp: encenderla no
-    // puede saltarse la regla de la casa. Y el motivo que se enseña es el suyo,
-    // no «no tiene activado», que mandaria a quien manda a pulsar una casilla
-    // que no arregla nada.
-    const motivo = porQueNoUsa({ role: 'tutor', active: true, usa_whatsapp: true });
-    expect(motivo).toMatch(/tutores/i);
-  });
-
-  it('de baja, tampoco', () => {
-    expect(usaWhatsapp({ ...gestora, active: false, usa_whatsapp: true })).toBe(false);
-  });
-});
-
-// ── La parte que si toca la base ────────────────────────────────────────────
-
-const query = vi.fn();
-vi.mock('../src/shared/config/db.js', () => ({ query: (...a) => query(...a) }));
-
-const { usaSuWhatsapp, olvidar, olvidarTodo } = await import('../src/modules/whatsapp/usaWhatsapp.js');
-
-describe('la casilla, preguntada a la base', () => {
-  beforeEach(() => { query.mockReset(); olvidarTodo(); });
-
-  it('se recuerda: el chat pregunta cada tres segundos y no puede costar una consulta cada vez', async () => {
-    query.mockResolvedValue({ rows: [{ usa: true }] });
-    await usaSuWhatsapp(7);
-    await usaSuWhatsapp(7);
-    await usaSuWhatsapp(7);
-    expect(query).toHaveBeenCalledTimes(1);
-  });
-
-  it('se olvida al tocar la ficha, para que apagar se note al momento', async () => {
-    query.mockResolvedValue({ rows: [{ usa: true }] });
-    await usaSuWhatsapp(7);
-    olvidar(7);
-    query.mockResolvedValue({ rows: [{ usa: false }] });
-    expect(await usaSuWhatsapp(7)).toBe(false);
-    expect(query).toHaveBeenCalledTimes(2);
-  });
-
-  it('cada persona por su lado', async () => {
-    query.mockResolvedValueOnce({ rows: [{ usa: true }] });
-    query.mockResolvedValueOnce({ rows: [{ usa: false }] });
-    expect(await usaSuWhatsapp(1)).toBe(true);
-    expect(await usaSuWhatsapp(2)).toBe(false);
-  });
-
-  it('sin la columna todavia, la consulta devuelve true y nadie se queda fuera', async () => {
-    // `COALESCE((to_jsonb(u) ->> 'usa_whatsapp')::boolean, true)`: se resuelve en
-    // SQL para que una migracion sin aplicar no eche a nadie del chat.
-    query.mockResolvedValue({ rows: [{ usa: true }] });
-    expect(await usaSuWhatsapp(9)).toBe(true);
-    expect(query.mock.calls[0][0]).toContain('to_jsonb');
+  it('la casilla vieja ya no cuenta: manda el permiso', async () => {
+    expect(await usaWhatsapp({ ...gestora, usa_whatsapp: false })).toBe(true);
+    mapas.set(1, { 'whatsapp.usar': false });
+    expect(await usaWhatsapp({ ...gestora, usa_whatsapp: true })).toBe(false);
   });
 
   it('si esa persona no existe, no se inventa un permiso', async () => {
-    query.mockResolvedValue({ rows: [] });
-    expect(await usaSuWhatsapp(404)).toBe(false);
+    expect(await tienePermisoDeUsar(404)).toBe(false);
+  });
+
+  it('no tenerlo NO es lo mismo que no poder: `porQueNoPuede` no se entera', () => {
+    // Esta es LA prueba de este fichero.
+    //
+    // `user.controller` compara `puedeTenerWhatsapp` antes y despues de cada
+    // cambio y, si se pierde, DESVINCULA el numero. Si el permiso entrara en esa
+    // funcion, quitarlo soltaria la sesion de la gestora y habria que volver a
+    // enlazar el movil con ella delante — por una decision de reparto.
+    mapas.set(1, { 'whatsapp.usar': false });
+    expect(porQueNoPuede(gestora)).toBeNull();
+  });
+
+  it('lo que no puede, tampoco lo usa — y manda el motivo del rol', async () => {
+    // Un tutor no tiene WhatsApp aunque alguien le diera el permiso. Y el motivo
+    // que se enseña es el suyo, no «no tiene activado», que mandaria a quien
+    // manda a pulsar algo que no arregla nada.
+    mapas.set(2, { 'whatsapp.usar': true });
+    expect(await porQueNoUsa({ id: 2, role: 'tutor', active: true })).toMatch(/tutores/i);
+  });
+
+  it('de baja, tampoco', async () => {
+    expect(await usaWhatsapp({ ...gestora, active: false })).toBe(false);
   });
 });

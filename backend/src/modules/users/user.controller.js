@@ -115,16 +115,10 @@ export async function update(req, res, next) {
       wa.alPerderAcceso(id, `cambio de rol: ${antes.role} -> ${user.role}`).catch(() => {});
     }
 
-    // La casilla de WhatsApp (#128) se recuerda medio minuto para no preguntarla
-    // en cada vuelta del chat. Se olvida aqui para que apagarla se note al
-    // momento: quien la apaga recarga y espera verlo hecho, no dentro de un rato.
-    //
-    // OJO: esto NO desvincula el numero, y es a proposito. Apagar la casilla es
-    // reparto —deja de salir y de entrar—; desvincular solo pasa cuando alguien
-    // deja de PODER tener WhatsApp, que es el bloque de arriba.
-    const cache = await import('../whatsapp/usaWhatsapp.js');
-    cache.olvidar(id);
-    // Y sus permisos recordados (#423): su rol puede haber cambiado.
+    // Sus permisos se recuerdan medio minuto (también «Usar su WhatsApp», que el
+    // chat pregunta cada tres segundos). Se olvidan aquí para que el cambio se
+    // note al momento. OJO: quitarle WhatsApp NO desvincula el número; eso solo
+    // pasa cuando deja de PODER tenerlo, que es el bloque de arriba.
     (await import('../permissions/permissions.service.js')).olvidarPermisos(id);
 
     res.json({ success: true, data: correo ? { ...user, correo } : user });

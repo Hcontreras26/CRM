@@ -61,7 +61,8 @@ vi.mock('../src/modules/whatsapp/evolution.client.js', () => ({
 }));
 
 const { chats, usuarios } = await import('../src/modules/whatsapp/chat.controller.js');
-const { olvidarTodo } = await import('../src/modules/whatsapp/usaWhatsapp.js');
+// Los permisos se recuerdan medio minuto (también «Usar su WhatsApp», #423).
+const { olvidarPermisos: olvidarTodo } = await import('../src/modules/permissions/permissions.service.js');
 const modelo = await import('../src/modules/whatsapp/chat.model.js');
 
 function pedir(user, query = {}) {
