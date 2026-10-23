@@ -129,3 +129,66 @@ export const CAMBIOS_POR_DATOS = [
     aprobadoPor: null,
   },
 ];
+
+/**
+ * Lo que cambia en el MENÚ, por perfil (QA de Diego, punto 6: «soporte pierde
+ * 10 entradas del menú; el admin con factura_manager gana Facturación»). Ningún
+ * cambio de acceso: lo que sale llevaba a una página que ya respondía, y lo que
+ * se va llevaba a una que daba 403. `rutas` dice, por entrada, la ruta que lo
+ * demuestra; `menuSinCambioDeAcceso423.test.js` lo comprueba con las reglas de
+ * antes y las de ahora, y la foto del menú (`menuPorPerfil423.test.jsx`) solo
+ * deja pasar estas diferencias. `+` aparece, `-` desaparece.
+ */
+export const CAMBIOS_DE_MENU = [
+  {
+    id: 'menu-facturacion',
+    que: '«Finanzas › Facturación» la ve quien puede facturar: el admin, quien lleva la cola (la casilla «factura_manager») y quien es admin como rol de más.',
+    motivo: 'Antes la entrada preguntaba por `factura_manager` como si fuera un permiso y solo la veía el superadmin, aunque el servidor ya les dejaba entrar a todos ellos.',
+    perfiles: {
+      admin: ['+ Finanzas › Facturación'],
+      'gestora con factura_manager': ['+ Finanzas › Facturación'],
+      'gestora+admin': ['+ Finanzas › Facturación'],
+    },
+    rutas: { 'Finanzas › Facturación': 'GET /api/invoices/' },
+    aprobadoPor: null,
+  },
+  {
+    id: 'menu-sin-403',
+    que: 'El menú deja de enseñar lo que daba 403: 11 entradas a soporte y 3 al project manager.',
+    motivo: 'Soporte lo veía todo por un atajo del menú («ve todo»), y el project manager las pantallas de la gestora; al entrar, el servidor les respondía 403. Ninguno pierde nada que pudiera usar.',
+    perfiles: {
+      soporte: [
+        '- Captación › Webhooks', '- Clientes › Diplomas', '- Conexión › Conectores', '- Conexión › Webhook de transferencias',
+        '- Equipo de Desarrollo › Mi factura', '- Equipo de Desarrollo › Tablero', '- Finanzas › Facturas de colaboradores',
+        '- Tutores › Comisiones', '- Tutores › Mis cursos', '- Tutores › Sin tutor', '- Tutores › Tutores',
+      ],
+      project_manager: ['- Clientes › Matrículas', '- Principal › WhatsApp › Chat', '- Principal › WhatsApp › Conexión'],
+    },
+    rutas: {
+      'Captación › Webhooks': 'GET /api/webhook-tokens/',
+      'Clientes › Diplomas': 'GET /api/certifex/diplomas/solicitudes',
+      'Conexión › Conectores': 'GET /api/connectors/',
+      'Conexión › Webhook de transferencias': 'GET /api/webhooks-salientes/',
+      'Equipo de Desarrollo › Mi factura': 'GET /api/facturas-colaborador/mias',
+      'Equipo de Desarrollo › Tablero': 'GET /api/tasks/',
+      'Finanzas › Facturas de colaboradores': 'GET /api/facturas-colaborador/facturas',
+      'Tutores › Comisiones': 'GET /api/tutores/comisiones',
+      'Tutores › Mis cursos': 'GET /api/tutores/colaboraciones',
+      'Tutores › Sin tutor': 'GET /api/tutores/formaciones-sin-tutor',
+      'Tutores › Tutores': 'GET /api/tutores/',
+      'Clientes › Matrículas': 'GET /api/matriculas/',
+      'Principal › WhatsApp › Chat': 'GET /api/whatsapp/chats',
+      'Principal › WhatsApp › Conexión': 'GET /api/whatsapp/conexion',
+    },
+    aprobadoPor: null,
+  },
+];
+
+/** `{ perfil: ['+ …', '- …'] }`, todos los cambios de menú juntos. */
+export function cambiosDeMenuPorPerfil() {
+  const out = {};
+  for (const c of CAMBIOS_DE_MENU) {
+    for (const [perfil, lineas] of Object.entries(c.perfiles)) out[perfil] = [...(out[perfil] || []), ...lineas];
+  }
+  return out;
+}

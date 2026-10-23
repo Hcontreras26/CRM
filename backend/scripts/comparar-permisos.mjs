@@ -35,7 +35,7 @@ const opcion = (n) => { const i = args.indexOf(n); return i >= 0 ? (args[i + 1] 
 
 const inv = await import('../src/modules/permissions/inventario/index.js');
 const { perfilDesdeFilas } = await import('../src/modules/permissions/inventario/legado.js');
-const { cambioPrevisto, CAMBIOS, CAMBIOS_POR_DATOS } = await import('../src/modules/permissions/inventario/cambios-aprobados.js');
+const { cambioPrevisto, CAMBIOS, CAMBIOS_POR_DATOS, CAMBIOS_DE_MENU } = await import('../src/modules/permissions/inventario/cambios-aprobados.js');
 const { resolverPermisos } = await import('../src/modules/permissions/resolver.js');
 const { soloEnLaPantallaAntes } = await import('../src/modules/permissions/inventario/en-uso-antes.js');
 
@@ -150,6 +150,13 @@ function informe({ personas, filas, diferencias, sinExplicar }, detalle) {
   for (const [k, x] of porCambio) {
     const c = [...CAMBIOS, ...CAMBIOS_POR_DATOS].find((y) => y.id === k);
     L.push(`  ${k}: ${x.personas.size} personas · ${x.gana} acciones de más · ${x.pierde} de menos${c ? ` — ${c.que}` : ''}`);
+  }
+  // El menú no es una ruta: sus cambios van aparte, pero en la misma lista para Diego.
+  L.push('');
+  L.push('Cambios del menú (ninguno de acceso: lo que sale ya respondía, lo que se va daba 403):');
+  for (const c of CAMBIOS_DE_MENU) {
+    L.push(`  ${c.id} — ${c.que}`);
+    for (const [perfil, lineas] of Object.entries(c.perfiles)) L.push(`    ${perfil}: ${lineas.join(', ')}`);
   }
   if (detalle || sinExplicar.length) {
     L.push('');

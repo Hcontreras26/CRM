@@ -89,29 +89,11 @@ export function menuDe(p, { mapa = legado.mapaDePermisos(p) } = {}) {
 
 /**
  * Lo que cambia a propósito respecto a la foto, por perfil: `+` aparece, `-`
- * desaparece. Cada línea es una diferencia que Diego aprueba en la #423.
+ * desaparece. Está en la lista única para Diego (`cambios-aprobados.js`,
+ * `CAMBIOS_DE_MENU`), con la ruta que demuestra que no cambia el acceso.
  */
-export const CAMBIOS_APROBADOS = {
-  // 1 · «Facturación» la veía solo el superadmin: preguntaba por la casilla
-  //     `factura_manager` como si fuera un permiso. Ahora, «Poner número al
-  //     cobrar»: el admin y quien factura.
-  admin: ['+ Finanzas › Facturación'],
-  'gestora con factura_manager': ['+ Finanzas › Facturación'],
-  // 2 · Los roles de más cuentan también en el menú, como en el servidor: una
-  //     gestora que además es admin ve lo del admin (Facturación). El MCP no:
-  //     lo decide su rol principal, como antes (QA de Diego, punto 6).
-  'gestora+admin': ['+ Finanzas › Facturación'],
-  // 3 · El menú ya no enseña lo que luego da 403. Soporte lo veía todo por un
-  //     atajo del menú, y el project manager las pantallas de la gestora.
-  soporte: [
-    '- Captación › Webhooks', '- Clientes › Diplomas', '- Conexión › Conectores', '- Conexión › Webhook de transferencias',
-    '- Equipo de Desarrollo › Mi factura', '- Equipo de Desarrollo › Tablero', '- Finanzas › Facturas de colaboradores',
-    '- Tutores › Comisiones', '- Tutores › Mis cursos', '- Tutores › Sin tutor', '- Tutores › Tutores',
-  ],
-  project_manager: ['- Clientes › Matrículas', '- Principal › WhatsApp › Chat', '- Principal › WhatsApp › Conexión'],
-  // (La gestora con permisos de tareas ya no gana el tablero: el servidor no la
-  //  dejaba entrar y la 222 archiva lo suyo. QA de Diego, punto 6.)
-};
+const { cambiosDeMenuPorPerfil } = await import('../../../backend/src/modules/permissions/inventario/cambios-aprobados.js');
+export const CAMBIOS_APROBADOS = cambiosDeMenuPorPerfil();
 
 describe('menú por perfil (#423)', () => {
   const ahora = Object.fromEntries(Object.entries(PERFILES).map(([k, p]) => [k, menuDe(p, { mapa: mapaDeAhora(p) })]));
