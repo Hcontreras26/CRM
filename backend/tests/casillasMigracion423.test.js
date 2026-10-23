@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import pool from '../src/shared/config/db.js';
+import { abrir } from './helpers/migracion222Aparte.js';
 
 /**
  * #423, fase 5 · La migración 222 deja a cada persona como estaba.
@@ -14,27 +11,19 @@ import pool from '../src/shared/config/db.js';
  *   - lo guardado sobre claves que no surtían efecto se archiva y se quita,
  *     y lo que sí se miraba se queda (en excepciones y en roles a medida);
  *   - todo queda en el registro, y la segunda pasada no repite nada.
+ *
+ * QA de Diego (22/10) · punto 9: la 222 trabaja sobre `users` entera, y esta
+ * prueba la pasaba contra la base compartida —con superadmins de prueba
+ * dentro—, tocando a las personas de todas las demás pruebas. Ahora va sobre
+ * copias temporales de las tablas con solo este equipo
+ * (`helpers/migracion222Aparte.js`): la base compartida no se entera.
  */
-
-const aqui = path.dirname(fileURLToPath(import.meta.url));
-const SQL = fs.readFileSync(path.resolve(aqui, '../migrations/222_permisos_casillas_a_excepciones.sql'), 'utf8');
-// La 222 se pasa con un candado: las pruebas van en paralelo y dos migraciones
-// a la vez sobre la misma base se pisarían (en un despliegue va una sola vez).
-async function pasarLa222() {
-  const c = await pool.connect();
-  try {
-    await c.query('SELECT pg_advisory_lock(423)');
-    await c.query(SQL);
-  } finally {
-    await c.query('SELECT pg_advisory_unlock(423)');
-    c.release();
-  }
-}
 
 const { excepcionesDeCasillas } = await import('../src/modules/permissions/casillas.js');
 
 const MARCA = `CAS423_${Date.now().toString(36)}`;
-const q = (sql, p) => pool.query(sql, p).then((r) => r.rows);
+let m;
+const q = (sql, p) => m.q(sql, p);
 const personas = [];
 let rolMedida;
 
@@ -46,6 +35,7 @@ const CASILLAS = [
 ];
 
 beforeAll(async () => {
+  m = await abrir();
   let n = 0;
   for (const role of ROLES) {
     for (const c of CASILLAS) {
@@ -66,19 +56,20 @@ beforeAll(async () => {
   [rolMedida] = await q(`INSERT INTO custom_roles (label, base_role, permissions) VALUES ($1, 'gestor', $2) RETURNING id`,
     [`${MARCA} medida`, JSON.stringify({ 'leads.export': true, 'reports.view': true, 'tasks.close': true })]);
 
-  await pasarLa222();
-  await pasarLa222(); // dos veces: no repite nada
+  await m.pasar();
+  await m.pasar(); // dos veces: no repite nada
 }, 60000);
 
-afterAll(async () => {
-  const ids = personas.map((p) => p.id);
-  await q('DELETE FROM permisos_registro WHERE usuario_id = ANY($1::int[]) OR custom_role_id = $2', [ids, rolMedida.id]);
-  await q('DELETE FROM permisos_inertes_archivo WHERE usuario_id = ANY($1::int[]) OR custom_role_id = $2', [ids, rolMedida.id]);
-  await q('DELETE FROM users WHERE id = ANY($1::int[])', [ids]);
-  await q('DELETE FROM custom_roles WHERE id = $1', [rolMedida.id]);
-});
+// Las tablas eran copias temporales: se borran y la base compartida no se entera.
+afterAll(async () => { await m?.cerrar(); });
 
 describe('migración 222: las casillas, como excepciones (#423)', () => {
+  it('la base compartida no ve a nadie de este equipo (punto 9)', async () => {
+    // `public.` salta las copias temporales: es la tabla de verdad.
+    expect(await q('SELECT id FROM public.users WHERE email LIKE $1', [`%_${MARCA.toLowerCase()}@test.local`])).toEqual([]);
+    expect(personas.length).toBeGreaterThan(0);
+  });
+
   it('cada persona tiene exactamente las excepciones de `casillas.js`', async () => {
     const distintas = [];
     for (const p of personas) {
