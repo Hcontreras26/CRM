@@ -59,10 +59,10 @@ router.delete('/:id', puede('tutores.gestionar'), ctrl.retirarTutor);
 // Consultas de alumnos, fase 1 (#187): en qué campus atiende, por campus o por
 // empresa entera, si está matriculado en cada uno y «No disponible».
 router.get('/:id/campus', ctrl.campusDelTutor);
-router.post('/:id/campus', ctrl.asignarCampus);
-router.post('/:id/campus/comprobar', ctrl.comprobarCampus);
-router.post('/:id/empresas', ctrl.asignarEmpresa);
-router.delete('/:id/empresas/:issuerId', ctrl.quitarEmpresa);
-router.patch('/:id/disponible', ctrl.cambiarDisponible);
+router.post('/:id/campus', puede('tutores.gestionar'), ctrl.asignarCampus);
+router.post('/:id/campus/comprobar', puede('tutores.gestionar'), ctrl.comprobarCampus);
+router.post('/:id/empresas', puede('tutores.gestionar'), ctrl.asignarEmpresa);
+router.delete('/:id/empresas/:issuerId', puede('tutores.gestionar'), ctrl.quitarEmpresa);
+router.patch('/:id/disponible', puede('tutores.gestionar'), ctrl.cambiarDisponible);
 
 export default router;

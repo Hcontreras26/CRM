@@ -73,6 +73,34 @@ export function colaboradorPuede(ruta) {
   return RUTAS_DEL_COLABORADOR.some((re) => re.test(limpia));
 }
 
+// El tutor, lo suyo (#187, en staging desde el 22/10): copia de RUTAS_DEL_TUTOR.
+const RUTAS_DEL_TUTOR = [
+  /^\/api\/auth(?:\/|$)/,
+  /^\/api\/tutores(?:\/|$)/,
+  /^\/api\/consultas(?:\/|$)/,
+  /^\/api\/notifications(?:\/|$)/,
+  /^\/api\/novedades(?:\/|$)/,
+  /^\/api\/mensajes(?:\/|$)/,
+  /^\/api\/whatsapp\/sonando\/?$/,
+  /^\/api\/permissions\/system-defaults\/?$/,
+  /^\/api\/users\/mis-avisos\/?$/,
+  /^\/api\/users\/\d+\/(?:avatar|views)\/?$/,
+];
+
+const RUTAS_POR_ROL = { colaborador: RUTAS_DEL_COLABORADOR, tutor: RUTAS_DEL_TUTOR };
+
+/**
+ * `rutaDeRolCerrado` (shared/utils/roles.js) tal cual: si TODOS sus roles tienen
+ * lista cerrada (colaborador, tutor), la ruta tiene que estar en alguna; si
+ * tiene otro rol, no se le corta nada. `null` = no aplica.
+ */
+export function rutaDeRolCerrado(u, ruta) {
+  const suyos = rolesDe(u);
+  if (!suyos.length || !suyos.every((r) => RUTAS_POR_ROL[r])) return null;
+  const limpia = urlDeEjemplo(String(ruta || '')).split('?')[0];
+  return suyos.some((r) => RUTAS_POR_ROL[r].some((re) => re.test(limpia)));
+}
+
 // ─── Permisos (permissions.service.js) ──────────────────────────────────────
 
 function defaultsDelRol(role, filas = [], respaldo = null, tabla = DEFAULTS_ANTES) {
@@ -134,7 +162,7 @@ export function mapaDePermisos(u, tabla = DEFAULTS_ANTES) {
 export function pasaRegla(u, regla, ruta) {
   switch (regla.tipo) {
     case 'token':
-      return !(soloEsColaborador(u) && !colaboradorPuede(ruta));
+      return rutaDeRolCerrado(u, ruta) !== false;
     case 'roles':
       if (regla.atajoSoporte && tieneRol(u, 'superadmin', 'soporte')) return true;
       return tieneRol(u, ...regla.roles);
@@ -145,7 +173,8 @@ export function pasaRegla(u, regla, ruta) {
     case 'rolOPermiso':
       if (regla.atajoSoporte && tieneRol(u, 'superadmin', 'soporte')) return true;
       if (tieneRol(u, ...regla.roles)) return true;
-      return resolverPermiso(u, regla.clave, regla.conExtras !== false);
+      // Varias claves (Diplomas: ver O emitir, 22/10): basta con una.
+      return [].concat(regla.claves || regla.clave).some((c) => resolverPermiso(u, c, regla.conExtras !== false));
     case 'alcance':
       // Sobre qué campus, no si entra: no se compara (#423, «no se toca»).
       return true;
@@ -215,6 +244,13 @@ export const manual = {
   siempre: () => true,
   // auth.controller.js: updateMyEmail.
   soloTutor: (u) => u.role === 'tutor',
+  // consultas.controller.js (#188): esAdministracion = veTodoElCrm (rol principal
+  // superadmin o soporte) o admin (también como rol de más).
+  consultasAdministracion: (u) => esRol(u, 'superadmin', 'soporte') || tieneRol(u, 'admin'),
+  // esTutorUsuario: la carga de trabajo y lo suyo, solo el tutor.
+  consultasTutor: (u) => tieneRol(u, 'tutor'),
+  // exigirGestionDelTutor: administración o la casilla de colaboraciones.
+  consultasGestionTutor: (u) => esRol(u, 'superadmin', 'soporte') || tieneRol(u, 'admin') || u.gestor_colaboraciones === true,
 };
 
 /** De las filas de la base a una persona de las de arriba. */

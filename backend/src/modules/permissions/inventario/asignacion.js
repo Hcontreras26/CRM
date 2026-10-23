@@ -20,6 +20,10 @@ export const PROPIA = 'propia';
 export const PROPIAS = {
   auth: ['POST /logout', 'GET /me', 'POST /change-password', 'PATCH /me'],
   commissions: ['GET /me', 'GET /me/stats'],
+  // Una consulta, su tutor o administración de su campus (exigirVer); la
+  // bandeja y escribir a un alumno, lo de cada tutor.
+  consultas: ['GET /mias', 'GET /adjuntos/:id', 'POST /mensajes/:mensajeId/reintentar', 'POST /alumnos/:id/escribir',
+    'GET /:id', 'POST /:id/responder', 'POST /:id/cerrar'],
   mcp: ['GET /panel/', 'DELETE /panel/tokens/:id', 'PATCH /panel/conexiones/:id'],
   notifications: ['GET /', 'GET /unread-count', 'GET /preferences', 'PUT /preferences', 'PATCH /read-group',
     'PATCH /:id/read', 'PATCH /mark-all-read'],
@@ -29,7 +33,7 @@ export const PROPIAS = {
   permissions: ['GET /catalogo', 'GET /personas/:id', 'GET /system-defaults', 'GET /role-views/:roleKey'],
   // La ficha del tutor: la suya, cualquier tutor; la de otro, con «Gestionar
   // colaboraciones» (condición `tutores.ficha_ajena`).
-  tutores: ['GET /:id', 'PATCH /:id/perfil'],
+  tutores: ['GET /:id', 'PATCH /:id/perfil', 'GET /:id/campus'],
   users: ['POST /:id/avatar', 'DELETE /:id/avatar', 'GET /:id/views', 'PATCH /:id/views', 'GET /mis-avisos', 'PATCH /mis-avisos'],
   whatsapp: ['GET /usuarios', 'GET /sonando'],
 };
@@ -47,6 +51,18 @@ export const PUBLICAS_CON_CLAVE = {
  */
 export const ESTRECHA_EL_CONTROLADOR = {
   whatsapp: (relativa) => (relativa.includes(' /banco') ? undefined : 'whatsapp.usar'),
+  // Alumnos sin mensajes y métricas: lo suyo pide «Atender sus consultas»; las
+  // de todos (?todas=1), «Ver el panel» (condición `consultas.las_de_todos`).
+  consultas: (relativa) => (/ \/(alumnos-sin-mensajes|metricas)$/.test(relativa) ? 'consultas.atender' : undefined),
+};
+
+/**
+ * Rutas que, además de su permiso, son de un TUTOR: lo suyo de Consultas (su
+ * carga, sus alumnos, sus métricas) no existe para quien no lo es, tampoco para
+ * el superadmin (alcance, consultas.controller.js · exigirSerTutor/quienYAmbito).
+ */
+export const SOLO_DEL_TUTOR = {
+  consultas: ['GET /carga', 'POST /carga', 'GET /alumnos-sin-mensajes', 'GET /metricas'],
 };
 
 /** La clave de cada acción con condición (las `PUERTAS` con `condicion`). */
@@ -67,6 +83,7 @@ export const CONDICIONES = {
   'webhooks-salientes.todas': 'webhooks_salientes.todas',
   'sales.sin_gestora': 'conversions.sin_gestora',
   'reports.puesto_ajeno': 'reports.puesto_ajeno',
+  'consultas.las_de_todos': 'consultas.view',
 };
 
 /**

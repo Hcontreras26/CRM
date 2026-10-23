@@ -248,7 +248,7 @@ export const NAV_SECTIONS = [
       // Lo unico que ve un tutor: sus cursos y lo que le corresponde.
       { label: 'Mis cursos', to: '/mis-cursos', detail: 'Tus cursos y tu parte', icon: GraduationCap, roles: ['tutor'], permiso: 'tutores.mis_cursos' },
       // Consultas de alumnos (#188): el tutor, su bandeja; administración, todas.
-      { label: 'Consultas', to: '/consultas', detail: 'Las dudas de los alumnos', icon: ChatCircleText, roles: ['superadmin', 'admin', 'tutor'], module: 'tutores', statusTag: 'Pruebas', permiso: 'consultas.view' },
+      { label: 'Consultas', to: '/consultas', detail: 'Las dudas de los alumnos', icon: ChatCircleText, roles: ['superadmin', 'admin', 'tutor'], module: 'tutores', statusTag: 'Pruebas', permiso: ['consultas.view', 'consultas.atender'], oPermiso: 'consultas.view' },
       { label: 'Sin tutor', to: '/tutores/sin-tutor', detail: 'Formaciones sin asignar', icon: Warning, roles: ['superadmin', 'admin'], module: 'tutores', permiso: 'tutores.gestionar', oPermiso: 'tutores.gestionar' },
       { label: 'Comisiones', to: '/tutores/comisiones', detail: 'Lo que se les debe', icon: Coins, roles: ['superadmin', 'admin'], module: 'tutores', permiso: 'tutores.gestionar', oPermiso: 'tutores.gestionar' },
     ],
@@ -532,7 +532,7 @@ export function esSoloColaboraciones(user) {
  */
 export function entradasDeSeccion(section, { user, can, modules, projectType, soloColab }) {
   return section.items
-    .filter((item) => !item.permiso || can(item.permiso))
+    .filter((item) => !item.permiso || [].concat(item.permiso).some((p) => can(p)))
     .filter((item) => canSeeItem(item, rolesDe(user), modules, projectType, soloColab, user, can));
 }
 

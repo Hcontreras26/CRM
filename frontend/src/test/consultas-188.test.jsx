@@ -18,7 +18,12 @@ vi.mock('@/modules/consultas/api/consultas.api', async (original) => {
   return { ...real, consultasApi: api };
 });
 vi.mock('@/shared/hooks/useToast', () => ({ toast: api.toast }));
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: api.user }) }));
+// El mapa de permisos del servidor (#423): los de serie de sus roles.
+vi.mock('@/contexts/AuthContext', async () => {
+  const { resolverPermisos } = await import('../../../backend/src/modules/permissions/resolver.js');
+  const mapa = (u) => (u ? resolverPermisos({ role: u.role, roles_extra: u.roles_extra || [], excepciones: {} }).mapa : null);
+  return { useAuth: () => ({ user: api.user, permissions: mapa(api.user) }) };
+});
 vi.mock('@/contexts/ProjectContext', () => ({
   useProjectContext: () => ({ activeProject: { id: 1, nombre: 'Psiko' }, activeIssuerId: null }),
 }));

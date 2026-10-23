@@ -89,7 +89,8 @@ export const SYSTEM_ROLE_DEFAULTS = {
   "facturas_colaborador.anular": true,
   "facturas_colaborador.pagar": true,
   "facturas_colaborador.subir": false,
-  "diplomas.view": true
+  "diplomas.view": true,
+  "diplomas.emit": true
  },
  "gestor": {
   "leads.view": true,
@@ -178,7 +179,8 @@ export const SYSTEM_ROLE_DEFAULTS = {
   "facturas_colaborador.anular": false,
   "facturas_colaborador.pagar": false,
   "facturas_colaborador.subir": false,
-  "diplomas.view": false
+  "diplomas.view": false,
+  "diplomas.emit": false
  },
  "soporte": {
   "leads.view": true,
@@ -266,7 +268,8 @@ export const SYSTEM_ROLE_DEFAULTS = {
   "facturas_colaborador.anular": false,
   "facturas_colaborador.pagar": false,
   "facturas_colaborador.subir": false,
-  "diplomas.view": false
+  "diplomas.view": false,
+  "diplomas.emit": false
  },
  "colaborador": {
   "tasks.view_all": false,
@@ -282,7 +285,8 @@ export const SYSTEM_ROLE_DEFAULTS = {
   "facturas_colaborador.anular": false,
   "facturas_colaborador.pagar": false,
   "facturas_colaborador.subir": true,
-  "diplomas.view": false
+  "diplomas.view": false,
+  "diplomas.emit": false
  }
 };
 
@@ -420,6 +424,7 @@ export const ALL_RESOURCES = {
   "subir"
  ],
  "diplomas": [
-  "view"
+  "view",
+  "emit"
  ]
 };

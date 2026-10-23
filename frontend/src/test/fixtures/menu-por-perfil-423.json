@@ -35,6 +35,7 @@
   "Catálogo › Árbol de categorías",
   "Tutores › Tutores",
   "Tutores › Mis cursos",
+  "Tutores › Consultas",
   "Tutores › Sin tutor",
   "Tutores › Comisiones",
   "Finanzas › Dashboard",
@@ -107,6 +108,7 @@
   "Catálogo › Productos por categoría",
   "Catálogo › Árbol de categorías",
   "Tutores › Tutores",
+  "Tutores › Consultas",
   "Tutores › Sin tutor",
   "Tutores › Comisiones",
   "Finanzas › Dashboard",
@@ -177,6 +179,7 @@
   "Catálogo › Árbol de categorías",
   "Tutores › Tutores",
   "Tutores › Mis cursos",
+  "Tutores › Consultas",
   "Tutores › Sin tutor",
   "Tutores › Comisiones",
   "Finanzas › Dashboard",
@@ -270,6 +273,7 @@
  ],
  "tutor": [
   "Tutores › Mis cursos",
+  "Tutores › Consultas",
   "Sistema › Mis preferencias"
  ],
  "colaborador": [
@@ -311,6 +315,7 @@
   "Catálogo › Productos por categoría",
   "Catálogo › Árbol de categorías",
   "Tutores › Tutores",
+  "Tutores › Consultas",
   "Tutores › Sin tutor",
   "Tutores › Comisiones",
   "Finanzas › Dashboard",
@@ -363,6 +368,7 @@
   "Principal › WhatsApp › Cómo se usa",
   "Principal › Ventas",
   "Tutores › Mis cursos",
+  "Tutores › Consultas",
   "Finanzas › Ventas",
   "Finanzas › Cuentas por cobrar",
   "Clientes › Clientes",

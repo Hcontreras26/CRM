@@ -11,7 +11,10 @@ import { MemoryRouter } from 'react-router-dom';
 
 const avisos = vi.hoisted(() => ({ toast: vi.fn() }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: avisos.toast }));
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { role: 'admin' } }) }));
+// Con el mapa del servidor (#423): los botones de plantillas piden su permiso.
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { role: 'admin' }, permissions: { 'email_templates.view': true, 'email_templates.create': true, 'email_templates.edit': true } }),
+}));
 vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ({ activeProject: { id: 1 } }) }));
 vi.mock('@/modules/email-templates/api/templates.api', () => ({
   emailTemplatesApi: {

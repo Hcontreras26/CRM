@@ -230,6 +230,14 @@ export const SECCIONES = [
           a('cambiar_correo', 'Correo de un tutor', 'Cambiar el correo de un tutor (es el de su factura).', NADIE, { requiere: ['tutores.gestionar'] }),
         ],
       },
+      {
+        // Consultas de alumnos (#188). El tutor, las suyas; administración, el panel.
+        clave: 'consultas', nombre: 'Consultas de alumnos', acciones: [
+          a('view', 'Ver el panel de consultas', 'Las consultas de los alumnos de sus campus, la carga de cada tutor y las métricas de todos.', ADMIN_SOPORTE),
+          a('gestionar', 'Gestionar consultas', 'Reasignar una consulta a otro tutor, leer los campus ahora, sincronizar alumnos y el token de cada tutor.', ADMIN_SOPORTE),
+          a('atender', 'Atender sus consultas', 'Su bandeja: responder y cerrar sus consultas, escribir a sus alumnos, su carga de trabajo y sus métricas.', ['tutor'], { independiente: true }),
+        ],
+      },
     ],
   },
   {
@@ -383,6 +391,8 @@ export const SECCIONES = [
       {
         clave: 'diplomas', nombre: 'Diplomas (Certifex)', acciones: [
           a('view', 'Ver diplomas', 'La pantalla Diplomas en solo lectura (de sus campus).', ADMIN),
+          // Diego, 22/10 (#437/#438): «que Dayana pueda emitir». Quien emite también ve.
+          a('emit', 'Emitir diplomas', 'Revisar los datos (nombre, DNI, correo, formación), pasar a pendientes, aprobar y emitir, enviar el diploma al alumno y crear uno nuevo, en sus campus. Rechazar, corregir y revocar, no.', ADMIN, { independiente: true }),
           a('view_emisiones', 'Ver emisiones y firmas', 'El historial de emisiones, las formaciones y las firmas.', ADMIN),
           a('aprobar', 'Aprobar y emitir', 'Aprobar, rechazar y emitir diplomas, y crear uno nuevo.', ADMIN),
           a('edit', 'Corregir diplomas', 'Corregir datos, subir la firma y sincronizar formaciones.', ADMIN),

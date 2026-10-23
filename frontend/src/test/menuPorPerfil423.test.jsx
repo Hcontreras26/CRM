@@ -5,8 +5,8 @@ import path from 'path';
 /**
  * #423 · Qué menú ve cada perfil, y que no cambie sin querer.
  *
- * La foto `fixtures/menu-por-perfil-423.json` se sacó el 21/10/2026, antes de
- * tocar ningún permiso: es el «antes». Cada perfil lleva el mapa que le daba
+ * La foto `fixtures/menu-por-perfil-423.json` es el menú de `staging` del
+ * 22/10/2026 (ya con Consultas), antes de tocar ningún permiso: es el «antes». Cada perfil lleva el mapa que le daba
  * `/auth/me` (la copia congelada del backend, `inventario/legado.js`). Si el
  * menú de alguien cambia, falla, salvo lo que esté en `CAMBIOS_APROBADOS`: lo
  * que se cambia a propósito y Diego tiene que aprobar.
@@ -99,7 +99,7 @@ export const CAMBIOS_APROBADOS = {
   // 3 · El menú ya no enseña lo que luego da 403. Soporte lo veía todo por un
   //     atajo del menú, y el project manager las pantallas de la gestora.
   soporte: [
-    '- Clientes › Diplomas', '- Conexión › Conectores', '- Conexión › Webhook de transferencias',
+    '- Captación › Webhooks', '- Clientes › Diplomas', '- Conexión › Conectores', '- Conexión › Webhook de transferencias',
     '- Equipo de Desarrollo › Mi factura', '- Equipo de Desarrollo › Tablero', '- Finanzas › Facturas de colaboradores',
     '- Tutores › Comisiones', '- Tutores › Mis cursos', '- Tutores › Sin tutor', '- Tutores › Tutores',
   ],

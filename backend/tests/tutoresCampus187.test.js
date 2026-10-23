@@ -1,6 +1,7 @@
 import {
   describe, it, expect, beforeAll, afterAll, vi,
 } from 'vitest';
+import { vi } from 'vitest';
 import express from 'express';
 import supertest from 'supertest';
 import jwt from 'jsonwebtoken';
@@ -14,6 +15,16 @@ import { testMoodle } from '../src/modules/integrations/integrations.controller.
 import * as campus from '../src/modules/tutores/tutor.campus.js';
 import tutorRoutes from '../src/modules/tutores/tutor.routes.js';
 import { errorHandler } from '../src/shared/middleware/errorHandler.js';
+
+// Los permisos se leen de la base (#423). Estas pruebas piden como un superadmin
+// que no está en la base (`userId: 0`): para no crear uno en la base compartida,
+// solo a ese id se le da el mapa de un superadmin; los demás, el de verdad.
+vi.mock('../src/modules/permissions/permissions.service.js', async (original) => {
+  const real = await original();
+  const { resolverPermisos } = await import('../src/modules/permissions/resolver.js');
+  const superadmin = { ...resolverPermisos({ role: 'superadmin', roles_extra: [], excepciones: {} }), persona: { id: 0, role: 'superadmin', roles_extra: [], active: true } };
+  return { ...real, explicarPermisos: (id, ...resto) => (Number(id) === 0 ? Promise.resolve(superadmin) : real.explicarPermisos(id, ...resto)) };
+});
 
 /**
  * Consultas de alumnos, fase 1 (#187), contra la base de verdad.

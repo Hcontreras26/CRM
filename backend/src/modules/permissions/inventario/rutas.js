@@ -22,6 +22,8 @@ export const TECNICOS = new Set([
   'codigoConFormato', 'urlPersonal', 'metodoNoPermitido', 'jsonParser', 'urlencodedParser',
   'comprobarInterruptor', 'verificarTokenMcp', 'metadatosServidor', 'rawParser',
   'recibirArchivoSubido', 'guardarCuerpoCrudo',
+  // Subida de archivos (multer) de las consultas y del webhook de admisión.
+  'conAdjuntos', 'conArchivos',
 ]);
 
 /** El trozo de ruta de un `router.use('/panel', sub)`, sacado de su expresión. */

@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 import SubNav from '@/shared/components/ui/SubNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { tieneRol } from '@/shared/lib/roles';
+import usePermission from '@/shared/hooks/usePermission';
 
 /*
   Las pestañas de Consultas (#189): la bandeja, los alumnos sin mensajes, la
@@ -12,10 +13,12 @@ import { tieneRol } from '@/shared/lib/roles';
 
 export function useQuienSoy() {
   const { user } = useAuth() as { user: { role?: string; roles_extra?: string[] } | null };
+  // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
+  const { can } = usePermission();
   return {
-    esTutor: tieneRol(user as never, 'tutor'),
+    esTutor: tieneRol(user as never, 'tutor') && can('consultas.atender'),
     // Como el servidor (`veTodoElCrm`): superadmin y soporte solo como rol principal.
-    esAdmin: ['superadmin', 'soporte'].includes(user?.role || '') || tieneRol(user as never, 'admin'),
+    esAdmin: (['superadmin', 'soporte'].includes(user?.role || '') || tieneRol(user as never, 'admin')) && can('consultas.view'),
   };
 }
 

@@ -12,8 +12,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { leerRutas } from './rutas.js';
 import { PUERTAS, ALCANCE, YA_CON_PERMISO } from './manuales.js';
-import { puedeRuta, pasaRegla, manual, ROLES_DEL_SISTEMA } from './legado.js';
-import { claveDe, PROPIA } from './asignacion.js';
+import { puedeRuta, pasaRegla, manual, ROLES_DEL_SISTEMA, tieneRol } from './legado.js';
+import { claveDe, PROPIA, SOLO_DEL_TUTOR } from './asignacion.js';
 import { SECCIONES, POR_CLAVE, ROLES_FIJOS, dependencias } from '../catalogo.js';
 
 export { PUERTAS, ALCANCE, YA_CON_PERMISO };
@@ -72,6 +72,7 @@ export function puedeDespues(u, fila, mapa, { comoGuardia = false } = {}) {
   if (u.active === false) return false;
   if (!pasaRegla(u, { tipo: 'token' }, fila.ruta)) return false;
   if (k === PROPIA) return true;
+  if (!comoGuardia && SOLO_DEL_TUTOR[fila.modulo]?.includes(fila.relativa) && !tieneRol(u, 'tutor')) return false;
   return tieneClave(u, k, mapa);
 }
 

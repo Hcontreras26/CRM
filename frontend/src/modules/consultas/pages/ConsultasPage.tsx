@@ -9,6 +9,7 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import { inputClass } from '@/shared/lib/ui';
 import { tieneRol } from '@/shared/lib/roles';
+import usePermission from '@/shared/hooks/usePermission';
 import {
   consultasApi, semaforo, haceCuanto, type ConsultaFila, type FiltrosConsultas, type CampusSinTutor,
 } from '../api/consultas.api';
@@ -61,10 +62,12 @@ export default function ConsultasPage() {
   const { activeProject, activeIssuerId } = useProjectContext() as unknown as {
     activeProject: { id?: number | null; nombre?: string } | null; activeIssuerId: number | null;
   };
-  const esTutor = tieneRol(user as never, 'tutor');
+  // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
+  const { can } = usePermission();
+  const esTutor = tieneRol(user as never, 'tutor') && can('consultas.atender');
   // Como el servidor (`veTodoElCrm`): superadmin y soporte cuentan solo como rol
   // principal; admin, también de más. Si no, el botón sale y el servidor da 403.
-  const esAdmin = ['superadmin', 'soporte'].includes(user?.role || '') || tieneRol(user as never, 'admin');
+  const esAdmin = (['superadmin', 'soporte'].includes(user?.role || '') || tieneRol(user as never, 'admin')) && can('consultas.view');
   const [vista, setVista] = useState<Vista>(esTutor ? 'mias' : 'todas');
   const [pestana, setPestana] = useState<(typeof PESTANAS)[number]['clave']>('pendientes');
   const [sinTutor, setSinTutor] = useState(false);
