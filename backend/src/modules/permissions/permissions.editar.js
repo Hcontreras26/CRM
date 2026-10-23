@@ -17,7 +17,7 @@ import { query, getClient } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import * as model from './permissions.model.js';
 import { explicarPermisos, olvidarPermisos } from './permissions.service.js';
-import { ACCIONES, CLAVES, POR_CLAVE, ROLES_FIJOS, valoresPorDefecto } from './catalogo.js';
+import { ACCIONES, CLAVES, POR_CLAVE, ROLES_FIJOS, valoresPorDefecto, vetada } from './catalogo.js';
 import { permisosDelRol, permisosDelRolAMedida } from './resolver.js';
 
 const SERIE = valoresPorDefecto();
@@ -215,7 +215,7 @@ export async function guardarExcepciones(userId, cambios, quien) {
     const susRoles = [persona.role, ...persona.roles_extra];
     for (const [clave, valor] of Object.entries(cambios)) {
       const x = POR_CLAVE[clave];
-      if (valor === true && x.nunca?.length && susRoles.every((r) => x.nunca.includes(r))) {
+      if (valor === true && vetada(x, persona.role, persona.roles_extra)) {
         throw new AppError(`«${x.nombre}» no se le puede dar a quien es ${susRoles.join(' y ')}`, 400, 'NUNCA');
       }
       if (valor === true && mios && mios[clave] !== true) {

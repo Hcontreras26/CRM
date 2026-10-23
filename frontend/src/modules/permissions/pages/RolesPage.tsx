@@ -56,11 +56,14 @@ export default function RolesPage() {
   const editable = puedeCambiar && (medida ? true : !!fijo?.editable);
   const sucio = borrador !== null && cambiadas(original, borrador).length > 0;
 
-  // Lo que el catálogo no deja dar a este rol (`nunca`).
+  // Lo que el catálogo no deja dar a este rol (`nunca`, y `nuncaPrincipal`: quien
+  // tiene este rol lo tiene como principal).
   const bloqueadas = useMemo(() => {
     if (!catalogo) return [];
     const rol = fijo?.clave || medida?.base;
-    return accionesDe(catalogo).filter((a) => rol && a.nunca.includes(rol)).map((a) => a.clave);
+    return accionesDe(catalogo)
+      .filter((a) => rol && (a.nunca.includes(rol) || (a.nuncaPrincipal || []).includes(rol)))
+      .map((a) => a.clave);
   }, [catalogo, fijo, medida]);
 
   function elegir(e: Elegido) {

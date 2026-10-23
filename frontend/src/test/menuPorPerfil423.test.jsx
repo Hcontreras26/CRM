@@ -94,8 +94,9 @@ export const CAMBIOS_APROBADOS = {
   admin: ['+ Finanzas › Facturación'],
   'gestora con factura_manager': ['+ Finanzas › Facturación'],
   // 2 · Los roles de más cuentan también en el menú, como en el servidor: una
-  //     gestora que además es admin ve lo del admin (el MCP y Facturación).
-  'gestora+admin': ['+ Conexión › MCP', '+ Finanzas › Facturación'],
+  //     gestora que además es admin ve lo del admin (Facturación). El MCP no:
+  //     lo decide su rol principal, como antes (QA de Diego, punto 6).
+  'gestora+admin': ['+ Finanzas › Facturación'],
   // 3 · El menú ya no enseña lo que luego da 403. Soporte lo veía todo por un
   //     atajo del menú, y el project manager las pantallas de la gestora.
   soporte: [

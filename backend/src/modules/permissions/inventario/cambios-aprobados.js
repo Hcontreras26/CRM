@@ -86,9 +86,11 @@ export function cambioPrevisto(filaId, rol) {
 export const CAMBIOS_POR_DATOS = [
   {
     id: 'roles-de-mas-cuentan',
-    que: 'Los roles de más cuentan en todo: también donde antes solo se miraba el rol principal (facturas, tutores, MCP, WhatsApp, permisos sueltos).',
-    motivo: 'Antes unas comprobaciones miraban los roles de más y otras no (checkPermission no; el menú solo el principal). Ahora una sola regla: basta con que uno de sus roles lo traiga.',
-    explica: ({ persona, antes, despuesSin }) => persona.roles_extra.length > 0 && despuesSin('sinRolesDeMas') === antes,
+    que: 'Los roles de más cuentan en todo: también donde antes solo se miraba el rol principal (facturas, tutores, el MCP de quien además es admin, permisos sueltos). WhatsApp no cambia, y un tutor sigue sin MCP aunque tenga otro rol (`nuncaPrincipal`).',
+    motivo: 'Antes unas comprobaciones miraban los roles de más y otras no (checkPermission no; el menú solo el principal). Ahora una sola regla: basta con que uno de sus roles lo traiga. Salvo lo que el rol principal vetaba (QA de Diego, punto 6).',
+    // WhatsApp, nunca: lo decide el rol principal, como antes. Una diferencia ahí es un fallo.
+    explica: ({ persona, fila, antes, despuesSin }) => persona.roles_extra.length > 0 && fila.modulo !== 'whatsapp'
+      && despuesSin('sinRolesDeMas') === antes,
     aprobadoPor: null,
   },
   {

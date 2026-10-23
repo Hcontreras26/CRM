@@ -15,7 +15,13 @@
  *   roles        los roles fijos que la traen de serie (superadmin, siempre)
  *   requiere     otras claves sin las que no tiene sentido; ver/crear/editar…
  *                de un recurso ya piden su `view` sin decirlo (`dependencias`)
- *   nunca        roles a los que NO se les puede dar, ni con excepción
+ *   nunca        roles a los que NO se les puede dar, ni con excepción (si TODOS
+ *                sus roles están en la lista)
+ *   nuncaPrincipal  ni con excepción, si su rol PRINCIPAL es uno de estos,
+ *                aunque tenga otros de más: lo que antes miraba solo el rol
+ *                principal (WhatsApp, MCP) y no puede cambiar con #423
+ *   soloPrincipal de serie la trae solo el rol PRINCIPAL; los roles de más no
+ *                la suman (WhatsApp y MCP lo miraban así antes de #423)
  *   soloPantalla esconde o enseña algo en la pantalla y ninguna ruta lo pide
  *                (exportar lo que ya se ve, por ejemplo)
  *   independiente no pide el `view` de su recurso: es otra pantalla (cuentas por
@@ -84,11 +90,15 @@ export const SECCIONES = [
       },
       {
         clave: 'whatsapp', nombre: 'WhatsApp', acciones: [
-          a('usar', 'Usar su WhatsApp', 'Enlazar su número y atender sus chats desde el CRM.', COMERCIAL, { nunca: ['tutor', 'colaborador'] }),
-          a('supervisar', 'Supervisar el WhatsApp de otros', 'Abrir la sesión de otra persona de sus campus y el banco de mensajes de todas.', ADMIN, { nunca: ['tutor', 'colaborador'] }),
+          // Antes, usar, supervisar y las plantillas compartidas los decidía el rol PRINCIPAL
+          // (chat.controller.js · usuarioObjetivo, el banco): un rol de más no sumaba, y un tutor o un
+          // project manager con otro rol de más seguía sin WhatsApp (QA de Diego, punto 6).
+          a('usar', 'Usar su WhatsApp', 'Enlazar su número y atender sus chats desde el CRM.', COMERCIAL,
+            { nunca: ['tutor', 'colaborador'], nuncaPrincipal: ['tutor', 'colaborador', 'project_manager'], soloPrincipal: true }),
+          a('supervisar', 'Supervisar el WhatsApp de otros', 'Abrir la sesión de otra persona de sus campus y el banco de mensajes de todas.', ADMIN, { nunca: ['tutor', 'colaborador'], soloPrincipal: true }),
           a('cola', 'Ver la cola de WhatsApp', 'Los prospectos que esperan respuesta por WhatsApp.', TODOS),
           a('plantillas', 'Sus plantillas', 'Crear y usar sus propias plantillas de mensaje.', TODOS),
-          a('plantillas_compartidas', 'Plantillas compartidas', 'Crear y cambiar las plantillas de todo el equipo, y las de otras personas.', ADMIN_SOPORTE, { requiere: ['whatsapp.plantillas'] }),
+          a('plantillas_compartidas', 'Plantillas compartidas', 'Crear y cambiar las plantillas de todo el equipo, y las de otras personas.', ADMIN_SOPORTE, { requiere: ['whatsapp.plantillas'], soloPrincipal: true }),
           a('forma_avisos', 'Forma de los avisos', 'Ver y reiniciar cómo llegan los avisos de WhatsApp (diagnóstico).', SOPORTE),
         ],
       },
@@ -414,7 +424,9 @@ export const SECCIONES = [
     recursos: [
       {
         clave: 'mcp', nombre: 'MCP (Claude)', acciones: [
-          a('usar', 'Usar el MCP', 'Conectar su Claude al CRM con su URL personal.', ADMIN, { nunca: ['tutor'] }),
+          // Antes lo decidía el rol principal (mcp.acceso.js · puedeUsarMcp): admin de serie, el
+          // resto con la casilla, y un tutor nunca, aunque tuviera otro rol de más (QA, punto 6).
+          a('usar', 'Usar el MCP', 'Conectar su Claude al CRM con su URL personal.', ADMIN, { nunca: ['tutor'], nuncaPrincipal: ['tutor'], soloPrincipal: true }),
           a('administrar', 'Administrar el MCP', 'Dar o quitar el MCP a personas de sus campus y ver qué se ha consultado.', ADMIN),
           a('supervisar', 'Apagar el MCP', 'El interruptor de emergencia y rechazar conexiones ajenas.', NADIE),
         ],
@@ -606,10 +618,21 @@ export function catalogoParaPantalla() {
           const clave = `${r.clave}.${x.accion}`;
           return {
             clave, accion: x.accion, nombre: x.nombre, descripcion: x.descripcion,
-            roles: x.roles, requiere: dependencias(clave), nunca: x.nunca || [], soloPantalla: x.soloPantalla === true,
+            roles: x.roles, requiere: dependencias(clave), nunca: x.nunca || [], nuncaPrincipal: x.nuncaPrincipal || [],
+            soloPantalla: x.soloPantalla === true,
           };
         }),
       })),
     })),
   };
+}
+
+/**
+ * ¿No se le puede dar esta acción a esta persona, ni con excepción? Su `nunca`
+ * (todos sus roles en la lista) o su `nuncaPrincipal` (su rol principal).
+ */
+export function vetada(x, role, rolesExtra = []) {
+  const todos = [...new Set([role, ...rolesExtra].filter(Boolean))];
+  if (x.nunca?.length && todos.length && todos.every((r) => x.nunca.includes(r))) return true;
+  return Boolean(x.nuncaPrincipal?.includes(role));
 }

@@ -1107,7 +1107,7 @@ lo que pide para tener sentido (editar pide ver).
 
 | Permiso | Clave | Qué deja hacer | De serie | Necesita |
 |---|---|---|---|---|
-| Usar su WhatsApp | `whatsapp.usar` | Enlazar su número y atender sus chats desde el CRM. · nunca: Tutor, Colaborador | Admin, Gestora, Soporte |  |
+| Usar su WhatsApp | `whatsapp.usar` | Enlazar su número y atender sus chats desde el CRM. · nunca: Tutor, Colaborador · nunca si su rol principal es: Tutor, Colaborador, Project manager | Admin, Gestora, Soporte |  |
 | Supervisar el WhatsApp de otros | `whatsapp.supervisar` | Abrir la sesión de otra persona de sus campus y el banco de mensajes de todas. · nunca: Tutor, Colaborador | Admin |  |
 | Ver la cola de WhatsApp | `whatsapp.cola` | Los prospectos que esperan respuesta por WhatsApp. | Admin, Gestora, Soporte, Project manager, Tutor |  |
 | Sus plantillas | `whatsapp.plantillas` | Crear y usar sus propias plantillas de mensaje. | Admin, Gestora, Soporte, Project manager, Tutor |  |
@@ -1443,7 +1443,7 @@ lo que pide para tener sentido (editar pide ver).
 
 | Permiso | Clave | Qué deja hacer | De serie | Necesita |
 |---|---|---|---|---|
-| Usar el MCP | `mcp.usar` | Conectar su Claude al CRM con su URL personal. · nunca: Tutor | Admin |  |
+| Usar el MCP | `mcp.usar` | Conectar su Claude al CRM con su URL personal. · nunca: Tutor · nunca si su rol principal es: Tutor | Admin |  |
 | Administrar el MCP | `mcp.administrar` | Dar o quitar el MCP a personas de sus campus y ver qué se ha consultado. | Admin |  |
 | Apagar el MCP | `mcp.supervisar` | El interruptor de emergencia y rechazar conexiones ajenas. | solo superadmin |  |
 

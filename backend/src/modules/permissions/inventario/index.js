@@ -182,7 +182,8 @@ function catalogoEnMarkdown() {
       for (const x of r.acciones) {
         const clave = `${r.clave}.${x.accion}`;
         const deSerie = POR_CLAVE[clave].roles.map((k) => nombreRol[k] || k).join(', ') || 'solo superadmin';
-        const extra = [x.soloPantalla ? ' (solo pantalla)' : '', x.nunca?.length ? ` · nunca: ${x.nunca.map((k) => nombreRol[k] || k).join(', ')}` : ''].join('');
+        const extra = [x.soloPantalla ? ' (solo pantalla)' : '', x.nunca?.length ? ` · nunca: ${x.nunca.map((k) => nombreRol[k] || k).join(', ')}` : '',
+          x.nuncaPrincipal?.length ? ` · nunca si su rol principal es: ${x.nuncaPrincipal.map((k) => nombreRol[k] || k).join(', ')}` : ''].join('');
         const necesita = dependencias(clave).map((d) => `\`${d}\``).join(', ');
         lineas.push(`| ${celda(x.nombre)} | \`${clave}\` | ${celda(x.descripcion + extra)} | ${celda(deSerie)} | ${celda(necesita)} |`);
       }

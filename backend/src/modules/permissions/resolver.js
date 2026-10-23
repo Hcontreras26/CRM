@@ -14,7 +14,10 @@
  *   3. Sus excepciones: lo que se le haya dado o quitado a ella.
  *   4. `nunca`: lo que su rol no puede tener de ninguna manera (un tutor no
  *      usa el MCP). Solo si TODOS sus roles están en la lista: a una gestora
- *      que además es tutora no se le quita lo de gestora.
+ *      que además es tutora no se le quita lo de gestora. Y `nuncaPrincipal`:
+ *      lo que su rol PRINCIPAL veta aunque tenga otros (un tutor con un rol de
+ *      más sigue sin WhatsApp ni MCP, como antes de #423). Y lo `soloPrincipal`
+ *      (WhatsApp, MCP) lo trae de serie solo el rol principal.
  * El superadmin lo tiene todo, siempre.
  *
  * `origen` de cada clave, para la ficha:
@@ -26,7 +29,7 @@
  *   { tipo: 'nunca', roles }
  *   { tipo: 'ninguno' }                 nadie se lo da
  */
-import { ACCIONES, valoresPorDefecto } from './catalogo.js';
+import { ACCIONES, valoresPorDefecto, vetada } from './catalogo.js';
 import { comoLista } from '../../shared/utils/roles.js';
 
 const SERIE = valoresPorDefecto();
@@ -60,7 +63,8 @@ export function resolverPermisos({ role, roles_extra = [], customRole = null, ex
     const k = x.clave;
     let valor = false;
     let origen = { tipo: 'ninguno' };
-    for (const r of roles) {
+    // WhatsApp y MCP: de serie, solo el rol principal (`soloPrincipal`).
+    for (const r of (x.soloPrincipal ? roles.filter((y) => y === principal) : roles)) {
       const cambiado = ajuste[`${r}|${k}`];
       const v = cambiado !== undefined ? cambiado : SERIE[r]?.[k] === true;
       if (v) { valor = true; origen = cambiado !== undefined ? { tipo: 'ajuste_rol', rol: r } : { tipo: 'rol', rol: r }; break; }
@@ -73,7 +77,7 @@ export function resolverPermisos({ role, roles_extra = [], customRole = null, ex
       valor = excepciones[k] === true;
       origen = { tipo: 'excepcion' };
     }
-    if (valor && x.nunca?.length && todosSusRoles.every((r) => x.nunca.includes(r))) {
+    if (valor && vetada(x, role, comoLista(roles_extra))) {
       valor = false;
       origen = { tipo: 'nunca', roles: todosSusRoles };
     }

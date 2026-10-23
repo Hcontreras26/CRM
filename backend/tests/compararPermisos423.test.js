@@ -69,6 +69,10 @@ beforeAll(async () => {
   await persona('tutor', { extra: ['gestor'] });
   await persona('colaborador', { extra: ['gestor'] });
   await persona('soporte', { extra: ['admin'] });
+  // Punto 6: WhatsApp y el MCP los decide el rol principal.
+  await persona('tutor', { extra: ['admin'] });
+  await persona('project_manager', { extra: ['gestor'] });
+  await persona('colaborador', { extra: ['admin'] });
   // Roles a medida: activo, desactivado, y con roles de más.
   const activo = await rolAMedida('gestor', { 'tasks.close': true, 'leads.delete': true, 'leads.export': true });
   const apagado = await rolAMedida('gestor', { 'diplomas.view': true }, false);
@@ -122,6 +126,12 @@ describe('antes y después de #423, persona por persona (#423)', () => {
       .map((d) => `${d.persona.role} ${d.antes ? 'pierde' : 'gana'} ${d.fila.id}`);
     expect(ids5.some((x) => x.startsWith('gestor gana') && x.includes('/leads'))).toBe(true);
     expect(ids5.some((x) => x.startsWith('admin pierde') && x.includes('/products'))).toBe(true);
+  });
+
+  it('un rol de más no da WhatsApp ni el MCP: los decide el rol principal (punto 6)', () => {
+    const conRolDeMas = resultado.diferencias.filter((d) => ids.users.includes(d.persona.id)
+      && d.persona.roles_extra.length > 0 && ['whatsapp', 'mcp'].includes(d.fila.modulo));
+    expect(conRolDeMas.map((d) => `${[d.persona.role, ...d.persona.roles_extra].join('+')} · ${d.fila.id}`)).toEqual([]);
   });
 
   it('toda diferencia la explica un cambio aprobado', () => {

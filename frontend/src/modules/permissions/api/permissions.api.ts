@@ -87,6 +87,8 @@ export interface AccionDelCatalogo {
   requiere: string[];
   /** Roles a los que no se les puede dar nunca. */
   nunca: string[];
+  /** Ni con excepción si su rol PRINCIPAL es uno de estos (WhatsApp, MCP). */
+  nuncaPrincipal?: string[];
   soloPantalla: boolean;
 }
 export interface RecursoDelCatalogo { clave: string; nombre: string; acciones: AccionDelCatalogo[] }
