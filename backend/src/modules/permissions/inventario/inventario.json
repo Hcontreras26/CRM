@@ -418,13 +418,13 @@
   "publica": false,
   "guardias": [
    {
+    "tipo": "token"
+   },
+   {
     "tipo": "puede",
     "claves": [
      "cuenta.cambiar_correo"
     ]
-   },
-   {
-    "tipo": "token"
    }
   ],
   "puertas": [
