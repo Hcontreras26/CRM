@@ -111,10 +111,11 @@ describe('migración 222: las casillas, como excepciones (#423)', () => {
       .toEqual([{ clave: 'users.view', valor: true }]);
   });
 
-  it('en un rol a medida, igual: fuera lo que no hacía nada; dentro lo de Tareas y lo que miraba la pantalla (punto 5)', async () => {
+  it('en un rol a medida, igual: fuera lo que no hacía nada; dentro lo que miraba la pantalla (punto 5)', async () => {
+    // Su base es gestora: `tasks.close` no le abría el tablero, también al archivo (punto 6).
     const [cr] = await q('SELECT permissions FROM custom_roles WHERE id = $1', [rolMedida.id]);
-    expect(cr.permissions).toEqual({ 'leads.export': true, 'tasks.close': true });
-    expect(await q(`SELECT clave, valor FROM permisos_inertes_archivo WHERE custom_role_id = $1`, [rolMedida.id]))
-      .toEqual([{ clave: 'reports.view', valor: true }]);
+    expect(cr.permissions).toEqual({ 'leads.export': true });
+    expect(await q(`SELECT clave, valor FROM permisos_inertes_archivo WHERE custom_role_id = $1 ORDER BY clave`, [rolMedida.id]))
+      .toEqual([{ clave: 'reports.view', valor: true }, { clave: 'tasks.close', valor: true }]);
   });
 });

@@ -85,6 +85,8 @@ beforeAll(async () => {
   await persona('gestor', { excepciones: { 'facturas_colaborador.ver_todas': true } });
   await persona('gestor', { excepciones: { 'users.view': true, 'reports.view': true } }); // no surtían efecto
   await persona('admin', { excepciones: { 'tasks.close': false } });
+  // Punto 6: a una gestora, lo de tareas no le abría el tablero (la 222 lo archiva).
+  await persona('gestor', { excepciones: { 'tasks.view_own': true, 'tasks.close': true } });
   // Claves que antes solo miraba la pantalla (punto 5): se quedan y ahora valen
   // también en el servidor (cambio `pantalla-y-servidor`).
   await persona('gestor', { excepciones: { 'leads.assign': true, 'leads.export': true } });

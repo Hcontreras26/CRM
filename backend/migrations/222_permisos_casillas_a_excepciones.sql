@@ -32,6 +32,11 @@
 -- `permisos_inertes_archivo` (221) y se quita. Si Diego quiere activarlo, está
 -- ahí.
 --
+-- TAREAS (QA de Diego, punto 6). `tasks.*` se miraba, pero solo detrás de la
+-- puerta de las rutas: superadmin, admin y colaborador. A una gestora con
+-- «Ver sus tareas» dado, no le abría nada; con el catálogo le abriría el
+-- tablero. Esas también van al archivo (las de la ficha nueva, no).
+--
 -- Todo queda en `permisos_registro` con origen 'migracion_222'. Se puede pasar
 -- dos veces: lo que ya está no se repite.
 
@@ -100,7 +105,21 @@ CREATE TEMP TABLE _inertes ON COMMIT DROP AS
                 OR COALESCE(u.roles_extra::text[], '{}') && ARRAY['admin', 'superadmin', 'soporte']))
        OR (o.resource = 'diplomas' AND o.action IN ('view', 'emit')
            AND (u.role::text IN ('admin', 'superadmin')
-                OR COALESCE(u.roles_extra::text[], '{}') && ARRAY['admin', 'superadmin'])));
+                OR COALESCE(u.roles_extra::text[], '{}') && ARRAY['admin', 'superadmin'])))
+  UNION
+  -- Tareas (QA de Diego, punto 6): las rutas solo dejaban pasar a superadmin,
+  -- admin y colaborador (roles de más incluidos) y el permiso se miraba DENTRO.
+  -- A cualquier otro, lo guardado en `tasks.*` no le hacía nada: con el
+  -- catálogo le abriría el tablero. Lo dado ya por la ficha nueva se queda.
+  SELECT o.user_id, o.resource, o.action, o.allowed
+    FROM user_permission_overrides o
+    JOIN users u ON u.id = o.user_id
+   WHERE o.resource = 'tasks'
+     AND NOT (u.role::text IN ('superadmin', 'admin', 'colaborador')
+              OR COALESCE(u.roles_extra::text[], '{}') && ARRAY['superadmin', 'admin', 'colaborador'])
+     AND NOT EXISTS (SELECT 1 FROM permisos_registro r
+                      WHERE r.usuario_id = o.user_id AND r.clave = o.resource || '.' || o.action
+                        AND r.origen IN ('ficha_usuario', 'panel_mcp'));
 
 INSERT INTO permisos_inertes_archivo (de_donde, usuario_id, clave, valor)
 SELECT 'excepcion', user_id, resource || '.' || action, allowed FROM _inertes
@@ -122,6 +141,20 @@ CREATE TEMP TABLE _inertes_rol ON COMMIT DROP AS
     CROSS JOIN LATERAL jsonb_each(COALESCE(cr.permissions, '{}'::jsonb)) AS kv
    WHERE jsonb_typeof(kv.value) = 'boolean'
      AND NOT EXISTS (SELECT 1 FROM _aplicadas a WHERE kv.key LIKE a.patron)
+     AND NOT EXISTS (SELECT 1 FROM permisos_registro r
+                      WHERE r.custom_role_id = cr.id AND r.clave = kv.key AND r.origen = 'pantalla_roles')
+  UNION
+  -- Tareas, igual que en las excepciones: un rol a medida cuyo rol base no
+  -- entraba al tablero, salvo que alguien que lo tenga entre por un rol de más.
+  SELECT cr.id, kv.key, (kv.value)::text::boolean
+    FROM custom_roles cr
+    CROSS JOIN LATERAL jsonb_each(COALESCE(cr.permissions, '{}'::jsonb)) AS kv
+   WHERE jsonb_typeof(kv.value) = 'boolean'
+     AND kv.key LIKE 'tasks.%'
+     AND COALESCE(cr.base_role::text, 'gestor') NOT IN ('superadmin', 'admin', 'colaborador')
+     AND NOT EXISTS (SELECT 1 FROM users u
+                      WHERE u.custom_role_id = cr.id
+                        AND COALESCE(u.roles_extra::text[], '{}') && ARRAY['superadmin', 'admin', 'colaborador'])
      AND NOT EXISTS (SELECT 1 FROM permisos_registro r
                       WHERE r.custom_role_id = cr.id AND r.clave = kv.key AND r.origen = 'pantalla_roles');
 

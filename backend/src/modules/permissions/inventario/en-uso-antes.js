@@ -39,3 +39,16 @@ export function enUsoAntes(clave) {
 export function soloEnLaPantallaAntes(clave) {
   return EN_LA_PANTALLA.includes(clave);
 }
+
+/**
+ * Tareas (QA de Diego, punto 6): `tasks.*` solo surtía efecto a quien pasaba la
+ * puerta de las rutas, superadmin, admin o colaborador (roles de más
+ * incluidos). Lo guardado a cualquier otro no hacía nada, y la 222 lo archiva.
+ * Es la misma regla que la migración; `tareasMigracion423.test.js` lo comprueba.
+ */
+export const ROLES_DEL_TABLERO = ['superadmin', 'admin', 'colaborador'];
+
+/** ¿La 222 archiva esta excepción de tareas? `roles`: su rol y sus roles de más. */
+export function tareasSinEfectoAntes(clave, roles) {
+  return clave.startsWith('tasks.') && !roles.some((r) => ROLES_DEL_TABLERO.includes(r));
+}

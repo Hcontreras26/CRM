@@ -28,9 +28,13 @@ const legado = await import('../../../backend/src/modules/permissions/inventario
 // excepciones como hace la migración 222 (#423).
 const { resolverPermisos } = await import('../../../backend/src/modules/permissions/resolver.js');
 const { excepcionesDeCasillas } = await import('../../../backend/src/modules/permissions/casillas.js');
+const { tareasSinEfectoAntes } = await import('../../../backend/src/modules/permissions/inventario/en-uso-antes.js');
+// Y sin lo que la 222 archiva: `tasks.*` de quien no pasaba la puerta del tablero (punto 6).
+const sinArchivadas = (p) => Object.fromEntries(Object.entries(p.excepciones)
+  .filter(([k]) => !tareasSinEfectoAntes(k, [p.role, ...p.roles_extra])));
 const mapaDeAhora = (p) => resolverPermisos({
   role: p.role, roles_extra: p.roles_extra, customRole: p.custom_role,
-  excepciones: { ...excepcionesDeCasillas(p), ...p.excepciones },
+  excepciones: { ...excepcionesDeCasillas(p), ...sinArchivadas(p) },
 }).mapa;
 
 const FOTO = path.resolve(__dirname, 'fixtures/menu-por-perfil-423.json');
@@ -105,11 +109,8 @@ export const CAMBIOS_APROBADOS = {
     '- Tutores › Comisiones', '- Tutores › Mis cursos', '- Tutores › Sin tutor', '- Tutores › Tutores',
   ],
   project_manager: ['- Clientes › Matrículas', '- Principal › WhatsApp › Chat', '- Principal › WhatsApp › Conexión'],
-  // 4 · Un permiso dado a una persona le enseña la pantalla (antes el menú solo
-  //     miraba su rol, aunque el servidor ya la dejaba entrar).
-  'gestora con tasks.close': [
-    '+ Equipo de Desarrollo › Configurar tablero', '+ Equipo de Desarrollo › Por revisar', '+ Equipo de Desarrollo › Tablero',
-  ],
+  // (La gestora con permisos de tareas ya no gana el tablero: el servidor no la
+  //  dejaba entrar y la 222 archiva lo suyo. QA de Diego, punto 6.)
 };
 
 describe('menú por perfil (#423)', () => {
