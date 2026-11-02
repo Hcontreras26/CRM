@@ -2,6 +2,7 @@
 import { query } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { comoLista, SIN_PRUEBAS, campusDeLaPersona } from '../../shared/utils/ambito.js';
+import { soloLoSuyo } from '../../shared/utils/roles.js';
 
 function currentPeriodo() {
   // Server timezone — para CRM single-tenant es suficiente.
@@ -211,7 +212,7 @@ async function puedeTocar(actor, { userId, projectId }) {
  */
 export async function setGoal({ user_id, project_id = null, periodo_yyyymm, meta_ventas, meta_facturacion, notas = null }, actor) {
   if (!actor) throw new AppError('Auth requerida', 401, 'AUTH_REQUIRED');
-  if (actor.role === 'gestor' && actor.userId !== user_id) {
+  if (soloLoSuyo(actor) && actor.userId !== user_id) {
     throw new AppError('Un gestor solo puede setear su propia meta', 403, 'FORBIDDEN');
   }
   if (!(await puedeTocar(actor, { userId: user_id, projectId: project_id }))) {
@@ -242,7 +243,7 @@ export async function deleteGoal(id, actor) {
   const { rows: [meta] } = await query(`SELECT user_id, project_id FROM sales_goals WHERE id = $1`, [id]);
   // Una meta que no es de tus campus es «no encontrada», igual que una que no existe: no se
   // le dice a nadie qué ids hay en otra empresa.
-  const suya = meta && (actor.role !== 'gestor' || Number(meta.user_id) === Number(actor.userId));
+  const suya = meta && (!soloLoSuyo(actor) || Number(meta.user_id) === Number(actor.userId));
   if (!suya || !(await puedeTocar(actor, { userId: meta.user_id, projectId: meta.project_id }))) {
     throw new AppError('Meta no encontrada o sin permisos', 404, 'NOT_FOUND');
   }
