@@ -1147,19 +1147,19 @@ async function metricasDeCampanas({ projectIds, desde, hasta }) {
   const enProspectos = periodo('l.created_at::date', { desde, hasta }, params);
   const { rows } = await query(
     `WITH camp AS (
-       SELECT mc.campaign_id, mc.project_id, mc.nombre, mc.objective, mc.status, mc.effective_status, mc.daily_budget,
-              (SELECT a.currency FROM meta_ad_accounts a
-                WHERE a.project_id = mc.project_id AND a.ad_account_id = mc.ad_account_id LIMIT 1) AS moneda
+       SELECT mc.campaign_id, mc.project_id
          FROM meta_campaigns mc
         WHERE mc.project_id = ANY($1::int[])
      ),
+     -- El gasto, por el campus de la FILA DIARIA y no por el de la campaña (QA de
+     -- Diego, 22/10, punto 10), como la pantalla Publicidad (getDashboard): un día
+     -- apuntado a otro campus es gasto de ese campus, aunque la campaña sea de este.
      gasto AS (
-       SELECT d.campaign_id, SUM(d.spend) AS gasto, SUM(d.impressions) AS impresiones,
+       SELECT d.campaign_id, d.project_id, SUM(d.spend) AS gasto, SUM(d.impressions) AS impresiones,
               SUM(d.clicks) AS clics, SUM(d.leads) AS leads_segun_meta
          FROM meta_campaigns_daily d
-         JOIN camp ON camp.campaign_id = d.campaign_id
-        WHERE TRUE${enGasto}
-        GROUP BY d.campaign_id
+        WHERE d.project_id = ANY($1::int[])${enGasto}
+        GROUP BY d.campaign_id, d.project_id
      ),
      -- Una fila de UTM por prospecto (lead_utms.lead_id es UNIQUE) y sus ventas
      -- sumadas aparte: ningún JOIN multiplica nada. Solo los prospectos del
@@ -1179,19 +1179,30 @@ async function metricasDeCampanas({ projectIds, desde, hasta }) {
             WHERE c.lead_id = l.id AND NOT COALESCE(c.es_mensualidad, false)
          ) v ON TRUE
         GROUP BY camp.campaign_id
+     ),
+     -- Una fila por campaña y campus: los de su gasto y el de la campaña (sus prospectos).
+     filas AS (
+       SELECT campaign_id, project_id FROM gasto
+       UNION
+       SELECT campaign_id, project_id FROM camp
      )
-     SELECT camp.campaign_id, camp.project_id, camp.nombre, camp.objective, camp.status, camp.effective_status,
-            camp.daily_budget, camp.moneda, pr.nombre AS campus,
+     SELECT f.campaign_id, f.project_id, mc.nombre, mc.objective, mc.status, mc.effective_status, mc.daily_budget,
+            (SELECT a.currency FROM meta_ad_accounts a
+              WHERE a.ad_account_id = mc.ad_account_id
+              ORDER BY (a.project_id = f.project_id) DESC LIMIT 1) AS moneda,
+            pr.nombre AS campus,
             COALESCE(g.gasto, 0) AS gasto, COALESCE(g.impresiones, 0) AS impresiones,
             COALESCE(g.clics, 0) AS clics, COALESCE(g.leads_segun_meta, 0) AS leads_segun_meta,
             COALESCE(a.prospectos, 0) AS prospectos, COALESCE(a.compraron, 0) AS compraron,
             COALESCE(a.facturado, 0) AS facturado
-       FROM camp
-       JOIN projects pr ON pr.id = camp.project_id
-       LEFT JOIN gasto g ON g.campaign_id = camp.campaign_id
-       LEFT JOIN atrib a ON a.campaign_id = camp.campaign_id
+       FROM filas f
+       JOIN meta_campaigns mc ON mc.campaign_id = f.campaign_id
+       JOIN projects pr ON pr.id = f.project_id
+       LEFT JOIN gasto g ON g.campaign_id = f.campaign_id AND g.project_id = f.project_id
+       -- Los prospectos, como hasta ahora: solo en la fila del campus de la campaña.
+       LEFT JOIN atrib a ON a.campaign_id = f.campaign_id AND f.project_id = mc.project_id
       WHERE COALESCE(g.gasto, 0) > 0 OR COALESCE(a.prospectos, 0) > 0
-      ORDER BY COALESCE(g.gasto, 0) DESC, camp.nombre`,
+      ORDER BY COALESCE(g.gasto, 0) DESC, mc.nombre, pr.nombre`,
     params
   );
   return rows.map((r) => ({

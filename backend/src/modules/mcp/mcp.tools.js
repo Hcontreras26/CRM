@@ -713,7 +713,9 @@ export const HERRAMIENTAS = [
       const { projectIds } = acotar(ambito, a);
       soloAdministracion(ambito, 'resumen_publicidad');
       periodoEnOrden(a);
-      return model.resumenPublicidad({ projectIds, desde: a.desde, hasta: a.hasta });
+      // Con el mismo tope de tiempo que los informes (QA de Diego, 22/10, punto
+      // 10): sin fechas recorre todo el histórico y cruza por `utm_campaign`.
+      return conTope(model.resumenPublicidad({ projectIds, desde: a.desde, hasta: a.hasta }), TOPE_INFORME_MS, 'resumen_publicidad');
     },
   },
   {
@@ -734,7 +736,8 @@ export const HERRAMIENTAS = [
       const { projectIds } = acotar(ambito, a);
       soloAdministracion(ambito, 'campanas_publicitarias');
       periodoEnOrden(a);
-      return model.campanasPublicitarias({ projectIds, desde: a.desde, hasta: a.hasta, limite: a.limite });
+      return conTope(model.campanasPublicitarias({ projectIds, desde: a.desde, hasta: a.hasta, limite: a.limite }),
+        TOPE_INFORME_MS, 'campanas_publicitarias');
     },
   },
   // Actividad por comercial (#203, parte A; ficha de Diego del 07/10). La usan
