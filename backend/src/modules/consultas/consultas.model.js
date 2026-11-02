@@ -325,7 +325,8 @@ export async function listar({ tutorId = null, projectIds = null, estado = null,
   if (sinTutor) where.push('c.tutor_id IS NULL');
   if (buscar) {
     p.push(`%${buscar}%`);
-    where.push(`(c.alumno_nombre ILIKE $${p.length} OR c.alumno_email ILIKE $${p.length} OR c.curso_nombre ILIKE $${p.length})`);
+    // Sin acentos (#591): «maria» encuentra «María». Necesita la 235.
+    where.push(`(unaccent(COALESCE(c.alumno_nombre, '')) ILIKE unaccent($${p.length}) OR c.alumno_email ILIKE $${p.length} OR unaccent(COALESCE(c.curso_nombre, '')) ILIKE unaccent($${p.length}))`);
   }
   p.push(Math.min(Number(limite) || 200, 500));
   const { rows } = await query(
