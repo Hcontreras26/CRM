@@ -17,7 +17,8 @@ import { errorHandler } from '../src/shared/middleware/errorHandler.js';
  * filas en `user_projects`, y la ficha solo miraba `user_projects`.
  *
  *   · el admin de un campus de su empresa abre su ficha y su panel de campus;
- *   · el admin de otra empresa sigue sin verlo («no encontrado»).
+ *   · el admin de otra empresa sigue sin verlo («no encontrado»);
+ *   · y en la lista de Tutores pasa lo mismo: sale para su empresa, no para otra.
  */
 
 const marca = `t7qa${Date.now()}`;
@@ -119,5 +120,20 @@ describe.runIf(hayBase)('tutor solo por empresa', () => {
   it('el admin de otra empresa sigue sin verlo', async () => {
     expect((await get(`/api/tutores/${g.tutor}`, g.adminOtra)).status).toBe(404);
     expect((await get(`/api/tutores/${g.tutor}/campus`, g.adminOtra)).status).toBe(404);
+  });
+
+  // Y en la LISTA de Tutores, que tampoco miraba `tutor_empresas`.
+  it('sale en la lista del campus de su empresa, como de ese campus', async () => {
+    const r = await get(`/api/tutores?projectId=${g.campusCedia}`, g.adminCedia);
+    expect(r.status).toBe(200);
+    const suyo = r.body.data.find((t) => Number(t.id) === g.tutor);
+    expect(suyo).toBeDefined();
+    expect(suyo.es_de_este_proyecto).toBe(true);
+  });
+
+  it('y no sale en la lista de otra empresa', async () => {
+    const r = await get(`/api/tutores?projectId=${g.campusOtra}`, g.adminOtra);
+    expect(r.status).toBe(200);
+    expect(r.body.data.some((t) => Number(t.id) === g.tutor)).toBe(false);
   });
 });
