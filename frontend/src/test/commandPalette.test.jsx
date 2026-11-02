@@ -150,6 +150,18 @@ describe('excepciones por persona: manda el permiso, no el rol', () => {
     expect(rutasDe(sinFacturas)).not.toContain('/finanzas/pendiente-facturar');
   });
 
+  // La excepción en positivo: lo que da un permiso suelto aparece aunque su rol no lo traiga.
+  it('a un colaborador al que se le da meta_ads.view le aparece Meta Ads', () => {
+    expect(rutasDe(PERFILES.colaborador)).not.toContain('/meta-ads');
+    expect(rutasDe(persona('colaborador', { excepciones: { 'meta_ads.view': true } }))).toContain('/meta-ads');
+  });
+
+  it('a una gestora a la que se le da products.create, el buscador la cuenta como quien crea productos', () => {
+    const conCrear = persona('gestor', { excepciones: { 'products.create': true } });
+    expect(buscaDe(PERFILES.gestora).crearProducto).toBe(false);
+    expect(buscaDe(conCrear).crearProducto).toBe(true);
+  });
+
   it.skipIf(!CERTIFEX_PANEL)('una gestora con diplomas.view encuentra Diplomas', () => {
     expect(rutasDe(PERFILES.gestora)).not.toContain('/clientes/matriculas/diplomas');
     expect(rutasDe(persona('gestor', { excepciones: { 'diplomas.view': true } }))).toContain('/clientes/matriculas/diplomas');
