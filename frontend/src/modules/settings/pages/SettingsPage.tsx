@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useSearchParams } from 'react-router-dom';
 import { ArrowSquareOut } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import { TABS } from '../components/settings/shared';
@@ -33,7 +33,11 @@ const TAB_CONTENT = {
 };
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('projects');
+  // `?pestana=users` abre directamente esa pestaña (el buscador, Ctrl K, #591).
+  // Sin el parámetro, como siempre: Proyectos.
+  const [params] = useSearchParams();
+  const pedida = params.get('pestana');
+  const [activeTab, setActiveTab] = useState(pedida && pedida in TAB_CONTENT ? pedida : 'projects');
   const TabContent = TAB_CONTENT[activeTab];
 
   return (

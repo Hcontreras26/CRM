@@ -30,6 +30,8 @@ router.patch('/mis-avisos', userController.cambiarMiAviso);
 // Resto admin/superadmin
 
 router.get('/', puede('users.view'), userController.list);
+// El buscador (Ctrl K, #591). Antes que `/:id`, o «buscar» se leería como un id.
+router.get('/buscar', puede('users.view'), userController.buscar);
 // Disponibilidad (admin/superadmin). Va antes que /:id para no chocar.
 router.get('/availability', puede('users.view'), availabilityController.listAvailability);
 router.delete('/availability-blocks/:blockId', puede('users.edit'), availabilityController.deleteBlock);

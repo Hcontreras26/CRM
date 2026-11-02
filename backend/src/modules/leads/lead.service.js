@@ -12,6 +12,7 @@ import { deducirCanal } from './canal.js';
 import { planificarPasosDeLead } from '../proceso/proceso.model.js';
 import { cruzarConPulsacion } from '../widget/widget.pulsaciones.js';
 import { avanzarPorContacto } from '../../shared/services/estado-prospecto.service.js';
+import { soloLoSuyo } from '../../shared/utils/roles.js';
 
 // Dispara secuencias de email activas que tengan el trigger indicado
 async function triggerSequences(triggerEvent, leadId, projectId) {
@@ -612,7 +613,7 @@ export async function updateInteractionFn(leadId, interactionId, fields, request
   const interaction = await leadModel.findInteractionById(interactionId);
   if (!interaction) throw new AppError('Interacción no encontrada', 404, 'INTERACTION_NOT_FOUND');
   if (interaction.lead_id !== leadId) throw new AppError('Interacción no pertenece al lead', 400, 'WRONG_LEAD');
-  if (requestUser?.role === 'gestor' && interaction.created_by !== requestUser.userId) {
+  if (soloLoSuyo(requestUser) && interaction.created_by !== requestUser.userId) {
     throw new AppError('No tienes permiso para editar esta interacción', 403, 'FORBIDDEN');
   }
   const updated = await leadModel.updateInteraction(interactionId, fields);
@@ -624,7 +625,7 @@ export async function deleteInteractionFn(leadId, interactionId, requestUser) {
   const interaction = await leadModel.findInteractionById(interactionId);
   if (!interaction) throw new AppError('Interacción no encontrada', 404, 'INTERACTION_NOT_FOUND');
   if (interaction.lead_id !== leadId) throw new AppError('Interacción no pertenece al lead', 400, 'WRONG_LEAD');
-  if (requestUser?.role === 'gestor' && interaction.created_by !== requestUser.userId) {
+  if (soloLoSuyo(requestUser) && interaction.created_by !== requestUser.userId) {
     throw new AppError('No tienes permiso para eliminar esta interacción', 403, 'FORBIDDEN');
   }
   await leadModel.deleteInteraction(interactionId);

@@ -114,3 +114,51 @@ describe('quien no', () => {
     expect((await request.get('/api/invoices/issuers').set(como(ADMIN_OTRO))).status).toBe(200);
   });
 });
+
+/*
+ * La LISTA y las CIFRAS. Acotaban el detalle pero no el listado: con el
+ * `projectId` de otro campus, la lista y `/stats` lo daban todo; y un admin,
+ * con `issuerId`, las facturas de toda la empresa aunque solo llevara uno de
+ * sus campus. Lo vio la revisión del buscador (#591).
+ */
+describe('la lista y las cifras, solo de sus campus', () => {
+  const ids = (r) => r.body.data.map((f) => f.id);
+  let EMPRESA;
+  beforeAll(async () => {
+    [{ id: EMPRESA }] = await q('INSERT INTO invoice_issuers (razon_social, nif) VALUES ($1, $2) RETURNING id', [`${MARCA} EMPRESA`, `${MARCA}-E`]);
+    await q('UPDATE invoices SET issuer_id = $1 WHERE id = $2', [EMPRESA, FACTURA]);
+  });
+  afterAll(async () => {
+    await q('UPDATE invoices SET issuer_id = NULL WHERE id = $1', [FACTURA]);
+    await q('DELETE FROM invoice_issuers WHERE id = $1', [EMPRESA]);
+  });
+
+  it('el admin del campus la encuentra por su número', async () => {
+    const r = await request.get(`/api/invoices?projectId=${P}&search=987654`).set(como(ADMIN));
+    expect(r.status).toBe(200);
+    expect(ids(r)).toEqual([FACTURA]);
+  });
+
+  it('un admin de otro campus: 403 en la lista y en las cifras', async () => {
+    expect((await request.get(`/api/invoices?projectId=${P}`).set(como(ADMIN_OTRO))).status).toBe(403);
+    expect((await request.get(`/api/invoices/stats?projectId=${P}`).set(como(ADMIN_OTRO))).status).toBe(403);
+  });
+
+  it('una gestora de otro campus: 403', async () => {
+    expect((await request.get(`/api/invoices?projectId=${P}`).set(como(GESTORA_OTRO))).status).toBe(403);
+  });
+
+  it('por empresa: el admin ve las de sus campus, no las de los demás campus de la empresa', async () => {
+    expect(ids(await request.get(`/api/invoices?issuerId=${EMPRESA}`).set(como(ADMIN)))).toEqual([FACTURA]);
+    const otro = await request.get(`/api/invoices?issuerId=${EMPRESA}`).set(como(ADMIN_OTRO));
+    expect(otro.status).toBe(200);
+    expect(otro.body.data).toEqual([]);
+    const cifras = await request.get(`/api/invoices/stats?issuerId=${EMPRESA}`).set(como(ADMIN_OTRO));
+    expect(cifras.body.data.total).toBe(0);
+  });
+
+  it('el superadmin, en cualquier campus y empresa', async () => {
+    expect(ids(await request.get(`/api/invoices?projectId=${P}&search=987654`).set(como(SUPER)))).toEqual([FACTURA]);
+    expect(ids(await request.get(`/api/invoices?issuerId=${EMPRESA}`).set(como(SUPER)))).toEqual([FACTURA]);
+  });
+});

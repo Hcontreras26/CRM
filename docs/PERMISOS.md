@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-801 rutas en 63 módulos, y 28 acciones con condición dentro de una ruta.
+800 rutas en 63 módulos, y 28 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -850,8 +850,6 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | guardarBaremo | `PUT /api/informes/tasa-cierre/baremo` | (no existía) | (ruta nueva) | `reports.editar_baremo` |
 | quitarBaremo | `DELETE /api/informes/tasa-cierre/baremo` | (no existía) | (ruta nueva) | `reports.editar_baremo` |
 | resumenDia | `GET /api/informes/resumen-del-dia` | sesión | superadmin, admin, gestor, soporte, project_manager | `reports.mis_informes` |
-| actividadComercial | `GET /api/informes/actividad-comercial` | (no existía) | (ruta nueva) | `reports.mis_informes` |
-| actividadComercialDetalle | `GET /api/informes/actividad-comercial/detalle` | (no existía) | (ruta nueva) | `reports.mis_informes` |
 | miPuesto · ver el puesto de otra gestora (gestoraId) | `GET /api/informes/mi-puesto` | cuando ver el puesto de otra gestora (gestoraId): a mano, report.controller.js · miPuesto | superadmin, admin, soporte | `reports.puesto_ajeno` |
 
 ## reports-ia
@@ -1035,6 +1033,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | misAvisos | `GET /api/users/mis-avisos` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor, colaborador | lo de cada uno |
 | cambiarMiAviso | `PATCH /api/users/mis-avisos` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor, colaborador | lo de cada uno |
 | list | `GET /api/users/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.view` |
+| buscar | `GET /api/users/buscar` | (no existía) | (ruta nueva) | `users.view` |
 | listAvailability | `GET /api/users/availability` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.view` |
 | deleteBlock | `DELETE /api/users/availability-blocks/:blockId` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.edit` |
 | getById | `GET /api/users/:id` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.view` |

@@ -44,6 +44,45 @@ const claveTelefono = (col) => {
     END`;
 };
 
+/**
+ * La condición de búsqueda de un prospecto por texto (#591), la misma en la
+ * lista (`findAll`) y en los totales de su cabecera (`getStats`): si no, con
+ * «gonzalez» la lista salía más larga que el total (revisión del 02/11).
+ * Nombre y usuario de WhatsApp sin acentos (`unaccent`, migración 235), correo
+ * y teléfono tal cual, y el teléfono también por sus cifras si lo escrito es
+ * un teléfono («626 27 64 14» encuentra «+34626276414»).
+ * `col` pone delante de cada columna su tabla («l.» o nada); `idx`, el primer
+ * número de parámetro libre. Devuelve la condición, sus parámetros y el
+ * siguiente número libre; sin término, null.
+ */
+export function condicionDeBusqueda(search, { col = '', idx }) {
+  // El termino se recorta SIEMPRE. Los nombres se pegan desde WhatsApp y vienen
+  // con un espacio delante o detras; sin recortarlo el patron queda
+  // "% Javier Alfonso%", que no casa con un nombre que empieza en "Javier", y la
+  // pantalla sale vacia como si el cliente no existiera. Paso el 16/09 en ISEIE
+  // con la ficha de Javier Cifuentes.
+  const termino = typeof search === 'string' ? search.trim() : '';
+  if (!termino) return null;
+  const params = [`%${termino}%`];
+  const conds = [
+    `unaccent(COALESCE(${col}nombre, '')) ILIKE unaccent($${idx})`,
+    `${col}email ILIKE $${idx}`,
+    `${col}telefono ILIKE $${idx}`,
+    `unaccent(COALESCE(${col}whatsapp_usuario, '')) ILIKE unaccent($${idx})`,
+  ];
+  let siguiente = idx + 1;
+  // Diego, 02/11: teléfonos con espacios. Solo si lo escrito es un teléfono
+  // (cifras, espacios, +, guiones, paréntesis): «F-2026/123» o «Ana 3» no deben
+  // acabar buscando por las cifras sueltas.
+  const soloDigitos = termino.replace(/\D/g, '');
+  if (/^[\d\s+().-]+$/.test(termino) && soloDigitos.length >= 3) {
+    conds.push(`regexp_replace(COALESCE(${col}telefono, ''), '\\D', '', 'g') LIKE $${siguiente}`);
+    params.push(`%${soloDigitos}%`);
+    siguiente += 1;
+  }
+  return { sql: `(${conds.join(' OR ')})`, params, siguiente };
+}
+
 // Detecta si esta ficha ya existe: por correo, por telefono O por usuario de
 // WhatsApp. Cualquiera de los tres vale, porque muchos prospectos entran sin
 // correo —los de WhatsApp casi todos— y ahi antes no habia deteccion ninguna.
@@ -862,16 +901,11 @@ export async function findAll({ projectId, projectIds, status, seguimiento, paso
     paramIdx++;
     params.push(productId);
   }
-  // El termino se recorta SIEMPRE. Los nombres se pegan desde WhatsApp y vienen
-  // con un espacio delante o detras; sin recortarlo el patron queda
-  // "% Javier Alfonso%", que no casa con un nombre que empieza en "Javier", y la
-  // pantalla sale vacia como si el cliente no existiera. Paso el 16/09 en ISEIE
-  // con la ficha de Javier Cifuentes.
-  const termino = typeof search === 'string' ? search.trim() : '';
-  if (termino) {
-    conditions.push(`(l.nombre ILIKE $${paramIdx} OR l.email ILIKE $${paramIdx} OR l.telefono ILIKE $${paramIdx} OR l.whatsapp_usuario ILIKE $${paramIdx})`);
-    params.push(`%${termino}%`);
-    paramIdx++;
+  const busqueda = condicionDeBusqueda(search, { col: 'l.', idx: paramIdx });
+  if (busqueda) {
+    conditions.push(busqueda.sql);
+    params.push(...busqueda.params);
+    paramIdx = busqueda.siguiente;
   }
 
   // Filtro por rango de fechas (sobre fecha_solicitud, fallback created_at).
@@ -1402,9 +1436,11 @@ export async function getLeadProjectId(leadId) {
 // ============================================================
 
 // Panel "Hoy" - actividad del dia, reminders pendientes, alertas
-export async function getTodaySummary({ userId, role, projectId, projectIds = null }) {
+export async function getTodaySummary({ userId, role, soloSuyo, projectId, projectIds = null }) {
   // Usamos parametros para evitar SQL injection
-  const userIdParam = role === 'gestor' ? userId : null;
+  // Solo lo suyo: la gestora, el project manager y quien tiene la gestora añadida (02/11,
+  // `soloLoSuyo` de shared/utils/roles.js). Sin `soloSuyo`, por el rol, como antes.
+  const userIdParam = (soloSuyo ?? role === 'gestor') ? userId : null;
   // Uno o varios campus en la MISMA consulta (#224). Con una empresa elegida
   // el Dashboard pedia esto una vez por campus —siete con CEDIA, cada una con
   // seis consultas seguidas— y sumaba en el navegador. Ahora es una sola
@@ -1511,11 +1547,12 @@ export async function getStats(projectId, { responsableId = null, dateFrom = nul
     extra.push(`EXISTS (SELECT 1 FROM lead_utms lu WHERE lu.lead_id = leads.id AND lu.canal_detectado = $${idx++})`);
     params.push(canal);
   }
-  const termino = typeof search === 'string' ? search.trim() : '';
-  if (termino) {
-    extra.push(`(nombre ILIKE $${idx} OR email ILIKE $${idx} OR telefono ILIKE $${idx})`);
-    params.push(`%${termino}%`);
-    idx++;
+  // La misma búsqueda que la lista (#591): sin acentos y el teléfono por cifras.
+  const busqueda = condicionDeBusqueda(search, { idx });
+  if (busqueda) {
+    extra.push(busqueda.sql);
+    params.push(...busqueda.params);
+    idx = busqueda.siguiente;
   }
   const where = extra.length ? ` AND ${extra.join(' AND ')}` : '';
   const { rows } = await query(

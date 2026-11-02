@@ -8,6 +8,7 @@ import { getLocal } from '../../shared/services/localStorage.service.js';
 import * as integrationsModel from '../integrations/integrations.model.js';
 import * as model from './invoices.model.js';
 import { query } from '../../shared/config/db.js';
+import { soloLoSuyo } from '../../shared/utils/roles.js';
 
 const PDF_DIR = process.env.INVOICES_PDF_DIR || path.join(process.cwd(), 'uploads', 'invoices');
 
@@ -120,7 +121,8 @@ const SIMBOLOS_NO_WINANSI = {
   '₿': 'BTC ', '₵': 'GHS ', '₾': 'GEL ',
 };
 function winAnsi(t) {
-  let out = String(t ?? '');
+  // «n⁰», «n°»: el cero volado (U+2070) se escribe como «º», que WinAnsi sí tiene.
+  let out = String(t ?? '').replace(/⁰/g, 'º');
   for (const [sym, iso] of Object.entries(SIMBOLOS_NO_WINANSI)) out = out.split(sym).join(iso);
   // OJO: WinAnsi (CP1252) SI admite caracteres fuera de Latin-1 — el euro entre
   // ellos. Filtrar solo por Latin-1 se cargaba el simbolo de TODOS los importes.
@@ -133,6 +135,21 @@ function winAnsi(t) {
     if (cp <= 0xFF || EXTRAS.has(cp)) res += ch;
   }
   return res;
+}
+
+/**
+ * La fuente del PDF, con el texto limpio SIEMPRE (02/11/2026). Muchos `drawText`
+ * no pasaban por winAnsi(): la dirección de un cliente con «n⁰» (cero volado,
+ * U+2070) hacía reventar la factura ICTESS 2026/0111 de Yosbely, que no se podía
+ * descargar, generar ni enviar. Limpiando dentro de la fuente vale para todo lo
+ * que se dibuje con ella, también lo que se añada después.
+ */
+export function fuenteSegura(f) {
+  const codificar = f.encodeText.bind(f);
+  const ancho = f.widthOfTextAtSize.bind(f);
+  f.encodeText = (t) => codificar(winAnsi(t));
+  f.widthOfTextAtSize = (t, size) => ancho(winAnsi(t), size);
+  return f;
 }
 
 // Formatea un importe en la moneda de la factura (por defecto EUR). Los importes
@@ -248,8 +265,8 @@ export async function generatePDF(invoiceId, { preliminar = false, vistaGestor =
 
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595, 842]); // A4
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const font = fuenteSegura(await pdfDoc.embedFont(StandardFonts.Helvetica));
+  const bold = fuenteSegura(await pdfDoc.embedFont(StandardFonts.HelveticaBold));
   const black = rgb(0, 0, 0);
   const gray = rgb(0.4, 0.4, 0.4);
   const lightGray = rgb(0.92, 0.92, 0.92);
@@ -881,7 +898,7 @@ export async function cobrarProforma(invoiceId, { importe, fecha, metodo, notas,
   if (!(await model.tieneLaClave(user.userId, 'facturas.cola'))) {
     throw new AppError('Solo quien gestiona la facturación puede pasar una proforma a factura.', 403, 'FORBIDDEN');
   }
-  if (user.role === 'gestor' && !(await model.esProformaDe(user.userId, invoiceId))) {
+  if (soloLoSuyo(user) && !(await model.esProformaDe(user.userId, invoiceId))) {
     throw new AppError('Solo puedes cobrar tus propias proformas.', 403, 'FORBIDDEN');
   }
   const motivo = await model.motivoParaNoCobrarProforma(prof, { importe, fecha });

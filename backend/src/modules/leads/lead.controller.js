@@ -8,6 +8,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import { leadsToWasapiCsv, leadsToWasapiXlsx, detectCountry } from '../../shared/utils/wasapiCsv.js';
 import { tienePermiso } from '../../shared/middleware/permissions.js';
+import { soloLoSuyo } from '../../shared/utils/roles.js';
 
 // ============================================================
 // WEBHOOK (publico, autenticado por API key en header)
@@ -27,7 +28,7 @@ import { tienePermiso } from '../../shared/middleware/permissions.js';
 // protegida pero seis puertas al mismo lead no lo estaban, y por ahi se leia y
 // se escribia el historial de fichas ajenas (#109).
 async function exigirQueSeaSuyo(req, leadId) {
-  if (req.user.role !== 'gestor') return;              // admin, superadmin y soporte ven todo
+  if (!soloLoSuyo(req.user)) return;              // admin, superadmin y soporte ven todo
   const { rows } = await query(
     'SELECT responsable_id FROM leads WHERE id = $1 AND deleted_at IS NULL', [leadId]);
   if (!rows.length) throw new AppError('Contacto no encontrado', 404, 'NOT_FOUND');
@@ -70,9 +71,23 @@ export async function list(req, res, next) {
       throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
     }
     const filters = { ...parsed.data };
+    // Solo dentro de sus campus (#591). La lista no pasaba por `projectAccess`:
+    // un admin de un campus podía pedir `?projectId=` de otro y el buscador
+    // (Ctrl K) le encontraba personas que no puede abrir. Mismo criterio que
+    // `campusPedidos`: lo ajeno se cae, y si no queda nada no casa con nada.
+    if (!veTodoElCrm(req.user)) {
+      const mios = await campusDeLaPersona(req.user?.userId);
+      if (filters.projectId && !mios.includes(Number(filters.projectId))) {
+        throw new AppError('No tienes acceso a ese campus', 403, 'FORBIDDEN');
+      }
+      if (Array.isArray(filters.projectIds)) {
+        const quedan = filters.projectIds.filter((id) => mios.includes(Number(id)));
+        filters.projectIds = quedan.length ? quedan : [-1];
+      }
+    }
     // SEGURIDAD: el rol 'gestor' SOLO puede ver leads asignados a él.
     // Ignoramos cualquier responsableId/unassigned que venga del cliente.
-    if (req.user.role === 'gestor') {
+    if (soloLoSuyo(req.user)) {
       filters.responsableId = req.user.userId;
       filters.unassigned = false;
       filters.duplicated = false;
@@ -107,7 +122,7 @@ export async function quickCounts(req, res, next) {
       throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
     }
     const filtros = { ...parsed.data };
-    if (req.user.role === 'gestor') filtros.responsableId = req.user.userId;
+    if (soloLoSuyo(req.user)) filtros.responsableId = req.user.userId;
 
     res.json({ success: true, data: await leadModel.contarFiltrosRapidos(filtros) });
   } catch (err) { next(err); }
@@ -138,7 +153,7 @@ export async function revisar(req, res, next) {
     }
     const lead = await leadModel.findById(id);
     if (!lead) throw new AppError('Prospecto no encontrado', 404, 'NOT_FOUND');
-    if (req.user.role === 'gestor' && lead.responsable_id !== req.user.userId) {
+    if (soloLoSuyo(req.user) && lead.responsable_id !== req.user.userId) {
       throw new AppError('Ese prospecto no es tuyo', 403, 'FORBIDDEN');
     }
 
@@ -149,7 +164,7 @@ export async function revisar(req, res, next) {
     // cuanto queda sin tener que pedirlo aparte en cada clic.
     const progreso = await leadModel.comoVaLaRevision({
       projectId: lead.project_id,
-      responsableId: req.user.role === 'gestor' ? req.user.userId : null,
+      responsableId: soloLoSuyo(req.user) ? req.user.userId : null,
     });
     res.status(201).json({ success: true, data: { revision: hecho, progreso } });
   } catch (err) { next(err); }
@@ -161,7 +176,7 @@ export async function progresoRevision(req, res, next) {
     const projectId = req.query.projectId ? parseInt(req.query.projectId) : null;
     const progreso = await leadModel.comoVaLaRevision({
       projectId,
-      responsableId: req.user.role === 'gestor' ? req.user.userId : null,
+      responsableId: soloLoSuyo(req.user) ? req.user.userId : null,
     });
     res.json({
       success: true,
@@ -200,7 +215,7 @@ export async function exportWasapi(req, res, next) {
       duplicated: false,
       reincidente: false,
     };
-    if (req.user.role === 'gestor') {
+    if (soloLoSuyo(req.user)) {
       filters.responsableId = req.user.userId;
     }
 
@@ -332,6 +347,7 @@ export async function today(req, res, next) {
     const data = await leadService.getTodaySummary({
       userId: req.user.userId,
       role: req.user.role,
+      soloSuyo: soloLoSuyo(req.user),
       projectId: projectId && !isNaN(projectId) ? projectId : null,
       projectIds: await campusPedidos(req),
     });
@@ -355,7 +371,7 @@ export async function stats(req, res, next) {
       search: req.query.search || null,
     };
     // SEGURIDAD: gestor solo ve sus propios stats, ignoramos responsableId del query.
-    if (req.user.role === 'gestor') opts.responsableId = req.user.userId;
+    if (soloLoSuyo(req.user)) opts.responsableId = req.user.userId;
     const data = await leadService.getStats(lista || projectId, opts);
     res.json({ success: true, data });
   } catch (err) { next(err); }
