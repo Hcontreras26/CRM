@@ -22,6 +22,7 @@ vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 
 const {
   fuzzyScore, sinAcentos, paginasDelBuscador, queBusca, destinoDePersona, destinoDeProducto, recienteSigueValiendo,
+  destinoDeVenta, destinoDeFactura, destinoDeTarea, destinoDeConsulta, numeroDeVenta, terminoDeFactura,
 } = await import('@/shared/components/layout/CommandPalette');
 const { NAV_SECTIONS, entradasDeSeccion, canSeeItem, esSoloColaboraciones } = await import('@/shared/components/layout/Sidebar');
 const { isBetaAllowed } = await import('@/shared/config/betaConfig');
@@ -124,7 +125,7 @@ describe('qué encuentra cada perfil (tabla de la #591)', () => {
   });
 
   it('tutor: ni personas ni productos (pendiente de Diego); solo lo suyo', () => {
-    expect(buscaDe(PERFILES.tutor)).toEqual({ personas: false, clientes: false, productos: false, crearProspecto: false, crearProducto: false });
+    expect(buscaDe(PERFILES.tutor)).toMatchObject({ personas: false, clientes: false, productos: false, crearProspecto: false, crearProducto: false });
     const rutas = rutasDe(PERFILES.tutor);
     expect(rutas.some((r) => r.startsWith('/prospectos') || r.startsWith('/finanzas') || r.startsWith('/configuracion'))).toBe(false);
   });
@@ -270,8 +271,63 @@ describe('cada resultado lleva a una ruta que existe en App.jsx', () => {
     }
 
     expect(todasLasRutasDelBuscador.size).toBeGreaterThan(0);
-    for (const ruta of todasLasRutasDelBuscador) {
-      expect(rutasApp.has(ruta)).toBe(true);
-    }
+    // Lista de las que faltan: si falla, dice cuál.
+    expect([...todasLasRutasDelBuscador].filter((r) => !rutasApp.has(r))).toEqual([]);
+  });
+
+  it('ventas, facturas, tareas y consultas van a rutas declaradas en App.jsx', () => {
+    const patrones = [...rutasDeclaradasEnApp(app)]
+      .map((r) => new RegExp(`^${r.replace(/:[^/]+/g, '[^/]+')}$`));
+    const existeRuta = (destino) => patrones.some((re) => re.test(destino.split('?')[0]));
+    const destinos = [
+      destinoDeVenta({ id: 701 }),
+      destinoDeFactura({ id: 3, conversion_id: 701 }),
+      destinoDeFactura({ id: 3, conversion_id: null }),
+      destinoDeTarea({ id: 12 }),
+      destinoDeConsulta({ id: 8 }),
+    ];
+    expect(destinos.filter((d) => !existeRuta(d))).toEqual([]);
+  });
+});
+
+describe('ventas, facturas, tareas y consultas (punto 6)', () => {
+  const tipos = (p) => {
+    const b = buscaDe(p);
+    return { ventas: b.ventas, facturas: b.facturas, tareas: b.tareas, consultas: b.consultasPanel || b.consultasPropias };
+  };
+
+  it('cada perfil, según la tabla de la #591', () => {
+    expect(tipos(PERFILES.superadmin)).toEqual({ ventas: true, facturas: true, tareas: true, consultas: true });
+    expect(tipos(PERFILES.admin)).toEqual({ ventas: true, facturas: true, tareas: true, consultas: true });
+    expect(tipos(PERFILES.soporte)).toMatchObject({ ventas: true, facturas: true });
+    // La gestora y el project manager buscan ventas y facturas; el servidor les da solo las suyas.
+    expect(tipos(PERFILES.gestora)).toMatchObject({ ventas: true, facturas: true, consultas: false });
+    expect(tipos(PERFILES.project_manager)).toMatchObject({ ventas: true, facturas: true });
+    expect(tipos(PERFILES.tutor)).toEqual({ ventas: false, facturas: false, tareas: false, consultas: true });
+    expect(tipos(PERFILES.colaborador)).toEqual({ ventas: false, facturas: false, tareas: true, consultas: false });
+  });
+
+  it('el tutor busca SUS consultas, no las del panel', () => {
+    expect(buscaDe(PERFILES.tutor)).toMatchObject({ consultasPropias: true, consultasPanel: false });
+    expect(buscaDe(PERFILES.admin)).toMatchObject({ consultasPropias: false, consultasPanel: true });
+  });
+
+  it('un admin al que se le quita facturas.view deja de buscar facturas', () => {
+    expect(buscaDe(PERFILES.admin).facturas).toBe(true);
+    expect(buscaDe(persona('admin', { excepciones: { 'facturas.view': false } })).facturas).toBe(false);
+  });
+
+  it('una gestora a la que se le da tasks.view_own busca tareas', () => {
+    expect(buscaDe(PERFILES.gestora).tareas).toBe(false);
+    expect(buscaDe(persona('gestor', { excepciones: { 'tasks.view_own': true } })).tareas).toBe(true);
+  });
+
+  it('el número de una venta y el de una factura', () => {
+    expect(numeroDeVenta('701')).toBe('701');
+    expect(numeroDeVenta('#701')).toBe('701');
+    expect(numeroDeVenta('ana 701')).toBeNull();
+    expect(terminoDeFactura('F-2026/0641')).toBe('2026/0641');
+    expect(terminoDeFactura('f 2026/0641')).toBe('2026/0641');
+    expect(terminoDeFactura('Fernández')).toBe('Fernández');
   });
 });

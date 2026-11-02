@@ -28,6 +28,9 @@ import {
   ClockCounterClockwise,
   Lightning,
   Keyboard,
+  Receipt,
+  Kanban,
+  ChatCircleText,
 } from '@phosphor-icons/react';
 
 const RECENT_KEY = 'crm.palette.recents';
@@ -136,12 +139,30 @@ export function queBusca({ user, can }) {
     productos,
     crearProspecto: personas && tiene('leads.create'),
     crearProducto: productos && tiene('products.create'),
+    // Ventas por número y facturas: el servidor acota a sus campus y, si es
+    // gestora, a las suyas. Al tutor, como con las personas, se le deja fuera.
+    ventas: !soloTutor && tiene('conversions.view'),
+    facturas: !soloTutor && tiene('facturas.view'),
+    tareas: tiene('tasks.view_own') || tiene('tasks.view_all'),
+    // Las consultas de alumnos: las suyas si las atiende; las de sus campus si las supervisa.
+    consultasPanel: tiene('consultas.view'),
+    consultasPropias: tiene('consultas.atender') && !tiene('consultas.view'),
   };
 }
 
-/** A dónde lleva una persona: su ficha de cliente si ya compró. Rutas de App.jsx. */
+/** A dónde lleva cada resultado. Rutas de App.jsx (lo comprueba la prueba). */
 export const destinoDePersona = (l) => (l.status === 'convertido' ? `/clientes/${l.id}` : `/prospectos/${l.id}`);
 export const destinoDeProducto = (p) => `/productos/${p.id}`;
+export const destinoDeVenta = (v) => `/finanzas/ventas/${v.id}`;
+// Una factura no tiene ficha propia: se abre la venta de la que cuelga, o la lista.
+export const destinoDeFactura = (f) => (f.conversion_id ? `/finanzas/ventas/${f.conversion_id}` : '/finanzas/facturas');
+export const destinoDeTarea = (t) => `/tareas?id=${t.id}`;
+export const destinoDeConsulta = (c) => `/consultas/${c.id}`;
+
+/** «1234» o «#1234»: el número de una venta. */
+export const numeroDeVenta = (q) => (/^#?\d{1,9}$/.test(q.trim()) ? q.trim().replace('#', '') : null);
+/** «F-2026/0641» se guarda como «2026/0641»: se quita la «F-» de delante. */
+export const terminoDeFactura = (q) => q.trim().replace(/^f\s*-?\s*(?=\d)/i, '');
 
 /**
  * Un reciente solo se enseña si hoy se podría volver a encontrar: si a alguien
@@ -152,8 +173,13 @@ export function recienteSigueValiendo(to, { pages, busca }) {
   if (/^\/prospectos\/\d+$/.test(to)) return busca.personas;
   if (/^\/clientes\/\d+$/.test(to)) return busca.clientes;
   if (/^\/productos\/\d+$/.test(to)) return busca.productos;
+  if (/^\/finanzas\/ventas\/\d+$/.test(to)) return busca.ventas || busca.facturas;
+  if (/^\/tareas\?id=\d+$/.test(to)) return busca.tareas;
+  if (/^\/consultas\/\d+$/.test(to)) return busca.consultasPanel || busca.consultasPropias;
   return false;
 }
+
+const SIN_OTROS = { ventas: [], facturas: [], tareas: [], consultas: [] };
 
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -163,7 +189,7 @@ export default function CommandPalette() {
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const navigate = useNavigate();
-  const { activeProject, projects, switchProject } = useProjectContext();
+  const { activeProject, projects, switchProject, activeIssuerId } = useProjectContext();
   const { user, logout, permissions } = useAuth();
   const { theme, toggleTheme } = useTheme();
   // `usePermission()` da una función `can` NUEVA en cada render. Aquí no vale:
@@ -232,6 +258,7 @@ export default function CommandPalette() {
 
   const [leadResults, setLeadResults] = useState([]);
   const [productResults, setProductResults] = useState([]);
+  const [otros, setOtros] = useState(SIN_OTROS);
   const [searching, setSearching] = useState(false);
   // El catálogo de cada campus se pide una vez por apertura, no en cada tecla:
   // con una empresa arriba eran catorce peticiones por letra.
@@ -239,22 +266,19 @@ export default function CommandPalette() {
   useEffect(() => { if (open) catalogos.current = new Map(); }, [open]);
 
   const search = useCallback(async (q) => {
-    if (!q) {
-      setLeadResults([]);
-      setProductResults([]);
-      return;
-    }
+    const vaciar = () => { setLeadResults([]); setProductResults([]); setOtros(SIN_OTROS); };
+    if (!q) return vaciar();
 
     // Un campus, o los del ámbito («Todos» o una empresa): el servidor exige
     // projectId o projectIds y los recorta a los de la persona.
     const hasSingleProject = activeProject?.id && activeProject.id > 0;
     const campus = hasSingleProject ? [activeProject.id] : idsDelAmbito;
-    if (!campus.length || (!busca.personas && !busca.productos)) {
-      setLeadResults([]);
-      setProductResults([]);
-      return;
-    }
+    const algo = Object.values(busca).some(Boolean);
+    if (!campus.length || !algo) return vaciar();
     const ambito = hasSingleProject ? `projectId=${activeProject.id}` : `projectIds=${campus.join(',')}`;
+    const lista = (r, campo) => (r?.success ? (campo ? r.data?.[campo] : r.data) : null);
+    const pedir = (url) => client.get(url).catch(() => ({ success: false }));
+    const nada = { success: true, data: [] };
 
     const catalogoDe = (pid) => {
       if (!catalogos.current.has(pid)) {
@@ -265,36 +289,59 @@ export default function CommandPalette() {
       return catalogos.current.get(pid);
     };
 
+    // Cada tipo, solo con su permiso: si falta, no se llama (#591). El ámbito
+    // (sus campus, y si es gestora solo lo suyo) lo pone la ruta del servidor.
+    const texto = encodeURIComponent(q);
+    const numero = numeroDeVenta(q);
+    // Las consultas van por la cabecera: un campus, o una empresa; con «Todos», las de sus campus.
+    const ambitoConsultas = hasSingleProject ? `&projectId=${activeProject.id}` : (activeIssuerId ? `&issuerId=${activeIssuerId}` : '');
+
     setSearching(true);
     try {
-      const [leadsRes, catalogo] = await Promise.all([
+      const [leadsRes, catalogo, ventaRes, facturasRes, tareasRes, consultasRes] = await Promise.all([
         busca.personas
           // `includeConverted`: Diego, 14/09: buscar también a los clientes;
           // solo para quien puede abrir su ficha (clients.view).
-          ? client.get(`/leads?${ambito}&search=${encodeURIComponent(q)}&limit=5${busca.clientes ? '&includeConverted=1' : ''}`)
-            .catch(() => ({ success: false }))
-          : { success: true, data: [] },
+          ? pedir(`/leads?${ambito}&search=${texto}&limit=5${busca.clientes ? '&includeConverted=1' : ''}`)
+          : nada,
         busca.productos
           ? Promise.all(campus.map(catalogoDe)).then((listas) => {
             const vistos = new Set();
             return listas.flat().filter((p) => !vistos.has(p.id) && vistos.add(p.id));
           })
           : [],
+        // Una venta por su número: la ficha ya comprueba campus y, si es gestora, que sea suya.
+        busca.ventas && numero ? pedir(`/conversions/${numero}`) : { success: false },
+        // La lista de facturas entiende un campus cada vez: con varios, una por campus.
+        busca.facturas
+          ? Promise.all(campus.map((pid) => pedir(`/invoices?projectId=${pid}&search=${encodeURIComponent(terminoDeFactura(q))}&limit=5`)))
+            .then((rs) => ({ success: true, data: rs.flatMap((r) => (r.success ? r.data || [] : [])) }))
+          : nada,
+        busca.tareas ? pedir(`/tasks?search=${texto}`) : nada,
+        busca.consultasPanel ? pedir(`/consultas?buscar=${texto}${ambitoConsultas}`)
+          : busca.consultasPropias ? pedir(`/consultas/mias?buscar=${texto}`) : nada,
       ]);
 
-      setLeadResults(leadsRes.success ? (leadsRes.data || []) : []);
+      setLeadResults(lista(leadsRes) || []);
       // Productos: filtrado aquí, sin acentos (Diego, 02/11).
       const normQ = sinAcentos(q);
       setProductResults(catalogo.filter((p) =>
         sinAcentos(p.nombre).includes(normQ) || sinAcentos(p.codigo || p.sku).includes(normQ),
       ).slice(0, 5));
+      const venta = ventaRes.success && ventaRes.data?.id ? ventaRes.data : null;
+      const deLista = (r, campo) => { const l = lista(r, campo); return Array.isArray(l) ? l.slice(0, 5) : []; };
+      setOtros({
+        ventas: venta ? [venta] : [],
+        facturas: deLista(facturasRes),
+        tareas: deLista(tareasRes),
+        consultas: deLista(consultasRes, 'consultas'),
+      });
     } catch {
-      setLeadResults([]);
-      setProductResults([]);
+      vaciar();
     } finally {
       setSearching(false);
     }
-  }, [activeProject?.id, idsDelAmbito, busca]);
+  }, [activeProject?.id, activeIssuerId, idsDelAmbito, busca]);
 
   useEffect(() => {
     const timer = setTimeout(() => search(query.trim()), 250);
@@ -382,8 +429,25 @@ export default function CommandPalette() {
         })),
       });
     }
+    const euros = (n) => (n != null && n !== '' ? `${Number(n).toLocaleString('es-ES', { maximumFractionDigits: 2 })} €` : '');
+    const grupo = (label, filas, item) => { if (filas.length) out.push({ label, items: filas.map(item) }); };
+    grupo('Ventas', otros.ventas, (v) => ({
+      type: 'venta', label: `Venta ${v.id}`, icon: Receipt, to: destinoDeVenta(v),
+      sublabel: [v.lead_nombre, v.producto_contratado, euros(v.importe_total)].filter(Boolean).join(' · '),
+    }));
+    grupo('Facturas', otros.facturas, (f) => ({
+      type: 'factura', label: `${f.tipo === 'proforma' ? 'Proforma' : 'Factura'} ${f.codigo || f.numero}`, icon: Receipt, to: destinoDeFactura(f),
+      sublabel: [f.cliente_nombre, euros(f.total)].filter(Boolean).join(' · '),
+    }));
+    grupo('Tareas', otros.tareas, (t) => ({
+      type: 'tarea', label: t.title, icon: Kanban, to: destinoDeTarea(t), sublabel: t.status || '',
+    }));
+    grupo('Consultas', otros.consultas, (c) => ({
+      type: 'consulta', label: c.alumno_nombre || `Consulta ${c.id}`, icon: ChatCircleText, to: destinoDeConsulta(c),
+      sublabel: [c.curso_nombre, c.estado].filter(Boolean).join(' · '),
+    }));
     return out;
-  }, [query, recents, quickActions, projectActions, pages, busca, leadResults, productResults]);
+  }, [query, recents, quickActions, projectActions, pages, busca, leadResults, productResults, otros]);
 
   const flatItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
@@ -438,7 +502,7 @@ export default function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Buscar prospectos, productos, páginas…"
+            placeholder="Buscar personas, ventas, facturas, páginas…"
             role="combobox"
             aria-expanded="true"
             aria-controls="command-palette-results"
