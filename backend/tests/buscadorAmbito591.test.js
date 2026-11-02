@@ -6,8 +6,7 @@ import jwt from 'jsonwebtoken';
 /**
  * #591 · El buscador (Ctrl K) contra la ruta de verdad: `GET /api/leads?search=`.
  *
- * Lo que no debe pasar nunca: que una gestora encuentre el prospecto de otra, o
- * que alguien encuentre personas de un campus que no es suyo pidiendo su id.
+ * Lo que no debe pasar nunca: que una gestora encuentre el prospecto de otra.
  * Y lo que tiene que funcionar: sin acentos, teléfonos con espacios, y
  * «Todos» / una empresa arriba (projectIds sin projectId).
  *
@@ -101,24 +100,10 @@ describe('lo que encuentra cada uno', () => {
   });
 });
 
-describe('el ámbito: solo sus campus', () => {
-  it('un admin no busca en un campus que no es suyo pidiendo su id', async () => {
-    expect((await buscar(ADMIN, `projectId=${OTRO}`, `${MARCA}`)).status).toBe(403);
-  });
-
-  it('en una lista de campus, los ajenos se caen', async () => {
-    const r = await buscar(ADMIN, `projectIds=${P},${OTRO}`, `${MARCA}`);
-    expect(r.status).toBe(200);
-    expect(idsDe(r)).not.toContain(DEL_OTRO_CAMPUS);
-  });
-
-  it('con solo campus ajenos, nada (nunca «todos»)', async () => {
-    const r = await buscar(ADMIN, `projectIds=${OTRO}`, `${MARCA}`);
-    expect(r.status).toBe(200);
-    expect(r.body.data).toEqual([]);
-  });
-
-  it('soporte ve todos los campus', async () => {
+// Que un admin no busque en campus que no son suyos es de la PR aparte
+// fix/ambito-listas (tests/leadsAmbito.test.js): aquí solo el buscador.
+describe('soporte', () => {
+  it('ve todos los campus', async () => {
     expect(idsDe(await buscar(SOPORTE, `projectId=${OTRO}`, `${MARCA}`))).toEqual([DEL_OTRO_CAMPUS]);
   });
 });
