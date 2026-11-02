@@ -139,3 +139,16 @@ COMMENT ON TABLE tickets IS
   'Soporte (#38). Antes vivian en el localStorage del navegador y no los recibia nadie.';
 COMMENT ON COLUMN tickets.primera_respuesta_at IS
   'Primera respuesta de alguien distinto de quien abrio el ticket.';
+
+-- Que el CRM pueda leer y escribir aunque la migración la pase postgres (como la 230 y la 232).
+-- Faltaba: en /testeo, Soporte daba «permission denied for table tickets» (02/11).
+DO $$
+DECLARE r TEXT;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['crm_user', 'crm_iseie_user'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON tickets, ticket_mensajes, ticket_adjuntos TO %I', r);
+      EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE tickets_id_seq, ticket_mensajes_id_seq, ticket_adjuntos_id_seq TO %I', r);
+    END IF;
+  END LOOP;
+END $$;
