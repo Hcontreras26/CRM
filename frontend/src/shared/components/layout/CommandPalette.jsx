@@ -4,6 +4,8 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { crearCan } from '@/shared/hooks/usePermission';
+import { ROLE_LABELS_CORTOS } from '@/modules/users/lib/usersUi';
+import { STATUS_LABEL } from '@/modules/tasks/lib/taskUi';
 import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 import {
   NAV_SECTIONS,
@@ -187,6 +189,19 @@ export function recienteSigueValiendo(to, { pages, busca }) {
 }
 
 const SIN_OTROS = { ventas: [], facturas: [], tareas: [], consultas: [], usuarios: [] };
+/** Letras a partir de las que se pregunta al servidor. */
+export const MIN_SERVIDOR = 2;
+
+/**
+ * Lo que llega del servidor como clave («por_hacer», «gestor»), dicho como lo
+ * dice el resto del CRM; si no hay etiqueta, «por_hacer» → «Por hacer».
+ */
+export function legible(valor, etiquetas = {}) {
+  if (!valor) return '';
+  if (etiquetas[valor]) return etiquetas[valor];
+  const s = String(valor).replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -271,16 +286,25 @@ export default function CommandPalette() {
   // con una empresa arriba eran catorce peticiones por letra.
   const catalogos = useRef(new Map());
   useEffect(() => { if (open) catalogos.current = new Map(); }, [open]);
+  // Cada búsqueda lleva su número: si escribes «go» y luego «gonzalez», la
+  // respuesta de «go» puede llegar la última y tapar la buena. Solo vale la última.
+  const ultima = useRef(0);
 
   const search = useCallback(async (q) => {
-    const vaciar = () => { setLeadResults([]); setProductResults([]); setOtros(SIN_OTROS); };
-    if (!q) return vaciar();
+    const turno = ++ultima.current;
+    const vigente = () => turno === ultima.current;
+    const vaciar = () => { setLeadResults([]); setProductResults([]); setOtros(SIN_OTROS); setSearching(false); };
+    // Al servidor, desde dos letras (o un número de venta): con una sola, cada
+    // tecla eran siete búsquedas sobre toda la base. Páginas y acciones, desde la primera.
+    if (!q || (q.length < MIN_SERVIDOR && !numeroDeVenta(q))) return vaciar();
 
     // Un campus, o los del ámbito («Todos» o una empresa): el servidor exige
     // projectId o projectIds y los recorta a los de la persona.
     const hasSingleProject = activeProject?.id && activeProject.id > 0;
     const campus = hasSingleProject ? [activeProject.id] : idsDelAmbito;
-    const algo = Object.values(busca).some(Boolean);
+    // Con un solo dígito, solo la venta de ese número; lo demás, desde dos letras.
+    const b = q.length < MIN_SERVIDOR ? { ventas: busca.ventas } : busca;
+    const algo = Object.values(b).some(Boolean);
     if (!campus.length || !algo) return vaciar();
     const ambito = hasSingleProject ? `projectId=${activeProject.id}` : `projectIds=${campus.join(',')}`;
     const lista = (r, campo) => (r?.success ? (campo ? r.data?.[campo] : r.data) : null);
@@ -309,29 +333,30 @@ export default function CommandPalette() {
     setSearching(true);
     try {
       const [leadsRes, catalogo, ventaRes, facturasRes, tareasRes, consultasRes, usuariosRes] = await Promise.all([
-        busca.personas
+        b.personas
           // `includeConverted`: Diego, 14/09: buscar también a los clientes;
           // solo para quien puede abrir su ficha (clients.view).
-          ? pedir(`/leads?${ambito}&search=${texto}&limit=5${busca.clientes ? '&includeConverted=1' : ''}`)
+          ? pedir(`/leads?${ambito}&search=${texto}&limit=5${b.clientes ? '&includeConverted=1' : ''}`)
           : nada,
-        busca.productos
+        b.productos
           ? Promise.all(campus.map(catalogoDe)).then((listas) => {
             const vistos = new Set();
             return listas.flat().filter((p) => !vistos.has(p.id) && vistos.add(p.id));
           })
           : [],
         // Una venta por su número: la ficha ya comprueba campus y, si es gestora, que sea suya.
-        busca.ventas && numero ? pedir(`/conversions/${numero}`) : { success: false },
+        b.ventas && numero ? pedir(`/conversions/${numero}`) : { success: false },
         // La lista de facturas entiende un campus cada vez: con varios, una por campus.
-        busca.facturas
+        b.facturas
           ? Promise.all(campus.map((pid) => pedir(`/invoices?projectId=${pid}&search=${encodeURIComponent(terminoDeFactura(q))}&limit=5`)))
             .then((rs) => ({ success: true, data: rs.flatMap((r) => (r.success ? r.data || [] : [])) }))
           : nada,
-        busca.tareas ? pedir(`/tasks?search=${texto}`) : nada,
-        busca.consultasPanel ? pedir(`/consultas?buscar=${texto}${ambitoConsultas}`)
-          : busca.consultasPropias ? pedir(`/consultas/mias?buscar=${texto}`) : nada,
-        busca.usuarios && q.trim().length >= 2 ? pedir(`/users/buscar?q=${texto}${ambitoUsuarios}`) : nada,
+        b.tareas ? pedir(`/tasks?search=${texto}`) : nada,
+        b.consultasPanel ? pedir(`/consultas?buscar=${texto}${ambitoConsultas}`)
+          : b.consultasPropias ? pedir(`/consultas/mias?buscar=${texto}`) : nada,
+        b.usuarios ? pedir(`/users/buscar?q=${texto}${ambitoUsuarios}`) : nada,
       ]);
+      if (!vigente()) return;
 
       setLeadResults(lista(leadsRes) || []);
       // Productos: filtrado aquí, sin acentos (Diego, 02/11).
@@ -349,16 +374,23 @@ export default function CommandPalette() {
         usuarios: deLista(usuariosRes),
       });
     } catch {
-      vaciar();
+      if (vigente()) vaciar();
     } finally {
-      setSearching(false);
+      if (vigente()) setSearching(false);
     }
   }, [activeProject?.id, activeIssuerId, idsDelAmbito, busca]);
 
   useEffect(() => {
-    const timer = setTimeout(() => search(query.trim()), 250);
+    // Cerrado no busca: si se cierra con Escape dejando texto y luego cambia la
+    // cabecera, no hay nadie mirando.
+    if (!open) return undefined;
+    const q = query.trim();
+    // «Buscando…» desde que escribes, no desde que sale la petición: si no, entre
+    // tecla y respuesta asomaba «No hay resultados».
+    if (q.length >= MIN_SERVIDOR || numeroDeVenta(q)) setSearching(true);
+    const timer = setTimeout(() => search(q), 250);
     return () => clearTimeout(timer);
-  }, [query, search]);
+  }, [open, query, search]);
 
   // Construye la lista plana de resultados (con grupos visuales) según query
   const groups = useMemo(() => {
@@ -452,15 +484,15 @@ export default function CommandPalette() {
       sublabel: [f.cliente_nombre, euros(f.total)].filter(Boolean).join(' · '),
     }));
     grupo('Tareas', otros.tareas, (t) => ({
-      type: 'tarea', label: t.title, icon: Kanban, to: destinoDeTarea(t), sublabel: t.status || '',
+      type: 'tarea', label: t.title, icon: Kanban, to: destinoDeTarea(t), sublabel: legible(t.status, STATUS_LABEL),
     }));
     grupo('Consultas', otros.consultas, (c) => ({
       type: 'consulta', label: c.alumno_nombre || `Consulta ${c.id}`, icon: ChatCircleText, to: destinoDeConsulta(c),
-      sublabel: [c.curso_nombre, c.estado].filter(Boolean).join(' · '),
+      sublabel: [c.curso_nombre, legible(c.estado)].filter(Boolean).join(' · '),
     }));
     grupo('Usuarios', otros.usuarios, (u) => ({
       type: 'usuario', label: u.nombre, icon: UserGear, to: destinoDeUsuario(u),
-      sublabel: [u.email, u.role, u.active === false ? 'inactivo' : ''].filter(Boolean).join(' · '),
+      sublabel: [u.email, legible(u.role, ROLE_LABELS_CORTOS), u.active === false ? 'Inactivo' : ''].filter(Boolean).join(' · '),
     }));
     return out;
   }, [query, recents, quickActions, projectActions, pages, busca, leadResults, productResults, otros]);
@@ -522,6 +554,7 @@ export default function CommandPalette() {
             role="combobox"
             aria-expanded="true"
             aria-controls="command-palette-results"
+            aria-activedescendant={flatItems[selectedIdx] ? `command-palette-opcion-${selectedIdx}` : undefined}
             className="min-w-0 w-full h-12 sm:h-14 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           {searching && <span className="hidden sm:inline text-[10px] text-muted-foreground font-mono animate-pulse flex-shrink-0">buscando…</span>}
@@ -535,12 +568,14 @@ export default function CommandPalette() {
           {flatItems.length === 0 ? (
             <div className="py-10 text-center">
               <Lightning size={28} weight="regular" className="text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                {query ? `No hay resultados para “${query}”` : 'Empieza a escribir para buscar.'}
+              <p className="text-sm text-muted-foreground" role="status">
+                {!query ? 'Empieza a escribir para buscar.'
+                  : searching ? 'Buscando…'
+                    : `No hay resultados para “${query}”`}
               </p>
-              {query && (
+              {query && !searching && (
                 <p className="text-[11px] text-muted-foreground/70 mt-1">
-                  Prueba con un nombre, email, código de producto o sección.
+                  Prueba con un nombre, correo, teléfono, número de venta o factura, o el nombre de una pantalla.
                 </p>
               )}
             </div>
@@ -557,6 +592,7 @@ export default function CommandPalette() {
                   return (
                     <button
                       key={`${group.label}-${idx}`}
+                      id={`command-palette-opcion-${idx}`}
                       data-idx={idx}
                       role="option"
                       aria-selected={active}
