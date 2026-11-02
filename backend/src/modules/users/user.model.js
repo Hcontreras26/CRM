@@ -45,6 +45,30 @@ async function existeUsaWhatsapp() {
 // Quien necesita a TODO el personal —la pantalla de Usuarios, las nominas— lo
 // pide con incluirTodos. Es al reves de como estaba: lo seguro es lo de por
 // defecto, y ver a todos es lo que hay que pedir.
+/**
+ * Buscar personas del equipo por nombre o correo, sin acentos (#591).
+ *
+ * `campus` null es «todos» (superadmin y soporte); si no, solo quien tiene
+ * alguno de esos campus. Como la lista por defecto, sin tutores ni gente de
+ * colaboraciones: esos tienen su propia pantalla.
+ */
+export async function buscar({ q, campus, limit = 5 }) {
+  const { rows } = await query(
+    `SELECT u.id, u.nombre, u.email, u.role, u.active
+       FROM users u
+      WHERE (unaccent(COALESCE(u.nombre, '')) ILIKE unaccent($1) OR u.email ILIKE $1)
+        AND u.role <> 'tutor'
+        AND NOT COALESCE(u.gestor_colaboraciones, false)
+        AND ($2::int[] IS NULL OR EXISTS (
+              SELECT 1 FROM user_projects up
+               WHERE up.user_id = u.id AND up.active AND up.project_id = ANY($2::int[])))
+      ORDER BY u.active DESC, u.nombre
+      LIMIT $3`,
+    [`%${q}%`, campus, limit],
+  );
+  return rows;
+}
+
 export async function findAll({ active, role, projectId, page, limit, incluirTodos = false }) {
   const conditions = [];
   const params = [];

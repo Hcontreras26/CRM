@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, WarningCircle, Lock } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -41,6 +42,18 @@ export default function UsersPanel() {
 
   const lista = useUsers(projectId);
   const disponibilidad = useAvailabilityMap();
+
+  // Llegando desde el buscador (Ctrl K, #591) con `?buscar=`: esa persona en el
+  // buscador de la lista, y en todos los proyectos, que la cabecera puede estar
+  // en un campus que no es el suyo. Sin el parámetro, nada cambia.
+  const [params] = useSearchParams();
+  const { setFilter } = lista;
+  useEffect(() => {
+    const buscar = params.get('buscar');
+    if (!buscar) return;
+    setElegido('all');
+    setFilter('search', buscar);
+  }, [params, setFilter]);
 
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [dialogo, setDialogo] = useState<{ modo: 'crear' } | { modo: 'editar'; user: CrmUser } | null>(null);

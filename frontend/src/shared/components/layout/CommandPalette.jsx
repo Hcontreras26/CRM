@@ -31,6 +31,7 @@ import {
   Receipt,
   Kanban,
   ChatCircleText,
+  UserGear,
 } from '@phosphor-icons/react';
 
 const RECENT_KEY = 'crm.palette.recents';
@@ -147,6 +148,9 @@ export function queBusca({ user, can }) {
     // Las consultas de alumnos: las suyas si las atiende; las de sus campus si las supervisa.
     consultasPanel: tiene('consultas.view'),
     consultasPropias: tiene('consultas.atender') && !tiene('consultas.view'),
+    // Personas del equipo: quien puede ver usuarios. El servidor da todos a
+    // superadmin y soporte, y al resto solo los de sus campus.
+    usuarios: tiene('users.view'),
   };
 }
 
@@ -158,6 +162,8 @@ export const destinoDeVenta = (v) => `/finanzas/ventas/${v.id}`;
 export const destinoDeFactura = (f) => (f.conversion_id ? `/finanzas/ventas/${f.conversion_id}` : '/finanzas/facturas');
 export const destinoDeTarea = (t) => `/tareas?id=${t.id}`;
 export const destinoDeConsulta = (c) => `/consultas/${c.id}`;
+// Un usuario no tiene ficha: la pestaña Usuarios de Configuración, con su nombre en el buscador.
+export const destinoDeUsuario = (u) => `/configuracion?pestana=users&buscar=${encodeURIComponent(u.nombre || u.email || '')}`;
 
 /** «1234» o «#1234»: el número de una venta. */
 export const numeroDeVenta = (q) => (/^#?\d{1,9}$/.test(q.trim()) ? q.trim().replace('#', '') : null);
@@ -176,10 +182,11 @@ export function recienteSigueValiendo(to, { pages, busca }) {
   if (/^\/finanzas\/ventas\/\d+$/.test(to)) return busca.ventas || busca.facturas;
   if (/^\/tareas\?id=\d+$/.test(to)) return busca.tareas;
   if (/^\/consultas\/\d+$/.test(to)) return busca.consultasPanel || busca.consultasPropias;
+  if (to.startsWith('/configuracion?pestana=users')) return busca.usuarios;
   return false;
 }
 
-const SIN_OTROS = { ventas: [], facturas: [], tareas: [], consultas: [] };
+const SIN_OTROS = { ventas: [], facturas: [], tareas: [], consultas: [], usuarios: [] };
 
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -295,10 +302,13 @@ export default function CommandPalette() {
     const numero = numeroDeVenta(q);
     // Las consultas van por la cabecera: un campus, o una empresa; con «Todos», las de sus campus.
     const ambitoConsultas = hasSingleProject ? `&projectId=${activeProject.id}` : (activeIssuerId ? `&issuerId=${activeIssuerId}` : '');
+    // Usuarios: acotados a la cabecera si hay un campus o una empresa; con «Todos», sin acotar
+    // (al superadmin le saldría solo quien tiene campus, y soporte no tiene ninguno).
+    const ambitoUsuarios = hasSingleProject || activeIssuerId ? `&projectIds=${campus.join(',')}` : '';
 
     setSearching(true);
     try {
-      const [leadsRes, catalogo, ventaRes, facturasRes, tareasRes, consultasRes] = await Promise.all([
+      const [leadsRes, catalogo, ventaRes, facturasRes, tareasRes, consultasRes, usuariosRes] = await Promise.all([
         busca.personas
           // `includeConverted`: Diego, 14/09: buscar también a los clientes;
           // solo para quien puede abrir su ficha (clients.view).
@@ -320,6 +330,7 @@ export default function CommandPalette() {
         busca.tareas ? pedir(`/tasks?search=${texto}`) : nada,
         busca.consultasPanel ? pedir(`/consultas?buscar=${texto}${ambitoConsultas}`)
           : busca.consultasPropias ? pedir(`/consultas/mias?buscar=${texto}`) : nada,
+        busca.usuarios && q.trim().length >= 2 ? pedir(`/users/buscar?q=${texto}${ambitoUsuarios}`) : nada,
       ]);
 
       setLeadResults(lista(leadsRes) || []);
@@ -335,6 +346,7 @@ export default function CommandPalette() {
         facturas: deLista(facturasRes),
         tareas: deLista(tareasRes),
         consultas: deLista(consultasRes, 'consultas'),
+        usuarios: deLista(usuariosRes),
       });
     } catch {
       vaciar();
@@ -445,6 +457,10 @@ export default function CommandPalette() {
     grupo('Consultas', otros.consultas, (c) => ({
       type: 'consulta', label: c.alumno_nombre || `Consulta ${c.id}`, icon: ChatCircleText, to: destinoDeConsulta(c),
       sublabel: [c.curso_nombre, c.estado].filter(Boolean).join(' · '),
+    }));
+    grupo('Usuarios', otros.usuarios, (u) => ({
+      type: 'usuario', label: u.nombre, icon: UserGear, to: destinoDeUsuario(u),
+      sublabel: [u.email, u.role, u.active === false ? 'inactivo' : ''].filter(Boolean).join(' · '),
     }));
     return out;
   }, [query, recents, quickActions, projectActions, pages, busca, leadResults, productResults, otros]);

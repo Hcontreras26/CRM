@@ -23,6 +23,7 @@ vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 const {
   fuzzyScore, sinAcentos, paginasDelBuscador, queBusca, destinoDePersona, destinoDeProducto, recienteSigueValiendo,
   destinoDeVenta, destinoDeFactura, destinoDeTarea, destinoDeConsulta, numeroDeVenta, terminoDeFactura,
+  destinoDeUsuario,
 } = await import('@/shared/components/layout/CommandPalette');
 const { NAV_SECTIONS, entradasDeSeccion, canSeeItem, esSoloColaboraciones } = await import('@/shared/components/layout/Sidebar');
 const { isBetaAllowed } = await import('@/shared/config/betaConfig');
@@ -285,6 +286,7 @@ describe('cada resultado lleva a una ruta que existe en App.jsx', () => {
       destinoDeFactura({ id: 3, conversion_id: null }),
       destinoDeTarea({ id: 12 }),
       destinoDeConsulta({ id: 8 }),
+      destinoDeUsuario({ id: 3, nombre: 'José Pérez' }),
     ];
     expect(destinos.filter((d) => !existeRuta(d))).toEqual([]);
   });
@@ -320,6 +322,24 @@ describe('ventas, facturas, tareas y consultas (punto 6)', () => {
   it('una gestora a la que se le da tasks.view_own busca tareas', () => {
     expect(buscaDe(PERFILES.gestora).tareas).toBe(false);
     expect(buscaDe(persona('gestor', { excepciones: { 'tasks.view_own': true } })).tareas).toBe(true);
+  });
+
+  it('usuarios: quien gestiona usuarios (users.view), según la tabla', () => {
+    expect(buscaDe(PERFILES.superadmin).usuarios).toBe(true);
+    expect(buscaDe(PERFILES.admin).usuarios).toBe(true);
+    expect(buscaDe(PERFILES.soporte).usuarios).toBe(true);
+    for (const p of ['gestora', 'project_manager', 'tutor', 'colaborador']) {
+      expect(buscaDe(PERFILES[p]).usuarios, p).toBe(false);
+    }
+  });
+
+  // La excepción tal cual la pide la tarea. El servidor la prueba en tests/buscarUsuarios591.test.js.
+  it('una gestora a la que se le da users.view encuentra usuarios', () => {
+    expect(buscaDe(persona('gestor', { excepciones: { 'users.view': true } })).usuarios).toBe(true);
+  });
+
+  it('un usuario abre la pestaña Usuarios de Configuración con su nombre en el buscador', () => {
+    expect(destinoDeUsuario({ nombre: 'José Pérez' })).toBe('/configuracion?pestana=users&buscar=Jos%C3%A9%20P%C3%A9rez');
   });
 
   it('el número de una venta y el de una factura', () => {
