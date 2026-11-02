@@ -89,3 +89,15 @@ COMMIT;
 --   UPDATE conversions c SET producto_contratado = r.decia
 --     FROM conversions_producto_reparado r
 --    WHERE r.conversion_id = c.id AND c.producto_contratado = r.pasa_a_decir;
+
+-- Que el CRM pueda leer y escribir aunque la migración la pase postgres (como la 230 y la 232).
+-- Faltaba: en /testeo, Soporte daba «permission denied for table tickets» (02/11).
+DO $$
+DECLARE r TEXT;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['crm_user', 'crm_iseie_user'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format('GRANT SELECT ON conversions_producto_reparado TO %I', r);
+    END IF;
+  END LOOP;
+END $$;
