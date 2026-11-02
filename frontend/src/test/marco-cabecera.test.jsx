@@ -96,6 +96,12 @@ describe('la cabecera de pantalla', () => {
     // En ordenador, como siempre: una fila.
     expect(hueco.className).toMatch(/sm:order-none/);
     expect(hueco.className).toMatch(/sm:flex-1/);
+    // Y si los botones no caben junto al título, bajan; el título no se aplasta
+    // (Ventas, con tres botones, se quedaba en 0 px; Ingresos en «Ingr…»).
+    expect(hueco.className).toMatch(/flex-wrap/);
+    expect(hueco.className).toMatch(/sm:flex-nowrap/);
+    const bloqueDelTitulo = screen.getByRole('heading', { level: 1 }).closest('div.min-w-0.flex-1');
+    expect(bloqueDelTitulo.className).toMatch(/max-sm:min-w-40/);
   });
 
   it('al salir de la pantalla la barra deja de darla por ocupada', () => {
