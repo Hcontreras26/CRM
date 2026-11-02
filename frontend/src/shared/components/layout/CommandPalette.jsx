@@ -3,75 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import usePermission from '@/shared/hooks/usePermission';
+import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
+import {
+  NAV_SECTIONS,
+  entradasDeSeccion,
+  canSeeItem,
+  applyLabel,
+  esSoloColaboraciones,
+  pasaPermisoDeRoles,
+} from '@/shared/components/layout/Sidebar';
+import { rolesDe } from '@/shared/lib/roles';
 import client from '@/shared/api/client';
 import {
   MagnifyingGlass,
   SquaresFour,
-  Users,
-  UserCheck,
   Package,
-  Megaphone,
-  CurrencyEur,
-  Gear,
   User,
   ArrowRight,
-  FacebookLogo,
-  GoogleLogo,
-  ChartBar,
-  Calculator,
-  Receipt,
-  Wallet,
-  Coins,
-  Export,
   Plus,
   Moon,
   Sun,
   SignOut,
   ClockCounterClockwise,
   Lightning,
-  FilePdf,
-  Envelope,
-  Globe,
-  Headset,
-  BookOpen,
-  CreditCard,
   Keyboard,
-  Sparkle,
 } from '@phosphor-icons/react';
-
-// Páginas / secciones navegables
-const SECTIONS = [
-  { label: 'Dashboard', to: '/', icon: SquaresFour, keywords: 'inicio home panel' },
-  { label: 'Prospectos', to: '/prospectos', icon: Users, keywords: 'leads contactos' },
-  { label: 'Pipeline', to: '/prospectos/pipeline', icon: Users, keywords: 'kanban embudo' },
-  { label: 'Audiencias', to: '/prospectos/audiencias', icon: Export, keywords: 'segmentos exportar' },
-  { label: 'Clientes', to: '/clientes', icon: UserCheck, keywords: 'cuentas convertidos' },
-  { label: 'Matrículas', to: '/clientes/matriculas', icon: UserCheck, keywords: 'inscripciones' },
-  { label: 'Productos', to: '/productos', icon: Package, keywords: 'catalogo' },
-  { label: 'Documentos', to: '/documentos', icon: FilePdf, keywords: 'pdf archivos dossier' },
-  { label: 'Email seguimiento', to: '/secuencias-email', icon: Envelope, keywords: 'secuencias drip' },
-  { label: 'Formularios', to: '/captacion', icon: Globe, keywords: 'captura webhook forms' },
-  { label: 'Webhooks', to: '/captacion/webhooks', icon: Globe, keywords: 'integraciones api' },
-  { label: 'Make', to: '/captacion/make', icon: Globe, keywords: 'make automatizacion' },
-  { label: 'Campañas — Consolidado', to: '/campanas', icon: Megaphone, keywords: 'ads' },
-  { label: 'Campañas — Meta Ads', to: '/campanas/meta', icon: FacebookLogo, keywords: 'facebook instagram' },
-  { label: 'Campañas — Google Ads', to: '/campanas/google', icon: GoogleLogo, keywords: 'adwords' },
-  { label: 'Tráfico orgánico (SEO)', to: '/campanas/seo', icon: MagnifyingGlass, keywords: 'organic search console' },
-  { label: 'Contabilidad', to: '/finanzas', icon: Calculator },
-  { label: 'Ingresos', to: '/finanzas/ingresos', icon: CurrencyEur, keywords: 'revenue facturacion' },
-  { label: 'Conversiones y pagos', to: '/finanzas/conversiones', icon: CurrencyEur, keywords: 'pagos ventas' },
-  { label: 'Egresos', to: '/finanzas/egresos', icon: Receipt, keywords: 'gastos costes' },
-  { label: 'Cuentas por cobrar', to: '/finanzas/por-cobrar', icon: Wallet, keywords: 'cobros pendientes' },
-  { label: 'Cuentas por pagar', to: '/finanzas/por-pagar', icon: Wallet, keywords: 'pagos pendientes' },
-  { label: 'Stripe', to: '/stripe', icon: CreditCard, keywords: 'mrr churn suscripciones saas ia', projectType: 'ia' },
-  { label: 'Comisiones', to: '/finanzas/comisiones', icon: Coins, keywords: 'gestores' },
-  { label: 'Nóminas', to: '/finanzas/nominas', icon: Coins, keywords: 'salarios' },
-  { label: 'Reportes', to: '/informes', icon: ChartBar, keywords: 'analytics estadisticas' },
-  { label: 'Novedades', to: '/novedades', icon: Sparkle, keywords: 'version changelog nuevo 2.0.0 cambios' },
-  { label: 'Soporte', to: '/soporte', icon: Headset, keywords: 'ayuda' },
-  { label: 'Manual', to: '/manual', icon: BookOpen, keywords: 'documentacion ayuda' },
-  { label: 'Configuración', to: '/configuracion', icon: Gear, keywords: 'ajustes preferencias' },
-];
 
 const RECENT_KEY = 'crm.palette.recents';
 const MAX_RECENTS = 5;
@@ -90,12 +47,21 @@ function pushRecent(entry) {
   } catch {}
 }
 
-function fuzzyScore(label, keywords, q) {
-  const text = `${label} ${keywords || ''}`.toLowerCase();
-  if (text.includes(q)) return 1;
+export function sinAcentos(str) {
+  return String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+export function fuzzyScore(label, keywords, q) {
+  const normQ = sinAcentos(q).trim();
+  if (!normQ) return 0;
+  const text = sinAcentos(`${label || ''} ${keywords || ''}`);
+  if (text.includes(normQ)) return 1;
   // match por iniciales de palabras (e.g. "ca" matches "Cuentas por cobrar Anuales")
   const initials = text.split(/\s+/).map((w) => w[0]).join('');
-  if (initials.startsWith(q)) return 0.8;
+  if (initials.startsWith(normQ)) return 0.8;
   return 0;
 }
 
@@ -108,13 +74,72 @@ export default function CommandPalette() {
   const listRef = useRef(null);
   const navigate = useNavigate();
   const { activeProject, projects, switchProject } = useProjectContext();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { can } = usePermission();
+  const idsDelAmbito = useIdsDelAmbito();
+
+  // Diego, 02/11: Las páginas se extraen dinámicamente de NAV_SECTIONS con los mismos
+  // filtros y permisos del menú (canSeeItem), usando los nombres configurados por la empresa.
+  const pages = useMemo(() => {
+    const soloColab = esSoloColaboraciones(user);
+    const userRoles = rolesDe(user);
+    const modules = activeProject?.modules;
+    const projectType = activeProject?.type;
+    const labelOverrides = activeProject?.sidebar_labels;
+
+    const list = [];
+    const seen = new Set();
+
+    for (const section of NAV_SECTIONS) {
+      const itemsVisibles = entradasDeSeccion(section, {
+        user,
+        can,
+        modules,
+        projectType,
+        soloColab,
+      });
+
+      for (const item of itemsVisibles) {
+        if (item.children && Array.isArray(item.children)) {
+          const visibleChildren = item.children
+            .filter((c) => !c.comingSoon)
+            .filter((c) => !c.permiso || [].concat(c.permiso).some((p) => pasaPermisoDeRoles({ permiso: p }, can)))
+            .filter((c) => canSeeItem(c, userRoles, modules, projectType, soloColab, user, can));
+
+          for (const child of visibleChildren) {
+            if (child.to && !seen.has(child.to)) {
+              seen.add(child.to);
+              list.push({
+                label: applyLabel(child.label, labelOverrides),
+                sublabel: applyLabel(item.label, labelOverrides),
+                detail: child.detail || '',
+                to: child.to,
+                icon: child.icon || item.icon || SquaresFour,
+                keywords: child.keywords || child.detail || '',
+              });
+            }
+          }
+        } else if (item.to && !item.comingSoon && !seen.has(item.to)) {
+          seen.add(item.to);
+          list.push({
+            label: applyLabel(item.label, labelOverrides),
+            sublabel: applyLabel(section.label, labelOverrides),
+            detail: item.detail || '',
+            to: item.to,
+            icon: item.icon || SquaresFour,
+            keywords: item.keywords || item.detail || '',
+          });
+        }
+      }
+    }
+    return list;
+  }, [user, can, activeProject?.modules, activeProject?.type, activeProject?.sidebar_labels]);
 
   // Quick actions disponibles según proyecto + tema actual
   const quickActions = useMemo(() => [
     { id: 'qa-new-lead', label: 'Crear nuevo prospecto', icon: Plus, keywords: 'nuevo lead crear contacto', run: () => navigate('/prospectos?new=1') },
-    { id: 'qa-new-product', label: 'Crear nuevo producto', icon: Plus, keywords: 'nuevo producto crear catalogo', run: () => navigate('/products?new=1') },
+    { id: 'qa-new-product', label: 'Crear nuevo producto', icon: Plus, keywords: 'nuevo producto crear catalogo', run: () => navigate('/productos') },
     { id: 'qa-toggle-theme', label: theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro', icon: theme === 'dark' ? Sun : Moon, keywords: 'tema dark light claro oscuro', run: () => toggleTheme() },
     { id: 'qa-shortcuts', label: 'Ver atajos de teclado', icon: Keyboard, keywords: 'atajos teclado shortcuts ayuda', run: () => window.dispatchEvent(new Event('crm:open-shortcuts')) },
     { id: 'qa-logout', label: 'Cerrar sesión', icon: SignOut, keywords: 'logout salir', run: async () => { await logout(); navigate('/login'); } },
@@ -167,35 +192,64 @@ export default function CommandPalette() {
   const [searching, setSearching] = useState(false);
 
   const search = useCallback(async (q) => {
-    if (!q || !activeProject?.id) {
+    if (!q) {
       setLeadResults([]);
       setProductResults([]);
       return;
     }
+
+    const hasSingleProject = activeProject?.id && activeProject.id > 0;
+    const projectIdsCsv = !hasSingleProject && idsDelAmbito.length > 0 ? idsDelAmbito.join(',') : '';
+
+    if (!hasSingleProject && !projectIdsCsv) {
+      setLeadResults([]);
+      setProductResults([]);
+      return;
+    }
+
+    const leadQueryParam = hasSingleProject
+      ? `projectId=${activeProject.id}`
+      : `projectIds=${projectIdsCsv}`;
+
     setSearching(true);
     try {
+      const productPromise = hasSingleProject
+        ? client.get(`/products?projectId=${activeProject.id}`).catch(() => ({ success: false }))
+        : (idsDelAmbito.length > 0
+            ? Promise.all(
+                idsDelAmbito.map((pid) =>
+                  client.get(`/products?projectId=${pid}`).catch(() => ({ success: false }))
+                )
+              ).then((responses) => {
+                const combined = [];
+                const seenIds = new Set();
+                for (const r of responses) {
+                  if (r.success && Array.isArray(r.data)) {
+                    for (const p of r.data) {
+                      if (!seenIds.has(p.id)) {
+                        seenIds.add(p.id);
+                        combined.push(p);
+                      }
+                    }
+                  }
+                }
+                return { success: true, data: combined };
+              })
+            : Promise.resolve({ success: true, data: [] }));
+
       const [leadsRes, productsRes] = await Promise.all([
-        // `includeConverted` NO se puede quitar: sin el, /leads añade
-        // `status <> 'convertido'` y la busqueda general esconde a TODO el que
-        // ya compro --justo a quien mas se busca, para cobrar o facturar--.
-        // Diego, 14/09: busco a un cliente por nombre y por correo y no sale.
-        // Con «Todos» o una empresa el proyecto activo es -1: mandarlo tal cual
-        // hacia que el servidor rechazara la busqueda y el buscador no
-        // encontraba a nadie (28/09: miles de rechazos, Ana y Dayana incluidas).
-        // Sin proyecto concreto se busca en todo lo suyo; los productos, que son
-        // de un campus, solo con uno elegido.
-        client.get(`/leads?${activeProject.id > 0 ? `projectId=${activeProject.id}&` : ''}search=${encodeURIComponent(q)}&limit=5&includeConverted=1`).catch(() => ({ success: false })),
-        activeProject.id > 0
-          ? client.get(`/products?projectId=${activeProject.id}`).catch(() => ({ success: false }))
-          : Promise.resolve({ success: true, data: [] }),
+        // `includeConverted=1`: Diego, 14/09: buscar también a los clientes convertidos.
+        client.get(`/leads?${leadQueryParam}&search=${encodeURIComponent(q)}&limit=5&includeConverted=1`).catch(() => ({ success: false })),
+        productPromise,
       ]);
+
       setLeadResults(leadsRes.success ? (leadsRes.data || []) : []);
-      // Filtrado client-side para productos (típicamente <100/proyecto)
-      const lower = q.toLowerCase();
+      // Filtrado client-side para productos, ignorando acentos (Diego, 02/11)
+      const normQ = sinAcentos(q);
       const products = productsRes.success
         ? (productsRes.data || []).filter((p) =>
-            (p.nombre || '').toLowerCase().includes(lower) ||
-            (p.codigo || '').toLowerCase().includes(lower)
+            sinAcentos(p.nombre).includes(normQ) ||
+            sinAcentos(p.codigo || p.sku).includes(normQ)
           ).slice(0, 5)
         : [];
       setProductResults(products);
@@ -205,7 +259,7 @@ export default function CommandPalette() {
     } finally {
       setSearching(false);
     }
-  }, [activeProject?.id]);
+  }, [activeProject?.id, idsDelAmbito]);
 
   useEffect(() => {
     const timer = setTimeout(() => search(query.trim()), 250);
@@ -214,11 +268,8 @@ export default function CommandPalette() {
 
   // Construye la lista plana de resultados (con grupos visuales) según query
   const groups = useMemo(() => {
-    const q = query.toLowerCase().trim();
+    const q = query.trim();
     const out = [];
-
-    // Filtra secciones que requieran cierto tipo de proyecto (e.g. Stripe solo IA)
-    const visibleSections = SECTIONS.filter((s) => !s.projectType || s.projectType === activeProject?.type);
 
     if (!q) {
       // Estado inicial: recientes + acciones rápidas
@@ -240,13 +291,13 @@ export default function CommandPalette() {
       });
       out.push({
         label: 'Páginas frecuentes',
-        items: visibleSections.slice(0, 6).map((s) => ({ type: 'section', ...s })),
+        items: pages.slice(0, 6).map((s) => ({ type: 'section', ...s })),
       });
       return out;
     }
 
     // Con query — calcula scores y agrupa
-    const sectionMatches = visibleSections
+    const sectionMatches = pages
       .map((s) => ({ ...s, score: fuzzyScore(s.label, s.keywords, q) }))
       .filter((s) => s.score > 0)
       .sort((a, b) => b.score - a.score)
@@ -272,18 +323,14 @@ export default function CommandPalette() {
     }
     if (leadResults.length > 0) {
       out.push({
-        // «Personas» y no «Prospectos»: desde hoy la lista trae tambien a los
-        // que ya compraron, y llamarlos prospectos seria mentir en la etiqueta.
         label: 'Personas',
         items: leadResults.map((l) => ({
           type: 'lead',
           label: l.nombre,
-          // Quien ya compro se dice, porque ahora si sale en la lista: sin esto
-          // un cliente y un prospecto vivo se leen igual, y no son lo mismo ni
-          // se les escribe igual.
           sublabel: (l.email || l.telefono || `#${l.id}`)
             + (l.status === 'convertido' ? ' · cliente' : ''),
-          to: `/leads/${l.id}`,
+          // Diego, 02/11: rutas existentes en App.jsx: /prospectos/:id o /clientes/:id
+          to: l.status === 'convertido' ? `/clientes/${l.id}` : `/prospectos/${l.id}`,
           icon: User,
         })),
       });
@@ -295,13 +342,14 @@ export default function CommandPalette() {
           type: 'product',
           label: p.nombre,
           sublabel: p.codigo ? `${p.codigo} · ${p.precio ? `${p.precio}€` : ''}` : (p.precio ? `${p.precio}€` : ''),
-          to: `/products/${p.id}`,
+          // Diego, 02/11: ruta existente en App.jsx: /productos/:id
+          to: `/productos/${p.id}`,
           icon: Package,
         })),
       });
     }
     return out;
-  }, [query, recents, quickActions, projectActions, leadResults, productResults, activeProject?.type]);
+  }, [query, recents, quickActions, projectActions, pages, leadResults, productResults]);
 
   const flatItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 

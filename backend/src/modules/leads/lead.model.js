@@ -869,9 +869,24 @@ export async function findAll({ projectId, projectIds, status, seguimiento, paso
   // con la ficha de Javier Cifuentes.
   const termino = typeof search === 'string' ? search.trim() : '';
   if (termino) {
-    conditions.push(`(l.nombre ILIKE $${paramIdx} OR l.email ILIKE $${paramIdx} OR l.telefono ILIKE $${paramIdx} OR l.whatsapp_usuario ILIKE $${paramIdx})`);
+    const soloDigitos = termino.replace(/\D/g, '');
+    const conds = [
+      `unaccent(COALESCE(l.nombre, '')) ILIKE unaccent($${paramIdx})`,
+      `l.email ILIKE $${paramIdx}`,
+      `l.telefono ILIKE $${paramIdx}`,
+      `unaccent(COALESCE(l.whatsapp_usuario, '')) ILIKE unaccent($${paramIdx})`,
+    ];
     params.push(`%${termino}%`);
     paramIdx++;
+
+    // Diego, 02/11: teléfonos con espacios (ej. «626 27 64 14» encuentra «+34626276414»).
+    if (soloDigitos.length >= 3) {
+      conds.push(`regexp_replace(COALESCE(l.telefono, ''), '\\D', '', 'g') LIKE $${paramIdx}`);
+      params.push(`%${soloDigitos}%`);
+      paramIdx++;
+    }
+
+    conditions.push(`(${conds.join(' OR ')})`);
   }
 
   // Filtro por rango de fechas (sobre fecha_solicitud, fallback created_at).
