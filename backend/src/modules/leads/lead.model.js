@@ -880,7 +880,9 @@ export async function findAll({ projectId, projectIds, status, seguimiento, paso
     paramIdx++;
 
     // Diego, 02/11: teléfonos con espacios (ej. «626 27 64 14» encuentra «+34626276414»).
-    if (soloDigitos.length >= 3) {
+    // Solo si lo escrito es un teléfono (cifras, espacios, +, guiones, paréntesis):
+    // «F-2026/123» o «Ana 3» no deben acabar buscando por las cifras sueltas.
+    if (/^[\d\s+().-]+$/.test(termino) && soloDigitos.length >= 3) {
       conds.push(`regexp_replace(COALESCE(l.telefono, ''), '\\D', '', 'g') LIKE $${paramIdx}`);
       params.push(`%${soloDigitos}%`);
       paramIdx++;

@@ -11,8 +11,8 @@ import {
   canSeeItem,
   applyLabel,
   esSoloColaboraciones,
-  pasaPermisoDeRoles,
 } from '@/shared/components/layout/Sidebar';
+import { isBetaAllowed } from '@/shared/config/betaConfig';
 import { rolesDe } from '@/shared/lib/roles';
 import client from '@/shared/api/client';
 import {
@@ -65,6 +65,96 @@ export function fuzzyScore(label, keywords, q) {
   return 0;
 }
 
+/**
+ * Las páginas que encuentra alguien: exactamente las de su menú (#591).
+ *
+ * Mismo recorrido que `Sidebar`: la sección que no aplica a este tipo de
+ * proyecto (`salvoTipo`), `entradasDeSeccion` para las entradas, `canSeeItem`
+ * para los hijos de un grupo, y fuera lo «Próximamente» (la marca del propio
+ * menú o la lista de la beta). Nada de una lista aparte: lo nuevo del menú sale
+ * solo, con el nombre que le ponga la empresa, y lo que el menú no enseña
+ * tampoco se encuentra aquí.
+ */
+export function paginasDelBuscador({ user, can, activeProject }) {
+  const soloColab = esSoloColaboraciones(user);
+  const userRoles = rolesDe(user);
+  const modules = activeProject?.modules;
+  const projectType = activeProject?.type;
+  const labelOverrides = activeProject?.sidebar_labels;
+  const abre = (it) => it.to && !it.href && !it.comingSoon && isBetaAllowed(it.to);
+
+  const list = [];
+  const seen = new Set();
+  const meter = (it, sublabel, iconoPadre) => {
+    if (!abre(it) || seen.has(it.to)) return;
+    seen.add(it.to);
+    list.push({
+      label: applyLabel(it.label, labelOverrides),
+      sublabel: applyLabel(sublabel, labelOverrides),
+      detail: it.detail || '',
+      to: it.to,
+      icon: it.icon || iconoPadre || SquaresFour,
+      keywords: [it.keywords, it.detail, sublabel].filter(Boolean).join(' '),
+    });
+  };
+
+  for (const section of NAV_SECTIONS) {
+    if (Array.isArray(section.salvoTipo) && section.salvoTipo.includes(projectType)) continue;
+    for (const item of entradasDeSeccion(section, { user, can, modules, projectType, soloColab })) {
+      if (Array.isArray(item.children)) {
+        item.children
+          .filter((c) => canSeeItem(c, userRoles, modules, projectType, soloColab, user, can))
+          .forEach((c) => meter(c, item.label, item.icon));
+      } else {
+        meter(item, section.label);
+      }
+    }
+  }
+  return list;
+}
+
+/**
+ * Qué tipos de resultado busca alguien (#591): los mismos permisos que
+ * protegen su pantalla y su ruta, los efectivos de /auth/me (con sus
+ * excepciones), nunca el nombre del rol. Si falta el permiso no se llama al
+ * servidor; el ámbito (sus campus, solo lo suyo si es gestora) lo pone él.
+ *
+ * La única excepción es quien es SOLO tutor: el catálogo le da `leads.view` y
+ * `products.view` (TODOS), pero su menú no tiene ni Prospectos ni Productos.
+ * Diego tiene que decidir si se le quitan del catálogo; mientras, el buscador
+ * no se los enseña (el mismo recorte que hace `canSeeItem`).
+ */
+export function queBusca({ user, can }) {
+  const tiene = (p) => typeof can === 'function' && can(p) === true;
+  const roles = rolesDe(user);
+  const soloTutor = roles.length === 1 && roles[0] === 'tutor';
+  const personas = !soloTutor && tiene('leads.view');
+  const productos = !soloTutor && tiene('products.view');
+  return {
+    personas,
+    clientes: personas && tiene('clients.view'),
+    productos,
+    crearProspecto: personas && tiene('leads.create'),
+    crearProducto: productos && tiene('products.create'),
+  };
+}
+
+/** A dónde lleva una persona: su ficha de cliente si ya compró. Rutas de App.jsx. */
+export const destinoDePersona = (l) => (l.status === 'convertido' ? `/clientes/${l.id}` : `/prospectos/${l.id}`);
+export const destinoDeProducto = (p) => `/productos/${p.id}`;
+
+/**
+ * Un reciente solo se enseña si hoy se podría volver a encontrar: si a alguien
+ * le quitan un permiso, el reciente de esa pantalla desaparece con él.
+ */
+export function recienteSigueValiendo(to, { pages, busca }) {
+  if (pages.some((p) => p.to === to)) return true;
+  if (/^\/prospectos\/\d+$/.test(to)) return busca.personas;
+  if (/^\/clientes\/\d+$/.test(to)) return busca.clientes;
+  if (/^\/productos\/\d+$/.test(to)) return busca.productos;
+  return false;
+}
+
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -79,71 +169,19 @@ export default function CommandPalette() {
   const { can } = usePermission();
   const idsDelAmbito = useIdsDelAmbito();
 
-  // Diego, 02/11: Las páginas se extraen dinámicamente de NAV_SECTIONS con los mismos
-  // filtros y permisos del menú (canSeeItem), usando los nombres configurados por la empresa.
-  const pages = useMemo(() => {
-    const soloColab = esSoloColaboraciones(user);
-    const userRoles = rolesDe(user);
-    const modules = activeProject?.modules;
-    const projectType = activeProject?.type;
-    const labelOverrides = activeProject?.sidebar_labels;
+  const pages = useMemo(() => paginasDelBuscador({ user, can, activeProject }), [user, can, activeProject]);
+  const busca = useMemo(() => queBusca({ user, can }), [user, can]);
 
-    const list = [];
-    const seen = new Set();
-
-    for (const section of NAV_SECTIONS) {
-      const itemsVisibles = entradasDeSeccion(section, {
-        user,
-        can,
-        modules,
-        projectType,
-        soloColab,
-      });
-
-      for (const item of itemsVisibles) {
-        if (item.children && Array.isArray(item.children)) {
-          const visibleChildren = item.children
-            .filter((c) => !c.comingSoon)
-            .filter((c) => !c.permiso || [].concat(c.permiso).some((p) => pasaPermisoDeRoles({ permiso: p }, can)))
-            .filter((c) => canSeeItem(c, userRoles, modules, projectType, soloColab, user, can));
-
-          for (const child of visibleChildren) {
-            if (child.to && !seen.has(child.to)) {
-              seen.add(child.to);
-              list.push({
-                label: applyLabel(child.label, labelOverrides),
-                sublabel: applyLabel(item.label, labelOverrides),
-                detail: child.detail || '',
-                to: child.to,
-                icon: child.icon || item.icon || SquaresFour,
-                keywords: child.keywords || child.detail || '',
-              });
-            }
-          }
-        } else if (item.to && !item.comingSoon && !seen.has(item.to)) {
-          seen.add(item.to);
-          list.push({
-            label: applyLabel(item.label, labelOverrides),
-            sublabel: applyLabel(section.label, labelOverrides),
-            detail: item.detail || '',
-            to: item.to,
-            icon: item.icon || SquaresFour,
-            keywords: item.keywords || item.detail || '',
-          });
-        }
-      }
-    }
-    return list;
-  }, [user, can, activeProject?.modules, activeProject?.type, activeProject?.sidebar_labels]);
-
-  // Quick actions disponibles según proyecto + tema actual
+  // Crear solo si puede crear y su menú tiene la pantalla: si no, es el muro.
   const quickActions = useMemo(() => [
-    { id: 'qa-new-lead', label: 'Crear nuevo prospecto', icon: Plus, keywords: 'nuevo lead crear contacto', run: () => navigate('/prospectos?new=1') },
-    { id: 'qa-new-product', label: 'Crear nuevo producto', icon: Plus, keywords: 'nuevo producto crear catalogo', run: () => navigate('/productos') },
+    busca.crearProspecto && pages.some((p) => p.to === '/prospectos')
+      && { id: 'qa-new-lead', label: 'Crear nuevo prospecto', icon: Plus, keywords: 'nuevo lead crear contacto', run: () => navigate('/prospectos?new=1') },
+    busca.crearProducto && pages.some((p) => p.to === '/productos')
+      && { id: 'qa-new-product', label: 'Crear nuevo producto', icon: Plus, keywords: 'nuevo producto crear catalogo', run: () => navigate('/productos') },
     { id: 'qa-toggle-theme', label: theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro', icon: theme === 'dark' ? Sun : Moon, keywords: 'tema dark light claro oscuro', run: () => toggleTheme() },
     { id: 'qa-shortcuts', label: 'Ver atajos de teclado', icon: Keyboard, keywords: 'atajos teclado shortcuts ayuda', run: () => window.dispatchEvent(new Event('crm:open-shortcuts')) },
     { id: 'qa-logout', label: 'Cerrar sesión', icon: SignOut, keywords: 'logout salir', run: async () => { await logout(); navigate('/login'); } },
-  ], [theme, toggleTheme, navigate, logout]);
+  ].filter(Boolean), [busca, pages, theme, toggleTheme, navigate, logout]);
 
   // Cambio de proyecto como acción rápida
   const projectActions = useMemo(() => (
@@ -190,6 +228,10 @@ export default function CommandPalette() {
   const [leadResults, setLeadResults] = useState([]);
   const [productResults, setProductResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  // El catálogo de cada campus se pide una vez por apertura, no en cada tecla:
+  // con una empresa arriba eran catorce peticiones por letra.
+  const catalogos = useRef(new Map());
+  useEffect(() => { if (open) catalogos.current = new Map(); }, [open]);
 
   const search = useCallback(async (q) => {
     if (!q) {
@@ -198,68 +240,56 @@ export default function CommandPalette() {
       return;
     }
 
+    // Un campus, o los del ámbito («Todos» o una empresa): el servidor exige
+    // projectId o projectIds y los recorta a los de la persona.
     const hasSingleProject = activeProject?.id && activeProject.id > 0;
-    const projectIdsCsv = !hasSingleProject && idsDelAmbito.length > 0 ? idsDelAmbito.join(',') : '';
-
-    if (!hasSingleProject && !projectIdsCsv) {
+    const campus = hasSingleProject ? [activeProject.id] : idsDelAmbito;
+    if (!campus.length || (!busca.personas && !busca.productos)) {
       setLeadResults([]);
       setProductResults([]);
       return;
     }
+    const ambito = hasSingleProject ? `projectId=${activeProject.id}` : `projectIds=${campus.join(',')}`;
 
-    const leadQueryParam = hasSingleProject
-      ? `projectId=${activeProject.id}`
-      : `projectIds=${projectIdsCsv}`;
+    const catalogoDe = (pid) => {
+      if (!catalogos.current.has(pid)) {
+        catalogos.current.set(pid, client.get(`/products?projectId=${pid}`)
+          .then((r) => (r.success && Array.isArray(r.data) ? r.data : []))
+          .catch(() => []));
+      }
+      return catalogos.current.get(pid);
+    };
 
     setSearching(true);
     try {
-      const productPromise = hasSingleProject
-        ? client.get(`/products?projectId=${activeProject.id}`).catch(() => ({ success: false }))
-        : (idsDelAmbito.length > 0
-            ? Promise.all(
-                idsDelAmbito.map((pid) =>
-                  client.get(`/products?projectId=${pid}`).catch(() => ({ success: false }))
-                )
-              ).then((responses) => {
-                const combined = [];
-                const seenIds = new Set();
-                for (const r of responses) {
-                  if (r.success && Array.isArray(r.data)) {
-                    for (const p of r.data) {
-                      if (!seenIds.has(p.id)) {
-                        seenIds.add(p.id);
-                        combined.push(p);
-                      }
-                    }
-                  }
-                }
-                return { success: true, data: combined };
-              })
-            : Promise.resolve({ success: true, data: [] }));
-
-      const [leadsRes, productsRes] = await Promise.all([
-        // `includeConverted=1`: Diego, 14/09: buscar también a los clientes convertidos.
-        client.get(`/leads?${leadQueryParam}&search=${encodeURIComponent(q)}&limit=5&includeConverted=1`).catch(() => ({ success: false })),
-        productPromise,
+      const [leadsRes, catalogo] = await Promise.all([
+        busca.personas
+          // `includeConverted`: Diego, 14/09: buscar también a los clientes;
+          // solo para quien puede abrir su ficha (clients.view).
+          ? client.get(`/leads?${ambito}&search=${encodeURIComponent(q)}&limit=5${busca.clientes ? '&includeConverted=1' : ''}`)
+            .catch(() => ({ success: false }))
+          : { success: true, data: [] },
+        busca.productos
+          ? Promise.all(campus.map(catalogoDe)).then((listas) => {
+            const vistos = new Set();
+            return listas.flat().filter((p) => !vistos.has(p.id) && vistos.add(p.id));
+          })
+          : [],
       ]);
 
       setLeadResults(leadsRes.success ? (leadsRes.data || []) : []);
-      // Filtrado client-side para productos, ignorando acentos (Diego, 02/11)
+      // Productos: filtrado aquí, sin acentos (Diego, 02/11).
       const normQ = sinAcentos(q);
-      const products = productsRes.success
-        ? (productsRes.data || []).filter((p) =>
-            sinAcentos(p.nombre).includes(normQ) ||
-            sinAcentos(p.codigo || p.sku).includes(normQ)
-          ).slice(0, 5)
-        : [];
-      setProductResults(products);
+      setProductResults(catalogo.filter((p) =>
+        sinAcentos(p.nombre).includes(normQ) || sinAcentos(p.codigo || p.sku).includes(normQ),
+      ).slice(0, 5));
     } catch {
       setLeadResults([]);
       setProductResults([]);
     } finally {
       setSearching(false);
     }
-  }, [activeProject?.id, idsDelAmbito]);
+  }, [activeProject?.id, idsDelAmbito, busca]);
 
   useEffect(() => {
     const timer = setTimeout(() => search(query.trim()), 250);
@@ -273,10 +303,11 @@ export default function CommandPalette() {
 
     if (!q) {
       // Estado inicial: recientes + acciones rápidas
-      if (recents.length > 0) {
+      const vigentes = recents.filter((r) => recienteSigueValiendo(r.to, { pages, busca }));
+      if (vigentes.length > 0) {
         out.push({
           label: 'Recientes',
-          items: recents.map((r) => ({
+          items: vigentes.map((r) => ({
             type: 'recent',
             label: r.label,
             sublabel: r.sublabel,
@@ -329,8 +360,7 @@ export default function CommandPalette() {
           label: l.nombre,
           sublabel: (l.email || l.telefono || `#${l.id}`)
             + (l.status === 'convertido' ? ' · cliente' : ''),
-          // Diego, 02/11: rutas existentes en App.jsx: /prospectos/:id o /clientes/:id
-          to: l.status === 'convertido' ? `/clientes/${l.id}` : `/prospectos/${l.id}`,
+          to: destinoDePersona(l),
           icon: User,
         })),
       });
@@ -342,14 +372,13 @@ export default function CommandPalette() {
           type: 'product',
           label: p.nombre,
           sublabel: p.codigo ? `${p.codigo} · ${p.precio ? `${p.precio}€` : ''}` : (p.precio ? `${p.precio}€` : ''),
-          // Diego, 02/11: ruta existente en App.jsx: /productos/:id
-          to: `/productos/${p.id}`,
+          to: destinoDeProducto(p),
           icon: Package,
         })),
       });
     }
     return out;
-  }, [query, recents, quickActions, projectActions, pages, leadResults, productResults]);
+  }, [query, recents, quickActions, projectActions, pages, busca, leadResults, productResults]);
 
   const flatItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
