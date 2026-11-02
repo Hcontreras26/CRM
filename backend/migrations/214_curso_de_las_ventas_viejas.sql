@@ -155,3 +155,15 @@ COMMIT;
 --          producto_contratado    = r.decia
 --     FROM conversions_curso_reparado r
 --    WHERE r.conversion_id = c.id;
+
+-- Que el CRM pueda leerla aunque la migración la pase postgres (como la 230, la 231 y la 232).
+-- Faltaba: lo vio la auditoría de la 2.6.0 (02/11).
+DO $$
+DECLARE r TEXT;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['crm_user', 'crm_iseie_user'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format('GRANT SELECT ON conversions_curso_reparado TO %I', r);
+    END IF;
+  END LOOP;
+END $$;

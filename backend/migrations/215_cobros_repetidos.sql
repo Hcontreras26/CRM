@@ -192,3 +192,15 @@ COMMIT;
 --   SELECT id, conversion_id, importe, fecha, notas, metodo, moneda, referencia, created_at
 --     FROM conversion_payments_repetidos;
 --   SELECT setval('conversion_payments_id_seq', (SELECT max(id) FROM conversion_payments));
+
+-- Que el CRM pueda leerla aunque la migración la pase postgres (como la 230, la 231 y la 232).
+-- Faltaba: lo vio la auditoría de la 2.6.0 (02/11).
+DO $$
+DECLARE r TEXT;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['crm_user', 'crm_iseie_user'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format('GRANT SELECT ON conversion_payments_repetidos TO %I', r);
+    END IF;
+  END LOOP;
+END $$;
