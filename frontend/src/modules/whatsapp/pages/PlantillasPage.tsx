@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   WhatsappLogo, Plus, Trash, FloppyDisk, Users, User,
-  MagnifyingGlass, Copy, Check, ImageSquare, PencilSimple, ChatText,
+  MagnifyingGlass, Copy, Check, ImageSquare, PencilSimple, ChatText, Question,
 } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -250,6 +250,12 @@ export default function PlantillasWhatsappPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Para volver a verlo (#576): solo se abre solo la primera vez. */}
+          <button type="button" onClick={() => setTour(true)}
+            aria-label="Ver el tutorial" title="Ver el recorrido por esta pantalla"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm font-medium hover:bg-muted/60">
+            <Question size={14} weight="bold" /> Tutorial
+          </button>
           <button type="button" data-tour="modo"
             onClick={() => { setModo(modo === 'consulta' ? 'editar' : 'consulta'); setNueva(null); }}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm font-medium hover:bg-muted/60">
@@ -466,6 +472,7 @@ export default function PlantillasWhatsappPage() {
           pasos={PASOS_DE_PLANTILLAS}
           clave={VISTO_PLANTILLAS}
           alCerrar={() => setTour(false)}
+          alEntrar={(p) => { if (p.vista === 'editar' || p.vista === 'consulta') setModo(p.vista); }}
         />
       )}
     </div>

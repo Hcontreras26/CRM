@@ -35,6 +35,16 @@ export type Paso = {
    * Con esto el cartel lleva su propio boton y va.
    */
   accion?: { texto: string; a: string };
+  /**
+   * La vista de la pantalla en la que está lo que se señala (#576).
+   *
+   * En Plantillas, los datos que se insertan solo existen en «Editar», y la
+   * pantalla abre en «Consultar»: el paso no encontraba su objetivo y se
+   * saltaba, así que el recorrido de cuatro pasos enseñaba tres. Con esto el
+   * recorrido avisa con `alEntrar` y la pantalla se pone en esa vista antes
+   * de medir.
+   */
+  vista?: string;
 };
 
 const PASOS: Paso[] = [
@@ -111,12 +121,19 @@ export default function Tour({
   alCerrar,
   pasos: pasosPropios,
   clave = VISTO,
+  alEntrar,
 }: {
   alCerrar?: () => void;
   pasos?: Paso[];
   clave?: string;
+  /** Al llegar a un paso con `vista`: la pantalla se pone en ella. */
+  alEntrar?: (paso: Paso) => void;
 }) {
   const navegar = useNavigate();
+  // En una referencia: la pantalla la pasa como flecha nueva en cada render, y
+  // como dependencia del efecto lo volvería a lanzar sin parar.
+  const entrar = useRef(alEntrar);
+  entrar.current = alEntrar;
 
   /**
    * Sin numero enlazado, el recorrido es CORTO: presentar y mandar a enlazar.
@@ -205,7 +222,7 @@ export default function Tour({
   const saltar = useCallback(() => {
     for (let i = paso + 1; i < pasos.length; i++) {
       const p = pasos[i];
-      if (!p.donde || document.querySelector(p.donde)) { setPaso(i); return; }
+      if (!p.donde || p.vista || document.querySelector(p.donde)) { setPaso(i); return; }
     }
     cerrar();
   }, [paso, cerrar, pasos]);
@@ -222,6 +239,12 @@ export default function Tour({
   // Antes de saltarlo se ESPERA: en esa pantalla la lista se llena por tandas
   // mientras entra el historial, y el objetivo puede tardar un segundo en
   // existir. Rendirse a la primera saltaria pasos que si eran validos.
+  // Primero la vista del paso; el efecto que mide espera hasta 1,5 s a que
+  // aparezca lo que señala, que es lo que tarda de sobra en pintarse.
+  useEffect(() => {
+    if (actual?.vista) entrar.current?.(actual);
+  }, [actual]);
+
   useEffect(() => {
     if (!actual?.donde) { setHueco(null); return undefined; }
 
@@ -266,7 +289,7 @@ export default function Tour({
   const atras = useCallback(() => {
     for (let i = paso - 1; i >= 0; i--) {
       const p = pasos[i];
-      if (!p.donde || document.querySelector(p.donde)) { setPaso(i); return; }
+      if (!p.donde || p.vista || document.querySelector(p.donde)) { setPaso(i); return; }
     }
   }, [paso, pasos]);
 
