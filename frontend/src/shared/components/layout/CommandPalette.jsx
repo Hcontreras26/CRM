@@ -167,6 +167,23 @@ export const destinoDeConsulta = (c) => `/consultas/${c.id}`;
 // Un usuario no tiene ficha: la pestaña Usuarios de Configuración, con su nombre en el buscador.
 export const destinoDeUsuario = (u) => `/configuracion?pestana=users&buscar=${encodeURIComponent(u.nombre || u.email || '')}`;
 
+/**
+ * Si antes de abrir un resultado hay que ponerse en su campus (revisión del
+ * 02/11). La ficha de un producto pide un campus en la cabecera: con «Todos» o
+ * con una empresa, llevaba al muro «Elige un campus». La de una venta (y la
+ * factura, que abre su venta) vale con una empresa (`CON_SOCIEDAD_OK`), pero
+ * no con «Todos». Las personas no: `/prospectos/:id` y `/clientes/:id` abren
+ * con cualquier cabecera.
+ */
+export function campusAlAbrir(item, { unCampus, todos }) {
+  // Un reciente guarda el tipo de lo que abrió (`tipo`): vale lo mismo.
+  const tipo = item.tipo || item.type;
+  if (!item.projectId || unCampus) return null;
+  if (tipo === 'product') return Number(item.projectId);
+  if ((tipo === 'venta' || tipo === 'factura') && todos) return Number(item.projectId);
+  return null;
+}
+
 /** «1234» o «#1234»: el número de una venta. */
 export const numeroDeVenta = (q) => (/^#?\d{1,9}$/.test(q.trim()) ? q.trim().replace('#', '') : null);
 /** «F-2026/0641» se guarda como «2026/0641»: se quita la «F-» de delante. */
@@ -211,7 +228,7 @@ export default function CommandPalette() {
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const navigate = useNavigate();
-  const { activeProject, projects, switchProject, activeIssuerId } = useProjectContext();
+  const { activeProject, projects, switchProject, activeIssuerId, isAllProjects } = useProjectContext();
   const { user, logout, permissions } = useAuth();
   const { theme, toggleTheme } = useTheme();
   // `usePermission()` da una función `can` NUEVA en cada render. Aquí no vale:
@@ -230,7 +247,7 @@ export default function CommandPalette() {
     busca.crearProspecto && pages.some((p) => p.to === '/prospectos')
       && { id: 'qa-new-lead', label: 'Crear nuevo prospecto', icon: Plus, keywords: 'nuevo lead crear contacto', run: () => navigate('/prospectos?new=1') },
     busca.crearProducto && pages.some((p) => p.to === '/productos')
-      && { id: 'qa-new-product', label: 'Crear nuevo producto', icon: Plus, keywords: 'nuevo producto crear catalogo', run: () => navigate('/productos') },
+      && { id: 'qa-new-product', label: 'Crear nuevo producto', icon: Plus, keywords: 'nuevo producto crear catalogo', run: () => navigate('/productos?new=1') },
     { id: 'qa-toggle-theme', label: theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro', icon: theme === 'dark' ? Sun : Moon, keywords: 'tema dark light claro oscuro', run: () => toggleTheme() },
     { id: 'qa-shortcuts', label: 'Ver atajos de teclado', icon: Keyboard, keywords: 'atajos teclado shortcuts ayuda', run: () => window.dispatchEvent(new Event('crm:open-shortcuts')) },
     { id: 'qa-logout', label: 'Cerrar sesión', icon: SignOut, keywords: 'logout salir', run: async () => { await logout(); navigate('/login'); } },
@@ -346,10 +363,11 @@ export default function CommandPalette() {
           : [],
         // Una venta por su número: la ficha ya comprueba campus y, si es gestora, que sea suya.
         b.ventas && numero ? pedir(`/conversions/${numero}`) : { success: false },
-        // La lista de facturas entiende un campus cada vez: con varios, una por campus.
-        b.facturas
-          ? Promise.all(campus.map((pid) => pedir(`/invoices?projectId=${pid}&search=${encodeURIComponent(terminoDeFactura(q))}&limit=5`)))
-            .then((rs) => ({ success: true, data: rs.flatMap((r) => (r.success ? r.data || [] : [])) }))
+        // La lista de facturas entiende un campus cada vez (`GET /invoices` no
+        // acepta `projectIds`): con «Todos» eran diez peticiones por búsqueda.
+        // Facturas, solo con un campus en la cabecera (revisión del 02/11).
+        b.facturas && hasSingleProject
+          ? pedir(`/invoices?projectId=${activeProject.id}&search=${encodeURIComponent(terminoDeFactura(q))}&limit=5`)
           : nada,
         b.tareas ? pedir(`/tasks?search=${texto}`) : nada,
         b.consultasPanel ? pedir(`/consultas?buscar=${texto}${ambitoConsultas}`)
@@ -408,6 +426,8 @@ export default function CommandPalette() {
             label: r.label,
             sublabel: r.sublabel,
             to: r.to,
+            tipo: r.tipo,
+            projectId: r.projectId,
             icon: ClockCounterClockwise,
           })),
         });
@@ -469,6 +489,7 @@ export default function CommandPalette() {
           label: p.nombre,
           sublabel: p.codigo ? `${p.codigo} · ${p.precio ? `${p.precio}€` : ''}` : (p.precio ? `${p.precio}€` : ''),
           to: destinoDeProducto(p),
+          projectId: p.project_id,
           icon: Package,
         })),
       });
@@ -476,11 +497,11 @@ export default function CommandPalette() {
     const euros = (n) => (n != null && n !== '' ? `${Number(n).toLocaleString('es-ES', { maximumFractionDigits: 2 })} €` : '');
     const grupo = (label, filas, item) => { if (filas.length) out.push({ label, items: filas.map(item) }); };
     grupo('Ventas', otros.ventas, (v) => ({
-      type: 'venta', label: `Venta ${v.id}`, icon: Receipt, to: destinoDeVenta(v),
+      type: 'venta', label: `Venta ${v.id}`, icon: Receipt, to: destinoDeVenta(v), projectId: v.project_id,
       sublabel: [v.lead_nombre, v.producto_contratado, euros(v.importe_total)].filter(Boolean).join(' · '),
     }));
     grupo('Facturas', otros.facturas, (f) => ({
-      type: 'factura', label: `${f.tipo === 'proforma' ? 'Proforma' : 'Factura'} ${f.codigo || f.numero}`, icon: Receipt, to: destinoDeFactura(f),
+      type: 'factura', label: `${f.tipo === 'proforma' ? 'Proforma' : 'Factura'} ${f.codigo || f.numero}`, icon: Receipt, to: destinoDeFactura(f), projectId: f.project_id,
       sublabel: [f.cliente_nombre, euros(f.total)].filter(Boolean).join(' · '),
     }));
     grupo('Tareas', otros.tareas, (t) => ({
@@ -515,7 +536,9 @@ export default function CommandPalette() {
       return;
     }
     if (item.to) {
-      pushRecent({ label: item.label, sublabel: item.sublabel, to: item.to });
+      pushRecent({ label: item.label, sublabel: item.sublabel, to: item.to, tipo: item.tipo || item.type, projectId: item.projectId });
+      const pid = campusAlAbrir(item, { unCampus: activeProject?.id > 0, todos: isAllProjects });
+      if (pid) switchProject(pid);
       navigate(item.to);
       setOpen(false);
       setQuery('');

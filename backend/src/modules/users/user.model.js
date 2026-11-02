@@ -29,22 +29,6 @@ async function existeUsaWhatsapp() {
   return hayUsaWhatsapp;
 }
 
-// Esta lista es «quien puede llevar un prospecto», porque es para lo que la usa
-// casi todo el CRM: el filtro de Prospectos, asignar responsable, la exportacion
-// a Wasapi, el desplegable de gestora en Clientes y en Ventas.
-//
-// Por eso se quedan fuera dos grupos, aunque sean usuarios:
-//
-//  · Los PROFESORES. No venden ni atienden a nadie; tienen su propia pantalla.
-//  · Quien lleva las COLABORACIONES —Vanessa, Jonathan—. Da de alta profesores y
-//    les toca el porcentaje. Tiene rol de gestora porque es el unico que la
-//    limita a ver solo lo suyo, pero no es una gestora: salia en esos
-//    desplegables y se le podia asignar un prospecto a mano. Un prospecto en su
-//    bandeja es un prospecto que no llama nadie.
-//
-// Quien necesita a TODO el personal —la pantalla de Usuarios, las nominas— lo
-// pide con incluirTodos. Es al reves de como estaba: lo seguro es lo de por
-// defecto, y ver a todos es lo que hay que pedir.
 /**
  * Buscar personas del equipo por nombre o correo, sin acentos (#591).
  *
@@ -69,6 +53,22 @@ export async function buscar({ q, campus, limit = 5 }) {
   return rows;
 }
 
+// Esta lista es «quien puede llevar un prospecto», porque es para lo que la usa
+// casi todo el CRM: el filtro de Prospectos, asignar responsable, la exportacion
+// a Wasapi, el desplegable de gestora en Clientes y en Ventas.
+//
+// Por eso se quedan fuera dos grupos, aunque sean usuarios:
+//
+//  · Los PROFESORES. No venden ni atienden a nadie; tienen su propia pantalla.
+//  · Quien lleva las COLABORACIONES —Vanessa, Jonathan—. Da de alta profesores y
+//    les toca el porcentaje. Tiene rol de gestora porque es el unico que la
+//    limita a ver solo lo suyo, pero no es una gestora: salia en esos
+//    desplegables y se le podia asignar un prospecto a mano. Un prospecto en su
+//    bandeja es un prospecto que no llama nadie.
+//
+// Quien necesita a TODO el personal —la pantalla de Usuarios, las nominas— lo
+// pide con incluirTodos. Es al reves de como estaba: lo seguro es lo de por
+// defecto, y ver a todos es lo que hay que pedir.
 export async function findAll({ active, role, projectId, page, limit, incluirTodos = false }) {
   const conditions = [];
   const params = [];
