@@ -30,6 +30,8 @@ export const PASOS_DE_PLANTILLAS: Paso[] = [
   },
   {
     donde: '[data-tour="insertar"]',
+    // Solo está en «Editar»: el recorrido pasa a esa vista (#576).
+    vista: 'editar',
     titulo: 'Los datos los pone el CRM',
     texto: 'Escribe el mensaje y, donde vaya el nombre o el curso, pulsa el dato en vez de '
          + 'teclearlo. Se pone solo al usarla, con lo que el CRM sepa de esa persona. '
@@ -37,6 +39,8 @@ export const PASOS_DE_PLANTILLAS: Paso[] = [
   },
   {
     donde: '[data-tour="copiar"]',
+    // Y vuelve a «Consultar», que es donde se copian.
+    vista: 'consulta',
     titulo: 'Se copia, no se envía',
     texto: 'El botón es «copiar»: el texto se pega en el chat y lo cambias antes de mandarlo. '
          + 'El CRM no manda plantillas solo, y es a propósito — cien mensajes idénticos es '

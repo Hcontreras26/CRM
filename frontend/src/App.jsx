@@ -5,6 +5,7 @@ import { tituloDeRuta } from './shared/lib/rutasTitulos';
 
 
 import { SOLO_EN_PRUEBAS } from './shared/lib/soloEnPruebas';
+import ConPermiso from './shared/components/layout/ConPermiso';
 const APP_BASE_URL = import.meta.env.BASE_URL || '';
 const IS_TESTEO_PREVIEW_BASE = APP_BASE_URL.startsWith('/testeo/');
 const IS_TESTEO2_BASE = APP_BASE_URL.startsWith('/testeo2/');
@@ -357,7 +358,7 @@ function App() {
           <Route path="/configuracion/plantillas-email" element={<EmailTemplatesPage />} />
           <Route path="/informes" element={<ReportsPage />} />
           <Route path="/informes/ia" element={<ReportsIAPage />} />
-          <Route path="/informes/preguntar" element={SOLO_EN_PRUEBAS ? <PreguntarPage /> : <Navigate to="/informes" replace />} />
+          <Route path="/informes/preguntar" element={SOLO_EN_PRUEBAS ? <ConPermiso permiso="reports_ia.generar" a="/informes"><PreguntarPage /></ConPermiso> : <Navigate to="/informes" replace />} />
           <Route path="/informes/feedback" element={<FeedbackPanelPage />} />
           <Route path="/chat-ia" element={<AIChatPage />} />
           <Route path="/soporte" element={<SoportePage />} />
