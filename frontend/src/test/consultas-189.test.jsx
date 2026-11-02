@@ -71,7 +71,7 @@ beforeEach(() => {
     desactualizada: false, diasPlazo: 7, datosReales: reales,
   } });
   api.panelDeTutores.mockResolvedValue({ success: true, data: {
-    tutores: [{ id: 7, nombre: 'Tutora', email: 't@x.es', is_available: true, unavailable_reason: null, campus: ['Psiko'], empresas: ['CEDIA'],
+    tutores: [{ id: 7, nombre: 'Tutora', email: 't@x.es', disponible: true, motivo_no_disponible: null, campus: ['Psiko'], empresas: ['CEDIA'],
       carga: { nivel: 'completa', texto: 'Hasta arriba', created_at: diasAtras(9) }, desactualizada: true, ...reales }],
     campusSinTutor: [{ id: 2, campus: 'Fono', empresa: 'CEDIA' }], diasPlazoCarga: 7,
   } });

@@ -110,7 +110,7 @@ async function recordarAlTutor(c, enviar) {
     const { htmlContent, textContent } = correo({
       proyecto: { nombre: c.campus, logo_url: c.logo_url, emoji: c.emoji },
       titulo: 'Una consulta se acerca al plazo',
-      saludo: `Hola ${esc(c.tutor_nombre || '')},`,
+      saludo: c.tutor_nombre || null,
       resumen: `${c.alumno_nombre || 'Un alumno'} lleva ${horasTexto(horas)} esperando respuesta`,
       bloques: [
         parrafo(`<strong>${esc(c.alumno_nombre || 'Un alumno')}</strong>${c.curso_nombre ? ` (${esc(c.curso_nombre)})` : ''} lleva <strong>${horasTexto(horas)}</strong> esperando tu respuesta. El plazo es de ${PLAZO_HORAS} h.`),
@@ -188,6 +188,38 @@ async function cargasPorRecordar(ahora, tutorIds) {
   return rows;
 }
 
+/**
+ * Con qué marca le escribe el CRM a un tutor fuera de una consulta concreta
+ * (resumen semanal, carga): la del campus si atiende consultas en uno solo; si
+ * son varios, la del CRM —o la del único campus, en un CRM de una sola marca
+ * como ISEIE—. Es el criterio de «Tu semana» de las gestoras (`cabeceraPara`
+ * en jobs/correosDelEquipo.js): con varios, poner uno sería decir que es de ese.
+ *
+ * QA de Diego, 22/10, punto 9: «todo correo con la plantilla y la marca del campus».
+ * Devuelve `{ proyecto, projectId, campus }` para `correo()` y `sendEmail()`.
+ */
+export async function marcaDelTutor(tutorId) {
+  let { rows } = await query(
+    `SELECT DISTINCT p.id, p.nombre, p.slug, p.logo_url, p.emoji
+       FROM tutor_campus tc
+       JOIN projects p ON p.id = tc.project_id
+       JOIN project_integrations pi ON pi.project_id = p.id AND pi.provider = 'moodle'
+        AND pi.active AND COALESCE((pi.config_public->>'consultas')::boolean, false)
+      WHERE tc.tutor_id = $1 AND tc.estado = 'activa'`, [tutorId]);
+  if (rows.length !== 1) {
+    ({ rows } = await query(
+      `SELECT id, nombre, slug, logo_url, emoji FROM projects
+        WHERE active AND NOT COALESCE(es_prueba, false)`));
+    if (rows.length !== 1) return { proyecto: {}, projectId: null, campus: null };
+  }
+  const p = rows[0];
+  return {
+    proyecto: { nombre: p.nombre, slug: p.slug, logo_url: p.logo_url, emoji: p.emoji },
+    projectId: Number(p.id),
+    campus: p.nombre,
+  };
+}
+
 /** `tutorIds`: solo esos tutores (null = todos). */
 export async function recordarCargas({ ahora = new Date(), enviar = sendEmail, tutorIds = null } = {}) {
   const r = { recordatorios: 0, correos: 0, frenados: 0 };
@@ -207,9 +239,11 @@ export async function recordarCargas({ ahora = new Date(), enviar = sendEmail, t
       r.frenados += 1;
       logger.info({ tutorId: t.id }, 'consultas: recordatorio de carga sin enviar por correo (freno de correos a tutores)');
     } else if (t.email) {
+      const marca = await marcaDelTutor(t.id);
       const { htmlContent, textContent } = correo({
+        proyecto: marca.proyecto,
         titulo: 'Actualiza tu carga de trabajo',
-        saludo: `Hola ${esc(t.nombre || '')},`,
+        saludo: t.nombre || null,
         resumen: texto,
         bloques: [
           parrafo(`${texto} Administración la mira antes de asignarte más alumnos o campus.`),
@@ -217,8 +251,8 @@ export async function recordarCargas({ ahora = new Date(), enviar = sendEmail, t
         ],
       });
       const e = await enviar({
-        to: t.email, subject: '[CRM] Actualiza tu carga de trabajo', htmlContent, textContent,
-        tags: ['consultas', 'tutor', 'carga'], clave: `consultas-carga-${t.id}-${ahora.toISOString().slice(0, 10)}`,
+        to: t.email, subject: `[${marca.campus || 'CRM'}] Actualiza tu carga de trabajo`, htmlContent, textContent,
+        tags: ['consultas', 'tutor', 'carga'], projectId: marca.projectId, clave: `consultas-carga-${t.id}-${ahora.toISOString().slice(0, 10)}`,
       }).catch((err) => ({ sent: false, error: err.message }));
       if (e?.sent) r.correos += 1;
     }

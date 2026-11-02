@@ -150,6 +150,9 @@ export async function me(req, res, next) {
           gestor_colaboraciones: !!user.gestor_colaboraciones,
           editar_fechas_factura: !!user.editar_fechas_factura,
           usa_mcp: !!user.usa_mcp,
+          // Para que la pantalla no pregunte por WhatsApp a quien lo tiene
+          // apagado (QA de Diego, 22/10, punto 8). null = sin la columna.
+          usa_whatsapp: user.usa_whatsapp ?? null,
         },
         permissions,
         view,

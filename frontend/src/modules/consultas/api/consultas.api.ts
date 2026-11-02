@@ -101,8 +101,8 @@ export interface TutorPanel extends DatosReales {
   id: number;
   nombre: string;
   email: string;
-  is_available: boolean | null;
-  unavailable_reason: string | null;
+  disponible: boolean;
+  motivo_no_disponible: string | null;
   campus: string[];
   empresas: string[] | null;
   carga: { nivel: NivelCarga; texto: string | null; created_at: string } | null;

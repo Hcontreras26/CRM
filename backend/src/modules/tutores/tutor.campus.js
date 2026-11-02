@@ -261,7 +261,7 @@ export async function tutoresQueRecibenConsultas(projectId) {
        FROM users u
        JOIN tutor_campus tc ON tc.tutor_id = u.id AND tc.project_id = $1 AND tc.estado = 'activa'
       WHERE u.active = true
-        AND COALESCE(u.is_available, true) = true
+        AND u.consultas_disponible
         AND ${ES_TUTOR}
         AND (
           EXISTS (SELECT 1 FROM user_projects up
@@ -276,16 +276,21 @@ export async function tutoresQueRecibenConsultas(projectId) {
   return rows.map((r) => ({ ...r, id: Number(r.id) }));
 }
 
-/** «No disponible» (vacaciones o baja): las mismas columnas que el reparto de prospectos. */
+/**
+ * «No disponible» de Consultas (vacaciones o baja), en sus columnas propias
+ * (migración 223). No son las del reparto de prospectos (`is_available`): una
+ * gestora que además es tutora no deja de recibir prospectos por esto, ni al
+ * revés (QA de Diego, 22/10, punto 6).
+ */
 export async function ponerDisponible(tutorId, disponible, motivo) {
   const { rows } = await query(
     `UPDATE users
-        SET is_available = $1,
-            unavailable_reason = CASE WHEN $1 = false THEN $2 ELSE NULL END,
-            unavailable_since  = CASE WHEN $1 = false THEN NOW() ELSE NULL END,
+        SET consultas_disponible = $1,
+            consultas_no_disponible_motivo = CASE WHEN $1 = false THEN $2 ELSE NULL END,
+            consultas_no_disponible_desde  = CASE WHEN $1 = false THEN NOW() ELSE NULL END,
             updated_at = NOW()
       WHERE id = $3
-      RETURNING is_available, unavailable_reason, unavailable_since`,
+      RETURNING consultas_disponible, consultas_no_disponible_motivo, consultas_no_disponible_desde`,
     [disponible, motivo || null, tutorId]
   );
   return rows[0] || null;
@@ -293,6 +298,7 @@ export async function ponerDisponible(tutorId, disponible, motivo) {
 
 export async function disponibilidad(tutorId) {
   const { rows } = await query(
-    'SELECT is_available, unavailable_reason, unavailable_since FROM users WHERE id = $1', [tutorId]);
+    `SELECT consultas_disponible, consultas_no_disponible_motivo, consultas_no_disponible_desde
+       FROM users WHERE id = $1`, [tutorId]);
   return rows[0] || null;
 }

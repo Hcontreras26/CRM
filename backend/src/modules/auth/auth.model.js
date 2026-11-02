@@ -8,7 +8,9 @@ export async function findUserByEmail(email) {
             u.custom_role_id, u.factura_manager, u.editar_fechas_factura, u.gestor_colaboraciones, u.set_password_token, u.set_password_expires,
             -- Via to_jsonb y no u.usa_mcp: si el codigo llega antes que la migracion 182,
             -- leer la columna directamente romperia el login de todos. Asi vale false.
-            COALESCE((to_jsonb(u)->>'usa_mcp')::boolean, false) AS usa_mcp
+            COALESCE((to_jsonb(u)->>'usa_mcp')::boolean, false) AS usa_mcp,
+            -- La casilla de WhatsApp, igual: null si falta la columna (no se le niega a nadie).
+            (to_jsonb(u)->>'usa_whatsapp')::boolean AS usa_whatsapp
      FROM users u
      -- Sin distinguir mayusculas: el formulario de entrada pasa el correo a
      -- minusculas, asi que comparar exacto dejaba FUERA a cualquiera dado de
@@ -25,6 +27,7 @@ export async function findUserById(id) {
     `SELECT u.id, u.nombre, u.email, u.role, u.roles_extra::text[] AS roles_extra, u.active, u.avatar_url, u.custom_role_id,
             u.factura_manager, u.editar_fechas_factura, u.gestor_colaboraciones,
             COALESCE((to_jsonb(u)->>'usa_mcp')::boolean, false) AS usa_mcp,
+            (to_jsonb(u)->>'usa_whatsapp')::boolean AS usa_whatsapp,
             cr.label AS custom_role_label
      FROM users u
      LEFT JOIN custom_roles cr ON cr.id = u.custom_role_id

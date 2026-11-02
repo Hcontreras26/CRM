@@ -99,7 +99,7 @@ async function tutorMatriculado(projectId, moodleId, { disponible = true } = {})
   await query(
     `INSERT INTO tutor_campus (tutor_id, project_id, estado, moodle_user_id) VALUES ($1, $2, 'activa', $3)`,
     [t, projectId, moodleId]);
-  if (!disponible) await query('UPDATE users SET is_available = false WHERE id = $1', [t]);
+  if (!disponible) await query('UPDATE users SET consultas_disponible = false WHERE id = $1', [t]);
   return t;
 }
 

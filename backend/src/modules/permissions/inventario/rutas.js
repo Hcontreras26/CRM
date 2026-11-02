@@ -27,6 +27,8 @@ export const TECNICOS = new Set([
   'facturaDeSuCampus', 'campusDelCuerpo', 'prospectoDelParametro', 'ventaDelParametro',
   // Subida de archivos (multer) de las consultas y del webhook de admisión.
   'conAdjuntos', 'conArchivos',
+  // El projectId de Integraciones, que sea un número (QA del 22/10, punto 5).
+  'projectIdConFormato',
   // Guardas de ALCANCE POR CAMPUS (IDOR): no deciden quien tiene el permiso (eso lo dice el `puede(...)`
   // de la misma ruta), solo recortan a SUS campus lo que ya tenia permiso para tocar.
   'puedeCrearEn', 'deSuCampus',

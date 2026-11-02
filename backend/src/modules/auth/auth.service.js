@@ -40,6 +40,9 @@ export function usuarioParaElFrontal(user) {
     avatar_url: user.avatar_url,
     factura_manager: !!user.factura_manager, editar_fechas_factura: !!user.editar_fechas_factura,
     gestor_colaboraciones: !!user.gestor_colaboraciones, usa_mcp: !!user.usa_mcp,
+    // La casilla de WhatsApp, también al entrar (QA 22/10, punto 8): sin ella los
+    // avisos no saben si preguntar por /api/whatsapp/sin-leer. null = sin la columna.
+    usa_whatsapp: user.usa_whatsapp ?? null,
   };
 }
 

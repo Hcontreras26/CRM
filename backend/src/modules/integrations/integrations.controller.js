@@ -42,9 +42,12 @@ const upsertSchema = z.object({
   config_public: z.record(z.string(), z.any()).optional(),
 });
 
+// El campus que ya comprobó `projectAccess` en las rutas, no el de la URL: si
+// se leyera otra vez de la petición, un projectId propio en el cuerpo y uno
+// ajeno en la URL pasarían la comprobación con el propio y tocarían el ajeno.
 function projectId(req) {
-  const p = parseInt(req.query.projectId);
-  if (isNaN(p) || p <= 0) throw new AppError('projectId requerido', 400, 'PROJECT_REQUIRED');
+  const p = Number(req.projectId);
+  if (!Number.isInteger(p) || p <= 0) throw new AppError('projectId requerido', 400, 'PROJECT_REQUIRED');
   return p;
 }
 
@@ -106,7 +109,8 @@ export async function upsert(req, res, next) {
   try {
     const parsed = upsertSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
-    const { projectId: pid, provider, active, api_key, webhook_secret, config_public } = parsed.data;
+    const { provider, active, api_key, webhook_secret, config_public } = parsed.data;
+    const pid = projectId(req);
     let encryptedFields = {};
     if (api_key && api_key.trim()) {
       const enc = encrypt(api_key.trim());

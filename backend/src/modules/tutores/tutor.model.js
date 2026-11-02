@@ -50,11 +50,23 @@ export const RIGE_HOY = (alias = 'c') => `(
 
 // ── Tutores ─────────────────────────────────────────────────────────────────
 
-/** Si el tutor está en alguno de esos campus (#245: su ficha solo para quien comparte campus). */
+/**
+ * Si el tutor está en alguno de esos campus (#245: su ficha solo para quien comparte campus).
+ *
+ * También por sus EMPRESAS (QA de Diego, 22/10, punto 7). `tutor_empresas` no
+ * copia filas en `user_projects` —se resuelve al consultar (#187), al revés que
+ * `user_empresas`—, así que mirando solo `user_projects` un tutor dado de alta
+ * por empresa no estaba en ningún campus y su ficha daba «no encontrado».
+ */
 export async function tieneAlgunCampus(tutorId, projectIds) {
   if (!Array.isArray(projectIds) || !projectIds.length) return false;
   const { rows } = await query(
-    'SELECT 1 FROM user_projects WHERE user_id = $1 AND project_id = ANY($2::int[]) LIMIT 1',
+    `SELECT 1 FROM user_projects WHERE user_id = $1 AND project_id = ANY($2::int[])
+     UNION ALL
+     SELECT 1 FROM tutor_empresas te
+       JOIN projects p ON p.sociedad_emisora_id = te.issuer_id AND p.active = true
+      WHERE te.tutor_id = $1 AND p.id = ANY($2::int[])
+     LIMIT 1`,
     [tutorId, projectIds.map(Number)]);
   return rows.length > 0;
 }
@@ -103,14 +115,23 @@ export async function listar({ projectId, projectIds = null, activos = true }) {
                FROM user_projects up3 JOIN projects pr3 ON pr3.id = up3.project_id
               WHERE up3.user_id = u.id) AS marcas,
             -- ¿Es de la marca que hay elegida arriba, o de una hermana?
-            EXISTS (SELECT 1 FROM user_projects upx
-                     WHERE upx.user_id = u.id AND ($1::int IS NULL OR upx.project_id = $1)) AS es_de_este_proyecto
+            -- (también si le llega por su empresa entera, como en tieneAlgunCampus)
+            (EXISTS (SELECT 1 FROM user_projects upx
+                      WHERE upx.user_id = u.id AND ($1::int IS NULL OR upx.project_id = $1))
+             OR EXISTS (SELECT 1 FROM tutor_empresas tex
+                          JOIN projects px ON px.sociedad_emisora_id = tex.issuer_id AND px.active = true
+                         WHERE tex.tutor_id = u.id AND ($1::int IS NULL OR px.id = $1))) AS es_de_este_proyecto
        FROM users u
        LEFT JOIN tutor_profiles perfil ON perfil.user_id = u.id
       WHERE u.role = 'tutor'
         ${activos ? 'AND u.active' : ''}
-        AND EXISTS (SELECT 1 FROM user_projects up
-                     WHERE up.user_id = u.id AND up.project_id IN (SELECT id FROM alcance))
+        -- Por sus campus o por sus EMPRESAS (QA de Diego, 22/10, punto 7): un
+        -- tutor dado de alta por empresa no tiene filas en user_projects.
+        AND (EXISTS (SELECT 1 FROM user_projects up
+                      WHERE up.user_id = u.id AND up.project_id IN (SELECT id FROM alcance))
+             OR EXISTS (SELECT 1 FROM tutor_empresas te
+                          JOIN projects p ON p.sociedad_emisora_id = te.issuer_id AND p.active = true
+                         WHERE te.tutor_id = u.id AND p.id IN (SELECT id FROM alcance)))
       ORDER BY es_de_este_proyecto DESC, u.nombre`,
     [projectId || null, (Array.isArray(projectIds) && projectIds.length) ? projectIds.map(Number) : null]
   );

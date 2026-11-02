@@ -72,7 +72,9 @@ export async function panelDeTutores(projectIds = null) {
        SELECT te.tutor_id, p.id FROM tutor_empresas te
          JOIN projects p ON p.sociedad_emisora_id = te.issuer_id AND p.active
      )
-     SELECT u.id, u.nombre, u.email, u.is_available, u.unavailable_reason,
+     SELECT u.id, u.nombre, u.email,
+            -- El «No disponible» de Consultas (223), no el del reparto de prospectos.
+            u.consultas_disponible AS disponible, u.consultas_no_disponible_motivo AS motivo_no_disponible,
             ARRAY_AGG(DISTINCT pr.nombre ORDER BY pr.nombre) AS campus,
             ARRAY_AGG(DISTINCT COALESCE(ii.alias, ii.razon_social)) FILTER (WHERE ii.id IS NOT NULL) AS empresas,
             (SELECT row_to_json(x) FROM (SELECT c.nivel, c.texto, c.created_at FROM tutor_carga c
@@ -109,7 +111,7 @@ export async function campusSinTutor(projectIds = null) {
         ${projectIds ? 'AND p.id = ANY($1::int[])' : ''}
         AND NOT EXISTS (
           SELECT 1 FROM tutor_campus tc JOIN users u ON u.id = tc.tutor_id
-           WHERE tc.project_id = p.id AND tc.estado = 'activa' AND u.active AND COALESCE(u.is_available, true)
+           WHERE tc.project_id = p.id AND tc.estado = 'activa' AND u.active AND u.consultas_disponible
              AND (EXISTS (SELECT 1 FROM user_projects up WHERE up.user_id = u.id AND up.project_id = p.id AND up.active)
                   OR EXISTS (SELECT 1 FROM tutor_empresas te WHERE te.tutor_id = u.id AND te.issuer_id = p.sociedad_emisora_id)))
       ORDER BY p.nombre`, projectIds ? [projectIds] : []);

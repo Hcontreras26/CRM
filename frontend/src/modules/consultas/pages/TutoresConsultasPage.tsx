@@ -76,9 +76,9 @@ export default function TutoresConsultasPage() {
                 <tr key={t.id} className="align-top">
                   <td className="px-3 py-2">
                     <span className="font-semibold">{t.nombre}</span>
-                    {t.is_available === false && (
+                    {t.disponible === false && (
                       <span className="ml-1.5 inline-flex rounded px-1.5 py-0.5 text-xs font-semibold bg-muted text-muted-foreground"
-                        title={t.unavailable_reason || undefined}>No disponible</span>
+                        title={t.motivo_no_disponible || undefined}>No disponible</span>
                     )}
                     <span className="block text-xs text-muted-foreground">
                       {[...(t.empresas || []), ...t.campus].join(' · ')}

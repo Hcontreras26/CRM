@@ -718,9 +718,9 @@ async function panelDelTutor(id, avisos = []) {
   return {
     campus,
     empresas,
-    disponible: disp ? disp.is_available !== false : true,
-    motivo_no_disponible: disp?.unavailable_reason || null,
-    no_disponible_desde: disp?.unavailable_since || null,
+    disponible: disp ? disp.consultas_disponible !== false : true,
+    motivo_no_disponible: disp?.consultas_no_disponible_motivo || null,
+    no_disponible_desde: disp?.consultas_no_disponible_desde || null,
     avisos,
   };
 }

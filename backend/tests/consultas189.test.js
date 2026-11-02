@@ -88,7 +88,7 @@ async function tutorMatriculado(projectId, moodleId, { disponible = true } = {})
   await query(
     `INSERT INTO tutor_campus (tutor_id, project_id, estado, moodle_user_id) VALUES ($1, $2, 'activa', $3)`,
     [t, projectId, moodleId]);
-  if (!disponible) await query('UPDATE users SET is_available = false WHERE id = $1', [t]);
+  if (!disponible) await query('UPDATE users SET consultas_disponible = false WHERE id = $1', [t]);
   return t;
 }
 
@@ -343,7 +343,7 @@ describe('#189 · mi carga de trabajo', () => {
     const otro = await tutorMatriculado(p, 161);
     await carga.guardarCarga(lleno, { nivel: 'completa', texto: null }, lleno);
     expect(await servicio.elegirTutor(p, { preferido: lleno })).toBe(otro);
-    await query('UPDATE users SET is_available = false WHERE id = $1', [otro]);
+    await query('UPDATE users SET consultas_disponible = false WHERE id = $1', [otro]);
     expect(await servicio.elegirTutor(p)).toBe(lleno);
   });
 });

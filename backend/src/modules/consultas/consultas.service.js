@@ -257,7 +257,7 @@ export async function avisarAlTutor(consulta, texto, { nueva = true } = {}) {
   const { htmlContent, textContent } = correo({
     proyecto: { nombre: d.campus, logo_url: d.logo_url, emoji: d.emoji },
     titulo: nueva ? 'Tienes una consulta nueva' : 'El alumno ha vuelto a escribir',
-    saludo: `Hola ${esc(d.nombre || '')},`,
+    saludo: d.nombre || null,
     resumen: primeras,
     bloques: [
       parrafo(`<strong>${esc(consulta.alumno_nombre || 'Un alumno')}</strong>${consulta.curso_nombre ? `, de <strong>${esc(consulta.curso_nombre)}</strong>,` : ''} ha escrito en el campus de <strong>${esc(d.campus)}</strong>:`),
