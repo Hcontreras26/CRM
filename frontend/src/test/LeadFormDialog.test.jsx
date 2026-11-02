@@ -132,6 +132,18 @@ describe('LeadFormDialog', () => {
 
   // Visto en la prueba a mano: el globo «Rellene este campo» del navegador en
   // los personalizados obligatorios. Ahora lo dice el Field de cada uno.
+  // QA de Diego, 22/10, punto 11: con el nombre vacío decía «debe tener al menos 2 caracteres».
+  it('el nombre vacío dice «Falta el nombre» debajo del campo y no crea', async () => {
+    const onSubmit = vi.fn().mockResolvedValue();
+    const { container } = render(<LeadFormDialog open onClose={vi.fn()} onSubmit={onSubmit} />);
+    await act(async () => { await Promise.resolve(); });
+    fireEvent.input(container.querySelector('input[name="telefono"]'), { target: { value: '600123456' } });
+    fireEvent.submit(container.querySelector('form'));
+    expect(await screen.findByText('Falta el nombre')).toBeInTheDocument();
+    expect(screen.queryByText('El nombre debe tener al menos 2 caracteres')).toBeNull();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('un personalizado obligatorio vacío: lo dice debajo del campo y no crea', async () => {
     const client = (await import('@/shared/api/client')).default;
     client.get.mockResolvedValueOnce({ success: true, data: [

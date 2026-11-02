@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 export const leadSchema = z.object({
-  nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+  // Vacío no es «demasiado corto»: falta (QA de Diego, 22/10, punto 11; como Producto y Usuario).
+  nombre: z.string().min(1, 'Falta el nombre').min(2, 'El nombre debe tener al menos 2 caracteres'),
   // Email opcional: si viene, debe ser válido; vacío también acepta
   email: z.string().email('Email no válido: escríbelo como nombre@dominio.com').optional().or(z.literal('')),
   telefono: z.string().optional().or(z.literal('')),
