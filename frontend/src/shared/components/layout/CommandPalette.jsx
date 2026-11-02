@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import usePermission from '@/shared/hooks/usePermission';
+import { crearCan } from '@/shared/hooks/usePermission';
 import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 import {
   NAV_SECTIONS,
@@ -164,9 +164,14 @@ export default function CommandPalette() {
   const listRef = useRef(null);
   const navigate = useNavigate();
   const { activeProject, projects, switchProject } = useProjectContext();
-  const { user, logout } = useAuth();
+  const { user, logout, permissions } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { can } = usePermission();
+  // `usePermission()` da una función `can` NUEVA en cada render. Aquí no vale:
+  // `busca` y `search` dependen de ella, y una búsqueda «nueva» en cada render
+  // relanzaba la búsqueda, que al pintar provocaba otro render… en bucle (se vio
+  // en local: 75 peticiones por un «gonzalez»). La misma `can`, una vez por
+  // usuario y mapa de permisos.
+  const can = useMemo(() => crearCan(user, permissions), [user, permissions]);
   const idsDelAmbito = useIdsDelAmbito();
 
   const pages = useMemo(() => paginasDelBuscador({ user, can, activeProject }), [user, can, activeProject]);
