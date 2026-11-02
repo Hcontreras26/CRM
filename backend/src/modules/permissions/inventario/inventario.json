@@ -12277,6 +12277,50 @@
   "puertas": []
  },
  {
+  "id": "GET /api/informes/actividad-comercial",
+  "tipo": "ruta",
+  "modulo": "reports",
+  "metodo": "GET",
+  "ruta": "/api/informes/actividad-comercial",
+  "relativa": "GET /actividad-comercial",
+  "controlador": "actividadComercial",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/informes/actividad-comercial/detalle",
+  "tipo": "ruta",
+  "modulo": "reports",
+  "metodo": "GET",
+  "ruta": "/api/informes/actividad-comercial/detalle",
+  "relativa": "GET /actividad-comercial/detalle",
+  "controlador": "actividadComercialDetalle",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports.mis_informes"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/reports-ia/:projectId",
   "tipo": "ruta",
   "modulo": "reports-ia",

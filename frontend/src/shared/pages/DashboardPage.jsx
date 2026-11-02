@@ -5,6 +5,8 @@ import { useDashboard } from '@/shared/hooks/useDashboard';
 import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 import ResumenDeAyerYHoy from '@/shared/components/dashboard/ResumenDeAyerYHoy';
 import ActividadDeHoy from '@/shared/components/dashboard/ActividadDeHoy';
+import { TarjetaActividad } from '@/modules/reports/components/ActividadPorComercial';
+import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 import ParaHoyYManana from '@/shared/components/dashboard/ParaHoyYManana';
 import { useStripeMonitor } from '@/modules/ia-dashboard/hooks/useStripeMonitor';
 
@@ -242,6 +244,10 @@ export default function DashboardPage() {
 
       {/* Ayer y hoy, con datos (#130). El recorte por rol lo hace el servidor. */}
       <ResumenDeAyerYHoy projectIds={idsDelAmbito} />
+
+      {/* Actividad por comercial de ayer (#203, parte B). Al admin, las 3
+          primeras y el equipo; a una gestora, su línea (lo recorta el servidor). */}
+      <TarjetaActividad ambito={ambitoComoObjeto({ activeIssuerId, activeProject })} />
 
       {/* Qué ha pasado hoy (#13): altas, ventas, estados y contactos. Cada gestora ve lo suyo. */}
       <ActividadDeHoy projectId={proyectoReal} issuerId={activeIssuerId} mostrarProyecto={!proyectoReal} />

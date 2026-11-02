@@ -44,14 +44,18 @@ export async function findUserById(id) {
  * el selector de proyecto. Los de prueba no entran: un curso inventado con
  * ventas falsas no es una respuesta.
  */
-export async function proyectosDeLaPersona(user) {
+export async function proyectosDeLaPersona(user, { conPruebas = false } = {}) {
   const cols = `p.id, p.nombre, p.type AS tipo, p.sociedad_emisora_id AS sociedad_id, s.razon_social AS sociedad_nombre`;
+  // `conPruebas`: para una pantalla en la que se ha ELEGIDO un campus o una
+  // empresa (migración 148: «un proyecto de pruebas solo se ve si lo eliges»).
+  // Claude no lo pasa nunca.
+  const pruebas = conPruebas ? '' : 'AND NOT COALESCE(p.es_prueba, false)';
   if (user.role === 'superadmin') {
     const { rows } = await query(
       `SELECT ${cols}
          FROM projects p
          LEFT JOIN invoice_issuers s ON s.id = p.sociedad_emisora_id
-        WHERE p.active = true AND NOT COALESCE(p.es_prueba, false)
+        WHERE p.active = true ${pruebas}
         ORDER BY s.razon_social NULLS LAST, p.nombre`
     );
     return rows;
@@ -62,7 +66,7 @@ export async function proyectosDeLaPersona(user) {
        JOIN projects p ON p.id = up.project_id
        LEFT JOIN invoice_issuers s ON s.id = p.sociedad_emisora_id
       WHERE up.user_id = $1 AND up.active = true AND p.active = true
-        AND NOT COALESCE(p.es_prueba, false)
+        ${pruebas}
       ORDER BY s.razon_social NULLS LAST, p.nombre`,
     [user.id]
   );
@@ -1419,7 +1423,9 @@ export async function actividadPorComercial({ projectIds, responsableId = null, 
   const CERO = { llamadas: 0, whatsapp: 0, whatsapp_texto: 0, whatsapp_voz: 0, correos: 0, notas: 0, personas: 0, toques: 0 };
   const porPersona = new Map();
   const de = (id, comercial) => {
-    if (!porPersona.has(id)) porPersona.set(id, { comercial: comercial || 'Sin asignar', ...CERO });
+    // `user_id` para que la pantalla (parte B) abra la lista de cada una; null
+    // en «Sin asignar».
+    if (!porPersona.has(id)) porPersona.set(id, { user_id: id ?? null, comercial: comercial || 'Sin asignar', ...CERO });
     return porPersona.get(id);
   };
   for (const { user_id: id, comercial, ...n } of contactos) Object.assign(de(id, comercial), n);
@@ -2007,4 +2013,32 @@ export async function clientesDe({ projectIds, responsableId = null, gestoraId =
     cobro: cobros,
     clientes,
   };
+}
+
+// Los contactos que hay detrás de un número de `actividadPorComercial` (#203,
+// parte B: «al pulsar un número se abre la lista de esos toques: lead, hora y
+// nota»). Los mismos filtros que la tabla, para que la lista y la cifra cuadren:
+// quien lo hizo, el día de Madrid, sin fichas borradas. `tipo` 'toques' son
+// todos los contactos (sin las notas, que no lo son).
+export const TIPOS_DE_DETALLE = ['llamada', 'whatsapp', 'email', 'nota', 'toques'];
+
+export async function detalleActividadPorComercial({ projectIds, userId, tipo, desde, hasta, limite = 500 }) {
+  const f = condiciones('l.project_id', projectIds);
+  f.cond.push('l.deleted_at IS NULL');
+  f.add('li.created_by = ?', userId);
+  f.add(`${fechaLocal('li.fecha')} >= ?::date`, desde);
+  f.add(`${fechaLocal('li.fecha')} <= ?::date`, hasta);
+  if (tipo === 'toques') f.cond.push(`li.tipo <> 'nota'`);
+  else f.add('li.tipo = ?::interaction_type', tipo);
+  f.params.push(limite);
+  const { rows } = await query(
+    `SELECT li.id, li.lead_id, l.nombre AS lead, li.tipo, li.fecha, li.nota
+       FROM lead_interactions li
+       JOIN leads l ON l.id = li.lead_id
+      ${f.where()}
+      ORDER BY li.fecha DESC, li.id DESC
+      LIMIT $${f.params.length}`,
+    f.params
+  );
+  return rows;
 }

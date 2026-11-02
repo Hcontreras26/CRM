@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import RangoRapido from '@/shared/components/ui/RangoRapido';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
+import usePermission from '@/shared/hooks/usePermission';
 import client from '@/shared/api/client';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import KpiCard from '@/shared/components/ui/KpiCard';
@@ -21,6 +24,7 @@ import PanelResumen from '@/shared/components/PanelResumen';
 import TasaDeCierre from '../components/TasaDeCierre';
 import PanelSeguimiento from '@/shared/components/PanelSeguimiento';
 import FeedbackEnReportes, { feedbackEnCsv } from '@/modules/feedback/components/FeedbackEnReportes';
+import ActividadPorComercial from '../components/ActividadPorComercial';
 
 function exportReportCSV(data, project, range, panel, seguimiento, feedback = null) {
   const sections = [];
@@ -172,7 +176,7 @@ function exportReportCSV(data, project, range, panel, seguimiento, feedback = nu
 }
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts';
 
-import { ponerAmbito, sociedadSinCampus } from '@/shared/lib/ambitoInforme';
+import { ponerAmbito, ambitoComoObjeto, sociedadSinCampus } from '@/shared/lib/ambitoInforme';
 import { ATAJOS, rangoPorDefecto, atajoDe } from '@/shared/lib/rangosDeFecha';
 
 function fmt(n) {
@@ -190,7 +194,22 @@ const PIPELINE_COLORS = {
 };
 
 
+/**
+ * Reportes es de quien tiene `reports.view` (el menú solo se lo enseña a él, y
+ * `/informes/overview` le responde 403 a los demás). Una gestora que llegaba
+ * por la dirección veía la página en blanco y dos avisos de «No tienes
+ * permiso» (prueba de Diana, 30/10): ahora va al Dashboard, donde está su
+ * actividad. Sin el mapa de permisos todavía, no se pinta ni se pide nada.
+ */
 export default function ReportsPage() {
+  const { permissions } = useAuth();
+  const { can } = usePermission();
+  if (!permissions) return null;
+  if (!can('reports.view')) return <Navigate to="/" replace />;
+  return <PantallaDeReportes />;
+}
+
+function PantallaDeReportes() {
   const { activeProject, activeIssuerId, activeIssuer, projects } = useProjectContext();
 
   // ARRANCA EN LA SOCIEDAD, no en el campus (#125 · 5).
@@ -429,9 +448,14 @@ export default function ReportsPage() {
       {tab === 'ia' && isIaProject && <ReportsIAView project={activeProject} />}
 
       {tab === 'crm' && <>
-      {/* La tasa de cierre, primer bloque (#39). Va la primera porque es la
-          pregunta que se hace al abrir Reportes, y porque lleva su propio
-          «¿de dónde sale?»: el número se puede comprobar sin salir de aquí. */}
+      {/* Actividad por comercial (#203, parte B): arriba del todo, «es lo
+          primero que se mira por la mañana». Con sus propios atajos (Ayer por
+          defecto), aparte del periodo del resto del informe. */}
+      <ActividadPorComercial ambito={ambitoComoObjeto({ activeIssuerId: issuerEfectivo, activeProject: proyectoEfectivo })} />
+
+      {/* La tasa de cierre (#39). Justo debajo de la actividad: es la pregunta
+          que se hace al abrir Reportes, y lleva su propio «¿de dónde sale?»:
+          el número se puede comprobar sin salir de aquí. */}
       <TasaDeCierre
         activeProject={proyectoEfectivo}
         activeIssuerId={issuerEfectivo}

@@ -6,6 +6,11 @@ import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { dineroPorCanal } from './dondePonerElDinero.js';
 import { tramosPara, lecturaDe, guardarTramos, quitarTramos } from './tasaBaremo.js';
+import {
+  actividadPorComercial, detalleActividadPorComercial, TIPOS_DE_DETALLE,
+  proyectosDeLaPersona, ayerEnMadrid,
+} from '../mcp/mcp.model.js';
+import { construirAmbito, acotarProyectos, responsableImpuesto } from '../mcp/mcp.acceso.js';
 
 // A que proyectos se acota el informe.
 //
@@ -316,4 +321,73 @@ export async function resumenDia(req, res, next) {
     });
     res.json({ success: true, data: datos });
   } catch (e) { next(e); }
+}
+
+// ─── Actividad por comercial (#203, parte B) ──────────────────────────────
+//
+// La pantalla usa LA MISMA consulta que Claude (`actividadPorComercial`, parte
+// A) y el mismo ámbito: sale de la persona (sus campus de `user_projects`; el
+// superadmin, todos), y el campus o la empresa que pida la pantalla solo lo
+// estrechan. Quien no es admin ni superadmin se ve solo a sí misma.
+async function ambitoDeActividad(req) {
+  const user = { id: req.user.userId, role: req.user.role };
+  // Un campus de pruebas solo se ve si se elige él o su empresa (migración
+  // 148); con «Todos», no. Claude no los ve nunca.
+  const eligeAlgo = Boolean(req.query.projectId || req.query.issuerId);
+  const ambito = construirAmbito(user, await proyectosDeLaPersona(user, { conPruebas: eligeAlgo }));
+  const projectIds = acotarProyectos(ambito, {
+    proyecto_id: req.query.projectId ? Number(req.query.projectId) : null,
+    sociedad_id: req.query.issuerId ? Number(req.query.issuerId) : null,
+  });
+  return { projectIds, responsableId: responsableImpuesto(ambito) };
+}
+
+// Una fecha AAAA-MM-DD que existe: el 30/02 tiene buen formato y no existe
+// (llegaba a Postgres y daba un 500).
+const esFecha = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s)
+  && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+
+// Sin fechas, ayer (lo primero que se mira por la mañana).
+function periodoDeActividad(req) {
+  for (const k of ['desde', 'hasta']) {
+    if (req.query[k] && !esFecha(req.query[k])) {
+      throw new AppError(`Fecha no válida en «${k}»: ${req.query[k]}.`, 400, 'FECHA_NO_VALIDA');
+    }
+  }
+  const desde = req.query.desde || ayerEnMadrid();
+  const hasta = req.query.hasta || desde;
+  if (desde > hasta) {
+    throw new AppError(`«desde» (${desde}) es posterior a «hasta» (${hasta}).`, 400, 'PERIODO_AL_REVES');
+  }
+  return { desde, hasta };
+}
+
+// GET /api/reports/actividad-comercial?desde&hasta&projectId|issuerId
+export async function actividadComercial(req, res, next) {
+  try {
+    const { projectIds, responsableId } = await ambitoDeActividad(req);
+    res.json({ success: true, data: await actividadPorComercial({
+      projectIds, responsableId, ...periodoDeActividad(req),
+    }) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/reports/actividad-comercial/detalle?userId&tipo&desde&hasta&projectId|issuerId
+// La lista detrás de un número. Una gestora solo puede pedir la suya, pida lo
+// que pida.
+export async function actividadComercialDetalle(req, res, next) {
+  try {
+    const { projectIds, responsableId } = await ambitoDeActividad(req);
+    const tipo = String(req.query.tipo || '');
+    if (!TIPOS_DE_DETALLE.includes(tipo)) {
+      throw new AppError(`Tipo no válido: ${tipo || '(vacío)'}.`, 400, 'TIPO_NO_VALIDO');
+    }
+    const userId = responsableId ?? Number(req.query.userId);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new AppError('Falta la comercial (userId).', 400, 'FALTA_COMERCIAL');
+    }
+    res.json({ success: true, data: await detalleActividadPorComercial({
+      projectIds, userId, tipo, ...periodoDeActividad(req),
+    }) });
+  } catch (err) { next(err); }
 }

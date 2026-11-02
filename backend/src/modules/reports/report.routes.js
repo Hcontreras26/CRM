@@ -47,4 +47,9 @@ router.delete('/tasa-cierre/baremo', puede('reports.editar_baremo'), ctrl.quitar
 // entra y ve lo suyo, que es el caso principal de esta pantalla.
 router.get('/resumen-del-dia', puede('reports.mis_informes'), ctrl.resumenDia);
 
+// Actividad por comercial (#203, parte B). Como el resumen del día: la gestora
+// entra y se ve a sí misma; el recorte lo hace el controlador.
+router.get('/actividad-comercial', puede('reports.mis_informes'), ctrl.actividadComercial);
+router.get('/actividad-comercial/detalle', puede('reports.mis_informes'), ctrl.actividadComercialDetalle);
+
 export default router;
