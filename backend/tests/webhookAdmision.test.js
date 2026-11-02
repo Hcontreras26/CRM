@@ -61,6 +61,14 @@ async function firmaSobreBlanco() {
 
 const recibir = (token = TOKEN.token) => request.post(`/api/webhook-tokens/receive/${token}`);
 const matricula = async (id) => (await q('SELECT * FROM matriculas WHERE id = $1', [id]))[0];
+// La respuesta pública solo trae `envio_id` (la huella): la matrícula se busca por ella.
+const enviada = async (r) => (await q('SELECT * FROM matriculas WHERE project_id = $1 AND envio_huella = $2', [PROYECTO.id, r.body.data.envio_id]))[0];
+// Lo que no sale en la respuesta (los documentos rechazados y por qué), llamando al servicio.
+const admitir = async (body, archivos = [], token = TOKEN) => {
+  const { recibirAdmision } = await import('../src/modules/matriculas/admision.service.js');
+  return recibirAdmision(token, body, archivos);
+};
+const archivo = (fieldname, buffer, originalname) => ({ fieldname, buffer, originalname, size: buffer.length });
 const historial = async (id) => (await q('SELECT evento, documento FROM matriculas_eventos WHERE matricula_id = $1 ORDER BY id', [id]));
 
 beforeAll(async () => {
@@ -108,9 +116,9 @@ describe('los datos de la persona, en campos propios', () => {
       fecha_nacimiento: '17/05/1990', direccion: 'C/ Mayor 1', pais: 'España', estudios: 'Grado en Psicología',
       curso_solicitado: 'Máster en Neuropsicología',
     });
-    expect(r.status).toBe(201);
-    expect(r.body.data.action).toBe('created');
-    const m = await matricula(r.body.data.matricula_id);
+    expect(r.status).toBe(200);
+    expect(r.body.data).toEqual({ recibido: true, envio_id: expect.stringMatching(/^[0-9a-f]{64}$/) });
+    const m = await enviada(r);
     expect(m).toMatchObject({
       nombre: 'Laura Sanz', email: correo('laura'), telefono: '+34 600 111 222', documento_tipo: 'DNI', dni: '12345678Z',
       direccion: 'C/ Mayor 1', pais: 'España', estudios: 'Grado en Psicología', curso_solicitado: 'Máster en Neuropsicología',
@@ -129,8 +137,8 @@ describe('los datos de la persona, en campos propios', () => {
       nombre: 'your-name', email: 'fields.correo', dni: 'fields.documento', curso_solicitado: 'form.curso',
     } });
     const r = await recibir(t.token).send({ 'your-name': 'Pedro Gil', fields: { correo: correo('pedro'), documento: 'X1234567L' }, form: { curso: 'Curso de Duelo' } });
-    expect(r.status).toBe(201);
-    const m = await matricula(r.body.data.matricula_id);
+    expect(r.status).toBe(200);
+    const m = await enviada(r);
     expect(m).toMatchObject({ nombre: 'Pedro Gil', email: correo('pedro'), dni: 'X1234567L', curso_solicitado: 'Curso de Duelo' });
   });
 
@@ -144,7 +152,8 @@ describe('los datos de la persona, en campos propios', () => {
   it('la lista de Matrículas enseña a la persona aunque aún no tenga prospecto', async () => {
     const r = await recibir().send({ nombre: 'Sin Correo Ni Tel', dni: '00000001R' });
     const { matriculas } = await matriculaModel.findAll({ projectId: PROYECTO.id, search: 'Sin Correo' });
-    expect(matriculas.find((x) => x.id === r.body.data.matricula_id)?.lead_nombre).toBe('Sin Correo Ni Tel');
+    const m = await enviada(r);
+    expect(matriculas.find((x) => x.id === m.id)?.lead_nombre).toBe('Sin Correo Ni Tel');
   });
 });
 
@@ -154,9 +163,8 @@ describe('los documentos: archivo, imagen en texto o URL', () => {
       .field('nombre', 'Marta Ruiz').field('email', correo('marta'))
       .attach('dni_frente', JPG, 'frente.jpg').attach('dni_dorso', PNG, 'dorso.png')
       .attach('titulo_doc', PDF, 'titulo.pdf').attach('firma', FIRMA_BLANCA, 'firma.png');
-    expect(r.status).toBe(201);
-    expect(r.body.data.documentos).toEqual({ guardados: ['dni_frente', 'dni_dorso', 'titulo_doc', 'firma'], rechazados: [] });
-    const m = await matricula(r.body.data.matricula_id);
+    expect(r.status).toBe(200);
+    const m = await enviada(r);
     expect(m.dni_doc_key).toMatch(/\.jpg$/);
     expect(m.dni_dorso_key).toMatch(/\.png$/);
     expect(m.titulo_doc_key).toMatch(/\.pdf$/);
@@ -167,7 +175,7 @@ describe('los documentos: archivo, imagen en texto o URL', () => {
 
   it('la firma se guarda transparente y recortada al trazo (Diego: «que la firma llegue en fondo transparente»)', async () => {
     const r = await recibir().field('email', correo('firma')).attach('firma', FIRMA_BLANCA, 'firma.png');
-    const m = await matricula(r.body.data.matricula_id);
+    const m = await enviada(r);
     const { getLocal } = await import('../src/shared/services/localStorage.service.js');
     const { buffer } = await getLocal(m.firma_key);
     const meta = await sharp(buffer).metadata();
@@ -180,28 +188,31 @@ describe('los documentos: archivo, imagen en texto o URL', () => {
   it('imagen en texto (data:image/png;base64): se guarda como documento, y el envío se conserva tal cual llegó', async () => {
     const dataUri = `data:image/png;base64,${FIRMA_BLANCA.toString('base64')}`;
     const r = await recibir().send({ email: correo('base64'), firma: dataUri });
-    expect(r.body.data.documentos.guardados).toEqual(['firma']);
-    const m = await matricula(r.body.data.matricula_id);
+    const m = await enviada(r);
     expect(m.firma_key).toBeTruthy();
     expect(m.datos_admision.firma).toBe(dataUri);
   });
 
   it('un archivo que no es lo que dice (texto llamado dni.jpg) se rechaza, y la solicitud se guarda igual', async () => {
-    const r = await recibir().field('email', correo('falso')).attach('dni_frente', FALSO, 'dni.jpg');
-    expect(r.status).toBe(201);
-    expect(r.body.data.documentos.rechazados).toEqual([{ documento: 'dni_frente', motivo: 'No es un JPG, PNG, WEBP ni PDF.' }]);
-    expect((await matricula(r.body.data.matricula_id)).dni_doc_key).toBeNull();
+    const r = await admitir({ email: correo('falso') }, [archivo('dni_frente', FALSO, 'dni.jpg')]);
+    expect(r.interno.documentos.rechazados).toEqual([{ documento: 'dni_frente', motivo: 'No es un JPG, PNG, WEBP ni PDF.' }]);
+    expect((await matricula(r.interno.matriculaId)).dni_doc_key).toBeNull();
+    // Y quien lo manda recibe lo de siempre: el rechazo no sale en la respuesta.
+    const h = await recibir().field('email', correo('falso-http')).attach('dni_frente', FALSO, 'dni.jpg');
+    expect(h.status).toBe(200);
+    expect(h.body.data).toEqual({ recibido: true, envio_id: expect.any(String) });
+    expect((await enviada(h)).dni_doc_key).toBeNull();
   });
 
   it('una firma en PDF no vale: tiene que ser una imagen', async () => {
-    const r = await recibir().field('email', correo('firmapdf')).attach('firma', PDF, 'firma.pdf');
-    expect(r.body.data.documentos.rechazados[0]).toMatchObject({ documento: 'firma', motivo: 'La firma tiene que ser una imagen, no un PDF.' });
+    const r = await admitir({ email: correo('firmapdf') }, [archivo('firma', PDF, 'firma.pdf')]);
+    expect(r.interno.documentos.rechazados[0]).toMatchObject({ documento: 'firma', motivo: 'La firma tiene que ser una imagen, no un PDF.' });
   });
 
   it('una URL de la red interna o del propio servidor NO se descarga', async () => {
-    const r = await recibir().send({ email: correo('ssrf'), dni_frente: 'http://127.0.0.1:5432/secreto.jpg', foto: 'http://169.254.169.254/latest/meta-data' });
-    expect(r.status).toBe(201);
-    expect(r.body.data.documentos.rechazados).toEqual([
+    const r = await admitir({ email: correo('ssrf'), dni_frente: 'http://127.0.0.1:5432/secreto.jpg', foto: 'http://169.254.169.254/latest/meta-data' });
+    expect(r.status).toBe(200);
+    expect(r.interno.documentos.rechazados).toEqual([
       { documento: 'dni_frente', motivo: 'La dirección del archivo no es pública.' },
       { documento: 'foto', motivo: 'La dirección del archivo no es pública.' },
     ]);
@@ -241,8 +252,8 @@ describe('el contrato de Diego (01/10), tal cual, y formularios de verdad', () =
   it('sin mapeo, el ARCHIVO «titulo» va como documento y «documento» como número', async () => {
     const r = await recibir().field('email', correo('contrato')).field('documento', 'Y7654321G')
       .attach('dni_frente', JPG, 'f.jpg').attach('titulo', PDF, 'titulo.pdf');
-    expect(r.body.data.documentos.guardados).toEqual(['dni_frente', 'titulo_doc']);
-    const m = await matricula(r.body.data.matricula_id);
+    const m = await enviada(r);
+    expect(m.dni_doc_key).toMatch(/\.jpg$/);
     expect(m.titulo_doc_key).toMatch(/\.pdf$/);
     expect(m.titulo).toBeNull(); // el texto «Título / Programa» no se llena con un archivo
     expect(m.dni).toBe('Y7654321G');
@@ -250,20 +261,19 @@ describe('el contrato de Diego (01/10), tal cual, y formularios de verdad', () =
 
   it('el «titulo» que es texto sigue siendo el texto «Título / Programa»', async () => {
     const r = await recibir().send({ email: correo('titulotexto'), titulo: 'Máster en Duelo' });
-    expect((await matricula(r.body.data.matricula_id)).titulo).toBe('Máster en Duelo');
+    expect((await enviada(r)).titulo).toBe('Máster en Duelo');
   });
 
   it('Gravity: el nombre por partes ({ first, last }) se junta', async () => {
     const t = await tokenModel.create({ project_id: PROYECTO.id, kind: 'matriculas', field_mapping: { nombre: 'name', email: 'mail' } });
     const r = await recibir(t.token).send({ name: { first: 'Ana', last: 'Pérez Gil' }, mail: correo('gravity') });
-    expect((await matricula(r.body.data.matricula_id)).nombre).toBe('Ana Pérez Gil');
+    expect((await enviada(r)).nombre).toBe('Ana Pérez Gil');
   });
 
   it('varios archivos con el mismo nombre (fotos[]): se pueden mapear y vale el primero', async () => {
     const t = await tokenModel.create({ project_id: PROYECTO.id, kind: 'matriculas', field_mapping: { email: 'e', dni_frente: 'docs.0', dni_dorso: 'docs.1' } });
     const r = await recibir(t.token).field('e', correo('varios')).attach('docs', JPG, 'frente.jpg').attach('docs', PNG, 'dorso.png');
-    expect(r.body.data.documentos.guardados).toEqual(['dni_frente', 'dni_dorso']);
-    const m = await matricula(r.body.data.matricula_id);
+    const m = await enviada(r);
     expect(m.dni_doc_key).toMatch(/\.jpg$/);
     expect(m.dni_dorso_key).toMatch(/\.png$/);
   });
@@ -274,12 +284,14 @@ describe('el contrato de Diego (01/10), tal cual, y formularios de verdad', () =
       .png({ compressionLevel: 0 }).toBuffer();
     expect(grande.length).toBeGreaterThan(4 * 1024 * 1024);
     const uri = `data:image/png;base64,${grande.toString('base64')}`;
+    // Una sola imagen (~10 MB en texto): dos eran ~20 MB, más que el tope del envío (19 MB).
+    expect(uri.length).toBeGreaterThan(5 * 1024 * 1024);
     // La app de verdad, con su tope por ruta (app.js).
     const { default: appReal } = await import('../src/app.js');
     const r = await supertest(appReal).post(`/api/webhook-tokens/receive/${TOKEN.token}`)
-      .send({ email: correo('json-grande'), dni_frente: uri, dni_dorso: uri });
-    expect(r.status).toBe(201);
-    expect(r.body.data.documentos.guardados).toEqual(['dni_frente', 'dni_dorso']);
+      .send({ email: correo('json-grande'), dni_frente: uri });
+    expect(r.status).toBe(200);
+    expect((await enviada(r)).dni_doc_key).toBeTruthy();
   }, 60000);
 });
 
@@ -288,7 +300,7 @@ describe('se une a la persona («que se sincronicen con el mail»)', () => {
     const [l] = await q(`INSERT INTO leads (project_id, nombre, email, telefono, responsable_id) VALUES ($1, 'Rosa Prospecto', $2, '600999888', $3) RETURNING id`,
       [PROYECTO.id, correo('rosa'), GESTORA.id]);
     const r = await recibir().send({ nombre: 'Rosa en el formulario', email: correo('ROSA') });
-    expect(r.body.data).toMatchObject({ lead_id: l.id, lead_creado: false });
+    expect((await enviada(r)).lead_id).toBe(l.id);
     expect((await q('SELECT count(*)::int AS n FROM leads WHERE project_id = $1 AND lower(email) = $2', [PROYECTO.id, correo('rosa')]))[0].n).toBe(1);
   });
 
@@ -297,50 +309,147 @@ describe('se une a la persona («que se sincronicen con el mail»)', () => {
       [PROYECTO.id, correo('telmo-viejo')]);
     // El CRM compara los teléfonos con su prefijo (claveTelefono de lead.model.js): «+34 611 222 333» = «0034611222333».
     const r = await recibir().send({ nombre: 'Telmo', email: correo('telmo-nuevo'), telefono: '0034611222333' });
-    expect(r.body.data.lead_id).toBe(l.id);
+    const m = await enviada(r);
+    expect(m.lead_id).toBe(l.id);
     // El buscador de Matrículas la encuentra también por el correo que escribió en el formulario.
     const { matriculas } = await matriculaModel.findAll({ projectId: PROYECTO.id, search: correo('telmo-nuevo') });
-    expect(matriculas.map((m) => m.id)).toContain(r.body.data.matricula_id);
+    expect(matriculas.map((x) => x.id)).toContain(m.id);
   });
 
   it('si no existe, se crea el prospecto SIN GESTORA (fuera del reparto; decidido el 20/10)', async () => {
     const r = await recibir().send({ nombre: 'Nuevo Alumno', email: correo('nuevo') });
-    expect(r.body.data.lead_creado).toBe(true);
-    const [l] = await q('SELECT responsable_id, notas FROM leads WHERE id = $1', [r.body.data.lead_id]);
+    const m = await enviada(r);
+    const [l] = await q('SELECT responsable_id, notas FROM leads WHERE id = $1', [m.lead_id]);
     expect(l.responsable_id).toBeNull();
     expect(l.notas).toBe('Creado por la solicitud de admisión');
-    expect((await matricula(r.body.data.matricula_id)).lead_id).toBe(r.body.data.lead_id);
   });
 
   it('sin correo no se crea prospecto (es obligatorio en la ficha): la solicitud queda sin vincular', async () => {
     const r = await recibir().send({ nombre: 'Solo Teléfono', telefono: '699000111' });
-    expect(r.body.data).toMatchObject({ lead_id: null, lead_creado: false });
+    expect((await enviada(r)).lead_id).toBeNull();
   });
 
   it('y con su venta, si la tiene y aún no tiene matrícula', async () => {
     const [l] = await q(`INSERT INTO leads (project_id, nombre, email) VALUES ($1, 'Con Venta', $2) RETURNING id`, [PROYECTO.id, correo('venta')]);
     const [c] = await q(`INSERT INTO conversions (lead_id, project_id, producto_contratado, importe_total) VALUES ($1, $2, 'Máster X', 2400) RETURNING id`, [l.id, PROYECTO.id]);
     const r = await recibir().send({ nombre: 'Con Venta', email: correo('venta') });
-    expect(r.body.data.conversion_id).toBe(c.id);
-    expect((await matricula(r.body.data.matricula_id)).conversion_id).toBe(c.id);
+    expect((await enviada(r)).conversion_id).toBe(c.id);
   });
 
   it('y si la venta llega DESPUÉS de la solicitud («cuando la haya»), se une al registrarla', async () => {
     const r = await recibir().send({ nombre: 'Venta Tardía', email: correo('tardia') });
-    expect(r.body.data.conversion_id).toBeNull();
+    const m = await enviada(r);
+    expect(m.conversion_id).toBeNull();
     // La venta, como la registra el CRM (conversion.model.create: todas pasan por ahí).
     const { create: crearVenta } = await import('../src/modules/conversions/conversion.model.js');
     const c = await crearVenta({
-      lead_id: r.body.data.lead_id, project_id: PROYECTO.id, producto_contratado: 'Curso Tardío', importe_total: 300, importe_pagado: 0,
+      lead_id: m.lead_id, project_id: PROYECTO.id, producto_contratado: 'Curso Tardío', importe_total: 300, importe_pagado: 0,
     });
-    expect((await matricula(r.body.data.matricula_id)).conversion_id).toBe(c.id);
+    expect((await matricula(m.id)).conversion_id).toBe(c.id);
   });
 
   it('Certifex encuentra su firma por el correo mapeado (aunque el formulario no lo llame «email»)', async () => {
     const t = await tokenModel.create({ project_id: PROYECTO.id, kind: 'matriculas', field_mapping: { email: 'your-email', firma: 'your-signature' } });
     const r = await recibir(t.token).field('your-email', correo('diploma')).attach('your-signature', FIRMA_BLANCA, 'f.png');
+    const m = await enviada(r);
+    await q(`UPDATE matriculas SET estado = 'validada' WHERE id = $1`, [m.id]);
     const firmas = await certifexModel.firmasDeAdmision([{ matriculaId: 999001, projectId: PROYECTO.id, email: correo('diploma') }]);
-    expect(firmas.get(999001)?.matriculaCrm).toBe(r.body.data.matricula_id);
+    expect(firmas.get(999001)?.matriculaCrm).toBe(m.id);
+  });
+
+  it('la firma solo sale de una admisión aceptada/en vigor («Validada»): ni de una solicitud, ni con los datos validados, ni de una rechazada (QA de Diego, 22/10)', async () => {
+    const buscar = async () => (await certifexModel.firmasDeAdmision([{ matriculaId: 999002, projectId: PROYECTO.id, email: correo('suplantada') }])).get(999002);
+    const conFirma = (curso) => recibir().field('email', correo('suplantada')).field('curso_solicitado', curso).attach('firma', FIRMA_BLANCA, 'f.png');
+    // Alguien manda el formulario con el correo de otra persona: queda en «Solicitud».
+    const solicitud = await enviada(await conFirma('Curso 1'));
+    expect(solicitud.estado).toBe('solicitud_admision');
+    expect(await buscar()).toBeUndefined();
+    // «Validar datos» es el paso de en medio: todavía no está aceptada.
+    await q(`UPDATE matriculas SET estado = 'datos_validados' WHERE id = $1`, [solicitud.id]);
+    expect(await buscar()).toBeUndefined();
+    await q(`UPDATE matriculas SET estado = 'rechazada' WHERE id = $1`, [solicitud.id]);
+    expect(await buscar()).toBeUndefined();
+    // Validada, sí.
+    await q(`UPDATE matriculas SET estado = 'validada' WHERE id = $1`, [solicitud.id]);
+    expect((await buscar())?.matriculaCrm).toBe(solicitud.id);
+  });
+});
+
+describe('la respuesta pública no dice nada de la persona (QA de Diego, 22/10)', () => {
+  it('nueva, de alguien con prospecto y venta, o repetida por su correo: la misma respuesta', async () => {
+    const [l] = await q(`INSERT INTO leads (project_id, nombre, email) VALUES ($1, 'Con Todo', $2) RETURNING id`, [PROYECTO.id, correo('con-todo')]);
+    await q(`INSERT INTO conversions (lead_id, project_id, producto_contratado, importe_total) VALUES ($1, $2, 'Máster Y', 900)`, [l.id, PROYECTO.id]);
+    const nadie = await recibir().send({ nombre: 'Nadie', email: correo('nadie') });
+    const conTodo = await recibir().send({ nombre: 'Con Todo', email: correo('con-todo') });
+    // Otro envío (otro curso) con el mismo correo: es «repetido» por dentro.
+    const otraVez = await recibir().send({ nombre: 'Con Todo', email: correo('con-todo'), curso_solicitado: 'Otro' });
+    for (const r of [nadie, conTodo, otraVez]) {
+      expect(r.status).toBe(200);
+      expect(Object.keys(r.body.data).sort()).toEqual(['envio_id', 'recibido']);
+    }
+    // Por dentro sí se unió a su prospecto y su venta.
+    expect((await enviada(conTodo)).lead_id).toBe(l.id);
+    expect((await enviada(conTodo)).conversion_id).toBeTruthy();
+  });
+});
+
+describe('ni el tiempo ni los documentos delatan si la persona ya existe (caja negra, 24/10)', () => {
+  const FIJO = 400;
+  const cronometrar = async (body) => {
+    const t0 = Date.now();
+    const r = await admitirCon(body);
+    return { ms: Date.now() - t0, r };
+  };
+  const admitirCon = async (body) => {
+    const { recibirAdmision } = await import('../src/modules/matriculas/admision.service.js');
+    return recibirAdmision(TOKEN, body, [], { respuestaMs: FIJO, permitirRedLocal: true });
+  };
+
+  it('correo nuevo, prospecto que ya existe y solicitud repetida: tardan lo mismo (el tiempo fijo)', async () => {
+    await q(`INSERT INTO leads (project_id, nombre, email) VALUES ($1, 'Ya Prospecto', $2)`, [PROYECTO.id, correo('ya-prospecto')]);
+    await admitirCon({ nombre: 'Ya Pidió', email: correo('ya-pidio') });
+    const nuevo = await cronometrar({ nombre: 'Nuevo Del Todo', email: correo('nuevo-del-todo') });
+    const prospecto = await cronometrar({ nombre: 'Ya Prospecto', email: correo('ya-prospecto') });
+    const repetida = await cronometrar({ nombre: 'Ya Pidió', email: correo('ya-pidio'), curso_solicitado: 'Otro' });
+    expect([nuevo.r.interno.accion, prospecto.r.interno.accion, repetida.r.interno.accion]).toEqual(['created', 'created', 'duplicate_skipped']);
+    expect(nuevo.r.interno.leadCreado).toBe(true);
+    expect(prospecto.r.interno.leadCreado).toBe(false);
+    // Arriba, margen de sobra: un runner lento de GitHub no debe tumbar la prueba.
+    for (const { ms } of [nuevo, prospecto, repetida]) {
+      expect(ms).toBeGreaterThanOrEqual(FIJO - 5);
+      expect(ms).toBeLessThan(FIJO + 400);
+    }
+  });
+
+  it('el MISMO envío, idéntico (la web que reintenta): al momento y sin volver a descargar sus enlaces', async () => {
+    const pedidos = [];
+    const srv = http.createServer((req, res) => { pedidos.push(req.url); res.writeHead(200, { 'content-type': 'image/jpeg' }); res.end(JPG); });
+    await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+    try {
+      const envio = { nombre: 'Reintento', email: correo('reintento'), dni_frente: `http://127.0.0.1:${srv.address().port}/dni.jpg` };
+      const a = await admitirCon(envio);
+      const t0 = Date.now();
+      const b = await admitirCon(envio);
+      expect([a.interno.accion, b.interno.accion]).toEqual(['created', 'duplicate_skipped']);
+      expect(b.data).toEqual(a.data); // la misma respuesta
+      expect(Date.now() - t0).toBeLessThan(FIJO);
+      expect(pedidos).toEqual(['/dni.jpg']);
+    } finally { srv.close(); }
+  });
+
+  it('una solicitud repetida también descarga sus documentos: un enlace propio no sirve para saber si ya existía', async () => {
+    const pedidos = [];
+    const srv = http.createServer((req, res) => { pedidos.push(req.url); res.writeHead(200, { 'content-type': 'image/jpeg' }); res.end(JPG); });
+    await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+    const base = `http://127.0.0.1:${srv.address().port}`;
+    try {
+      const a = await admitirCon({ nombre: 'Con Enlace', email: correo('con-enlace'), dni_frente: `${base}/primera.jpg` });
+      const b = await admitirCon({ nombre: 'Con Enlace', email: correo('con-enlace'), dni_frente: `${base}/segunda.jpg` });
+      expect([a.interno.accion, b.interno.accion]).toEqual(['created', 'duplicate_skipped']);
+      expect(pedidos).toEqual(['/primera.jpg', '/segunda.jpg']);
+      // Lo de la repetida no se guarda: la primera sigue con su documento.
+      expect((await matricula(a.interno.matriculaId)).dni_doc_key).toMatch(/\.jpg$/);
+    } finally { srv.close(); }
   });
 });
 
@@ -350,7 +459,7 @@ describe('idempotente y con su llave', () => {
     const a = await recibir().send(envio);
     const b = await recibir().send(envio);
     expect(b.status).toBe(200);
-    expect(b.body.data).toEqual({ matricula_id: a.body.data.matricula_id, action: 'duplicate_skipped' });
+    expect(b.body.data).toEqual(a.body.data);
     expect((await q('SELECT count(*)::int AS n FROM matriculas WHERE project_id = $1 AND email = $2', [PROYECTO.id, correo('doble')]))[0].n).toBe(1);
   });
 
@@ -358,7 +467,8 @@ describe('idempotente y con su llave', () => {
     const enviar = () => recibir().field('email', correo('docdoble')).attach('dni_frente', JPG, 'd.jpg');
     const a = await enviar();
     const b = await enviar();
-    expect(b.body.data).toEqual({ matricula_id: a.body.data.matricula_id, action: 'duplicate_skipped' });
+    expect(b.body.data).toEqual(a.body.data);
+    expect((await q('SELECT count(*)::int AS n FROM matriculas WHERE project_id = $1 AND email = $2', [PROYECTO.id, correo('docdoble')]))[0].n).toBe(1);
   });
 
   it('un token apagado o inventado: 404', async () => {
@@ -391,8 +501,8 @@ describe('lo que salió en la auditoría (22/10)', () => {
       const { recibirAdmision } = await import('../src/modules/matriculas/admision.service.js');
       const r = await recibirAdmision({ project_id: PROYECTO.id, field_mapping: {} },
         { email: correo('titulo-url'), titulo: `http://127.0.0.1:${srv.address().port}/uploads/titulo.pdf` }, [], { permitirRedLocal: true });
-      expect(r.data.documentos.guardados).toEqual(['titulo_doc']);
-      const m = await matricula(r.data.matricula_id);
+      expect(r.interno.documentos.guardados).toEqual(['titulo_doc']);
+      const m = await matricula(r.interno.matriculaId);
       expect(m.titulo_doc_key).toMatch(/\.pdf$/);
       expect(m.titulo).toBeNull(); // no se guarda el enlace como «Título / Programa»
     } finally { srv.close(); }
@@ -401,26 +511,25 @@ describe('lo que salió en la auditoría (22/10)', () => {
   it('dos envíos A LA VEZ de la misma persona (mismo DNI, algo distintos): uno entra y el otro es repetido, sin 500', async () => {
     const base = { email: correo('a-la-vez'), dni: 'Z1111111A', nombre: 'A La Vez' };
     const [a, b] = await Promise.all([recibir().send({ ...base, curso_solicitado: 'Curso 1' }), recibir().send({ ...base, curso_solicitado: 'Curso 2' })]);
-    expect([a.status, b.status].sort()).toEqual([200, 201]);
-    const ids = [a.body.data.matricula_id, b.body.data.matricula_id];
-    expect(ids[0]).toBe(ids[1]);
+    expect([a.status, b.status]).toEqual([200, 200]);
     expect((await q('SELECT count(*)::int AS n FROM matriculas WHERE project_id = $1 AND dni = $2', [PROYECTO.id, 'Z1111111A']))[0].n).toBe(1);
   });
 
   it('un correo largo (151 a 200 caracteres) ya no hace fallar la solicitud', async () => {
     const largo = `${'a'.repeat(170)}@${MARCA.toLowerCase()}.test`;
     const r = await recibir().send({ email: largo });
-    expect(r.status).toBe(201);
-    expect((await matricula(r.body.data.matricula_id)).dedupe_key).toBe(largo);
+    expect(r.status).toBe(200);
+    expect((await enviada(r)).dedupe_key).toBe(largo);
   });
 
   it('borrar la venta NO borra la solicitud de admisión: se queda suelta', async () => {
     const [l] = await q(`INSERT INTO leads (project_id, nombre, email) VALUES ($1, 'Venta Borrada', $2) RETURNING id`, [PROYECTO.id, correo('venta-borrada')]);
     const [c] = await q(`INSERT INTO conversions (lead_id, project_id, producto_contratado, importe_total) VALUES ($1, $2, 'Curso X', 100) RETURNING id`, [l.id, PROYECTO.id]);
     const r = await recibir().send({ nombre: 'Venta Borrada', email: correo('venta-borrada') });
-    expect(r.body.data.conversion_id).toBe(c.id);
+    const antes = await enviada(r);
+    expect(antes.conversion_id).toBe(c.id);
     await q('DELETE FROM conversions WHERE id = $1', [c.id]);
-    const m = await matricula(r.body.data.matricula_id);
+    const m = await matricula(antes.id);
     expect(m).toBeTruthy();
     expect(m.conversion_id).toBeNull();
   });
@@ -435,11 +544,133 @@ describe('lo que salió en la auditoría (22/10)', () => {
   it('la lista no trae de la base el envío entero (datos_admision), solo la ficha', async () => {
     const r = await recibir().send({ email: correo('lista-ligera'), nombre: 'Lista Ligera', firma: `data:image/png;base64,${FIRMA_BLANCA.toString('base64')}` });
     const { matriculas } = await matriculaModel.findAll({ projectId: PROYECTO.id, search: correo('lista-ligera') });
-    const fila = matriculas.find((x) => x.id === r.body.data.matricula_id);
+    const m = await enviada(r);
+    const fila = matriculas.find((x) => x.id === m.id);
     expect(fila).toBeTruthy();
     expect(fila).not.toHaveProperty('datos_admision');
     expect(fila.lead_nombre).toBe('Lista Ligera');
   });
+});
+
+describe('la descarga desde una URL tiene un plazo total (QA de Diego, 22/10)', () => {
+  // Un servidor de prueba que contesta según la ruta. Al acabar, cierra lo que quede abierto.
+  async function servidor(manejar) {
+    const srv = http.createServer(manejar);
+    await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+    return { base: `http://127.0.0.1:${srv.address().port}`, cerrar: () => { srv.closeAllConnections(); srv.close(); } };
+  }
+
+  it('un servidor que manda un byte cada poco (nunca 10 s callado) se corta al llegar al plazo', async () => {
+    const goteos = [];
+    const s = await servidor((req, res) => {
+      res.writeHead(200, { 'content-type': 'image/jpeg' });
+      res.write(JPG.subarray(0, 3));
+      const t = setInterval(() => res.write(Buffer.from([0])), 100);
+      goteos.push(t);
+      req.on('close', () => clearInterval(t));
+    });
+    const antes = Date.now();
+    try {
+      await expect(desdeUrl(`${s.base}/lento.jpg`, { permitirRedLocal: true, plazoMs: 800 }))
+        .rejects.toThrow('El archivo tarda demasiado en descargarse.');
+      expect(Date.now() - antes).toBeLessThan(3000);
+    } finally {
+      goteos.forEach(clearInterval);
+      s.cerrar();
+    }
+  });
+
+  it('el plazo es para la descarga entera: cada redirección no vuelve a empezar de cero', async () => {
+    // Cada salto tarda 300 ms (menos que el plazo), pero tres seguidos, no.
+    const s = await servidor((req, res) => {
+      const n = Number(req.url.slice(1)) || 0;
+      setTimeout(() => {
+        if (n < 3) { res.writeHead(302, { location: `/${n + 1}` }); return res.end(); }
+        res.writeHead(200, { 'content-type': 'image/jpeg' }); res.end(JPG);
+      }, 300);
+    });
+    try {
+      await expect(desdeUrl(`${s.base}/0`, { permitirRedLocal: true, plazoMs: 700 }))
+        .rejects.toThrow('El archivo tarda demasiado en descargarse.');
+      // Con plazo de sobra, la misma cadena llega al archivo.
+      const cuerpo = await desdeUrl(`${s.base}/0`, { permitirRedLocal: true, plazoMs: 5000 });
+      expect(cuerpo.equals(JPG)).toBe(true);
+    } finally {
+      s.cerrar();
+    }
+  });
+
+  it('la conexión de una redirección o un error se cierra: su cuerpo, aunque no acabe nunca, no se sigue leyendo', async () => {
+    let abiertas = 0;
+    const s = await servidor((req, res) => {
+      if (req.url === '/dni.jpg') { res.writeHead(200, { 'content-type': 'image/jpeg' }); return res.end(JPG); }
+      // Un 302 o un 500 con el cuerpo a goteo, sin acabar.
+      abiertas += 1;
+      req.socket.on('close', () => { abiertas -= 1; });
+      res.writeHead(req.url === '/salta' ? 302 : 500, req.url === '/salta' ? { location: '/dni.jpg' } : {});
+      res.write('x');
+      const t = setInterval(() => res.write('x'), 50);
+      res.on('close', () => clearInterval(t));
+    });
+    try {
+      expect((await desdeUrl(`${s.base}/salta`, { permitirRedLocal: true, plazoMs: 5000 })).equals(JPG)).toBe(true);
+      await expect(desdeUrl(`${s.base}/falla`, { permitirRedLocal: true, plazoMs: 5000 })).rejects.toThrow('contestó 500');
+      await new Promise((ok) => setTimeout(ok, 300));
+      expect(abiertas).toBe(0);
+    } finally {
+      s.cerrar();
+    }
+  });
+});
+
+describe('el tope del envío entero, por debajo de los 20 MB de Nginx (QA de Diego, 22/10)', () => {
+  // Un «JPG» del tamaño pedido: la cabecera de verdad y relleno (el tipo se mira por los primeros bytes).
+  const jpgDe = (bytes) => Buffer.concat([JPG, Buffer.alloc(bytes - JPG.length, 0x20)]);
+  const MB = 1024 * 1024;
+  let appReal;
+  beforeAll(async () => { ({ default: appReal } = await import('../src/app.js')); });
+
+  it('tres archivos de 7 MB (cada uno vale, juntos 21 MB): 413 con el motivo, sin llegar a Nginx', async () => {
+    const r = await supertest(appReal).post(`/api/webhook-tokens/receive/${TOKEN.token}`)
+      .field('email', correo('tres-de-7'))
+      .attach('dni_frente', jpgDe(7 * MB), 'a.jpg').attach('dni_dorso', jpgDe(7 * MB), 'b.jpg').attach('foto', jpgDe(7 * MB), 'c.jpg');
+    expect(r.status).toBe(413);
+    expect(r.body).toMatchObject({ success: false, error: 'El envío pasa de 19 MB en total.', code: 'ENVIO_DEMASIADO_GRANDE' });
+    expect((await q('SELECT count(*)::int AS n FROM matriculas WHERE project_id = $1 AND email = $2', [PROYECTO.id, correo('tres-de-7')]))[0].n).toBe(0);
+  }, 60000);
+
+  it('un JSON de más de 19 MB por trozos (sin Content-Length): lo corta el lector, con el mismo motivo', async () => {
+    const srv = http.createServer(appReal);
+    await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+    try {
+      const r = await new Promise((ok, mal) => {
+        const req = http.request({
+          host: '127.0.0.1', port: srv.address().port, method: 'POST', path: `/api/webhook-tokens/receive/${TOKEN.token}`,
+          headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+        }, (res) => { let b = ''; res.on('data', (d) => { b += d; }); res.on('end', () => ok({ status: res.statusCode, body: JSON.parse(b) })); });
+        req.on('error', (e) => (e.code === 'EPIPE' || e.code === 'ECONNRESET' ? null : mal(e)));
+        req.write(`{"email":"${correo('trozos')}","relleno":"`);
+        const trozo = 'x'.repeat(MB);
+        for (let i = 0; i < 20; i++) req.write(trozo);
+        req.end('"}');
+      });
+      expect(r.status).toBe(413);
+      expect(r.body).toMatchObject({ error: 'El envío pasa de 19 MB en total.', code: 'ENVIO_DEMASIADO_GRANDE' });
+    } finally {
+      srv.closeAllConnections();
+      srv.close();
+    }
+  }, 60000);
+
+  it('justo por debajo (dos archivos de 8 MB, unos 16 MB): entra, con sus documentos', async () => {
+    const r = await supertest(appReal).post(`/api/webhook-tokens/receive/${TOKEN.token}`)
+      .field('email', correo('dos-de-8'))
+      .attach('dni_frente', jpgDe(8 * MB), 'a.jpg').attach('dni_dorso', jpgDe(8 * MB), 'b.jpg');
+    expect(r.status).toBe(200);
+    const m = await enviada(r);
+    expect(m.dni_doc_key).toMatch(/\.jpg$/);
+    expect(m.dni_dorso_key).toMatch(/\.jpg$/);
+  }, 60000);
 });
 
 describe('el contrato de la lista y la ficha (Diego, 01/10)', () => {
@@ -469,18 +700,19 @@ describe('el contrato de la lista y la ficha (Diego, 01/10)', () => {
     const r = await recibir().send({ nombre: 'Rosa Contrato', email: correo('rosa-contrato'), telefono: '+34 677 000 111', dni: '44444444A', curso_solicitado: 'Curso C', firma: dataUri });
     const lista = await api.get(`/api/matriculas?projectId=${PROYECTO.id}&search=${encodeURIComponent(correo('rosa-contrato'))}`).set(como());
     expect(lista.status).toBe(200);
-    const fila = lista.body.data.find((x) => x.id === r.body.data.matricula_id);
+    const m = await enviada(r);
+    const fila = lista.body.data.find((x) => x.id === m.id);
     expect(fila).toMatchObject({
       persona: { nombre: 'Rosa Contrato', email: correo('rosa-contrato'), telefono: '+34 677 000 111' },
       curso: 'Curso C', proyecto: `${MARCA} Campus`, documento: '44444444A', estado: 'solicitud_admision',
       documentos: { dni_frente: false, dni_dorso: false, foto: false, titulo: false, firma: true },
-      lead_id: r.body.data.lead_id, conversion_id: null,
+      lead_id: m.lead_id, conversion_id: null,
     });
     expect(fila.recibida_at).toBeTruthy();
     expect(fila).not.toHaveProperty('datos_admision');
     for (const k of ['solicitudes', 'pendientes', 'validadas', 'rechazadas']) expect(lista.body.stats).toHaveProperty(k);
 
-    const ficha = await api.get(`/api/matriculas/${r.body.data.matricula_id}`).set(como());
+    const ficha = await api.get(`/api/matriculas/${m.id}`).set(como());
     expect(ficha.body.data).toMatchObject({ persona: { nombre: 'Rosa Contrato' }, proyecto: `${MARCA} Campus`, documento: '44444444A' });
     expect(ficha.body.data.datos_admision.firma).toBe(dataUri);
     expect(ficha.body.data.firma_url).toMatch(/[?&]sig=/);
@@ -548,6 +780,6 @@ describe('quién administra los webhooks: admin y super admin, cada uno sus camp
   });
 
   it('el envío público sigue sin sesión: la llave es el token', async () => {
-    expect((await recibir().send({ email: correo('publico'), nombre: 'Público' })).status).toBe(201);
+    expect((await recibir().send({ email: correo('publico'), nombre: 'Público' })).status).toBe(200);
   });
 });

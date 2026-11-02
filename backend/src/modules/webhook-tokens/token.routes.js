@@ -12,7 +12,8 @@ const router = Router();
 // ─── PÚBLICO: recibe el envío (sin sesión; la llave es el token) ─────────────
 //
 // El formulario de admisión manda los documentos como archivos (#198): se
-// aceptan en multipart, en memoria, hasta 10 MB cada uno y 8 por envío. El tipo
+// aceptan en multipart, en memoria, hasta 10 MB cada uno y 8 por envío, y el envío
+// entero hasta 19 MB (topeDelEnvio, en app.js, antes de guardarlo en memoria). El tipo
 // real se comprueba después (admision.archivos.js), no aquí: multer solo ve lo
 // que dice quien manda. Sin multipart, multer no hace nada y el JSON o el
 // formulario normal llegan como siempre.

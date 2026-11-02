@@ -25,7 +25,17 @@ import { AppError } from '../../shared/utils/AppError.js';
  */
 
 export const MAX_BYTES = 10 * 1024 * 1024;
+// El envío entero (datos y documentos), POR DEBAJO de los 20 MB de Nginx (nginx/crm.conf;
+// QA de Diego, 22/10): así lo rechaza la aplicación, que dice por qué, y no Nginx con su
+// 413 mudo. Antes la aplicación aceptaba 25 MB en JSON y 8 archivos de 10 MB en multipart,
+// y todo lo que pasaba de 20 MB se perdía sin explicación.
+export const MAX_ENVIO_BYTES = 19 * 1024 * 1024;
+// Sin datos durante este tiempo, se corta (el `timeout` del GET, que es de inactividad).
 const TIEMPO_MAX_MS = 10_000;
+// Y la descarga entera, con sus redirecciones, nunca pasa de este (QA de Diego, 22/10):
+// con solo el de inactividad, un servidor que mandara un byte cada 9 s la tenía abierta
+// horas, y cada redirección empezaba de cero.
+const PLAZO_TOTAL_MS = 20_000;
 const MAX_REDIRECCIONES = 3;
 
 /** El tipo real por los primeros bytes: { ext, mime } o null si no es uno admitido. */
@@ -115,16 +125,24 @@ const resolverPublica = (permitirRedLocal) => (hostname, opciones, listo) => {
   });
 };
 
-/** Un GET, sin seguir redirecciones: { status, location, cuerpo } (el cuerpo, ya leído con su tope). */
-function pedir(u, permitirRedLocal) {
+/**
+ * Un GET, sin seguir redirecciones: { status, location, cuerpo } (el cuerpo, ya leído
+ * con su tope). `fin`: la hora (ms) a la que se corta, pase lo que pase.
+ */
+function pedir(u, permitirRedLocal, fin) {
   const host = u.hostname.replace(/^\[|\]$/g, '');
   if (net.isIP(host) && !permitirRedLocal && ipPrivada(host)) return Promise.reject(rechazo('La dirección del archivo no es pública.'));
   const cliente = u.protocol === 'https:' ? https : http;
-  return new Promise((ok, mal) => {
+  return new Promise((resolver, rechazar) => {
+    let reloj;
+    const ok = (v) => { clearTimeout(reloj); resolver(v); };
+    const mal = (e) => { clearTimeout(reloj); rechazar(e); };
     const req = cliente.get(u, { lookup: resolverPublica(permitirRedLocal), timeout: TIEMPO_MAX_MS, headers: { 'User-Agent': 'CRM-Admision/1.0' } }, (res) => {
       const status = res.statusCode || 0;
-      if (status >= 300 && status < 400) { res.resume(); return ok({ status, location: res.headers.location }); }
-      if (status < 200 || status >= 300) { res.resume(); return ok({ status }); }
+      // De una redirección o un error no hace falta el cuerpo: se corta. Leerlo hasta el
+      // final (`resume`) dejaba la conexión abierta sin plazo si el servidor no acababa nunca.
+      if (status >= 300 && status < 400) { ok({ status, location: res.headers.location }); return req.destroy(); }
+      if (status < 200 || status >= 300) { ok({ status }); return req.destroy(); }
       if (Number(res.headers['content-length']) > MAX_BYTES) { res.destroy(); return mal(rechazo('El archivo pasa de 10 MB.')); }
       const partes = [];
       let total = 0;
@@ -138,17 +156,20 @@ function pedir(u, permitirRedLocal) {
     });
     req.on('timeout', () => req.destroy(rechazo('No se ha podido descargar el archivo.')));
     req.on('error', (err) => mal(err?.isOperational ? err : rechazo('No se ha podido descargar el archivo.')));
+    // Primero el motivo y luego cortar: al cortar llegan otros errores, y la promesa ya está resuelta.
+    reloj = setTimeout(() => { mal(rechazo('El archivo tarda demasiado en descargarse.')); req.destroy(); }, Math.max(0, fin - Date.now()));
   });
 }
 
 /**
- * Descarga un archivo de una URL pública. `opciones.permitirRedLocal` es para
- * las pruebas (un servidor en 127.0.0.1).
+ * Descarga un archivo de una URL pública. `opciones.permitirRedLocal` y
+ * `opciones.plazoMs` son para las pruebas (un servidor en 127.0.0.1, y no esperar 20 s).
  */
-export async function desdeUrl(url, { permitirRedLocal = false } = {}) {
+export async function desdeUrl(url, { permitirRedLocal = false, plazoMs = PLAZO_TOTAL_MS } = {}) {
   let actual = urlValida(url);
+  const fin = Date.now() + plazoMs;
   for (let salto = 0; salto <= MAX_REDIRECCIONES; salto++) {
-    const res = await pedir(actual, permitirRedLocal);
+    const res = await pedir(actual, permitirRedLocal, fin);
     if (res.status >= 300 && res.status < 400 && res.location) {
       // Cada salto se vuelve a comprobar: una dirección pública puede redirigir a una interna.
       actual = urlValida(new URL(res.location, actual).toString());

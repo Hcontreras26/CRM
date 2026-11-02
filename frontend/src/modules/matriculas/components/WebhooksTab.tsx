@@ -276,7 +276,8 @@ function WebhookEditor({ token, onSave, onClose }: EditorProps) {
               {listening && <p className="text-xs text-warning mt-2">→ Manda ahora un POST de prueba al URL de arriba con tu sistema externo o curl.</p>}
               <p className="text-xs text-muted-foreground mt-2">
                 Los documentos (DNI, foto, título, firma) pueden llegar como archivo adjunto, como enlace a la imagen
-                o como imagen en texto. JPG, PNG, WEBP o PDF, hasta 10 MB. La firma se guarda con el fondo transparente.
+                o como imagen en texto. JPG, PNG, WEBP o PDF, hasta 10 MB cada uno; el envío entero, hasta 19 MB
+                (los enlaces no cuentan: cada uno se descarga aparte). La firma se guarda con el fondo transparente.
               </p>
             </div>
           )}
