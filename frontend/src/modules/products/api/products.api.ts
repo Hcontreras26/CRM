@@ -44,7 +44,7 @@ export interface Product {
 
 export async function getProduct(id: number, projectId: number): Promise<Product> {
   const { data } = await client.get(`/products/${id}`, { params: { projectId } });
-  return data.data;
+  return data;
 }
 
 export async function uploadProductImage(
@@ -59,15 +59,15 @@ export async function uploadProductImage(
     params: { projectId },
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return data.data;
+  return data;
 }
 
 export async function deleteProductImage(id: number, projectId: number): Promise<Product> {
   const { data } = await client.delete(`/products/${id}/image`, { params: { projectId } });
-  return data.data;
+  return data;
 }
 
 export async function getProductImageUrl(id: number, projectId: number): Promise<string | null> {
   const { data } = await client.get(`/products/${id}/image-url`, { params: { projectId } });
-  return data.data?.url || null;
+  return data?.url || null;
 }
