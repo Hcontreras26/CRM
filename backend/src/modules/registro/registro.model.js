@@ -53,10 +53,12 @@ export const FUENTES = {
   ficha:      { titulo: 'Fichas',       tabla: 'lead_audit_log',          sistema: false },
   documento:  { titulo: 'Documentos',   tabla: 'document_audit_log',      sistema: false },
   usuario:    { titulo: 'Usuarios',     tabla: 'user_activity_log',       sistema: false },
-  tarea:      { titulo: 'Tareas',       tabla: 'registro_tareas',         sistema: true },
+  // `sinCampus`: sus filas nunca dicen de qué campus son. Solo las ve quien tiene
+  // `registro.sistema` (Diego, 03/11, #620).
+  tarea:      { titulo: 'Tareas',       tabla: 'registro_tareas',         sistema: true, sinCampus: true },
   webhook:    { titulo: 'Webhooks',     tabla: 'make_webhook_deliveries', sistema: true },
   correo:     { titulo: 'Correos',      tabla: 'email_envios',            sistema: true },
-  error:      { titulo: 'Errores',      tabla: 'status_errors',           sistema: true },
+  error:      { titulo: 'Errores',      tabla: 'status_errors',           sistema: true, sinCampus: true },
 };
 
 export const NOMBRES_FUENTE = Object.keys(FUENTES);
@@ -111,8 +113,21 @@ export const olvidarTablas = () => { existentes = null; };
  * FUERA en vez de traerlas todas — buscar «lo que hizo Laura» y que salgan los
  * webhooks es justo lo que hace inutil un filtro.
  */
-function condiciones({ fechaCol, usuarioCol }, { desde, hasta, usuarioId }, params) {
+function condiciones({ fechaCol, usuarioCol, campusCol = 'NULL::int' }, { desde, hasta, usuarioId, campus, sistema = true }, params) {
   const trozos = [];
+  // De quién es cada fila (Diego, 03/11, #620): «el admin ve las pestañas por
+  // campus y empresas, según sus roles». Una fila CON campus se ve si su campus
+  // es de quien mira (`campus`: su lista; null = todos). Una fila SIN campus
+  // —errores, tareas, un inicio de sesión— es de todo el sistema: solo con
+  // `registro.sistema`. No depende de la fuente, sino de la fila.
+  if (Array.isArray(campus)) {
+    params.push(campus);
+    trozos.push(sistema
+      ? `(${campusCol} = ANY($${params.length}::int[]) OR ${campusCol} IS NULL)`
+      : `${campusCol} = ANY($${params.length}::int[])`);
+  } else if (!sistema) {
+    trozos.push(`${campusCol} IS NOT NULL`);
+  }
   if (desde)  { params.push(desde); trozos.push(`${fechaCol} >= $${params.length}`); }
   if (hasta)  { params.push(hasta); trozos.push(`${fechaCol} < ($${params.length}::date + 1)`); }
   if (usuarioId) {
@@ -126,7 +141,7 @@ function condiciones({ fechaCol, usuarioCol }, { desde, hasta, usuarioId }, para
 /** Cambios en la ficha de un prospecto. */
 async function deFichas(filtros, limite) {
   const params = [];
-  const donde = condiciones({ fechaCol: 'a.changed_at', usuarioCol: 'a.changed_by_user_id' }, filtros, params);
+  const donde = condiciones({ fechaCol: 'a.changed_at', usuarioCol: 'a.changed_by_user_id', campusCol: 'l.project_id' }, filtros, params);
   if (donde === null) return [];
   params.push(limite);
   const { rows } = await query(
@@ -166,14 +181,15 @@ async function deFichas(filtros, limite) {
 /** Lo que se hizo con un documento. */
 async function deDocumentos(filtros, limite) {
   const params = [];
-  const donde = condiciones({ fechaCol: 'd.created_at', usuarioCol: 'd.user_id' }, filtros, params);
+  const donde = condiciones({ fechaCol: 'd.created_at', usuarioCol: 'd.user_id', campusCol: 'doc.project_id' }, filtros, params);
   if (donde === null) return [];
   params.push(limite);
   const { rows } = await query(
     `SELECT d.id, d.created_at AS cuando, d.action, d.document_id,
-            d.user_id AS usuario_id, u.nombre AS usuario, d.metadata
+            d.user_id AS usuario_id, u.nombre AS usuario, d.metadata, doc.project_id
        FROM document_audit_log d
        LEFT JOIN users u ON u.id = d.user_id
+       LEFT JOIN documents doc ON doc.id = d.document_id
        ${donde}
       ORDER BY d.created_at DESC
       LIMIT $${params.length}`,
@@ -189,7 +205,7 @@ async function deDocumentos(filtros, limite) {
     cuando: r.cuando,
     usuario_id: r.usuario_id,
     usuario: r.usuario,
-    project_id: null,
+    project_id: r.project_id ?? null,
     accion: `documento.${r.action}`,
     resumen: `${COMO_SE_DICE[r.action] || r.action} el documento #${r.document_id}`,
     entidad: 'documento',
@@ -204,7 +220,11 @@ async function deDocumentos(filtros, limite) {
 /** Inicios de sesion, credenciales, WhatsApp: lo que ya escribe medio CRM. */
 async function deUsuarios(filtros, limite) {
   const params = [];
-  const donde = condiciones({ fechaCol: 'l.created_at', usuarioCol: 'l.user_id' }, filtros, params);
+  const donde = condiciones({
+    fechaCol: 'l.created_at', usuarioCol: 'l.user_id',
+    // Solo si viene y es un número: un texto raro no puede tirar la consulta.
+    campusCol: "(CASE WHEN (l.details->>'project_id') ~ '^[0-9]+$' THEN (l.details->>'project_id')::int END)",
+  }, filtros, params);
   if (donde === null) return [];
   params.push(limite);
   const { rows } = await query(
@@ -300,7 +320,7 @@ async function deTareas(filtros, limite) {
 /** Cada entrega de webhook, con su resultado. */
 async function deWebhooks(filtros, limite) {
   const params = [];
-  const donde = condiciones({ fechaCol: 'd.received_at', usuarioCol: null }, filtros, params);
+  const donde = condiciones({ fechaCol: 'd.received_at', usuarioCol: null, campusCol: 'w.project_id' }, filtros, params);
   if (donde === null) return [];
   params.push(limite);
   const { rows } = await query(
@@ -361,7 +381,7 @@ async function deWebhooks(filtros, limite) {
  */
 async function deCorreos(filtros, limite) {
   const params = [];
-  const donde = condiciones({ fechaCol: 'e.created_at', usuarioCol: null }, filtros, params);
+  const donde = condiciones({ fechaCol: 'e.created_at', usuarioCol: null, campusCol: 'e.project_id' }, filtros, params);
   if (donde === null) return [];
   params.push(limite);
   const { rows } = await query(
@@ -465,7 +485,8 @@ export async function listar({ vista = 'general', ...filtros } = {}) {
   const pedidas = Array.isArray(filtros.fuentes) && filtros.fuentes.length
     ? deLaVista.filter((f) => filtros.fuentes.includes(f))
     : deLaVista;
-  const usables = pedidas.filter((f) => hay.has(f));
+  // Sin `registro.sistema`, las fuentes que nunca traen campus ni se piden.
+  const usables = pedidas.filter((f) => hay.has(f) && (filtros.sistema !== false || !FUENTES[f].sinCampus));
 
   // Se le pide `limite` a cada una: para dar las N mas nuevas del conjunto
   // basta con las N mas nuevas de cada fuente.

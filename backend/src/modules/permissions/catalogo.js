@@ -499,7 +499,10 @@ export const SECCIONES = [
       },
       {
         clave: 'registro', nombre: 'Registro', acciones: [
-          a('view', 'Ver el registro', 'Quién cambió qué y cuándo.', ADMIN_SOPORTE),
+          a('view', 'Ver el registro', 'Quién cambió qué y cuándo (lo de sus campus).', ADMIN_SOPORTE),
+          // Diego, 03/11 (#620): lo que no es de ningún campus —errores del servidor,
+          // tareas programadas, inicios de sesión— solo para soporte (y super admin).
+          a('sistema', 'Ver lo del sistema en el registro', 'Errores, tareas programadas y lo que no es de ningún campus.', SOPORTE, { requiere: ['registro.view'] }),
         ],
       },
       {
