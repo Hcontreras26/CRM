@@ -72,6 +72,15 @@ describe('el semáforo del plazo (24 h)', () => {
 });
 
 describe('Consultas (#188) · la lista', () => {
+  it('sin permiso (gestora) dice que no tiene acceso, no «Nada pendiente», y no pide nada', async () => {
+    api.user = { role: 'gestor' };
+    render(<MemoryRouter><ConsultasPage /></MemoryRouter>);
+    expect(await screen.findByText('No tienes acceso a las consultas de alumnos')).toBeTruthy();
+    expect(screen.queryByText('Nada pendiente')).toBeNull();
+    expect(api.mias).not.toHaveBeenCalled();
+    expect(api.panel).not.toHaveBeenCalled();
+  });
+
   it('el tutor ve su bandeja: sus pendientes, con el semáforo', async () => {
     render(<MemoryRouter><ConsultasPage /></MemoryRouter>);
     expect(await screen.findByText('Alumna Uno')).toBeTruthy();
