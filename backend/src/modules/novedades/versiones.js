@@ -13,6 +13,272 @@ export const CRM = { nombre: 'MultiCRM', color: '#1f3a5f' };
 
 const LISTA = [
   {
+    "version": "2.6.0",
+    "fecha": "2026-11-03",
+    "titulo": "Versión 2.6.0",
+    "intro": "Las consultas de los alumnos llegan al CRM, Soporte guarda los tickets, los cursos pendientes tienen su pantalla y Claude ya consulta los Moodle de los campus. Además, casi todas las pantallas se abren con «Todos los proyectos» o con una empresa, la actividad de cada comercial en Reportes, las cifras del equipo más claras y una tanda de arreglos de seguridad y de cobros. Esto es lo que ha llegado después de la 2.5.19.",
+    "grupos": [
+      {
+        "titulo": "Consultas de alumnos",
+        "items": [
+          {
+            "titulo": "Las dudas del campus, en el CRM",
+            "texto": "Lo que los alumnos escriben al tutor en el campus (Moodle) entra en el menú Consultas: la bandeja, los alumnos sin mensajes, la carga de cada tutor y lo que se tarda en responder. Se responde desde el CRM y la respuesta llega al campus. Avisa cuando una consulta se acerca al plazo o se pasa de él.",
+            "roles": [
+              "tutor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/consultas",
+            "boton": "Ir a Consultas"
+          },
+          {
+            "titulo": "Cada campus, conectado una vez",
+            "texto": "El campus se conecta en Finanzas → Integraciones con la dirección y la clave de su Moodle, marcando «Leer las consultas de este campus». Desde ese momento entran las consultas nuevas; lo anterior no se importa.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/finanzas/integraciones",
+            "boton": "Ir a Integraciones"
+          }
+        ]
+      },
+      {
+        "titulo": "Soporte y cursos pendientes",
+        "items": [
+          {
+            "titulo": "Los tickets de Soporte se guardan",
+            "texto": "Lo que se manda desde Soporte queda guardado con sus pasos, lo que esperabas y lo que pasó, y llega a quien lo tiene que mirar con un aviso en la campana. Se ve el estado de cada ticket y cuánto se tarda en responder y en cerrarlo.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/soporte",
+            "boton": "Ir a Soporte"
+          },
+          {
+            "titulo": "Cursos pendientes",
+            "texto": "Los cursos vendidos que aún no tienen fecha, por campus, con su tutora, la fecha comprometida y las alumnas que esperan. Avisa antes de la fecha y los lunes manda un resumen.",
+            "roles": [
+              "gestor",
+              "tutor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/productos/pendientes",
+            "boton": "Ir a Cursos pendientes"
+          }
+        ]
+      },
+      {
+        "titulo": "«Todos los proyectos» y empresas",
+        "items": [
+          {
+            "titulo": "Casi todas las pantallas, con «Todos» o una empresa",
+            "texto": "Con «Todos los proyectos» o una empresa arriba ya se abren Seguimiento, Reportes, Facturas, Pagos Stripe, Nóminas y muchas más, sumando los campus que te tocan. Las que trabajan con un solo campus (Duplicados, Proceso comercial, Meta Ads, Moodle, Chat IA) te dejan elegirlo dentro de la propia pantalla, sin cambiar el de arriba.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          },
+          {
+            "titulo": "El filtro de campus sigue a la empresa",
+            "texto": "En Prospectos, el filtro de campus enseña solo los de la empresa elegida arriba, y con «Todos» deja fuera los campus de pruebas.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/prospectos",
+            "boton": "Ir a Prospectos"
+          },
+          {
+            "titulo": "«Nuevo tutor» con una empresa arriba",
+            "texto": "Ya no hace falta cambiar a un campus para dar de alta a un tutor: el formulario pide el campus y enseña los cursos de su catálogo.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/tutores",
+            "boton": "Ir a Tutores"
+          }
+        ]
+      },
+      {
+        "titulo": "Reportes y cifras",
+        "items": [
+          {
+            "titulo": "Actividad por comercial",
+            "texto": "En Reportes y en el Dashboard: lo que ha hecho cada gestora en el periodo (contactos, pasos y ventas) y de dónde llegó cada prospecto, ChatGPT incluido.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/informes",
+            "boton": "Ir a Reportes"
+          },
+          {
+            "titulo": "Una sola tasa de cierre",
+            "texto": "La tasa de cierre se calcula igual en todas partes, con su «¿de dónde sale?», y el baremo que dice si es buena o mala se puede cambiar. Además, «¿dónde ponemos el dinero?» compara canales y campañas, y Meta Ads llega del gasto hasta la venta cobrada.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/informes",
+            "boton": "Ir a Reportes"
+          },
+          {
+            "titulo": "«El equipo este mes», cada cifra con lo suyo",
+            "texto": "Lo cobrado va con el número de cobros, y las ventas nuevas van aparte con lo vendido. El Dashboard enseña lo facturado y, al lado, lo cobrado: la misma cifra que en Prospectos y Clientes.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/",
+            "boton": "Ir al Dashboard"
+          },
+          {
+            "titulo": "«Productos vendidos», con los abonos aparte",
+            "texto": "Cada programa enseña lo facturado, y las facturas rectificativas salen en su propia línea. Antes restaban dentro del programa y alguno salía en negativo o a cero. El total no cambia.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/",
+            "boton": "Ir al Dashboard"
+          },
+          {
+            "titulo": "«Programas más vendidos» dice su periodo",
+            "texto": "La tarjeta dice el periodo que enseña («Este mes», «Últimos 30 días» o las fechas), en vez de «Histórico».",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/finanzas/ventas",
+            "boton": "Ir a Ventas"
+          }
+        ]
+      },
+      {
+        "titulo": "Claude y la IA",
+        "items": [
+          {
+            "titulo": "Claude consulta los Moodle",
+            "texto": "El Claude conectado al CRM ve los cursos, los alumnos y los recursos de cada campus con su Moodle conectado, además de matrículas, catálogo, correos, WhatsApp, nóminas, clientes y la publicidad de Meta. Si un Moodle deja de responder, avisa.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/conexion/moodle",
+            "boton": "Ir a Moodle"
+          },
+          {
+            "titulo": "El buscador encuentra más",
+            "texto": "El buscador (Ctrl K) encuentra también tutores, facturas de colaboradores, diplomas y cursos de Moodle, cada uno solo si puedes verlos.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          }
+        ]
+      },
+      {
+        "titulo": "Usuarios y accesos",
+        "items": [
+          {
+            "titulo": "Dar de alta sin sorpresas",
+            "texto": "Al dar de alta a alguien, el formulario dice antes qué roles no puedes dar y qué les falta, en vez de avisar al guardar.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/configuracion",
+            "boton": "Ir a Configuración"
+          },
+          {
+            "titulo": "El admin ve Claves, Documentos y Plantillas de email",
+            "texto": "En Configuración, el admin ya entra en Claves (las de sus campus), Documentos y Plantillas de email. Guardar o borrar una clave sigue siendo de soporte.",
+            "roles": [
+              "admin"
+            ],
+            "ruta": "/configuracion/claves",
+            "boton": "Ir a Claves"
+          },
+          {
+            "titulo": "Recuperar la contraseña",
+            "texto": "Desde la pantalla de entrada se puede pedir un correo para poner una contraseña nueva.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          }
+        ]
+      },
+      {
+        "titulo": "Matrículas, diplomas y cobros",
+        "items": [
+          {
+            "titulo": "Matrículas con su historial y sus documentos",
+            "texto": "Cada matrícula guarda su historia completa y sus cinco documentos, se abre en un panel lateral y se filtra por empresa. Borrar una venta ya no borra su matrícula.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas",
+            "boton": "Ir a Matrículas"
+          },
+          {
+            "titulo": "«Pasar a pendientes» pregunta antes",
+            "texto": "En Diplomas, si el alumno no tiene nota o le falta avance, «Pasar a pendientes» pide confirmarlo. Cada fila enseña cuántas tareas ha entregado.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/clientes/matriculas/diplomas",
+            "boton": "Ir a Diplomas"
+          },
+          {
+            "titulo": "Cobros repetidos",
+            "texto": "Los cobros apuntados dos veces y los apuntados a mano que repetían un pago de Stripe se quitan, y lo pagado de cada venta vuelve a cuadrar. Lo que no estaba claro queda en una lista para revisarlo, sin borrar nada.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          }
+        ]
+      }
+    ],
+    "arreglos": [
+      "«Contactar» en la cola del día marca hecho el paso que enseñaba: la persona ya no vuelve a salir al recargar.",
+      "Un formulario que llega por Make a un escenario sin campos configurados ya no se pierde: el CRM reconoce los campos habituales y avisa a los admins para completarlo.",
+      "Cada uno ve y toca solo lo de sus campus también en Seguimiento, Reportes, Convocatorias, Duplicados, ventas, matrículas, facturas, metas, comisiones y tutores.",
+      "El tutor ve solo lo suyo: sus cursos, sus consultas, sus mensajes y Novedades.",
+      "La marca de arriba dice «360 CRM», y el Dashboard lleva sus tildes («Tu día de hoy», «Distribución», «Orígenes»…).",
+      "Ningún enlace de dentro de las pantallas lleva a «Página no encontrada».",
+      "Soporte sigue viendo Finanzas → Facturación.",
+      "Los formularios del CRM avisan de todo lo que falta en un solo mensaje, y Escape cierra las ventanas.",
+      "El programa de una venta es el del catálogo, no el nombre del cliente; las ventas viejas que lo tenían mal se han corregido, y las de varias líneas del mismo curso ya dicen de qué curso son.",
+      "El tutorial de Plantillas de WhatsApp enseña sus cuatro pasos.",
+      "Ventas ya no abre el submenú de Finanzas, y la cabecera se ve bien en el móvil.",
+      "El enlace para subir la factura de colaborador vale hasta el día 6 del mes siguiente."
+    ]
+  },
+  {
     "version": "2.5.19",
     "fecha": "2026-11-02",
     "titulo": "Versión 2.5.19",
