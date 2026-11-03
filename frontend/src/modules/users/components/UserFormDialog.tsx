@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Lock, ShieldCheck } from '@phosphor-icons/react';
 import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import type { Project, UserRole } from '@/shared/types';
@@ -8,9 +8,10 @@ import Field from '@/shared/components/ui/Field';
 import { avatarColorFor, getInitials, inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
 import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
-import type { AvisoCambioCorreo, CrmUser, Empresa, ProjectAssignment } from '../api/users.api';
+import { listRolesAsignables, type AvisoCambioCorreo, type CrmUser, type Empresa, type ProjectAssignment, type RolAsignable } from '../api/users.api';
 import { ASSIGNABLE_ROLES } from '../lib/usersUi';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '../lib/credenciales';
+import { motivoNoAsignable, porRol } from '../lib/rolesAsignables';
 import ProjectSelector from './ProjectSelector';
 import PermisosDePersona from '@/modules/permissions/components/PermisosDePersona';
 
@@ -77,6 +78,26 @@ export default function UserFormDialog({
   );
   const alternarRolExtra = (r: UserRole) => setRolesExtra((prev) =>
     prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
+
+  // Qué roles puede dar quien da de alta (Tony, 03/11: cinco altas rechazadas
+  // por elegir «Soporte», sin saber por qué). Solo en el alta: al editar, lo
+  // que la persona ya tenía no cuenta como «dar», y su rol no se puede apagar.
+  // Si la lista no llega, el formulario sigue como antes y decide el servidor.
+  const [asignables, setAsignables] = useState<RolAsignable[] | null>(null);
+  useEffect(() => {
+    if (esEdicion) return;
+    let vivo = true;
+    listRolesAsignables().then((l) => { if (vivo) setAsignables(l); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [esEdicion]);
+  const filaDe = porRol(asignables);
+  const motivoPrincipal = (r: UserRole) => motivoNoAsignable(filaDe[r]?.principal);
+  const motivoAnadido = (r: UserRole) => motivoNoAsignable(filaDe[r]?.anadido);
+  // Lo elegido que no se puede dar (el rol de serie, si llega la lista con él apagado).
+  const noDables = [
+    ...(motivoPrincipal(role) ? [role] : []),
+    ...rolesExtra.filter((r) => r !== role && motivoAnadido(r)),
+  ];
   const [seleccionados, setSeleccionados] = useState<ProjectAssignment[]>(user?.projects ?? []);
   // Las empresas enteras (#220). Diego, 10/10: «Un admin puede tener los
   // proyectos futuros, pero de SU empresa: mayormente los admin son por empresa».
@@ -159,6 +180,15 @@ export default function UserFormDialog({
     }
     const falta = avisoDeLoQueFalta(faltan);
     if (falta) { toast(falta); return; }
+    if (noDables.length) {
+      const nombres = noDables.map((r) => `«${ASSIGNABLE_ROLES.find((x) => x.value === r)?.label ?? r}»`).join(' y ');
+      toast({
+        title: 'Ese rol no lo puedes dar',
+        description: `Quita ${nombres}: le daría permisos que tú no tienes. Si de verdad lo necesita, pídeselo a un superadmin.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     // El correo de otro (#248): solo el super admin, y avisando antes de guardar
     // de lo que supone, sobre todo si recibe prospectos por Make.
     const correoNuevo = email.trim().toLowerCase();
@@ -317,10 +347,25 @@ export default function UserFormDialog({
                 id="user-rol"
                 value={role}
                 onChange={setRole}
-                options={ASSIGNABLE_ROLES.map((r) => ({ value: r.value, label: r.label }))}
+                options={ASSIGNABLE_ROLES.map((r) => ({
+                  value: r.value,
+                  // En la lista no caben frases: la razón sale debajo y en las casillas de abajo.
+                  label: motivoPrincipal(r.value) ? `${r.label} (no puedes darlo)` : r.label,
+                  disabled: !!motivoPrincipal(r.value),
+                }))}
                 ariaLabel="Rol"
               />
             </Field>
+            {/* Los roles que no se pueden dar, con su porqué, a la vista sin abrir la lista. */}
+            {ASSIGNABLE_ROLES.some((r) => motivoPrincipal(r.value)) && (
+              <ul className="-mt-2 space-y-1 px-1 text-secundario text-muted-foreground">
+                {ASSIGNABLE_ROLES.filter((r) => motivoPrincipal(r.value)).map((r) => (
+                  <li key={r.value} data-testid={`rol-no-asignable-${r.value}`}>
+                    <span className="font-medium text-foreground/80">{r.label}.</span> {motivoPrincipal(r.value)}
+                  </li>
+                ))}
+              </ul>
+            )}
 
             {/* Y ADEMÁS. Hay quien lleva prospectos y también da clase: antes
                 había que elegir, y lo que no se eligiera se perdía.
@@ -335,15 +380,21 @@ export default function UserFormDialog({
               <div className="flex flex-wrap gap-1.5">
                 {ASSIGNABLE_ROLES.filter((r) => r.value !== role).map((r) => {
                   const puesto = rolesExtra.includes(r.value);
+                  const motivo = motivoAnadido(r.value);
+                  // Uno ya puesto que no se puede dar se deja quitar: quitar no es dar.
+                  const apagado = !!motivo && !puesto;
                   return (
                     <button
                       key={r.value}
                       type="button"
                       onClick={() => alternarRolExtra(r.value)}
                       aria-pressed={puesto}
+                      disabled={apagado}
+                      title={motivo ?? undefined}
                       className={
                         'rounded-md border px-2.5 py-1 text-normal transition-colors '
                         + 'focus:outline-none focus:ring-2 focus:ring-primary/40 '
+                        + 'disabled:opacity-50 disabled:cursor-not-allowed '
                         + (puesto
                           ? 'border-primary bg-primary/10 font-semibold text-primary'
                           : 'border-border hover:bg-muted')
@@ -354,6 +405,15 @@ export default function UserFormDialog({
                   );
                 })}
               </div>
+              {ASSIGNABLE_ROLES.some((r) => r.value !== role && motivoAnadido(r.value)) && (
+                <ul className="mt-1 space-y-1 px-1 text-secundario text-muted-foreground">
+                  {ASSIGNABLE_ROLES.filter((r) => r.value !== role && motivoAnadido(r.value)).map((r) => (
+                    <li key={r.value} data-testid={`extra-no-asignable-${r.value}`}>
+                      <span className="font-medium text-foreground/80">{r.label}.</span> {motivoAnadido(r.value)}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p className="mt-1 px-1 text-secundario text-muted-foreground">
                 {rolesExtra.length === 0
                   ? 'Opcional. Suma los permisos de otro rol sin perder los de este.'
