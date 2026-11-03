@@ -28,6 +28,17 @@ export function delAmbito<T extends Campus>(projects: T[] | null | undefined, ac
     : todos.filter((p) => !p.es_prueba);
 }
 
+/**
+ * Lo elegido en un filtro de campus, sin lo que no es del ámbito (#346). El
+ * filtro vive en la dirección y sobrevive a cambiar la empresa de arriba: sin
+ * esto, con ICTESS elegido y CEDIA arriba se seguían viendo los de ICTESS, y el
+ * desplegable —que ya solo lista CEDIA— no lo enseñaba en ninguna parte.
+ */
+export function soloDelAmbito(ids: number[], idsDelAmbito: number[]): number[] {
+  const dentro = new Set(idsDelAmbito);
+  return ids.filter((id) => dentro.has(id));
+}
+
 export function useIdsDelAmbito(): number[] {
   const { projects, activeIssuerId } = useProjectContext() as {
     projects: Campus[];
