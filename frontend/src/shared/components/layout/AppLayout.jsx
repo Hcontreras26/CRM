@@ -134,6 +134,16 @@ const ALL_PROJECTS_OK = [
   // pidiendo UN campus: cada uno tiene su cuenta y sus nóminas.
   /^\/finanzas\/pagos-stripe$/,
   /^\/finanzas\/nominas$/,
+  // #218, tanda 3: pantallas de UN campus que, con una empresa o «Todos», ya no
+  // se tapian: piden el campus DENTRO (Proceso comercial, Buscar duplicados,
+  // Meta Ads, Chat IA; `useCampusDeLaPantalla`), suman los campus de quien mira
+  // (Revisión de duplicados, #620) o listan sus campus (Moodle).
+  /^\/prospectos\/proceso$/,
+  /^\/prospectos\/duplicados$/,
+  /^\/prospectos\/revision-duplicados$/,
+  /^\/meta-ads$/,
+  /^\/chat-ia$/,
+  /^\/conexion\/moodle(?:\/\d+)?$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -336,6 +346,16 @@ const CON_SOCIEDAD_OK = [
   // factura» no depende de la cabecera: son las del propio colaborador.
   /^\/finanzas\/facturas-colaboradores$/,
   /^\/mi-factura$/,
+  // #218, tanda 3: pantallas de UN campus que, con una empresa o «Todos», ya no
+  // se tapian: piden el campus DENTRO (Proceso comercial, Buscar duplicados,
+  // Meta Ads, Chat IA; `useCampusDeLaPantalla`), suman los campus de quien mira
+  // (Revisión de duplicados, #620) o listan sus campus (Moodle).
+  /^\/prospectos\/proceso$/,
+  /^\/prospectos\/duplicados$/,
+  /^\/prospectos\/revision-duplicados$/,
+  /^\/meta-ads$/,
+  /^\/chat-ia$/,
+  /^\/conexion\/moodle(?:\/\d+)?$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {
