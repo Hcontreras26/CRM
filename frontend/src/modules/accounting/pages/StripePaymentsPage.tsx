@@ -69,6 +69,9 @@ export default function StripePaymentsPage() {
     activeIssuerId: number | null;
   };
   const pid = activeProject?.id;
+  // Un campus concreto: el corte, la clave y sincronizar son de UNA cuenta de
+  // Stripe. Con una empresa o «Todos» (#218) el id es -1 y no hay una sola.
+  const unCampus = Boolean(pid && pid > 0);
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -140,13 +143,13 @@ export default function StripePaymentsPage() {
   */
   const [corte, setCorte] = useState<string | null>(null);
   useEffect(() => {
-    if (!pid) return;
+    if (!unCampus) return;
     let vivo = true;
     client.get<{ corte: string | null }>(`/stripe-payments/corte?projectId=${pid}`)
       .then((r) => { if (vivo) setCorte(r?.data?.corte || null); })
       .catch(() => { if (vivo) setCorte(null); });
     return () => { vivo = false; };
-  }, [pid]);
+  }, [pid, unCampus]);
   const esAnteriorAlCorte = (fecha: string | number | null) => {
     if (!corte || !fecha) return false;
     const d = typeof fecha === 'number' ? new Date(fecha * 1000) : new Date(fecha);
@@ -154,7 +157,10 @@ export default function StripePaymentsPage() {
   };
 
   async function syncNow(fullHistory = false, desdeElPrincipio = false) {
-    if (!pid) return;
+    if (!unCampus) {
+      toast({ title: 'Elige un campus para sincronizar', description: 'Cada campus tiene su propia cuenta de Stripe.' });
+      return;
+    }
     setSyncing(true);
     try {
       const res = await client.post<{ imported: number; pages: number }>(
@@ -172,7 +178,7 @@ export default function StripePaymentsPage() {
   }
 
   useEffect(() => {
-    if (!pid) return;
+    if (!unCampus) return;
     let vivo = true;
     client.get(`/integrations/stripe?projectId=${pid}`)
       .then((r) => { if (vivo) setHayClave(Boolean(r?.data?.has_secret)); })
@@ -181,7 +187,7 @@ export default function StripePaymentsPage() {
       .then((r) => { if (vivo) setPorSupabase(Boolean(r?.data?.has_secret)); })
       .catch(() => {});
     return () => { vivo = false; };
-  }, [pid]);
+  }, [pid, unCampus]);
 
   if (!pid) {
     return <div className="p-8 text-muted-foreground">Selecciona un proyecto.</div>;

@@ -124,6 +124,16 @@ const ALL_PROJECTS_OK = [
   /^\/whatsapp\/banco$/,
   /^\/whatsapp\/conexion$/,
   /^\/whatsapp\/ayuda$/,
+
+  // #218, tanda 2: su servidor no entendía «Todos» (pedía un campus) y ahora,
+  // sin campus, se queda en los de quien pide. Facturas: la lista, las cifras y
+  // las ventas sin factura (emitir una sigue pidiendo su campus).
+  /^\/finanzas\/facturas$/,
+  // Pagos Stripe y Nóminas (leer): a super admin y soporte, sin campus, todos los
+  // campus menos los de pruebas. Sincronizar Stripe o crear una nómina sigue
+  // pidiendo UN campus: cada uno tiene su cuenta y sus nóminas.
+  /^\/finanzas\/pagos-stripe$/,
+  /^\/finanzas\/nominas$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar

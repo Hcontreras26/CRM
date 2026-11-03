@@ -32,11 +32,25 @@ describe('#218 tanda 1: se abren con «Todos los proyectos»', () => {
   });
 });
 
+// Tanda 2: su servidor no entendía «Todos» y ahora, sin campus, se queda en los
+// de quien pide (tests/facturasTodos218.test.js).
+const TANDA_2 = ['/finanzas/facturas', '/finanzas/pagos-stripe', '/finanzas/nominas'];
+
+describe('#218 tanda 2: se abren con «Todos los proyectos»', () => {
+  it.each(TANDA_2)('%s', (ruta) => {
+    expect(pathAllowsAll(ruta)).toBe(true);
+  });
+
+  it('emitir una factura sigue pidiendo su campus', () => {
+    expect(pathAllowsAll('/finanzas/facturas/nueva')).toBe(false);
+  });
+});
+
 describe('las de las tandas siguientes siguen con su muro', () => {
   // El servidor aún no sabe «Todos» (400 o 403 con el -1), o la pantalla pide un
   // campus por su cuenta. Se abren en las tandas 2 y 3, no antes.
   it.each([
-    '/finanzas/facturas', '/finanzas/pagos-stripe', '/finanzas/nominas', '/finanzas/integraciones',
+    '/finanzas/integraciones',
     '/prospectos/convocatorias', '/prospectos/duplicados', '/prospectos/revision-duplicados',
     '/prospectos/proceso', '/productos', '/productos/woocommerce', '/meta-ads', '/conexion/moodle',
     '/whatsapp/plantillas', '/registro',
