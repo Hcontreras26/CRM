@@ -87,6 +87,30 @@ export async function proyectosDelAmbito(req) {
 }
 
 /**
+ * El ámbito como UNA lista de campus, entienda la pantalla lo que entienda:
+ * `?projectIds=1,2,3` (Seguimiento, la Cola…), `?projectId=` o `?issuerId=`.
+ *
+ * Siempre dentro de lo suyo, igual que `proyectosDelAmbito`: lo ajeno se cae, y
+ * si no queda nada es `[-1]`, que no casa con nada (nunca «todos»). Sin pedir
+ * nada, sus campus. Solo super admin y soporte reciben `null` («todo el CRM»).
+ *
+ * Antes cada módulo leía `projectIds` a su manera y sin recortar: un admin de
+ * CEDIA veía el seguimiento y los informes de ICTESS cambiando la URL.
+ */
+export async function listaDelAmbito(req) {
+  const varios = String(req.query?.projectIds || '').split(',')
+    .map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0);
+  if (varios.length && !req.query?.issuerId) {
+    if (veTodoElCrm(req.user)) return varios;
+    const mios = await campusDeLaPersona(req.user?.userId);
+    const quedan = varios.filter((id) => mios.includes(id));
+    return quedan.length ? quedan : [-1];
+  }
+  const { projectId, projectIds } = await proyectosDelAmbito(req);
+  return comoLista(projectId, projectIds);
+}
+
+/**
  * Los dos casos —un proyecto o una lista— reducidos a una sola lista, que es
  * lo que entiende `= ANY($n::int[])`.
  *
