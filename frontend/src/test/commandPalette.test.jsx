@@ -125,8 +125,8 @@ describe('qué encuentra cada perfil (tabla de la #591)', () => {
     for (const r of FINANZAS_RESTRINGIDAS) expect(rutasDe(PERFILES.project_manager)).not.toContain(r);
   });
 
-  it('tutor: ni personas ni productos (pendiente de Diego); solo lo suyo', () => {
-    expect(buscaDe(PERFILES.tutor)).toMatchObject({ personas: false, clientes: false, productos: false, crearProspecto: false, crearProducto: false });
+  it('tutor: ni personas ni productos, porque el catálogo ya no se los da (Diego, 03/11); solo lo suyo', () => {
+    expect(buscaDe(PERFILES.tutor)).toMatchObject({ personas: false, clientes: false, productos: false, crearProspecto: false, crearProducto: false, ventas: false, facturas: false });
     const rutas = rutasDe(PERFILES.tutor);
     expect(rutas.some((r) => r.startsWith('/prospectos') || r.startsWith('/finanzas') || r.startsWith('/configuracion'))).toBe(false);
   });
@@ -156,6 +156,10 @@ describe('excepciones por persona: manda el permiso, no el rol', () => {
   it('a un colaborador al que se le da meta_ads.view le aparece Meta Ads', () => {
     expect(rutasDe(PERFILES.colaborador)).not.toContain('/meta-ads');
     expect(rutasDe(persona('colaborador', { excepciones: { 'meta_ads.view': true } }))).toContain('/meta-ads');
+  });
+
+  it('sin excepción por rol: a un tutor al que se le da leads.view, el buscador le busca personas', () => {
+    expect(buscaDe(persona('tutor', { excepciones: { 'leads.view': true } })).personas).toBe(true);
   });
 
   it('a una gestora a la que se le da products.create, el buscador la cuenta como quien crea productos', () => {
