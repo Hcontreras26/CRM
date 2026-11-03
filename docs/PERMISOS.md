@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-802 rutas en 63 módulos, y 28 acciones con condición dentro de una ruta.
+803 rutas en 63 módulos, y 28 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -1004,6 +1004,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | anunciosDeTutores | `GET /api/tutores/anuncios` | sesión · a mano: tutor.controller.js · exigirGestion | superadmin, admin y gestor/soporte/project_manager/tutor con «gestor_colaboraciones» | `tutores.gestionar` |
 | cursoDetalle | `GET /api/tutores/curso/:productId` | sesión · a mano: tutor.controller.js · esTutor \|\| exigirGestion | superadmin, admin, tutor y gestor/soporte/project_manager con «gestor_colaboraciones» | `tutores.mis_cursos` o `tutores.gestionar` |
 | brochureDelCurso | `GET /api/tutores/curso/:productId/brochure` | sesión · a mano: tutor.controller.js · esTutor \|\| exigirGestion | superadmin, admin, tutor y gestor/soporte/project_manager con «gestor_colaboraciones» | `tutores.mis_cursos` o `tutores.gestionar` |
+| buscar | `GET /api/tutores/buscar` | (no existía) | (ruta nueva) | `tutores.gestionar` |
 | listar | `GET /api/tutores/` | sesión · a mano: tutor.controller.js · exigirGestion | superadmin, admin y gestor/soporte/project_manager/tutor con «gestor_colaboraciones» | `tutores.gestionar` |
 | alta | `POST /api/tutores/` | sesión · a mano: tutor.controller.js · exigirGestion | superadmin, admin y gestor/soporte/project_manager/tutor con «gestor_colaboraciones» | `tutores.gestionar` |
 | ficha | `GET /api/tutores/:id` | sesión | superadmin, admin, gestor, soporte, project_manager, tutor | lo de cada uno |

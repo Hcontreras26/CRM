@@ -154,7 +154,10 @@ export default function TutoresPage() {
   const [verRetirados, setVerRetirados] = useState(false);
   // Buscador de la lista. Diego: «necesito una lupa en tutores». No habia
   // ninguno: con 19 tutores ya cuesta, y la lista crece.
-  const [busca, setBusca] = useState('');
+  // `?buscar=` lo trae el buscador (Ctrl K, #591): la lista sale ya filtrada por ese tutor.
+  // Se lee una vez, al abrir, de la dirección: sin el hook del router, que esta
+  // pantalla no necesitaba (y sus pruebas la montan sin él).
+  const [busca, setBusca] = useState(() => new URLSearchParams(window.location.search).get('buscar') ?? '');
   const [popupClave, setPopupClave] = useState(false);
   const [popupPago, setPopupPago] = useState(false);
   // «Cobra desde» en Editar tutor (Diego, 13/10): la fecha de inicio de TODAS
