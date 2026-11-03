@@ -5,12 +5,32 @@ import { query } from '../../shared/config/db.js';
 import { decrypt } from '../../shared/utils/crypto.js';
 import { refreshGoogleAdsAccessToken } from '../../shared/services/googleAds.service.js';
 import { anotar, historial, ACCIONES } from './credentials.registro.js';
+import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
+
+/**
+ * Lo que ve de las claves quien no ve todo el CRM (CRM#632).
+ *
+ * Diego, 03/11: «el admin debe ver todo de todo», pero cada uno con los datos
+ * de sus campus. Superadmin y soporte, todo. El admin, las claves de SUS campus
+ * y que existen las generales (la de Claude, por ejemplo: Informes pregunta si
+ * está puesta), sin los cuatro últimos caracteres de esas, que no son suyas.
+ * Guardar, probar, borrar y revelar siguen siendo de soporte: otro permiso.
+ */
+async function recortar(req, filas, { generales = true } = {}) {
+  if (veTodoElCrm(req.user)) return filas;
+  const mios = await campusDeLaPersona(req.user?.userId);
+  return filas
+    .filter((c) => (c.project_id == null ? generales : mios.includes(Number(c.project_id))))
+    .map((c) => (c.project_id == null && 'masked_value' in c
+      ? { ...c, cola: null, masked_value: '••••••••' }
+      : c));
+}
 
 export async function list(req, res, next) {
   try {
     const parsed = listCredentialsSchema.safeParse(req.query);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
-    const creds = await model.list(parsed.data);
+    const creds = await recortar(req, await model.list(parsed.data));
     res.json({ success: true, data: creds });
   } catch (err) { next(err); }
 }
@@ -61,19 +81,20 @@ export async function revelar(req, res, next) {
 }
 
 /** GET /api/credentials/paridad — que le falta a un entorno que el otro si tiene. */
-export async function paridad(_req, res, next) {
+export async function paridad(req, res, next) {
   try {
-    res.json({ success: true, data: await model.paridad() });
+    res.json({ success: true, data: await recortar(req, await model.paridad(), { generales: false }) });
   } catch (err) { next(err); }
 }
 
 /** GET /api/credentials/registro — quien ha tocado que. */
 export async function registro(req, res, next) {
   try {
-    res.json({
-      success: true,
-      data: await historial({ limite: req.query.limit, servicio: req.query.servicio }),
-    });
+    const filas = await historial({ limite: req.query.limit, servicio: req.query.servicio });
+    // Cada apunte lleva el campus en `details.project_id`: el admin, solo los suyos.
+    const conCampus = filas.map((f) => ({ ...f, project_id: f.details?.project_id ?? null }));
+    const quedan = await recortar(req, conCampus, { generales: false });
+    res.json({ success: true, data: quedan.map(({ project_id: _p, ...f }) => f) });
   } catch (err) { next(err); }
 }
 

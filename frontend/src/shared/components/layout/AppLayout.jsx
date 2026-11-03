@@ -144,6 +144,12 @@ const ALL_PROJECTS_OK = [
   /^\/meta-ads$/,
   /^\/chat-ia$/,
   /^\/conexion\/moodle(?:\/\d+)?$/,
+  // CRM#632 (auditoría del 03/11): el admin con varios campus se quedaba en el
+  // muro en Configuración › Documentos y › Plantillas de email. Numeración de
+  // documentos lista los campus del ámbito, cada uno con lo suyo; las plantillas
+  // piden el campus dentro (`useCampusDeLaPantalla`).
+  /^\/configuracion\/documentos$/,
+  /^\/configuracion\/plantillas-email$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -356,6 +362,12 @@ const CON_SOCIEDAD_OK = [
   /^\/meta-ads$/,
   /^\/chat-ia$/,
   /^\/conexion\/moodle(?:\/\d+)?$/,
+  // CRM#632 (auditoría del 03/11): el admin con varios campus se quedaba en el
+  // muro en Configuración › Documentos y › Plantillas de email. Numeración de
+  // documentos lista los campus del ámbito, cada uno con lo suyo; las plantillas
+  // piden el campus dentro (`useCampusDeLaPantalla`).
+  /^\/configuracion\/documentos$/,
+  /^\/configuracion\/plantillas-email$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {
