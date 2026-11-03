@@ -307,9 +307,12 @@ export default function ClientsPage() {
   // Lo que está pendiente de cobrar. Va aparte de la lista porque el endpoint
   // que lo sabe es el de contabilidad, y trae todo sin paginar: así las
   // columnas de abajo hablan de todo el proyecto y no de la página.
+  // Sin «Por cobrar» ni se pide ni se pinta: el servidor da 403 (#631).
+  const veCobros = can('accounting.por_cobrar');
   const { items: cobros, tramos } = useCobrosClientes({
     projectId: isAllProjects ? null : (activeProject?.id ?? null),
     responsableId: filterResp,
+    activo: veCobros,
   });
 
   const totalFacturado = filtered.reduce((s, c) => s + Number(c.total_compras), 0);
@@ -387,15 +390,19 @@ export default function ClientsPage() {
           estrecha. Antes aquí se pasaba de las cifras a la tabla directamente:
           no había forma de saber qué tocaba cobrar sin irse a Contabilidad. */}
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)_minmax(260px,0.7fr)]">
-        <SaludDeCobro
-          tramos={tramos}
-          onVerPorCobrar={() => navigate('/finanzas/por-cobrar')}
-        />
-        <ProximosCobros
-          cobros={cobros}
-          onAbrir={(leadId) => navigate(`/clientes/${leadId}`)}
-          onVerTodos={() => navigate('/finanzas/por-cobrar')}
-        />
+        {veCobros && (
+          <>
+            <SaludDeCobro
+              tramos={tramos}
+              onVerPorCobrar={() => navigate('/finanzas/por-cobrar')}
+            />
+            <ProximosCobros
+              cobros={cobros}
+              onAbrir={(leadId) => navigate(`/clientes/${leadId}`)}
+              onVerTodos={() => navigate('/finanzas/por-cobrar')}
+            />
+          </>
+        )}
         <AccesosClave
           accesos={[
             // Matrículas no se ofrece si el proyecto no las tiene. Dos señales:

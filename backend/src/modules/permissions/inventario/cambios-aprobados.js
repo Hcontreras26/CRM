@@ -218,6 +218,16 @@ export const CAMBIOS_DE_MENU = [
     },
     aprobadoPor: DIEGO,
   },
+  {
+    id: 'menu-sin-403-631',
+    que: '«WhatsApp › Banco de mensajes» lo ve quien puede usar o supervisar WhatsApp; el project manager deja de verlo.',
+    motivo: 'La auditoría del 03/11 (#631): se le abría y el servidor le daba 403 (`usaOSupervisa`). Diego pidió esconder lo que no se puede usar.',
+    perfiles: {
+      project_manager: ['- Principal › WhatsApp › Banco de mensajes'],
+    },
+    rutas: { 'Principal › WhatsApp › Banco de mensajes': 'GET /api/whatsapp/banco' },
+    aprobadoPor: 'Diego, 03/11 (#631)',
+  },
 ];
 
 /** `{ perfil: ['+ …', '- …'] }`, todos los cambios de menú juntos. */
