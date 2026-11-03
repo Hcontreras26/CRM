@@ -90,6 +90,40 @@ const ALL_PROJECTS_OK = [
   // «Mi factura» son las del propio colaborador, a todas sus empresas.
   /^\/finanzas\/facturas-colaboradores$/,
   /^\/mi-factura$/,
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // #218, tanda 1 (03/11). Ya funcionaban con una EMPRESA (están abajo, en
+  // `CON_SOCIEDAD_OK`) y su servidor, sin campus, se queda en los de quien pide
+  // (`proyectosDelAmbito`; super admin y soporte, todos). Con «Todos» solo les
+  // faltaba esta lista. Probado entrando como super admin y como admin.
+  //
+  // Seguimiento y Reportes, después de cerrar su fuga en el servidor (#620): antes,
+  // sin campus, enseñaban los de todas las empresas.
+  /^\/finanzas$/,
+  /^\/finanzas\/ingresos$/,
+  /^\/finanzas\/conversiones$/,
+  /^\/finanzas\/egresos$/,
+  /^\/finanzas\/por-cobrar$/,
+  /^\/finanzas\/por-pagar$/,
+  /^\/finanzas\/comisiones$/,
+  /^\/finanzas\/pendiente-facturar$/,
+  /^\/finanzas\/ventas-analisis$/,
+  /^\/informes$/,
+  /^\/prospectos\/seguimiento$/,
+  // Las que no miran el campus: lo suyo de cada uno.
+  /^\/correos$/,
+  /^\/mensajes$/,
+  /^\/mis-cursos$/,
+  /^\/novedades$/,
+  /^\/solicitudes-cambio$/,
+  /^\/solicitudes-cambio\/\d+$/,
+  /^\/configuracion\/claves$/,
+  // WhatsApp es de la gestora, no del campus (el mismo motivo que con una empresa).
+  /^\/whatsapp$/,
+  /^\/whatsapp\/chat$/,
+  /^\/whatsapp\/banco$/,
+  /^\/whatsapp\/conexion$/,
+  /^\/whatsapp\/ayuda$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
