@@ -46,13 +46,27 @@ describe('#218 tanda 2: se abren con «Todos los proyectos»', () => {
   });
 });
 
-describe('las de las tandas siguientes siguen con su muro', () => {
+// Tanda 3: pantallas de UN campus que piden el campus dentro (o suman los de
+// quien mira, o listan sus campus). Se abren con «Todos» y con una empresa.
+const TANDA_3 = [
+  '/prospectos/proceso', '/prospectos/duplicados', '/prospectos/revision-duplicados',
+  '/meta-ads', '/chat-ia', '/conexion/moodle', '/conexion/moodle/1753',
+];
+
+describe('#218 tanda 3: se abren con «Todos» y con una empresa', () => {
+  it.each(TANDA_3)('%s con «Todos»', (ruta) => {
+    expect(pathAllowsAll(ruta)).toBe(true);
+  });
+  it.each(TANDA_3)('%s con una empresa', (ruta) => {
+    expect(rutaAceptaSociedad(ruta)).toBe(true);
+  });
+});
+
+describe('las que siguen con su muro (configuración de un campus, pendientes de Diego)', () => {
   // El servidor aún no sabe «Todos» (400 o 403 con el -1), o la pantalla pide un
   // campus por su cuenta. Se abren en las tandas 2 y 3, no antes.
   it.each([
-    '/finanzas/integraciones',
-    '/prospectos/convocatorias', '/prospectos/duplicados', '/prospectos/revision-duplicados',
-    '/prospectos/proceso', '/productos', '/productos/woocommerce', '/meta-ads', '/conexion/moodle',
+    '/finanzas/integraciones', '/prospectos/convocatorias', '/productos', '/productos/woocommerce',
     '/whatsapp/plantillas', '/registro',
   ])('%s', (ruta) => {
     expect(pathAllowsAll(ruta)).toBe(false);
