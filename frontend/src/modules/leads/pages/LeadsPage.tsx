@@ -84,7 +84,7 @@ import BloquePlegable from '@/shared/components/ui/BloquePlegable';
 // pasado en vez de lo que va a pasar. El componente viejo sigue en el repo.
 import UltimoLeadAsignado from '../components/UltimoLeadAsignado';
 import ParaHoyYManana from '@/shared/components/dashboard/ParaHoyYManana';
-import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
+import { useIdsDelAmbito, useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 
 
 function StatPill({ label, value, dot }: { label: string; value: number; dot?: string }) {
@@ -180,6 +180,10 @@ export default function LeadsPage() {
    * es lo que el servidor sabe sumar.
    */
   const idsDelAmbito = useIdsDelAmbito();
+  // Los campus que ofrece el filtro «Proyecto» y el export: los de la empresa
+  // elegida arriba, o todos los suyos sin los de pruebas (#346). Antes era la
+  // lista entera: con CEDIA salían ICTESS, Academia IA y Pruebas.
+  const campusDelAmbito = useProyectosDelAmbito<{ id: number; nombre?: string; sociedad_emisora_id?: number | null; es_prueba?: boolean }>();
   const proyectoDeLaCola = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
   const campusCsv = !proyectoDeLaCola && activeIssuerId && idsDelAmbito.length
     ? idsDelAmbito.join(',')
@@ -245,7 +249,7 @@ export default function LeadsPage() {
   const [expScope, setExpScope] = useState('filtros'); // 'filtros' | 'todos'
 
   // Proyectos elegibles para el export (con nombre).
-  const exportableProjects = (projects || []).filter((p) => p.id > 0);
+  const exportableProjects = campusDelAmbito;
 
   // Token para evitar que respuestas lentas de un cálculo anterior pisen al
   // último (al cambiar rápido de proyecto/alcance se combinaban datos).
@@ -952,7 +956,7 @@ export default function LeadsPage() {
           puesto ahora mismo, y «Asignar pendientes». */}
       <LeadsFiltersBar
         activeProject={activeProject}
-        projects={projects}
+        projects={campusDelAmbito}
         selectedProjectIds={selectedProjectIds}
         setSelectedProjectIds={setSelectedProjectIds}
         gestores={gestores}

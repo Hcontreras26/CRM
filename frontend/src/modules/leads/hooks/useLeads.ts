@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import useUrlFilters from '@/shared/hooks/useUrlFilters';
-import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
+import { useIdsDelAmbito, soloDelAmbito } from '@/shared/hooks/useAmbito';
 import client from '@/shared/api/client';
 import type { Lead, LeadStatus, LeadOrigen } from '@/shared/types';
 import { idsDelAmbito } from '@/shared/lib/ambitoInforme';
@@ -109,9 +109,12 @@ export function useLeads(): UseLeadsResult {
   // Default CRONOLÓGICO ('recent') descendente = más reciente primero.
   const sortMode = (['value', 'recent', 'urgency', 'recent_value'].includes(sortRaw) ? sortRaw : 'recent') as 'value' | 'recent' | 'urgency' | 'recent_value';
   const sortDir = (dirRaw === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
-  const selectedProjectIds: number[] = multiRaw
-    ? multiRaw.split(',').map((x) => Number(x)).filter((x) => x > 0)
-    : [];
+  // Con «Todos» o una empresa arriba, solo lo elegido que sea de ese ámbito (#346).
+  // La dirección se deja como está: al volver a «Todos», el filtro reaparece.
+  const selectedProjectIds: number[] = useMemo(() => {
+    const elegidos = multiRaw ? multiRaw.split(',').map((x) => Number(x)).filter((x) => x > 0) : [];
+    return isAllProjects ? soloDelAmbito(elegidos, idsDelAmbito) : elegidos;
+  }, [multiRaw, isAllProjects, idsDelAmbito]);
 
   const setSearch = useCallback((v: string) => setUrlFilters({ q: v, page: 1 }), [setUrlFilters]);
   const setFilterEstado = useCallback((v: string) => setUrlFilters({ estado: v, page: 1 }), [setUrlFilters]);
@@ -214,7 +217,7 @@ export function useLeads(): UseLeadsResult {
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [pid, page, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterResponsable, filterProducto, multiRaw, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
+  }, [pid, page, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterResponsable, filterProducto, selectedProjectIds, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
 
   // Trae TODOS los leads que cumplen los filtros actuales (sin paginar) para
   // exportar. El listado va paginado de 20 en 20; el export debe llevarse todo
@@ -273,7 +276,7 @@ export function useLeads(): UseLeadsResult {
       page += 1;
     }
     return all;
-  }, [pid, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterResponsable, filterProducto, multiRaw, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
+  }, [pid, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterResponsable, filterProducto, selectedProjectIds, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
 
   useEffect(() => () => {
     if (abortRef.current) abortRef.current.abort();
@@ -338,7 +341,7 @@ export function useLeads(): UseLeadsResult {
     } catch {
       // Stats son secundarios, no bloquear UI
     }
-  }, [pid, isAllProjects, projects, multiRaw, debouncedSearch, filterOrigen, filterResponsable, filterProducto, dateFrom, dateTo]);
+  }, [pid, isAllProjects, projects, selectedProjectIds, idsDelAmbito, debouncedSearch, filterOrigen, filterResponsable, filterProducto, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchLeads();
