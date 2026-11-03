@@ -78,6 +78,7 @@ import { isBetaAllowed, BETA_MODE, BETA_VERSION } from '@/shared/config/betaConf
 import { moduloApagado } from '@/shared/lib/modulos';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
+import { MARCA } from '@/shared/config/marca';
 
 const ProjectSettingsDialog = lazy(() => import('@/modules/settings/components/ProjectSettingsDialog'));
 const NotificationsBell = lazy(() => import('./NotificationsBell'));
@@ -1231,7 +1232,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
         {!collapsed && (
           <div className="mt-2 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-semibold text-sm text-foreground truncate">MultiCRM</span>
+              <span className="font-semibold text-sm text-foreground truncate">{MARCA}</span>
               {BETA_MODE && (
                 <span className="text-[9px] font-bold uppercase tracking-wider bg-warning-soft text-warning-soft-foreground px-1.5 py-0.5 rounded flex-shrink-0">
                   BETA {BETA_VERSION}

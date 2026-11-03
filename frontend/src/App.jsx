@@ -6,6 +6,7 @@ import { tituloDeRuta } from './shared/lib/rutasTitulos';
 
 import { SOLO_EN_PRUEBAS } from './shared/lib/soloEnPruebas';
 import ConPermiso from './shared/components/layout/ConPermiso';
+import { MARCA } from '@/shared/config/marca';
 const APP_BASE_URL = import.meta.env.BASE_URL || '';
 const IS_TESTEO_PREVIEW_BASE = APP_BASE_URL.startsWith('/testeo/');
 const IS_TESTEO2_BASE = APP_BASE_URL.startsWith('/testeo2/');
@@ -21,7 +22,7 @@ function DocumentTitle() {
   const { pathname } = useLocation();
   const { activeProject: project, activeIssuer } = useProjectContext();
   useEffect(() => {
-    const base = 'MultiCRM';
+    const base = MARCA;
     // El nombre sale del mismo sitio que usa la cabecera: una pantalla no
     // puede llamarse de una forma en la pestaña y de otra encima del contenido.
     const route = tituloDeRuta(pathname);

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import client from '@/shared/api/client';
 import { Eye, EyeSlash, Check, X, ShieldCheck } from '@phosphor-icons/react';
+import { MARCA } from '@/shared/config/marca';
 
 const RULES = [
   { id: 'length', label: 'Mínimo 8 caracteres', test: (v) => v.length >= 8 },
@@ -65,7 +66,7 @@ export default function SetPasswordPage() {
           <div className="w-12 h-12 rounded-xl bg-success text-success-foreground flex items-center justify-center shadow-sm mb-4">
             <ShieldCheck size={22} weight="bold" />
           </div>
-          <h1 className="font-semibold text-base">MultiCRM</h1>
+          <h1 className="font-semibold text-base">{MARCA}</h1>
         </div>
 
         <div className="bg-card rounded-xl border border-border p-7">

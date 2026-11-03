@@ -407,7 +407,7 @@ export default function ClientsPage() {
             ] : []),
             { label: 'Por cobrar', detail: 'Cuotas pendientes', icon: Wallet, to: '/finanzas/por-cobrar' },
             { label: 'Ventas', detail: 'Registrar y consultar', icon: Receipt, to: '/finanzas/ventas' },
-            { label: 'Reportes', detail: 'Numeros descargables', icon: ChartLineUp, to: '/informes' },
+            { label: 'Reportes', detail: 'Números descargables', icon: ChartLineUp, to: '/informes' },
           ]}
         />
       </section>

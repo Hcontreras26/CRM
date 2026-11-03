@@ -46,7 +46,7 @@ export default function ResumenDeAyerYHoy({ projectIds }: { projectIds: number[]
     <div className="bg-card border border-border rounded-lg p-4">
       <h2 className="font-semibold text-base">Ayer y hoy</h2>
       <p className="text-xs text-muted-foreground mb-3">
-        Lo que entro y lo que se hizo. Los mismos numeros que Reportes.
+        Lo que entró y lo que se hizo. Los mismos números que Reportes.
       </p>
 
       <table className="w-full text-sm">
