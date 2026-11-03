@@ -11,7 +11,7 @@
 /** Cómo se llama este CRM y su color: portada del PDF y cabecera del correo. */
 export const CRM = { nombre: 'MultiCRM', color: '#1f3a5f' };
 
-export const VERSIONES = [
+const LISTA = [
   {
     "version": "2.2.0",
     "fecha": "2026-10-16",
@@ -975,6 +975,18 @@ export const VERSIONES = [
     ]
   }
 ];
+
+/**
+ * Cada versión con sus listas aunque no traiga alguna. La 2.2.0 no tenía
+ * `arreglos`, y la pantalla, el PDF, el correo y la campana hacían
+ * `v.arreglos.length`: Novedades salía en «Algo se ha roto», en `staging` y en
+ * producción. Una versión sin arreglos es una lista vacía, no un fallo.
+ */
+export const VERSIONES = LISTA.map((v) => ({
+  ...v,
+  grupos: (v.grupos || []).map((g) => ({ ...g, items: g.items || [] })),
+  arreglos: v.arreglos || [],
+}));
 
 export const ACTUAL = VERSIONES[0];
 
