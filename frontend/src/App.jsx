@@ -203,6 +203,12 @@ const DevComponentsPage = (UI_PREVIEW_ENABLED || IS_TESTEO2_BASE)
   ? lazy(() => import('./modules/dev/pages/DevComponentsPage'))
   : null;
 
+// Las direcciones de Finanzas de antes, sin el prefijo /finanzas (CRM#633).
+const FINANZAS_SIN_PREFIJO = [
+  'comisiones', 'facturas', 'pagos-stripe', 'por-cobrar', 'por-pagar', 'ingresos', 'egresos',
+  'nominas', 'conversiones', 'integraciones', 'pendiente-facturar', 'facturas-colaboradores',
+];
+
 function App() {
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center text-muted-foreground">Cargando…</div>}>
@@ -414,6 +420,12 @@ function App() {
           <Route path="/email-sequences" element={<Navigate to="/secuencias-email" replace />} />
           <Route path="/ai-chat" element={<Navigate to="/chat-ia" replace />} />
           <Route path="/configuracion/email-templates" element={<Navigate to="/configuracion/plantillas-email" replace />} />
+          {/* Finanzas sin su prefijo (CRM#633). Eran las direcciones de antes de
+              agrupar Finanzas bajo /finanzas: alguien las tiene guardadas y la
+              auditoría del 03/11 las encontró dando «página no encontrada». */}
+          {FINANZAS_SIN_PREFIJO.map((r) => (
+            <Route key={r} path={`/${r}`} element={<Navigate to={`/finanzas/${r}`} replace />} />
+          ))}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
