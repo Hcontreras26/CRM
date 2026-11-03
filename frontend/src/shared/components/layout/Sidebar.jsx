@@ -402,7 +402,9 @@ export const NAV_SECTIONS = [
       // Los correos que salen del CRM (#146). Mismos roles que el Registro, y
       // aqui pesa mas: esto enseña el TEXTO de correos a personas.
       { label: 'Correos', to: '/correos', detail: 'Lo que ha mandado el CRM', icon: EnvelopeSimple, roles: ['superadmin', 'admin'], permiso: 'correos.view' },
-      { label: 'Status', to: '/status', detail: 'Si algo está caído', icon: Activity },
+      // Lo que enseña pide `status.view` (piezas y correos), `credentials.view` o
+      // `woocommerce.view`: sin ninguno, la pantalla era solo 403 (#631).
+      { label: 'Status', to: '/status', detail: 'Si algo está caído', icon: Activity, permiso: ['status.view', 'credentials.view', 'woocommerce.view'] },
       { label: 'Manual de usuario', to: '/manual', detail: 'Cómo se usa cada cosa', icon: BookOpen },
     ],
   },

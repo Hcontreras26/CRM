@@ -220,13 +220,24 @@ export const CAMBIOS_DE_MENU = [
   },
   {
     id: 'menu-sin-403-631',
-    que: '«WhatsApp › Banco de mensajes» lo ve quien puede usar o supervisar WhatsApp; el project manager deja de verlo.',
-    motivo: 'La auditoría del 03/11 (#631): se le abría y el servidor le daba 403 (`usaOSupervisa`). Diego pidió esconder lo que no se puede usar.',
+    que: '«WhatsApp › Banco de mensajes» lo ve quien puede usar o supervisar WhatsApp, y «Sistema › Status» quien ve el estado, las credenciales o WooCommerce. El project manager deja de ver los dos, y la gestora, Status.',
+    motivo: 'La auditoría del 03/11 (#631): se les abrían y el servidor les daba 403 (`usaOSupervisa`; en Status, `status.view`, `credentials.view` y `woocommerce.view`, sin nada más que enseñar). Diego pidió esconder lo que no se puede usar.',
     perfiles: {
-      project_manager: ['- Principal › WhatsApp › Banco de mensajes'],
+      project_manager: ['- Principal › WhatsApp › Banco de mensajes', '- Sistema › Status'],
+      gestora: ['- Sistema › Status'],
+      'gestora+tutor': ['- Sistema › Status'],
+      'gestora con factura_manager': ['- Sistema › Status'],
+      'gestora con editar_fechas_factura': ['- Sistema › Status'],
+      'gestora con usa_mcp': ['- Sistema › Status'],
+      'gestora con diplomas.view': ['- Sistema › Status'],
+      'gestora con tasks.close': ['- Sistema › Status'],
     },
-    rutas: { 'Principal › WhatsApp › Banco de mensajes': 'GET /api/whatsapp/banco' },
-    aprobadoPor: 'Diego, 03/11 (#631)',
+    rutas: {
+      'Principal › WhatsApp › Banco de mensajes': 'GET /api/whatsapp/banco',
+      'Sistema › Status': 'GET /api/status/piezas',
+    },
+    // Pendiente: Diego pidió esconder lo que da 403 (#631), pero este cambio del menú se le pide en la PR #643.
+    aprobadoPor: null,
   },
 ];
 
@@ -240,9 +251,11 @@ export function cambiosDeMenuPorPerfil() {
 }
 
 /**
- * Reglas nuevas que dependen de lo que se MANDA, no de quién entra a la ruta:
- * la comparación no las ve (la ruta sigue abierta), pero cambian lo que se
- * puede hacer. Van en la misma lista para Diego.
+ * Reglas nuevas que la comparación no ve, pero que cambian lo que se puede
+ * hacer: las que dependen de lo que se MANDA (la ruta sigue abierta) y los
+ * cambios en el corte del colaborador (`RUTAS_DEL_COLABORADOR`, que la
+ * comparación evalúa con la copia congelada de antes). Van en la misma lista
+ * para Diego.
  */
 export const CAMBIOS_DE_REGLA = [
   {
@@ -252,5 +265,14 @@ export const CAMBIOS_DE_REGLA = [
     roles: ['admin', 'soporte'],
     sentido: 'pierde',
     aprobadoPor: DIEGO,
+  },
+  {
+    id: 'colaborador-catalogo-del-menu',
+    que: 'El colaborador puede leer `GET /api/permissions/system-defaults`: lo que trae de serie cada rol, la lista que usa «Mis preferencias › Mi vista» para los nombres del menú. El tutor ya podía.',
+    motivo: 'La auditoría del 03/11 (#631): «Mis preferencias» le daba 403 al colaborador. Solo es lectura y no trae datos de nadie, pero es una ruta más que deja pasar el corte del colaborador.',
+    roles: ['colaborador'],
+    sentido: 'gana',
+    // Pendiente: se le pide a Diego en la PR #643.
+    aprobadoPor: null,
   },
 ];
