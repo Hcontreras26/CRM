@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowsClockwise, ChatCircleText, MagnifyingGlass } from '@phosphor-icons/react';
+import { ArrowsClockwise, ChatCircleText, LockKey, MagnifyingGlass } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { toast } from '@/shared/hooks/useToast';
@@ -68,6 +68,7 @@ export default function ConsultasPage() {
   // Como el servidor (`veTodoElCrm`): superadmin y soporte cuentan solo como rol
   // principal; admin, también de más. Si no, el botón sale y el servidor da 403.
   const esAdmin = (['superadmin', 'soporte'].includes(user?.role || '') || tieneRol(user as never, 'admin')) && can('consultas.view');
+  const sinAcceso = !can('consultas.view') && !can('consultas.atender');
   const [vista, setVista] = useState<Vista>(esTutor ? 'mias' : 'todas');
   const [pestana, setPestana] = useState<(typeof PESTANAS)[number]['clave']>('pendientes');
   const [sinTutor, setSinTutor] = useState(false);
@@ -105,7 +106,7 @@ export default function ConsultasPage() {
     } finally { if (yo === ultima.current) setCargando(false); }
   }, [vista, pestana, buscarYa, sinTutor, ambito]);
 
-  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { if (!sinAcceso) cargar(); }, [cargar, sinAcceso]);
 
   // Campus conectados sin tutor para las consultas (#189): solo administración.
   const [sinTutorCampus, setSinTutorCampus] = useState<CampusSinTutor[]>([]);
@@ -133,6 +134,20 @@ export default function ConsultasPage() {
       const err = e as { data?: { error?: string }; message?: string };
       toast({ title: 'No se ha podido leer el campus', description: err?.data?.error || err?.message, variant: 'destructive' });
     } finally { setLeyendo(false); }
+  }
+
+  // Sin ninguno de los dos permisos el servidor da 403: mejor decirlo que
+  // enseñar «Nada pendiente», como si no hubiera consultas.
+  if (sinAcceso) {
+    return (
+      <div className="space-y-4 pb-8">
+        <PageHeader title="Consultas de alumnos" subtitle="Las dudas que escriben los alumnos en el campus" />
+        <div className="bg-card border border-border rounded-lg">
+          <EmptyState icon={LockKey} title="No tienes acceso a las consultas de alumnos"
+            description="Las atienden los tutores y las ve administración. Si crees que deberías verlas, pídelo a un administrador." />
+        </div>
+      </div>
+    );
   }
 
   return (
