@@ -71,6 +71,30 @@ export async function tieneAlgunCampus(tutorId, projectIds) {
   return rows.length > 0;
 }
 
+/**
+ * El buscador (Ctrl K, #591): un tutor por nombre o correo, sin acentos.
+ * Solo lo que sale en el resultado: ni DNI, ni IBAN, ni banco, ni notas
+ * (esos se ven en su ficha, con su guarda). `campus` null: todos.
+ */
+export async function buscar({ q, campus, limit = 5 }) {
+  const { rows } = await query(
+    `SELECT u.id, u.nombre, u.email, u.active,
+            (SELECT string_agg(DISTINCT pr.nombre, ' · ' ORDER BY pr.nombre)
+               FROM user_projects up JOIN projects pr ON pr.id = up.project_id
+              WHERE up.user_id = u.id) AS marcas
+       FROM users u
+      WHERE u.role = 'tutor'
+        AND (unaccent(COALESCE(u.nombre, '')) ILIKE unaccent($1) OR u.email ILIKE $1)
+        AND ($2::int[] IS NULL OR EXISTS (
+              SELECT 1 FROM user_projects up
+               WHERE up.user_id = u.id AND up.project_id = ANY($2::int[])))
+      ORDER BY u.active DESC, u.nombre
+      LIMIT $3`,
+    [`%${q}%`, campus, limit],
+  );
+  return rows;
+}
+
 export async function listar({ projectId, projectIds = null, activos = true }) {
   // Con un proyecto elegido no se corta en seco: primero los profesores de ESE
   // proyecto y despues los de los demas proyectos de la MISMA SOCIEDAD.

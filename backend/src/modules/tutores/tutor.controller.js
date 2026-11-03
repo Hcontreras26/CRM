@@ -8,7 +8,7 @@ import {
   altaTutorSchema, perfilSchema, colaboracionSchema,
   editarColaboracionSchema, ajustesSchema, calcularSchema, liquidarSchema,
   cobraDesdeSchema,
-  busquedaDeTutorSchema,
+  busquedaDeTutorSchema, buscarTutoresSchema,
   empresaDelTutorSchema, campusDelTutorSchema, disponibleSchema,
 } from './tutor.validation.js';
 import * as campusTutor from './tutor.campus.js';
@@ -65,6 +65,21 @@ export async function listar(req, res, next) {
       ...(await proyectosDelAmbito(req)),
       activos: req.query.activos !== '0',
     })});
+  } catch (err) { next(err); }
+}
+
+// GET /api/tutores/buscar?q= — el buscador (Ctrl K, #591). Quien gestiona
+// colaboraciones, y solo los tutores de sus campus (super admin y soporte, todos).
+export async function buscar(req, res, next) {
+  try {
+    await exigirGestion(req);
+    const parsed = buscarTutoresSchema.safeParse(req.query);
+    if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    const { q, projectIds, limit } = parsed.data;
+    let campus = veTodoElCrm(req.user) ? null : await campusDeLaPersona(req.user.userId);
+    if (projectIds?.length) campus = campus ? projectIds.filter((id) => campus.includes(id)) : projectIds;
+    if (campus && !campus.length) campus = [-1];
+    res.json({ success: true, data: await model.buscar({ q, campus, limit }) });
   } catch (err) { next(err); }
 }
 
