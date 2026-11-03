@@ -130,17 +130,13 @@ export function paginasDelBuscador({ user, can, activeProject }) {
  * excepciones), nunca el nombre del rol. Si falta el permiso no se llama al
  * servidor; el ámbito (sus campus, solo lo suyo si es gestora) lo pone él.
  *
- * La única excepción es quien es SOLO tutor: el catálogo le da `leads.view` y
- * `products.view` (TODOS), pero su menú no tiene ni Prospectos ni Productos.
- * Diego tiene que decidir si se le quitan del catálogo; mientras, el buscador
- * no se los enseña (el mismo recorte que hace `canSeeItem`).
+ * Sin excepciones por rol: el tutor solo tiene lo suyo en el catálogo (Diego,
+ * 03/11), así que tampoco lo busca.
  */
-export function queBusca({ user, can }) {
+export function queBusca({ can }) {
   const tiene = (p) => typeof can === 'function' && can(p) === true;
-  const roles = rolesDe(user);
-  const soloTutor = roles.length === 1 && roles[0] === 'tutor';
-  const personas = !soloTutor && tiene('leads.view');
-  const productos = !soloTutor && tiene('products.view');
+  const personas = tiene('leads.view');
+  const productos = tiene('products.view');
   return {
     personas,
     clientes: personas && tiene('clients.view'),
@@ -148,9 +144,9 @@ export function queBusca({ user, can }) {
     crearProspecto: personas && tiene('leads.create'),
     crearProducto: productos && tiene('products.create'),
     // Ventas por número y facturas: el servidor acota a sus campus y, si es
-    // gestora, a las suyas. Al tutor, como con las personas, se le deja fuera.
-    ventas: !soloTutor && tiene('conversions.view'),
-    facturas: !soloTutor && tiene('facturas.view'),
+    // gestora, a las suyas.
+    ventas: tiene('conversions.view'),
+    facturas: tiene('facturas.view'),
     tareas: tiene('tasks.view_own') || tiene('tasks.view_all'),
     // Las consultas de alumnos: las suyas si las atiende; las de sus campus si las supervisa.
     consultasPanel: tiene('consultas.view'),
@@ -279,7 +275,7 @@ export default function CommandPalette() {
   const idsDelAmbito = useIdsDelAmbito();
 
   const pages = useMemo(() => paginasDelBuscador({ user, can, activeProject }), [user, can, activeProject]);
-  const busca = useMemo(() => queBusca({ user, can }), [user, can]);
+  const busca = useMemo(() => queBusca({ can }), [can]);
 
   // Crear solo si puede crear y su menú tiene la pantalla: si no, es el muro.
   const quickActions = useMemo(() => [
