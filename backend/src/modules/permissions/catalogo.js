@@ -523,7 +523,9 @@ export const SECCIONES = [
       },
       {
         clave: 'credentials', nombre: 'Claves y variables', acciones: [
-          a('view', 'Ver claves', 'Qué claves hay, sin verlas, y su registro.', SOPORTE),
+          // El admin las ve, de sus campus (CRM#632, Diego 03/11: «el admin debe
+          // ver todo de todo»). Guardar y revelar siguen siendo de soporte.
+          a('view', 'Ver claves', 'Qué claves hay, sin verlas, y su registro. El admin, las de sus campus.', ADMIN_SOPORTE),
           a('edit', 'Guardar claves', 'Guardar, probar y quitar claves de servicios.', SOPORTE),
           a('revelar', 'Revelar una clave', 'Ver el valor de una clave guardada.', SOPORTE, { requiere: ['credentials.view'] }),
         ],

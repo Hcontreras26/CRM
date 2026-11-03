@@ -381,17 +381,16 @@ export const NAV_SECTIONS = [
     icon: Gear,
     items: [
       // Lo que trae cada versión del CRM (Diego, 28/09). Para todo el equipo.
-      { label: 'Novedades', to: '/novedades', detail: 'Versión 2.0.0', icon: Sparkle, roles: ['superadmin', 'admin', 'gestor', 'soporte'], permiso: 'novedades.view' },
+      { label: 'Novedades', to: '/novedades', detail: 'Lo nuevo de cada versión', icon: Sparkle, roles: ['superadmin', 'admin', 'gestor', 'soporte'], permiso: 'novedades.view' },
       { label: 'Mensajes', to: '/mensajes', detail: 'Del equipo', icon: ChatsCircle, permiso: 'mensajes.usar' },
       { label: 'Solicitudes de cambio', to: '/solicitudes-cambio', detail: 'Pedir un cambio', icon: GitMerge, permiso: 'change_requests.view' },
       { label: 'Notificaciones', to: '/notificaciones', detail: 'Lo que ha pasado', icon: BookOpen },
       // El tutor entra aqui: es donde cambia su contraseña.
       { label: 'Mis preferencias', to: '/preferencias', detail: 'Tus ajustes', icon: UserCircle, roles: ['superadmin', 'admin', 'gestor', 'tutor', 'colaborador'] },
       { label: 'Soporte', to: '/soporte', detail: 'Ayuda y contacto', icon: Headset },
-      // Claves y variables (#80). Los mismos roles que exige el servidor con
-      // `soloRoles`: ofrecer en el menu lo que la API va a negar es peor que
-      // no ofrecerlo.
-      { label: 'Claves y variables', to: '/configuracion/claves', detail: 'Credenciales del proyecto', icon: Key, roles: ['superadmin', 'soporte'], permiso: 'credentials.view' },
+      // Claves y variables (#80). Desde CRM#632 (03/11) también el admin, que
+      // ve las de sus campus; guardar y revelar siguen siendo de soporte.
+      { label: 'Claves y variables', to: '/configuracion/claves', detail: 'Credenciales del proyecto', icon: Key, roles: ['superadmin', 'admin', 'soporte'], permiso: 'credentials.view' },
       // El registro (#111). Los mismos roles que exige el servidor con
       // `roleGuard('admin', 'superadmin')`: cruza todas las fichas y a todos
       // los compañeros, y ofrecerlo a quien la API va a negar es peor que no

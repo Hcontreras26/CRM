@@ -105,6 +105,15 @@ export const CAMBIOS = [
     sentido: 'pierde',
     aprobadoPor: 'Diego, 03/11',
   },
+  {
+    id: 'admin-ve-claves',
+    que: 'Ver las claves y variables (sin su valor) y su registro: también el admin, solo las de sus campus y que existen las generales. Guardar, probar, borrar y revelar siguen siendo de soporte.',
+    motivo: 'CRM#632, auditoría del 03/11: el admin no veía Configuración › Claves y en ISEIE Informes le daba 403 en /credentials. Diego: «el admin debe ver todo de todo», con los datos de sus campus.',
+    filas: ['GET /api/credentials/', 'GET /api/credentials/paridad', 'GET /api/credentials/registro'],
+    roles: ['admin'],
+    sentido: 'gana',
+    aprobadoPor: 'Diego, 03/11',
+  },
 ];
 
 /** ¿Está aprobado (o pendiente de aprobar en esta lista) que esta fila cambie para este rol? */
@@ -185,6 +194,17 @@ export const CAMBIOS_POR_DATOS = [
  * deja pasar estas diferencias. `+` aparece, `-` desaparece.
  */
 export const CAMBIOS_DE_MENU = [
+  {
+    id: 'menu-claves-admin',
+    que: '«Sistema › Claves y variables» la ve también el admin, con las claves de sus campus (CRM#632).',
+    motivo: 'Va con el cambio `admin-ve-claves`: el admin ya puede leerlas en el servidor, y el menú se la enseña.',
+    perfiles: {
+      admin: ['+ Sistema › Claves y variables'],
+      'gestora+admin': ['+ Sistema › Claves y variables'],
+    },
+    rutas: { 'Sistema › Claves y variables': 'GET /api/credentials/' },
+    aprobadoPor: 'Diego, 03/11',
+  },
   {
     id: 'menu-facturacion',
     que: '«Finanzas › Facturación» la ve quien puede facturar: el admin, quien lleva la cola (la casilla «factura_manager») y quien es admin como rol de más.',
