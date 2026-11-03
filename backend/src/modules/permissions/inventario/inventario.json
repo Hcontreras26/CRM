@@ -14880,6 +14880,28 @@
   ]
  },
  {
+  "id": "GET /api/tutores/buscar",
+  "tipo": "ruta",
+  "modulo": "tutores",
+  "metodo": "GET",
+  "ruta": "/api/tutores/buscar",
+  "relativa": "GET /buscar",
+  "controlador": "buscar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/tutores/",
   "tipo": "ruta",
   "modulo": "tutores",
