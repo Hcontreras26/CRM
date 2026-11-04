@@ -154,6 +154,10 @@ const ALL_PROJECTS_OK = [
   // piden el campus dentro (`useCampusDeLaPantalla`).
   /^\/configuracion\/documentos$/,
   /^\/configuracion\/plantillas-email$/,
+  // #218, tanda 4 (Diego, 04/11): Integraciones enseña el estado de cada campus
+  // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
+  // elegir el campus.
+  /^\/finanzas\/integraciones$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -372,6 +376,10 @@ const CON_SOCIEDAD_OK = [
   // piden el campus dentro (`useCampusDeLaPantalla`).
   /^\/configuracion\/documentos$/,
   /^\/configuracion\/plantillas-email$/,
+  // #218, tanda 4 (Diego, 04/11): Integraciones enseña el estado de cada campus
+  // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
+  // elegir el campus.
+  /^\/finanzas\/integraciones$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {
