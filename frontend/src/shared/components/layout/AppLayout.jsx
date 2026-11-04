@@ -163,6 +163,9 @@ const ALL_PROJECTS_OK = [
   // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
   // elegir el campus.
   /^\/finanzas\/integraciones$/,
+  // #218, tanda 4 (Diego, 04/11): el Registro, con lo de los campus de quien mira
+  // (#620, #641); la pantalla manda el campus o la empresa de la cabecera.
+  /^\/registro$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -390,6 +393,9 @@ const CON_SOCIEDAD_OK = [
   // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
   // elegir el campus.
   /^\/finanzas\/integraciones$/,
+  // #218, tanda 4 (Diego, 04/11): el Registro, con lo de los campus de quien mira
+  // (#620, #641); la pantalla manda el campus o la empresa de la cabecera.
+  /^\/registro$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {

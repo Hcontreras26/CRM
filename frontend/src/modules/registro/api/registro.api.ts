@@ -33,6 +33,10 @@ export interface FiltrosDelRegistro {
   fuentes?: string[];
   busca?: string;
   limite?: number;
+  /** El ámbito de la cabecera (#218): un campus, una empresa o nada («Todos»).
+      El servidor lo recorta además a los campus de quien mira (#620). */
+  projectId?: number;
+  issuerId?: number;
 }
 
 /** Los filtros, como van en la direccion. */
@@ -45,6 +49,8 @@ function comoParametros(f: FiltrosDelRegistro): URLSearchParams {
   if (f.fuentes?.length) p.set('fuentes', f.fuentes.join(','));
   if (f.busca) p.set('busca', f.busca);
   if (f.limite) p.set('limite', String(f.limite));
+  if (f.projectId) p.set('projectId', String(f.projectId));
+  if (f.issuerId) p.set('issuerId', String(f.issuerId));
   return p;
 }
 
@@ -52,7 +58,8 @@ export const registroApi = {
   listar: (f: FiltrosDelRegistro = {}) =>
     client.get(`/registro?${comoParametros(f).toString()}`),
 
-  fuentes: () => client.get('/registro/fuentes'),
+  fuentes: (ambito: { projectId?: number; issuerId?: number } = {}) =>
+    client.get(`/registro/fuentes?${comoParametros(ambito).toString()}`),
 
   /**
    * Descarga el CSV de LO QUE SE ESTA MIRANDO.

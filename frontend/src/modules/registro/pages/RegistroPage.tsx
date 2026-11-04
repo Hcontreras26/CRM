@@ -9,6 +9,8 @@ import { toast } from '@/shared/hooks/useToast';
 import client from '@/shared/api/client';
 import { lista } from '@/shared/lib/lista';
 import { registroApi, type SucesoDelRegistro, type Fuente } from '../api/registro.api';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { ambitoComoObjeto, TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 
 /**
  * El registro del sistema (#111).
@@ -45,6 +47,22 @@ const COLOR: Record<string, string> = {
 };
 
 export default function RegistroPage() {
+  // El ámbito de la cabecera (#218, Diego 04/11): con un campus, lo de ese
+  // campus; con una empresa, lo de sus campus; con «Todos», lo de todos los de
+  // quien mira. Antes no se mandaba nada y salía siempre todo lo suyo.
+  const { activeProject, activeIssuerId, projects } = useProjectContext() as {
+    activeProject: { id?: number | null } | null;
+    activeIssuerId?: number | null;
+    projects?: Array<{ id: number; nombre: string }>;
+  };
+  const proyectoId = activeProject?.id ?? null;
+  const ambito = useMemo(
+    () => ambitoComoObjeto({ activeIssuerId, activeProject: { id: proyectoId } }) as { projectId?: number; issuerId?: number },
+    [activeIssuerId, proyectoId],
+  );
+  // Con varios campus a la vista, cada fila dice el suyo.
+  const general = proyectoId === TODOS_LOS_PROYECTOS || !!activeIssuerId;
+  const nombreDelCampus = useMemo(() => new Map((projects || []).map((p) => [p.id, p.nombre])), [projects]);
   const [vista, setVista] = useState<Vista>('general');
   const [filas, setFilas] = useState<SucesoDelRegistro[]>([]);
   const [fuentes, setFuentes] = useState<Fuente[]>([]);
@@ -68,7 +86,8 @@ export default function RegistroPage() {
     usuarioId: usuarioId || undefined,
     fuentes: elegidas.length ? elegidas : undefined,
     busca: busca.trim() || undefined,
-  }), [vista, desde, hasta, usuarioId, elegidas, busca]);
+    ...ambito,
+  }), [vista, desde, hasta, usuarioId, elegidas, busca, ambito]);
 
   // Se pide al servidor con un respiro, que si no cada tecla del buscador es
   // una consulta a seis tablas.
@@ -100,14 +119,14 @@ export default function RegistroPage() {
   }, [cargar]);
 
   useEffect(() => {
-    registroApi.fuentes().then((r) => { if (r.success) setFuentes(lista(r.data)); }).catch(() => {});
+    registroApi.fuentes(ambito).then((r) => { if (r.success) setFuentes(lista(r.data)); }).catch(() => {});
     // Para el filtro de usuario. Si no se puede —permisos, o la pantalla se
     // abre sin ellos— el filtro se queda sin lista y los demas siguen.
     // El servidor admite 100 como mucho: con 200 respondía 400 y el filtro salía vacío (#216).
     client.get('/users?limit=100')
       .then((r) => setUsuarios(lista(r?.data).map((u: any) => ({ id: u.id, nombre: u.nombre }))))
       .catch(() => {});
-  }, []);
+  }, [ambito]);
 
   // Las fuentes elegidas se limpian al cambiar de vista: quedarse con «tarea»
   // marcado al volver a «general» dejaba la lista vacia sin decir por que.
@@ -291,6 +310,11 @@ export default function RegistroPage() {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${COLOR[f.fuente] || 'bg-muted'}`}>
                         {fuentes.find((x) => x.nombre === f.fuente)?.titulo || f.fuente}
                       </span>
+                      {general && f.project_id && nombreDelCampus.get(f.project_id) && (
+                        <span className="block mt-1 text-[11px] text-muted-foreground truncate" aria-label={`Campus: ${nombreDelCampus.get(f.project_id)}`}>
+                          {nombreDelCampus.get(f.project_id)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-xs">
                       {f.usuario || <span className="text-muted-foreground italic">el sistema</span>}

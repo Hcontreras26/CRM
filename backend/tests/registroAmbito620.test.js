@@ -163,6 +163,12 @@ describe('el Registro, por campus (#620)', () => {
     expect(r.text).not.toContain(`${MARCA} gente-ajeno`);
   });
 
+  it('con un campus arriba, solo lo de ese campus (#218): también para soporte', async () => {
+    const vistas = mias(await pedir(SOPORTE, `${TODO}&projectId=${MIO}`)).join(' | ');
+    expect(vistas).toContain(`${MARCA} ficha mio`);
+    expect(vistas).not.toContain(`${MARCA} ficha ajeno`);
+  });
+
   it('un admin que pide el campus de otro: 403', async () => {
     expect((await pedir(ADMIN, `${TODO}&projectId=${AJENO}`)).status).toBe(403);
   });
