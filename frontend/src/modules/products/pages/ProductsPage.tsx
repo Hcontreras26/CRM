@@ -62,8 +62,10 @@ export default function ProductsPage() {
   const [syncStarting, setSyncStarting] = useState(false);
 
   // Polling del estado del sync
+  // Sin «Ver WooCommerce» el servidor da 403 cada 30 s: no se pregunta (#631).
+  const veWoo = can('woocommerce.view');
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || !veWoo) return;
     let cancel = false;
     async function tick() {
       try {
@@ -83,7 +85,7 @@ export default function ProductsPage() {
     const interval = setInterval(tick, syncStatus?.status === 'running' ? 3000 : 30000);
     return () => { cancel = true; clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, syncStatus?.status]);
+  }, [projectId, syncStatus?.status, veWoo]);
 
   async function handleSyncWc() {
     if (!projectId) return;

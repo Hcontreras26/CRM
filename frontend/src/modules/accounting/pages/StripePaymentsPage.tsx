@@ -177,8 +177,11 @@ export default function StripePaymentsPage() {
     } finally { setSyncing(false); }
   }
 
+  // Si hay clave de Stripe o de Supabase lo dice Integraciones (`integrations.view`):
+  // quien ve los cobros sin ese permiso no lo pregunta, o el servidor le da 403 (#631).
+  const veIntegraciones = can('integrations.view');
   useEffect(() => {
-    if (!unCampus) return;
+    if (!unCampus || !veIntegraciones) return;
     let vivo = true;
     client.get(`/integrations/stripe?projectId=${pid}`)
       .then((r) => { if (vivo) setHayClave(Boolean(r?.data?.has_secret)); })
@@ -187,7 +190,7 @@ export default function StripePaymentsPage() {
       .then((r) => { if (vivo) setPorSupabase(Boolean(r?.data?.has_secret)); })
       .catch(() => {});
     return () => { vivo = false; };
-  }, [pid, unCampus]);
+  }, [pid, unCampus, veIntegraciones]);
 
   if (!pid) {
     return <div className="p-8 text-muted-foreground">Selecciona un proyecto.</div>;

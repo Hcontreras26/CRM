@@ -10,6 +10,10 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { tieneWhatsapp } from '@/shared/lib/roles';
 import NeedsProjectBanner from '@/shared/components/ui/NeedsProjectBanner';
+import EmptyState from '@/shared/components/ui/EmptyState';
+import { LockKey } from '@phosphor-icons/react';
+import usePermission from '@/shared/hooks/usePermission';
+import { rutaPermitida } from './Sidebar';
 
 // Rutas que SÍ funcionan en modo "Todos los proyectos" (vista global).
 // El resto requiere un proyecto concreto (catálogo, settings, finanzas, etc.).
@@ -374,6 +378,28 @@ export function rutaAceptaSociedad(pathname) {
   return CON_SOCIEDAD_OK.some((rx) => rx.test(pathname));
 }
 
+/**
+ * Una pantalla que el menú no le enseña —le falta su permiso— tampoco se abre
+ * escribiendo la dirección (#631): dice «No tienes acceso» en vez de abrirse a
+ * medias y llenarse de 403.
+ */
+function PantallaConPermiso({ pathname, children }) {
+  const { can } = usePermission();
+  const { permissions } = useAuth();
+  // Sin el mapa de permisos todavía (al entrar), `can` dice que no a todo: no se
+  // decide nada hasta que llegue, o saldría un «No tienes acceso» falso.
+  if (!permissions || rutaPermitida(pathname, can)) return children;
+  return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <EmptyState
+        icon={LockKey}
+        title="No tienes acceso a esta pantalla"
+        description="Si crees que deberías verla, pídeselo a un administrador."
+      />
+    </div>
+  );
+}
+
 function AllProjectsGuard({ pathname, children }) {
   const { isAllProjects, activeIssuer } = useProjectContext();
   if (activeIssuer) {
@@ -602,9 +628,11 @@ export default function AppLayout() {
         }>
           {/* Fade-in suave en cada cambio de ruta — key={pathname} fuerza remount */}
           <div key={pathname} className="animate-in fade-in duration-200">
-            <AllProjectsGuard pathname={pathname}>
-              <Outlet />
-            </AllProjectsGuard>
+            <PantallaConPermiso pathname={pathname}>
+              <AllProjectsGuard pathname={pathname}>
+                <Outlet />
+              </AllProjectsGuard>
+            </PantallaConPermiso>
           </div>
           </Suspense>
         </main>

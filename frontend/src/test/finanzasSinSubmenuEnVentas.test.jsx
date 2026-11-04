@@ -10,6 +10,8 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 */
 const proyecto = { activeProject: null };
 vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => proyecto }));
+// Las pestañas miran los permisos (#631); sin mapa todavía, se enseñan todas.
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: null, permissions: null }) }));
 
 const { default: FinanzasLayout } = await import('@/modules/accounting/pages/FinanzasLayout');
 
