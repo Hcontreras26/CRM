@@ -92,9 +92,10 @@ describe('colores sueltos escritos a mano (#32)', () => {
     //
     // Se mira cada cadena entre comillas por separado (también las de dentro
     // de un `${cond ? '…' : '…'}`), para no juntar clases de dos elementos.
-    // WhatsApp (de Ángel, #79) y las maquetas de referencia quedan fuera.
+    // Las maquetas de referencia quedan fuera. WhatsApp ya no: pasó a los
+    // tokens con el #128 (punto 3) y desde entonces se vigila como el resto.
     const FONDO = /(?:^|\s)(?:[a-z-]+:)*bg-(primary|success|info|warning)(?:\/(\d+))?(?=\s|$)/;
-    const fuera = /^(test\/|modules\/(whatsapp|suitedash-preview|ui-preview)\/)|\.test\./;
+    const fuera = /^(test\/|modules\/(suitedash-preview|ui-preview)\/)|\.test\./;
     const malas = [];
     for (const f of ficheros('.').filter((x) => !fuera.test(x))) {
       const texto = fs.readFileSync(path.join(RAIZ, f), 'utf8');
@@ -134,6 +135,8 @@ describe('colores sueltos escritos a mano (#32)', () => {
       '6 · Publicidad y análisis': 0,
       '7 · Ajustes y administración': 0,
       '8 · Entrar, contraseña y errores': 0,
+      // Fuera del #34 por la #79 (es de Ángel), y a cero con el #128, punto 3.
+      '9 · WhatsApp': 0,
     };
 
     const bloques = {
@@ -145,6 +148,7 @@ describe('colores sueltos escritos a mano (#32)', () => {
       '6 · Publicidad y análisis': ['modules/campaigns', 'modules/meta-ads', 'modules/reports'],
       '7 · Ajustes y administración': ['modules/settings', 'modules/permissions', 'modules/preferences'],
       '8 · Entrar, contraseña y errores': ['shared/pages'],
+      '9 · WhatsApp': ['modules/whatsapp'],
     };
 
     const filas = Object.entries(bloques).map(([nombre, dirs]) => {
