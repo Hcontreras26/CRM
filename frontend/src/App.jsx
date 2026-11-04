@@ -181,6 +181,8 @@ const TaskBoardConfigPage = lazy(() => import('./modules/tasks/pages/TaskBoardCo
 const FacturasColaboradoresPage = lazy(() => import('./modules/facturas-colaborador/pages/FacturasColaboradoresPage'));
 const MiFacturaPage = lazy(() => import('./modules/facturas-colaborador/pages/MiFacturaPage'));
 const FacturaEnlacePage = lazy(() => import('./modules/facturas-colaborador/pages/FacturaEnlacePage'));
+// «He recibido el pago y lo confirmo» (Diego, 04/11): el botón del correo de «Factura pagada».
+const FacturaPagoPage = lazy(() => import('./modules/facturas-colaborador/pages/FacturaPagoPage'));
 const EmbedFormPage = lazy(() => import('./modules/forms/pages/EmbedFormPage'));
 const ExternalPanelPage = lazy(() => import('./modules/external-panels/pages/ExternalPanelPage'));
 const AunNoConectadoPage = lazy(() => import('./shared/pages/AunNoConectadoPage'));
@@ -223,6 +225,8 @@ function App() {
         <Route path="/set-password" element={<SetPasswordPage />} />
         {/* El enlace personal del colaborador (#202): sin usuario, el enlace es la llave. */}
         <Route path="/factura-colaborador/:token" element={<FacturaEnlacePage />} />
+        {/* Y la confirmación del pago, desde el correo de «Factura pagada»: también sin usuario. */}
+        <Route path="/factura-colaborador/pago/:token" element={<FacturaPagoPage />} />
         {IS_TESTEO2_BASE && SuiteDashCrmPreviewPage && (
           <Route path="/suite-dash" element={<ProtectedRoute><SuiteDashCrmPreviewPage /></ProtectedRoute>} />
         )}
