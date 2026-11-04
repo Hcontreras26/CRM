@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useProducts } from '../hooks/useProducts';
 import { useProject } from '@/shared/hooks/useProject';
+import { useVistaGeneral } from '@/shared/hooks/useVistaGeneral';
 import usePermission from '@/shared/hooks/usePermission';
 import ProductFormDialog from '../components/ProductFormDialog';
 import { toast } from '@/shared/hooks/useToast';
@@ -42,8 +43,22 @@ export default function ProductsPage() {
   const { can } = usePermission();
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeProject } = useProject();
-  const projectId = activeProject?.id;
-  const { products, loading, error, refetch: refetchProducts, create, update, deactivate } = useProducts(projectId, true);
+  // Con «Todos» o una empresa (#218, Diego 04/11): el catálogo de todos sus
+  // campus, cada producto con su campus. Crear y sincronizar siguen siendo de
+  // UN campus: ahí no se ofrecen.
+  const { general, campus, ambito } = useVistaGeneral();
+  const projectId = general ? null : activeProject?.id;
+  const { products, loading, error, refetch: refetchProducts, create, update, deactivate } = useProducts(campus, true, ambito);
+  const [campusFiltro, setCampusFiltro] = useState<number | null>(null);
+  const campusDelCatalogo = useMemo(() => {
+    const vistos = new Map<number, { id: number; nombre: string; n: number }>();
+    for (const p of products as Array<{ project_id: number; proyecto_nombre?: string }>) {
+      const c = vistos.get(p.project_id) || { id: p.project_id, nombre: p.proyecto_nombre || `Campus ${p.project_id}`, n: 0 };
+      c.n += 1;
+      vistos.set(p.project_id, c);
+    }
+    return [...vistos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [products]);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -113,12 +128,13 @@ export default function ProductsPage() {
   useEffect(() => {
     if (searchParams.get('new') === '1') {
       setEditingProduct(null);
-      setFormOpen(true);
+      if (general) toast({ title: 'Elige un campus', description: 'Un producto se crea en un campus: elígelo arriba.' });
+      else setFormOpen(true);
       const next = new URLSearchParams(searchParams);
       next.delete('new');
       setSearchParams(next, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, general]);
 
   // Cargar árbol cuando cambia el proyecto
   useEffect(() => {
@@ -132,6 +148,7 @@ export default function ProductsPage() {
   // Filtrar productos
   const filteredProducts = useMemo(() => {
     let list = products;
+    if (general && campusFiltro) list = list.filter((p) => p.project_id === campusFiltro);
     if (selectedIds) list = list.filter((p) => p.categoria_id != null && selectedIds.has(p.categoria_id));
     if (statusFilter === 'active') list = list.filter((p) => p.active);
     else if (statusFilter === 'inactive') list = list.filter((p) => !p.active);
@@ -144,7 +161,7 @@ export default function ProductsPage() {
       );
     }
     return list;
-  }, [products, selectedIds, statusFilter, productSearch]);
+  }, [products, selectedIds, statusFilter, productSearch, general, campusFiltro]);
 
   function openCreate() { setEditingProduct(null); setFormOpen(true); }
   function openEdit(product: any) { setEditingProduct(product); setFormOpen(true); }
@@ -175,11 +192,11 @@ export default function ProductsPage() {
     }
   }
 
-  if (!projectId) {
+  if (!projectId && !general) {
     return <EmptyState icon={Package} title="Selecciona un proyecto" description="Elige un proyecto en el sidebar para ver sus productos." className="py-32" />;
   }
 
-  const hasFilters = !!selectedCat || !!productSearch || statusFilter !== 'active';
+  const hasFilters = !!selectedCat || !!campusFiltro || !!productSearch || statusFilter !== 'active';
 
   return (
     <div className="space-y-4">
@@ -199,10 +216,12 @@ export default function ProductsPage() {
 
       <PageHeader
         title="Productos"
-        subtitle={`Catálogo — ${activeProject.nombre} · ${filteredProducts.length} de ${products.length}${selectedCat ? ` en "${selectedCat.nombre}"` : ''}`}
+        subtitle={general
+          ? `Catálogo de tus campus · ${filteredProducts.length} de ${products.length}. Para crear o sincronizar, elige un campus arriba.`
+          : `Catálogo — ${activeProject.nombre} · ${filteredProducts.length} de ${products.length}${selectedCat ? ` en "${selectedCat.nombre}"` : ''}`}
         actions={
           <div className="flex items-center gap-2">
-            {can('woocommerce.sync') && (
+            {can('woocommerce.sync') && !general && (
             <button
               onClick={handleSyncWc}
               disabled={syncStarting || syncStatus?.status === 'running'}
@@ -223,7 +242,7 @@ export default function ProductsPage() {
               <Funnel size={16} weight={sidebarOpen ? 'fill' : 'regular'} />
               <span className="hidden sm:inline">{sidebarOpen ? 'Ocultar filtros' : 'Filtros'}</span>
             </button>
-            {can('products.create') && (
+            {can('products.create') && !general && (
             <button
               onClick={openCreate}
               // En el móvil es solo el «+»: así el lector de pantalla dice qué hace.
@@ -267,10 +286,10 @@ export default function ProductsPage() {
           <aside className="border rounded-lg bg-card h-fit lg:sticky lg:top-4">
             <div className="flex items-center gap-2 p-3 border-b">
               <Tree size={14} className="text-primary" />
-              <span className="font-medium text-sm flex-1">Categorías</span>
+              <span className="font-medium text-sm flex-1">{general ? 'Campus' : 'Categorías'}</span>
               {hasFilters && (
                 <button
-                  onClick={() => { setSelectedCat(null); setCatSearch(''); setProductSearch(''); setStatusFilter('active'); }}
+                  onClick={() => { setSelectedCat(null); setCampusFiltro(null); setCatSearch(''); setProductSearch(''); setStatusFilter('active'); }}
                   className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
                   title="Limpiar todos los filtros"
                 >
@@ -279,6 +298,25 @@ export default function ProductsPage() {
               )}
             </div>
 
+            {general ? (
+              // Cada campus tiene su árbol de categorías: juntos no se pueden
+              // mezclar, así que aquí se filtra por campus.
+              <div className="p-1 max-h-[500px] overflow-y-auto" role="list" aria-label="Filtrar por campus">
+                {[{ id: null as number | null, nombre: 'Todos', n: products.length }, ...campusDelCatalogo].map((c) => (
+                  <div
+                    key={c.id ?? 'todos'}
+                    role="listitem"
+                    onClick={() => setCampusFiltro(c.id)}
+                    className={`flex items-center gap-1 py-1.5 px-3 rounded text-[13px] cursor-pointer ${
+                      campusFiltro === c.id ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/50'
+                    }`}
+                  >
+                    <span className="flex-1 truncate">{c.nombre}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">{c.n}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (<>
             <div className="p-2 border-b">
               <div className="flex items-center gap-2">
                 <MagnifyingGlass size={12} className="text-muted-foreground" />
@@ -316,6 +354,7 @@ export default function ProductsPage() {
                 </div>
               )}
             </div>
+            </>)}
 
             <div className="p-3 border-t space-y-2">
               <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Estado</div>
@@ -356,16 +395,16 @@ export default function ProductsPage() {
           ) : filteredProducts.length === 0 ? (
             <EmptyState
               icon={Package}
-              title={hasFilters ? 'Sin resultados con esos filtros' : 'No hay productos en este proyecto'}
+              title={hasFilters ? 'Sin resultados con esos filtros' : general ? 'No hay productos en tus campus' : 'No hay productos en este proyecto'}
               description={hasFilters ? 'Prueba a limpiar los filtros o cambiar la categoría.' : 'Crea tu primer producto para empezar a gestionar el catálogo.'}
               action={hasFilters ? (
                 <button
-                  onClick={() => { setSelectedCat(null); setProductSearch(''); setStatusFilter('active'); }}
+                  onClick={() => { setSelectedCat(null); setCampusFiltro(null); setProductSearch(''); setStatusFilter('active'); }}
                   className="text-primary text-sm hover:underline"
                 >
                   Limpiar filtros
                 </button>
-              ) : can('products.create') ? (
+              ) : can('products.create') && !general ? (
                 <button
                   onClick={openCreate}
                   className="flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90"
@@ -394,6 +433,11 @@ export default function ProductsPage() {
                   </div>
 
                   <h3 className="font-semibold">{product.nombre}</h3>
+                  {general && product.proyecto_nombre && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate" aria-label={`Campus: ${product.proyecto_nombre}`}>
+                      Campus · {product.proyecto_nombre}
+                    </p>
+                  )}
                   {product.categoria_nombre && (
                     <p className="text-[11px] text-primary/70 mt-0.5 truncate">📁 {product.categoria_nombre}</p>
                   )}
