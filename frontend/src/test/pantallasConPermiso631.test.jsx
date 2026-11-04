@@ -84,6 +84,12 @@ describe('#631 · rutaPermitida', () => {
     expect(rutaPermitida('/finanzas/por-cobrar/', nada)).toBe(false);
   });
 
+  it('el Banco también se abre con solo verlo (`whatsapp.banco`); el chat, no', () => {
+    expect(rutaPermitida('/whatsapp/banco', (k) => k === 'whatsapp.banco')).toBe(true);
+    expect(rutaPermitida('/whatsapp', (k) => k === 'whatsapp.banco')).toBe(false);
+    expect(rutaPermitida('/whatsapp/chat', (k) => k === 'whatsapp.banco')).toBe(false);
+  });
+
   it('WhatsApp: Banco y el chat por `/whatsapp` piden usarlo o supervisarlo', () => {
     for (const ruta of ['/whatsapp', '/whatsapp/banco']) {
       expect(rutaPermitida(ruta, () => false)).toBe(false);
@@ -102,7 +108,8 @@ describe('#631 · rutaPermitida', () => {
       '/prospectos/duplicados': ['leads.duplicados'],
       '/tutores': ['tutores.gestionar'],
       '/tareas/revisar': ['tasks.close'],
-      '/whatsapp/banco': ['whatsapp.usar', 'whatsapp.supervisar'],
+      // Y verlo (`whatsapp.banco`): el project manager, que ve todo (Diego, 04/11).
+      '/whatsapp/banco': ['whatsapp.usar', 'whatsapp.supervisar', 'whatsapp.banco'],
       // La vuelta en local con cada rol (#631): a la gestora y al project manager
       // se les abría y solo daba 403.
       '/status': ['status.view', 'credentials.view', 'woocommerce.view'],

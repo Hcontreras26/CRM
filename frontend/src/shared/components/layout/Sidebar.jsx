@@ -167,9 +167,9 @@ export const NAV_SECTIONS = [
           // es el chat: uno sirve para conversar y este para buscar, auditar y
           // llevarse una copia. El servidor recorta lo que ve cada cual — un
           // admin lo ve entero, una gestora solo su numero.
-          // El servidor pide usarlo o supervisarlo (`usaOSupervisa`); sin esto el menú se lo
-          // enseñaba al project manager y le daba 403 (#631).
-          { label: 'Banco de mensajes', to: '/whatsapp/banco', detail: 'Buscar y auditar', icon: ChatText, permiso: ['whatsapp.usar', 'whatsapp.supervisar'] },
+          // El servidor pide usarlo, supervisarlo o verlo (#631; `whatsapp.banco`, el project
+          // manager, Diego 04/11: «el project manager ve todo», con las líneas de sus campus).
+          { label: 'Banco de mensajes', to: '/whatsapp/banco', detail: 'Buscar y auditar', icon: ChatText, permiso: ['whatsapp.usar', 'whatsapp.supervisar', 'whatsapp.banco'] },
           // Si cada gestora responde y lo que apunta (Diego, 30/10). Para quien ve Reportes.
           { label: 'Actividad', to: '/whatsapp/actividad', detail: 'Quién responde', icon: ChartBar, permiso: 'reports.view' },
           // «WhatsApp del equipo» no esta: entraba en la sesion de cada gestora
@@ -620,6 +620,14 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
 
   // soporte ve todo (rol generico tipo dev)
   if (es('soporte', 'superadmin')) {
+    if (item.module && modules && modules[item.module] === false) return false;
+    return true;
+  }
+  // El project manager ve todo (Diego, 04/11): cada pantalla cuyo permiso tiene,
+  // aunque su rol no esté en `roles` (que dicen a quién se le enseña de serie).
+  // Lo que no pide permiso sigue la regla de siempre. Lo que ve dentro, de sus
+  // campus: lo recorta el servidor.
+  if (es('project_manager') && item.permiso && !item.comingSoon) {
     if (item.module && modules && modules[item.module] === false) return false;
     return true;
   }
@@ -1519,7 +1527,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                   label="Mi perfil"
                   onClick={() => { setUserMenuOpen(false); navigate('/perfil'); onNavigate?.(); }}
                 />
-                {(user?.role === 'admin' || user?.role === 'superadmin') && (
+                {/* Y el project manager, que ve todo (Diego, 04/11): Usuarios y Roles, en solo lectura. */}
+                {(user?.role === 'admin' || user?.role === 'superadmin' || rolesDe(user).includes('project_manager')) && (
                   // «del CRM»: desde el menú personal se esperaba llegar a lo
                   // suyo, y esto son los proyectos, usuarios y APIs de todo el
                   // CRM (#208). Lo personal es «Mi perfil», justo encima.

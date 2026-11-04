@@ -16405,7 +16405,8 @@
     "tipo": "puede",
     "claves": [
      "whatsapp.usar",
-     "whatsapp.supervisar"
+     "whatsapp.supervisar",
+     "whatsapp.banco"
     ]
    }
   ],
@@ -16430,7 +16431,8 @@
     "tipo": "puede",
     "claves": [
      "whatsapp.usar",
-     "whatsapp.supervisar"
+     "whatsapp.supervisar",
+     "whatsapp.banco"
     ]
    }
   ],
