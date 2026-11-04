@@ -3162,6 +3162,28 @@
   "puertas": []
  },
  {
+  "id": "GET /api/convocatorias/ambito",
+  "tipo": "ruta",
+  "modulo": "convocatorias",
+  "metodo": "GET",
+  "ruta": "/api/convocatorias/ambito",
+  "relativa": "GET /ambito",
+  "controlador": "listarDelAmbito",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "convocatorias.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "POST /api/convocatorias/",
   "tipo": "ruta",
   "modulo": "convocatorias",
@@ -17919,6 +17941,42 @@
   "condicion": "webhooks para todas las empresas",
   "regla": "soloSuperadmin",
   "puerta": "webhooks-salientes.todas"
+ },
+ {
+  "id": "GET /api/registro/ · registro.sistema",
+  "tipo": "condicion",
+  "modulo": "registro",
+  "metodo": "GET",
+  "ruta": "/api/registro/",
+  "controlador": "listar",
+  "publica": false,
+  "condicion": "lo que no es de ningún campus: errores y tareas programadas",
+  "regla": "adminYSoporte",
+  "puerta": "registro.sistema"
+ },
+ {
+  "id": "GET /api/registro/fuentes · registro.sistema",
+  "tipo": "condicion",
+  "modulo": "registro",
+  "metodo": "GET",
+  "ruta": "/api/registro/fuentes",
+  "controlador": "fuentes",
+  "publica": false,
+  "condicion": "lo que no es de ningún campus: errores y tareas programadas",
+  "regla": "adminYSoporte",
+  "puerta": "registro.sistema"
+ },
+ {
+  "id": "GET /api/registro/csv · registro.sistema",
+  "tipo": "condicion",
+  "modulo": "registro",
+  "metodo": "GET",
+  "ruta": "/api/registro/csv",
+  "controlador": "csv",
+  "publica": false,
+  "condicion": "lo que no es de ningún campus: errores y tareas programadas",
+  "regla": "adminYSoporte",
+  "puerta": "registro.sistema"
  },
  {
   "id": "GET /api/informes/mi-puesto · reports.puesto_ajeno",

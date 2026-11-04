@@ -62,6 +62,13 @@ describe('#218 tanda 3: se abren con «Todos» y con una empresa', () => {
   });
 });
 
+describe('#218 tanda 4: Convocatorias (Diego, 04/11)', () => {
+  it('se abre con «Todos» y con una empresa', () => {
+    expect(pathAllowsAll('/prospectos/convocatorias')).toBe(true);
+    expect(rutaAceptaSociedad('/prospectos/convocatorias')).toBe(true);
+  });
+});
+
 describe('#218 tanda 4: el catálogo (Diego, 04/11)', () => {
   it.each(['/productos', '/productos/arbol', '/productos/categorias', '/productos/pendientes', '/productos/woocommerce'])(
     '%s se abre con «Todos» y con una empresa', (ruta) => {
