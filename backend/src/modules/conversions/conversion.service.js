@@ -1,4 +1,5 @@
 import { AppError } from '../../shared/utils/AppError.js';
+import { nombreDeLasLineas } from './nombre-de-las-lineas.js';
 import * as conversionModel from './conversion.model.js';
 import * as commissionModel from '../commissions/commission.model.js';
 import * as seqModel from '../email-sequences/sequence.model.js';
@@ -89,6 +90,11 @@ export async function create(data, userId) {
   // fecha anterior a la entrada y las tasas de conversion salian sin sentido:
   // 220 fichas acabaron asi, con entrada de julio y venta de junio.
   await validarFechaNoAnteriorAlLead(data.lead_id, data.fecha_conversion);
+
+  // Con lineas, el nombre son sus cursos, sin «2x» (#223): ver nombre-de-las-lineas.js.
+  // Va antes de los cruces con el catalogo: «Curso A» cruza, «1x Curso A» no.
+  const deLasLineas = nombreDeLasLineas(data.items);
+  if (deLasLineas) data.producto_contratado = deLasLineas;
 
   // Auto-lookup de producto_contratado_id si llega el texto pero no el id.
   // Evita el bug histórico de tener `producto_contratado` (varchar) sin FK al

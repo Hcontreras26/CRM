@@ -159,6 +159,10 @@ const ALL_PROJECTS_OK = [
   // campus solo para ver. Crear, sincronizar o configurar sigue pidiendo un
   // campus. Cursos pendientes ya tenía su pestaña «Todos los campus» (#336).
   /^\/productos(?:\/(?:arbol|categorias|pendientes|woocommerce))?$/,
+  // #218, tanda 4 (Diego, 04/11): Integraciones enseña el estado de cada campus
+  // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
+  // elegir el campus.
+  /^\/finanzas\/integraciones$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -382,6 +386,10 @@ const CON_SOCIEDAD_OK = [
   // campus solo para ver. Crear, sincronizar o configurar sigue pidiendo un
   // campus. Cursos pendientes ya tenía su pestaña «Todos los campus» (#336).
   /^\/productos(?:\/(?:arbol|categorias|pendientes|woocommerce))?$/,
+  // #218, tanda 4 (Diego, 04/11): Integraciones enseña el estado de cada campus
+  // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
+  // elegir el campus.
+  /^\/finanzas\/integraciones$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {

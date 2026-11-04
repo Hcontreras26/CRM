@@ -530,8 +530,10 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
       const res = await conversionsApi.create({
         lead_id: lead.id,
         project_id: projectId,
+        // Con varias líneas, sus cursos sin cantidades ni repetidos (#223): la
+        // cantidad ya va en cada línea. El servidor aplica la misma regla.
         producto_contratado: useMultiItem
-          ? items.map(it => `${it.cantidad}x ${it.descripcion}`).join(' + ')
+          ? [...new Set(items.map(it => it.descripcion.trim()).filter(Boolean))].join(' + ')
           : form.producto_contratado,
         // FK al programa del catálogo (bug: antes solo se guardaba el nombre en
         // texto y el vínculo quedaba NULL → el reporting no cruzaba la venta).
