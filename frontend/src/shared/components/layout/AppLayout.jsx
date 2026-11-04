@@ -154,6 +154,10 @@ const ALL_PROJECTS_OK = [
   // piden el campus dentro (`useCampusDeLaPantalla`).
   /^\/configuracion\/documentos$/,
   /^\/configuracion\/plantillas-email$/,
+  // #218, tanda 4 (Diego, 04/11): Convocatorias con todos sus campus juntos, cada
+  // una con su campus. El embudo y los pendientes ya recortaban por campus
+  // (#620); crear una convocatoria sigue pidiendo un campus.
+  /^\/prospectos\/convocatorias$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -372,6 +376,10 @@ const CON_SOCIEDAD_OK = [
   // piden el campus dentro (`useCampusDeLaPantalla`).
   /^\/configuracion\/documentos$/,
   /^\/configuracion\/plantillas-email$/,
+  // #218, tanda 4 (Diego, 04/11): Convocatorias con todos sus campus juntos, cada
+  // una con su campus. El embudo y los pendientes ya recortaban por campus
+  // (#620); crear una convocatoria sigue pidiendo un campus.
+  /^\/prospectos\/convocatorias$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {

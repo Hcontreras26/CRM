@@ -39,8 +39,13 @@ function Cifra({ etiqueta, valor, pie }: { etiqueta: string; valor: string; pie?
 }
 
 export default function ConvocatoriasPage() {
-  const { activeProject, user } = useAuth();
-  const projectId = activeProject?.id ?? null;
+  const { activeProject, user, activeIssuerId } = useAuth() as ReturnType<typeof useAuth> & { activeIssuerId?: number | null };
+  // Con «Todos» o una empresa arriba (#218, Diego 04/11): todos sus campus
+  // juntos, cada convocatoria y cada pendiente con su campus. Crear sigue
+  // siendo de un campus: ahí no se ofrece.
+  const issuerId = activeIssuerId ?? null;
+  const general = !(activeProject?.id && activeProject.id > 0) || !!issuerId;
+  const projectId = general ? null : (activeProject?.id ?? null);
   // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
   const { can } = usePermission();
   const esAdmin = user?.role === 'admin' || user?.role === 'superadmin';
@@ -58,15 +63,15 @@ export default function ConvocatoriasPage() {
   const cargar = useCallback(async () => {
     setCargando(true);
     const [c, e, p] = await Promise.all([
-      traerConvocatorias({ projectId, incluirInactivas: verInactivas }).catch(() => []),
-      traerEmbudo({ projectId, convocatoriaId: elegida === '' ? null : elegida }).catch(() => null),
-      traerPendientes({ projectId }).catch(() => []),
+      traerConvocatorias({ projectId, issuerId, incluirInactivas: verInactivas }).catch(() => []),
+      traerEmbudo({ projectId, issuerId, convocatoriaId: elegida === '' ? null : elegida }).catch(() => null),
+      traerPendientes({ projectId, issuerId }).catch(() => []),
     ]);
     setCampanas(c);
     setEmbudo(e);
     setPendientes(p);
     setCargando(false);
-  }, [projectId, verInactivas, elegida]);
+  }, [projectId, issuerId, verInactivas, elegida]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -93,7 +98,8 @@ export default function ConvocatoriasPage() {
   async function cambiarActiva(c: Convocatoria) {
     setFallo(null);
     try {
-      await editarConvocatoria(c.id, { activa: !c.activa }, projectId);
+      // Con su propio campus: en la vista general hay varios.
+      await editarConvocatoria(c.id, { activa: !c.activa }, c.project_id);
       await cargar();
     } catch (e: unknown) {
       const err = e as { message?: string };
@@ -123,7 +129,9 @@ export default function ConvocatoriasPage() {
             onChange={(e) => setElegida(e.target.value === '' ? '' : Number(e.target.value))}
           >
             <option value="">— Todas —</option>
-            {campanas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            {campanas.map((c) => (
+              <option key={c.id} value={c.id}>{general && c.proyecto_nombre ? `${c.nombre} · ${c.proyecto_nombre}` : c.nombre}</option>
+            ))}
           </select>
         </label>
       </header>
@@ -156,6 +164,9 @@ export default function ConvocatoriasPage() {
                   {p.lead_nombre || `Prospecto ${p.lead_id}`}
                 </Link>
                 <span className="text-muted-foreground">{p.convocatoria}</span>
+                {general && p.proyecto_nombre && (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-secundario text-muted-foreground">{p.proyecto_nombre}</span>
+                )}
                 <span className="text-secundario text-muted-foreground">
                   prometido para el {fecha(p.fecha_resultado)}
                 </span>
@@ -238,7 +249,7 @@ export default function ConvocatoriasPage() {
               <input type="checkbox" checked={verInactivas} onChange={(e) => setVerInactivas(e.target.checked)} />
               Ver también las cerradas
             </label>
-            {esAdmin && can('convocatorias.create') && !creando && (
+            {esAdmin && can('convocatorias.create') && !creando && !general && (
               <button type="button" className={boton} onClick={() => { setCreando(true); setFallo(null); }}>
                 <Plus size={13} weight="bold" /> Nueva
               </button>
@@ -287,13 +298,20 @@ export default function ConvocatoriasPage() {
           <div className="mt-3 h-16 animate-pulse rounded-lg bg-muted" />
         ) : campanas.length === 0 ? (
           <p className="mt-2 text-secundario text-muted-foreground">
-            No hay ninguna convocatoria. {esAdmin ? 'Crea la primera con «Nueva».' : 'Pídele a un administrador que cree la primera.'}
+            No hay ninguna convocatoria. {general
+              ? 'Para crear una, elige un campus arriba.'
+              : esAdmin ? 'Crea la primera con «Nueva».' : 'Pídele a un administrador que cree la primera.'}
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-border">
             {campanas.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center gap-2 py-2.5">
                 <span className="text-sm font-medium">{c.nombre}</span>
+                {general && c.proyecto_nombre && (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-secundario text-muted-foreground" aria-label={`Campus: ${c.proyecto_nombre}`}>
+                    {c.proyecto_nombre}
+                  </span>
+                )}
                 {!c.activa && (
                   <span className="rounded bg-muted px-1.5 py-0.5 text-secundario text-muted-foreground">cerrada</span>
                 )}
