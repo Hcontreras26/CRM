@@ -288,7 +288,8 @@ describe('facturas de colaboradores (#202) · marcar pagada', () => {
 // estado», y el coste por campus con las líneas del desglose.
 describe('facturas de colaboradores (#202) · Enviadas, Por pagar, Pagadas, Historial y coste por campus', () => {
   const vista = (clave, params) => request.get(`${API}/facturas`).query(params).set(como(clave));
-  const mias = (res) => res.body.data.facturas.filter((f) => Object.values(F).includes(f.id)).map((f) => f.id).sort();
+  // Por número: con `.sort()` a secas, 10 iba antes que 9 en cuanto otro fichero dejaba ids de dos cifras.
+  const mias = (res) => res.body.data.facturas.filter((f) => Object.values(F).includes(f.id)).map((f) => f.id).sort((a, b) => a - b);
 
   beforeAll(async () => {
     // Una recibida de A sin pagar, que además no cuadra, con dos líneas (una con campus).
