@@ -58,6 +58,9 @@ export default function InvoicesPage() {
   const canManage = can('facturas.gestionar');
   const puedeFacturar = can('facturas.cola');
   const pid = activeProject?.id;
+  // «Todos los proyectos» (#218): sin campus, las de todos los suyos. El servidor
+  // las recorta a los campus de quien mira; los ajustes siguen siendo por campus.
+  const todos = pid === -1;
   const loc = useLocation();
   const [tab, setTab] = useState<'facturas' | 'proformas' | 'abonos'>(() => {
     const t = new URLSearchParams(loc.search).get('tab');
@@ -167,19 +170,21 @@ export default function InvoicesPage() {
       // siguen siendo por proyecto, que es como se configuran.
       const listParams = porSociedad
         ? { issuerId: Number(filterIssuer), ...(filterProject ? { projectId: Number(filterProject) } : {}), ...filters, tipo: tipoTab, page, limit: PER_PAGE }
-        : { projectId: pid, ...filters, tipo: tipoTab, page, limit: PER_PAGE };
+        : todos
+          ? { ...filters, tipo: tipoTab, page, limit: PER_PAGE }
+          : { projectId: pid, ...filters, tipo: tipoTab, page, limit: PER_PAGE };
       const [r1, r2, r3, r4] = await Promise.all([
         invoicesApi.list(listParams),
         porSociedad
           ? invoicesApi.stats({ issuerId: Number(filterIssuer), projectId: filterProject ? Number(filterProject) : null, ...periodo })
-          : invoicesApi.stats({ projectId: pid, ...periodo }),
-        invoicesApi.listIssuers(pid).catch(() => ({ success: false, data: [] as Issuer[] })),
+          : invoicesApi.stats({ projectId: todos ? null : pid, ...periodo }),
+        invoicesApi.listIssuers(todos ? undefined : pid).catch(() => ({ success: false, data: [] as Issuer[] })),
         // Con una sociedad elegida se piden las de TODOS sus campus: es la
         // pantalla que dice que falta por facturar, y acotarla a un proyecto
         // dejaba fuera justo lo que se estaba mirando.
         invoicesApi.ventasSinFactura(porSociedad
           ? { issuerId: Number(filterIssuer) }
-          : { projectId: pid }, periodo).catch(() => ({ success: false, data: [] as VentaSinFactura[] })),
+          : (todos ? {} : { projectId: pid }), periodo).catch(() => ({ success: false, data: [] as VentaSinFactura[] })),
       ]);
       if (r1.success) {
         setInvoices(r1.data || []);
@@ -195,6 +200,8 @@ export default function InvoicesPage() {
       // repetido con la cola de facturacion (los 859,10 de Innovacion Verde).
       // Para enlazarlos uno a uno esta la pantalla de Pagos Stripe, que los
       // sigue enseñando todos.
+      // Con «Todos», no: es la cola de UN campus, y la de todos ya está en Pagos Stripe.
+      if (todos) { setStripeSinAsociar([]); return; }
       client.get<typeof stripeSinAsociar>(`/stripe-payments?projectId=${pid}&linked=no&status=succeeded&facturables=1&sinEquivalente=1&limit=50`)
         .then((r) => { if (r.success) setStripeSinAsociar(r.data || []); })
         .catch(() => setStripeSinAsociar([]));
@@ -340,7 +347,7 @@ export default function InvoicesPage() {
             <FacturacionAlDiaCard key={p.id} projectId={p.id} titulo={p.nombre} ocultarSiVacia={!filterProject && sociedadProjects.length > 1} />
           ))}
         </>
-      ) : <FacturacionAlDiaCard projectId={activeProject?.id} />)}
+      ) : <FacturacionAlDiaCard projectId={todos ? null : activeProject?.id} />)}
 
       {/* Pestañas: facturas fiscales vs proformas (presupuestos) */}
       <div className="inline-flex rounded-lg border border-border bg-muted/30 p-1 text-sm font-semibold">

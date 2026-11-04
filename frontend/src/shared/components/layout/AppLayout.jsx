@@ -90,6 +90,66 @@ const ALL_PROJECTS_OK = [
   // «Mi factura» son las del propio colaborador, a todas sus empresas.
   /^\/finanzas\/facturas-colaboradores$/,
   /^\/mi-factura$/,
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // #218, tanda 1 (03/11). Ya funcionaban con una EMPRESA (están abajo, en
+  // `CON_SOCIEDAD_OK`) y su servidor, sin campus, se queda en los de quien pide
+  // (`proyectosDelAmbito`; super admin y soporte, todos). Con «Todos» solo les
+  // faltaba esta lista. Probado entrando como super admin y como admin.
+  //
+  // Seguimiento y Reportes, después de cerrar su fuga en el servidor (#620): antes,
+  // sin campus, enseñaban los de todas las empresas.
+  /^\/finanzas$/,
+  /^\/finanzas\/ingresos$/,
+  /^\/finanzas\/conversiones$/,
+  /^\/finanzas\/egresos$/,
+  /^\/finanzas\/por-cobrar$/,
+  /^\/finanzas\/por-pagar$/,
+  /^\/finanzas\/comisiones$/,
+  /^\/finanzas\/pendiente-facturar$/,
+  /^\/finanzas\/ventas-analisis$/,
+  /^\/informes$/,
+  /^\/prospectos\/seguimiento$/,
+  // Las que no miran el campus: lo suyo de cada uno.
+  /^\/correos$/,
+  /^\/mensajes$/,
+  /^\/mis-cursos$/,
+  /^\/novedades$/,
+  /^\/solicitudes-cambio$/,
+  /^\/solicitudes-cambio\/\d+$/,
+  /^\/configuracion\/claves$/,
+  // WhatsApp es de la gestora, no del campus (el mismo motivo que con una empresa).
+  /^\/whatsapp$/,
+  /^\/whatsapp\/chat$/,
+  /^\/whatsapp\/banco$/,
+  /^\/whatsapp\/conexion$/,
+  /^\/whatsapp\/ayuda$/,
+
+  // #218, tanda 2: su servidor no entendía «Todos» (pedía un campus) y ahora,
+  // sin campus, se queda en los de quien pide. Facturas: la lista, las cifras y
+  // las ventas sin factura (emitir una sigue pidiendo su campus).
+  /^\/finanzas\/facturas$/,
+  // Pagos Stripe y Nóminas (leer): a super admin y soporte, sin campus, todos los
+  // campus menos los de pruebas. Sincronizar Stripe o crear una nómina sigue
+  // pidiendo UN campus: cada uno tiene su cuenta y sus nóminas.
+  /^\/finanzas\/pagos-stripe$/,
+  /^\/finanzas\/nominas$/,
+  // #218, tanda 3: pantallas de UN campus que, con una empresa o «Todos», ya no
+  // se tapian: piden el campus DENTRO (Proceso comercial, Buscar duplicados,
+  // Meta Ads, Chat IA; `useCampusDeLaPantalla`), suman los campus de quien mira
+  // (Revisión de duplicados, #620) o listan sus campus (Moodle).
+  /^\/prospectos\/proceso$/,
+  /^\/prospectos\/duplicados$/,
+  /^\/prospectos\/revision-duplicados$/,
+  /^\/meta-ads$/,
+  /^\/chat-ia$/,
+  /^\/conexion\/moodle(?:\/\d+)?$/,
+  // CRM#632 (auditoría del 03/11): el admin con varios campus se quedaba en el
+  // muro en Configuración › Documentos y › Plantillas de email. Numeración de
+  // documentos lista los campus del ámbito, cada uno con lo suyo; las plantillas
+  // piden el campus dentro (`useCampusDeLaPantalla`).
+  /^\/configuracion\/documentos$/,
+  /^\/configuracion\/plantillas-email$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -292,6 +352,22 @@ const CON_SOCIEDAD_OK = [
   // factura» no depende de la cabecera: son las del propio colaborador.
   /^\/finanzas\/facturas-colaboradores$/,
   /^\/mi-factura$/,
+  // #218, tanda 3: pantallas de UN campus que, con una empresa o «Todos», ya no
+  // se tapian: piden el campus DENTRO (Proceso comercial, Buscar duplicados,
+  // Meta Ads, Chat IA; `useCampusDeLaPantalla`), suman los campus de quien mira
+  // (Revisión de duplicados, #620) o listan sus campus (Moodle).
+  /^\/prospectos\/proceso$/,
+  /^\/prospectos\/duplicados$/,
+  /^\/prospectos\/revision-duplicados$/,
+  /^\/meta-ads$/,
+  /^\/chat-ia$/,
+  /^\/conexion\/moodle(?:\/\d+)?$/,
+  // CRM#632 (auditoría del 03/11): el admin con varios campus se quedaba en el
+  // muro en Configuración › Documentos y › Plantillas de email. Numeración de
+  // documentos lista los campus del ámbito, cada uno con lo suyo; las plantillas
+  // piden el campus dentro (`useCampusDeLaPantalla`).
+  /^\/configuracion\/documentos$/,
+  /^\/configuracion\/plantillas-email$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {

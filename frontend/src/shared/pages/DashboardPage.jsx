@@ -257,8 +257,8 @@ export default function DashboardPage() {
         <div className="bg-primary/5 border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="font-semibold text-base">Tu dia de hoy</h2>
-              <p className="text-xs text-muted-foreground">Seguimientos pendientes y actividad del dia</p>
+              <h2 className="font-semibold text-base">Tu día de hoy</h2>
+              <p className="text-xs text-muted-foreground">Seguimientos pendientes y actividad del día</p>
             </div>
           </div>
 
@@ -267,7 +267,7 @@ export default function DashboardPage() {
               className="bg-card rounded-md p-3 border border-border text-left hover:border-warning/40 hover:bg-warning-soft/30 transition-colors">
               <p className="text-xs font-medium text-muted-foreground">Pendientes</p>
               <p className="text-2xl font-semibold tabular-nums text-warning">{today.reminders_pendientes?.length || 0}</p>
-              <p className="text-[10px] text-muted-foreground">reminders hoy</p>
+              <p className="text-[10px] text-muted-foreground">recordatorios hoy</p>
             </button>
             <button onClick={() => navigate('/prospectos')}
               className="bg-card rounded-md p-3 border border-border text-left hover:border-info/40 hover:bg-info-soft/30 transition-colors">
@@ -319,7 +319,7 @@ export default function DashboardPage() {
                 ))}
                 {today.reminders_pendientes.length > 5 && (
                   <p className="text-xs text-center text-muted-foreground pt-1">
-                    + {today.reminders_pendientes.length - 5} mas pendientes
+                    + {today.reminders_pendientes.length - 5} más pendientes
                   </p>
                 )}
               </div>
@@ -328,7 +328,7 @@ export default function DashboardPage() {
             <div className="bg-card border border-border rounded-lg p-4 text-center">
               <CheckCircle size={20} className="text-success mx-auto mb-1" weight="regular" />
               <p className="text-sm font-semibold">Nada pendiente para hoy</p>
-              <p className="text-xs text-muted-foreground">Al dia con los seguimientos</p>
+              <p className="text-xs text-muted-foreground">Al día con los seguimientos</p>
             </div>
           )}
         </div>
@@ -371,7 +371,7 @@ export default function DashboardPage() {
         <div className="bg-card p-5 rounded-lg border border-border">
           <div className="mb-4">
             <h3 className="font-semibold">Prospectos por estado</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Distribucion actual del pipeline</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Distribución actual del pipeline</p>
           </div>
           {total === 0 ? (
             <div className="h-[220px] flex items-center justify-center">
@@ -397,7 +397,7 @@ export default function DashboardPage() {
         <div className="bg-card p-5 rounded-lg border border-border">
           <div className="mb-4">
             <h3 className="font-semibold">Prospectos por canal</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Origenes de los prospectos recientes</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Orígenes de los prospectos recientes</p>
           </div>
           {channelBarData.length === 0 ? (
             <div className="h-[220px] flex items-center justify-center">
@@ -452,7 +452,7 @@ export default function DashboardPage() {
         <div className="p-4 flex items-center justify-between">
           <div>
             <h3 className="font-semibold">Prospectos recientes</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Ultimos 10 prospectos registrados</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Últimos 10 prospectos registrados</p>
           </div>
           <button
             onClick={() => navigate('/prospectos')}

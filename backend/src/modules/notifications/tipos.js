@@ -210,6 +210,13 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Conectar Claude una vez', agrupa: false,
     descripcion: 'Tu Claude intenta consultar con tu URL del MCP sin haber iniciado sesión y hay que conectarlo una vez',
   },
+  // #627: un webhook de Make en activo sin mapeo. Los prospectos entran igual
+  // —por el nombre habitual de cada campo— pero hay que guardar el mapeo.
+  // Como mucho uno al día por webhook (make.service.js).
+  make_sin_mapeo: {
+    clase: ACCION, etiqueta: 'Webhook de Make sin mapeo', agrupa: true,
+    descripcion: 'Un webhook de Make está en activo sin mapeo: los prospectos entran por el nombre habitual de cada campo',
+  },
   task_aprobada: {
     clase: AVISO, etiqueta: 'Tarea aprobada', agrupa: false,
     descripcion: 'Cuando aprueban una tarea tuya y pasa a «Hecha»',

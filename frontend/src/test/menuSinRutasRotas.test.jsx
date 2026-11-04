@@ -75,16 +75,22 @@ describe('el menú de MultiCRM no lleva a «Página no encontrada»', () => {
     expect(rotas).toEqual([]);
   });
 
+  // Campañas y Tráfico orgánico (#216) tienen pantalla, que dice «Aún no
+  // conectado», pero siguen «Próximamente» a propósito: enseñaban datos de
+  // ejemplo, en producción salen así y el buscador tampoco las encuentra
+  // (commandPalette, «nada Próximamente»). Si se conectan, se quitan de aquí.
+  const PROXIMAMENTE_CON_PANTALLA = ['/campanas', '/campanas/seo'];
+
   it('las «Próximamente» no tienen pantalla: si la tienen, sobra la marca', () => {
     const conPantalla = entradasDelMenu
-      .filter((e) => e.comingSoon && destino(e.to) !== null)
+      .filter((e) => e.comingSoon && destino(e.to) !== null && !PROXIMAMENTE_CON_PANTALLA.includes(e.to))
       .map((e) => `${e.seccion} › ${e.label} (${e.to})`);
     expect(conPantalla).toEqual([]);
   });
 
-  it('Google Ads está marcada como «Próximamente»', () => {
+  it('Google Ads está marcada como «Próximamente» (y Campañas y Tráfico orgánico, a propósito)', () => {
     const marcadas = entradasDelMenu.filter((e) => e.comingSoon).map((e) => e.to).sort();
-    expect(marcadas).toEqual(['/google-ads']);
+    expect(marcadas).toEqual([...PROXIMAMENTE_CON_PANTALLA, '/google-ads'].sort());
   });
 
   it('dentro de una misma sección, dos entradas no llevan a la misma pantalla', () => {

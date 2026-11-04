@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 
 process.env.LOG_LEVEL = 'silent';
 const inv = await import('../src/modules/permissions/inventario/index.js');
-const { CAMBIOS_DE_MENU } = await import('../src/modules/permissions/inventario/cambios-aprobados.js');
+const { CAMBIOS_DE_MENU, cambioPrevisto } = await import('../src/modules/permissions/inventario/cambios-aprobados.js');
 const { resolverPermisos } = await import('../src/modules/permissions/resolver.js');
 const { excepcionesDeCasillas } = await import('../src/modules/permissions/casillas.js');
 
@@ -50,6 +50,10 @@ describe('los cambios del menú no cambian el acceso (#423, punto 6)', () => {
       const antes = inv.puedeAntes(p, fila);
       const despues = inv.puedeDespues(p, fila, mapa);
       const esperado = x.signo === '+';
+      // Un cambio de ACCESO aprobado aparte (`CAMBIOS`, p. ej. `admin-ve-claves`,
+      // CRM#632): antes no entraba, y el menú enseña lo que ahora sí abre.
+      const aprobado = [p.role, ...(p.roles_extra || [])].some((r) => cambioPrevisto(x.ruta, r));
+      if (aprobado && !antes && despues === esperado) continue;
       if (antes !== esperado || despues !== esperado) mal.push(`${x.perfil} ${x.signo} ${x.entrada} (${x.ruta}): antes ${antes}, ahora ${despues}`);
     }
     expect(mal).toEqual([]);

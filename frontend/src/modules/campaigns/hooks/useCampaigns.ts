@@ -8,10 +8,10 @@ export type Preset = '7d' | '14d' | '30d' | '90d';
  * Periodos predefinidos: 7, 14, 30, 90 dias o custom.
  */
 export const PRESET_PERIODS: Record<Preset, { label: string; days: number }> = {
-  '7d': { label: 'Ultimos 7 dias', days: 7 },
-  '14d': { label: 'Ultimos 14 dias', days: 14 },
-  '30d': { label: 'Ultimos 30 dias', days: 30 },
-  '90d': { label: 'Ultimos 90 dias', days: 90 },
+  '7d': { label: 'Últimos 7 días', days: 7 },
+  '14d': { label: 'Últimos 14 días', days: 14 },
+  '30d': { label: 'Últimos 30 días', days: 30 },
+  '90d': { label: 'Últimos 90 días', days: 90 },
 };
 
 export interface DateRange { fechaDesde: string; fechaHasta: string }

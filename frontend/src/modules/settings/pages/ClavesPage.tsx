@@ -8,6 +8,7 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { toast } from '@/shared/hooks/useToast';
+import usePermission from '@/shared/hooks/usePermission';
 import { credencialesApi, type Credencial, type Hueco } from '../api/credenciales.api';
 import DialogoClave from '../components/DialogoClave';
 import RegistroClaves from '../components/RegistroClaves';
@@ -70,6 +71,11 @@ const olvidada = (iso: string | null) =>
   !!iso && (Date.now() - new Date(iso).getTime()) > 90 * 24 * 3600 * 1000;
 
 export default function ClavesPage() {
+  // Ver la lista lo trae también el admin (CRM#632); guardar, borrar y ver el
+  // valor entero siguen siendo de soporte: no se ofrece lo que el servidor niega.
+  const { can } = usePermission();
+  const puedeGuardar = can('credentials.edit');
+  const puedeRevelar = can('credentials.revelar');
   const [claves, setClaves] = useState<Credencial[]>([]);
   const [huecos, setHuecos] = useState<Hueco[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -138,7 +144,9 @@ Lo que la use dejara de funcionar en cuanto se despliegue. ¿Seguir?`)) return;
     <div className="space-y-5 pb-8">
       <PageHeader
         title="Claves y variables"
-        subtitle="Qué hay puesto en cada proyecto y en cada entorno · solo soporte y superadmin"
+        subtitle={puedeGuardar
+          ? 'Qué hay puesto en cada proyecto y en cada entorno'
+          : 'Qué hay puesto en tus campus y en cada entorno · guardar o ver una clave es de soporte'}
         actions={
           <>
             <button
@@ -146,11 +154,11 @@ Lo que la use dejara de funcionar en cuanto se despliegue. ¿Seguir?`)) return;
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
               <ClockCounterClockwise size={14} weight="bold" /> Registro
             </button>
-            <button
+            {puedeGuardar && <button
               onClick={() => setEditando(null)}
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40">
               <Plus size={14} weight="bold" /> Añadir clave
-            </button>
+            </button>}
           </>
         }
       />
@@ -283,7 +291,7 @@ Lo que la use dejara de funcionar en cuanto se despliegue. ¿Seguir?`)) return;
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end">
-                        <button
+                        {puedeRevelar && <button
                           onClick={() => ver(c.id)}
                           aria-label={abierta ? 'Ocultar la clave' : 'Ver la clave entera'}
                           className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-primary/20
@@ -292,21 +300,21 @@ Lo que la use dejara de funcionar en cuanto se despliegue. ¿Seguir?`)) return;
                         >
                           {abierta ? <EyeSlash size={14} weight="bold" /> : <Eye size={14} weight="bold" />}
                           {abierta ? 'Ocultar' : 'Ver'}
-                        </button>
-                        <button
+                        </button>}
+                        {puedeGuardar && <button
                           onClick={() => setEditando(c)}
                           aria-label={`Cambiar la clave de ${NOMBRE[c.service] || c.service}`}
                           className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-border
                                      bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors
                                      focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        ><PencilSimple size={14} weight="bold" /></button>
-                        <button
+                        ><PencilSimple size={14} weight="bold" /></button>}
+                        {puedeGuardar && <button
                           onClick={() => borrar(c)}
                           aria-label={`Borrar la clave de ${NOMBRE[c.service] || c.service}`}
                           className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-border
                                      bg-card text-muted-foreground hover:text-destructive hover:border-destructive/30
                                      transition-colors focus:outline-none focus:ring-2 focus:ring-destructive/40"
-                        ><Trash size={14} weight="bold" /></button>
+                        ><Trash size={14} weight="bold" /></button>}
                       </div>
                     </td>
                   </tr>

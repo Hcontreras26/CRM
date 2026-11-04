@@ -111,6 +111,21 @@ export async function listaDelAmbito(req) {
 }
 
 /**
+ * «Todos los proyectos» como UNA lista (#218): los campus de quien pide; super
+ * admin y soporte, todos los activos menos los de pruebas (la regla de la 148:
+ * un campus de pruebas solo se ve si se elige). Para los modelos que, sin lista,
+ * devolverían todo, también lo de pruebas.
+ */
+export async function campusDeTodos(req) {
+  if (!veTodoElCrm(req.user)) {
+    const mios = await campusDeLaPersona(req.user?.userId);
+    return mios.length ? mios : [-1];
+  }
+  const { rows } = await query('SELECT id FROM projects WHERE active AND NOT COALESCE(es_prueba, false) ORDER BY id');
+  return rows.map((r) => Number(r.id));
+}
+
+/**
  * Los dos casos —un proyecto o una lista— reducidos a una sola lista, que es
  * lo que entiende `= ANY($n::int[])`.
  *

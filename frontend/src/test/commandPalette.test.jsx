@@ -23,7 +23,7 @@ vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 const {
   fuzzyScore, sinAcentos, paginasDelBuscador, queBusca, destinoDePersona, destinoDeProducto, recienteSigueValiendo,
   destinoDeVenta, destinoDeFactura, destinoDeTarea, destinoDeConsulta, numeroDeVenta, terminoDeFactura,
-  destinoDeUsuario,
+  destinoDeUsuario, destinoDeTutor, destinoDeFacturaColaborador, destinoDeDiploma, destinoDeCursoMoodle,
 } = await import('@/shared/components/layout/CommandPalette');
 const { NAV_SECTIONS, entradasDeSeccion, canSeeItem, esSoloColaboraciones } = await import('@/shared/components/layout/Sidebar');
 const { isBetaAllowed } = await import('@/shared/config/betaConfig');
@@ -125,8 +125,8 @@ describe('qué encuentra cada perfil (tabla de la #591)', () => {
     for (const r of FINANZAS_RESTRINGIDAS) expect(rutasDe(PERFILES.project_manager)).not.toContain(r);
   });
 
-  it('tutor: ni personas ni productos (pendiente de Diego); solo lo suyo', () => {
-    expect(buscaDe(PERFILES.tutor)).toMatchObject({ personas: false, clientes: false, productos: false, crearProspecto: false, crearProducto: false });
+  it('tutor: ni personas ni productos, porque el catálogo ya no se los da (Diego, 03/11); solo lo suyo', () => {
+    expect(buscaDe(PERFILES.tutor)).toMatchObject({ personas: false, clientes: false, productos: false, crearProspecto: false, crearProducto: false, ventas: false, facturas: false });
     const rutas = rutasDe(PERFILES.tutor);
     expect(rutas.some((r) => r.startsWith('/prospectos') || r.startsWith('/finanzas') || r.startsWith('/configuracion'))).toBe(false);
   });
@@ -156,6 +156,10 @@ describe('excepciones por persona: manda el permiso, no el rol', () => {
   it('a un colaborador al que se le da meta_ads.view le aparece Meta Ads', () => {
     expect(rutasDe(PERFILES.colaborador)).not.toContain('/meta-ads');
     expect(rutasDe(persona('colaborador', { excepciones: { 'meta_ads.view': true } }))).toContain('/meta-ads');
+  });
+
+  it('sin excepción por rol: a un tutor al que se le da leads.view, el buscador le busca personas', () => {
+    expect(buscaDe(persona('tutor', { excepciones: { 'leads.view': true } })).personas).toBe(true);
   });
 
   it('a una gestora a la que se le da products.create, el buscador la cuenta como quien crea productos', () => {
@@ -287,6 +291,10 @@ describe('cada resultado lleva a una ruta que existe en App.jsx', () => {
       destinoDeTarea({ id: 12 }),
       destinoDeConsulta({ id: 8 }),
       destinoDeUsuario({ id: 3, nombre: 'José Pérez' }),
+      destinoDeTutor({ id: 5, nombre: 'Tomás Ruiz' }),
+      destinoDeFacturaColaborador({ id: 2, colaborador_id: 7, periodo: '2026-10' }),
+      destinoDeDiploma({ nexpediente: 'E-1', alumno: 'Ana', revocada: false }),
+      destinoDeCursoMoodle({ id: 40, nombre: 'Logopedia' }, 1753),
     ];
     expect(destinos.filter((d) => !existeRuta(d))).toEqual([]);
   });
@@ -349,5 +357,48 @@ describe('ventas, facturas, tareas y consultas (punto 6)', () => {
     expect(terminoDeFactura('F-2026/0641')).toBe('2026/0641');
     expect(terminoDeFactura('f 2026/0641')).toBe('2026/0641');
     expect(terminoDeFactura('Fernández')).toBe('Fernández');
+  });
+});
+
+describe('tutores, facturas de colaboradores, diplomas y cursos de Moodle (punto 6, resto)', () => {
+  const tipos = (p) => {
+    const b = buscaDe(p);
+    return { tutores: b.tutores, facturasColaborador: b.facturasColaborador, diplomas: b.diplomas, cursosMoodle: b.cursosMoodle };
+  };
+
+  it('cada perfil: solo administración, que es quien tiene esas pantallas en el menú', () => {
+    const todo = { tutores: true, facturasColaborador: true, diplomas: CERTIFEX_PANEL, cursosMoodle: true };
+    expect(tipos(PERFILES.superadmin)).toEqual(todo);
+    expect(tipos(PERFILES.admin)).toEqual(todo);
+    const nada = { tutores: false, facturasColaborador: false, diplomas: false, cursosMoodle: false };
+    for (const p of ['soporte', 'gestora', 'project_manager', 'tutor', 'colaborador']) {
+      expect(tipos(PERFILES[p]), p).toEqual(nada);
+    }
+  });
+
+  it('manda el permiso: a una gestora que gestiona colaboraciones le salen los tutores', () => {
+    expect(buscaDe(persona('gestor', { excepciones: { 'tutores.gestionar': true } })).tutores).toBe(true);
+  });
+
+  it('y a un admin sin facturas_colaborador.ver_todas se le dejan de buscar', () => {
+    expect(buscaDe(persona('admin', { excepciones: { 'facturas_colaborador.ver_todas': false } })).facturasColaborador).toBe(false);
+  });
+
+  it('cada resultado abre su pantalla ya filtrada', () => {
+    expect(destinoDeTutor({ nombre: 'Tomás Ruiz' })).toBe('/tutores?buscar=Tom%C3%A1s%20Ruiz');
+    expect(destinoDeFacturaColaborador({ colaborador_id: 7, periodo: '2026-10' }))
+      .toBe('/finanzas/facturas-colaboradores?vista=historial&colaborador=7&periodo=2026-10');
+    expect(destinoDeDiploma({ alumno: 'Ana Gómez', revocada: true })).toBe('/clientes/matriculas/diplomas?pestana=revocados&buscar=Ana%20G%C3%B3mez');
+    expect(destinoDeDiploma({ alumno: 'Ana', revocada: false })).toContain('pestana=enviados');
+    expect(destinoDeCursoMoodle({ nombre: 'Voz' }, 1753)).toBe('/conexion/moodle/1753?estado=todos&q=Voz');
+  });
+
+  it('un reciente de esas pantallas solo vale con su permiso', () => {
+    const conTodo = { pages: [], busca: buscaDe(PERFILES.admin) };
+    const sinNada = { pages: [], busca: buscaDe(PERFILES.gestora) };
+    for (const to of ['/tutores?buscar=Tom', '/finanzas/facturas-colaboradores?vista=historial&colaborador=7', '/conexion/moodle/3?estado=todos&q=Voz']) {
+      expect(recienteSigueValiendo(to, conTodo), to).toBe(true);
+      expect(recienteSigueValiendo(to, sinNada), to).toBe(false);
+    }
   });
 });

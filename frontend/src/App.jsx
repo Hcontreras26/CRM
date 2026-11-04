@@ -6,6 +6,7 @@ import { tituloDeRuta } from './shared/lib/rutasTitulos';
 
 import { SOLO_EN_PRUEBAS } from './shared/lib/soloEnPruebas';
 import ConPermiso from './shared/components/layout/ConPermiso';
+import { MARCA } from '@/shared/config/marca';
 const APP_BASE_URL = import.meta.env.BASE_URL || '';
 const IS_TESTEO_PREVIEW_BASE = APP_BASE_URL.startsWith('/testeo/');
 const IS_TESTEO2_BASE = APP_BASE_URL.startsWith('/testeo2/');
@@ -21,7 +22,7 @@ function DocumentTitle() {
   const { pathname } = useLocation();
   const { activeProject: project, activeIssuer } = useProjectContext();
   useEffect(() => {
-    const base = 'MultiCRM';
+    const base = MARCA;
     // El nombre sale del mismo sitio que usa la cabecera: una pantalla no
     // puede llamarse de una forma en la pestaña y de otra encima del contenido.
     const route = tituloDeRuta(pathname);
@@ -202,6 +203,12 @@ const SuiteDashCrmPreviewPage = IS_TESTEO2_BASE ? lazy(() => import('./modules/s
 const DevComponentsPage = (UI_PREVIEW_ENABLED || IS_TESTEO2_BASE)
   ? lazy(() => import('./modules/dev/pages/DevComponentsPage'))
   : null;
+
+// Las direcciones de Finanzas de antes, sin el prefijo /finanzas (CRM#633).
+const FINANZAS_SIN_PREFIJO = [
+  'comisiones', 'facturas', 'pagos-stripe', 'por-cobrar', 'por-pagar', 'ingresos', 'egresos',
+  'nominas', 'conversiones', 'integraciones', 'pendiente-facturar', 'facturas-colaboradores',
+];
 
 function App() {
   return (
@@ -414,6 +421,12 @@ function App() {
           <Route path="/email-sequences" element={<Navigate to="/secuencias-email" replace />} />
           <Route path="/ai-chat" element={<Navigate to="/chat-ia" replace />} />
           <Route path="/configuracion/email-templates" element={<Navigate to="/configuracion/plantillas-email" replace />} />
+          {/* Finanzas sin su prefijo (CRM#633). Eran las direcciones de antes de
+              agrupar Finanzas bajo /finanzas: alguien las tiene guardadas y la
+              auditoría del 03/11 las encontró dando «página no encontrada». */}
+          {FINANZAS_SIN_PREFIJO.map((r) => (
+            <Route key={r} path={`/${r}`} element={<Navigate to={`/finanzas/${r}`} replace />} />
+          ))}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
