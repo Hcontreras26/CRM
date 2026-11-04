@@ -1263,6 +1263,9 @@ describe('«ha terminado la formacion»: aviso de Certifex y lista', () => {
   });
 
   it('se guarda una vez por matricula y suena la campana de administracion de ese campus', async () => {
+    // Los superadmins que existen ANTES del aviso: la base es compartida y otras pruebas
+    // (consultas188/189) crean superadmins mientras esta corre; esos no podian estar en el aviso.
+    const { rows: sas } = await pool.query(`SELECT id FROM users WHERE active AND role = 'superadmin'`);
     const r = await avisar(completado());
     expect(r.status).toBe(201);
     expect(r.body.data).toMatchObject({ estado: 'nueva', duplicada: false });
@@ -1274,7 +1277,6 @@ describe('«ha terminado la formacion»: aviso de Certifex y lista', () => {
     await vi.waitFor(() => expect(avisos).toHaveLength(1));
     expect(avisos[0]).toMatchObject({ type: 'certifex_completado', link_path: '/clientes/matriculas/diplomas?pestana=terminados' });
     expect(avisos[0].title).toContain('Lucía Terminó');
-    const { rows: sas } = await pool.query(`SELECT id FROM users WHERE active AND role = 'superadmin'`);
     for (const u of sas) expect(avisos[0].targetUserIds).toContain(u.id);
 
     // Un reintento de Certifex: ni duplica ni vuelve a avisar.
