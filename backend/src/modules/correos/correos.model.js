@@ -119,10 +119,12 @@ export async function uno(id) {
   return rows[0] || null;
 }
 
-/** Cuantos hay de cada estado, para las pestañas. */
-export async function recuento() {
+/** Cuantos hay de cada estado, para las pestañas. `campus`: los de esos campus y los de ninguno (null, todos). */
+export async function recuento(campus = null) {
   const { rows } = await query(
-    `SELECT estado, COUNT(*)::int AS n FROM email_envios GROUP BY estado`);
+    `SELECT estado, COUNT(*)::int AS n FROM email_envios
+      WHERE ($1::int[] IS NULL OR project_id = ANY($1::int[]) OR project_id IS NULL)
+      GROUP BY estado`, [campus]);
   const r = { enviado: 0, fallido: 0, bloqueado: 0, recibido: 0 };
   for (const x of rows) r[x.estado] = x.n;
   return r;
