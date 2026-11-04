@@ -156,21 +156,28 @@ describe('#631 · pestañas y accesos rápidos', () => {
 /*
   La vuelta en local con gestora, project manager y soporte (#631) encontró dos
   pantallas que aún pedían sin permiso: Status (credenciales, piezas, correos y
-  WooCommerce) y Pagos Stripe (si hay clave de Stripe o de Supabase). El admin,
-  además, no tiene `credentials.view` y Status se las pedía igual.
+  WooCommerce) y Pagos Stripe (si hay clave de Stripe o de Supabase). Cada
+  bloque de Status se pide solo con su permiso.
 */
 describe('#631 · Status y Pagos Stripe solo piden lo que se puede ver', () => {
-  const comoRol = (role) => {
+  const comoRol = (role, quitar = []) => {
     auth.user = quien(role);
-    auth.permissions = mapaDe(role);
+    auth.permissions = { ...mapaDe(role), ...Object.fromEntries(quitar.map((k) => [k, false])) };
     proyecto.value = { activeProject: { id: 2, nombre: 'ISEIH' }, projects: [{ id: 2 }] };
     cliente.get.mockClear();
   };
   const pedidas = () => cliente.get.mock.calls.map(([u]) => String(u).split('?')[0]);
   const montar = (El) => render(<MemoryRouter><El /></MemoryRouter>);
 
-  it('Status, con el admin: el estado y WooCommerce sí; las demás credenciales, no', async () => {
+  it('Status, con el admin: todo (desde CRM#632 tiene `credentials.view`)', async () => {
     comoRol('admin');
+    montar(StatusPage);
+    await new Promise((ok) => setTimeout(ok, 0));
+    expect(pedidas()).toEqual(expect.arrayContaining(['/status/piezas', '/status/correos', '/credentials', '/woocommerce/credentials']));
+  });
+
+  it('Status, sin `credentials.view`: el estado y WooCommerce sí; las demás credenciales, no', async () => {
+    comoRol('admin', ['credentials.view']);
     montar(StatusPage);
     await new Promise((ok) => setTimeout(ok, 0));
     expect(pedidas()).toContain('/status/piezas');

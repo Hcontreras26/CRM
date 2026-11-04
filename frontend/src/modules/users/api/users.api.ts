@@ -232,3 +232,26 @@ export async function avisoCambioCorreo(id: number): Promise<AvisoCambioCorreo> 
   if (!res.success) throw new Error(res.error || 'No se pudo comprobar si recibe prospectos');
   return res.data as AvisoCambioCorreo;
 }
+
+/** Si quien da de alta puede dar un rol: como principal o como añadido (Tony, 03/11). */
+export interface PuedeDarRol {
+  puede: boolean;
+  /** Los tres primeros permisos que le daría y quien da de alta no tiene. */
+  faltan: string[];
+  /** Cuántos son en total (pueden ser más de tres). */
+  cuantos: number;
+}
+
+export interface RolAsignable {
+  rol: UserRole;
+  nombre: string;
+  principal: PuedeDarRol;
+  anadido: PuedeDarRol;
+}
+
+/** Qué roles puede dar en un alta quien pregunta. La misma regla que al guardar. */
+export async function listRolesAsignables(): Promise<RolAsignable[]> {
+  const res = await client.get('/users/roles-asignables');
+  if (!res.success) throw new Error(res.error || 'No se pudo saber qué roles puedes dar');
+  return (res.data || []) as RolAsignable[];
+}

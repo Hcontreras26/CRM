@@ -32,7 +32,7 @@ describe('El build de producción y su .env.production', () => {
   it('el ejemplo versionado lleva la base /crm/ y la beta encendida', () => {
     expect(EJEMPLO).toMatch(/^VITE_BASE_PATH=\/crm\/$/m);
     expect(EJEMPLO).toMatch(/^VITE_BETA_MODE=true$/m);
-    expect(clavesDe(EJEMPLO)).toEqual(['VITE_BASE_PATH', 'VITE_BETA_MODE', 'VITE_MODULOS_APAGADOS']);
+    expect(clavesDe(EJEMPLO)).toEqual(['VITE_BASE_PATH', 'VITE_BETA_MODE', 'VITE_MODULOS_APAGADOS', 'VITE_CERTIFEX_PANEL']);
   });
 
   it('en un worktree sin .env.production, el build se PARA y dice qué falta (lo del 22/10)', () => {
@@ -49,7 +49,7 @@ describe('El build de producción y su .env.production', () => {
     fs.writeFileSync(path.join(dir, '.env.production'), 'VITE_BASE_PATH=/crm/\n# VITE_BETA_MODE=true\n');
     let error;
     try { build(); } catch (e) { error = e; }
-    expect(error?.message).toMatch(/faltan VITE_BETA_MODE, VITE_MODULOS_APAGADOS\./);
+    expect(error?.message).toMatch(/faltan VITE_BETA_MODE, VITE_MODULOS_APAGADOS, VITE_CERTIFEX_PANEL\./);
   });
 
   it('las del entorno del proceso valen igual que las del fichero', () => {

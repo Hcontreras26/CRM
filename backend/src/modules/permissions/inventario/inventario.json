@@ -3935,6 +3935,10 @@
     "claves": [
      "email_sequences.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -5372,6 +5376,10 @@
     "claves": [
      "forms.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -5910,6 +5918,10 @@
     "claves": [
      "facturas.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -5932,6 +5944,10 @@
     "claves": [
      "facturas.cola"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": [
@@ -7242,6 +7258,10 @@
     "claves": [
      "leads.duplicados"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -7836,6 +7856,10 @@
     "claves": [
      "make.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -10768,6 +10792,10 @@
     "claves": [
      "products.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -12358,6 +12386,10 @@
     "claves": [
      "reports_ia.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -13142,6 +13174,10 @@
     "claves": [
      "stripe.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -14880,6 +14916,28 @@
   ]
  },
  {
+  "id": "GET /api/tutores/buscar",
+  "tipo": "ruta",
+  "modulo": "tutores",
+  "metodo": "GET",
+  "ruta": "/api/tutores/buscar",
+  "relativa": "GET /buscar",
+  "controlador": "buscar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/tutores/",
   "tipo": "ruta",
   "modulo": "tutores",
@@ -15338,6 +15396,28 @@
     "tipo": "puede",
     "claves": [
      "users.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/users/roles-asignables",
+  "tipo": "ruta",
+  "modulo": "users",
+  "metodo": "GET",
+  "ruta": "/api/users/roles-asignables",
+  "relativa": "GET /roles-asignables",
+  "controlador": "rolesAsignables",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "users.create"
     ]
    }
   ],
@@ -16970,6 +17050,10 @@
     "claves": [
      "woocommerce.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -16992,6 +17076,10 @@
     "claves": [
      "woocommerce.edit"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17014,6 +17102,10 @@
     "claves": [
      "woocommerce.edit"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17036,6 +17128,10 @@
     "claves": [
      "woocommerce.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17058,6 +17154,10 @@
     "claves": [
      "woocommerce.edit"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17080,6 +17180,10 @@
     "claves": [
      "woocommerce.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17102,6 +17206,10 @@
     "claves": [
      "woocommerce.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17124,6 +17232,10 @@
     "claves": [
      "woocommerce.sync"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17146,6 +17258,10 @@
     "claves": [
      "woocommerce.sync"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17168,6 +17284,10 @@
     "claves": [
      "woocommerce.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17190,6 +17310,10 @@
     "claves": [
      "woocommerce.edit"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -17212,6 +17336,10 @@
     "claves": [
      "woocommerce.sync"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []

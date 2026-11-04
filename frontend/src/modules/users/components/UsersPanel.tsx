@@ -17,6 +17,7 @@ import UsersToolbar from './UsersToolbar';
 import UsersTable from './UsersTable';
 import TablePagination from './TablePagination';
 import UserFormDialog, { type UserFormValues } from './UserFormDialog';
+import { mensajeNoLoTienes } from '../lib/rolesAsignables';
 import InviteLinkBanner from './InviteLinkBanner';
 import AvailabilityDialog from './AvailabilityDialog';
 import usePermission from '@/shared/hooks/usePermission';
@@ -129,7 +130,11 @@ export default function UsersPanel() {
       setDialogo(null);
       lista.recargar();
     } catch (err: any) {
-      toast({ title: 'Error', description: err?.message, variant: 'destructive' });
+      // Un rol que quien guarda no puede dar (Tony, 03/11): qué rol quitar, no solo el «no».
+      const sinPermiso = mensajeNoLoTienes(err, values);
+      toast(sinPermiso
+        ? { title: 'Ese rol no lo puedes dar', description: sinPermiso, variant: 'destructive' }
+        : { title: 'Error', description: err?.message, variant: 'destructive' });
     } finally {
       setGuardando(false);
     }
