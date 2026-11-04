@@ -38,6 +38,10 @@ function fingirRes() {
   return res;
 }
 
+// Configurar un campus mira de quién es (admin de empresa con `projects.edit`):
+// aquí llama quien ve el CRM entero, que es lo que se está probando.
+const SUPER = { userId: 1, role: 'superadmin' };
+
 async function llamar(handler, req) {
   const res = fingirRes();
   let error = null;
@@ -122,14 +126,14 @@ describe('crear un proyecto', () => {
 describe('cambiar el tipo de uno que ya existe', () => {
   it('tambien se comprueba', async () => {
     laBaseTiene(['crm', 'ia']);
-    const { error } = await llamar(ctrl.update, { params: { id: '3' }, body: { type: 'ecommerce' } });
+    const { error } = await llamar(ctrl.update, { user: SUPER, params: { id: '3' }, body: { type: 'ecommerce' } });
     expect(error?.code).toBe('TIPO_NO_DISPONIBLE');
     expect(modelo.update).not.toHaveBeenCalled();
   });
 
   it('y lo que no toca el tipo pasa igual', async () => {
     laBaseTiene(['crm', 'ia']);
-    const { error } = await llamar(ctrl.update, { params: { id: '3' }, body: { nombre: 'Otro' } });
+    const { error } = await llamar(ctrl.update, { user: SUPER, params: { id: '3' }, body: { nombre: 'Otro' } });
     expect(error).toBeNull();
     expect(modelo.update).toHaveBeenCalled();
   });
