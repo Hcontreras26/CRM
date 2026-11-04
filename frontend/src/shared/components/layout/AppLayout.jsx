@@ -154,6 +154,10 @@ const ALL_PROJECTS_OK = [
   // piden el campus dentro (`useCampusDeLaPantalla`).
   /^\/configuracion\/documentos$/,
   /^\/configuracion\/plantillas-email$/,
+  // #218, tanda 4 (Diego, 04/11): Convocatorias con todos sus campus juntos, cada
+  // una con su campus. El embudo y los pendientes ya recortaban por campus
+  // (#620); crear una convocatoria sigue pidiendo un campus.
+  /^\/prospectos\/convocatorias$/,
   // #218, tanda 4 (Diego, 04/11): el catálogo de todos los campus juntos, cada
   // producto con su campus; el Árbol de categorías y WooCommerce, el de cada
   // campus solo para ver. Crear, sincronizar o configurar sigue pidiendo un
@@ -384,6 +388,10 @@ const CON_SOCIEDAD_OK = [
   // piden el campus dentro (`useCampusDeLaPantalla`).
   /^\/configuracion\/documentos$/,
   /^\/configuracion\/plantillas-email$/,
+  // #218, tanda 4 (Diego, 04/11): Convocatorias con todos sus campus juntos, cada
+  // una con su campus. El embudo y los pendientes ya recortaban por campus
+  // (#620); crear una convocatoria sigue pidiendo un campus.
+  /^\/prospectos\/convocatorias$/,
   // #218, tanda 4 (Diego, 04/11): el catálogo de todos los campus juntos, cada
   // producto con su campus; el Árbol de categorías y WooCommerce, el de cada
   // campus solo para ver. Crear, sincronizar o configurar sigue pidiendo un
