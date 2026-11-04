@@ -2,6 +2,7 @@ import { z } from 'zod';
 import * as model from './integrations.model.js';
 import { encrypt, decrypt, maskSecret } from '../../shared/utils/crypto.js';
 import { AppError } from '../../shared/utils/AppError.js';
+import { listaDelAmbito, campusDeTodos } from '../../shared/utils/ambito.js';
 import { logger } from '../../shared/utils/logger.js';
 import { infoDelCampus, urlDelCampus } from '../../shared/services/moodle.client.js';
 import { urlDeStripe } from '../../shared/config/stripeApi.js';
@@ -91,6 +92,18 @@ export async function list(req, res, next) {
       ...r,
       secret_preview: null,  // sólo el GET de detalle por provider devuelve preview
     })) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/integrations/estado?issuerId=N | projectIds=1,2 | nada («Todos»)
+// El estado de cada campus del ámbito, solo para ver (#218). Los campus salen
+// de quien pide: un admin, los suyos; superadmin y soporte, todos los activos
+// menos los de pruebas, salvo que los elija.
+export async function estado(req, res, next) {
+  try {
+    const lista = (await listaDelAmbito(req)) || await campusDeTodos(req);
+    const campus = await model.estadoDeLosCampus(lista);
+    res.json({ success: true, data: campus });
   } catch (err) { next(err); }
 }
 

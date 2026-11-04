@@ -4,6 +4,8 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import CorteDeFacturacion from '../components/CorteDeFacturacion';
 import ProyectosIAConectados from '../components/ProyectosIAConectados';
+import EstadoDeLasIntegraciones from '../components/EstadoDeLasIntegraciones';
+import { TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 import EstadoDeLaSincronizacion from '../components/EstadoDeLaSincronizacion';
 import SupabaseCard from '../components/SupabaseCard';
 import { toast } from '@/shared/hooks/useToast';
@@ -69,8 +71,15 @@ function fmt(d: string | null): string {
 }
 
 export default function IntegrationsPage() {
-  const { activeProject } = useProjectContext() as { activeProject: { id?: number | null; nombre?: string; type?: string } };
-  const pid = activeProject?.id;
+  const { activeProject, isAllProjects, activeIssuerId } = useProjectContext() as {
+    activeProject: { id?: number | null; nombre?: string; type?: string };
+    isAllProjects?: boolean;
+    activeIssuerId?: number | null;
+  };
+  // Con «Todos» o una empresa arriba no hay UN campus que configurar: la
+  // pantalla enseña el estado de cada uno, solo para ver (#218, Diego 04/11).
+  const vistaGeneral = !!isAllProjects || !!activeIssuerId || activeProject?.id === TODOS_LOS_PROYECTOS;
+  const pid = vistaGeneral ? null : activeProject?.id;
   const esIA = activeProject?.type === 'ia';
 
   return (
@@ -82,7 +91,9 @@ export default function IntegrationsPage() {
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning-soft text-warning-soft-foreground">PRUEBAS</span>
           </span>
         ) as unknown as string}
-        subtitle={`Configura conexiones externas (Stripe, Brevo, el campus Moodle${esIA ? ', Supabase' : ''}) para ${activeProject?.nombre || 'el proyecto activo'}.`}
+        subtitle={vistaGeneral
+          ? 'El estado de las conexiones (Stripe, Brevo, el campus Moodle) de cada campus.'
+          : `Configura conexiones externas (Stripe, Brevo, el campus Moodle${esIA ? ', Supabase' : ''}) para ${activeProject?.nombre || 'el proyecto activo'}.`}
       />
 
       <div className="bg-info-soft border border-info/30 rounded-lg p-4 text-sm space-y-2">
@@ -114,7 +125,9 @@ export default function IntegrationsPage() {
           Se pinta sola solo si hay proyectos IA. */}
       <ProyectosIAConectados />
 
-      {!pid ? (
+      {vistaGeneral ? (
+        <EstadoDeLasIntegraciones />
+      ) : !pid ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center text-muted-foreground">
           Selecciona un proyecto en el sidebar —o pulsa «Configurar» arriba— para configurar sus integraciones.
         </div>

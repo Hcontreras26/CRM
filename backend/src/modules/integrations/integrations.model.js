@@ -29,6 +29,33 @@ export async function listByProject(projectId) {
   return rows;
 }
 
+/*
+  EL ESTADO DE CADA CAMPUS, PARA «TODOS» O UNA EMPRESA (#218, Diego 04/11).
+
+  Solo para ver: qué está conectado y cuándo se probó. Nunca las claves, ni
+  cifradas ni enmascaradas, ni la configuración (la URL del Moodle, por
+  ejemplo): para eso se entra en el campus. Un campus sin ninguna integración
+  sale igual, con la lista vacía: «sin configurar» también es un estado.
+*/
+export async function estadoDeLosCampus(projectIds) {
+  const { rows } = await query(
+    `SELECT p.id, p.nombre, p.type,
+            COALESCE(json_agg(json_build_object(
+              'provider', i.provider,
+              'has_secret', i.encrypted_value IS NOT NULL,
+              'last_test_status', i.last_test_status,
+              'last_test_at', i.last_test_at
+            ) ORDER BY i.provider) FILTER (WHERE i.id IS NOT NULL), '[]') AS integraciones
+       FROM projects p
+       LEFT JOIN project_integrations i ON i.project_id = p.id
+      WHERE p.id = ANY($1::int[]) AND p.active
+      GROUP BY p.id
+      ORDER BY p.nombre`,
+    [projectIds]
+  );
+  return rows;
+}
+
 export async function upsert({ projectId, provider, active, encrypted_value, iv, auth_tag, config_public }) {
   // Si encrypted_value viene null/undefined, NO sobreescribe el actual (se reusa
   // el anterior). El frontend manda undefined si el user no toca el campo.
