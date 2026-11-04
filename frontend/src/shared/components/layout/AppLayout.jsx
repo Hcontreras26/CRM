@@ -158,6 +158,10 @@ const ALL_PROJECTS_OK = [
   // una con su campus. El embudo y los pendientes ya recortaban por campus
   // (#620); crear una convocatoria sigue pidiendo un campus.
   /^\/prospectos\/convocatorias$/,
+  // #218, tanda 4 (Diego, 04/11): Integraciones enseña el estado de cada campus
+  // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
+  // elegir el campus.
+  /^\/finanzas\/integraciones$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -380,6 +384,10 @@ const CON_SOCIEDAD_OK = [
   // una con su campus. El embudo y los pendientes ya recortaban por campus
   // (#620); crear una convocatoria sigue pidiendo un campus.
   /^\/prospectos\/convocatorias$/,
+  // #218, tanda 4 (Diego, 04/11): Integraciones enseña el estado de cada campus
+  // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
+  // elegir el campus.
+  /^\/finanzas\/integraciones$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {

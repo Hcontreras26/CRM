@@ -69,11 +69,18 @@ describe('#218 tanda 4: Convocatorias (Diego, 04/11)', () => {
   });
 });
 
+describe('#218 tanda 4: Integraciones, solo para ver (Diego, 04/11)', () => {
+  it('se abre con «Todos» y con una empresa', () => {
+    expect(pathAllowsAll('/finanzas/integraciones')).toBe(true);
+    expect(rutaAceptaSociedad('/finanzas/integraciones')).toBe(true);
+  });
+});
+
 describe('las que siguen con su muro (configuración de un campus, pendientes de Diego)', () => {
   // El servidor aún no sabe «Todos» (400 o 403 con el -1), o la pantalla pide un
   // campus por su cuenta. Se abren en las tandas 2 y 3, no antes.
   it.each([
-    '/finanzas/integraciones', '/productos', '/productos/woocommerce',
+    '/productos', '/productos/woocommerce',
     '/whatsapp/plantillas', '/registro',
   ])('%s', (ruta) => {
     expect(pathAllowsAll(ruta)).toBe(false);
