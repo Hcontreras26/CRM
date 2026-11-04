@@ -26,7 +26,9 @@ sudo install -d -o postgres -g postgres -m 700 /var/backups/crm/base
 sudo install -o postgres -g postgres -m 600 /dev/null /var/log/crm-copias.log
 ```
 
-Cron, en `/etc/cron.d/crm-copias` (360; en ISEIE, con sus bases y `.../iseie`):
+En **ISEIE** la carpeta es `/var/backups/crm-iseie/base` (en vez de `/var/backups/crm/base`), aquí y en los comandos de abajo.
+
+El cron va en un fichero propio, `/etc/cron.d/crm-copias`. **Nunca con `crontab -`**, que sustituye el crontab entero del usuario; en el VPS de ISEIE ese crontab lleva tareas de otras apps. Para el 360:
 
 ```cron
 COPIAS_BASES="crm_prod_db crm_test_db"
@@ -37,6 +39,16 @@ CRON_TZ=Europe/Madrid
 ```
 
 `flock -n` impide que dos copias se solapen si una se alarga.
+
+En ISEIE, las tres primeras líneas son:
+
+```cron
+COPIAS_BASES="crm_iseie crm_iseie_staging"
+COPIAS_DIR="/var/backups/crm-iseie/base"
+COPIAS_REMOTO="r2-copias:crm-copias/iseie"
+```
+
+(ISEIE tenía `scripts/backup-db.sh`, que solo copiaba `crm_iseie`, dejaba los volcados legibles por cualquiera y se instalaba con `crontab -`. Ahora delega en `scripts/servidor/copia-base.sh`.)
 
 **La primera vez, a mano**, para ver que sale bien antes de esperar al cron:
 
@@ -78,7 +90,7 @@ sudo find /var/backups/crm -maxdepth 2 -type f \( -name '*.dump' -o -name '*.sql
 `scripts/servidor/purgar-copias-backend.sh` borra los `.tgz` y `.tar.gz` de más de 30 días y **siempre conserva los 5 más recientes**. No toca los `.dump`. Sin `--si` solo simula:
 
 ```bash
-sudo ./scripts/servidor/purgar-copias-backend.sh /var/backups/crm          # dice qué borraría y cuánto ocupa
+sudo ./scripts/servidor/purgar-copias-backend.sh /var/backups/crm          # en ISEIE: /var/backups/crm-iseie
 sudo ./scripts/servidor/purgar-copias-backend.sh /var/backups/crm --si     # lo borra
 ```
 
