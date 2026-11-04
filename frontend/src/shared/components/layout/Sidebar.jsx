@@ -167,7 +167,9 @@ export const NAV_SECTIONS = [
           // es el chat: uno sirve para conversar y este para buscar, auditar y
           // llevarse una copia. El servidor recorta lo que ve cada cual — un
           // admin lo ve entero, una gestora solo su numero.
-          { label: 'Banco de mensajes', to: '/whatsapp/banco', detail: 'Buscar y auditar', icon: ChatText },
+          // El servidor pide usarlo o supervisarlo (`usaOSupervisa`); sin esto el menú se lo
+          // enseñaba al project manager y le daba 403 (#631).
+          { label: 'Banco de mensajes', to: '/whatsapp/banco', detail: 'Buscar y auditar', icon: ChatText, permiso: ['whatsapp.usar', 'whatsapp.supervisar'] },
           // Si cada gestora responde y lo que apunta (Diego, 30/10). Para quien ve Reportes.
           { label: 'Actividad', to: '/whatsapp/actividad', detail: 'Quién responde', icon: ChartBar, permiso: 'reports.view' },
           // «WhatsApp del equipo» no esta: entraba en la sesion de cada gestora
@@ -400,7 +402,9 @@ export const NAV_SECTIONS = [
       // Los correos que salen del CRM (#146). Mismos roles que el Registro, y
       // aqui pesa mas: esto enseña el TEXTO de correos a personas.
       { label: 'Correos', to: '/correos', detail: 'Lo que ha mandado el CRM', icon: EnvelopeSimple, roles: ['superadmin', 'admin'], permiso: 'correos.view' },
-      { label: 'Status', to: '/status', detail: 'Si algo está caído', icon: Activity },
+      // Lo que enseña pide `status.view` (piezas y correos), `credentials.view` o
+      // `woocommerce.view`: sin ninguno, la pantalla era solo 403 (#631).
+      { label: 'Status', to: '/status', detail: 'Si algo está caído', icon: Activity, permiso: ['status.view', 'credentials.view', 'woocommerce.view'] },
       { label: 'Manual de usuario', to: '/manual', detail: 'Cómo se usa cada cosa', icon: BookOpen },
     ],
   },
@@ -516,6 +520,39 @@ export function pasaPermisoDeRoles(item, can) {
   if (!item?.permiso) return true;
   // `permiso` puede ser una lista: basta con una.
   return [].concat(item.permiso).some((p) => !String(p).includes('.') || (typeof can === 'function' && can(p) === true));
+}
+
+/**
+ * ¿Puede abrir esta pantalla, por la dirección? (#631)
+ *
+ * El menú ya esconde lo que no se puede usar cuando la entrada declara su
+ * `permiso`, pero escribiendo la dirección la pantalla se abría igual y luego
+ * llegaba el 403. Esta es la misma regla, para la ruta: todas las entradas del
+ * menú que llevan a ella (Clientes sale dos veces); si alguna pide `permiso` y
+ * ninguna lo cumple, está cerrada. Solo el permiso, nunca el rol (#423): los
+ * `roles` de cada entrada dicen a quién se le enseña de serie, no quién entra.
+ * Lo que no está en el menú (fichas de detalle…) no se toca.
+ */
+const SIN_ENTRADA = {
+  // El chat de WhatsApp también se abre por `/whatsapp` (App.jsx), sin entrada.
+  '/whatsapp': ['whatsapp.usar', 'whatsapp.supervisar'],
+};
+
+export function rutaPermitida(pathname, can) {
+  const ruta = String(pathname || '').replace(/\/+$/, '') || '/';
+  const suyas = [];
+  const recorrer = (items) => {
+    for (const it of items || []) {
+      if (it.to && !it.href && it.to === ruta) suyas.push(it);
+      if (it.children) recorrer(it.children);
+    }
+  };
+  for (const s of NAV_SECTIONS) recorrer(s.items);
+  // Rutas sin entrada propia en el menú: su permiso, aquí.
+  if (!suyas.length && SIN_ENTRADA[ruta]) suyas.push({ permiso: SIN_ENTRADA[ruta] });
+  if (!suyas.length) return true;
+  return suyas.some((it) => !it.permiso || pasaPermisoDeRoles(it, can)
+    || (it.oPermiso && [].concat(it.oPermiso).some((p) => typeof can === 'function' && can(p) === true)));
 }
 
 export function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permisos, can) {
@@ -971,6 +1008,10 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const [msgUnreadBadge, setMsgUnreadBadge] = useState(0);
   const [tasksReviewBadge, setTasksReviewBadge] = useState(0);
   const { can } = usePermission();
+  // Para los contadores: un sí o un no, no la función `can`, que es nueva en
+  // cada render y, en las dependencias de un efecto, lo relanzaría sin parar.
+  const veProspectosNuevos = can('leads.view');
+  const veReportesDeSpam = can('leads.spam');
 
   // Estado de secciones colapsadas (Captación, Catálogo, Finanzas, etc.).
   // Persistido en localStorage. Por defecto, abierto: Principal + la sección
@@ -1086,8 +1127,9 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   useEffect(() => { setUserMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
-    // El tutor tampoco: no ve prospectos y el servidor se los niega (#187).
-    if (!activeProject?.id || soloEsColaborador(user) || soloEsTutor(user)) return;
+    // El tutor tampoco: no ve prospectos y el servidor se los niega (#187). Y quien
+    // no tiene «Ver prospectos», tampoco: el servidor se lo niega (#631).
+    if (!activeProject?.id || !veProspectosNuevos || soloEsColaborador(user) || soloEsTutor(user)) return;
     let cancelled = false;
     let interval = null;
 
@@ -1126,11 +1168,12 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
         document.removeEventListener('visibilitychange', onVisibilityChange);
       }
     };
-  }, [activeProject?.id, user]);
+  }, [activeProject?.id, user, veProspectosNuevos]);
 
-  // Badge de reportes de spam pendientes — solo superadmin
+  // Badge de reportes de spam pendientes: quien puede verlos (`leads.spam`), por
+  // permiso y no por rol (#423, #631).
   useEffect(() => {
-    if (user?.role !== 'superadmin') return;
+    if (!veReportesDeSpam) return;
     let cancelled = false;
     async function fetchSpamCount() {
       try {
@@ -1141,7 +1184,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
     fetchSpamCount();
     const interval = setInterval(fetchSpamCount, 60000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [user?.role]);
+  }, [veReportesDeSpam]);
 
   // Badge de mensajes no leidos
   useEffect(() => {

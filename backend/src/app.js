@@ -107,6 +107,7 @@ import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
 import { startTasksDailySummaryScheduler } from './jobs/tasksDailySummaryJob.js';
 import { startTareasResumenScheduler } from './jobs/tareasResumenJob.js';
 import { startFacturasColaboradorScheduler } from './jobs/facturasColaboradorJob.js';
+import { startFacturasColaboradorAvisosScheduler } from './jobs/facturasColaboradorAvisosJob.js';
 import { tareasActivas, facturasColaboradorActivas } from './shared/config/soloEnPruebas.js';
 import { porteroDelWebhook, topeDelEnvio, traducirTope } from './modules/webhook-tokens/portero.js';
 import { MAX_ENVIO_BYTES } from './modules/matriculas/admision.archivos.js';
@@ -401,6 +402,7 @@ async function recuperarAdjuntosDeWhatsapp() {
            FROM wa_mensajes m
            JOIN wa_conversaciones c ON c.id = m.conversacion_id
           WHERE m.media_url IS NULL
+            AND NOT m.media_irrecuperable
             AND m.tipo NOT IN ('texto', 'otro')
             AND m.wa_id IS NOT NULL`
       );
@@ -481,6 +483,8 @@ if (process.env.NODE_ENV !== 'test') {
     // El resumen de la tarde y los correos de cambio de estado (26/10/2026).
     if (tareasActivas()) startTareasResumenScheduler();
     if (facturasColaboradorActivas()) startFacturasColaboradorScheduler();
+    // Los avisos a la empresa: «Han llegado N facturas» y «Faltan por pagar» (Diego, 04/11).
+    if (facturasColaboradorActivas()) startFacturasColaboradorAvisosScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }

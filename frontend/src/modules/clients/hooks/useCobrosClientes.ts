@@ -43,17 +43,21 @@ export interface ResumenCobro {
 export default function useCobrosClientes({
   projectId,
   responsableId,
+  activo = true,
 }: {
   /** Null para «todos los proyectos»: el servidor los da todos. */
   projectId: number | null;
   /** La gestora del filtro, si hay una puesta. */
   responsableId?: string | number | null;
+  /** Sin «Por cobrar» el servidor da 403: no se pregunta (#631). */
+  activo?: boolean;
 }) {
   const [items, setItems] = useState<FilaCobro[]>([]);
   const [resumen, setResumen] = useState<ResumenCobro | null>(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
+    if (!activo) { setItems([]); setResumen(null); setCargando(false); return undefined; }
     let vivo = true;
     setCargando(true);
     const params: Record<string, string | number> = {};
@@ -75,7 +79,7 @@ export default function useCobrosClientes({
       .finally(() => { if (vivo) setCargando(false); });
 
     return () => { vivo = false; };
-  }, [projectId, responsableId]);
+  }, [projectId, responsableId, activo]);
 
   /** Cuánto se debe según lo cerca que esté de vencer. En euros, no en filas:
       lo que importa de un cobro es el importe, no cuántos recibos son. */
