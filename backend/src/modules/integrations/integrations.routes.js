@@ -27,6 +27,9 @@ router.use(function projectIdConFormato(req, _res, next) {
 });
 
 router.get('/',                puede('integrations.view'), projectAccess, ctrl.list);
+// Antes de `/:provider`, que si no se la come. Sin `projectAccess`: no es de un
+// campus, y el controlador recorta por el ámbito de quien pide (#218).
+router.get('/estado',          puede('integrations.view'), ctrl.estado);
 router.get('/:provider',       puede('integrations.view'), projectAccess, ctrl.getOne);
 router.put('/',                puede('integrations.edit'), projectAccess, ctrl.upsert);
 router.post('/:provider/test', puede('integrations.edit'), projectAccess, ctrl.test);
