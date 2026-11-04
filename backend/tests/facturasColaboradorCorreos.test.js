@@ -141,9 +141,12 @@ describe('facturas de colaboradores (#202) · correos encendidos', () => {
     expect(c.htmlContent).toContain('Servicios de desarrollo web · julio 2026');
     expect(c.htmlContent).toContain('Calle Mayor, 1');
     expect(c.htmlContent).toContain('Subir mi factura de julio');
-    // Con la marca de la empresa: su logo en la cabecera y su campus para el remitente de Brevo.
+    // Con la marca de la EMPRESA (Diego, 04/11): su nombre en la cabecera, sin el
+    // logo ni el nombre del campus. El campus solo pone el remitente de Brevo.
     expect(c.projectId).toBe(campus.id);
-    expect(c.htmlContent).toContain('https://logo.prueba/marca.png');
+    expect(c.htmlContent).not.toContain('https://logo.prueba/marca.png');
+    expect(c.htmlContent).not.toContain(`${MARCA} Campus`);
+    expect(c.htmlContent).toContain(`CRM de ${CORTA}`);
 
     // El enlace del correo es el que vale: su huella es la de la fila.
     enlace = enlaceDelCorreo(c);
