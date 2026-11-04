@@ -1,3 +1,4 @@
+import usePermission from '@/shared/hooks/usePermission';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import { useEffect, useState, useMemo } from 'react';
 import { useProject } from '@/shared/hooks/useProject';
@@ -229,6 +230,7 @@ function FormModal({
 
 export default function CategoriesTreePage() {
   const { activeProject } = useProject();
+  const { can } = usePermission();
   const [tree, setTree] = useState<CategoryNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -246,8 +248,10 @@ export default function CategoriesTreePage() {
   const [sync, setSync] = useState<WcRunStatus | null>(null);
   const [syncStarting, setSyncStarting] = useState(false);
 
+  // Sin «Ver WooCommerce» el servidor da 403 cada 30 s: no se pregunta (#631).
+  const veWoo = can('woocommerce.view');
   useEffect(() => {
-    if (!activeProject?.id) return;
+    if (!activeProject?.id || !veWoo) return;
     let cancel = false;
     async function tick() {
       try {
@@ -264,7 +268,7 @@ export default function CategoriesTreePage() {
     const interval = setInterval(tick, sync?.status === 'running' ? 3000 : 30000);
     return () => { cancel = true; clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProject?.id, sync?.status]);
+  }, [activeProject?.id, sync?.status, veWoo]);
 
   async function handleStartSync() {
     if (!activeProject?.id) return;
