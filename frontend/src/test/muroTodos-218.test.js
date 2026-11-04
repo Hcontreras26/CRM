@@ -62,6 +62,17 @@ describe('#218 tanda 3: se abren con «Todos» y con una empresa', () => {
   });
 });
 
+describe('#218 tanda 4: el catálogo (Diego, 04/11)', () => {
+  it.each(['/productos', '/productos/arbol', '/productos/categorias', '/productos/pendientes', '/productos/woocommerce'])(
+    '%s se abre con «Todos» y con una empresa', (ruta) => {
+      expect(pathAllowsAll(ruta)).toBe(true);
+      expect(rutaAceptaSociedad(ruta)).toBe(true);
+    });
+  it('y nada más: una ficha de producto sigue siendo de su campus', () => {
+    expect(pathAllowsAll('/productos/123')).toBe(false);
+  });
+});
+
 describe('#218 tanda 4: Integraciones, solo para ver (Diego, 04/11)', () => {
   it('se abre con «Todos» y con una empresa', () => {
     expect(pathAllowsAll('/finanzas/integraciones')).toBe(true);
@@ -80,7 +91,6 @@ describe('las que siguen con su muro (configuración de un campus, pendientes de
   // El servidor aún no sabe «Todos» (400 o 403 con el -1), o la pantalla pide un
   // campus por su cuenta. Se abren en las tandas 2 y 3, no antes.
   it.each([
-    '/prospectos/convocatorias', '/productos', '/productos/woocommerce',
     '/whatsapp/plantillas', '/registro',
   ])('%s', (ruta) => {
     expect(pathAllowsAll(ruta)).toBe(false);

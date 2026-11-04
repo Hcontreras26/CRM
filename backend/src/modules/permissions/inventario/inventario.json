@@ -10871,6 +10871,28 @@
   "puertas": []
  },
  {
+  "id": "GET /api/product-categories/ambito",
+  "tipo": "ruta",
+  "modulo": "product-categories",
+  "metodo": "GET",
+  "ruta": "/api/product-categories/ambito",
+  "relativa": "GET /ambito",
+  "controlador": "arbolesDelAmbito",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/product-categories/project/:projectId",
   "tipo": "ruta",
   "modulo": "product-categories",
@@ -11002,6 +11024,28 @@
    {
     "tipo": "alcance",
     "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/products/ambito",
+  "tipo": "ruta",
+  "modulo": "products",
+  "metodo": "GET",
+  "ruta": "/api/products/ambito",
+  "relativa": "GET /ambito",
+  "controlador": "list",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
    }
   ],
   "puertas": []
@@ -17282,6 +17326,28 @@
    {
     "tipo": "alcance",
     "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/woocommerce/estado",
+  "tipo": "ruta",
+  "modulo": "woocommerce",
+  "metodo": "GET",
+  "ruta": "/api/woocommerce/estado",
+  "relativa": "GET /estado",
+  "controlador": "estado",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.view"
+    ]
    }
   ],
   "puertas": []
