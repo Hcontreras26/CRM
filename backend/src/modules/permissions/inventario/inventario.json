@@ -10871,6 +10871,28 @@
   "puertas": []
  },
  {
+  "id": "GET /api/product-categories/ambito",
+  "tipo": "ruta",
+  "modulo": "product-categories",
+  "metodo": "GET",
+  "ruta": "/api/product-categories/ambito",
+  "relativa": "GET /ambito",
+  "controlador": "arbolesDelAmbito",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/product-categories/project/:projectId",
   "tipo": "ruta",
   "modulo": "product-categories",
@@ -11002,6 +11024,28 @@
    {
     "tipo": "alcance",
     "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/products/ambito",
+  "tipo": "ruta",
+  "modulo": "products",
+  "metodo": "GET",
+  "ruta": "/api/products/ambito",
+  "relativa": "GET /ambito",
+  "controlador": "list",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "products.view"
+    ]
    }
   ],
   "puertas": []
@@ -17261,6 +17305,28 @@
   "puertas": []
  },
  {
+  "id": "GET /api/woocommerce/estado",
+  "tipo": "ruta",
+  "modulo": "woocommerce",
+  "metodo": "GET",
+  "ruta": "/api/woocommerce/estado",
+  "relativa": "GET /estado",
+  "controlador": "estado",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "woocommerce.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/woocommerce/runs/current",
   "tipo": "ruta",
   "modulo": "woocommerce",
@@ -17836,7 +17902,7 @@
   "ruta": "/api/registro/",
   "controlador": "listar",
   "publica": false,
-  "condicion": "lo que no es de ningún campus: errores, tareas programadas, inicios de sesión",
+  "condicion": "lo que no es de ningún campus: errores y tareas programadas",
   "regla": "adminYSoporte",
   "puerta": "registro.sistema"
  },
@@ -17848,7 +17914,7 @@
   "ruta": "/api/registro/fuentes",
   "controlador": "fuentes",
   "publica": false,
-  "condicion": "lo que no es de ningún campus: errores, tareas programadas, inicios de sesión",
+  "condicion": "lo que no es de ningún campus: errores y tareas programadas",
   "regla": "adminYSoporte",
   "puerta": "registro.sistema"
  },
@@ -17860,7 +17926,7 @@
   "ruta": "/api/registro/csv",
   "controlador": "csv",
   "publica": false,
-  "condicion": "lo que no es de ningún campus: errores, tareas programadas, inicios de sesión",
+  "condicion": "lo que no es de ningún campus: errores y tareas programadas",
   "regla": "adminYSoporte",
   "puerta": "registro.sistema"
  },

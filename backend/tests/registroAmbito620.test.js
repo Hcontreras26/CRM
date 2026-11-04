@@ -8,8 +8,10 @@ import jwt from 'jsonwebtoken';
  * admin ve las pestañas por campus y empresas, según sus roles».
  *
  *   · Lo que tiene campus, solo de los de quien mira (`listaDelAmbito`).
- *   · Lo que no tiene campus —errores, tareas, un inicio de sesión—, solo con
- *     `registro.sistema` (de serie, soporte; el super admin lo tiene todo).
+ *   · Lo que no tiene campus —errores, tareas—, solo con `registro.sistema`
+ *     (de serie, soporte; el super admin lo tiene todo).
+ *   · Un inicio de sesión no trae campus: lo ve quien mira si la persona es de
+ *     sus campus (Diego, 04/11: «el admin ve los de la gente de sus campus»).
  *   · No depende de la fuente sino de la fila: un correo con campus se recorta
  *     por campus; uno sin campus es del sistema.
  *   · La lista, las fuentes y el CSV, igual.
@@ -32,7 +34,7 @@ const MARCA = `RG620${Date.now().toString(36)}`;
 const q = (sql, p) => pool.query(sql, p).then((r) => r.rows);
 const one = async (sql, p) => (await q(sql, p))[0];
 const ids = { users: [], projects: [], leads: [], correos: [], errores: [] };
-let MIO; let AJENO; let ADMIN; let SOPORTE; let SUPER;
+let MIO; let AJENO; let ADMIN; let SOPORTE; let SUPER; let DE_MIO; let DE_AJENO; let DE_LOS_DOS;
 
 const como = (u) => ({ Authorization: `Bearer ${jwt.sign({ userId: u.id, role: u.role }, process.env.JWT_SECRET, { expiresIn: '10m' })}` });
 const pedir = (u, ruta) => request.get(ruta).set(como(u));
@@ -69,6 +71,14 @@ beforeAll(async () => {
   ADMIN = await persona('admin', 'admin', [MIO]);
   SOPORTE = await persona('soporte', 'soporte', []);
   SUPER = await persona('super', 'superadmin', []);
+  // Tres personas que entran: una del campus del admin, una solo del ajeno y una
+  // de los dos (su inicio de sesión no puede salir dos veces).
+  DE_MIO = await persona('gente-mio', 'gestor', [MIO]);
+  DE_AJENO = await persona('gente-ajeno', 'gestor', [AJENO]);
+  DE_LOS_DOS = await persona('gente-dos', 'gestor', [MIO, AJENO]);
+  for (const u of [DE_MIO, DE_AJENO, DE_LOS_DOS]) {
+    await q(`INSERT INTO user_activity_log (user_id, action, details) VALUES ($1, 'login', '{}')`, [u.id]);
+  }
 }, 60000);
 
 afterAll(async () => {
@@ -76,6 +86,7 @@ afterAll(async () => {
   await q('DELETE FROM leads WHERE id = ANY($1::int[])', [ids.leads]);
   await q('DELETE FROM email_envios WHERE id = ANY($1::int[])', [ids.correos]);
   await q('DELETE FROM status_errors WHERE id = ANY($1::int[])', [ids.errores]);
+  await q('DELETE FROM user_activity_log WHERE user_id = ANY($1::int[])', [ids.users]);
   await q('DELETE FROM user_projects WHERE user_id = ANY($1::int[])', [ids.users]);
   await q('DELETE FROM users WHERE id = ANY($1::int[])', [ids.users]);
   await q('DELETE FROM projects WHERE id = ANY($1::int[])', [ids.projects]);
@@ -124,6 +135,32 @@ describe('el Registro, por campus (#620)', () => {
     expect(r.text).not.toContain(`${MARCA} ficha ajeno`);
     expect(r.text).not.toContain(`${MARCA} correo sistema`);
     expect(r.text).not.toContain(`${MARCA} error`);
+  });
+
+  /** Los inicios de sesión de las personas de esta prueba, por quién entró. */
+  const entradas = (r) => r.body.data.filas
+    .filter((f) => f.fuente === 'usuario' && [DE_MIO.id, DE_AJENO.id, DE_LOS_DOS.id].includes(f.usuario_id))
+    .map((f) => f.usuario_id);
+
+  it('un admin ve el inicio de sesión de la gente de sus campus, una vez cada uno', async () => {
+    const vistas = entradas(await pedir(ADMIN, TODO));
+    expect(vistas.filter((id) => id === DE_MIO.id)).toHaveLength(1);
+    expect(vistas.filter((id) => id === DE_LOS_DOS.id)).toHaveLength(1);
+  });
+
+  it('no ve el de quien solo es de otro campus (de otra empresa)', async () => {
+    expect(entradas(await pedir(ADMIN, TODO))).not.toContain(DE_AJENO.id);
+  });
+
+  it('soporte los ve todos', async () => {
+    expect(entradas(await pedir(SOPORTE, TODO)).sort()).toEqual([DE_MIO.id, DE_AJENO.id, DE_LOS_DOS.id].sort());
+  });
+
+  it('el CSV, igual: el de su gente sí, el de la otra empresa no', async () => {
+    const r = await pedir(ADMIN, '/api/registro/csv?vista=todos');
+    expect(r.text).toContain(`${MARCA} gente-mio`);
+    expect(r.text).toContain(`${MARCA} gente-dos`);
+    expect(r.text).not.toContain(`${MARCA} gente-ajeno`);
   });
 
   it('un admin que pide el campus de otro: 403', async () => {

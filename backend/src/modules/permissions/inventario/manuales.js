@@ -212,7 +212,7 @@ export const PUERTAS = [
     // soporte veían todas las filas, también las de todo el sistema.
     id: 'registro.sistema', modulo: 'registro', regla: 'adminYSoporte',
     donde: 'registro.controller.js · alcance', controladores: ['listar', 'fuentes', 'csv'],
-    condicion: 'lo que no es de ningún campus: errores, tareas programadas, inicios de sesión',
+    condicion: 'lo que no es de ningún campus: errores y tareas programadas',
   },
 
   // ── Lo de cada uno ──

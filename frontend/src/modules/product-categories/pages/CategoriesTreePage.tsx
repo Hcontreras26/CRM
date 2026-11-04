@@ -2,6 +2,8 @@ import usePermission from '@/shared/hooks/usePermission';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import { useEffect, useState, useMemo } from 'react';
 import { useProject } from '@/shared/hooks/useProject';
+import { useVistaGeneral } from '@/shared/hooks/useVistaGeneral';
+import ArbolesDeLosCampus from '../components/ArbolesDeLosCampus';
 import {
   getTree,
   createCategory,
@@ -229,7 +231,11 @@ function FormModal({
 }
 
 export default function CategoriesTreePage() {
-  const { activeProject } = useProject();
+  const { activeProject: cabecera } = useProject();
+  // Con «Todos» o una empresa (#218, Diego 04/11): el árbol de cada campus,
+  // solo para ver (`ArbolesDeLosCampus`). Sin campus arriba, nada de aquí pide.
+  const { general, ambito } = useVistaGeneral();
+  const activeProject = general ? null : cabecera;
   const { can } = usePermission();
   const [tree, setTree] = useState<CategoryNode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -359,6 +365,18 @@ export default function CategoriesTreePage() {
     walk(tree);
     return { total, productos };
   }, [tree]);
+
+  if (general) {
+    return (
+      <div className="container mx-auto py-6 max-w-5xl">
+        <PageHeader
+          title="Árbol de categorías"
+          subtitle="El de cada campus, solo para ver. Para crear, cambiar o sincronizar categorías, entra en el campus."
+        />
+        <ArbolesDeLosCampus ambito={ambito} />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6 max-w-5xl">

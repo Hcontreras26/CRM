@@ -7,7 +7,8 @@ import { tienePermiso } from '../../shared/middleware/permissions.js';
 /**
  * Qué puede ver quien mira (Diego, 03/11, #620): lo que tiene campus, solo de
  * los suyos (`listaDelAmbito`: super admin y soporte, todos); lo que no tiene
- * campus —errores, tareas, un inicio de sesión—, solo con `registro.sistema`.
+ * campus —errores, tareas programadas—, solo con `registro.sistema`; un inicio de
+ * sesión sin campus, si la persona es de sus campus (Diego, 04/11).
  * La lista, las fuentes y el CSV usan lo mismo.
  */
 async function alcance(req) {

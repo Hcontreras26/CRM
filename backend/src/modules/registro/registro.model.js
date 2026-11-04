@@ -113,20 +113,32 @@ export const olvidarTablas = () => { existentes = null; };
  * FUERA en vez de traerlas todas — buscar «lo que hizo Laura» y que salgan los
  * webhooks es justo lo que hace inutil un filtro.
  */
-function condiciones({ fechaCol, usuarioCol, campusCol = 'NULL::int' }, { desde, hasta, usuarioId, campus, sistema = true }, params) {
+function condiciones({ fechaCol, usuarioCol, campusCol = 'NULL::int', personaCol = null }, { desde, hasta, usuarioId, campus, sistema = true }, params) {
   const trozos = [];
   // De quién es cada fila (Diego, 03/11, #620): «el admin ve las pestañas por
   // campus y empresas, según sus roles». Una fila CON campus se ve si su campus
   // es de quien mira (`campus`: su lista; null = todos). Una fila SIN campus
-  // —errores, tareas, un inicio de sesión— es de todo el sistema: solo con
-  // `registro.sistema`. No depende de la fuente, sino de la fila.
+  // —errores, tareas— es de todo el sistema: solo con `registro.sistema`. No
+  // depende de la fuente, sino de la fila.
+  //
+  // `personaCol`, la segunda vía (Diego, 04/11): «el admin ve los [inicios de
+  // sesión] de la gente de sus campus». Una fila sin campus pero de una persona
+  // con un campus activo de la lista es de quien mira. Con `EXISTS` y no con un
+  // JOIN, que repetiría la fila si la persona está en varios. Sin campus y sin
+  // persona (o de alguien que no es de sus campus), sigue siendo del sistema.
+  const dePersona = (lista) => (personaCol
+    ? `(${campusCol} IS NULL AND EXISTS (SELECT 1 FROM user_projects up WHERE up.user_id = ${personaCol} AND up.active AND up.project_id = ANY(${lista})))`
+    : null);
   if (Array.isArray(campus)) {
     params.push(campus);
-    trozos.push(sistema
-      ? `(${campusCol} = ANY($${params.length}::int[]) OR ${campusCol} IS NULL)`
-      : `${campusCol} = ANY($${params.length}::int[])`);
+    const lista = `$${params.length}::int[]`;
+    const vias = [`${campusCol} = ANY(${lista})`];
+    if (sistema) vias.push(`${campusCol} IS NULL`);
+    else if (dePersona(lista)) vias.push(dePersona(lista));
+    trozos.push(vias.length > 1 ? `(${vias.join(' OR ')})` : vias[0]);
   } else if (!sistema) {
-    trozos.push(`${campusCol} IS NOT NULL`);
+    // Viendo todos los campus, la fila de una persona no es «del sistema».
+    trozos.push(personaCol ? `(${campusCol} IS NOT NULL OR ${personaCol} IS NOT NULL)` : `${campusCol} IS NOT NULL`);
   }
   if (desde)  { params.push(desde); trozos.push(`${fechaCol} >= $${params.length}`); }
   if (hasta)  { params.push(hasta); trozos.push(`${fechaCol} < ($${params.length}::date + 1)`); }
@@ -224,6 +236,8 @@ async function deUsuarios(filtros, limite) {
     fechaCol: 'l.created_at', usuarioCol: 'l.user_id',
     // Solo si viene y es un número: un texto raro no puede tirar la consulta.
     campusCol: "(CASE WHEN (l.details->>'project_id') ~ '^[0-9]+$' THEN (l.details->>'project_id')::int END)",
+    // Un inicio de sesión no trae campus: es de quien mira si la persona es de sus campus.
+    personaCol: 'l.user_id',
   }, filtros, params);
   if (donde === null) return [];
   params.push(limite);
