@@ -142,6 +142,23 @@ export default function SaleDetailPage() {
         <div className="space-y-4">
         <div className="bg-card border border-border rounded-lg p-4 space-y-2.5 text-sm">
           <h3 className="font-semibold mb-1">Datos de la venta</h3>
+          {/* Con varias líneas, sus cursos en una lista con su cantidad, en vez
+              del «1x A + 2x B» que se guardaba en el nombre (#223). */}
+          {(venta.items?.length ?? 0) > 1 && (
+            <div className="pb-2.5 border-b border-border">
+              <span className="text-muted-foreground">Cursos</span>
+              <ul className="mt-1 space-y-1" aria-label="Cursos de la venta">
+                {venta.items!.map((it) => (
+                  <li key={it.id} className="flex justify-between gap-3">
+                    <span className="font-medium">{it.descripcion}</span>
+                    <span className="text-muted-foreground whitespace-nowrap">
+                      {Number(it.cantidad) > 1 ? `${it.cantidad} × ` : ''}{fmt(it.precio_unitario)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="flex justify-between gap-3">
             <span className="text-muted-foreground">Fecha</span>
             <span className="font-medium">{fecha(venta.fecha_conversion)}</span>
