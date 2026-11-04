@@ -154,6 +154,11 @@ const ALL_PROJECTS_OK = [
   // piden el campus dentro (`useCampusDeLaPantalla`).
   /^\/configuracion\/documentos$/,
   /^\/configuracion\/plantillas-email$/,
+  // #218, tanda 4 (Diego, 04/11): el catálogo de todos los campus juntos, cada
+  // producto con su campus; el Árbol de categorías y WooCommerce, el de cada
+  // campus solo para ver. Crear, sincronizar o configurar sigue pidiendo un
+  // campus. Cursos pendientes ya tenía su pestaña «Todos los campus» (#336).
+  /^\/productos(?:\/(?:arbol|categorias|pendientes|woocommerce))?$/,
   // #218, tanda 4 (Diego, 04/11): Integraciones enseña el estado de cada campus
   // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
   // elegir el campus.
@@ -376,6 +381,11 @@ const CON_SOCIEDAD_OK = [
   // piden el campus dentro (`useCampusDeLaPantalla`).
   /^\/configuracion\/documentos$/,
   /^\/configuracion\/plantillas-email$/,
+  // #218, tanda 4 (Diego, 04/11): el catálogo de todos los campus juntos, cada
+  // producto con su campus; el Árbol de categorías y WooCommerce, el de cada
+  // campus solo para ver. Crear, sincronizar o configurar sigue pidiendo un
+  // campus. Cursos pendientes ya tenía su pestaña «Todos los campus» (#336).
+  /^\/productos(?:\/(?:arbol|categorias|pendientes|woocommerce))?$/,
   // #218, tanda 4 (Diego, 04/11): Integraciones enseña el estado de cada campus
   // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
   // elegir el campus.
