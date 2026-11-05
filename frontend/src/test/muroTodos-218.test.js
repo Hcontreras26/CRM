@@ -87,6 +87,13 @@ describe('#218 tanda 4: Integraciones, solo para ver (Diego, 04/11)', () => {
   });
 });
 
+describe('#218 tanda 4: Análisis IA y Pregunta a tus datos (Diego, 04/11)', () => {
+  it.each(['/informes/ia', '/informes/preguntar'])('%s se abre con «Todos» y con una empresa', (ruta) => {
+    expect(pathAllowsAll(ruta)).toBe(true);
+    expect(rutaAceptaSociedad(ruta)).toBe(true);
+  });
+});
+
 describe('#218 tanda 4: el Registro (Diego, 04/11)', () => {
   it('se abre con «Todos» y con una empresa', () => {
     expect(pathAllowsAll('/registro')).toBe(true);

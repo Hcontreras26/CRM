@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-813 rutas en 63 módulos, y 31 acciones con condición dentro de una ruta.
+815 rutas en 63 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -97,6 +97,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | porAvisar | `GET /api/certifex/diplomas/por-avisar` | sesión · rol (admin, superadmin) o permiso diplomas.view | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.view` o `diplomas.emit` |
 | terminados | `GET /api/certifex/diplomas/terminados` | sesión · rol (admin, superadmin) o permiso diplomas.view | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.view` o `diplomas.emit` |
 | diplomas | `GET /api/certifex/diplomas` | sesión · rol (admin, superadmin) o permiso diplomas.view | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.view` o `diplomas.emit` |
+| envios | `GET /api/certifex/diplomas/envios` | (no existía) | (ruta nueva) | `diplomas.view` o `diplomas.emit` |
 | editar | `POST /api/certifex/diplomas/editar` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | pedir | `POST /api/certifex/diplomas/pedir` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | aprobarEmitir | `POST /api/certifex/diplomas/aprobar-emitir` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
@@ -869,6 +870,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 | Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
+| listarDelAmbito | `GET /api/reports-ia/ambito` | (no existía) | (ruta nueva) | `reports_ia.view` |
 | list | `GET /api/reports-ia/:projectId` | sesión | superadmin, admin, gestor, soporte, project_manager | `reports_ia.view` |
 | getDetail | `GET /api/reports-ia/detail/:id` | sesión | superadmin, admin, gestor, soporte, project_manager | `reports_ia.view` |
 | generate | `POST /api/reports-ia/:projectId/generate` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `reports_ia.generar` |
@@ -1247,11 +1249,11 @@ lo que pide para tener sentido (editar pide ver).
 
 | Permiso | Clave | Qué deja hacer | De serie | Necesita |
 |---|---|---|---|---|
-| Ver su tablero | `tasks.view_own` | Entrar al tablero y ver las tareas que tiene asignadas. | Admin, Colaborador |  |
+| Ver su tablero | `tasks.view_own` | Entrar al tablero y ver las tareas que tiene asignadas. | Admin, Colaborador, Tutor |  |
 | Ver todo el equipo | `tasks.view_all` | El tablero de cualquiera, «Todo el equipo» y las métricas. | Admin |  |
 | Crear tareas | `tasks.create` | Crearse tareas. | Admin, Colaborador | `tasks.view_own` |
 | Asignar tareas | `tasks.assign` | Asignar o reasignar tareas a otras personas. | Admin | `tasks.view_own` |
-| Editar tareas | `tasks.edit` | Cambiar, mover y completar las tareas que puede ver. | Admin, Colaborador | `tasks.view_own` |
+| Editar tareas | `tasks.edit` | Cambiar, mover y completar las tareas que puede ver. | Admin, Colaborador, Tutor | `tasks.view_own` |
 | Archivar tareas | `tasks.delete` | Archivar cualquier tarea y borrar comentarios ajenos. | Admin | `tasks.view_own` |
 | Aprobar y cerrar | `tasks.close` | Aprobar, devolver, cerrar y reabrir tareas en «Por revisar». | Admin | `tasks.view_own` |
 | Configurar el tablero | `tasks.manage` | Columnas, áreas y proyectos del tablero. | Admin | `tasks.view_own` |
