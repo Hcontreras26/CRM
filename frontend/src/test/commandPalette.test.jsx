@@ -313,7 +313,8 @@ describe('ventas, facturas, tareas y consultas (punto 6)', () => {
     // La gestora y el project manager buscan ventas y facturas; el servidor les da solo las suyas.
     expect(tipos(PERFILES.gestora)).toMatchObject({ ventas: true, facturas: true, consultas: false });
     expect(tipos(PERFILES.project_manager)).toMatchObject({ ventas: true, facturas: true });
-    expect(tipos(PERFILES.tutor)).toEqual({ ventas: false, facturas: false, tareas: false, consultas: true });
+    // Desde el 04/11 el tutor tiene su tablero de tutores (tasks.view_own): busca SUS tareas.
+    expect(tipos(PERFILES.tutor)).toEqual({ ventas: false, facturas: false, tareas: true, consultas: true });
     expect(tipos(PERFILES.colaborador)).toEqual({ ventas: false, facturas: false, tareas: true, consultas: false });
   });
 
