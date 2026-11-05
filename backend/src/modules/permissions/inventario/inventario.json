@@ -12505,6 +12505,28 @@
   "puertas": []
  },
  {
+  "id": "GET /api/reports-ia/ambito",
+  "tipo": "ruta",
+  "modulo": "reports-ia",
+  "metodo": "GET",
+  "ruta": "/api/reports-ia/ambito",
+  "relativa": "GET /ambito",
+  "controlador": "listarDelAmbito",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "reports_ia.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/reports-ia/:projectId",
   "tipo": "ruta",
   "modulo": "reports-ia",
@@ -12570,6 +12592,10 @@
     "claves": [
      "reports_ia.generar"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []

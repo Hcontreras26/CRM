@@ -87,6 +87,13 @@ describe('#218 tanda 4: Integraciones, solo para ver (Diego, 04/11)', () => {
   });
 });
 
+describe('#218 tanda 4: Análisis IA y Pregunta a tus datos (Diego, 04/11)', () => {
+  it.each(['/informes/ia', '/informes/preguntar'])('%s se abre con «Todos» y con una empresa', (ruta) => {
+    expect(pathAllowsAll(ruta)).toBe(true);
+    expect(rutaAceptaSociedad(ruta)).toBe(true);
+  });
+});
+
 describe('las que siguen con su muro (configuración de un campus, pendientes de Diego)', () => {
   // El servidor aún no sabe «Todos» (400 o 403 con el -1), o la pantalla pide un
   // campus por su cuenta. Se abren en las tandas 2 y 3, no antes.

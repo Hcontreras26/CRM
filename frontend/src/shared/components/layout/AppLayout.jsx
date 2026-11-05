@@ -167,6 +167,10 @@ const ALL_PROJECTS_OK = [
   // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
   // elegir el campus.
   /^\/finanzas\/integraciones$/,
+  // #218, tanda 4 (Diego, 04/11): Análisis IA con los informes de todos sus campus
+  // (generar uno pide su campus dentro) y Pregunta a tus datos, que ya contestaba
+  // con los campus de la empresa o de quien pregunta (#245).
+  /^\/informes\/(?:ia|preguntar)$/,
 ];
 
 // Exportadas para la prueba del muro (#208): que «Mi perfil» no vuelva a quedar
@@ -398,6 +402,10 @@ const CON_SOCIEDAD_OK = [
   // en una lista, solo para ver. Conectar o cambiar una clave sigue pidiendo
   // elegir el campus.
   /^\/finanzas\/integraciones$/,
+  // #218, tanda 4 (Diego, 04/11): Análisis IA con los informes de todos sus campus
+  // (generar uno pide su campus dentro) y Pregunta a tus datos, que ya contestaba
+  // con los campus de la empresa o de quien pregunta (#245).
+  /^\/informes\/(?:ia|preguntar)$/,
 ];
 
 export function rutaAceptaSociedad(pathname) {
