@@ -18,9 +18,10 @@ const ClientesVentas = lazy(() => import('../components/ClientesVentas'));
 import FiltroPeriodo, { useEstadoPeriodo } from '../components/FiltroPeriodo';
 
 export default function SalesPage() {
-  const { activeProject, activeIssuerId } = useProjectContext() as {
+  const { activeProject, activeIssuerId, activeIssuer } = useProjectContext() as {
     activeProject: { id: number; nombre?: string; type?: string } | null;
     activeIssuerId: number | null;
+    activeIssuer?: { nombre?: string; campus?: unknown[] } | null;
   };
   const { user } = useAuth() as { user: { role?: string } | null };
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
@@ -92,10 +93,15 @@ export default function SalesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={allProjects ? 'Ventas · Todos los proyectos' : 'Ventas'}
-        subtitle={allProjects
-          ? 'Vista agregada de todos los proyectos. Para registrar una venta entra en un proyecto concreto.'
-          : 'Registra ventas — del día o históricas. Crea cliente + conversión + pago en un solo paso.'}
+        // Con una empresa arriba, id también es -1: el título decía «Todos los
+        // proyectos» aunque las cifras eran solo de esa empresa (#218).
+        title={!allProjects ? 'Ventas'
+          : activeIssuerId && activeIssuer?.nombre ? `Ventas · ${activeIssuer.nombre}` : 'Ventas · Todos los proyectos'}
+        subtitle={!allProjects
+          ? 'Registra ventas — del día o históricas. Crea cliente + conversión + pago en un solo paso.'
+          : activeIssuerId
+            ? 'Sus campus sumados. Al registrar una venta eliges el campus.'
+            : 'Vista agregada de todos los proyectos. Para registrar una venta entra en un proyecto concreto.'}
         actions={(
           <>
           {isAdmin && !allProjects && !esIA && (
@@ -190,7 +196,9 @@ export default function SalesPage() {
         )}
       />
 
-      {hasActiveCtx && !allProjects && (
+      {/* También con una empresa o «Todos»: las cifras ya siguen el periodo,
+          y sin el filtro se quedaban fijas en el año en curso (#218). */}
+      {hasActiveCtx && (
         <FiltroPeriodo
           valor={periodo} onChange={setPeriodo}
           desde={desde} hasta={hasta} onFechas={onFechas}
