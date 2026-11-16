@@ -19,6 +19,7 @@ import SearchableSelect from '@/shared/components/ui/SearchableSelect';
 import DateRangeFilter from './DateRangeFilter';
 import MultiProjectPicker from '@/shared/components/ui/MultiProjectPicker';
 import usePermission from '@/shared/hooks/usePermission';
+import { nombreDelPais, opcionesDePais } from '@/shared/lib/paises';
 
 const STATUS_LABELS: Record<string, string> = {
   nuevo: 'Nuevo',
@@ -61,7 +62,7 @@ const SORT_LABELS: Record<string, string> = {
 
 interface Props {
   activeProject: { id?: number | null; nombre?: string };
-  projects: Array<{ id: number; nombre?: string }>;
+  projects: Array<{ id: number; nombre?: string; paises_por_subdominio?: Record<string, string> | null }>;
   selectedProjectIds: number[];
   setSelectedProjectIds: (ids: number[]) => void;
   gestores: Array<{ id: number; nombre: string; project_ids?: number[] }>;
@@ -75,6 +76,8 @@ interface Props {
   /** Los pasos del proyecto o de la empresa, para poder nombrarlos. */
   pasosDelProceso: Array<{ clave: string; nombre: string; orden: number }>;
   filterOrigen: string; setFilterOrigen: (v: string) => void;
+  /** País de entrada (#221): código ISO o `sin_pais`. Vacío = todos. */
+  filterPais: string; setFilterPais: (v: string) => void;
   filterResponsable: string; setFilterResponsable: (v: string) => void;
   filterProducto: string; setFilterProducto: (v: string) => void;
   dateFrom: string; dateTo: string; setDateRange: (from: string, to: string) => void;
@@ -96,12 +99,19 @@ export default function LeadsFiltersBar(props: Props) {
     gestores, products, user, filterPaso, setFilterPaso, pasosDelProceso,
     search, setSearch, filterEstado, setFilterEstado,
     filterSeguimiento, setFilterSeguimiento,
-    filterOrigen, setFilterOrigen, filterResponsable, setFilterResponsable,
+    filterOrigen, setFilterOrigen, filterPais, setFilterPais, filterResponsable, setFilterResponsable,
     filterProducto, setFilterProducto, dateFrom, dateTo, setDateRange,
     sortMode, setSortMode, sortDir, setSortDir, quickFilter, setQuickFilter, quickCounts,
     filterDup, setFilterDup, filterReincidente, setFilterReincidente,
     stats, leadsCount, filteredCount, onAssignPending,
   } = props;
+
+  // Los países que se pueden elegir: los de la tabla de los campus que se ven (#221).
+  const opcionesPais = opcionesDePais(
+    activeProject?.id && activeProject.id > 0
+      ? projects.filter((p) => p.id === activeProject.id)
+      : (selectedProjectIds.length ? projects.filter((p) => selectedProjectIds.includes(p.id)) : projects),
+  );
 
   // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
   const { can } = usePermission();
@@ -179,6 +189,7 @@ export default function LeadsFiltersBar(props: Props) {
     onClear: () => setFilterSeguimiento(''),
   });
   if (filterOrigen) activePills.push({ key: 'origen', label: ORIGEN_LABELS[filterOrigen] || filterOrigen, onClear: () => setFilterOrigen('') });
+  if (filterPais) activePills.push({ key: 'pais', label: nombreDelPais(filterPais), onClear: () => setFilterPais('') });
   if (filterResponsable) {
     const label = filterResponsable === 'unassigned'
       ? 'Sin asignar'
@@ -198,6 +209,7 @@ export default function LeadsFiltersBar(props: Props) {
     setSearch('');
     setFilterEstado('');
     setFilterOrigen('');
+    setFilterPais('');
     setFilterResponsable('');
     setFilterProducto('');
     setDateRange('', '');
@@ -311,6 +323,26 @@ export default function LeadsFiltersBar(props: Props) {
                     ))}
                   </select>
                 </Row>
+                {/* País de entrada (#221): solo si algún campus de la vista
+                    separa por país (o si ya viene puesto en la dirección). */}
+                {(opcionesPais.length > 0 || filterPais) && (
+                  <Row label="País">
+                    <select
+                      value={filterPais}
+                      onChange={(e) => setFilterPais(e.target.value)}
+                      className="w-full h-9 px-3 rounded-md border border-border bg-muted/40 text-sm"
+                      aria-label="País de entrada"
+                    >
+                      <option value="">Todos los países</option>
+                      {opcionesPais.map((o) => (
+                        <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
+                      ))}
+                      {filterPais && !opcionesPais.some((o) => o.valor === filterPais) && (
+                        <option value={filterPais}>{nombreDelPais(filterPais)}</option>
+                      )}
+                    </select>
+                  </Row>
+                )}
                 <Row label="Orden">
                   <select
                     value={sortMode}

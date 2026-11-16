@@ -15,6 +15,8 @@ export interface AudienceFilters {
   statuses?: string[];
   canal?: string;
   canales?: string[];
+  /** País de entrada (#221): códigos ISO o sin_pais. El retargeting de Meta, por país. */
+  paises?: string[];
   fechaDesde?: string;
   fechaHasta?: string;
   productoId?: number | null;

@@ -72,6 +72,7 @@ import usePermission from '@/shared/hooks/usePermission';
 import { getLeadPriority, getPriorityStyle } from '../lib/leadPriority';
 import { getLeadExportColumns } from '../lib/leadFormat';
 import { yaPaso } from '@/shared/lib/fechas';
+import { etiquetaCampusPais, nombreDelPais } from '@/shared/lib/paises';
 import {
   getInitials,
   getAvatarColor,
@@ -159,6 +160,7 @@ export default function LeadsPage() {
     filterSeguimiento, setFilterSeguimiento,
     filterPaso, setFilterPaso,
     filterOrigen, setFilterOrigen,
+    filterPais, setFilterPais,
     filterResponsable, setFilterResponsable,
     filterProducto, setFilterProducto,
     selectedProjectIds, setSelectedProjectIds,
@@ -936,11 +938,12 @@ export default function LeadsPage() {
         onBusqueda={setSearch}
         placeholder="Buscar por nombre, email o teléfono"
         desplegables={[]}
-        hayFiltros={!!(search || filterEstado || filterOrigen || filterResponsable || filterProducto || dateFrom || dateTo || filterDup || filterReincidente || quickFilter)}
+        hayFiltros={!!(search || filterEstado || filterOrigen || filterPais || filterResponsable || filterProducto || dateFrom || dateTo || filterDup || filterReincidente || quickFilter)}
         onLimpiar={() => {
           setSearch('');
           setFilterEstado('');
           setFilterOrigen('');
+          setFilterPais('');
           setFilterResponsable('');
           setFilterProducto('');
           setDateRange('', '');
@@ -969,6 +972,7 @@ export default function LeadsPage() {
         filterPaso={filterPaso} setFilterPaso={setFilterPaso}
         pasosDelProceso={pasosDelProceso}
         filterOrigen={filterOrigen} setFilterOrigen={setFilterOrigen}
+        filterPais={filterPais} setFilterPais={setFilterPais}
         filterResponsable={filterResponsable} setFilterResponsable={setFilterResponsable}
         filterProducto={filterProducto} setFilterProducto={setFilterProducto}
         dateFrom={dateFrom} dateTo={dateTo} setDateRange={setDateRange}
@@ -1155,10 +1159,14 @@ export default function LeadsPage() {
                     {!lead.valor_oportunidad && <span className="text-muted-foreground/60">—</span>}
                   </td>
                   {showProjectColumn && (
-                    <td className="px-5 py-3.5 text-xs text-muted-foreground">{lead.proyecto_nombre || '—'}</td>
+                    <td className="px-5 py-3.5 text-xs text-muted-foreground">{etiquetaCampusPais(lead.proyecto_nombre, lead.pais_origen) || '—'}</td>
                   )}
                   <td className="px-5 py-3.5">
                     <ChannelBadge channel={lead.origen} />
+                    {/* Con un solo campus no hay columna de campus: el país va aquí (#221). */}
+                    {!showProjectColumn && lead.pais_origen && (
+                      <span className="block mt-0.5 text-secundario text-muted-foreground">{nombreDelPais(lead.pais_origen)}</span>
+                    )}
                   </td>
                   <td className="px-5 py-3.5">
                     <QuickStatusChange

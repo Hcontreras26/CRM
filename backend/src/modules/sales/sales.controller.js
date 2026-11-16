@@ -6,6 +6,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
 import { tienePermiso } from '../../shared/middleware/permissions.js';
 import { alcanceComercial, acotarAlAlcance } from '../../shared/utils/roles.js';
+import { leerFiltroPais } from '../leads/pais.js';
 
 export async function create(req, res, next) {
   try {
@@ -41,7 +42,9 @@ export async function topProducts(req, res, next) {
     // Gestor: forzar su propio responsableId (no puede consultar el de otros).
     // Quien lleva un equipo comercial (09/11/2026), el de su equipo.
     responsableId = acotarAlAlcance(responsableId, await alcanceComercial(req.user));
-    const result = await salesService.getTopProducts({ projectId, projectIds, limit, days, from, to, responsableId });
+    const result = await salesService.getTopProducts({
+      projectId, projectIds, limit, days, from, to, responsableId, paisEntrada: leerFiltroPais(req.query.paisEntrada),
+    });
     // `data` sigue siendo la lista, como siempre: el panel de inicio la lee así
     // y no tiene por qué enterarse. Lo que no es un programa va aparte, y los
     // totales y las ventas sin cobro también (#225): el total lo da el
@@ -74,6 +77,7 @@ export async function facturado(req, res, next) {
       from: parsed.data.from ?? null,
       to: parsed.data.to ?? null,
       responsableId,
+      paisEntrada: leerFiltroPais(req.query.paisEntrada),
     });
     res.json({ success: true, data });
   } catch (err) { next(err); }
@@ -150,6 +154,8 @@ async function filtrosDeQuery(req) {
     from: dateRe2.test(req.query.from || '') ? req.query.from : null,
     to: dateRe2.test(req.query.to || '') ? req.query.to : null,
     responsableId,
+    // País de entrada del prospecto de cada venta (#221): un código o `sin_pais`.
+    paisEntrada: leerFiltroPais(req.query.paisEntrada),
     search: (req.query.search || '').trim() || null,
     // Todas · Solo compartidas · Solo enteras (#163).
     compartidas: req.query.compartidas || null,
@@ -218,6 +224,7 @@ export async function desglose(req, res, next) {
       responsableId: acotarAlAlcance(
         req.query.responsableId ? parseInt(req.query.responsableId) : null,
         await alcanceComercial(req.user)),
+      paisEntrada: leerFiltroPais(req.query.paisEntrada),
     });
     res.json({ success: true, data });
   } catch (err) { next(err); }
@@ -236,6 +243,7 @@ export async function paises(req, res, next) {
       from: f.from || `${new Date().getFullYear()}-01-01`,
       to: f.to || hoy,
       asesoraId: f.responsableId,
+      paisEntrada: f.paisEntrada,
     });
     res.json({ success: true, data });
   } catch (err) { next(err); }

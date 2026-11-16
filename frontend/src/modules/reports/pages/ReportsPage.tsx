@@ -20,6 +20,7 @@ import ReportsDownloadSection from '../components/ReportsDownloadSection';
 import AsesorasPanel from '../components/AsesorasPanel';
 import RankingsPanel from '@/shared/components/RankingsPanel';
 import DondePonerElDinero from '../components/DondePonerElDinero';
+import PaisesDeEntrada from '../components/PaisesDeEntrada';
 import PanelResumen from '@/shared/components/PanelResumen';
 import TasaDeCierre from '../components/TasaDeCierre';
 import PanelSeguimiento from '@/shared/components/PanelSeguimiento';
@@ -600,6 +601,9 @@ function PantallaDeReportes() {
 
       {/* Paises y formaciones: en pantalla, no solo descargables. */}
       <RankingsPanel from={range.from} to={range.to} />
+
+      {/* Por campus y país de entrada (#221): solo si algún campus separa por país. */}
+      <PaisesDeEntrada from={range.from} to={range.to} issuerId={issuerEfectivo} project={proyectoEfectivo} />
 
       {/* ¿Dónde ponemos el dinero? (#56): por canal y campaña, contra el periodo anterior. Solo admin. */}
       <DondePonerElDinero from={range.from} to={range.to} />

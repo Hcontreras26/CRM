@@ -1,6 +1,7 @@
 import PageHeader from '@/shared/components/ui/PageHeader';
 import { lazy, Suspense, useState, useEffect } from 'react';
-import { Plus, Receipt, UsersThree, CaretDown, User, Users, Robot } from '@phosphor-icons/react';
+import { Plus, Receipt, UsersThree, CaretDown, User, Users, Robot, GlobeHemisphereWest } from '@phosphor-icons/react';
+import { opcionesDePais } from '@/shared/lib/paises';
 import usePermission from '@/shared/hooks/usePermission';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,10 +20,11 @@ import FiltroPeriodo, { useEstadoPeriodo } from '../components/FiltroPeriodo';
 import { esProyectoIA } from '@/shared/lib/proyectosIA';
 
 export default function SalesPage() {
-  const { activeProject, activeIssuerId, activeIssuer } = useProjectContext() as {
+  const { activeProject, activeIssuerId, activeIssuer, projects } = useProjectContext() as {
     activeProject: { id: number; nombre?: string; type?: string } | null;
     activeIssuerId: number | null;
     activeIssuer?: { nombre?: string; campus?: unknown[] } | null;
+    projects?: Array<{ id: number; sociedad_emisora_id?: number | null; paises_por_subdominio?: Record<string, string> | null }>;
   };
   const { user } = useAuth() as { user: { role?: string } | null };
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
@@ -93,6 +95,15 @@ export default function SalesPage() {
     client.get(`/users?limit=100&alcance=comercial${pid}`).then((r) => setGestores(r.success ? (r.data || []) : [])).catch(() => {});
   }, [isAdmin, projectIdParam]);
 
+  // País de entrada (#221): el del prospecto de cada venta. Solo sale si algún
+  // campus de lo que se mira tiene tabla de países (Psiko y Fono Aprende).
+  const [paisEntrada, setPaisEntrada] = useState('');
+  const opcionesPais = opcionesDePais(
+    projectIdParam ? (projects || []).filter((p) => p.id === projectIdParam)
+      : issuerIdParam ? (projects || []).filter((p) => Number(p.sociedad_emisora_id) === issuerIdParam)
+        : projects,
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -118,6 +129,21 @@ export default function SalesPage() {
               >
                 <option value="">Todas las gestoras</option>
                 {gestores.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+              </select>
+            </div>
+          )}
+          {(opcionesPais.length > 0 || paisEntrada) && (
+            <div className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-border bg-card text-sm">
+              <GlobeHemisphereWest size={14} className="text-muted-foreground" />
+              <select
+                value={paisEntrada}
+                onChange={(e) => setPaisEntrada(e.target.value)}
+                className="bg-transparent focus:outline-none max-w-[160px]"
+                title="País de entrada del prospecto de cada venta"
+                aria-label="País de entrada"
+              >
+                <option value="">Todos los países</option>
+                {opcionesPais.map((o) => <option key={o.valor} value={o.valor}>{o.etiqueta}</option>)}
               </select>
             </div>
           )}
@@ -215,11 +241,11 @@ export default function SalesPage() {
       ) : (
         <>
           <Suspense fallback={null}>
-            <ResumenVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} />
+            <ResumenVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
           </Suspense>
 
           <Suspense fallback={null}>
-            <CursosVendidosCard projectId={projectIdParam} issuerId={issuerIdParam} responsableId={responsableId} from={rango.from} to={rango.to} />
+            <CursosVendidosCard projectId={projectIdParam} issuerId={issuerIdParam} responsableId={responsableId} paisEntrada={paisEntrada} from={rango.from} to={rango.to} />
           </Suspense>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -236,25 +262,25 @@ export default function SalesPage() {
               también la gestora: el servidor le devuelve solo lo suyo. */}
           {!allProjects && (
             <Suspense fallback={null}>
-              <EvolucionVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} />
+              <EvolucionVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
             </Suspense>
           )}
 
           {!allProjects && (
             <Suspense fallback={null}>
-              <DesgloseVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} />
+              <DesgloseVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
             </Suspense>
           )}
 
           {!allProjects && (
             <Suspense fallback={null}>
-              <VentasPorPais projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} />
+              <VentasPorPais projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
             </Suspense>
           )}
 
           {!allProjects && (
             <Suspense fallback={null}>
-              <ClientesVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} />
+              <ClientesVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
             </Suspense>
           )}
 

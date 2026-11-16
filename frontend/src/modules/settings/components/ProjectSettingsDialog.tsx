@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  X, Gear, FolderOpen, Notepad, PlugsConnected, Key, Tag, Table as TableIcon, CreditCard, Globe, TextT,
+  X, Gear, FolderOpen, Notepad, PlugsConnected, Key, Tag, Table as TableIcon, CreditCard, Globe, TextT, GlobeHemisphereWest,
 } from '@phosphor-icons/react';
 import Portal from '@/shared/components/ui/portal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,7 @@ import ApisTab from './projectSettings/ApisTab';
 import StripeTab from './projectSettings/StripeTab';
 import ExternalPanelsTab from './projectSettings/ExternalPanelsTab';
 import SidebarLabelsTab from './projectSettings/SidebarLabelsTab';
+import PaisesTab from './projectSettings/PaisesTab';
 
 const TABS_BASE = [
   { id: 'general', label: 'General', icon: Gear },
@@ -21,6 +22,8 @@ const TABS_BASE = [
   { id: 'categorias', label: 'Categorias', icon: FolderOpen },
   { id: 'campos', label: 'Campos', icon: Notepad },
   { id: 'columnas', label: 'Columnas', icon: TableIcon },
+  // País de entrada por subdominio (#221).
+  { id: 'paises', label: 'Países', icon: GlobeHemisphereWest },
   { id: 'paneles', label: 'Paneles externos', icon: Globe },
   { id: 'webhook', label: 'Webhook', icon: PlugsConnected },
   { id: 'apis', label: 'APIs', icon: Key },
@@ -82,6 +85,7 @@ export default function ProjectSettingsDialog({ project, onClose, onSaved, initi
               {tab === 'categorias' && <CategoriesTab project={project} />}
               {tab === 'campos' && <FieldsTab project={project} onSaved={onSaved} />}
               {tab === 'columnas' && <ColumnsTab project={project} onSaved={onSaved} />}
+              {tab === 'paises' && <PaisesTab project={project} onSaved={onSaved} />}
               {tab === 'paneles' && <ExternalPanelsTab project={project} onSaved={onSaved} />}
               {tab === 'etiquetas' && isSuperadmin && <SidebarLabelsTab project={project} onSaved={onSaved} />}
               {tab === 'webhook' && <WebhookTab project={project} />}

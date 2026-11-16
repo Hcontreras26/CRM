@@ -11,6 +11,7 @@ export const MIN_AUDIENCE_SIZE = 20;
 const DEFAULT_FILTERS: AudienceFilters = {
   statuses: [],
   canales: [],
+  paises: [],
   fechaDesde: '',
   fechaHasta: '',
   productoId: null,
@@ -31,6 +32,7 @@ export interface UseAudienceWizardResult {
   setFilter: (patch: Partial<AudienceFilters>) => void;
   toggleStatus: (status: string) => void;
   toggleCanal: (canal: string) => void;
+  togglePais: (pais: string) => void;
   resetFilters: () => void;
   preview: AudiencePreview | null;
   previewLoading: boolean;
@@ -113,6 +115,16 @@ export function useAudienceWizard(
     }));
   }
 
+  // País de entrada (#221): una audiencia por país para el retargeting de Meta.
+  function togglePais(pais: string): void {
+    setFilters(prev => ({
+      ...prev,
+      paises: prev.paises?.includes(pais)
+        ? prev.paises.filter(p => p !== pais)
+        : [...(prev.paises || []), pais],
+    }));
+  }
+
   function resetFilters(): void {
     setFilters(DEFAULT_FILTERS);
   }
@@ -153,7 +165,7 @@ export function useAudienceWizard(
 
   return {
     step, next, prev, goTo,
-    filters, setFilter, toggleStatus, toggleCanal, resetFilters,
+    filters, setFilter, toggleStatus, toggleCanal, togglePais, resetFilters,
     preview, previewLoading, previewError,
     totalCount, meetsMinimum,
     filename, downloadCsv, downloadLoading,

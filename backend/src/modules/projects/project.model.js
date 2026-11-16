@@ -30,6 +30,9 @@ export async function findAll({ active }) {
  *
  * Se cachea porque no cambia sin un despliegue. Ante la duda, solo la de leads:
  * es la que lleva años ahi.
+ *
+ * Con la misma cautela va la tabla de países por subdominio (#221, migración
+ * 279): una configuración más del campus que, sin la migración, no se pide.
  */
 let columnasQueHay = null;
 export async function columnasDeListado() {
@@ -38,7 +41,7 @@ export async function columnasDeListado() {
     const { rows } = await query(
       `SELECT column_name FROM information_schema.columns
         WHERE table_name = 'projects'
-          AND column_name IN ('lead_columns', 'client_columns', 'product_columns')`
+          AND column_name IN ('lead_columns', 'client_columns', 'product_columns', 'paises_por_subdominio')`
     );
     columnasQueHay = rows.map((r) => r.column_name);
     if (!columnasQueHay.length) columnasQueHay = ['lead_columns'];
@@ -114,12 +117,14 @@ export async function update(id, fields, db = { query }) {
                    'external_panels', 'sidebar_labels',
                    'theme_color', 'auto_email_documents', 'sociedad_emisora_id',
                    // Correos y formularios de la marca (migraciones 177 y 180).
-                   'color_cabecera', 'remitente_no_contestar'];
+                   'color_cabecera', 'remitente_no_contestar',
+                   // País por subdominio (#221, migración 279).
+                   'paises_por_subdominio'];
   const sets = [];
   const params = [];
   let idx = 1;
   const jsonbFields = new Set(['modules', 'lead_base_fields_config', 'lead_columns',
-    'client_columns', 'product_columns', 'external_panels', 'sidebar_labels']);
+    'client_columns', 'product_columns', 'external_panels', 'sidebar_labels', 'paises_por_subdominio']);
   for (const k of allowed) {
     if (fields[k] !== undefined) {
       sets.push(`${k} = $${idx++}`);

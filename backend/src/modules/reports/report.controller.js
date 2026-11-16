@@ -12,6 +12,7 @@ import {
 } from '../mcp/mcp.model.js';
 import { construirAmbito, acotarProyectos, responsableImpuesto } from '../mcp/mcp.acceso.js';
 import { personaDelInforme, alcanceDeLider, enElAlcance, gestorasACargo, comoIds } from '../../shared/utils/roles.js';
+import { leerFiltroPais } from '../leads/pais.js';
 
 // A que proyectos se acota el informe.
 //
@@ -62,6 +63,8 @@ function makeReport(fn) {
         from: from || null,
         to: to || null,
         asesoraId: await asesoraDelInforme(req),
+        // País de entrada (#221): un código ISO o `sin_pais`.
+        paisEntrada: leerFiltroPais(req.query.paisEntrada),
       });
       res.json({ success: true, data });
     } catch (err) { next(err); }
@@ -96,6 +99,9 @@ async function rangoDeQuery(req) {
     // con cobro se caian del mes las facturas emitidas en un mes y cobradas en
     // el anterior.
     base: req.query.base === 'cobro' ? 'cobro' : 'factura',
+    // País de entrada (#221): lo aplican los informes que pasan por
+    // `buildFilter` (descargas, países, canales, formaciones, tasa de cierre…).
+    paisEntrada: leerFiltroPais(req.query.paisEntrada),
   };
 }
 
@@ -180,6 +186,14 @@ export async function seguimiento(req, res, next) {
 export async function paises(req, res, next) {
   try {
     res.json({ success: true, data: await model.paisesMasVendidos(await rangoDeQuery(req)) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/informes/paises-entrada -> prospectos y ventas por campus y país de
+// entrada, el del subdominio por el que entró el prospecto (#221).
+export async function paisesEntrada(req, res, next) {
+  try {
+    res.json({ success: true, data: await model.paisesDeEntrada(await rangoDeQuery(req)) });
   } catch (err) { next(err); }
 }
 

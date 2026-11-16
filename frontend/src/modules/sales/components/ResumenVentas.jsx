@@ -26,7 +26,7 @@ function Cifra({ icon: Icon, etiqueta, valor, pie }) {
   );
 }
 
-export default function ResumenVentas({ projectId, issuerId = null, from, to, responsableId = null }) {
+export default function ResumenVentas({ projectId, issuerId = null, from, to, responsableId = null, paisEntrada = null }) {
   const [d, setD] = useState(null);
   const [cargando, setCargando] = useState(true);
 
@@ -43,12 +43,13 @@ export default function ResumenVentas({ projectId, issuerId = null, from, to, re
     if (from) p.set('from', from);
     if (to) p.set('to', to);
     if (responsableId) p.set('responsableId', String(responsableId));
+    if (paisEntrada) p.set('paisEntrada', paisEntrada);
     client.get(`/ventas/resumen?${p}`)
       .then((r) => { if (vivo) setD(r.success ? r.data : null); })
       .catch(() => { if (vivo) setD(null); })
       .finally(() => { if (vivo) setCargando(false); });
     return () => { vivo = false; };
-  }, [projectId, issuerId, from, to, responsableId]);
+  }, [projectId, issuerId, from, to, responsableId, paisEntrada]);
 
   if (cargando || !d) {
     return (
