@@ -43,6 +43,12 @@ if (\local_crm\chat_directo::es_tutora($contexto, (int) $USER->id) || has_capabi
 if (isguestuser() || !is_enrolled($contexto)) {
     redirect($sala);
 }
+// 1.11.0: con la burbuja encendida, al curso con la burbuja abierta (el mismo chat, sin salir
+// del curso). Si la burbuja no sale para este usuario, sigue como antes.
+if (\local_crm\burbuja::activa() && \local_crm\aviso::configurado()
+        && \local_crm\burbuja::es_alumno((int) $curso->id, (int) $USER->id)) {
+    redirect(new moodle_url('/course/view.php', ['id' => $curso->id], 'lcrm-chat'));
+}
 // La crea si no existe y deja dentro a las tutoras disponibles de ahora.
 $conv = \local_crm\chat_grupo::conversacion((int) $curso->id, (int) $USER->id);
 if (!$conv) {

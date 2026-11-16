@@ -127,6 +127,10 @@ class chat_directo {
       n.removeAttribute("target");
       n.setAttribute("href", {$destino});
       n.setAttribute("data-crm-chat", "grupo");
+      // 1.11.0: con la burbuja del chat en la página, el botón la abre aquí mismo.
+      n.addEventListener("click", function (e) {
+        if (typeof window.LOCAL_CRM_BURBUJA_ABRIR === "function") { e.preventDefault(); window.LOCAL_CRM_BURBUJA_ABRIR(); }
+      });
       a.parentNode.replaceChild(n, a);
     });
   }

@@ -36,7 +36,7 @@ function local_crm_before_footer() {
         return '';
     }
     try {
-        return \local_crm\chat_directo::script_del_boton();
+        return \local_crm\chat_directo::script_del_boton() . \local_crm\burbuja::script();
     } catch (\Throwable $e) {
         debugging('local_crm: ' . $e->getMessage(), DEBUG_DEVELOPER);
         return '';

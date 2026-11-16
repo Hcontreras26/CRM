@@ -110,5 +110,17 @@ function xmldb_local_crm_upgrade($oldversion) {
         }
         upgrade_plugin_savepoint(true, 2026111500, 'local', 'crm');
     }
+    if ($oldversion < 2026111600) {
+        // 1.11.0: la burbuja del chat (apagada: cambia lo que ven los alumnos) y el aviso al CRM
+        // al momento (encendido: no cambia nada a la vista). Se guardan aquí porque un campus
+        // que se actualiza solo no pasa por la página de «Ajustes nuevos».
+        if (get_config('local_crm', 'burbuja') === false) {
+            set_config('burbuja', 0, 'local_crm');
+        }
+        if (get_config('local_crm', 'aviso_inmediato') === false) {
+            set_config('aviso_inmediato', 1, 'local_crm');
+        }
+        upgrade_plugin_savepoint(true, 2026111600, 'local', 'crm');
+    }
     return true;
 }

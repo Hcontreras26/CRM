@@ -26,15 +26,15 @@ pierde, se recoge en la siguiente vuelta.
   `PLUGIN_MOODLE_EN_PRODUCCION=1`: sin eso, en producción no se dan códigos, no se aceptan
   avisos (`/api/moodle-avisos` no existe), no se repasa ningún campus y la respuesta de la
   tutora sale con su token, como antes.
-- En el **campus**, el chat de grupo viene apagado; se enciende a mano en los ajustes del
-  plugin. La actualización automática, en cambio, viene **encendida** desde la 1.10.6 (de la
+- En el **campus**, el chat de grupo y la burbuja del chat (1.11.0) vienen apagados; se
+  encienden a mano en los ajustes del plugin. La actualización automática, en cambio, viene **encendida** desde la 1.10.6 (de la
   1.10.0 a la 1.10.5 venía apagada): ver «Actualización automática».
 
 | | |
 |---|---|
 | Componente | `local_crm` (carpeta `local/crm`) |
 | Moodle | 4.4 a 5.2 (ISEIE 4.4 · Psiko, Fono e ISAEG 4.5 · ISEIH e ICTESS 5.0 · ISECD, ISSLOGG e ISEF 5.2) |
-| Probado | Moodle 4.5.4 en local, instalado desde el panel y conectado con un código, de punta a punta con el CRM (05/11/2026). Chat de grupo (1.9.0): Moodle 4.5.4 (actualizando desde la 1.8.0) y 5.2.4, de punta a punta con dos tutoras y el CRM (09/11/2026) |
+| Probado | Moodle 4.5.4 en local, instalado desde el panel y conectado con un código, de punta a punta con el CRM (05/11/2026). Chat de grupo (1.9.0): Moodle 4.5.4 (actualizando desde la 1.8.0) y 5.2.4, de punta a punta con dos tutoras y el CRM (09/11/2026). Burbuja (1.11.0): **falta probarla en un Moodle**; de momento, sintaxis PHP y la interfaz en el navegador con respuestas simuladas (16/11/2026) |
 
 ## Conectar un campus: dos pasos
 
@@ -157,6 +157,64 @@ ya no lleva a la sala; lo que se escribiera en ella (entrando por la dirección 
 (`additionalhtmlfooter`, bloque `<!-- ===== CHAT: consulta por mensajeria…`, hoy en Psiko,
 ISEIH, ISAEG e ISEIE): **quitar ese bloque**. Los dos cambian el mismo botón y chocan.
 El plugin hace lo mismo sin el mapa a mano y vale también para los cursos con varias tutoras.
+
+## La burbuja del chat (1.11.0)
+
+Un botón de chat flotante, abajo a la derecha, en **cualquier página de los cursos** del alumno.
+Abre su chat de grupo con las tutoras del curso **sin salir de la página**. Es la misma
+conversación de «Entrar al chat», no otra: lo que escribe llega al CRM igual que siempre, y lo
+que responde la tutora (desde el CRM o desde «Mensajes» de Moodle) sale en la burbuja.
+
+- **Al momento:** con la burbuja abierta pregunta por mensajes nuevos cada 4 segundos; cerrada,
+  cada 30 (solo el contador); con la pestaña en segundo plano, cada 2 minutos. Sin websockets:
+  los campus están en hosting compartido. Las lecturas en segundo plano no alargan la sesión
+  (`nosessionupdate`).
+- **Aviso de mensaje nuevo:** globo rojo con el número en el botón, «(1)» en el título de la
+  pestaña y un latido corto del botón (sin él si el sistema pide menos movimiento).
+- **En el móvil** (600 px o menos) se abre a pantalla completa; el cuadro de texto va a 16 px
+  para que iOS no amplíe. En la app de Moodle no hay burbuja: la conversación está en «Mensajes».
+- **Quién la ve:** el alumno matriculado del curso. Las tutoras, quien puede editar el curso y
+  los invitados, no (la tutora sigue en su mensajería, con las de todos sus alumnos). Tampoco
+  sale fuera de un curso, en páginas sin marco (cuestionario en modo seguro, ventanas emergentes,
+  impresión), ni en la propia mensajería, ni **mientras se hace un cuestionario** (las preguntas
+  y el resumen antes de enviar; en la revisión del intento, sí).
+- **«Entrar al chat»** de la actividad Chat abre la burbuja en la misma página, sin ir a la
+  mensajería. Si se llega a `local/crm/chat.php` por otro camino, lleva al curso con la burbuja
+  abierta. Con la burbuja apagada, «Entrar al chat» hace lo de siempre.
+- **La conversación se crea con el primer mensaje**, no al abrir la burbuja. Si no hay ninguna
+  tutora disponible en el curso, la burbuja lo dice (el mismo aviso que «Entrar al chat»).
+- **Seguridad:** las dos funciones (`local_crm_burbuja_leer` y `local_crm_burbuja_enviar`) son
+  AJAX con la sesión del alumno, comprueban que es alumno de ese curso y solo dan su propia
+  conversación. No están en el servicio «CRM» ni las puede usar el token del CRM. El alumno
+  escribe texto sin etiquetas; lo que se pinta pasa por `format_text`.
+- **Sin compilar nada:** el JS y el CSS (`crm/burbuja/`) van en línea al pie de la página, como
+  el botón del chat. Funciona con cualquier tema y toma el color principal del tema.
+
+**Viene apagada.** Se enciende en los ajustes del plugin, «Burbuja del chat en todas las
+páginas del curso», y **necesita el chat de grupo encendido**.
+
+### Avisar al CRM al momento (1.11.0)
+
+Antes, el aviso de cada mensaje salía con el cron del campus (en el minuto siguiente). Ahora
+se manda **al terminar la petición** en la que se envía el mensaje, con 4 segundos como mucho
+de espera. Si sale bien, la tarea del cron se quita; si el CRM no contesta, la tarea lo manda
+como siempre. Si llegaran los dos, el CRM no lo apunta dos veces (reconoce el id del mensaje).
+Viene **encendido** («Avisar al CRM al momento»); apagado, todo va por el cron como antes.
+
+### Encenderla en un campus
+
+1. Que el campus tenga el plugin 1.11.0 o posterior (se actualiza solo cada noche, o se sube
+   el ZIP a mano como en «Instalar el plugin desde el panel») y esté **conectado** con el CRM.
+2. `Administración del sitio › Extensiones › Extensiones locales › CRM`: marcar **«Chat de
+   grupo con las tutoras del curso»** (si no lo estaba) y **«Burbuja del chat en todas las
+   páginas del curso»**. Guardar.
+3. Comprobar que el **cron se ejecuta cada minuto** (es el respaldo del aviso al momento).
+4. Entrar como un alumno de un curso con tutora: abajo a la derecha sale el botón. Escribir;
+   en el CRM, la consulta aparece en Consultas. Responder desde el CRM: en unos segundos sale
+   en la burbuja, con el globo si estaba cerrada.
+
+Para apagarla, desmarcar la burbuja: el alumno vuelve a «Entrar al chat» de siempre y no se
+pierde nada (la conversación es la misma).
 
 ## Se actualiza solo (1.7.0)
 

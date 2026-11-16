@@ -41,6 +41,8 @@ class hook_callbacks {
         }
         try {
             $hook->add_html(chat_directo::script_del_boton());
+            // 1.11.0: la burbuja del chat en cualquier página del curso (con su propio ajuste).
+            $hook->add_html(burbuja::script());
         } catch (\Throwable $e) {
             debugging('local_crm: ' . $e->getMessage(), DEBUG_DEVELOPER);
         }

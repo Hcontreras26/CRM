@@ -282,7 +282,7 @@ class aviso {
      * reintenta. Si lo rechaza (otro 4xx: clave cambiada, campus desconectado, aviso que no
      * entiende), reintentar no lo arregla: se apunta y se descarta.
      */
-    public static function enviar(array $aviso): void {
+    public static function enviar(array $aviso, int $espera = 15): void {
         global $CFG;
         require_once($CFG->libdir . '/filelib.php');
         $url = trim((string) get_config('local_crm', 'url'));
@@ -293,7 +293,7 @@ class aviso {
             'Content-Type: application/json',
             'X-Crm-Firma: ' . self::firma($cuerpo, $secreto, time()),
         ]);
-        $respuesta = $curl->post($url, $cuerpo, ['CURLOPT_TIMEOUT' => 15, 'CURLOPT_CONNECTTIMEOUT' => 5]);
+        $respuesta = $curl->post($url, $cuerpo, ['CURLOPT_TIMEOUT' => $espera, 'CURLOPT_CONNECTTIMEOUT' => min(5, $espera)]);
         $codigo = (int) ($curl->get_info()['http_code'] ?? 0);
         if (!$curl->get_errno() && $codigo >= 400 && $codigo < 500 && !in_array($codigo, [408, 429], true)) {
             if (function_exists('mtrace')) {

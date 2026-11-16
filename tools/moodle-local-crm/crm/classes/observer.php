@@ -62,9 +62,44 @@ class observer {
         self::encolar((int) $evento->objectid);
     }
 
+    /**
+     * Encola el aviso y, con «Avisar al CRM al momento» (1.11.0, de serie encendido), además lo
+     * intenta mandar al terminar la petición, sin esperar al cron. Si sale bien, la tarea ya no
+     * hace falta y se quita; si no (CRM caído o lento), la tarea lo manda como siempre. Si
+     * salieran los dos, el CRM no lo apunta dos veces: reconoce el id del mensaje.
+     */
     private static function encolar(int $mensajeid): void {
         $tarea = new task\avisar_crm();
         $tarea->set_custom_data(['mensajeid' => $mensajeid]);
-        \core\task\manager::queue_adhoc_task($tarea);
+        $tareaid = \core\task\manager::queue_adhoc_task($tarea);
+        // No en una llamada del servicio web: ahí escribe el propio CRM (la respuesta de la
+        // tutora), que ya tiene el mensaje, y esperaría a que el campus le avisara a él mismo.
+        $ws = defined('WS_SERVER') && WS_SERVER;
+        if (!CLI_SCRIPT && !$ws && get_config('local_crm', 'aviso_inmediato') !== '0') {
+            \core_shutdown_manager::register_function([self::class, 'avisar_ahora'], [$mensajeid, (int) $tareaid]);
+        }
+    }
+
+    /**
+     * El aviso al momento: al final de la petición (el mensaje ya está guardado), con poco
+     * tiempo de espera para no hacer esperar a quien escribe. Nunca falla hacia fuera.
+     */
+    public static function avisar_ahora(int $mensajeid, int $tareaid): void {
+        global $DB;
+        try {
+            $aviso = aviso::del_mensaje($mensajeid);
+            if ($aviso) {
+                aviso::enviar($aviso, 4);
+            }
+            // Solo ESA tarea: la de este plugin y este mensaje (por si queue_adhoc_task no
+            // devolviera el id en alguna versión).
+            $DB->delete_records_select('task_adhoc',
+                'id = :id AND classname = :clase AND ' . $DB->sql_compare_text('customdata') . ' = ' . $DB->sql_compare_text(':datos'),
+                ['id' => $tareaid, 'clase' => '\\' . task\avisar_crm::class,
+                    'datos' => json_encode(['mensajeid' => $mensajeid])]);
+        } catch (\Throwable $e) {
+            // La tarea sigue en la cola y lo manda con el cron.
+            debugging('local_crm: aviso al momento sin hacer, va con el cron: ' . $e->getMessage(), DEBUG_DEVELOPER);
+        }
     }
 }

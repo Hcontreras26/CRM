@@ -66,6 +66,23 @@ $functions['local_crm_cuenta'] = [
     'capabilities' => 'local/crm:enviarcomo',
 ];
 
+// 1.11.0: la burbuja del chat. Las llama el navegador del alumno (AJAX, con su sesión), no
+// el CRM: por eso no van en el servicio «CRM» de abajo ni piden local/crm:enviarcomo.
+$functions['local_crm_burbuja_leer'] = [
+    'classname'   => '\local_crm\external\burbuja_leer',
+    'description' => 'Los mensajes nuevos del chat del alumno con las tutoras de su curso, para la burbuja.',
+    'type'        => 'read',
+    'ajax'        => true,
+    'loginrequired' => true,
+];
+$functions['local_crm_burbuja_enviar'] = [
+    'classname'   => '\local_crm\external\burbuja_enviar',
+    'description' => 'El alumno escribe a las tutoras de su curso desde la burbuja.',
+    'type'        => 'write',
+    'ajax'        => true,
+    'loginrequired' => true,
+];
+
 $services = [
     'CRM' => [
         'functions' => [

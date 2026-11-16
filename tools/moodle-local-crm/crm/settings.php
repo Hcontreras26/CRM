@@ -38,6 +38,12 @@ if ($hassiteconfig) {
     // De serie, apagado (revisión de la #689): cambia lo que ven los alumnos en el campus.
     $settings->add(new admin_setting_configcheckbox('local_crm/chat_grupo', get_string('chat_grupo', 'local_crm'),
         get_string('chat_grupo_desc', 'local_crm'), 0));
+    // 1.11.0, de serie apagada: también cambia lo que ven los alumnos. Necesita el chat de grupo.
+    $settings->add(new admin_setting_configcheckbox('local_crm/burbuja', get_string('burbuja', 'local_crm'),
+        get_string('burbuja_desc', 'local_crm'), 0));
+    // 1.11.0, de serie encendido: no cambia nada a la vista, solo que el CRM se entera antes.
+    $settings->add(new admin_setting_configcheckbox('local_crm/aviso_inmediato', get_string('aviso_inmediato', 'local_crm'),
+        get_string('aviso_inmediato_desc', 'local_crm'), 1));
     $settings->add(new admin_setting_configtext('local_crm/excluir_nombre', get_string('excluir_nombre', 'local_crm'),
         get_string('excluir_nombre_desc', 'local_crm'), 'Inspector', PARAM_TEXT));
     $settings->add(new admin_setting_configtextarea('local_crm/crms', get_string('crms', 'local_crm'),

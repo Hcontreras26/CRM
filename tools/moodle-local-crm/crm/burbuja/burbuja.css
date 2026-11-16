@@ -1,0 +1,100 @@
+/* local_crm · la burbuja del chat (1.11.0). Toma el color principal del tema (Boost y
+   derivados: --bs-primary en Moodle 5, --primary en 4.x). Todo con el prefijo lcrm-. */
+.lcrm-boton, .lcrm-panel {
+  --lcrm-color: var(--bs-primary, var(--primary, #0f6cbf));
+  --lcrm-fondo: var(--bs-body-bg, #fff);
+  --lcrm-texto: var(--bs-body-color, #1d2125);
+  --lcrm-suave: var(--bs-tertiary-bg, #f1f3f5);
+  --lcrm-borde: var(--bs-border-color, #dee2e6);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.lcrm-panel *, .lcrm-boton * { box-sizing: border-box; }
+
+.lcrm-boton {
+  position: fixed; right: 20px; bottom: 20px; z-index: 1035;
+  width: 56px; height: 56px; border-radius: 50%; border: 0;
+  background: var(--lcrm-color); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+  transition: transform .15s ease;
+}
+.lcrm-boton:hover { transform: scale(1.05); }
+.lcrm-boton:focus-visible { outline: 3px solid var(--lcrm-texto); outline-offset: 3px; }
+.lcrm-boton.lcrm-nuevo { animation: lcrm-latido 1.6s ease-in-out 3; }
+.lcrm-globo {
+  position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 11px; background: #d63939; color: #fff; font-size: 12px; font-weight: 700;
+  line-height: 22px; text-align: center; border: 2px solid var(--lcrm-fondo);
+}
+@keyframes lcrm-latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .lcrm-boton, .lcrm-boton.lcrm-nuevo { animation: none; transition: none; } }
+
+.lcrm-panel {
+  position: fixed; right: 20px; bottom: 88px; z-index: 1036;
+  width: 370px; max-width: calc(100vw - 40px); height: 520px; max-height: calc(100vh - 120px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--lcrm-fondo); color: var(--lcrm-texto);
+  border: 1px solid var(--lcrm-borde); border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
+}
+.lcrm-panel[hidden] { display: none; }
+.lcrm-cabecera {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 12px 14px; background: var(--lcrm-color); color: #fff;
+}
+.lcrm-titulo { font-weight: 700; font-size: 15px; }
+.lcrm-subtitulo { font-size: 12px; opacity: .9; }
+.lcrm-cerrar {
+  border: 0; background: transparent; color: #fff; font-size: 26px; line-height: 1;
+  width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+}
+.lcrm-cerrar:hover, .lcrm-cerrar:focus-visible { background: rgba(255, 255, 255, .2); outline: none; }
+.lcrm-aviso {
+  padding: 8px 14px; font-size: 13px; background: #fff4e5; color: #6b4300; border-bottom: 1px solid var(--lcrm-borde);
+}
+.lcrm-lista {
+  flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px;
+  background: var(--lcrm-suave); overscroll-behavior: contain;
+}
+.lcrm-vacio { margin: auto; text-align: center; font-size: 13px; opacity: .75; padding: 0 16px; }
+.lcrm-mensaje { max-width: 82%; display: flex; flex-direction: column; }
+.lcrm-mio { align-self: flex-end; align-items: flex-end; }
+.lcrm-suyo { align-self: flex-start; align-items: flex-start; }
+.lcrm-cuerpo {
+  padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.lcrm-cuerpo p:last-child { margin-bottom: 0; }
+.lcrm-cuerpo img { max-width: 100%; height: auto; }
+.lcrm-mio .lcrm-cuerpo { background: var(--lcrm-color); color: #fff; border-bottom-right-radius: 4px; }
+.lcrm-mio .lcrm-cuerpo a { color: #fff; text-decoration: underline; }
+.lcrm-suyo .lcrm-cuerpo { background: var(--lcrm-fondo); border: 1px solid var(--lcrm-borde); border-bottom-left-radius: 4px; }
+.lcrm-pie { font-size: 11px; opacity: .7; margin-top: 2px; padding: 0 4px; }
+.lcrm-formulario {
+  display: flex; align-items: flex-end; gap: 8px; padding: 10px; border-top: 1px solid var(--lcrm-borde);
+  background: var(--lcrm-fondo);
+}
+.lcrm-texto {
+  flex: 1; resize: none; border: 1px solid var(--lcrm-borde); border-radius: 18px; padding: 8px 14px;
+  font: inherit; font-size: 16px; /* 16px: iOS no hace zoom al escribir */
+  max-height: 140px; overflow-y: hidden; background: var(--lcrm-fondo); color: var(--lcrm-texto);
+}
+.lcrm-texto:focus { outline: 2px solid var(--lcrm-color); outline-offset: 0; border-color: transparent; }
+.lcrm-enviar {
+  flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--lcrm-color); color: #fff; display: flex; align-items: center; justify-content: center;
+}
+.lcrm-enviar:disabled { opacity: .5; cursor: default; }
+
+/* En el móvil, a pantalla completa (con el teclado, el alto visible: dvh). */
+@media (max-width: 600px) {
+  .lcrm-boton { right: 14px; bottom: 14px; }
+  .lcrm-panel {
+    inset: 0; width: 100%; max-width: none; height: 100vh; height: 100dvh; max-height: none;
+    border-radius: 0; border: 0;
+  }
+  html.lcrm-abierta .lcrm-boton { display: none; }
+  html.lcrm-abierta, html.lcrm-abierta body { overflow: hidden; }
+}
+@media print { .lcrm-boton, .lcrm-panel { display: none !important; } }
