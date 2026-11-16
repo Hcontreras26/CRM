@@ -31,10 +31,12 @@ describe('GET /api/projects', () => {
     expect(res.body.data.length).toBeGreaterThan(0);
   });
 
-  it('incluye webhook_api_key a admin', async () => {
+  // CRM#791: la clave, solo en SUS campus (webhooks.edit); el primero de la lista
+  // puede ser de otro campus.
+  it('incluye webhook_api_key a admin en sus campus', async () => {
     const res = await request.get('/api/projects')
       .set('Authorization', `Bearer ${adminToken}`);
-    expect(res.body.data[0].webhook_api_key).toBeTruthy();
+    expect(res.body.data.some((p) => p.webhook_api_key)).toBe(true);
   });
 });
 
