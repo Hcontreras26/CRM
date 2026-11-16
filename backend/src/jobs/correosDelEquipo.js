@@ -647,8 +647,17 @@ async function porGestoraHoy(ids, dia) {
       CROSS JOIN LATERAL (SELECT ${ORIGEN_DE_LOS_LEADS('l')}
               FROM leads l WHERE l.responsable_id = u.id AND l.deleted_at IS NULL
                AND l.project_id = ANY($1::int[]) AND l.created_at::date = $2::date) o
-      WHERE u.active AND u.role = 'gestor'
-        AND EXISTS (SELECT 1 FROM user_projects up WHERE up.user_id = u.id AND up.active AND up.project_id = ANY($1::int[]))
+      -- Quien vende, sea cual sea su rol principal (16/11, Diego: «no cuadra»). Con
+      -- u.role = 'gestor' a fuego, una admin con «y además es gestora» (Yolanda,
+      -- ICTESS) no salía y sus prospectos no estaban en la tabla aunque sí en «Por
+      -- campus». Ahora: gestora por su rol principal O añadido, de esos campus, y
+      -- además cualquiera que tenga prospectos ese día en ellos. Lo mismo que hace
+      -- staging con actividadPorGestora (#394); las filas sin actividad se quitan después.
+      WHERE u.active AND (
+        ((u.role = 'gestor' OR 'gestor' = ANY(COALESCE(u.roles_extra, '{}')))
+          AND EXISTS (SELECT 1 FROM user_projects up WHERE up.user_id = u.id AND up.active AND up.project_id = ANY($1::int[])))
+        OR EXISTS (SELECT 1 FROM leads lx WHERE lx.responsable_id = u.id AND lx.deleted_at IS NULL
+                     AND lx.project_id = ANY($1::int[]) AND lx.created_at::date = $2::date))
       ORDER BY u.nombre`, [ids, dia]);
   return rows;
 }
