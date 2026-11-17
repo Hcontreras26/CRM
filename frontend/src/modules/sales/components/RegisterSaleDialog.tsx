@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { hoyEnMadrid, sumarMeses } from '@/shared/lib/fechas';
 import { Receipt, X, MagnifyingGlass, UserCheck, UserPlus, UserMinus } from '@phosphor-icons/react';
 import usePermission from '@/shared/hooks/usePermission';
 import { lazy, Suspense, useRef } from 'react';
@@ -65,7 +66,9 @@ function sinTildes(s: string) {
 }
 
 export default function RegisterSaleDialog({ open, onClose, project, onSaved, modoInicial }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  // Hoy en Madrid (#693): con el día UTC, de 00:00 a 02:00 en España el tope
+  // del calendario era «ayer» y no dejaba poner la venta de hoy.
+  const today = hoyEnMadrid();
   const { can } = usePermission();
   // Quien puede registrar una venta que no es de nadie. De serie admin y
   // superadmin; a las contables de CEDIA e ICTESS se les da por persona desde
@@ -234,9 +237,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
 
   // Helpers para pagos fraccionados (cuotas)
   function addMonths(isoDate: string, months: number): string {
-    const d = new Date(isoDate);
-    d.setMonth(d.getMonth() + months);
-    return d.toISOString().slice(0, 10);
+    return sumarMeses(isoDate, months);
   }
   function distributeInstallments(total: number, n: number, fechaInicio: string): Array<{ importe_previsto: string; fecha_vencimiento: string }> {
     if (!isFinite(total) || total <= 0 || n < 2) return [];
