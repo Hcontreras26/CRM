@@ -78,12 +78,15 @@ import tasksModule from './modules/tasks/index.js';
 import facturasColaboradorModule from './modules/facturas-colaborador/index.js';
 // Links de pago (#680). Fase 1: solo lectura y el tope de descuento; no llama a Stripe.
 import linksPagoModule from './modules/links-pago/index.js';
+// Registro automático de cobros: PayPal y extractos del banco (#766). Cada parte, con su interruptor.
+import cobrosExternosModule from './modules/cobros-externos/index.js';
 import { resolveActiveModules } from './bundles/manifest.js';
 import { query } from './shared/config/db.js';
 import { startEmailSequenceScheduler } from './jobs/emailSequenceScheduler.js';
 import { startWooCommerceSyncScheduler } from './jobs/wooCommerceSyncScheduler.js';
 import { startReminderScheduler } from './jobs/reminderScheduler.js';
 import { startStripePaymentsSyncScheduler } from './jobs/stripePaymentsSyncScheduler.js';
+import { startPaypalCobrosSyncScheduler } from './jobs/paypalCobrosSyncScheduler.js';
 import { startDocumentOrphanScheduler } from './jobs/documentOrphanScheduler.js';
 import { startGoogleAdsTokenScheduler } from './jobs/googleAdsTokenScheduler.js';
 import { startMetaAdsSyncScheduler } from './jobs/metaAdsSyncScheduler.js';
@@ -168,6 +171,8 @@ else logger.info('Rutas SKIP (solo en pruebas): /api/moodle-avisos (plugin del C
 // comprobaba contra «[object Object]»: se rechazaban todos los avisos (los cobros solo
 // entraban por el sondeo de cada 5 minutos).
 app.use('/api/stripe-webhook', express.raw({ type: 'application/json', limit: '2mb' }));
+// Igual el de PayPal (#766): la firma se comprueba con el cuerpo tal cual llegó.
+app.use('/api/paypal-webhook', express.raw({ type: 'application/json', limit: '1mb' }));
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));  // Elementor envía form-encoded
@@ -344,6 +349,8 @@ const ALL_MODULES = [
   { name: 'soporte', mod: soporteModule },
   // Links de pago (#680): solo en pruebas también en el servidor, hasta que Diego lo apruebe.
   ...(linksPagoActivos() ? [{ name: 'links-pago', mod: linksPagoModule }] : []),
+  // Siempre montado: cada ruta contesta 404 con su interruptor apagado (#766).
+  { name: 'cobros-externos', mod: cobrosExternosModule },
 ];
 if (!linksPagoActivos()) logger.info('Modulo SKIP (solo en pruebas): /api/links-pago');
 if (!tareasActivas()) logger.info('Modulo SKIP (solo en pruebas): /api/tasks');
@@ -484,6 +491,7 @@ if (process.env.NODE_ENV !== 'test') {
     startWooCommerceSyncScheduler();
     startReminderScheduler();
     startStripePaymentsSyncScheduler();
+    startPaypalCobrosSyncScheduler();
     startDocumentOrphanScheduler();
     startGoogleAdsTokenScheduler();
     startMetaAdsSyncScheduler();
