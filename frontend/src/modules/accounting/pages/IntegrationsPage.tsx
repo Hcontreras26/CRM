@@ -8,6 +8,7 @@ import EstadoDeLasIntegraciones from '../components/EstadoDeLasIntegraciones';
 import { TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 import EstadoDeLaSincronizacion from '../components/EstadoDeLaSincronizacion';
 import SupabaseCard from '../components/SupabaseCard';
+import MonitaskCard from '@/modules/monitask/components/MonitaskCard';
 import { toast } from '@/shared/hooks/useToast';
 import usePermission from '@/shared/hooks/usePermission';
 import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
@@ -131,6 +132,10 @@ export default function IntegrationsPage() {
           cuando todavia no se ha elegido ninguno, para saber por cual empezar.
           Se pinta sola solo si hay proyectos IA. Solo en pruebas (#44). */}
       {PROYECTOS_IA && <ProyectosIAConectados />}
+
+      {/* Monitask (#236): de todo el CRM, no de un campus. Sale sola si el servidor
+          lo tiene encendido (MONITASK_ACTIVO) y quien mira puede configurarlo. */}
+      <MonitaskCard />
 
       {vistaGeneral ? (
         <EstadoDeLasIntegraciones />

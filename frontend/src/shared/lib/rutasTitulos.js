@@ -57,6 +57,7 @@ export const ROUTE_TITLES = {
   // Facturas de colaboradores (#202)
   '/finanzas/facturas-colaboradores': 'Facturas de colaboradores',
   '/mi-factura': 'Mi factura',
+  '/equipo/actividad': 'Actividad del equipo',
   '/factura-colaborador/pago': 'Confirmar el pago',
   '/factura-colaborador': 'Tu factura del mes',
   '/datos-fiscales': 'Tus datos para la factura',

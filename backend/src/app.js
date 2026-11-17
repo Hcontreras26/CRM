@@ -85,6 +85,7 @@ import facturasColaboradorModule from './modules/facturas-colaborador/index.js';
 import linksPagoModule from './modules/links-pago/index.js';
 // Registro automático de cobros: PayPal y extractos del banco (#766). Cada parte, con su interruptor.
 import cobrosExternosModule from './modules/cobros-externos/index.js';
+import monitaskModule from './modules/monitask/index.js';
 import { resolveActiveModules } from './bundles/manifest.js';
 import { query } from './shared/config/db.js';
 import { startEmailSequenceScheduler } from './jobs/emailSequenceScheduler.js';
@@ -92,6 +93,7 @@ import { startWooCommerceSyncScheduler } from './jobs/wooCommerceSyncScheduler.j
 import { startReminderScheduler } from './jobs/reminderScheduler.js';
 import { startStripePaymentsSyncScheduler } from './jobs/stripePaymentsSyncScheduler.js';
 import { startPaypalCobrosSyncScheduler } from './jobs/paypalCobrosSyncScheduler.js';
+import { startMonitaskSyncScheduler } from './jobs/monitaskSyncScheduler.js';
 import { startDocumentOrphanScheduler } from './jobs/documentOrphanScheduler.js';
 import { startGoogleAdsTokenScheduler } from './jobs/googleAdsTokenScheduler.js';
 import { startMetaAdsSyncScheduler } from './jobs/metaAdsSyncScheduler.js';
@@ -363,6 +365,8 @@ const ALL_MODULES = [
   ...(linksPagoActivos() ? [{ name: 'links-pago', mod: linksPagoModule }] : []),
   // Siempre montado: cada ruta contesta 404 con su interruptor apagado (#766).
   { name: 'cobros-externos', mod: cobrosExternosModule },
+  // Monitask (#236): siempre montado; cada ruta contesta 404 con MONITASK_ACTIVO apagado.
+  { name: 'monitask', mod: monitaskModule },
 ];
 if (!linksPagoActivos()) logger.info('Modulo SKIP (solo en pruebas): /api/links-pago');
 if (!tareasActivas()) logger.info('Modulo SKIP (solo en pruebas): /api/tasks');
@@ -504,6 +508,8 @@ if (process.env.NODE_ENV !== 'test') {
     startReminderScheduler();
     startStripePaymentsSyncScheduler();
     startPaypalCobrosSyncScheduler();
+    // Monitask (#236): cada noche, solo con MONITASK_ACTIVO=1.
+    startMonitaskSyncScheduler();
     startDocumentOrphanScheduler();
     startGoogleAdsTokenScheduler();
     startMetaAdsSyncScheduler();

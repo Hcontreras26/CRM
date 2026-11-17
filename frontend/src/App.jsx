@@ -106,6 +106,8 @@ const PendienteFacturarPage = lazy(() => import('./modules/accounting/pages/Pend
 const StripePaymentsPage = lazy(() => import('./modules/accounting/pages/StripePaymentsPage'));
 // Cobros de PayPal y extractos del banco (#766).
 const CobrosExternosPage = lazy(() => import('./modules/accounting/pages/CobrosExternosPage'));
+// Equipo › Actividad (#236): lo que registra Monitask y el cotejo con las facturas.
+const MonitaskActividadPage = lazy(() => import('./modules/monitask/pages/MonitaskActividadPage'));
 const WhatsappWidgetPage = lazy(() => import('./modules/widget/pages/WhatsappWidgetPage'));
 // Todo WhatsApp pasa por aqui: el chat, con quien enlaza su numero y sus
 // plantillas. La pantalla del equipo y «Mi WhatsApp» eran del metodo viejo —el
@@ -416,6 +418,8 @@ function App() {
           <Route path="/tareas/revisar" element={<Navigate to="/tareas/historial" replace />} />
           <Route path="/tareas/configurar" element={<TaskBoardConfigPage />} />
           <Route path="/mi-factura" element={<MiFacturaPage />} />
+          {/* Monitask (#236): la pantalla dice si el servidor lo tiene apagado (MONITASK_ACTIVO). */}
+          <Route path="/equipo/actividad" element={<ConPermiso permiso="monitask.view"><MonitaskActividadPage /></ConPermiso>} />
           <Route path="/external/:panelId" element={<ExternalPanelPage />} />
           <Route path="/configuracion" element={<SettingsPage />} />
           <Route path="/perfil" element={<ProfilePage />} />
