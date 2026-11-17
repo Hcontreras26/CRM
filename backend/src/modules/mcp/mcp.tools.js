@@ -93,8 +93,8 @@ export const INFORMES = {
     ejecutar: reportes.seguimientoYTiempos,
   },
   cobros_mensuales: {
-    descripcion: 'Dinero cobrado mes a mes: cada pago registrado, por su FECHA DE COBRO (la base de Finanzas). Es la respuesta a «cuánto dinero entró en tal mes».',
-    ejecutar: reportes.cobrosMensuales,
+    descripcion: 'Dinero cobrado mes a mes: cada pago registrado, por su FECHA DE COBRO (la base de Finanzas), y cada reembolso en negativo por su fecha (tipo «reembolso»), así que la suma de un mes es lo que de verdad se quedó. Es la respuesta a «cuánto dinero entró en tal mes». Para ver cada cargo de Stripe con su estado, «listar_pagos_stripe».',
+    ejecutar: reportes.cobrosMensualesNetos,
   },
   paises: {
     descripcion: 'Países que más compran.',
@@ -289,6 +289,7 @@ export const GRUPO_DE_CONSULTA = Object.freeze({
   resumen_prospectos: 'Campus y prospectos',
   listar_ventas: 'Ventas, facturas y cobros',
   resumen_ventas: 'Ventas, facturas y cobros',
+  listar_pagos_stripe: 'Ventas, facturas y cobros',
   listar_facturas: 'Ventas, facturas y cobros',
   resumen_facturas: 'Ventas, facturas y cobros',
   cobros_pendientes: 'Ventas, facturas y cobros',
@@ -440,6 +441,35 @@ export const HERRAMIENTAS = [
       + 'Para comparar gestoras no uses esto: se miden por lo cobrado, con el informe «ranking_gestoras».',
     entrada: { ...AMBITO, ...PERIODO },
     ejecutar: (ambito, a) => model.resumenVentas({ ...a, ...acotar(ambito, a) }),
+  },
+  {
+    // Puerta 3 del conector (CRM#806): los cargos de Stripe uno a uno.
+    nombre: 'listar_pagos_stripe',
+    titulo: 'Pagos de Stripe, uno a uno',
+    descripcion: 'Cada cargo de Stripe, como en Finanzas → Pagos Stripe: fecha, importe en euros, estado (cobrado, reembolsado, '
+      + 'reembolsado_en_parte o fallido), lo reembolsado y el neto, la venta y la formación si está asociado, y si es el primer '
+      + 'pago, una cuota («cuota 2 de 3») u otro pago. Las fechas son días de Madrid. Trae además las cifras del periodo entero '
+      + '(cobrado, reembolsado, neto, fallidos y sin asociar). Solo super admin y admin.',
+    entrada: { ...DATOS_COMPLETOS,
+      ...AMBITO,
+      ...PERIODO,
+      estado: z.enum(['todos', 'cobrado', 'reembolsado', 'fallido']).default('todos')
+        .describe('cobrado: sin reembolso; reembolsado: con reembolso total o en parte; fallido: no se cobró. Por defecto, todos.'),
+      sin_asociar: z.boolean().optional()
+        .describe('true: solo los cobrados que no están asociados a ninguna venta; false: solo los asociados'),
+      ...PAGINA,
+    },
+    ejecutar: async (ambito, a) => {
+      // Primero el campus (un campus ajeno se rechaza como tal) y después el rol,
+      // como «listar_tutores».
+      const acotado = acotar(ambito, a);
+      soloAdministracion(ambito, 'listar_pagos_stripe');
+      periodoEnOrden(a);
+      return model.listarPagosStripe({
+        desde: a.desde, hasta: a.hasta, estado: a.estado, sinAsociar: a.sin_asociar,
+        pagina: a.pagina, limite: a.limite, ...acotado,
+      });
+    },
   },
   {
     nombre: 'listar_facturas',
