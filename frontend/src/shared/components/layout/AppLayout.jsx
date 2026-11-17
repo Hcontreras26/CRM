@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Toaster from './Toaster';
+import ErrorBoundary from './ErrorBoundary';
 import CommandPalette from './CommandPalette';
 import { List, X } from '@phosphor-icons/react';
 import { cn } from '@/shared/lib/utils';
@@ -681,11 +682,15 @@ export default function AppLayout() {
         }>
           {/* Fade-in suave en cada cambio de ruta — key={pathname} fuerza remount */}
           <div key={pathname} className="animate-in fade-in duration-200">
-            <PantallaConPermiso pathname={pathname}>
-              <AllProjectsGuard pathname={pathname}>
-                <Outlet />
-              </AllProjectsGuard>
-            </PantallaConPermiso>
+            {/* Una pantalla que revienta no se lleva el menú, y al cambiar de
+                pantalla el aviso se va: el `key` lo vuelve a montar (CRM#625). */}
+            <ErrorBoundary dentro>
+              <PantallaConPermiso pathname={pathname}>
+                <AllProjectsGuard pathname={pathname}>
+                  <Outlet />
+                </AllProjectsGuard>
+              </PantallaConPermiso>
+            </ErrorBoundary>
           </div>
           </Suspense>
         </main>
