@@ -23,7 +23,7 @@ export const ROUTE_TITLES = {
   '/prospectos/pipeline': 'Pipeline',
   '/prospectos/audiencias': 'Audiencias',
   '/clientes': 'Clientes',
-  '/clientes/matriculas': 'Matrículas',
+  '/clientes/matriculas': 'Solicitud de admisión',
   '/captacion': 'Captación',
   '/captacion/webhooks': 'Webhooks',
   '/captacion/make': 'Make',

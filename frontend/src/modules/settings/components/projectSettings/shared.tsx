@@ -67,7 +67,7 @@ export const MODULES_REGISTRY = {
       { key: 'products', label: 'Productos / Catalogo' },
       { key: 'conversions', label: 'Conversiones (ventas)', requires: ['products'] },
       { key: 'commissions', label: 'Comisiones', requires: ['products', 'conversions'] },
-      { key: 'matriculas', label: 'Matriculas (post-conversion)', requires: ['conversions'] },
+      { key: 'matriculas', label: 'Solicitud de admisión', requires: ['conversions'] },
       { key: 'forms', label: 'Forms (editor de formularios)' },
       { key: 'email_sequences', label: 'Email seguimiento (secuencias)', requires: ['leads'] },
       { key: 'woocommerce', label: 'WooCommerce sync', requires: ['products'] },
