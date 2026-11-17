@@ -478,6 +478,8 @@ const PWAInstallPrompt = lazy(() => import('./PWAInstallPrompt'));
 const PWAUpdatePrompt = lazy(() => import('./PWAUpdatePrompt'));
 const KeyboardShortcutsModal = lazy(() => import('./KeyboardShortcutsModal'));
 const OfflineBanner = lazy(() => import('./OfflineBanner'));
+// Facturación pausada por la auditoría (#765): solo superadmin y admin, en todas las pantallas.
+const AvisoFacturacionPausada = lazy(() => import('@/modules/invoices/components/AvisoFacturacionPausada'));
 // Avisa de una llamada de WhatsApp desde cualquier pantalla del CRM. Va aqui
 // y no en el modulo de WhatsApp a proposito: la llamada se pierde justo
 // cuando la gestora esta en otra parte y el movil no lo tiene delante.
@@ -675,6 +677,11 @@ export default function AppLayout() {
           tabIndex={-1}
           className="p-4 lg:p-6 xl:p-8 focus:outline-none"
         >
+        {/* El aviso de la facturación pausada (#765). Fuera del `key` de la ruta:
+            no parpadea al cambiar de pantalla. Sin permiso o apagada, no pinta nada. */}
+        <Suspense fallback={null}>
+          <AvisoFacturacionPausada />
+        </Suspense>
         <Suspense fallback={
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />

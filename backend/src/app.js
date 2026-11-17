@@ -24,6 +24,8 @@ import expensesModule from './modules/expenses/index.js';
 import integrationsModule from './modules/integrations/index.js';
 import stripePaymentsModule from './modules/stripe-payments/index.js';
 import invoicesModule from './modules/invoices/index.js';
+// Auditoría de facturación cada 2 horas y pausa de la emisión (#765).
+import facturacionAuditoriaModule from './modules/facturacion-auditoria/index.js';
 import widgetModule from './modules/widget/index.js';
 import fieldDefsModule from './modules/field-definitions/index.js';
 import credentialsModule from './modules/credentials/index.js';
@@ -121,6 +123,7 @@ import { startTareasResumenScheduler } from './jobs/tareasResumenJob.js';
 import { startFacturasColaboradorScheduler } from './jobs/facturasColaboradorJob.js';
 import { startFacturasColaboradorAvisosScheduler } from './jobs/facturasColaboradorAvisosJob.js';
 import { startCopiaDiariaScheduler } from './jobs/copiaDiariaJob.js';
+import { startFacturacionAuditoriaScheduler } from './jobs/facturacionAuditoriaJob.js';
 import { tareasActivas, facturasColaboradorActivas, linksPagoActivos, proyectosIAActivos, pluginMoodleActivo } from './shared/config/soloEnPruebas.js';
 import { porteroDelWebhook, topeDelEnvio, traducirTope } from './modules/webhook-tokens/portero.js';
 import { MAX_ENVIO_BYTES } from './modules/matriculas/admision.archivos.js';
@@ -301,6 +304,7 @@ const ALL_MODULES = [
   { name: 'integrations', mod: integrationsModule },
   { name: 'stripe-payments', mod: stripePaymentsModule },
   { name: 'invoices', mod: invoicesModule },
+  { name: 'facturacion-auditoria', mod: facturacionAuditoriaModule },
   { name: 'widget', mod: widgetModule },
   { name: 'field-definitions', mod: fieldDefsModule },
   { name: 'credentials', mod: credentialsModule },
@@ -533,6 +537,8 @@ if (process.env.NODE_ENV !== 'test') {
     if (facturasColaboradorActivas()) startFacturasColaboradorAvisosScheduler();
     // La copia diaria de la base, cifrada y por correo (11/11). Apagada de serie: COPIA_DIARIA_ACTIVA.
     startCopiaDiariaScheduler();
+    // La auditoría de facturación cada 2 horas (#765). Apagada de serie: FACTURACION_AUDITORIA_ACTIVA.
+    startFacturacionAuditoriaScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }

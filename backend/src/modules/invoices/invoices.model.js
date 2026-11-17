@@ -6,6 +6,8 @@ import { comoLista } from '../../shared/utils/ambito.js';
 import { comoIds, alcanceComercial } from '../../shared/utils/roles.js';
 import { CLASE_FACTURA, SOSPECHA_DUPLICADA } from './clase.sql.js';
 import { recalcularCobrado } from '../conversions/cobrado.js';
+// La pausa de la auditoria de facturacion (#765). Apagada, no hace nada.
+import { exigirFacturacionActiva } from '../facturacion-auditoria/facturacion-auditoria.pausa.js';
 
 /**
  * ¿El CIF del emisor es el marcador que sembro la migracion 102?
@@ -261,6 +263,10 @@ export async function create(data, userId) {
         + 'Se rellena en Facturacion › Emisores. Emitir asi imprimiria ese texto en el PDF como si fuera el NIF.',
         409, 'EMISOR_SIN_CIF');
     }
+
+    // Con la facturacion pausada por la auditoria (#765) no se gasta ningun
+    // numero nuevo. Un borrador si se guarda: no es documento fiscal.
+    if (!isBorrador) await exigirFacturacionActiva({ paymentId: data.paymentId || null });
 
     // El numero: el que elija quien emite, o el siguiente libre si no dice nada.
     const numero = isBorrador
@@ -934,6 +940,7 @@ async function numerarBorrador(invoiceId) {
     const { rows: sel } = await client.query(`SELECT * FROM invoices WHERE id = $1 FOR UPDATE`, [invoiceId]);
     const inv = sel[0];
     if (!inv || inv.estado !== 'borrador') { await client.query('COMMIT'); return inv || null; }
+    await exigirFacturacionActiva({ paymentId: inv.payment_id || null });
     const ano = new Date().getFullYear();
     const serie = (inv.serie && inv.serie.trim()) || 'A';
     const numero = await nextNumero(client, inv.project_id, inv.issuer_id || null, ano, serie);
@@ -1232,7 +1239,11 @@ export async function emitirFacturaDePago(conversionId, { paymentId, importe, sa
   if (prof && datosFiscales) {
     throw new AppError('Esta venta tiene una proforma: se convierte desde la cola.', 409, 'TIENE_PROFORMA');
   }
-  if (prof) return await _convertirProformaEnFactura(prof, conv, paymentId, fechaPago);
+  if (prof) {
+    // Pasar la proforma a factura tambien es emitir (#765).
+    await exigirFacturacionActiva({ paymentId });
+    return await _convertirProformaEnFactura(prof, conv, paymentId, fechaPago);
+  }
 
   // ¿Ya hay una factura por el TOTAL de la conversión (ex-proforma o completa)?
   // No se crea otra por pago: solo se marca pagada cuando la venta queda saldada.
@@ -1469,6 +1480,9 @@ export async function emitirBorrador(id, patch = {}) {
           400, 'ISSUER_NIF_INVALID');
       }
     }
+
+    // Con la facturacion pausada por la auditoria no se emite (#765).
+    await exigirFacturacionActiva({ paymentId: inv.payment_id || null });
 
     // Numeración fiscal AHORA (el borrador nunca consumió número).
     // Respeta un número YA reservado (borrador con hueco reservado, p.ej. 0612);
