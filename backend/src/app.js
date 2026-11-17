@@ -34,6 +34,8 @@ import commissionsModule from './modules/commissions/index.js';
 import reportsModule from './modules/reports/index.js';
 import matriculasModule from './modules/matriculas/index.js';
 import feedbackModule from './modules/feedback/index.js';
+// Factura automática con formulario de datos fiscales (#764): apagada de serie.
+import facturaAutomaticaModule from './modules/factura-automatica/index.js';
 import novedadesModule from './modules/novedades/index.js';
 import emailSequencesModule from './modules/email-sequences/index.js';
 import formsModule from './modules/forms/index.js';
@@ -110,6 +112,7 @@ import { startMcpVigilanciaScheduler } from './jobs/mcpVigilanciaScheduler.js';
 import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js';
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
+import { startFacturaAutomaticaScheduler } from './jobs/facturaAutomaticaScheduler.js';
 import { startWebhooksSalientesScheduler } from './jobs/webhooksSalientesScheduler.js';
 import { startAsignacionScheduler } from './jobs/asignacionScheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
@@ -308,6 +311,7 @@ const ALL_MODULES = [
   { name: 'reports', mod: reportsModule },
   { name: 'matriculas', mod: matriculasModule },
   { name: 'feedback', mod: feedbackModule },
+  { name: 'factura-automatica', mod: facturaAutomaticaModule },
   { name: 'novedades', mod: novedadesModule },
   { name: 'email-sequences', mod: emailSequencesModule },
   { name: 'forms', mod: formsModule },
@@ -511,6 +515,7 @@ if (process.env.NODE_ENV !== 'test') {
     startCursosPendientesScheduler();
     startPasoVencidoScheduler();
     startFeedbackDia7Scheduler();
+    startFacturaAutomaticaScheduler();
     startNovedadesScheduler();
     startResumenDiarioScheduler();
     startReporteSemanalScheduler();
