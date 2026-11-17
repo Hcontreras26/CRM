@@ -773,6 +773,8 @@ export async function generarDeCola(req, res, next) {
       numero: req.body?.numero != null && req.body?.numero !== '' ? Number(req.body.numero) : null,
       // Quien lleva un equipo comercial, solo los de su cola.
       personas: await alcanceDeLider(req.user),
+      // «Emitir igualmente» tras el aviso de posible duplicada (CRM#819).
+      confirmarDuplicada: req.body?.confirmar_duplicada === true,
     });
     res.json({ success: true, data: inv });
   } catch (err) { next(err); }
