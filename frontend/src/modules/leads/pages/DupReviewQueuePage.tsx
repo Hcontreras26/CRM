@@ -178,7 +178,7 @@ export default function DupReviewQueuePage() {
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle size={16} weight="duotone" className="text-success" />
                     <h3 className="text-sm font-semibold">Original #{it.original_lead_id || '?'}</h3>
-                    <button onClick={() => navigate(`/leads/${it.original_lead_id}`)} title="Abrir original"
+                    <button onClick={() => navigate(`/prospectos/${it.original_lead_id}`)} title="Abrir original"
                       className="p-0.5 rounded hover:bg-muted">
                       <ArrowSquareOut size={12} />
                     </button>
@@ -205,7 +205,7 @@ export default function DupReviewQueuePage() {
                     className="h-9 px-3 rounded-md border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive-soft disabled:opacity-50 flex items-center gap-1.5">
                     <X size={14} weight="bold" /> Descartar
                   </button>
-                  <button onClick={() => navigate(`/leads/${it.lead_id}`)} className="ml-auto text-xs text-primary hover:underline">
+                  <button onClick={() => navigate(`/prospectos/${it.lead_id}`)} className="ml-auto text-xs text-primary hover:underline">
                     Ver ficha del nuevo →
                   </button>
                 </div>

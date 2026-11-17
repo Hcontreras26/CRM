@@ -89,7 +89,7 @@ export default function NotificationsBell({ collapsed = false, className = '' })
               kind: 'overdue',
               title: 'Recordatorio vencido',
               body: `${r.lead_nombre}: ${r.nota || 'sin nota'}`,
-              href: `/leads/${r.lead_id}`,
+              href: `/prospectos/${r.lead_id}`,
               when: r.fecha_recordatorio,
             });
           }
@@ -111,7 +111,7 @@ export default function NotificationsBell({ collapsed = false, className = '' })
             kind: 'info',
             title: 'Nuevo prospecto',
             body: `${l.nombre} — ${l.email || 'sin email'}`,
-            href: `/leads/${l.id}`,
+            href: `/prospectos/${l.id}`,
             when: l.created_at,
           });
         }

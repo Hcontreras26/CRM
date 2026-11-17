@@ -18,6 +18,7 @@ import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import { detectCountryFromPhone } from '../lib/phoneCountry';
 import type { Lead } from '@/shared/types';
 import FilaCampos from '@/shared/components/ui/FilaCampos';
+import { rutaApp } from '@/shared/lib/rutaApp';
 
 interface CustomFieldDef {
   id: number;
@@ -323,7 +324,7 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
                       </>
                     );
                     return isMine ? (
-                      <a key={d.id} href={`/crm/leads/${d.id}`} target="_blank" rel="noopener noreferrer"
+                      <a key={d.id} href={rutaApp(`/prospectos/${d.id}`)} target="_blank" rel="noopener noreferrer"
                         className="text-secundario text-warning hover:underline flex items-center gap-1 mt-0.5"
                       >{inner}</a>
                     ) : (

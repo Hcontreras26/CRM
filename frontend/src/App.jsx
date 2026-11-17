@@ -7,6 +7,7 @@ import { tituloDeRuta } from './shared/lib/rutasTitulos';
 import { SOLO_EN_PRUEBAS } from './shared/lib/soloEnPruebas';
 import { PANTALLAS_IA } from './shared/lib/pantallasIA';
 import ConPermiso from './shared/components/layout/ConPermiso';
+import RedirigeA from './shared/components/RedirigeA';
 import { MARCA } from '@/shared/config/marca';
 const APP_BASE_URL = import.meta.env.BASE_URL || '';
 const IS_TESTEO_PREVIEW_BASE = APP_BASE_URL.startsWith('/testeo/');
@@ -441,6 +442,16 @@ function App() {
           <Route path="/email-sequences" element={<Navigate to="/secuencias-email" replace />} />
           <Route path="/ai-chat" element={<Navigate to={PANTALLAS_IA ? '/chat-ia' : '/'} replace />} />
           <Route path="/configuracion/email-templates" element={<Navigate to="/configuracion/plantillas-email" replace />} />
+          {/* Prospectos, productos, formularios y webhooks con su dirección de
+              antes (CRM#633). Siguen guardadas en los atajos de cada proyecto
+              (la base copia la ruta al guardarlos), en avisos ya creados y en
+              el Registro; con `RedirigeA` no se pierden ni el id ni el `?new=1`. */}
+          <Route path="/leads" element={<RedirigeA a="/prospectos" />} />
+          <Route path="/leads/:id" element={<RedirigeA a="/prospectos/:id" />} />
+          <Route path="/products" element={<RedirigeA a="/productos" />} />
+          <Route path="/products/:id" element={<RedirigeA a="/productos/:id" />} />
+          <Route path="/formularios" element={<RedirigeA a="/captacion" />} />
+          <Route path="/webhooks" element={<RedirigeA a="/captacion/webhooks" />} />
           {/* Finanzas sin su prefijo (CRM#633). Eran las direcciones de antes de
               agrupar Finanzas bajo /finanzas: alguien las tiene guardadas y la
               auditoría del 03/11 las encontró dando «página no encontrada». */}

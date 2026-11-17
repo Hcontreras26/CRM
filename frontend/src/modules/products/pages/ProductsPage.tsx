@@ -452,7 +452,7 @@ export default function ProductsPage() {
 
                   <div className="flex items-center gap-2 mt-3 text-[13px]">
                     {product.has_dossier ? (
-                      <button onClick={() => navigate(`/products/${product.id}`)} className="flex items-center gap-1.5 text-primary font-medium hover:underline">
+                      <button onClick={() => navigate(`/productos/${product.id}`)} className="flex items-center gap-1.5 text-primary font-medium hover:underline">
                         <FileText size={14} /> Dossier v{product.dossier_version}
                       </button>
                     ) : (

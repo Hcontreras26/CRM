@@ -5,6 +5,7 @@ import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { formatDate } from '@/shared/lib/format';
+import { rutaApp } from '@/shared/lib/rutaApp';
 
 /**
  * Las ventas que no dicen de qué formación son (#41).
@@ -177,7 +178,7 @@ export default function VentasSinFormacionPage() {
                         </button>
                       ) : (
                         <a
-                          href={`/crm/finanzas/ventas/${f.id}`} target="_blank" rel="noopener noreferrer"
+                          href={rutaApp(`/finanzas/ventas/${f.id}`)} target="_blank" rel="noopener noreferrer"
                           title="Abrir la venta para ponerle la formación a mano"
                           className="inline-flex items-center gap-1 h-7 px-2 rounded border border-border text-[11px] hover:bg-muted"
                         >

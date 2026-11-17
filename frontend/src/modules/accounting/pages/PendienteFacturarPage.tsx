@@ -14,6 +14,7 @@ import { toast } from '@/shared/hooks/useToast';
 import { Receipt, PencilSimple, X, FloppyDisk, ArrowSquareOut } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { ponerAmbito } from '@/shared/lib/ambitoInforme';
+import { rutaApp } from '@/shared/lib/rutaApp';
 
 interface Conversion {
   id: number;
@@ -141,7 +142,7 @@ export default function PendienteFacturarPage() {
                 {items.map((c) => (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="px-4 py-3">
-                      <button onClick={() => navigate(`/leads/${c.lead_id}`)} className="font-semibold text-primary hover:underline">
+                      <button onClick={() => navigate(`/prospectos/${c.lead_id}`)} className="font-semibold text-primary hover:underline">
                         {c.lead_nombre || `Lead #${c.lead_id}`}
                       </button>
                       {c.lead_email && <p className="text-xs text-muted-foreground">{c.lead_email}</p>}
@@ -170,7 +171,7 @@ export default function PendienteFacturarPage() {
             {items.map((c) => (
               <div key={c.id} className="bg-card border border-border rounded-lg p-3 space-y-2">
                 <div>
-                  <button onClick={() => navigate(`/leads/${c.lead_id}`)} className="font-semibold text-primary hover:underline">
+                  <button onClick={() => navigate(`/prospectos/${c.lead_id}`)} className="font-semibold text-primary hover:underline">
                     {c.lead_nombre || `Lead #${c.lead_id}`}
                   </button>
                   {c.lead_email && <p className="text-xs text-muted-foreground">{c.lead_email}</p>}
@@ -302,7 +303,7 @@ function EditDialog({ conversion, onClose, onSaved }: { conversion: Conversion; 
               </select>
             </div>
             <a
-              href={`/leads/${conversion.lead_id}`}
+              href={rutaApp(`/prospectos/${conversion.lead_id}`)}
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
               <ArrowSquareOut size={11} weight="bold" /> Ver perfil del cliente
