@@ -684,7 +684,12 @@ export async function getResumenVentas(filtros = {}) {
             COALESCE(SUM(${COBRADO_MATRICULA} * ${PESO}), 0) AS cobrado_matricula,
             COALESCE(SUM(${COBRADO_CUOTAS} * ${PESO}), 0) AS cobrado_cuotas,
             COUNT(*) FILTER (WHERE ${COBRADO_CUOTAS} > 0)::int AS ventas_con_cuotas,
-            COALESCE(SUM((cv.importe_total - ${COBRADO_REAL}) * ${PESO}), 0) AS pendiente,
+            -- Venta a venta y sin bajar de 0 (#692): una venta cobrada de más
+            -- restaba de lo que deben las demás y el total salía NEGATIVO
+            -- (−12.395 € en /testeo). Lo cobrado de más se cuenta aparte.
+            COALESCE(SUM(GREATEST(cv.importe_total - ${COBRADO_REAL}, 0) * ${PESO}), 0) AS pendiente,
+            COALESCE(SUM(GREATEST(${COBRADO_REAL} - cv.importe_total, 0) * ${PESO}), 0) AS cobrado_de_mas,
+            COUNT(*) FILTER (WHERE ${COBRADO_REAL} > cv.importe_total + 0.005)::int AS ventas_cobradas_de_mas,
             COUNT(*) FILTER (WHERE ${COBRADO_REAL} >= cv.importe_total)::int AS liquidadas,
             COUNT(*) FILTER (WHERE ${COBRADO_REAL} <  cv.importe_total)::int AS con_saldo,
             COALESCE(AVG(cv.importe_total * ${PESO}), 0) AS ticket_medio
@@ -729,6 +734,9 @@ export async function getResumenVentas(filtros = {}) {
     cobrado_cuotas: Number(r.cobrado_cuotas),
     ventas_con_cuotas: r.ventas_con_cuotas,
     pendiente: Number(r.pendiente),
+    // Lo que se cobró por encima del importe de la venta (#692): duplicados,
+    // un total mal puesto o un cargo de más. Se enseña aparte para revisarlo.
+    cobrado_de_mas: { ventas: r.ventas_cobradas_de_mas, importe: Number(r.cobrado_de_mas) },
     liquidadas: r.liquidadas,
     con_saldo: r.con_saldo,
     ticket_medio: Number(r.ticket_medio),
@@ -850,8 +858,9 @@ export async function getVentasPorAsesora(filtros = {}) {
             COUNT(*)::int AS ventas,
             COUNT(DISTINCT cv.lead_id)::int AS clientes,
             COALESCE(SUM(cv.importe_total), 0) AS importe,
-            COALESCE(SUM(cv.importe_pagado), 0) AS cobrado,
-            COALESCE(SUM(cv.importe_total - cv.importe_pagado), 0) AS pendiente,
+            -- De los pagos, como el resumen de arriba (#692).
+            COALESCE(SUM(${COBRADO_REAL}), 0) AS cobrado,
+            COALESCE(SUM(GREATEST(cv.importe_total - ${COBRADO_REAL}, 0)), 0) AS pendiente,
             COALESCE(AVG(cv.importe_total), 0) AS ticket_medio,
             MAX(cv.fecha_conversion) AS ultima_venta
        FROM conversions cv
@@ -920,7 +929,7 @@ export async function getVentasPorCliente(filtros = {}) {
             COUNT(*)::int AS ventas,
             COALESCE(SUM(v.importe_total), 0) AS importe,
             COALESCE(SUM(v.importe_pagado), 0) AS cobrado,
-            COALESCE(SUM(v.importe_total - v.importe_pagado), 0) AS pendiente,
+            COALESCE(SUM(GREATEST(v.importe_total - v.importe_pagado, 0)), 0) AS pendiente,
             MIN(v.fecha_conversion) AS primera_venta,
             MAX(v.fecha_conversion) AS ultima_venta,
             COALESCE(MAX(cu.cuotas_pendientes), 0) AS cuotas_pendientes,
