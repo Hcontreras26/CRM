@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-860 rutas en 68 módulos, y 31 acciones con condición dentro de una ruta.
+864 rutas en 69 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -495,6 +495,15 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | previoSupabase | `GET /api/ia/supabase/previo/:projectId` | (no existía) | (ruta nueva) | `ia.importar` |
 | importarSupabase | `POST /api/ia/supabase/importar/:projectId` | (no existía) | (ruta nueva) | `ia.importar` |
 | quitarPruebasSupabase | `POST /api/ia/supabase/quitar-pruebas/:projectId` | (no existía) | (ruta nueva) | `ia.importar` |
+
+## informe-mensual
+
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
+|---|---|---|---|---|
+| descargarConEnlace | `GET /api/informe-mensual/descarga/:issuerId/:periodo` | (no existía) | (ruta nueva) | — |
+| informe | `GET /api/informe-mensual/` | (no existía) | (ruta nueva) | `reports.informe_mensual` |
+| excel | `GET /api/informe-mensual/excel` | (no existía) | (ruta nueva) | `reports.informe_mensual` |
+| zip | `GET /api/informe-mensual/zip` | (no existía) | (ruta nueva) | `reports.informe_mensual` |
 
 ## installation
 
@@ -1578,6 +1587,7 @@ lo que pide para tener sentido (editar pide ver).
 | Dónde poner el dinero | `reports.dinero` | Ventas y gasto de publicidad por canal y campaña, contra el periodo anterior. | Admin, Project manager | `reports.view` |
 | Cambiar el baremo de la tasa de cierre | `reports.editar_baremo` | Los tramos que dicen qué significa cada tasa (buena, regular...) por campus; el general, solo el super admin. | Admin | `reports.view` |
 | El puesto de otra gestora | `reports.puesto_ajeno` | Ver en qué puesto va otra gestora del ranking. | Admin, Soporte, Project manager | `reports.mis_informes` |
+| Informe mensual para la gestoría | `reports.informe_mensual` | Ver y bajar el informe de ventas del mes por equipo y por comercial, y el ZIP con las facturas emitidas de una empresa. | Admin, Project manager | `reports.view` |
 
 ### Feedback
 

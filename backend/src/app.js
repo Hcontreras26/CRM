@@ -76,6 +76,7 @@ import changeRequestsModule from './modules/change-requests/index.js';
 // CRM-ISEIE (paridad, 15/10). Público y con límite por IP.
 import clientErrorsModule from './modules/client-errors/index.js';
 import copiaDiariaModule from './modules/copia-diaria/index.js';
+import informeMensualModule from './modules/informe-mensual/index.js';
 import mcpModule from './modules/mcp/index.js';
 import moodleModule from './modules/moodle/index.js';
 import tasksModule from './modules/tasks/index.js';
@@ -124,6 +125,7 @@ import { startFacturasColaboradorScheduler } from './jobs/facturasColaboradorJob
 import { startFacturasColaboradorAvisosScheduler } from './jobs/facturasColaboradorAvisosJob.js';
 import { startCopiaDiariaScheduler } from './jobs/copiaDiariaJob.js';
 import { startFacturacionAuditoriaScheduler } from './jobs/facturacionAuditoriaJob.js';
+import { startInformeMensualScheduler } from './jobs/informeMensualJob.js';
 import { tareasActivas, facturasColaboradorActivas, linksPagoActivos, proyectosIAActivos, pluginMoodleActivo } from './shared/config/soloEnPruebas.js';
 import { porteroDelWebhook, topeDelEnvio, traducirTope } from './modules/webhook-tokens/portero.js';
 import { MAX_ENVIO_BYTES } from './modules/matriculas/admision.archivos.js';
@@ -313,6 +315,8 @@ const ALL_MODULES = [
   { name: 'product-categories', mod: productCategoriesModule },
   { name: 'commissions', mod: commissionsModule },
   { name: 'reports', mod: reportsModule },
+  // El informe mensual por equipo y comercial y el ZIP de facturas para la gestoría (#772).
+  { name: 'informe-mensual', mod: informeMensualModule },
   { name: 'matriculas', mod: matriculasModule },
   { name: 'feedback', mod: feedbackModule },
   { name: 'factura-automatica', mod: facturaAutomaticaModule },
@@ -539,6 +543,8 @@ if (process.env.NODE_ENV !== 'test') {
     startCopiaDiariaScheduler();
     // La auditoría de facturación cada 2 horas (#765). Apagada de serie: FACTURACION_AUDITORIA_ACTIVA.
     startFacturacionAuditoriaScheduler();
+    // El informe del mes y las facturas a la gestoría (#772). Apagado de serie: INFORME_MENSUAL_ACTIVO.
+    startInformeMensualScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }
