@@ -263,7 +263,7 @@ export const CAMBIOS_DE_MENU = [
         '- Equipo de Desarrollo › Mi factura', '- Equipo de Desarrollo › Tablero', '- Finanzas › Facturas de colaboradores',
         '- Tutores › Comisiones', '- Tutores › Mis cursos', '- Tutores › Sin tutor', '- Tutores › Tutores',
       ],
-      project_manager: ['- Clientes › Matrículas', '- Principal › WhatsApp › Chat', '- Principal › WhatsApp › Conexión'],
+      project_manager: ['- Clientes › Solicitud de admisión', '- Principal › WhatsApp › Chat', '- Principal › WhatsApp › Conexión'],
     },
     rutas: {
       'Clientes › Diplomas': 'GET /api/certifex/diplomas/solicitudes',
@@ -276,7 +276,7 @@ export const CAMBIOS_DE_MENU = [
       'Tutores › Mis cursos': 'GET /api/tutores/colaboraciones',
       'Tutores › Sin tutor': 'GET /api/tutores/formaciones-sin-tutor',
       'Tutores › Tutores': 'GET /api/tutores/',
-      'Clientes › Matrículas': 'GET /api/matriculas/',
+      'Clientes › Solicitud de admisión': 'GET /api/matriculas/',
       'Principal › WhatsApp › Chat': 'GET /api/whatsapp/chats',
       'Principal › WhatsApp › Conexión': 'GET /api/whatsapp/conexion',
     },

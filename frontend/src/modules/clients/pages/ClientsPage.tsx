@@ -403,7 +403,7 @@ export default function ClientsPage() {
             // sea una plataforma de suscripción, donde no existen. Ver
             // `ofreceMatriculas`.
             ...(ofreceMatriculas(activeProject) ? [
-              { label: 'Matrículas', detail: `Altas en cada ${etiqueta.singular.toLowerCase()}`, icon: GraduationCap, to: '/clientes/matriculas' },
+              { label: 'Solicitud de admisión', detail: `Las que llegan para cada ${etiqueta.singular.toLowerCase()}`, icon: GraduationCap, to: '/clientes/matriculas' },
             ] : []),
             { label: 'Por cobrar', detail: 'Cuotas pendientes', icon: Wallet, to: '/finanzas/por-cobrar' },
             { label: 'Ventas', detail: 'Registrar y consultar', icon: Receipt, to: '/finanzas/ventas' },

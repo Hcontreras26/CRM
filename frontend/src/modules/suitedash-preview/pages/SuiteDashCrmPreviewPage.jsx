@@ -70,7 +70,7 @@ const SUITEDASH_NAV_SECTIONS = [
         tone: 'emerald',
         children: [
           { label: 'Directorio', route: '/clientes' },
-          { label: 'Matriculas', route: '/clientes/matriculas' },
+          { label: 'Solicitud de admisión', route: '/clientes/matriculas' },
         ],
       },
     ],
