@@ -11,6 +11,8 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import { SkeletonCard } from '@/shared/components/ui/SkeletonTable';
 import { toast } from '@/shared/hooks/useToast';
 import RepartoVentaCard from '../components/RepartoVentaCard';
+// Links de pago (#680): solo en pruebas; la tarjeta se esconde sola en /crm.
+import LinksDePagoCard from '@/modules/links-pago/components/LinksDePagoCard';
 import {
   CurrencyEur, CheckCircle, Wallet, Receipt, ArrowLeft, User, Calendar,
   WarningCircle, CreditCard, ClockCounterClockwise,
@@ -42,6 +44,7 @@ type Pago = {
 };
 type Venta = {
   id: number; lead_id: number; producto_contratado: string;
+  project_id?: number; producto_contratado_id?: number | null;
   importe_total: string | number; importe_pagado: string | number; importe_pendiente: string | number;
   // #692: `importe_pagado` ya es la suma de los pagos; el guardado en la venta
   // viene aparte para avisar si no cuadra. Opcionales: un servidor anterior no los manda.
@@ -215,6 +218,9 @@ export default function SaleDetailPage() {
 
         {/* Quien vendio, y si la venta esta repartida entre dos gestoras. */}
         <RepartoVentaCard conversionId={venta.id} />
+        {venta.project_id != null && (
+          <LinksDePagoCard projectId={venta.project_id} conversionId={venta.id} productoId={venta.producto_contratado_id} />
+        )}
         </div>
 
         <div className="bg-card border border-border rounded-lg p-4 lg:col-span-2">
