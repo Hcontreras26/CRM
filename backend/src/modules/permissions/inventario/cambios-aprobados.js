@@ -264,6 +264,18 @@ CAMBIOS_POR_DATOS.push({
  */
 export const CAMBIOS_DE_MENU = [
   {
+    id: 'menu-mi-factura-con-ficha',
+    // Solo se esconde del menú: la ruta sigue abierta y responde igual que antes (solo lo suyo).
+    soloMenu: true,
+    que: '«Mi factura» la ve quien tiene ficha viva en Facturas de colaboradores (colaborador, tutor redactor o vendedora de la lista, CRM#710); el super admin sin ficha deja de verla.',
+    motivo: 'Las vendedoras de la lista suben su factura del mes, y las cuatro excepciones de la issue no tienen sección de factura (criterio 4 de la issue). El super admin lo puede todo, así que el menú se la enseñaba aunque no factura a nadie. El acceso no cambia: la ruta sigue abierta y solo devuelve lo suyo.',
+    perfiles: {
+      superadmin: ['- Equipo de Desarrollo › Mi factura'],
+    },
+    rutas: { 'Equipo de Desarrollo › Mi factura': 'GET /api/facturas-colaborador/mias' },
+    aprobadoPor: 'Pendiente de Diego (CRM#710)',
+  },
+  {
     id: 'menu-mi-campus',
     que: '«Tutores › Mi campus»: la tutora ve sus cursos de Moodle con lo que tiene por corregir y sus dudas, y corrige desde el CRM (CRM#681).',
     motivo: 'Pantalla nueva dentro de «Mis cursos»: entra por el mismo permiso (`tutores.mis_cursos`) y el servidor solo enseña los cursos donde la tutora es profesora en Moodle.',

@@ -222,7 +222,10 @@ export const NAV_SECTIONS = [
       { label: 'Historial de tareas', to: '/tareas/historial', detail: 'Lo hecho: quién y cuándo', icon: ClockCounterClockwise, roles: [...ROLES_TAREAS, 'tutor'], permiso: 'tasks.view_own', oPermiso: 'tasks.view_own' },
       { label: 'Configurar tablero', to: '/tareas/configurar', detail: 'Columnas, áreas y proyectos', icon: SlidersHorizontal, roles: ROLES_TAREAS, permiso: 'tasks.manage', oPermiso: 'tasks.manage' },
       // «Mi factura» (#202): el colaborador con usuario sube aquí su factura del mes.
-      { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador', 'tutor_redactor'], permiso: 'facturas_colaborador.subir' },
+      // Y la vendedora de la lista (CRM#710): con su ficha se le da «Subir su factura» a ella
+      // (`oPermiso`), sin perder lo que ve como gestora. `conFicha`: solo quien tiene ficha viva;
+      // un super admin (que lo puede todo) no la ve si no factura.
+      { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador', 'tutor_redactor'], permiso: 'facturas_colaborador.subir', oPermiso: 'facturas_colaborador.subir', conFicha: true },
       // Monitask (#236): qué hace cada colaborador y el cotejo con sus facturas. Solo en
       // /testeo y local hasta que Diego lo apruebe; además, con MONITASK_ACTIVO en el servidor.
       ...(SOLO_EN_PRUEBAS
@@ -676,6 +679,10 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   const tienePermisoDeLaPantalla = !item.permiso || (typeof can === 'function' && [].concat(item.permiso).some((p) => can(p) === true));
   if (!tienePermisoDeLaPantalla) return false;
   if (!tieneLosDeMas(item, can)) return false;
+  // «Mi factura» (CRM#710): quien no es colaborador ni tutor redactor la ve solo si
+  // tiene ficha viva en Facturas de colaboradores (`factura_propia`, de /auth/me): la
+  // lista explícita de vendedoras, no el rol. Ni el super admin sin ficha.
+  if (item.conFicha && !es('colaborador', 'tutor_redactor') && permisos?.factura_propia !== true) return false;
   // Una entrada que junta varias (Conexión › Webhooks, #690): sale si alguna de
   // sus `partes` se puede abrir, cada una con su permiso (y lo que pide además,
   // `tambienPermiso`, #842), su módulo y el tipo de proyecto en que no salía
