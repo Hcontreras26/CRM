@@ -67,7 +67,7 @@ export default function PageHeader({
         {/* En el móvil el título no baja de 160px: si con los botones al lado
             quedaría más estrecho, son los botones los que bajan (Ingresos se
             quedaba en «Ingr…»). */}
-        <div className="min-w-0 flex-1 max-sm:min-w-40">
+        <div className="min-w-0 flex-1 max-sm:min-w-40 sm:min-w-32">
           {(volver || breadcrumbs) && (
             <div className="flex items-center gap-2 leading-none">
               {volver}
@@ -82,7 +82,11 @@ export default function PageHeader({
         {actions && (
           // En el móvil, si no caben junto al título bajan debajo y se reparten en
           // líneas (Feedback: los atajos de fecha ensanchaban la página a 703px).
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 max-sm:max-w-full max-sm:justify-start">
+          // En el PC tampoco pueden pasar del ancho: si no caben junto al título,
+          // se reparten en dos líneas a la derecha (Reportes, 18/11: a 1440 px los
+          // atajos, las fechas y CSV/PDF sacaban la cabecera 470 px de la pantalla).
+          // El título se queda con 8rem como poco y los botones con el resto.
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 max-sm:max-w-full max-sm:justify-start sm:min-w-0 sm:flex-shrink">
             {actions}
           </div>
         )}
