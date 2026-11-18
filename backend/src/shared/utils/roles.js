@@ -67,6 +67,8 @@ export const RUTAS_DEL_COLABORADOR = [
   // «Mi factura» (#202): solo lo suyo. Lo de administración, nunca.
   /^\/api\/facturas-colaborador\/mias(?:\/|$)/,
   /^\/api\/notifications(?:\/|$)/,
+  // Pedir acceso o permiso (CRM#820): solo esa ruta de Soporte, nada mas de tickets.
+  /^\/api\/soporte\/accesos\/?$/,
   // Meta Ads, solo ver y solo con su permiso (`meta_ads.view`, 26/10/2026): la
   // guardia de la ruta lo mira; sin él, 403 igual.
   /^\/api\/meta-ads(?:\/|$)/,
@@ -109,6 +111,8 @@ export const RUTAS_DEL_TUTOR = [
   /^\/api\/mensajes(?:\/|$)/,
   // Si le esta sonando una llamada: lo pregunta la cabecera a cualquiera.
   /^\/api\/whatsapp\/sonando\/?$/,
+  // Pedir acceso o permiso (CRM#820): solo esa ruta de Soporte, nada mas de tickets.
+  /^\/api\/soporte\/accesos\/?$/,
   /^\/api\/permissions\/system-defaults\/?$/,
   /^\/api\/users\/mis-avisos\/?$/,
   /^\/api\/users\/\d+\/(?:avatar|views)\/?$/,
@@ -127,6 +131,8 @@ export const RUTAS_DEL_TUTOR_REDACTOR = [
   /^\/api\/tutores(?:\/|$)/,
   /^\/api\/consultas(?:\/|$)/,
   /^\/api\/notifications(?:\/|$)/,
+  // Pedir acceso o permiso (CRM#820): solo esa ruta de Soporte, nada mas de tickets.
+  /^\/api\/soporte\/accesos\/?$/,
   /^\/api\/permissions\/system-defaults\/?$/,
   /^\/api\/users\/mis-avisos\/?$/,
   /^\/api\/users\/\d+\/(?:avatar|views)\/?$/,

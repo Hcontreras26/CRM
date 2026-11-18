@@ -12,9 +12,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { tieneWhatsapp } from '@/shared/lib/roles';
 import NeedsProjectBanner from '@/shared/components/ui/NeedsProjectBanner';
 import EmptyState from '@/shared/components/ui/EmptyState';
-import { LockKey } from '@phosphor-icons/react';
+import { LockKey, Key } from '@phosphor-icons/react';
 import usePermission from '@/shared/hooks/usePermission';
-import { rutaPermitida } from './Sidebar';
+import { rutaPermitida, permisoQueFalta } from './Sidebar';
+import { abrirPedirAcceso } from '@/modules/soporte/lib/accesos';
 
 // Rutas que SÍ funcionan en modo "Todos los proyectos" (vista global).
 // El resto requiere un proyecto concreto (catálogo, settings, finanzas, etc.).
@@ -440,12 +441,26 @@ function PantallaConPermiso({ pathname, children }) {
   // Sin el mapa de permisos todavía (al entrar), `can` dice que no a todo: no se
   // decide nada hasta que llegue, o saldría un «No tienes acceso» falso.
   if (!permissions || rutaPermitida(pathname, can)) return children;
+  // CRM#820: en vez de «pídeselo a un administrador» (¿a quién, por dónde?), el
+  // botón pide ESE permiso a soporte, con su clave ya puesta.
+  const falta = permisoQueFalta(pathname, can);
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <EmptyState
         icon={LockKey}
         title="No tienes acceso a esta pantalla"
-        description="Si crees que deberías verla, pídeselo a un administrador."
+        description={falta
+          ? `Te falta el permiso «${falta}». Si lo necesitas, pídeselo a soporte: lo preparan y lo confirma quien pueda darlo.`
+          : 'Si crees que deberías verla, pídeselo a soporte: lo preparan y lo confirma quien pueda darlo.'}
+        action={(
+          <button
+            type="button"
+            onClick={() => abrirPedirAcceso(falta ? { tipo: 'permiso', permiso: falta } : {})}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
+          >
+            <Key size={14} weight="bold" /> {falta ? 'Pedir este permiso' : 'Pedir acceso o permiso'}
+          </button>
+        )}
       />
     </div>
   );
@@ -478,6 +493,9 @@ const PWAInstallPrompt = lazy(() => import('./PWAInstallPrompt'));
 const PWAUpdatePrompt = lazy(() => import('./PWAUpdatePrompt'));
 const KeyboardShortcutsModal = lazy(() => import('./KeyboardShortcutsModal'));
 const OfflineBanner = lazy(() => import('./OfflineBanner'));
+const PedirAcceso = lazy(() => import('@/modules/soporte/components/PedirAcceso'));
+// Facturación pausada por la auditoría (#765): solo superadmin y admin, en todas las pantallas.
+const AvisoFacturacionPausada = lazy(() => import('@/modules/invoices/components/AvisoFacturacionPausada'));
 // Avisa de una llamada de WhatsApp desde cualquier pantalla del CRM. Va aqui
 // y no en el modulo de WhatsApp a proposito: la llamada se pierde justo
 // cuando la gestora esta en otra parte y el movil no lo tiene delante.
@@ -675,6 +693,11 @@ export default function AppLayout() {
           tabIndex={-1}
           className="p-4 lg:p-6 xl:p-8 focus:outline-none"
         >
+        {/* El aviso de la facturación pausada (#765). Fuera del `key` de la ruta:
+            no parpadea al cambiar de pantalla. Sin permiso o apagada, no pinta nada. */}
+        <Suspense fallback={null}>
+          <AvisoFacturacionPausada />
+        </Suspense>
         <Suspense fallback={
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -719,6 +742,11 @@ export default function AppLayout() {
       </Suspense>
       <Suspense fallback={null}>
         <OfflineBanner />
+      </Suspense>
+      {/* «Pedir acceso o permiso» (CRM#820): se abre desde el menú de usuario y
+          desde «No tienes acceso», en cualquier pantalla. */}
+      <Suspense fallback={null}>
+        <PedirAcceso />
       </Suspense>
       {!sinWhatsapp && (
         <Suspense fallback={null}>

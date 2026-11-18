@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, WarningCircle, Lock } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,9 +8,10 @@ import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import Card from '@/shared/components/ui/Card';
 import { toast } from '@/shared/hooks/useToast';
 import {
-  avisoCambioCorreo, createUser, deactivateUser, listEmpresas, reactivateUser, setUserPassword, updateUser,
-  type CrmUser, type Empresa,
+  avisoCambioCorreo, createUser, deactivateUser, desbloquearBrevo, listBrevoBloqueos, listEmpresas, reactivateUser,
+  setUserPassword, updateUser, type BrevoBloqueo, type CrmUser, type Empresa,
 } from '../api/users.api';
+import { porPersona } from '../lib/brevoBloqueo';
 import useUsers from '../hooks/useUsers';
 import useAvailabilityMap from '../hooks/useAvailabilityMap';
 import UsersToolbar from './UsersToolbar';
@@ -71,6 +72,29 @@ export default function UsersPanel() {
     if (!esSuperadmin) return;
     listEmpresas().then(setEmpresas).catch(() => setEmpresas(undefined));
   }, [esSuperadmin]);
+  // Correos que Brevo no entrega (migración 290). Si falla o está apagado, sin marcas:
+  // la lista sigue funcionando igual.
+  const [bloqueosBrevo, setBloqueosBrevo] = useState<Map<number, BrevoBloqueo>>(new Map());
+  const cargarBloqueosBrevo = useCallback(() => {
+    listBrevoBloqueos()
+      .then((r) => setBloqueosBrevo(porPersona(r.bloqueos)))
+      .catch(() => setBloqueosBrevo(new Map()));
+  }, []);
+  useEffect(() => { cargarBloqueosBrevo(); }, [cargarBloqueosBrevo]);
+
+  async function desbloquearEnBrevo(user: CrmUser) {
+    try {
+      await desbloquearBrevo(user.id);
+      toast({
+        title: 'Desbloqueado en Brevo',
+        description: `Los correos del CRM vuelven a salir hacia ${user.email}. Si el buzón no existe, Brevo lo volverá a bloquear.`,
+      });
+      cargarBloqueosBrevo();
+    } catch (err: any) {
+      toast({ title: 'No se pudo desbloquear', description: err?.message, variant: 'destructive' });
+    }
+  }
+
   // Sin la migración 203 el listado trae `empresa_ids: null` en todos.
   const faltaMigracionEmpresas = lista.visibles.length > 0 && lista.visibles.every((u) => u.empresa_ids === null);
 
@@ -289,6 +313,7 @@ export default function UsersPanel() {
           users={lista.visibles}
           projects={projects || []}
           disponibilidad={disponibilidad.porUsuario}
+          bloqueosBrevo={bloqueosBrevo}
           openMenuId={openMenuId}
           onOpenMenu={setOpenMenuId}
           onEdit={(u) => { setOpenMenuId(null); setDialogo({ modo: 'editar', user: u }); }}
@@ -322,6 +347,10 @@ export default function UsersPanel() {
           onResetPassword={reiniciarPassword}
           empresas={esSuperadmin && can('users.empresas') ? empresas : undefined}
           faltaMigracionEmpresas={faltaMigracionEmpresas}
+          bloqueoBrevo={dialogo.modo === 'editar' ? bloqueosBrevo.get(dialogo.user.id) ?? null : null}
+          onDesbloquearBrevo={dialogo.modo === 'editar' && can('users.brevo_desbloquear')
+            ? () => desbloquearEnBrevo(dialogo.user)
+            : undefined}
         />
       )}
 

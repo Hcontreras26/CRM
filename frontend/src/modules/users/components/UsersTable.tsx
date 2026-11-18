@@ -4,7 +4,8 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import StatusDot from '@/shared/components/ui/StatusDot';
 import { avatarColorFor, getInitials } from '@/shared/lib/ui';
 import type { AvailabilityUser } from '../api/availability.api';
-import type { CrmUser } from '../api/users.api';
+import type { BrevoBloqueo, CrmUser } from '../api/users.api';
+import { textoDelBloqueo } from '../lib/brevoBloqueo';
 import {
   ACCESS_STATE_STYLES, ROLE_CHIP, accessStateOf, formatFecha, formatLastLogin, roleLabelCortoOf, roleLabelOf,
 } from '../lib/usersUi';
@@ -15,6 +16,8 @@ interface Props {
   projects: Project[];
   /** Disponibilidad por id. Solo hay entrada para admin/gestor/superadmin. */
   disponibilidad: Map<number, AvailabilityUser>;
+  /** Correos que Brevo no entrega (migración 290), por persona. */
+  bloqueosBrevo?: Map<number, BrevoBloqueo>;
   openMenuId: number | null;
   onOpenMenu: (id: number | null) => void;
   onEdit: (user: CrmUser) => void;
@@ -48,6 +51,16 @@ function AusenciaBadge({ estado }: { estado?: AvailabilityUser }) {
   return null;
 }
 
+/** Brevo no le entrega ningún correo del CRM: el motivo y la fecha, al pasar el ratón. */
+function BrevoBadge({ bloqueo }: { bloqueo?: BrevoBloqueo }) {
+  if (!bloqueo) return null;
+  return (
+    <StatusDot tono="danger" title={textoDelBloqueo(bloqueo)}>
+      Correo bloqueado en Brevo
+    </StatusDot>
+  );
+}
+
 function nombresDeProyectos(user: CrmUser, projects: Project[]): string {
   const ids = user.projects.map((p) => p.projectId);
   if (ids.length === 0) return 'Ninguno';
@@ -76,7 +89,7 @@ function RolBadge({ user }: { user: CrmUser }) {
 }
 
 export default function UsersTable({
-  users, projects, disponibilidad, openMenuId, onOpenMenu, onEdit, onToggleActive,
+  users, projects, disponibilidad, bloqueosBrevo, openMenuId, onOpenMenu, onEdit, onToggleActive,
   onAvailability, hayFiltroActivo, onClearFilters,
 }: Props) {
   if (users.length === 0) {
@@ -166,6 +179,7 @@ export default function UsersTable({
                     <div className="flex flex-col gap-1">
                       <EstadoBadge user={u} />
                       <AusenciaBadge estado={disponibilidad.get(u.id)} />
+                      <BrevoBadge bloqueo={bloqueosBrevo?.get(u.id)} />
                     </div>
                   </td>
                   <td className="sticky right-0 bg-card group-hover:bg-gradient-to-r group-hover:from-muted/50 group-hover:to-muted/50 border-l border-border px-4 py-3 text-right whitespace-nowrap">
@@ -221,6 +235,7 @@ export default function UsersTable({
                 <RolBadge user={u} />
                 <EstadoBadge user={u} />
                 <AusenciaBadge estado={disponibilidad.get(u.id)} />
+                <BrevoBadge bloqueo={bloqueosBrevo?.get(u.id)} />
                 <span className="text-secundario text-muted-foreground truncate max-w-[200px]" title={proyectos}>{proyectos}</span>
                 {u.last_login_at ? (
                   <span className="text-secundario text-muted-foreground/70 flex items-center gap-1 ml-auto">

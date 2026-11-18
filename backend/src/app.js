@@ -24,6 +24,8 @@ import expensesModule from './modules/expenses/index.js';
 import integrationsModule from './modules/integrations/index.js';
 import stripePaymentsModule from './modules/stripe-payments/index.js';
 import invoicesModule from './modules/invoices/index.js';
+// Auditoría de facturación cada 2 horas y pausa de la emisión (#765).
+import facturacionAuditoriaModule from './modules/facturacion-auditoria/index.js';
 import widgetModule from './modules/widget/index.js';
 import fieldDefsModule from './modules/field-definitions/index.js';
 import credentialsModule from './modules/credentials/index.js';
@@ -34,6 +36,8 @@ import commissionsModule from './modules/commissions/index.js';
 import reportsModule from './modules/reports/index.js';
 import matriculasModule from './modules/matriculas/index.js';
 import feedbackModule from './modules/feedback/index.js';
+// Factura automática con formulario de datos fiscales (#764): apagada de serie.
+import facturaAutomaticaModule from './modules/factura-automatica/index.js';
 import novedadesModule from './modules/novedades/index.js';
 import emailSequencesModule from './modules/email-sequences/index.js';
 import formsModule from './modules/forms/index.js';
@@ -72,21 +76,28 @@ import changeRequestsModule from './modules/change-requests/index.js';
 // CRM-ISEIE (paridad, 15/10). Público y con límite por IP.
 import clientErrorsModule from './modules/client-errors/index.js';
 import copiaDiariaModule from './modules/copia-diaria/index.js';
+import informeMensualModule from './modules/informe-mensual/index.js';
 import mcpModule from './modules/mcp/index.js';
 import moodleModule from './modules/moodle/index.js';
 import tasksModule from './modules/tasks/index.js';
 import facturasColaboradorModule from './modules/facturas-colaborador/index.js';
 // Links de pago (#680). Fase 1: solo lectura y el tope de descuento; no llama a Stripe.
 import linksPagoModule from './modules/links-pago/index.js';
+// Registro automático de cobros: PayPal y extractos del banco (#766). Cada parte, con su interruptor.
+import cobrosExternosModule from './modules/cobros-externos/index.js';
+import monitaskModule from './modules/monitask/index.js';
 import { resolveActiveModules } from './bundles/manifest.js';
 import { query } from './shared/config/db.js';
 import { startEmailSequenceScheduler } from './jobs/emailSequenceScheduler.js';
 import { startWooCommerceSyncScheduler } from './jobs/wooCommerceSyncScheduler.js';
 import { startReminderScheduler } from './jobs/reminderScheduler.js';
 import { startStripePaymentsSyncScheduler } from './jobs/stripePaymentsSyncScheduler.js';
+import { startPaypalCobrosSyncScheduler } from './jobs/paypalCobrosSyncScheduler.js';
+import { startMonitaskSyncScheduler } from './jobs/monitaskSyncScheduler.js';
 import { startDocumentOrphanScheduler } from './jobs/documentOrphanScheduler.js';
 import { startGoogleAdsTokenScheduler } from './jobs/googleAdsTokenScheduler.js';
 import { startMetaAdsSyncScheduler } from './jobs/metaAdsSyncScheduler.js';
+import { startMetaTokensScheduler } from './jobs/metaTokensScheduler.js';
 import { startTutorCommissionsScheduler } from './jobs/tutorCommissionsScheduler.js';
 import { startTutoresCampusScheduler } from './jobs/tutoresCampusScheduler.js';
 import { startConsultasCampusScheduler } from './jobs/consultasCampusScheduler.js';
@@ -107,6 +118,7 @@ import { startMcpVigilanciaScheduler } from './jobs/mcpVigilanciaScheduler.js';
 import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js';
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
+import { startFacturaAutomaticaScheduler } from './jobs/facturaAutomaticaScheduler.js';
 import { startWebhooksSalientesScheduler } from './jobs/webhooksSalientesScheduler.js';
 import { startAsignacionScheduler } from './jobs/asignacionScheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
@@ -115,6 +127,9 @@ import { startTareasResumenScheduler } from './jobs/tareasResumenJob.js';
 import { startFacturasColaboradorScheduler } from './jobs/facturasColaboradorJob.js';
 import { startFacturasColaboradorAvisosScheduler } from './jobs/facturasColaboradorAvisosJob.js';
 import { startCopiaDiariaScheduler } from './jobs/copiaDiariaJob.js';
+import { startFacturacionAuditoriaScheduler } from './jobs/facturacionAuditoriaJob.js';
+import { startInformeMensualScheduler } from './jobs/informeMensualJob.js';
+import { startBrevoBloqueadosScheduler } from './jobs/brevoBloqueadosScheduler.js';
 import { tareasActivas, facturasColaboradorActivas, linksPagoActivos, proyectosIAActivos, pluginMoodleActivo } from './shared/config/soloEnPruebas.js';
 import { porteroDelWebhook, topeDelEnvio, traducirTope } from './modules/webhook-tokens/portero.js';
 import { MAX_ENVIO_BYTES } from './modules/matriculas/admision.archivos.js';
@@ -168,6 +183,8 @@ else logger.info('Rutas SKIP (solo en pruebas): /api/moodle-avisos (plugin del C
 // comprobaba contra «[object Object]»: se rechazaban todos los avisos (los cobros solo
 // entraban por el sondeo de cada 5 minutos).
 app.use('/api/stripe-webhook', express.raw({ type: 'application/json', limit: '2mb' }));
+// Igual el de PayPal (#766): la firma se comprueba con el cuerpo tal cual llegó.
+app.use('/api/paypal-webhook', express.raw({ type: 'application/json', limit: '1mb' }));
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));  // Elementor envía form-encoded
@@ -293,6 +310,7 @@ const ALL_MODULES = [
   { name: 'integrations', mod: integrationsModule },
   { name: 'stripe-payments', mod: stripePaymentsModule },
   { name: 'invoices', mod: invoicesModule },
+  { name: 'facturacion-auditoria', mod: facturacionAuditoriaModule },
   { name: 'widget', mod: widgetModule },
   { name: 'field-definitions', mod: fieldDefsModule },
   { name: 'credentials', mod: credentialsModule },
@@ -301,8 +319,11 @@ const ALL_MODULES = [
   { name: 'product-categories', mod: productCategoriesModule },
   { name: 'commissions', mod: commissionsModule },
   { name: 'reports', mod: reportsModule },
+  // El informe mensual por equipo y comercial y el ZIP de facturas para la gestoría (#772).
+  { name: 'informe-mensual', mod: informeMensualModule },
   { name: 'matriculas', mod: matriculasModule },
   { name: 'feedback', mod: feedbackModule },
+  { name: 'factura-automatica', mod: facturaAutomaticaModule },
   { name: 'novedades', mod: novedadesModule },
   { name: 'email-sequences', mod: emailSequencesModule },
   { name: 'forms', mod: formsModule },
@@ -344,6 +365,10 @@ const ALL_MODULES = [
   { name: 'soporte', mod: soporteModule },
   // Links de pago (#680): solo en pruebas también en el servidor, hasta que Diego lo apruebe.
   ...(linksPagoActivos() ? [{ name: 'links-pago', mod: linksPagoModule }] : []),
+  // Siempre montado: cada ruta contesta 404 con su interruptor apagado (#766).
+  { name: 'cobros-externos', mod: cobrosExternosModule },
+  // Monitask (#236): siempre montado; cada ruta contesta 404 con MONITASK_ACTIVO apagado.
+  { name: 'monitask', mod: monitaskModule },
 ];
 if (!linksPagoActivos()) logger.info('Modulo SKIP (solo en pruebas): /api/links-pago');
 if (!tareasActivas()) logger.info('Modulo SKIP (solo en pruebas): /api/tasks');
@@ -484,9 +509,14 @@ if (process.env.NODE_ENV !== 'test') {
     startWooCommerceSyncScheduler();
     startReminderScheduler();
     startStripePaymentsSyncScheduler();
+    startPaypalCobrosSyncScheduler();
+    // Monitask (#236): cada noche, solo con MONITASK_ACTIVO=1.
+    startMonitaskSyncScheduler();
     startDocumentOrphanScheduler();
     startGoogleAdsTokenScheduler();
     startMetaAdsSyncScheduler();
+    // Renovación diaria de tokens de Meta e Instagram (#471). Apagada sin META_TOKENS_RENOVACION_ACTIVA=1.
+    startMetaTokensScheduler();
     startTutorCommissionsScheduler();
     startTutoresCampusScheduler();
     startConsultasCampusScheduler();
@@ -503,6 +533,7 @@ if (process.env.NODE_ENV !== 'test') {
     startCursosPendientesScheduler();
     startPasoVencidoScheduler();
     startFeedbackDia7Scheduler();
+    startFacturaAutomaticaScheduler();
     startNovedadesScheduler();
     startResumenDiarioScheduler();
     startReporteSemanalScheduler();
@@ -520,6 +551,12 @@ if (process.env.NODE_ENV !== 'test') {
     if (facturasColaboradorActivas()) startFacturasColaboradorAvisosScheduler();
     // La copia diaria de la base, cifrada y por correo (11/11). Apagada de serie: COPIA_DIARIA_ACTIVA.
     startCopiaDiariaScheduler();
+    // La auditoría de facturación cada 2 horas (#765). Apagada de serie: FACTURACION_AUDITORIA_ACTIVA.
+    startFacturacionAuditoriaScheduler();
+    // El informe del mes y las facturas a la gestoría (#772). Apagado de serie: INFORME_MENSUAL_ACTIVO.
+    startInformeMensualScheduler();
+    // Apagada de serie (BREVO_BLOQUEADOS_ACTIVO): apagada no arranca ni pregunta a Brevo.
+    startBrevoBloqueadosScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }

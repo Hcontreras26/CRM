@@ -7,6 +7,8 @@ import { logger } from '../../shared/utils/logger.js';
 import { infoDelCampus, urlDelCampus } from '../../shared/services/moodle.client.js';
 import { urlDeStripe } from '../../shared/config/stripeApi.js';
 import { linksPagoActivos, proyectosIAActivos } from '../../shared/config/soloEnPruebas.js';
+import { paypalActivo } from '../cobros-externos/interruptores.js';
+import { probarCredenciales as probarPaypal } from '../cobros-externos/paypal.service.js';
 
 /*
   SUPABASE, EL TERCERO (#44).
@@ -32,7 +34,11 @@ import { linksPagoActivos, proyectosIAActivos } from '../../shared/config/soloEn
 // stripe_links: la clave de ESCRITURA de Stripe para crear links de pago (#680).
 // Va aparte de `stripe`, que es la de solo lectura del sondeo y no se toca: si
 // esta se filtra o se borra, los cobros siguen entrando. Se cifra igual.
-const SUPPORTED = ['stripe', 'brevo', 'supabase', 'moodle', 'stripe_links'];
+//
+// paypal: la aplicación REST de la cuenta Business del campus (#766). El secreto,
+// cifrado como api_key; el client id, el modo (live/sandbox) y el id del webhook
+// van en config_public: no son secretos y hacen falta en cada llamada.
+const SUPPORTED = ['stripe', 'brevo', 'supabase', 'moodle', 'stripe_links', 'paypal'];
 
 // Una clave secreta (`sk_`) o restringida (`rk_`) de Stripe, de test o de live.
 // La publicable (`pk_`) no sirve para nada en el servidor y se rechaza al guardar.
@@ -54,6 +60,8 @@ function sinCifrado(config) {
  *
  *   supabase      solo de los proyectos IA (#44)          PROYECTOS_IA_EN_PRODUCCION=1
  *   stripe_links  la clave de escritura de los links (#680) LINKS_PAGO_EN_PRODUCCION=1
+ *   paypal        los cobros de PayPal (#766)              PAYPAL_COBROS_ACTIVO=1 (apagado
+ *                 en todas partes, también fuera de producción)
  *
  * Eran dos funciones, una de cada PR (#715 y #713). Al juntarlas hay que mirar las
  * dos banderas: con una sola, el otro proveedor volvía a aceptarse en producción.
@@ -62,6 +70,7 @@ export function proveedorSoportado(provider, env = process.env) {
   if (!SUPPORTED.includes(provider)) return false;
   if (provider === 'supabase') return proyectosIAActivos(env);
   if (provider === 'stripe_links') return linksPagoActivos(env);
+  if (provider === 'paypal') return paypalActivo(env);
   return true;
 }
 
@@ -196,6 +205,26 @@ export async function upsert(req, res, next) {
         delete config.permisos_probados_el;
       }
     }
+    if (provider === 'paypal') {
+      // Solo lo que se sabe que es de PayPal (#766): el client id, el modo y el id
+      // del webhook. Lo demás que mande el navegador no se guarda.
+      if (webhook_secret) {
+        throw new AppError('PayPal no usa secreto de webhook: se comprueba con el id del webhook.', 400, 'VALIDATION_ERROR');
+      }
+      const clientId = String(config.client_id || '').trim();
+      if (!/^[A-Za-z0-9_-]{10,128}$/.test(clientId)) {
+        throw new AppError('Falta el client id de la aplicación REST de PayPal (o no tiene buena forma).', 400, 'VALIDATION_ERROR');
+      }
+      const webhookId = String(config.webhook_id || '').trim();
+      if (webhookId && !/^[A-Za-z0-9-]{5,64}$/.test(webhookId)) {
+        throw new AppError('El id del webhook de PayPal no tiene buena forma.', 400, 'VALIDATION_ERROR');
+      }
+      config = {
+        client_id: clientId,
+        modo: config.modo === 'sandbox' ? 'sandbox' : 'live',
+        ...(webhookId ? { webhook_id: webhookId } : {}),
+      };
+    }
     if (provider === 'moodle') {
       // Sin la dirección del campus el token no sirve de nada: se pide aquí y
       // no al probar, para que no se guarde algo que nunca va a funcionar.
@@ -255,6 +284,9 @@ export async function test(req, res, next) {
     try {
       if (provider === 'stripe') testResult = await testStripe(apiKey);
       else if (provider === 'stripe_links') testResult = await testStripeLinks(apiKey);
+      else if (provider === 'paypal') testResult = await probarPaypal({
+        clientId: row.config_public?.client_id, secret: apiKey, modo: row.config_public?.modo,
+      });
       else if (provider === 'brevo') testResult = await testBrevo(apiKey);
       else if (provider === 'supabase') testResult = await testSupabase(apiKey, row.config_public?.project_ref);
       else if (provider === 'moodle') testResult = await testMoodle(apiKey, row.config_public?.url, undefined, { consultas: row.config_public?.consultas === true });

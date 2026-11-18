@@ -1,5 +1,6 @@
 import { AppError } from '../../shared/utils/AppError.js';
 import { nombreDeLasLineas } from './nombre-de-las-lineas.js';
+import { activa as facturaAutomaticaActiva } from '../factura-automatica/factura-automatica.config.js';
 import * as conversionModel from './conversion.model.js';
 import * as commissionModel from '../commissions/commission.model.js';
 import * as seqModel from '../email-sequences/sequence.model.js';
@@ -200,6 +201,25 @@ export async function create(data, userId) {
 // - Sin paymentInfo (legacy) → factura por el total de la conversión.
 export function autoInvoice(conversionId, userId = null, paymentInfo = null) {
   /*
+    FACTURA AUTOMATICA CON FORMULARIO (#764). Solo con FACTURA_AUTOMATICA_ACTIVA
+    encendido y en los campus de FACTURA_AUTOMATICA_CAMPUS. No revive el camino
+    frenado de abajo: pide los datos fiscales al alumno y emite con ellos (ver
+    modules/factura-automatica). Apagado, o si la venta no le toca (ya se
+    facturaba a mano, tiene proforma), el cobro va a la cola como hasta ahora.
+  */
+  if (paymentInfo?.paymentId && facturaAutomaticaActiva()) {
+    import('../factura-automatica/factura-automatica.service.js')
+      .then((fa) => fa.alCobrar({ conversionId, paymentId: paymentInfo.paymentId }))
+      .then((tomado) => {
+        if (!tomado) {
+          logger.info({ conversionId, userId, paymentId: paymentInfo.paymentId },
+            'cobro a la cola de facturacion: la emision es manual (freno del 14/09)');
+        }
+      })
+      .catch((err) => logger.warn({ err: err.message, conversionId }, 'factura automatica: fallo (no bloqueante)'));
+    return;
+  }
+  /*
     FRENADO A PROPOSITO. Ya no emite nada: el cobro se queda en la cola de
     facturacion y alguien la emite a mano, poniendo el numero.
 
@@ -263,6 +283,13 @@ export function autoInvoice(conversionId, userId = null, paymentInfo = null) {
       return;
     }
 
+    // Facturacion pausada por la auditoria (#765): el cobro espera en la cola
+    // de la pausa y se factura, en orden de cobro, al reanudar.
+    if (paymentInfo?.paymentId) {
+      const auditoria = await import('../facturacion-auditoria/facturacion-auditoria.service.js');
+      if (await auditoria.encolarSiPausada({ paymentId: paymentInfo.paymentId, conversionId, userId })) return;
+    }
+
     const inv = paymentInfo?.paymentId
       ? await m.emitirFacturaDePago(conversionId, paymentInfo, userId)
       : await m.autoEmitirPorPago(conversionId, userId);
@@ -270,7 +297,16 @@ export function autoInvoice(conversionId, userId = null, paymentInfo = null) {
       logger.info({ conversionId, paymentId: paymentInfo?.paymentId, invoiceId: inv.id, codigo: inv.codigo },
         'auto-factura por pago');
     }
-  })().catch((err) => logger.warn({ err: err.message, conversionId }, 'auto-factura por pago fallo (no bloqueante)'));
+  })().catch((err) => {
+    // Posible duplicada (CRM#819 / CRM-ISEIE#500): la emision automatica no
+    // decide. No emite, y el cobro se queda en la cola con ese motivo.
+    if (err?.code === 'POSIBLE_DUPLICADA') {
+      logger.info({ conversionId, paymentId: paymentInfo?.paymentId, otra: err.data?.otra?.numero },
+        'factura automatica no emitida: posible duplicada; el cobro queda en la cola');
+      return;
+    }
+    logger.warn({ err: err.message, conversionId }, 'auto-factura por pago fallo (no bloqueante)');
+  });
   /* eslint-enable no-unreachable */
 }
 
@@ -310,7 +346,7 @@ export async function update(id, fields) {
 export async function addPayment(conversionId, data, { userId = null } = {}) {
   const { permitir_duplicado, ...pago } = data || {};
   const result = await conversionModel.addPayment(conversionId, pago,
-    { allowDuplicate: !!permitir_duplicado });
+    { allowDuplicate: !!permitir_duplicado, manual: true });
   if (result.error === 'NOT_FOUND') throw new AppError('Conversion no encontrada', 404, 'CONVERSION_NOT_FOUND');
   if (result.error === 'OVERPAY') throw new AppError('El importe excede el pendiente', 400, 'OVERPAY');
   if (result.error === 'DUPLICATE') {
@@ -319,6 +355,14 @@ export async function addPayment(conversionId, data, { userId = null } = {}) {
       `Ya hay un pago de ${Number(d.importe).toFixed(2)} EUR el ${String(d.fecha).slice(0, 10)} en esta venta. `
       + 'Si de verdad son dos cobros distintos, marca la casilla de duplicado permitido.',
       409, 'DUPLICATE_PAYMENT');
+  }
+  if (result.error === 'DUPLICATE_AUTOMATICO') {
+    const d = result.existing;
+    const deDonde = d.origen === 'paypal' ? 'PayPal' : 'el extracto del banco';
+    throw new AppError(
+      `Ese cobro ya entró solo desde ${deDonde}: ${Number(d.importe).toFixed(2)} EUR el ${String(d.fecha).slice(0, 10)}. `
+      + 'No se puede apuntar otra vez a mano.',
+      409, 'DUPLICATE_AUTOMATIC_PAYMENT');
   }
   // Recalcular comision en cada pago (importe_base = importe_pagado actualizado)
   commissionModel.recalculateCommission(conversionId).catch(err =>

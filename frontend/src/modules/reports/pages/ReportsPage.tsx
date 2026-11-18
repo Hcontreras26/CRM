@@ -26,6 +26,7 @@ import TasaDeCierre from '../components/TasaDeCierre';
 import PanelSeguimiento from '@/shared/components/PanelSeguimiento';
 import FeedbackEnReportes, { feedbackEnCsv } from '@/modules/feedback/components/FeedbackEnReportes';
 import ActividadPorComercial from '../components/ActividadPorComercial';
+import InformeMensual from '../components/InformeMensual';
 
 function exportReportCSV(data, project, range, panel, seguimiento, feedback = null) {
   const sections = [];
@@ -613,6 +614,9 @@ function PantallaDeReportes() {
         project={proyectoEfectivo} onDatos={setPanelFeedback} />
 
       <ReportsDownloadSection projectId={proyectoEfectivo?.id} issuerId={issuerEfectivo} projectName={nombreAmbito} from={range.from} to={range.to} />
+
+      {/* El informe del mes por equipo y comercial, y el ZIP de facturas para la gestoría (#772). */}
+      <InformeMensual issuerId={issuerEfectivo} />
 
       {/* AQUI ESTABA «Reportes disponibles», el catalogo de reportes PREVISTOS.
           No descargaba nada y repetia los temas de «Reportes descargables», que
