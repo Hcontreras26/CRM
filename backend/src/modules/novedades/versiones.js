@@ -14,10 +14,37 @@ export const CRM = { nombre: 'MultiCRM', color: '#1f3a5f' };
 const LISTA = [
   {
     "version": "2.6.0",
-    "fecha": "2026-11-03",
+    "fecha": "2026-11-18",
     "titulo": "Versión 2.6.0",
-    "intro": "Las consultas de los alumnos llegan al CRM, Soporte guarda los tickets, los cursos pendientes tienen su pantalla y Claude ya consulta los Moodle de los campus. Además, casi todas las pantallas se abren con «Todos los proyectos» o con una empresa, la actividad de cada comercial en Reportes, las cifras del equipo más claras y una tanda de arreglos de seguridad y de cobros. Esto es lo que ha llegado después de la 2.5.19.",
+    "intro": "Las consultas de los alumnos llegan al CRM, Soporte guarda los tickets, los cursos pendientes tienen su pantalla y Claude ya consulta los Moodle de los campus. Además, casi todas las pantallas se abren con «Todos los proyectos» o con una empresa, cada uno puede cambiar su correo con un código, lo cobrado de cada venta es exacto y hay una tanda de arreglos de seguridad y de cobros. Esto es lo que llega después de la 2.5.39.",
     "grupos": [
+      {
+        "titulo": "Para todos",
+        "items": [
+          {
+            "titulo": "Cambiar tu correo",
+            "texto": "Desde tu perfil puedes cambiar tu correo: te llega un código al correo nuevo y, al ponerlo, queda cambiado.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/perfil",
+            "boton": "Ir a mi perfil"
+          },
+          {
+            "titulo": "El buscador encuentra más",
+            "texto": "El buscador (Ctrl K) encuentra sin acentos y por teléfono aunque tenga espacios, y también tutores, facturas de colaboradores, diplomas y cursos de Moodle. Solo enseña lo que cada uno puede abrir.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": null,
+            "boton": null
+          }
+        ]
+      },
       {
         "titulo": "Consultas de alumnos",
         "items": [
@@ -178,16 +205,6 @@ const LISTA = [
             ],
             "ruta": "/conexion/moodle",
             "boton": "Ir a Moodle"
-          },
-          {
-            "titulo": "El buscador encuentra más",
-            "texto": "El buscador (Ctrl K) encuentra también tutores, facturas de colaboradores, diplomas y cursos de Moodle, cada uno solo si puedes verlos.",
-            "roles": [
-              "admin",
-              "superadmin"
-            ],
-            "ruta": null,
-            "boton": null
           }
         ]
       },
@@ -212,32 +229,43 @@ const LISTA = [
             ],
             "ruta": "/configuracion/claves",
             "boton": "Ir a Claves"
-          },
+          }
+        ]
+      },
+      {
+        "titulo": "Ventas, cobros y diplomas",
+        "items": [
           {
-            "titulo": "Recuperar la contraseña",
-            "texto": "Desde la pantalla de entrada se puede pedir un correo para poner una contraseña nueva.",
+            "titulo": "Lo cobrado de cada venta, exacto",
+            "texto": "Lo cobrado de una venta es la suma de sus pagos registrados. Se han quitado los cobros que estaban apuntados dos veces (a mano y por Stripe), así que «lo cobrado» de Ventas y de los rankings baja: era dinero contado dos veces. Lo que no estaba claro queda en una lista para revisarlo, sin borrar nada.",
             "roles": [
               "gestor",
               "admin",
               "superadmin"
             ],
-            "ruta": null,
-            "boton": null
-          }
-        ]
-      },
-      {
-        "titulo": "Matrículas, diplomas y cobros",
-        "items": [
+            "ruta": "/finanzas/ventas",
+            "boton": "Ir a Ventas"
+          },
           {
-            "titulo": "Matrículas con su historial y sus documentos",
-            "texto": "Cada matrícula guarda su historia completa y sus cinco documentos, se abre en un panel lateral y se filtra por empresa. Borrar una venta ya no borra su matrícula.",
+            "titulo": "Ventas de varios cursos, con su nombre",
+            "texto": "Las ventas con varios cursos se llaman por sus cursos («A + B»), sin «2x», y las que salen sin formación tienen su lista en Ventas.",
+            "roles": [
+              "gestor",
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/finanzas/ventas",
+            "boton": "Ir a Ventas"
+          },
+          {
+            "titulo": "Pedidos de WooCommerce en el CRM",
+            "texto": "Los pedidos de la tienda de cada campus pueden llegar al CRM y se enlazan con su prospecto. Se enciende campus a campus.",
             "roles": [
               "admin",
               "superadmin"
             ],
-            "ruta": "/clientes/matriculas",
-            "boton": "Ir a Matrículas"
+            "ruta": null,
+            "boton": null
           },
           {
             "titulo": "«Pasar a pendientes» pregunta antes",
@@ -251,21 +279,31 @@ const LISTA = [
             "boton": "Ir a Diplomas"
           },
           {
-            "titulo": "Cobros repetidos",
-            "texto": "Los cobros apuntados dos veces y los apuntados a mano que repetían un pago de Stripe se quitan, y lo pagado de cada venta vuelve a cuadrar. Lo que no estaba claro queda en una lista para revisarlo, sin borrar nada.",
+            "titulo": "Facturas de colaboradores: «No lo he recibido»",
+            "texto": "El correo de factura pagada lleva el botón «No lo he recibido», y el enlace para subir la factura vale hasta el día 6 del mes siguiente.",
             "roles": [
               "admin",
               "superadmin"
             ],
             "ruta": null,
             "boton": null
+          },
+          {
+            "titulo": "Tablero: historial por integrante",
+            "texto": "El historial de tareas se puede ver persona a persona.",
+            "roles": [
+              "admin",
+              "superadmin"
+            ],
+            "ruta": "/tareas/historial",
+            "boton": "Ir al historial"
           }
         ]
       }
     ],
     "arreglos": [
       "«Contactar» en la cola del día marca hecho el paso que enseñaba: la persona ya no vuelve a salir al recargar.",
-      "Un formulario que llega por Make a un escenario sin campos configurados ya no se pierde: el CRM reconoce los campos habituales y avisa a los admins para completarlo.",
+      "El aviso de Stripe se acepta firmado: los cobros entran al momento, sin esperar al sondeo, y un mismo cargo solo se suma una vez.",
       "Cada uno ve y toca solo lo de sus campus también en Seguimiento, Reportes, Convocatorias, Duplicados, ventas, matrículas, facturas, metas, comisiones y tutores.",
       "El tutor ve solo lo suyo: sus cursos, sus consultas, sus mensajes y Novedades.",
       "La marca de arriba dice «360 CRM», y el Dashboard lleva sus tildes («Tu día de hoy», «Distribución», «Orígenes»…).",
