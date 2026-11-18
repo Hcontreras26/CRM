@@ -111,6 +111,7 @@ import { startConsultasAlumnosScheduler } from './jobs/consultasAlumnosScheduler
 import { startConsultasResumenScheduler } from './jobs/consultasResumenScheduler.js';
 import { startConsultasPlazoScheduler } from './jobs/consultasPlazoScheduler.js';
 import { startConsultasCargaScheduler } from './jobs/consultasCargaScheduler.js';
+import { startCertifexReversionesScheduler } from './jobs/certifexReversionesScheduler.js';
 import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoScheduler.js';
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startSuscripcionesPlazosScheduler } from './jobs/suscripcionesPlazosScheduler.js';
@@ -547,6 +548,8 @@ if (process.env.NODE_ENV !== 'test') {
     startConsultasResumenScheduler();
     startConsultasPlazoScheduler();
     startConsultasCargaScheduler();
+    // Diplomas revertidos que el CRM no llegó a apuntar (#624).
+    startCertifexReversionesScheduler();
     startVigilanteCatalogoScheduler();
     startLeadSinTocarScheduler();
     // Ventas a plazos: cerrar la suscripción de Stripe al completar el pago (#747).
