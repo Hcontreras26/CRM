@@ -30,6 +30,9 @@ type Resumen = {
   ventas: number; clientes: number; asesoras: number;
   importe: number; cobrado: number; pendiente: number;
   liquidadas: number; con_saldo: number; ticket_medio: number;
+  // Lo cobrado por encima del importe de la venta (#692). Opcional: un
+  // servidor anterior no lo manda.
+  cobrado_de_mas?: { ventas: number; importe: number };
   cuotas: {
     ventas_con_plan: number; total: number; cobradas: number; pendientes: number;
     vencidas: number; importe_pendiente: number; importe_vencido: number;
@@ -65,6 +68,9 @@ export default function SalesAnalysisPage() {
   const [rango, setRango] = useState({ from: '', to: '' });
   const [search, setSearch] = useState('');
   const [buscado, setBuscado] = useState('');
+  // Todas · Solo compartidas · Solo enteras (#163), junto a los filtros que ya
+  // había. Con una gestora, la compartida le sigue contando la mitad.
+  const [compartidas, setCompartidas] = useState<'todas' | 'solo' | 'enteras'>('todas');
   const [loading, setLoading] = useState(true);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [asesoras, setAsesoras] = useState<Asesora[]>([]);
@@ -87,6 +93,7 @@ export default function SalesAnalysisPage() {
   if (rango.from) params.from = rango.from;
   if (rango.to) params.to = rango.to;
   if (buscado) params.search = buscado;
+  if (compartidas !== 'todas') params.compartidas = compartidas;
   const key = JSON.stringify(params);
 
   useEffect(() => { setPage(1); }, [key, tab]);
@@ -145,6 +152,17 @@ export default function SalesAnalysisPage() {
         <label className="text-xs font-semibold text-muted-foreground">Hasta</label>
         <input type="date" value={rango.to} onChange={(e) => setRango((v) => ({ ...v, to: e.target.value }))}
           className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
+        <label className="text-xs font-semibold text-muted-foreground" htmlFor="analisis-compartidas">Reparto</label>
+        <select
+          id="analisis-compartidas"
+          value={compartidas}
+          onChange={(e) => setCompartidas(e.target.value as 'todas' | 'solo' | 'enteras')}
+          className="h-9 px-3 rounded-md border border-border bg-card text-sm font-medium"
+        >
+          <option value="todas">Todas</option>
+          <option value="solo">Solo compartidas</option>
+          <option value="enteras">Solo enteras</option>
+        </select>
         <form
           onSubmit={(e) => { e.preventDefault(); setBuscado(search.trim()); }}
           className="flex items-center gap-2 flex-1 min-w-[220px]"
@@ -162,10 +180,10 @@ export default function SalesAnalysisPage() {
             Buscar
           </button>
         </form>
-        {(rango.from || rango.to || buscado) && (
+        {(rango.from || rango.to || buscado || compartidas !== 'todas') && (
           <button
             type="button"
-            onClick={() => { setRango({ from: '', to: '' }); setSearch(''); setBuscado(''); }}
+            onClick={() => { setRango({ from: '', to: '' }); setSearch(''); setBuscado(''); setCompartidas('todas'); }}
             className="text-[11px] text-primary hover:underline whitespace-nowrap"
           >
             Quitar filtros
@@ -210,6 +228,18 @@ export default function SalesAnalysisPage() {
                 badge={`${resumen.con_saldo} con saldo`} badgeColor="bg-warning-soft text-warning-soft-foreground"
                 trend="down" />
             </div>
+
+            {/* #692: «Pendiente» ya no baja de 0. Si hay ventas cobradas por
+                encima de su importe, se dice aquí, con cuántas y cuánto, en vez
+                de restarlo de lo que deben las demás. */}
+            {(resumen.cobrado_de_mas?.ventas ?? 0) > 0 && (
+              <p role="note" className="text-xs rounded-md border border-warning/40 bg-warning-soft text-warning-soft-foreground px-3 py-2">
+                <strong>{resumen.cobrado_de_mas!.ventas}</strong>{' '}
+                {resumen.cobrado_de_mas!.ventas === 1 ? 'venta tiene' : 'ventas tienen'} cobrado más que su importe:{' '}
+                <strong>{fmt(resumen.cobrado_de_mas!.importe)}</strong> de más. Va dentro de «Cobrado», no resta del pendiente.
+                Suele ser un cobro repetido o un importe de venta mal puesto: hay que mirarlas una a una.
+              </p>
+            )}
 
             <div className="bg-card border border-border rounded-lg p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2"><Calendar size={16} weight="bold" /> Cobro fraccionado</h3>

@@ -278,7 +278,7 @@ export async function quitarMiembro(teamId, userId) {
  * Quién se puede meter en un equipo: gente activa de la empresa del equipo (un
  * campus suyo o la empresa entera en `user_empresas`) que tenga tablero. En un
  * equipo de tutores, también los tutores (04/11/2026), que pueden ser de la
- * empresa sin campus propio (por `user_empresas`).
+ * empresa por `tutor_empresas`.
  */
 export async function candidatosDe(teamId) {
   const tipos = await existeTipos();
@@ -296,13 +296,12 @@ export async function candidatosDe(teamId) {
   return rows;
 }
 
-/** SQL: la persona `col` es de la empresa del equipo `tm` (un campus suyo o la empresa entera). */
+/** SQL: la persona `col` es de la empresa del equipo `tm` (un campus, la empresa entera o, si es tutor, sus empresas). */
 function deLaEmpresaDelEquipo(col, tm) {
   return `(EXISTS (SELECT 1 FROM user_empresas ue WHERE ue.user_id = ${col} AND ue.issuer_id = ${tm}.issuer_id)
        OR EXISTS (SELECT 1 FROM user_projects up JOIN projects p ON p.id = up.project_id
-                   WHERE up.user_id = ${col} AND up.active AND p.sociedad_emisora_id = ${tm}.issuer_id))`;
-  // En producción aún no hay `tutor_empresas` (llega con las consultas de tutores, #187):
-  // hasta entonces un tutor es de la empresa por su campus o por `user_empresas`.
+                   WHERE up.user_id = ${col} AND up.active AND p.sociedad_emisora_id = ${tm}.issuer_id)
+       OR EXISTS (SELECT 1 FROM tutor_empresas te WHERE te.tutor_id = ${col} AND te.issuer_id = ${tm}.issuer_id))`;
 }
 
 /** ¿Es esta persona de la empresa del equipo? (para meterla). */

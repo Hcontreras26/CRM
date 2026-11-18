@@ -13,6 +13,9 @@ import { z } from 'zod';
 const SERVICES = [
   'meta', 'google_ads', 'gsc', 'stripe', 'claude', 'brevo',
   'woocommerce', 'evolution', 'r2', 'make',
+  // Migracion 220 (#335): el Moodle de cada campus, para el MCP. El valor es un
+  // JSON {"url":"https://…","token":"…"}.
+  'moodle',
 ];
 
 /** Produccion o pruebas. Por defecto produccion, que es lo que habia hasta la #80. */

@@ -2,10 +2,15 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import * as model from './audience.model.js';
 import { AppError } from '../../shared/utils/AppError.js';
+import { leerFiltroPais } from '../leads/pais.js';
 
 const filtersSchema = z.object({
   statuses: z.array(z.string()).optional(),
   canales: z.array(z.string()).optional(),
+  // País de entrada (#221): códigos ISO (CL, MX…) o `sin_pais`.
+  paises: z.array(z.string()
+    .refine((v) => leerFiltroPais(v) !== null, 'País no válido')
+    .transform((v) => leerFiltroPais(v))).max(60).optional(),
   fechaDesde: z.string().optional(),
   fechaHasta: z.string().optional(),
   productoId: z.coerce.number().int().optional().nullable(),

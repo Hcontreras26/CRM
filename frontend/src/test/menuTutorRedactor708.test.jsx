@@ -1,5 +1,5 @@
 // CRM#708 · El menú del «Tutor redactor»: solo lo suyo. Su tablero y su factura del
-// mes, como un colaborador, y Mis cursos, como un tutor. Nada de
+// mes, como un colaborador, y Consultas y Mis cursos, como un tutor. Nada de
 // prospectos, ventas ni finanzas. Con el menú de verdad (NAV_SECTIONS), no con una copia.
 import { describe, it, expect } from 'vitest';
 import { ASSIGNABLE_ROLES, ROLE_LABELS } from '@/modules/users/lib/usersUi';
@@ -15,12 +15,12 @@ function loQueVe(roles, user, permisos) {
     .map((it) => it.to).filter(Boolean);
 }
 // Lo que trae de serie (catalogo.js del servidor).
-const REDACTOR = ['tasks.view_own', 'tasks.create', 'tasks.edit', 'facturas_colaborador.subir', 'tutores.mis_cursos'];
+const REDACTOR = ['tasks.view_own', 'tasks.create', 'tasks.edit', 'facturas_colaborador.subir', 'tutores.mis_cursos', 'consultas.atender'];
 
 describe('menú · tutor redactor (CRM#708)', () => {
-  it('ve su tablero, «Mi factura», Mis cursos y sus preferencias', () => {
+  it('ve su tablero, «Mi factura», Consultas, Mi campus y sus preferencias', () => {
     const ve = loQueVe(['tutor_redactor'], { role: 'tutor_redactor' }, REDACTOR);
-    expect(ve).toEqual(expect.arrayContaining(['/tareas', '/tareas/historial', '/mi-factura', '/mis-cursos', '/preferencias']));
+    expect(ve).toEqual(expect.arrayContaining(['/tareas', '/tareas/historial', '/mi-factura', '/consultas', '/mis-cursos/campus', '/preferencias']));
   });
 
   it('nada de prospectos, ventas, finanzas ni administración de tutores', () => {
@@ -42,7 +42,7 @@ describe('menú · tutor redactor (CRM#708)', () => {
     expect(ROLE_LABELS.tutor_redactor).toBe('Tutor redactor');
   });
 
-  it('cuenta como tutor para Mis cursos, y el recorte es solo para quien es SOLO redactor', () => {
+  it('cuenta como tutor para Consultas y Mis cursos, y el recorte es solo para quien es SOLO redactor', () => {
     expect(ROLES_DE_TUTOR).toEqual(['tutor', 'tutor_redactor']);
     expect(soloEsTutorRedactor({ role: 'tutor_redactor' })).toBe(true);
     expect(soloEsTutorRedactor({ role: 'gestor', roles_extra: ['tutor_redactor'] })).toBe(false);

@@ -1,9 +1,14 @@
 import * as leadService from '../leads/lead.service.js';
+import { condicionDeCompartidas } from '../conversions/compartidas.js';
 import * as conversionService from '../conversions/conversion.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import { query } from '../../shared/config/db.js';
 import { comoLista, SIN_PRUEBAS } from '../../shared/utils/ambito.js';
+// `responsableId` puede ser una gestora o varias: las de un equipo comercial (09/11/2026).
+import { comoIds } from '../../shared/utils/roles.js';
+// El país de entrada del prospecto de cada venta (#221).
+import { sqlPaisDeLaVenta, sqlPaisDelLead } from '../leads/pais.js';
 // Lo facturado tiene UNA definición y vive en los informes (#224).
 import { IMPORTE_FACTURADO, FACTURA_QUE_CUENTA } from '../reports/report.model.js';
 
@@ -290,21 +295,25 @@ const SIN_ASIGNAR = `(c.producto_contratado_id IS NULL
  *   (`facturado` aquí es lo VENDIDO, el importe de la venta: el nombre se
  *   queda por no romper a quien ya lo lee.)
  */
-export async function getTopProducts({ projectId, projectIds = null, limit = 10, days = null, from = null, to = null, responsableId = null } = {}) {
+export async function getTopProducts({ projectId, projectIds = null, limit = 10, days = null, from = null, to = null, responsableId = null, paisEntrada = null } = {}) {
   const params = [];
   const where = [];
   const listaTop = comoLista(projectId, projectIds);
   if (listaTop) { params.push(listaTop); where.push(`c.project_id = ANY($${params.length}::int[])`); }
   else where.push(SIN_PRUEBAS('c.project_id'));
+  // País de entrada del prospecto de la venta (#221).
+  if (paisEntrada) { params.push(paisEntrada); where.push(`${sqlPaisDeLaVenta('c')} = $${params.length}`); }
   // Por gestora, mirando el reparto —igual que las tarjetas—, y con SU parte
   // del importe: una venta atendida entre dos es media para cada una.
   let PESO = '1';
   if (responsableId) {
-    params.push(responsableId);
+    params.push(comoIds(responsableId));
     where.push(`EXISTS (SELECT 1 FROM conversion_reparto rx
-                         WHERE rx.conversion_id = c.id AND rx.vendedora_id = $${params.length})`);
-    PESO = `COALESCE((SELECT r.peso FROM conversion_reparto r
-                       WHERE r.conversion_id = c.id AND r.vendedora_id = $${params.length}), 1)`;
+                         WHERE rx.conversion_id = c.id AND rx.vendedora_id = ANY($${params.length}::int[]))`);
+    // SUM: con un equipo, la parte de todas las suyas (una venta repartida
+    // entre dos del mismo equipo vale entera para el equipo).
+    PESO = `COALESCE((SELECT SUM(r.peso) FROM conversion_reparto r
+                       WHERE r.conversion_id = c.id AND r.vendedora_id = ANY($${params.length}::int[])), 1)`;
   }
   if (days) { params.push(days); where.push(`c.fecha_conversion >= (CURRENT_DATE - ($${params.length}::int))`); }
   // Rango de fechas explícito (tiene prioridad de uso desde el frontend: hoy/semana/mes/personalizado).
@@ -415,23 +424,36 @@ export async function getTopProducts({ projectId, projectIds = null, limit = 10,
  * «VENTAS» = ventas con alguna factura (no abono) emitida en el periodo. Una
  * venta con tres facturas de cuotas en el mismo mes es una venta.
  *
+ * LAS RECTIFICATIVAS, APARTE EN LOS PRODUCTOS (#534). Restaban dentro de su
+ * producto: en octubre, «Cuentoterapia −541,67 €» (108,33 € facturados menos la
+ * R-2026/0002 de −650 €) y «Tarot Terapéutico (dolor emocional) 0,00 €». Ahora
+ * cada producto enseña lo FACTURADO (sin abonos) y los abonos van en su fila,
+ * `rectificativas`, con su detalle por producto. El total no cambia:
+ *
+ *   gestoras + sin_gestora  =  total  =  productos + sin_producto + rectificativas
+ *
+ * Las gestoras siguen netas (con sus abonos dentro): es su ranking.
+ *
  * @param {{ projectId?, projectIds?, from?, to?, responsableId? }} opts
  *   `responsableId`: solo la parte de esa gestora (una gestora ve lo suyo).
  */
-export async function getFacturado({ projectId = null, projectIds = null, from = null, to = null, responsableId = null } = {}) {
+export async function getFacturado({ projectId = null, projectIds = null, from = null, to = null, responsableId = null, paisEntrada = null } = {}) {
   const params = [];
   const w = [FACTURA_QUE_CUENTA];
   const lista = comoLista(projectId, projectIds);
   if (lista) { params.push(lista); w.push(`c.project_id = ANY($${params.length}::int[])`); }
   else w.push(SIN_PRUEBAS('c.project_id'));
+  if (paisEntrada) { params.push(paisEntrada); w.push(`${sqlPaisDeLaVenta('c')} = $${params.length}`); }
   if (from) { params.push(from); w.push(`i.fecha_emision >= $${params.length}::date`); }
   if (to) { params.push(to); w.push(`i.fecha_emision <= $${params.length}::date`); }
   let soloGestora = '';
-  if (responsableId) { params.push(responsableId); soloGestora = `WHERE r.vendedora_id = $${params.length}`; }
+  if (responsableId) { params.push(comoIds(responsableId)); soloGestora = `WHERE r.vendedora_id = ANY($${params.length}::int[])`; }
 
   const CTE = `WITH fac AS (
       SELECT i.conversion_id,
              SUM(${IMPORTE_FACTURADO}) AS facturado,
+             -- Lo que restan los abonos (negativo): va aparte en los productos.
+             COALESCE(SUM(${IMPORTE_FACTURADO}) FILTER (WHERE i.tipo = 'rectificativa'), 0) AS rectificado,
              BOOL_OR(i.tipo = 'normal') AS con_factura
         FROM invoices i
         JOIN conversions c ON c.id = i.conversion_id
@@ -439,7 +461,7 @@ export async function getFacturado({ projectId = null, projectIds = null, from =
        GROUP BY i.conversion_id
     ),
     rep AS (
-      SELECT f.conversion_id, f.facturado, f.con_factura, r.vendedora_id, r.peso
+      SELECT f.conversion_id, f.facturado, f.rectificado, f.con_factura, r.vendedora_id, r.peso
         FROM fac f
         JOIN conversion_reparto r ON r.conversion_id = f.conversion_id
        ${soloGestora}
@@ -462,7 +484,10 @@ export async function getFacturado({ projectId = null, projectIds = null, from =
        SELECT c.producto_contratado_id AS product_id,
               ${PRODUCTO} AS producto,
               ${SIN_ASIGNAR} AS sin_asignar,
-              COALESCE(SUM(rep.facturado * rep.peso), 0)::numeric AS facturado,
+              -- Lo facturado SIN los abonos; los abonos, en su columna (#534).
+              COALESCE(SUM((rep.facturado - rep.rectificado) * rep.peso), 0)::numeric AS facturado,
+              COALESCE(SUM(rep.rectificado * rep.peso), 0)::numeric AS rectificado,
+              COALESCE(SUM(rep.peso) FILTER (WHERE rep.rectificado <> 0), 0)::float8 AS ventas_rectificadas,
               COALESCE(SUM(rep.peso) FILTER (WHERE rep.con_factura), 0)::float8 AS ventas
          FROM rep
          JOIN conversions c ON c.id = rep.conversion_id
@@ -482,7 +507,11 @@ export async function getFacturado({ projectId = null, projectIds = null, from =
   const fila = (f) => ({ facturado: cent(f.facturado), ventas: cent(f.ventas) });
 
   const gestoras = porGestora.filter((f) => f.user_id != null);
-  const productos = porProducto.filter((f) => !f.sin_asignar);
+  // Un producto que este periodo solo tiene un abono no es un producto
+  // vendido: su abono sale en «Rectificativas» y la lista no lo enseña a 0 €.
+  const productos = porProducto.filter((f) => !f.sin_asignar
+    && (Number(f.facturado || 0) !== 0 || Number(f.ventas || 0) > 0));
+  const conAbono = porProducto.filter((f) => Number(f.rectificado || 0) !== 0);
 
   return {
     desde: from, hasta: to,
@@ -491,6 +520,14 @@ export async function getFacturado({ projectId = null, projectIds = null, from =
     sin_gestora: fila(suma(porGestora.filter((f) => f.user_id == null))),
     productos: productos.map((f) => ({ product_id: f.product_id, producto: f.producto, ...fila(f) })),
     sin_producto: fila(suma(porProducto.filter((f) => f.sin_asignar))),
+    // Los abonos del periodo (negativos), fuera de cada producto (#534).
+    rectificativas: {
+      facturado: cent(conAbono.reduce((x, f) => x + Number(f.rectificado || 0), 0)),
+      ventas: cent(conAbono.reduce((x, f) => x + Number(f.ventas_rectificadas || 0), 0)),
+      productos: conAbono
+        .map((f) => ({ product_id: f.product_id, producto: f.producto, facturado: cent(f.rectificado) }))
+        .sort((a, b) => a.facturado - b.facturado),
+    },
   };
 }
 
@@ -511,19 +548,21 @@ const SIN_TILDES = (expr) =>
 // `sinCobro = true` da lo contrario de la segunda regla: las ventas del mismo
 // filtro que aún NO tienen ningún cobro. Es la cifra que va al lado de las
 // tarjetas como «sin cobro (en proformas)» (#225).
-function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, search }, startIdx = 1, { sinCobro = false } = {}) {
+function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, search, compartidas = null, paisEntrada = null }, startIdx = 1, { sinCobro = false } = {}) {
   const cond = [];
   const params = [];
   let idx = startIdx;
   const lista = comoLista(projectId, projectIds);
   if (lista) { cond.push(`cv.project_id = ANY($${idx++}::int[])`); params.push(lista); }
   else cond.push(SIN_PRUEBAS('cv.project_id'));
+  // País de entrada del prospecto de la venta (#221).
+  if (paisEntrada) { cond.push(`${sqlPaisDeLaVenta('cv')} = $${idx++}`); params.push(paisEntrada); }
   if (from) { cond.push(`cv.fecha_conversion >= $${idx++}`); params.push(from); }
   if (to) { cond.push(`cv.fecha_conversion <= $${idx++}`); params.push(to); }
   if (responsableId) {
     cond.push(`EXISTS (SELECT 1 FROM conversion_reparto r
-                        WHERE r.conversion_id = cv.id AND r.vendedora_id = $${idx++})`);
-    params.push(responsableId);
+                        WHERE r.conversion_id = cv.id AND r.vendedora_id = ANY($${idx++}::int[]))`);
+    params.push(comoIds(responsableId));
   }
   // Recortado, igual que en leads: un espacio pegado al nombre vaciaba la lista.
   const termino = typeof search === 'string' ? search.trim() : '';
@@ -535,6 +574,10 @@ function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, 
                 OR ${SIN_TILDES('cv.producto_contratado')} ILIKE ${SIN_TILDES('$' + idx)})`);
     params.push(`%${termino}%`); idx++;
   }
+  // Solo compartidas o solo enteras (#163). La parte de cada gestora la sigue
+  // poniendo `pesoDe`: una compartida le cuenta la mitad, con filtro o sin él.
+  const deCompartidas = condicionDeCompartidas(compartidas, 'cv');
+  if (deCompartidas) cond.push(deCompartidas);
   // Las dos reglas que definen que es una venta, iguales que en los informes:
   // una ficha marcada como mensualidad no es una venta nueva, y una venta sin
   // ningun cobro es una proforma que el cliente no llego a pagar.
@@ -563,9 +606,10 @@ function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, 
 function pesoDe(responsableId, params, idx) {
   if (!responsableId) return { PESO: '1', params: [...params], idx };
   return {
-    PESO: `COALESCE((SELECT r.peso FROM conversion_reparto r
-                      WHERE r.conversion_id = cv.id AND r.vendedora_id = $${idx}), 1)`,
-    params: [...params, Number(responsableId)],
+    // SUM: con un equipo comercial, la parte de todas las de su equipo.
+    PESO: `COALESCE((SELECT SUM(r.peso) FROM conversion_reparto r
+                      WHERE r.conversion_id = cv.id AND r.vendedora_id = ANY($${idx}::int[])), 1)`,
+    params: [...params, comoIds(responsableId)],
     idx: idx + 1,
   };
 }
@@ -640,7 +684,12 @@ export async function getResumenVentas(filtros = {}) {
             COALESCE(SUM(${COBRADO_MATRICULA} * ${PESO}), 0) AS cobrado_matricula,
             COALESCE(SUM(${COBRADO_CUOTAS} * ${PESO}), 0) AS cobrado_cuotas,
             COUNT(*) FILTER (WHERE ${COBRADO_CUOTAS} > 0)::int AS ventas_con_cuotas,
-            COALESCE(SUM((cv.importe_total - ${COBRADO_REAL}) * ${PESO}), 0) AS pendiente,
+            -- Venta a venta y sin bajar de 0 (#692): una venta cobrada de más
+            -- restaba de lo que deben las demás y el total salía NEGATIVO
+            -- (−12.395 € en /testeo). Lo cobrado de más se cuenta aparte.
+            COALESCE(SUM(GREATEST(cv.importe_total - ${COBRADO_REAL}, 0) * ${PESO}), 0) AS pendiente,
+            COALESCE(SUM(GREATEST(${COBRADO_REAL} - cv.importe_total, 0) * ${PESO}), 0) AS cobrado_de_mas,
+            COUNT(*) FILTER (WHERE ${COBRADO_REAL} > cv.importe_total + 0.005)::int AS ventas_cobradas_de_mas,
             COUNT(*) FILTER (WHERE ${COBRADO_REAL} >= cv.importe_total)::int AS liquidadas,
             COUNT(*) FILTER (WHERE ${COBRADO_REAL} <  cv.importe_total)::int AS con_saldo,
             COALESCE(AVG(cv.importe_total * ${PESO}), 0) AS ticket_medio
@@ -685,6 +734,9 @@ export async function getResumenVentas(filtros = {}) {
     cobrado_cuotas: Number(r.cobrado_cuotas),
     ventas_con_cuotas: r.ventas_con_cuotas,
     pendiente: Number(r.pendiente),
+    // Lo que se cobró por encima del importe de la venta (#692): duplicados,
+    // un total mal puesto o un cargo de más. Se enseña aparte para revisarlo.
+    cobrado_de_mas: { ventas: r.ventas_cobradas_de_mas, importe: Number(r.cobrado_de_mas) },
     liquidadas: r.liquidadas,
     con_saldo: r.con_saldo,
     ticket_medio: Number(r.ticket_medio),
@@ -700,6 +752,102 @@ export async function getResumenVentas(filtros = {}) {
   };
 }
 
+/*
+  LAS VENTAS QUE NO DICEN DE QUE FORMACION SON (#41).
+
+  321 ventas cobradas sin curso del catalogo detras --272 en ISEIE y 49 aqui--.
+  La consecuencia no es estetica: sin formacion no se sabe de quien es la
+  comision y NINGUN PROFESOR COBRA por ellas. En los informes salen bajo
+  «servicio academico», que es el texto que traia el pago.
+
+  Esto hace las dos primeras subfases: sacar la lista con lo que se sepa de
+  cada una, y proponer el cruce de las que se puedan por el nombre.
+
+  LO QUE NO HACE: atarlas solo. La sugerencia se propone y la confirma una
+  persona. Atar un cobro a la formacion equivocada es peor que dejarlo sin
+  atar --lo segundo se ve en un aviso; lo primero se paga a quien no era--, y
+  ese aviso ya esta escrito en `scripts/venta-177-sin-formacion.sql`.
+*/
+export async function ventasSinFormacion({ projectId, projectIds = null, from = null, to = null, responsableId = null } = {}) {
+  const params = [];
+  const cond = [];
+  const lista = comoLista(projectId, projectIds);
+  if (lista) { params.push(lista); cond.push(`c.project_id = ANY($${params.length}::int[])`); }
+  else cond.push(SIN_PRUEBAS('c.project_id'));
+  cond.push('c.producto_contratado_id IS NULL');
+  // Una venta sin cobrar no es de nadie todavia: la comision nace del cobro.
+  cond.push('EXISTS (SELECT 1 FROM conversion_payments cp WHERE cp.conversion_id = c.id)');
+  if (from) { params.push(from); cond.push(`c.fecha_conversion >= $${params.length}::date`); }
+  if (to) { params.push(to); cond.push(`c.fecha_conversion <= $${params.length}::date`); }
+  // De una gestora o de un equipo comercial (09/11/2026): por el reparto.
+  if (responsableId) {
+    params.push(comoIds(responsableId));
+    cond.push(`EXISTS (SELECT 1 FROM conversion_reparto rx
+                        WHERE rx.conversion_id = c.id AND rx.vendedora_id = ANY($${params.length}::int[]))`);
+  }
+
+  const { rows } = await query(
+    `SELECT c.id,
+            c.fecha_conversion,
+            c.importe_total,
+            ${NOMBRE_LIMPIO} AS texto,
+            l.nombre AS alumno,
+            l.email  AS alumno_email,
+            (SELECT COALESCE(SUM(cp.importe), 0) FROM conversion_payments cp
+              WHERE cp.conversion_id = c.id) AS cobrado,
+            /*
+              EL CRUCE, con la MISMA regla que usa el alta: mismo nombre sin
+              tildes y sin mayusculas, y SOLO si hay uno. Con dos candidatos no
+              se propone nada — adivinar cual de los dos es exactamente lo que
+              no puede hacer una maquina aqui.
+            */
+            -- CASE WHEN COUNT(*) = 1 THEN MIN(...): devuelve el candidato
+            -- SOLO si es unico. Con dos, null. (Un COUNT(*) OVER () dentro de
+            -- un HAVING no lo admite Postgres, y sin acento grave porque esto
+            -- vive dentro de una plantilla de JS.)
+            (SELECT CASE WHEN COUNT(*) = 1 THEN MIN(pr.id) END FROM products pr
+              WHERE pr.project_id = c.project_id AND pr.active
+                AND LOWER(TRANSLATE(pr.nombre, 'áéíóúÁÉÍÓÚñÑ', 'aeiouAEIOUnN'))
+                  = LOWER(TRANSLATE(${NOMBRE_LIMPIO}, 'áéíóúÁÉÍÓÚñÑ', 'aeiouAEIOUnN'))
+            ) AS sugerencia_id,
+            (SELECT CASE WHEN COUNT(*) = 1 THEN MIN(pr.nombre) END FROM products pr
+              WHERE pr.project_id = c.project_id AND pr.active
+                AND LOWER(TRANSLATE(pr.nombre, 'áéíóúÁÉÍÓÚñÑ', 'aeiouAEIOUnN'))
+                  = LOWER(TRANSLATE(${NOMBRE_LIMPIO}, 'áéíóúÁÉÍÓÚñÑ', 'aeiouAEIOUnN'))
+            ) AS sugerencia_nombre
+       FROM conversions c
+       LEFT JOIN leads l ON l.id = c.lead_id
+      WHERE ${cond.join(' AND ')}
+      ORDER BY c.fecha_conversion DESC, c.id DESC`,
+    params
+  );
+
+  const filas = rows.map((r) => ({
+    id: r.id,
+    fecha: r.fecha_conversion,
+    alumno: r.alumno,
+    alumnoEmail: r.alumno_email,
+    texto: r.texto,
+    importe: Number(r.importe_total),
+    cobrado: Number(r.cobrado),
+    sugerencia: r.sugerencia_id ? { id: r.sugerencia_id, nombre: r.sugerencia_nombre } : null,
+  }));
+
+  return {
+    filas,
+    total: filas.length,
+    conSugerencia: filas.filter((f) => f.sugerencia).length,
+    // Sin texto no hay nada que cruzar: esas son las que hay que mirar a mano.
+    sinTexto: filas.filter((f) => !f.texto).length,
+    // Lo VENDIDO y lo COBRADO, por separado. La pantalla habla de ventas cobradas
+    // y la comision nace del cobro, asi que la tarjeta suma `cobrado`: sumar el
+    // total de la venta y rotularlo «cobrados» enseñaba 4.200 € arriba y 2.800 €
+    // en la fila de esa misma venta.
+    importe: Number(filas.reduce((s, f) => s + f.importe, 0).toFixed(2)),
+    cobrado: Number(filas.reduce((s, f) => s + f.cobrado, 0).toFixed(2)),
+  };
+}
+
 // Ventas agrupadas por asesora.
 export async function getVentasPorAsesora(filtros = {}) {
   const { where, params } = filtrosVentas(filtros);
@@ -710,8 +858,9 @@ export async function getVentasPorAsesora(filtros = {}) {
             COUNT(*)::int AS ventas,
             COUNT(DISTINCT cv.lead_id)::int AS clientes,
             COALESCE(SUM(cv.importe_total), 0) AS importe,
-            COALESCE(SUM(cv.importe_pagado), 0) AS cobrado,
-            COALESCE(SUM(cv.importe_total - cv.importe_pagado), 0) AS pendiente,
+            -- De los pagos, como el resumen de arriba (#692).
+            COALESCE(SUM(${COBRADO_REAL}), 0) AS cobrado,
+            COALESCE(SUM(GREATEST(cv.importe_total - ${COBRADO_REAL}, 0)), 0) AS pendiente,
             COALESCE(AVG(cv.importe_total), 0) AS ticket_medio,
             MAX(cv.fecha_conversion) AS ultima_venta
        FROM conversions cv
@@ -780,7 +929,7 @@ export async function getVentasPorCliente(filtros = {}) {
             COUNT(*)::int AS ventas,
             COALESCE(SUM(v.importe_total), 0) AS importe,
             COALESCE(SUM(v.importe_pagado), 0) AS cobrado,
-            COALESCE(SUM(v.importe_total - v.importe_pagado), 0) AS pendiente,
+            COALESCE(SUM(GREATEST(v.importe_total - v.importe_pagado, 0)), 0) AS pendiente,
             MIN(v.fecha_conversion) AS primera_venta,
             MAX(v.fecha_conversion) AS ultima_venta,
             COALESCE(MAX(cu.cuotas_pendientes), 0) AS cuotas_pendientes,
@@ -833,13 +982,14 @@ const ES_MATRICULA = `(NOT c.es_mensualidad AND NOT EXISTS (
      WHERE p0.conversion_id = cp.conversion_id
        AND (p0.fecha < cp.fecha OR (p0.fecha = cp.fecha AND p0.id < cp.id))))`;
 
-export async function getDesglose({ projectId = null, projectIds = null, from = null, to = null, responsableId = null } = {}) {
+export async function getDesglose({ projectId = null, projectIds = null, from = null, to = null, responsableId = null, paisEntrada = null } = {}) {
   const pv = [];
   const wv = [];
   const listaV = comoLista(projectId, projectIds);
   if (listaV) { pv.push(listaV); wv.push(`c.project_id = ANY($${pv.length}::int[])`); }
   else wv.push(SIN_PRUEBAS('c.project_id'));
-  if (responsableId) { pv.push(responsableId); wv.push(`${VENDEDORA_C} = $${pv.length}`); }
+  if (paisEntrada) { pv.push(paisEntrada); wv.push(`${sqlPaisDeLaVenta('c')} = $${pv.length}`); }
+  if (responsableId) { pv.push(comoIds(responsableId)); wv.push(`${VENDEDORA_C} = ANY($${pv.length}::int[])`); }
   if (from) { pv.push(from); wv.push(`c.fecha_conversion >= $${pv.length}::date`); }
   if (to) { pv.push(to); wv.push(`c.fecha_conversion <= $${pv.length}::date`); }
   wv.push('NOT c.es_mensualidad');
@@ -859,7 +1009,8 @@ export async function getDesglose({ projectId = null, projectIds = null, from = 
   const listaC = comoLista(projectId, projectIds);
   if (listaC) { pc.push(listaC); wc.push(`c.project_id = ANY($${pc.length}::int[])`); }
   else wc.push(SIN_PRUEBAS('c.project_id'));
-  if (responsableId) { pc.push(responsableId); wc.push(`${VENDEDORA_C} = $${pc.length}`); }
+  if (paisEntrada) { pc.push(paisEntrada); wc.push(`${sqlPaisDeLaVenta('c')} = $${pc.length}`); }
+  if (responsableId) { pc.push(comoIds(responsableId)); wc.push(`${VENDEDORA_C} = ANY($${pc.length}::int[])`); }
   if (from) { pc.push(from); wc.push(`cp.fecha >= $${pc.length}::date`); }
   if (to) { pc.push(to); wc.push(`cp.fecha <= $${pc.length}::date`); }
 
@@ -912,7 +1063,7 @@ function restarDias(fecha, dias) {
 }
 
 // Un tramo: ventas, dinero y leads agrupados por dia o por mes.
-async function tramo({ projectId, projectIds = null, from, to, responsableId, porMes }) {
+async function tramo({ projectId, projectIds = null, from, to, responsableId, porMes, paisEntrada = null }) {
   const corte = porMes ? "to_char(date_trunc('month', %s), 'YYYY-MM')"
     : "to_char(%s, 'YYYY-MM-DD')";
 
@@ -923,9 +1074,10 @@ async function tramo({ projectId, projectIds = null, from, to, responsableId, po
   const listaV = comoLista(projectId, projectIds);
   if (listaV) { pv.push(listaV); wv.push(`c.project_id = ANY($${pv.length}::int[])`); }
   else wv.push(SIN_PRUEBAS('c.project_id'));
+  if (paisEntrada) { pv.push(paisEntrada); wv.push(`${sqlPaisDeLaVenta('c')} = $${pv.length}`); }
   if (responsableId) {
-    pv.push(responsableId);
-    wv.push(`COALESCE(c.vendedora_id, (SELECT responsable_id FROM leads WHERE id = c.lead_id)) = $${pv.length}`);
+    pv.push(comoIds(responsableId));
+    wv.push(`COALESCE(c.vendedora_id, (SELECT responsable_id FROM leads WHERE id = c.lead_id)) = ANY($${pv.length}::int[])`);
   }
   pv.push(from); const iFrom = pv.length;
   pv.push(to); const iTo = pv.length;
@@ -944,9 +1096,10 @@ async function tramo({ projectId, projectIds = null, from, to, responsableId, po
   const listaC = comoLista(projectId, projectIds);
   if (listaC) { pc.push(listaC); wc.push(`c.project_id = ANY($${pc.length}::int[])`); }
   else wc.push(SIN_PRUEBAS('c.project_id'));
+  if (paisEntrada) { pc.push(paisEntrada); wc.push(`${sqlPaisDeLaVenta('c')} = $${pc.length}`); }
   if (responsableId) {
-    pc.push(responsableId);
-    wc.push(`COALESCE(c.vendedora_id, (SELECT responsable_id FROM leads WHERE id = c.lead_id)) = $${pc.length}`);
+    pc.push(comoIds(responsableId));
+    wc.push(`COALESCE(c.vendedora_id, (SELECT responsable_id FROM leads WHERE id = c.lead_id)) = ANY($${pc.length}::int[])`);
   }
   pc.push(from); const cFrom = pc.length;
   pc.push(to); const cTo = pc.length;
@@ -964,7 +1117,8 @@ async function tramo({ projectId, projectIds = null, from, to, responsableId, po
   const listaL = comoLista(projectId, projectIds);
   if (listaL) { pl.push(listaL); wl.push(`l.project_id = ANY($${pl.length}::int[])`); }
   else wl.push(SIN_PRUEBAS('l.project_id'));
-  if (responsableId) { pl.push(responsableId); wl.push(`l.responsable_id = $${pl.length}`); }
+  if (paisEntrada) { pl.push(paisEntrada); wl.push(`${sqlPaisDelLead('l')} = $${pl.length}`); }
+  if (responsableId) { pl.push(comoIds(responsableId)); wl.push(`l.responsable_id = ANY($${pl.length}::int[])`); }
   pl.push(from); const lFrom = pl.length;
   pl.push(to); const lTo = pl.length;
   const { rows: leads } = await query(
@@ -1016,7 +1170,7 @@ async function tramo({ projectId, projectIds = null, from, to, responsableId, po
   };
 }
 
-export async function getSerieVentas({ projectId = null, projectIds = null, from = null, to = null, responsableId = null } = {}) {
+export async function getSerieVentas({ projectId = null, projectIds = null, from = null, to = null, responsableId = null, paisEntrada = null } = {}) {
   const hoy = new Date().toISOString().slice(0, 10);
   const desde = from || `${new Date().getFullYear()}-01-01`;
   const hasta = to || hoy;
@@ -1024,7 +1178,7 @@ export async function getSerieVentas({ projectId = null, projectIds = null, from
   // Hasta dos meses se ve por dias; a partir de ahi, por meses.
   const porMes = dias > 62;
 
-  const actual = await tramo({ projectId, projectIds, from: desde, to: hasta, responsableId, porMes });
+  const actual = await tramo({ projectId, projectIds, from: desde, to: hasta, responsableId, porMes, paisEntrada });
 
   // El periodo justo anterior, del mismo tamaño.
   const finAnterior = restarDias(desde, 1);
@@ -1032,10 +1186,10 @@ export async function getSerieVentas({ projectId = null, projectIds = null, from
   // Con la MISMA lista de campus que el periodo (#245): sin ella, con «Todos» o
   // una empresa, el anterior y el historial sumaban los campus de todas las
   // empresas, también los que no son de quien pide.
-  const previo = await tramo({ projectId, projectIds, from: iniAnterior, to: finAnterior, responsableId, porMes });
+  const previo = await tramo({ projectId, projectIds, from: iniAnterior, to: finAnterior, responsableId, porMes, paisEntrada });
 
   // Y el historial completo mes a mes, desde que hay datos.
-  const historial = await tramo({ projectId, projectIds, from: '2026-01-01', to: hoy, responsableId, porMes: true });
+  const historial = await tramo({ projectId, projectIds, from: '2026-01-01', to: hoy, responsableId, porMes: true, paisEntrada });
 
   const varia = (a, b) => (b ? Math.round(((a - b) / b) * 1000) / 10 : (a ? 100 : 0));
 

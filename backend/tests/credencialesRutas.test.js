@@ -66,10 +66,14 @@ describe('rutas del panel de claves', () => {
     expect(JSON.stringify(r.body.data)).not.toMatch(/make-clave-de-prueba/);
   });
 
-  it('admin no entra por ninguna de las nuevas', async () => {
-    for (const ruta of ['/api/credentials/paridad', '/api/credentials/registro', `/api/credentials/${creados[0]}/revelar`]) {
+  // CRM#632 (03/11): el admin VE las claves de sus campus, su paridad y su
+  // registro. Revelar el valor sigue siendo de soporte.
+  it('admin ve la lista, la paridad y el registro, pero no revela', async () => {
+    for (const ruta of ['/api/credentials', '/api/credentials/paridad', '/api/credentials/registro']) {
       const r = await request.get(ruta).set('Authorization', `Bearer ${adminToken}`);
-      expect(r.status).toBe(403);
+      expect(r.status).toBe(200);
     }
+    const r = await request.get(`/api/credentials/${creados[0]}/revelar`).set('Authorization', `Bearer ${adminToken}`);
+    expect(r.status).toBe(403);
   });
 });

@@ -175,8 +175,11 @@ export default function BancoPage() {
 
   const campo = 'h-9 px-3 rounded-md border border-border bg-card text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
+  // `color-scheme` oscuro en el tema oscuro: el icono del calendario de las
+  // fechas y la lista del desplegable los pinta el navegador y no siguen los
+  // tokens; sin esto salian claros (#128).
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-4 pb-8 dark:[color-scheme:dark]">
       <PageHeader
         title="Banco de mensajes"
         subtitle="Todo lo que ha pasado por WhatsApp, para buscarlo y guardarlo. No depende de que la sesión siga enlazada."
@@ -278,7 +281,7 @@ export default function BancoPage() {
       </div>
 
       {error && (
-        <div className="flex items-start gap-2.5 p-3 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-sm text-red-700 dark:text-red-300">
+        <div className="flex items-start gap-2.5 p-3 rounded-lg border border-destructive/30 bg-destructive-soft text-sm text-destructive-soft-foreground">
           <Warning size={16} weight="bold" className="flex-shrink-0 mt-0.5" />
           {error}
         </div>
@@ -383,7 +386,7 @@ export default function BancoPage() {
                           )}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap">
-                          <span className={m.direccion === 'entrante' ? 'text-muted-foreground' : 'text-emerald-600 dark:text-emerald-400'}>
+                          <span className={m.direccion === 'entrante' ? 'text-muted-foreground' : 'text-success'}>
                             {m.direccion === 'entrante' ? 'Recibido' : 'Enviado'}
                           </span>
                         </td>

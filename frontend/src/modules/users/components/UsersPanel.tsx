@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, WarningCircle, Lock } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,15 +8,17 @@ import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
 import Card from '@/shared/components/ui/Card';
 import { toast } from '@/shared/hooks/useToast';
 import {
-  avisoCambioCorreo, createUser, deactivateUser, listEmpresas, reactivateUser, setUserPassword, updateUser,
-  type CrmUser, type Empresa,
+  avisoCambioCorreo, createUser, deactivateUser, desbloquearBrevo, listBrevoBloqueos, listEmpresas, reactivateUser,
+  setUserPassword, updateUser, type BrevoBloqueo, type CrmUser, type Empresa,
 } from '../api/users.api';
+import { porPersona } from '../lib/brevoBloqueo';
 import useUsers from '../hooks/useUsers';
 import useAvailabilityMap from '../hooks/useAvailabilityMap';
 import UsersToolbar from './UsersToolbar';
 import UsersTable from './UsersTable';
 import TablePagination from './TablePagination';
 import UserFormDialog, { type UserFormValues } from './UserFormDialog';
+import { mensajeNoLoTienes } from '../lib/rolesAsignables';
 import InviteLinkBanner from './InviteLinkBanner';
 import AvailabilityDialog from './AvailabilityDialog';
 import usePermission from '@/shared/hooks/usePermission';
@@ -70,6 +72,29 @@ export default function UsersPanel() {
     if (!esSuperadmin) return;
     listEmpresas().then(setEmpresas).catch(() => setEmpresas(undefined));
   }, [esSuperadmin]);
+  // Correos que Brevo no entrega (migración 290). Si falla o está apagado, sin marcas:
+  // la lista sigue funcionando igual.
+  const [bloqueosBrevo, setBloqueosBrevo] = useState<Map<number, BrevoBloqueo>>(new Map());
+  const cargarBloqueosBrevo = useCallback(() => {
+    listBrevoBloqueos()
+      .then((r) => setBloqueosBrevo(porPersona(r.bloqueos)))
+      .catch(() => setBloqueosBrevo(new Map()));
+  }, []);
+  useEffect(() => { cargarBloqueosBrevo(); }, [cargarBloqueosBrevo]);
+
+  async function desbloquearEnBrevo(user: CrmUser) {
+    try {
+      await desbloquearBrevo(user.id);
+      toast({
+        title: 'Desbloqueado en Brevo',
+        description: `Los correos del CRM vuelven a salir hacia ${user.email}. Si el buzón no existe, Brevo lo volverá a bloquear.`,
+      });
+      cargarBloqueosBrevo();
+    } catch (err: any) {
+      toast({ title: 'No se pudo desbloquear', description: err?.message, variant: 'destructive' });
+    }
+  }
+
   // Sin la migración 203 el listado trae `empresa_ids: null` en todos.
   const faltaMigracionEmpresas = lista.visibles.length > 0 && lista.visibles.every((u) => u.empresa_ids === null);
 
@@ -84,6 +109,8 @@ export default function UsersPanel() {
           roles_extra: values.roles_extra,
           projects: values.projects,
           ...(values.empresaIds?.length ? { empresaIds: values.empresaIds } : {}),
+          // #694: sus excepciones, en la misma operación que el alta.
+          ...(values.excepciones && Object.keys(values.excepciones).length ? { excepciones: values.excepciones } : {}),
         });
         if (setPasswordToken) {
           const base = (import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '');
@@ -103,6 +130,7 @@ export default function UsersPanel() {
         const cambiaCorreo = esSuperadmin && correoNuevo !== dialogo.user.email.toLowerCase();
         await updateUser(dialogo.user.id, {
           nombre: values.nombre,
+          // Al momento y sin código (Diego, 06/11, #688).
           ...(cambiaCorreo ? { email: correoNuevo, reenviarEnlace: values.reenviarEnlace } : {}),
           role: values.role,
           // Se manda SIEMPRE, aunque venga vacia: una lista vacia significa
@@ -129,7 +157,11 @@ export default function UsersPanel() {
       setDialogo(null);
       lista.recargar();
     } catch (err: any) {
-      toast({ title: 'Error', description: err?.message, variant: 'destructive' });
+      // Un rol que quien guarda no puede dar (Tony, 03/11): qué rol quitar, no solo el «no».
+      const sinPermiso = mensajeNoLoTienes(err, values);
+      toast(sinPermiso
+        ? { title: 'Ese rol no lo puedes dar', description: sinPermiso, variant: 'destructive' }
+        : { title: 'Error', description: err?.message, variant: 'destructive' });
     } finally {
       setGuardando(false);
     }
@@ -281,6 +313,7 @@ export default function UsersPanel() {
           users={lista.visibles}
           projects={projects || []}
           disponibilidad={disponibilidad.porUsuario}
+          bloqueosBrevo={bloqueosBrevo}
           openMenuId={openMenuId}
           onOpenMenu={setOpenMenuId}
           onEdit={(u) => { setOpenMenuId(null); setDialogo({ modo: 'editar', user: u }); }}
@@ -314,6 +347,10 @@ export default function UsersPanel() {
           onResetPassword={reiniciarPassword}
           empresas={esSuperadmin && can('users.empresas') ? empresas : undefined}
           faltaMigracionEmpresas={faltaMigracionEmpresas}
+          bloqueoBrevo={dialogo.modo === 'editar' ? bloqueosBrevo.get(dialogo.user.id) ?? null : null}
+          onDesbloquearBrevo={dialogo.modo === 'editar' && can('users.brevo_desbloquear')
+            ? () => desbloquearEnBrevo(dialogo.user)
+            : undefined}
         />
       )}
 

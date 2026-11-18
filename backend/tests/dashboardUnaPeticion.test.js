@@ -27,7 +27,9 @@ describe('stats de varios campus en una consulta', () => {
 
   it('un campus suelto sigue funcionando igual', async () => {
     await getStats(5, { responsableId: 7 });
-    expect(consultas[0].params).toEqual([[5], 7]);
+    // La gestora va como lista de una (equipo comercial, 09/11/2026).
+    expect(consultas[0].params).toEqual([[5], [7]]);
+    expect(consultas[0].sql).toMatch(/responsable_id = ANY\(\$2::int\[\]\)/);
   });
 });
 
@@ -43,7 +45,11 @@ describe('today de varios campus en una petición', () => {
 
   it('un campus suelto va como lista de uno, y sin campus no se acota', async () => {
     await getTodaySummary({ userId: 1, role: 'gestor', projectId: 4 });
-    expect(consultas[0].params).toEqual([1, [4]]);
+    expect(consultas[0].params).toEqual([[1], [4]]);
+    // Una líder con su equipo (09/11/2026): la lista entera, en todas.
+    consultas.length = 0;
+    await getTodaySummary({ userId: 1, role: 'admin', alcanceIds: [1, 8, 9], projectId: 4 });
+    for (const c of consultas) expect(c.params).toEqual([[1, 8, 9], [4]]);
     consultas.length = 0;
     await getTodaySummary({ userId: 1, role: 'superadmin' });
     expect(consultas[0].params).toEqual([null, null]);

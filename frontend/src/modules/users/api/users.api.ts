@@ -135,6 +135,8 @@ export interface CreateUserPayload {
   projects: ProjectAssignment[];
   /** Empresas enteras (#220). Solo lo acepta el servidor de un super admin. */
   empresaIds?: number[];
+  /** #694: excepciones de permisos, ya en el alta. Pide «Permisos de cada persona». */
+  excepciones?: Record<string, boolean>;
 }
 
 export interface CreateUserResult {
@@ -231,4 +233,60 @@ export async function avisoCambioCorreo(id: number): Promise<AvisoCambioCorreo> 
   const res = await client.get(`/users/${id}/aviso-correo`);
   if (!res.success) throw new Error(res.error || 'No se pudo comprobar si recibe prospectos');
   return res.data as AvisoCambioCorreo;
+}
+
+/** Si quien da de alta puede dar un rol: como principal o como añadido (Tony, 03/11). */
+export interface PuedeDarRol {
+  puede: boolean;
+  /** Los tres primeros permisos que le daría y quien da de alta no tiene. */
+  faltan: string[];
+  /** Cuántos son en total (pueden ser más de tres). */
+  cuantos: number;
+}
+
+export interface RolAsignable {
+  rol: UserRole;
+  nombre: string;
+  principal: PuedeDarRol;
+  anadido: PuedeDarRol;
+}
+
+/** Qué roles puede dar en un alta quien pregunta. La misma regla que al guardar. */
+export async function listRolesAsignables(): Promise<RolAsignable[]> {
+  const res = await client.get('/users/roles-asignables');
+  if (!res.success) throw new Error(res.error || 'No se pudo saber qué roles puedes dar');
+  return (res.data || []) as RolAsignable[];
+}
+
+/**
+ * Un correo del equipo que Brevo se niega a entregar (migración 290). Caso real
+ * de ISEIE (17/11/2026): una gestora tres semanas sin avisos por un rebote duro.
+ */
+export interface BrevoBloqueo {
+  id: number;
+  user_id: number;
+  /** El código de Brevo: hardBounce, contactFlaggedAsSpam, unsubscribedViaEmail… */
+  codigo: string | null;
+  /** Ya en castellano. */
+  motivo: string | null;
+  bloqueado_desde: string | null;
+  detectado_at: string | null;
+}
+
+export interface BrevoBloqueos {
+  /** Si la vigilancia está encendida (BREVO_BLOQUEADOS_ACTIVO). Apagada, no hay marcas. */
+  activo: boolean;
+  bloqueos: BrevoBloqueo[];
+}
+
+export async function listBrevoBloqueos(): Promise<BrevoBloqueos> {
+  const res = await client.get('/users/brevo-bloqueos');
+  if (!res.success) throw new Error(res.error || 'No se pudieron leer los bloqueos de Brevo');
+  return { activo: !!res.data?.activo, bloqueos: (res.data?.bloqueos || []) as BrevoBloqueo[] };
+}
+
+/** «Desbloquear en Brevo». Si el buzón sigue sin existir, Brevo lo vuelve a bloquear. */
+export async function desbloquearBrevo(id: number): Promise<void> {
+  const res = await client.delete(`/users/${id}/brevo-bloqueo`);
+  if (!res.success) throw new Error(res.error || 'Brevo no lo desbloqueó');
 }

@@ -12,7 +12,8 @@ import { describe, it, expect } from 'vitest';
 
 const { NAV_SECTIONS, canSeeItem, pasaPermisoDeRoles } = await import('@/shared/components/layout/Sidebar');
 
-const entrada = (to) => NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.to === to);
+// Hay una entrada solo-IA con la misma ruta (projectType: 'ia'); aquí se prueba la del CRM normal.
+const entrada = (to) => NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.to === to && !i.projectType);
 // Como el `can` de verdad para una gestora: el mapa de Roles no tiene `factura_manager`.
 const can = (lista) => (k) => lista.includes(k);
 const seVe = (item, roles, user, permisos = []) =>
@@ -22,12 +23,8 @@ describe('menú › Facturación', () => {
   const facturacion = entrada('/finanzas/facturas');
   const yolanda = { role: 'gestor', roles_extra: ['tutor'], factura_manager: true };
 
-  it('existe y pide «facturas.emitir» (la casilla, ya como permiso: #423) o «Configurar la facturación» (soporte ya la veía)', () => {
-    expect(facturacion?.permiso).toEqual(['facturas.emitir', 'facturas.configurar']);
-  });
-
-  it('a soporte, por «Configurar la facturación», como hasta hoy', () => {
-    expect(seVe(facturacion, ['soporte'], { role: 'soporte' }, ['facturas.configurar'])).toBe(true);
+  it('existe y pide «facturas.emitir» (la casilla, ya como permiso: #423)', () => {
+    expect(facturacion?.permiso).toBe('facturas.emitir');
   });
 
   it('a Yolanda (gestora + tutora, con la casilla → facturas.emitir) le sale', () => {

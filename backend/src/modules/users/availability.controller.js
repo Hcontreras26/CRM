@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { query } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
+import { campusDeLaLista, exigirPersonaDeSusCampus } from './user.controller.js';
 
 const toggleSchema = z.object({
   is_available: z.boolean(),
@@ -17,6 +18,8 @@ const blockSchema = z.object({
 // Lista todos los gestores con su estado actual + bloque activo si lo hay.
 export async function listAvailability(req, res, next) {
   try {
+    // La de la gente de sus campus, si la lista de Usuarios se le recorta (Diego, 04/11).
+    const campus = await campusDeLaLista(req);
     const { rows } = await query(
       `SELECT u.id, u.nombre, u.email, u.role, u.active, u.is_available,
               u.unavailable_reason, u.unavailable_since,
@@ -34,7 +37,11 @@ export async function listAvailability(req, res, next) {
               )::int AS bloques_futuros
        FROM users u
        WHERE u.role IN ('admin', 'gestor', 'superadmin')
-       ORDER BY u.active DESC, u.nombre ASC`
+         AND ($1::int[] IS NULL OR EXISTS (
+               SELECT 1 FROM user_projects up
+                WHERE up.user_id = u.id AND up.active AND up.project_id = ANY($1::int[])))
+       ORDER BY u.active DESC, u.nombre ASC`,
+      [campus]
     );
     res.json({ success: true, data: rows });
   } catch (err) { next(err); }
@@ -69,6 +76,7 @@ export async function listBlocks(req, res, next) {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
+    await exigirPersonaDeSusCampus(req, id);
     const { rows } = await query(
       `SELECT id, user_id, fecha_inicio, fecha_fin, motivo, created_at,
               (CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin) AS activo

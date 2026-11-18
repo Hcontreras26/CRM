@@ -1,19 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import useUrlFilters from '@/shared/hooks/useUrlFilters';
-import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
+import { useIdsDelAmbito, soloDelAmbito } from '@/shared/hooks/useAmbito';
 import client from '@/shared/api/client';
 import type { Lead, LeadStatus, LeadOrigen } from '@/shared/types';
 import { idsDelAmbito } from '@/shared/lib/ambitoInforme';
 
 const PAGE_SIZE = 20;
 
-const URL_DEFAULTS: { q: string; estado: string; seg: string; paso: string; origen: string; resp: string; prod: string; multi: string; from: string; to: string; sort: string; dir: string; page: number; dup: string; rein: string; qf: string } = {
+const URL_DEFAULTS: { q: string; estado: string; seg: string; paso: string; origen: string; pais: string; resp: string; prod: string; multi: string; from: string; to: string; sort: string; dir: string; page: number; dup: string; rein: string; qf: string } = {
   q: '',
   estado: '',
   seg: '',   // por que seguimiento va: 1..4, o 5 = «cinco o mas»
   paso: '',  // en que paso del proceso comercial va (la clave del paso)
   origen: '',
+  pais: '',  // país de entrada (#221): código ISO o sin_pais
   resp: '',
   prod: '',
   multi: '',  // CSV de project ids (vacío = sólo proyecto activo)
@@ -58,6 +59,8 @@ export interface UseLeadsResult {
   setFilterSeguimiento: (v: string) => void;
   filterOrigen: string;
   setFilterOrigen: (v: string) => void;
+  filterPais: string;
+  setFilterPais: (v: string) => void;
   filterResponsable: string;
   setFilterResponsable: (v: string) => void;
   filterProducto: string;
@@ -103,15 +106,18 @@ export function useLeads(): UseLeadsResult {
   const pid = activeProject?.id;
 
   const [urlFilters, setUrlFilters] = useUrlFilters(URL_DEFAULTS);
-  const { q: search, estado: filterEstado, seg: filterSeguimiento, paso: filterPaso, origen: filterOrigen, resp: filterResponsable, prod: filterProducto, multi: multiRaw, from: dateFrom, to: dateTo, sort: sortRaw, dir: dirRaw, page, dup: filterDup, rein: filterReincidente, qf: filtroRapido } = urlFilters as {
-    q: string; estado: string; seg: string; paso: string; origen: string; resp: string; prod: string; multi: string; from: string; to: string; sort: string; dir: string; page: number; dup: string; rein: string; qf: string;
+  const { q: search, estado: filterEstado, seg: filterSeguimiento, paso: filterPaso, origen: filterOrigen, pais: filterPais, resp: filterResponsable, prod: filterProducto, multi: multiRaw, from: dateFrom, to: dateTo, sort: sortRaw, dir: dirRaw, page, dup: filterDup, rein: filterReincidente, qf: filtroRapido } = urlFilters as {
+    q: string; estado: string; seg: string; paso: string; origen: string; pais: string; resp: string; prod: string; multi: string; from: string; to: string; sort: string; dir: string; page: number; dup: string; rein: string; qf: string;
   };
   // Default CRONOLÓGICO ('recent') descendente = más reciente primero.
   const sortMode = (['value', 'recent', 'urgency', 'recent_value'].includes(sortRaw) ? sortRaw : 'recent') as 'value' | 'recent' | 'urgency' | 'recent_value';
   const sortDir = (dirRaw === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
-  const selectedProjectIds: number[] = multiRaw
-    ? multiRaw.split(',').map((x) => Number(x)).filter((x) => x > 0)
-    : [];
+  // Con «Todos» o una empresa arriba, solo lo elegido que sea de ese ámbito (#346).
+  // La dirección se deja como está: al volver a «Todos», el filtro reaparece.
+  const selectedProjectIds: number[] = useMemo(() => {
+    const elegidos = multiRaw ? multiRaw.split(',').map((x) => Number(x)).filter((x) => x > 0) : [];
+    return isAllProjects ? soloDelAmbito(elegidos, idsDelAmbito) : elegidos;
+  }, [multiRaw, isAllProjects, idsDelAmbito]);
 
   const setSearch = useCallback((v: string) => setUrlFilters({ q: v, page: 1 }), [setUrlFilters]);
   const setFilterEstado = useCallback((v: string) => setUrlFilters({ estado: v, page: 1 }), [setUrlFilters]);
@@ -122,6 +128,8 @@ export function useLeads(): UseLeadsResult {
   // que el enlace se puede compartir y sobrevive a recargar.
   const setFilterPaso = useCallback((v: string) => setUrlFilters({ paso: v, page: 1 }), [setUrlFilters]);
   const setFilterOrigen = useCallback((v: string) => setUrlFilters({ origen: v, page: 1 }), [setUrlFilters]);
+  // País de entrada (#221): el del subdominio por el que entró el prospecto.
+  const setFilterPais = useCallback((v: string) => setUrlFilters({ pais: v, page: 1 }), [setUrlFilters]);
   const setFilterResponsable = useCallback((v: string) => setUrlFilters({ resp: v, page: 1 }), [setUrlFilters]);
   const setFilterProducto = useCallback((v: string) => setUrlFilters({ prod: v, page: 1 }), [setUrlFilters]);
   const setSelectedProjectIds = useCallback((ids: number[]) => setUrlFilters({ multi: ids.length ? ids.join(',') : '', page: 1 }), [setUrlFilters]);
@@ -185,6 +193,7 @@ export function useLeads(): UseLeadsResult {
       if (filterSeguimiento) params.set('seguimiento', filterSeguimiento);
       if (filterPaso) params.set('pasoProceso', filterPaso);
       if (filterOrigen) params.set('canal', filterOrigen);
+      if (filterPais) params.set('paisEntrada', filterPais);
       if (filterResponsable === 'unassigned') params.set('unassigned', 'true');
       else if (filterResponsable) params.set('responsableId', filterResponsable);
       if (filterProducto) params.set('productId', filterProducto);
@@ -214,7 +223,7 @@ export function useLeads(): UseLeadsResult {
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [pid, page, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterResponsable, filterProducto, multiRaw, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
+  }, [pid, page, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterPais, filterResponsable, filterProducto, selectedProjectIds, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
 
   // Trae TODOS los leads que cumplen los filtros actuales (sin paginar) para
   // exportar. El listado va paginado de 20 en 20; el export debe llevarse todo
@@ -240,6 +249,7 @@ export function useLeads(): UseLeadsResult {
         if (filterSeguimiento) p.set('seguimiento', filterSeguimiento);
         if (filterPaso) p.set('pasoProceso', filterPaso);
         if (filterOrigen) p.set('canal', filterOrigen);
+        if (filterPais) p.set('paisEntrada', filterPais);
         if (filterResponsable === 'unassigned') p.set('unassigned', 'true');
         else if (filterResponsable) p.set('responsableId', filterResponsable);
         if (filterProducto) p.set('productId', filterProducto);
@@ -273,7 +283,7 @@ export function useLeads(): UseLeadsResult {
       page += 1;
     }
     return all;
-  }, [pid, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterResponsable, filterProducto, multiRaw, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
+  }, [pid, debouncedSearch, filterEstado, filterSeguimiento, filterPaso, filterOrigen, filterPais, filterResponsable, filterProducto, selectedProjectIds, isAllProjects, projects, idsDelAmbito, dateFrom, dateTo, sortMode, sortDir, filterDup, filterReincidente, filtroRapido]);
 
   useEffect(() => () => {
     if (abortRef.current) abortRef.current.abort();
@@ -287,6 +297,7 @@ export function useLeads(): UseLeadsResult {
         const p = new URLSearchParams();
         if (debouncedSearch) p.set('search', debouncedSearch);
         if (filterOrigen) p.set('canal', filterOrigen);
+        if (filterPais) p.set('paisEntrada', filterPais);
         if (filterResponsable && filterResponsable !== 'unassigned') p.set('responsableId', filterResponsable);
         if (filterProducto) p.set('productId', filterProducto);
         if (dateFrom) p.set('dateFrom', dateFrom);
@@ -338,7 +349,7 @@ export function useLeads(): UseLeadsResult {
     } catch {
       // Stats son secundarios, no bloquear UI
     }
-  }, [pid, isAllProjects, projects, multiRaw, debouncedSearch, filterOrigen, filterResponsable, filterProducto, dateFrom, dateTo]);
+  }, [pid, isAllProjects, projects, selectedProjectIds, idsDelAmbito, debouncedSearch, filterOrigen, filterPais, filterResponsable, filterProducto, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchLeads();
@@ -365,6 +376,8 @@ export function useLeads(): UseLeadsResult {
     setFilterPaso,
     filterOrigen,
     setFilterOrigen,
+    filterPais,
+    setFilterPais,
     filterResponsable,
     setFilterResponsable,
     filterProducto,

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import RangoRapido from '@/shared/components/ui/RangoRapido';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
+import usePermission from '@/shared/hooks/usePermission';
 import client from '@/shared/api/client';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import KpiCard from '@/shared/components/ui/KpiCard';
@@ -16,9 +19,14 @@ import { exportReportPDF } from '../lib/exportPdf';
 import ReportsDownloadSection from '../components/ReportsDownloadSection';
 import AsesorasPanel from '../components/AsesorasPanel';
 import RankingsPanel from '@/shared/components/RankingsPanel';
+import DondePonerElDinero from '../components/DondePonerElDinero';
+import PaisesDeEntrada from '../components/PaisesDeEntrada';
 import PanelResumen from '@/shared/components/PanelResumen';
+import TasaDeCierre from '../components/TasaDeCierre';
 import PanelSeguimiento from '@/shared/components/PanelSeguimiento';
 import FeedbackEnReportes, { feedbackEnCsv } from '@/modules/feedback/components/FeedbackEnReportes';
+import ActividadPorComercial from '../components/ActividadPorComercial';
+import InformeMensual from '../components/InformeMensual';
 
 function exportReportCSV(data, project, range, panel, seguimiento, feedback = null) {
   const sections = [];
@@ -170,7 +178,7 @@ function exportReportCSV(data, project, range, panel, seguimiento, feedback = nu
 }
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts';
 
-import { ponerAmbito, sociedadSinCampus } from '@/shared/lib/ambitoInforme';
+import { ponerAmbito, ambitoComoObjeto, sociedadSinCampus } from '@/shared/lib/ambitoInforme';
 import { ATAJOS, rangoPorDefecto, atajoDe } from '@/shared/lib/rangosDeFecha';
 
 function fmt(n) {
@@ -188,7 +196,22 @@ const PIPELINE_COLORS = {
 };
 
 
+/**
+ * Reportes es de quien tiene `reports.view` (el menú solo se lo enseña a él, y
+ * `/informes/overview` le responde 403 a los demás). Una gestora que llegaba
+ * por la dirección veía la página en blanco y dos avisos de «No tienes
+ * permiso» (prueba de Diana, 30/10): ahora va al Dashboard, donde está su
+ * actividad. Sin el mapa de permisos todavía, no se pinta ni se pide nada.
+ */
 export default function ReportsPage() {
+  const { permissions } = useAuth();
+  const { can } = usePermission();
+  if (!permissions) return null;
+  if (!can('reports.view')) return <Navigate to="/" replace />;
+  return <PantallaDeReportes />;
+}
+
+function PantallaDeReportes() {
   const { activeProject, activeIssuerId, activeIssuer, projects } = useProjectContext();
 
   // ARRANCA EN LA SOCIEDAD, no en el campus (#125 · 5).
@@ -387,6 +410,21 @@ export default function ReportsPage() {
         }
       />
 
+      {/* Qué periodo se está viendo, dicho con palabras (#325): las cifras de esta pantalla
+          no coincidían con «el mes en curso» ni con «los últimos 30 días» porque nadie decía
+          cuál usaba. Arranca en «Este mes» y cada cifra de abajo es de este periodo. */}
+      {range.from && range.to && (
+        <p className="text-xs text-muted-foreground" data-testid="periodo-del-informe">
+          Periodo que estás viendo: <strong className="text-foreground">
+            {new Date(`${range.from}T00:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {' – '}
+            {new Date(`${range.to}T00:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </strong>
+          {atajoActivo ? ` (${ATAJOS.find((a) => a.clave === atajoActivo)?.etiqueta})` : ' (a medida)'}.
+          {' '}Al abrir Reportes empieza en «Este mes»; las cifras de abajo son de este periodo, no del histórico.
+        </p>
+      )}
+
       {/* Tabs — solo mostrar Análisis IA si es proyecto IA */}
       {isIaProject && (
         <div className="flex border-b border-border" role="tablist">
@@ -412,10 +450,33 @@ export default function ReportsPage() {
       {tab === 'ia' && isIaProject && <ReportsIAView project={activeProject} />}
 
       {tab === 'crm' && <>
+      {/* Actividad por comercial (#203, parte B): arriba del todo, «es lo
+          primero que se mira por la mañana». Con sus propios atajos (Ayer por
+          defecto), aparte del periodo del resto del informe. */}
+      <ActividadPorComercial ambito={ambitoComoObjeto({ activeIssuerId: issuerEfectivo, activeProject: proyectoEfectivo })} />
+
+      {/* La tasa de cierre (#39). Justo debajo de la actividad: es la pregunta
+          que se hace al abrir Reportes, y lleva su propio «¿de dónde sale?»:
+          el número se puede comprobar sin salir de aquí. */}
+      <TasaDeCierre
+        activeProject={proyectoEfectivo}
+        activeIssuerId={issuerEfectivo}
+        from={range.from}
+        to={range.to}
+      />
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard icon={Users} label="Total prospectos" value={data.leads.total} />
-        <KpiCard icon={TrendUp} label="Tasa conversión" value={`${data.tasa_conversion}%`} tone="success" />
+        {/* Aquí había una tarjeta «Tasa conversión» con `data.tasa_conversion`,
+            que es OTRA cuenta: los leads en estado «convertido», un campo que
+            se pone a mano. Al lado de la tasa de cierre daban dos porcentajes
+            distintos de lo que el lector entiende como lo mismo, y el #39 lo
+            señala como la razón de que no se crea ninguno de los dos.
+            Se queda uno solo, el verificado, y aquí va el dato que faltaba:
+            cuántos están marcados como convertidos —que es un recuento, no un
+            porcentaje, y no compite con nada—. */}
+        <KpiCard icon={TrendUp} label="Marcados convertidos" value={data.leads.convertido} tone="success" />
         <KpiCard icon={CurrencyEur} label="Ventas cobradas" value={fmt(data.conversions.cobrado)} tone="success" />
         <KpiCard icon={Wallet} label="Por cobrar" value={fmt(data.conversions.por_cobrar)} tone="warning" />
       </div>
@@ -542,11 +603,20 @@ export default function ReportsPage() {
       {/* Paises y formaciones: en pantalla, no solo descargables. */}
       <RankingsPanel from={range.from} to={range.to} />
 
+      {/* Por campus y país de entrada (#221): solo si algún campus separa por país. */}
+      <PaisesDeEntrada from={range.from} to={range.to} issuerId={issuerEfectivo} project={proyectoEfectivo} />
+
+      {/* ¿Dónde ponemos el dinero? (#56): por canal y campaña, contra el periodo anterior. Solo admin. */}
+      <DondePonerElDinero from={range.from} to={range.to} />
+
       {/* Por qué no compran: las cifras de «Análisis → Feedback», con este rango y ámbito. */}
       <FeedbackEnReportes from={range.from} to={range.to} issuerId={issuerEfectivo}
         project={proyectoEfectivo} onDatos={setPanelFeedback} />
 
       <ReportsDownloadSection projectId={proyectoEfectivo?.id} issuerId={issuerEfectivo} projectName={nombreAmbito} from={range.from} to={range.to} />
+
+      {/* El informe del mes por equipo y comercial, y el ZIP de facturas para la gestoría (#772). */}
+      <InformeMensual issuerId={issuerEfectivo} />
 
       {/* AQUI ESTABA «Reportes disponibles», el catalogo de reportes PREVISTOS.
           No descargaba nada y repetia los temas de «Reportes descargables», que

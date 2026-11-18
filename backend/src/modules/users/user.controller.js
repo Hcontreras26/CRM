@@ -1,11 +1,31 @@
 import * as userService from './user.service.js';
 import * as userModel from './user.model.js';
 import { createUserSchema, updateUserSchema, listUsersSchema, adminSetPasswordSchema, buscarUsersSchema } from './user.validation.js';
-import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
+import { veTodoElCrm, campusDeLaPersona, campusParaRecortar } from '../../shared/utils/ambito.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { saveLocal, getLocal, deleteLocal } from '../../shared/services/localStorage.service.js';
 import crypto from 'crypto';
 import { tienePermiso } from '../../shared/middleware/permissions.js';
+import { alcanceDeLider } from '../../shared/utils/roles.js';
+
+/**
+ * A quién ve en Usuarios quien pregunta (Diego, 04/11: «el project manager ve
+ * todo», de sus campus). Quien solo VE la lista —sin «Editar usuarios»— la ve de
+ * la gente de sus campus; quien la administra, como hasta hoy. `null` = sin recorte.
+ */
+export async function campusDeLaLista(req) {
+  if (veTodoElCrm(req.user) || await tienePermiso(req, 'users.edit')) return null;
+  return campusParaRecortar(req);
+}
+
+/** La ficha de otra persona, si la lista se le recorta: solo si comparten campus. */
+export async function exigirPersonaDeSusCampus(req, id) {
+  if (Number(id) === Number(req.user?.userId)) return;
+  const campus = await campusDeLaLista(req);
+  if (!campus) return;
+  const suyos = await campusDeLaPersona(id);
+  if (!suyos.some((c) => campus.includes(c))) throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+}
 
 export async function list(req, res, next) {
   try {
@@ -13,7 +33,9 @@ export async function list(req, res, next) {
     if (!parsed.success) {
       throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
     }
-    const result = await userService.list(parsed.data);
+    const { alcance, ...filtros } = parsed.data;
+    const soloIds = alcance === 'comercial' ? await alcanceDeLider(req.user) : null;
+    const result = await userService.list({ ...filtros, campus: await campusDeLaLista(req), soloIds });
     res.json({
       success: true,
       data: result.users,
@@ -47,8 +69,17 @@ export async function getById(req, res, next) {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
+    await exigirPersonaDeSusCampus(req, id);
     const user = await userService.getById(id);
     res.json({ success: true, data: user });
+  } catch (err) { next(err); }
+}
+
+/** Los roles que quien pregunta puede dar en un alta, y si no, qué le falta (Tony, 03/11). */
+export async function rolesAsignables(req, res, next) {
+  try {
+    const { rolesAsignables: calcular } = await import('../permissions/permissions.editar.js');
+    res.json({ success: true, data: await calcular(req.user) });
   } catch (err) { next(err); }
 }
 
@@ -68,7 +99,22 @@ export async function create(req, res, next) {
     // Dar de alta con un rol es darle ese rol: nadie da lo que no tiene (QA de Diego, punto 7).
     const { exigirQueNoDeMasDeLoQueTiene } = await import('../permissions/permissions.editar.js');
     await exigirQueNoDeMasDeLoQueTiene(req.user, null, { role: parsed.data.role, roles_extra: parsed.data.roles_extra || [] });
-    const user = await userService.create(parsed.data, { porUserId: req.user?.userId ?? null });
+    // #694: sus excepciones, ya en el alta. Se comprueban antes de crear nada
+    // (mismas reglas que en su ficha) y se guardan en la misma operación.
+    const { excepciones = {}, ...datos } = parsed.data;
+    const hayExcepciones = Object.keys(excepciones).length > 0;
+    const editar = hayExcepciones ? await import('../permissions/permissions.editar.js') : null;
+    if (hayExcepciones) {
+      if (!(await tienePermiso(req, 'users.excepciones'))) {
+        throw new AppError('Poner excepciones de permisos es «Permisos de cada persona»', 403, 'FORBIDDEN');
+      }
+      await editar.exigirExcepcionesDeAlta(req.user,
+        { role: datos.role, roles_extra: datos.roles_extra || [], projectIds: editar.campusDelAlta(datos) }, excepciones);
+    }
+    const user = await userService.create(datos, {
+      porUserId: req.user?.userId ?? null,
+      alCrear: hayExcepciones ? (u) => editar.guardarExcepciones(u.id, excepciones, req.user, { origen: 'alta_usuario' }) : null,
+    });
     res.status(201).json({ success: true, data: user });
   } catch (err) { next(err); }
 }
@@ -114,6 +160,8 @@ export async function update(req, res, next) {
       await exigirQueNoDeMasDeLoQueTiene(req.user, id, { role: resto.role, roles_extra: resto.roles_extra });
     }
     // El correo va primero: si choca con el de otro (409), no se guarda nada a medias.
+    // Al momento y sin código (Diego, 06/11, #688): el código es solo para quien
+    // cambia el suyo desde «Mi perfil».
     const correo = email !== undefined
       ? await userService.cambiarCorreo(id, email, {
         reenviarEnlace: reenviarEnlace === true, porUserId: req.user.userId, ip: req.ip,
@@ -317,12 +365,18 @@ const AVISOS = [
     detalle: 'Cuando aprueban una tarea tuya y pasa a «Hecha».' },
   { aviso: 'tarea_comentario', titulo: 'Comentario en tu tarea',
     detalle: 'Cuando alguien comenta en una tarea que tienes asignada.' },
+  // Cursos pendientes (#336), en cursos-pendientes.correos.js.
+  { aviso: 'cursos_pendientes', titulo: 'Cursos pendientes',
+    detalle: 'Cuando te asignan un curso, se acerca o pasa su fecha, o hay alumnas sin habilitar; y el resumen de los lunes (super admin).' },
   { aviso: 'tarea_supervisor', titulo: 'Tarea que supervisas',
     detalle: 'Cuando te ponen de supervisor de una tarea y cuando está lista para revisar.' },
   { aviso: 'tarea_estado', titulo: 'Cambio de estado de una tarea',
     detalle: 'Cuando cambia de estado una tarea que llevas, supervisas o creaste (si se mueve varias veces seguidas, un solo correo).' },
   { aviso: 'tareas_resumen', titulo: 'Tu resumen de tareas',
     detalle: 'De lunes a viernes por la tarde: lo que hiciste hoy en el tablero y lo que te falta.' },
+  // Consultas de alumnos (#769), en consultas.plazos.js. Solo administración.
+  { aviso: 'consulta_fuera_de_plazo', titulo: 'Consulta fuera de plazo',
+    detalle: 'Cuando la consulta de un alumno de tus campus pasa el plazo sin respuesta del tutor. Solo administración.' },
 ];
 
 export async function misAvisos(req, res, next) {
@@ -355,5 +409,32 @@ export async function cambiarMiAviso(req, res, next) {
         [req.user.userId, aviso]);
     }
     res.json({ success: true, data: { aviso, encendido: Boolean(encendido) } });
+  } catch (err) { next(err); }
+}
+
+/**
+ * GET /api/users/brevo-bloqueos — quién del equipo tiene el correo bloqueado en
+ * Brevo (migración 290), para la marca de la lista y de la ficha. Con el mismo
+ * recorte que la lista. `activo` dice si la vigilancia está encendida: apagada,
+ * el botón de desbloquear no tiene sentido.
+ */
+export async function brevoBloqueos(req, res, next) {
+  try {
+    const { abiertos } = await import('./brevo-bloqueos.js');
+    const { bloqueadosActivo } = await import('../../shared/services/brevo-bloqueados.service.js');
+    const activo = bloqueadosActivo();
+    const bloqueos = activo ? await abiertos({ campus: await campusDeLaLista(req) }) : [];
+    res.json({ success: true, data: { activo, bloqueos } });
+  } catch (err) { next(err); }
+}
+
+/** DELETE /api/users/:id/brevo-bloqueo — «Desbloquear en Brevo» (permiso users.brevo_desbloquear). */
+export async function desbloquearBrevo(req, res, next) {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
+    await exigirPersonaDeSusCampus(req, id);
+    const { desbloquear } = await import('./brevo-bloqueos.js');
+    res.json({ success: true, data: await desbloquear({ userId: id, porQuien: req.user?.userId }) });
   } catch (err) { next(err); }
 }

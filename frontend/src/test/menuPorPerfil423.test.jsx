@@ -5,9 +5,8 @@ import path from 'path';
 /**
  * #423 · Qué menú ve cada perfil, y que no cambie sin querer.
  *
- * La foto `fixtures/menu-por-perfil-423.json` es el menú de `main` del 26/10/2026
- * (rama de producción: con Meta y la Facturación de #488, sin Consultas), antes de
- * tocar ningún permiso: es el «antes». Cada perfil lleva el mapa que le daba
+ * La foto `fixtures/menu-por-perfil-423.json` es el menú de `staging` del
+ * 22/10/2026 (ya con Consultas), antes de tocar ningún permiso: es el «antes». Cada perfil lleva el mapa que le daba
  * `/auth/me` (la copia congelada del backend, `inventario/legado.js`). Si el
  * menú de alguien cambia, falla, salvo lo que esté en `CAMBIOS_APROBADOS`: lo
  * que se cambia a propósito y Diego tiene que aprobar.
@@ -117,9 +116,9 @@ describe('menú por perfil (#423)', () => {
     });
   }
 
-  it('la foto es la de main: Facturación ya la ven el admin y la gestora que factura (#487/#488)', () => {
-    expect(foto.admin).toContain('Finanzas › Facturación');
-    expect(foto['gestora con factura_manager']).toContain('Finanzas › Facturación');
-    expect(foto.gestora).not.toContain('Finanzas › Facturación');
+  it('la foto recoge el fallo de «Facturación»: hoy solo la ve el superadmin', () => {
+    expect(foto.superadmin).toContain('Finanzas › Facturación');
+    expect(foto.admin).not.toContain('Finanzas › Facturación');
+    expect(foto['gestora con factura_manager']).not.toContain('Finanzas › Facturación');
   });
 });

@@ -47,9 +47,12 @@ for f in access.log* error.log*; do
   sudo sed -i -E 's/crm_mcp_[A-Za-z0-9_-]+/crm_mcp_***/g' "$f"
 done
 
-# Comprimidos de días anteriores (access.log.2.gz…)
+# Comprimidos de días anteriores (access.log.2.gz…). Solo los que llevan alguna
+# llave: reescribir los demás no arregla nada y les cambiaría dueño y permisos.
+# `cp -p` crea el temporal con el dueño, grupo y permisos del viejo; el `mv` los conserva.
 for f in *.gz; do
-  sudo sh -c "zcat '$f' | sed -E 's/crm_mcp_[A-Za-z0-9_-]+/crm_mcp_***/g' | gzip > '$f.tmp' && mv '$f.tmp' '$f'"
+  sudo sh -c "zcat '$f' | grep -q 'crm_mcp_'" || continue
+  sudo sh -c "cp -p '$f' '$f.tmp' && zcat '$f' | sed -E 's/crm_mcp_[A-Za-z0-9_-]+/crm_mcp_***/g' | gzip > '$f.tmp' && mv '$f.tmp' '$f'"
 done
 
 # `sed -i` crea un fichero nuevo y nginx seguiría escribiendo en el viejo:

@@ -19,7 +19,7 @@ const pool = (await import('../src/shared/config/db.js')).default;
  *
  *   · Un equipo es de tipo «colaboradores» o «tutores» (migración 243).
  *   · A un tutor solo se le mete en uno de tutores; también si es de la empresa
- *     solo por `user_empresas`, sin campus propio.
+ *     solo por `tutor_empresas`, sin campus propio.
  *   · El tutor trae de serie «Ver su tablero» y «Editar tareas», y el corte del
  *     tutor (`RUTAS_DEL_TUTOR`) deja pasar /api/tasks.
  *
@@ -46,6 +46,7 @@ async function persona(clave, role, { roles_extra = [], campus: cs = [], empresa
     [`${MARCA} ${clave}`, `${clave.toLowerCase()}_${MARCA.toLowerCase()}@test.local`, role, roles_extra, colaboraciones]);
   for (const c of cs) await q('INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2)', [u.id, c]);
   for (const e of empresas) await q('INSERT INTO user_empresas (user_id, issuer_id) VALUES ($1, $2)', [u.id, e]);
+  for (const e of tutorEmpresas) await q('INSERT INTO tutor_empresas (tutor_id, issuer_id) VALUES ($1, $2)', [u.id, e]);
   U[clave] = u;
   T[clave] = jwt.sign({ userId: u.id, email: u.email, role, roles_extra, customRoleId: null }, process.env.JWT_SECRET, { expiresIn: '1h' });
 }
@@ -65,8 +66,8 @@ beforeAll(async () => {
   // La que lleva las colaboraciones: colaboradora y además tutora.
   await persona('colab', 'colaborador', { roles_extra: ['tutor'], empresas: [empresa], colaboraciones: true });
   await persona('tutor', 'tutor', { campus: [campus] });
-  // De la empresa solo por `user_empresas`: sin campus propio.
-  await persona('tutorEmpresa', 'tutor', { empresas: [empresa] });
+  // De la empresa solo por `tutor_empresas`: sin campus propio.
+  await persona('tutorEmpresa', 'tutor', { tutorEmpresas: [empresa] });
   await persona('tutorSuelto', 'tutor', { campus: [campus] });
   await persona('gestora', 'gestor', { campus: [campus] });
 }, 60000);
@@ -76,6 +77,7 @@ afterAll(async () => {
   await q('DELETE FROM tasks WHERE created_by = ANY($1::int[]) OR assigned_to = ANY($1::int[])', [us]);
   await q('DELETE FROM task_teams WHERE issuer_id = ANY($1::int[])', [ids.issuers]);
   await q('DELETE FROM admin_notifications WHERE target_user_ids && $1::int[]', [us]);
+  await q('DELETE FROM tutor_empresas WHERE tutor_id = ANY($1::int[])', [us]);
   await q('DELETE FROM user_empresas WHERE user_id = ANY($1::int[])', [us]);
   await q('DELETE FROM user_projects WHERE user_id = ANY($1::int[])', [us]);
   await q('DELETE FROM user_activity_log WHERE user_id = ANY($1::int[])', [us]);
@@ -97,7 +99,7 @@ describe('equipos de tutores', () => {
     expect(equipo.tut.tipo).toBe('tutores');
   });
 
-  it('a un tutor solo se le mete en el de tutores; también al que es de la empresa sin campus', async () => {
+  it('a un tutor solo se le mete en el de tutores; también al que es de la empresa por tutor_empresas', async () => {
     expect((await meter('tutor', 'dev', cargo.dev.Miembro)).status).toBe(400);
     const cand = (t) => request.get(`/api/tasks/teams/${equipo[t].id}/candidates`).set(como('admin'));
     const deDev = (await cand('dev')).body.data.map((u) => u.id);

@@ -8,7 +8,8 @@ import { normalizePhone } from '../../shared/utils/normalizePhone.js';
 import { notifyAdmins, notifyUsers } from '../notifications/notifications.service.js';
 import * as dupQueue from './dup-queue.service.js';
 import * as leadProducts from './lead-products.service.js';
-import { planificarPasosDeLead } from '../proceso/proceso.model.js';
+import { deducirCanal } from './canal.js';
+import { planificarPasosDeLead, ajustarPaso } from '../proceso/proceso.model.js';
 import { cruzarConPulsacion } from '../widget/widget.pulsaciones.js';
 import { avanzarPorContacto } from '../../shared/services/estado-prospecto.service.js';
 import { soloLoSuyo, ROLES_DE_TUTOR } from '../../shared/utils/roles.js';
@@ -30,24 +31,11 @@ async function triggerSequences(triggerEvent, leadId, projectId) {
 }
 
 // ============================================================
-// DETECCION DE CANAL POR UTMs
+// DETECCION DE CANAL
 // ============================================================
-
-function detectChannel(utmSource, utmMedium) {
-  if (!utmSource && !utmMedium) return 'directo';
-
-  const source = (utmSource || '').toLowerCase();
-  const medium = (utmMedium || '').toLowerCase();
-
-  if (source.includes('facebook') || source.includes('instagram') || source.includes('fb') || source.includes('meta')) return 'meta_ads';
-  if (source.includes('google') && (medium === 'cpc' || medium === 'ppc')) return 'google_ads';
-  if (source.includes('tiktok')) return 'tiktok_ads';
-  if (source.includes('chatgpt') || source.includes('openai')) return 'chatgpt_ia';
-  if (medium === 'referral' || source.includes('referido')) return 'referido';
-  if (medium === 'organic' || source.includes('google') || source.includes('bing')) return 'organico';
-
-  return 'directo';
-}
+//
+// La regla vive en ./canal.js (#48): una sola para el alta de un prospecto y
+// para el script que la aplica hacia atrás. Aquí solo se llama.
 
 /**
  * Saca las UTM de dentro de la propia direccion.
@@ -120,6 +108,12 @@ async function _createLeadCore(project, leadData) {
   // llego con `utm_source=fb` dentro de la direccion y se guardo como «directo».
   //
   // Este es el sitio por el que pasan las dos.
+  //
+  // La página también puede llegar como `page_url` (Elementor, Make): sin
+  // `landing_url`, se usa esa. De ella salen el canal, el producto y el país (#221).
+  if (!leadData.landing_url && typeof leadData.page_url === 'string' && leadData.page_url.trim()) {
+    leadData.landing_url = leadData.page_url.trim();
+  }
   for (const k of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']) {
     if (!leadData[k]) {
       const deLaUrl = utmsDeLaUrl(leadData?.landing_url);
@@ -200,7 +194,12 @@ async function _createLeadCore(project, leadData) {
   // devuelve, y `const` no se puede leer antes de su linea: daba
   // `ReferenceError: Cannot access 'canalDetectado' before initialization`, o
   // sea un 500 cada vez que entraba esa rama.
-  const canalDetectado = leadData.canal || detectChannel(leadData.utm_source, leadData.utm_medium);
+  const canalDetectado = leadData.canal || deducirCanal({
+    utm_source: leadData.utm_source,
+    utm_medium: leadData.utm_medium,
+    referrer: leadData.referrer,
+    landing_url: leadData.landing_url,
+  });
 
   // Burst-merge: si el MISMO email/tel pide el MISMO producto en una ventana
   // corta (default 2min), no creamos un lead nuevo — sumamos una interacción
@@ -271,6 +270,7 @@ async function _createLeadCore(project, leadData) {
       utm_content: leadData.utm_content || null,
       utm_term: leadData.utm_term || null,
       landing_url: leadData.landing_url || null,
+      referrer: leadData.referrer || null,
       canal_detectado: canalDetectado,
     },
   });
@@ -582,20 +582,66 @@ async function contactoDeLaColaSobra(leadId, userId) {
   return rows[0] || {};
 }
 
-export async function addInteraction(leadId, tipo, nota, userId, fecha) {
+/**
+ * «Contactar» en la cola del día cierra el paso que la cola enseñaba (#259).
+ *
+ * Diego, 07/10: «si en la cola del día hice el seguimiento 3 y le doy a
+ * contactar, se guarda pero aún se mantiene, y la checklist no lo guarda. Si lo
+ * hago luego en la checklist, sí sale». Pasaba porque la cola solo apuntaba el
+ * contacto y dejaba que la regla de los contactos (pasoCerrado.js) dedujera el
+ * paso. Esa regla cierra UN paso por día de contacto: si esa mañana ya se había
+ * hablado con la persona (el contacto cerró el seguimiento 2), el seguimiento 3
+ * se quedaba abierto y la persona volvía a la cola. Y la checklist, que desde
+ * el 09/10 es manual, lo enseñaba «por hacer» siempre.
+ *
+ * Ahora el paso se marca hecho por el MISMO camino que la checklist
+ * (`ajustarPaso`, que recoloca los que quedan). Solo un paso de esta persona y
+ * que siga pendiente: un id de otra persona o uno ya hecho no se tocan.
+ */
+async function marcarPasoDeLaCola(leadId, pasoId, userId) {
+  const { rows } = await query(
+    `SELECT id FROM lead_steps WHERE id = $1 AND lead_id = $2 AND estado = 'pendiente'`,
+    [pasoId, leadId]);
+  if (!rows[0]) return null;
+  return ajustarPaso(pasoId, { estado: 'hecho' }, userId);
+}
+
+export async function addInteraction(leadId, tipo, nota, userId, fecha, { pasoId = null } = {}) {
   const lead = await leadModel.findById(leadId);
   if (!lead) throw new AppError('Lead no encontrado', 404, 'LEAD_NOT_FOUND');
+
+  // Una nota interna no es haber hablado con nadie: no cierra ningún paso.
+  const cierraPaso = pasoId && tipo !== 'nota';
 
   if (NOTA_DE_LA_COLA.test(nota || '')) {
     const { ya_apuntado, rafaga } = await contactoDeLaColaSobra(leadId, userId);
     if (rafaga) {
       throw new AppError('Más despacio: un contacto por persona. Este no se ha apuntado.', 429, 'DEMASIADO_RAPIDO');
     }
-    // Ya apuntó algo suyo en esta persona: el botón solo la saca de la cola.
-    if (ya_apuntado) return { id: ya_apuntado, lead_id: leadId, ya_apuntado: true };
+    // Ya apuntó algo suyo en esta persona: no se crea otro contacto, pero el
+    // paso que la cola enseñaba sí se cierra; si no, volvía a salir (#259).
+    if (ya_apuntado) {
+      const paso = cierraPaso ? await marcarPasoDeLaCola(leadId, pasoId, userId) : null;
+      if (paso) {
+        avanzarPorContacto(leadId, userId).catch((err) =>
+          logger.warn({ err: err.message, leadId }, 'No se pudo mover el estado tras el paso de la cola'));
+      }
+      const r = { id: ya_apuntado, lead_id: leadId, ya_apuntado: true };
+      return cierraPaso ? { ...r, paso_hecho: paso ? paso.id : null } : r;
+    }
   }
 
   const interaccion = await leadModel.createInteraction(leadId, tipo, nota, userId, fecha);
+
+  // Antes que mover la etiqueta: `avanzarPorContacto` cuenta los pasos marcados.
+  // Si falla, el contacto se queda apuntado; el paso se puede marcar en la ficha.
+  let pasoHecho = null;
+  if (cierraPaso) {
+    pasoHecho = await marcarPasoDeLaCola(leadId, pasoId, userId).catch((err) => {
+      logger.warn({ err: err.message, leadId, pasoId }, 'No se pudo marcar el paso de la cola');
+      return null;
+    });
+  }
 
   // Apuntar un contacto ES contactar: hasta ahora la etiqueta habia que moverla
   // ademas a mano, y por eso en la cola hay gente marcada «Contactado» con cero
@@ -609,7 +655,7 @@ export async function addInteraction(leadId, tipo, nota, userId, fecha) {
       logger.warn({ err: err.message, leadId }, 'No se pudo mover el estado tras el contacto'));
   }
 
-  return interaccion;
+  return cierraPaso ? { ...interaccion, paso_hecho: pasoHecho ? pasoHecho.id : null } : interaccion;
 }
 
 // Edición de una interacción existente. Gestor solo puede editar las suyas;

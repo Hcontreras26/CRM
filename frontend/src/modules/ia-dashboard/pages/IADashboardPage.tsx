@@ -1,14 +1,16 @@
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { useStripeMonitor } from '../hooks/useStripeMonitor';
 import MetricLabel from '@/shared/components/ui/MetricLabel';
+import PorQueSeVan from '../components/PorQueSeVan';
+import { PROYECTOS_IA } from '@/shared/lib/proyectosIA';
 import useCountUp from '@/shared/hooks/useCountUp';
 import {
   CurrencyEur, Users, TrendDown, ArrowUp, ArrowDown,
-  WarningCircle, CreditCard, Robot, type Icon,
+  WarningCircle, CreditCard, Robot, ArrowRight, type Icon,
 } from '@phosphor-icons/react';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
@@ -78,12 +80,47 @@ export default function IADashboardPage() {
           {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-muted/50 rounded-lg animate-pulse" />)}
         </div>
       ) : !hasData ? (
-        <div className="bg-card border border-border rounded-lg">
-          <EmptyState
-            icon={CreditCard}
-            title="Sin datos de Stripe"
-            description={`Aun no hay suscripciones registradas en Stripe para ${activeProject.nombre}, o las credenciales no estan configuradas.`}
-          />
+        /* Dos razones distintas para no tener datos, y hasta ahora se decian
+           igual: «no esta conectado todavia» y «esta conectado y no hay
+           cobros». La primera tiene algo que hacer y la segunda no, asi que
+           juntarlas dejaba al que mira sin saber si esperar o actuar. */
+        <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <CreditCard size={32} className="mx-auto text-muted-foreground mb-3" weight="regular" />
+          {metrics?.api_configured === false ? (
+            <>
+              <p className="font-semibold text-sm">{activeProject.nombre} todavía no está conectado a Stripe</p>
+              <p className="mx-auto mt-2 max-w-md text-xs text-muted-foreground">
+                Falta su clave. Se pega en Integraciones con este proyecto elegido: al guardarla
+                solo se valida y se cifra, no se descarga nada todavía. Vale una clave
+                <strong> restringida</strong> de solo lectura — es mejor que la secreta, porque
+                con ella no se puede cobrar.
+              </p>
+              <Link
+                to="/finanzas/integraciones"
+                className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                Ir a Integraciones <ArrowRight size={14} weight="bold" />
+              </Link>
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                Antes de conectarlo, comprueba la <strong>fecha de corte</strong>: lo cobrado antes
+                de esa fecha no entra, y si no se pone, manda el día de alta del proyecto.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-sm">Conectado, pero sin cobros todavía</p>
+              <p className="mx-auto mt-2 max-w-md text-xs text-muted-foreground">
+                La clave de {activeProject.nombre} está guardada y responde. Aún no hay
+                suscripciones ni cobros posteriores a su fecha de corte — en cuanto entre el
+                primero, esto se llena solo.
+              </p>
+              {metrics?.warning && (
+                <p className="mx-auto mt-3 max-w-md rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
+                  {metrics.warning}
+                </p>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -162,7 +199,7 @@ export default function IADashboardPage() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mb-4">Ultimos 12 meses</p>
+              <p className="text-xs text-muted-foreground mb-4">Últimos 12 meses</p>
               <ResponsiveContainer width="100%" height={220} minHeight={200}>
                 <LineChart data={metrics.evolution12Months} margin={{ top: 5, right: 12, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="2 4" stroke="#f3f4f6" />
@@ -225,6 +262,13 @@ export default function IADashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Por que se van (#44). Va al final y no arriba: primero se mira
+              cuanto entra, y esto explica lo que se pierde. Solo en pruebas. */}
+          {PROYECTOS_IA && <PorQueSeVan
+            datos={metrics.porQueSeVan}
+            comentarios={metrics.comentariosDeBaja}
+          />}
         </>
       )}
     </div>

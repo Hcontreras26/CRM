@@ -26,14 +26,15 @@ function Cifra({ icon: Icon, etiqueta, valor, pie }) {
   );
 }
 
-export default function ResumenVentas({ projectId, issuerId = null, from, to, responsableId = null }) {
+export default function ResumenVentas({ projectId, issuerId = null, from, to, responsableId = null, paisEntrada = null }) {
   const [d, setD] = useState(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    // Con una sociedad elegida tambien hay ambito: no se puede salir por
-    // la puerta de «no hay proyecto».
-    if (!projectId && !issuerId) return undefined;
+    // Sin campus ni empresa es «Todos»: el servidor recorta a lo de quien
+    // pregunta (`proyectosDelAmbito`), igual que «Productos vendidos». Antes
+    // aqui se salia sin pedir nada y las cinco tarjetas se quedaban en gris
+    // para siempre (#218, comprobado en /testeo el 05/11).
     let vivo = true;
     setCargando(true);
     const p = new URLSearchParams();
@@ -42,12 +43,13 @@ export default function ResumenVentas({ projectId, issuerId = null, from, to, re
     if (from) p.set('from', from);
     if (to) p.set('to', to);
     if (responsableId) p.set('responsableId', String(responsableId));
+    if (paisEntrada) p.set('paisEntrada', paisEntrada);
     client.get(`/ventas/resumen?${p}`)
       .then((r) => { if (vivo) setD(r.success ? r.data : null); })
       .catch(() => { if (vivo) setD(null); })
       .finally(() => { if (vivo) setCargando(false); });
     return () => { vivo = false; };
-  }, [projectId, issuerId, from, to, responsableId]);
+  }, [projectId, issuerId, from, to, responsableId, paisEntrada]);
 
   if (cargando || !d) {
     return (

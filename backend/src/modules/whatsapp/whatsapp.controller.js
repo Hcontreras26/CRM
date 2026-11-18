@@ -1,11 +1,12 @@
 import * as model from './whatsapp.model.js';
 import { createSchema, updateSchema } from './whatsapp.validation.js';
 import { AppError } from '../../shared/utils/AppError.js';
+import { query } from '../../shared/config/db.js';
 import { proyectosDelAmbito, comoLista } from '../../shared/utils/ambito.js';
 import { actividadEnWhatsapp } from './actividad.model.js';
 import { usuarioObjetivo } from './chat.controller.js';
 import { tienePermiso } from '../../shared/middleware/permissions.js';
-import { soloLoSuyo } from '../../shared/utils/roles.js';
+import { alcanceComercial, alcanceDeLider, acotarAlAlcance, enElAlcance } from '../../shared/utils/roles.js';
 
 function proyecto(req) {
   const p = req.query.projectId || req.body?.projectId;
@@ -68,10 +69,18 @@ export async function listTemplates(req, res, next) {
     // Antes se pedia igualmente (`?? proyecto(req)`) y, al no venir, esto
     // contestaba «projectId requerido»: la pantalla lo pintaba como «este
     // proyecto no tiene plantillas». Diego, 28/09, con CEDIA en /testeo.
-    const deLaEmpresa = Array.isArray(ambito.projectIds) && ambito.projectIds.length > 0;
+    let { projectIds } = ambito;
+    // «Todos los proyectos» de super admin o soporte (#218): sin campus y sin
+    // empresa, las de todos los campus, sin los de pruebas. Antes, «projectId
+    // requerido», y el Seguimiento se quedaba sin plantillas.
+    if (!ambito.projectId && !projectIds) {
+      const { rows } = await query('SELECT id FROM projects WHERE active AND NOT COALESCE(es_prueba, false)');
+      projectIds = rows.map((r) => Number(r.id));
+    }
+    const deLaEmpresa = Array.isArray(projectIds) && projectIds.length > 0;
     res.json({ success: true, data: await model.listTemplates({
       projectId: deLaEmpresa ? null : (ambito.projectId ?? proyecto(req)),
-      projectIds: ambito.projectIds,
+      projectIds,
       userId: await duenoDeLasPersonales(req),
     })});
   } catch (err) { next(err); }
@@ -144,17 +153,22 @@ export async function actividad(req, res, next) {
     const desde = fecha(req.query.from) || hasta;
     const ambito = await proyectosDelAmbito(req);
     const projectIds = comoLista(ambito.projectId, ambito.projectIds);
-    res.json({ success: true, data: await actividadEnWhatsapp({ projectIds, desde, hasta }) });
+    const datos = await actividadEnWhatsapp({ projectIds, desde, hasta });
+    // Quien lleva un equipo comercial (QA del 09/11/2026): ella y su equipo.
+    const lider = await alcanceDeLider(req.user);
+    if (lider) datos.filas = datos.filas.filter((f) => enElAlcance(lider, f.id));
+    res.json({ success: true, data: datos });
   } catch (e) { next(e); }
 }
 
 export async function cola(req, res, next) {
   try {
     // Una gestora ve SU cola, ignorando lo que pida por query. Un admin puede
-    // mirar la de quien quiera, o la de todos si no pide a nadie.
-    const responsableId = soloLoSuyo(req.user)
-      ? req.user.userId
-      : (req.query.responsableId ? parseInt(req.query.responsableId) : null);
+    // mirar la de quien quiera, o la de todos si no pide a nadie. Quien lleva un
+    // equipo comercial (09/11/2026), la de su equipo o la de una de ellas.
+    const responsableId = acotarAlAlcance(
+      req.query.responsableId ? parseInt(req.query.responsableId) : null,
+      await alcanceComercial(req.user));
 
     res.json({ success: true, data: await model.cola({
       projectId: proyecto(req),

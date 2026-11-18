@@ -68,6 +68,21 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Recordatorio', agrupa: false,
     descripcion: 'Un recordatorio que pusiste ha vencido',
   },
+  ticket_nuevo: {
+    clase: ACCION, etiqueta: 'Ticket de soporte', agrupa: false,
+    descripcion: 'Alguien del equipo ha reportado una averia o pedido algo',
+  },
+  // CRM#820: alguien pide un alta, un permiso, un campus o Claude. Le llega a
+  // soporte y a los admins del campus que puedan verlo; hay que prepararlo.
+  acceso_pedido: {
+    clase: ACCION, etiqueta: 'Petición de acceso', agrupa: false,
+    descripcion: 'Alguien del equipo pide un alta, un permiso, un campus o Claude',
+  },
+  // Y a quien la pidió, cuando soporte la mueve: en preparación, hecha o rechazada.
+  acceso_respondido: {
+    clase: AVISO, etiqueta: 'Tu petición de acceso', agrupa: false,
+    descripcion: 'Soporte ha movido una petición de acceso tuya',
+  },
   dup_review_pending: {
     clase: ACCION, etiqueta: 'Duplicados por revisar', agrupa: true,
     descripcion: 'Hay fichas esperando en la cola de revisión',
@@ -99,6 +114,13 @@ export const TIPOS = {
   rfc_created: {
     clase: ACCION, etiqueta: 'Solicitud de cambio', agrupa: false,
     descripcion: 'Alguien pide un cambio y hace falta aprobarlo',
+  },
+  // El gasto de IA del mes cruza el 80 % o el 100 % del tope (#30, #22). Solo a los
+  // super admin, una vez por umbral y mes. Pide algo —decidir si se sube
+  // IA_TOPE_MENSUAL_USD—, porque al 100 % la IA se para hasta el día 1.
+  ia_tope_gasto: {
+    clase: ACCION, etiqueta: 'Tope de gasto de IA', agrupa: false,
+    descripcion: 'El gasto de IA del mes llega al 80 % o al 100 % del tope; al 100 % la IA se para hasta el día 1',
   },
   task_asignada: {
     clase: ACCION, etiqueta: 'Tarea asignada', agrupa: false,
@@ -132,11 +154,93 @@ export const TIPOS = {
     clase: AVISO, etiqueta: 'Factura de colaborador', agrupa: false,
     descripcion: 'Cuando un colaborador sube su factura del mes',
   },
+  // Monitask (#236): la factura por horas de un colaborador no cuadra con
+  // Monitask (pasa del margen). A quien la paga, antes de pagarla.
+  monitask_descuadre: {
+    clase: ACCION, etiqueta: 'Horas que no cuadran con Monitask', agrupa: false,
+    descripcion: 'Cuando las horas de la factura de un colaborador se separan de las de Monitask más del margen',
+  },
+  // La auditoría de facturación (#765): la pausa pide que alguien la resuelva.
+  facturacion_pausada: {
+    clase: ACCION, etiqueta: 'Facturación pausada', agrupa: false,
+    descripcion: 'La auditoría de cada 2 horas ha encontrado un error y ha pausado la emisión de facturas',
+  },
+  facturacion_reanudada: {
+    clase: AVISO, etiqueta: 'Facturación reanudada', agrupa: false,
+    descripcion: 'La auditoría ha salido limpia y se ha reanudado la emisión de facturas',
+  },
+  // Cursos pendientes para las tutoras (#336): lo que pide hacer algo va arriba.
+  curso_pendiente_asignado: {
+    clase: ACCION, etiqueta: 'Curso pendiente asignado', agrupa: false,
+    descripcion: 'Cuando te asignan un curso por crear',
+  },
+  curso_pendiente_vence: {
+    clase: ACCION, etiqueta: 'Curso pendiente a punto de vencer', agrupa: false,
+    descripcion: 'Faltan 3 días para la fecha comprometida de un curso tuyo',
+  },
+  curso_pendiente_retrasado: {
+    clase: ACCION, etiqueta: 'Curso pendiente retrasado', agrupa: false,
+    descripcion: 'La fecha comprometida ha pasado y el curso no está publicado',
+  },
+  curso_pendiente_sin_tutora: {
+    clase: ACCION, etiqueta: 'Curso pendiente sin tutora', agrupa: false,
+    descripcion: 'Un curso lleva más de 48 horas sin tutora asignada',
+  },
+  curso_pendiente_sin_habilitar: {
+    clase: ACCION, etiqueta: 'Curso publicado con alumnas sin habilitar', agrupa: false,
+    descripcion: 'Un curso publicado lleva más de 48 horas con alumnas sin habilitar',
+  },
+  curso_pendiente_alumna: {
+    clase: AVISO, etiqueta: 'Alumna nueva en un curso pendiente', agrupa: false,
+    descripcion: 'Se suma otra alumna a un curso pendiente tuyo',
+  },
+  curso_pendiente_semana: {
+    clase: AVISO, etiqueta: 'Resumen semanal de cursos pendientes', agrupa: false,
+    descripcion: 'Cada lunes, por campus: cursos abiertos, retrasados, alumnas esperando y carga por tutora (super admin)',
+  },
+  curso_pendiente_fecha_movida: {
+    clase: AVISO, etiqueta: 'Fecha de un curso movida otra vez', agrupa: false,
+    descripcion: 'La fecha comprometida de un curso se ha movido por segunda vez',
+  },
+  // Consultas de alumnos (#190, decisión 4): al tutor, cuando una consulta
+  // abierta llega a las 3/4 partes del plazo; a administración del campus,
+  // cuando se pasa (para reasignarla). Y al tutor, la carga sin actualizar.
+  consulta_cerca_del_plazo: {
+    clase: ACCION, etiqueta: 'Consulta cerca del plazo', agrupa: false,
+    descripcion: 'Un alumno lleva casi el plazo esperando tu respuesta',
+  },
+  consulta_fuera_de_plazo: {
+    clase: ACCION, etiqueta: 'Consulta fuera de plazo', agrupa: false,
+    descripcion: 'Una consulta de tus campus se ha pasado del plazo sin respuesta',
+  },
+  carga_desactualizada: {
+    clase: ACCION, etiqueta: 'Carga de trabajo sin actualizar', agrupa: false,
+    descripcion: 'Llevas más de una semana sin actualizar tu carga de trabajo',
+  },
   // MCP (#326): un Claude se ha conectado con tu URL y espera a que lo autorices.
   // Si no eres tú, es que la URL se ha colado: hay que rechazarlo.
+  // 17/11/2026: Brevo ha bloqueado el correo de alguien del equipo y no le llega
+  // ningún aviso. Va a superadmins y admins de sus campus, una vez por bloqueo.
+  brevo_bloqueado: {
+    clase: ACCION, etiqueta: 'Correo bloqueado en Brevo', agrupa: false,
+    descripcion: 'A alguien del equipo no le llegan los correos del CRM porque Brevo bloquea su dirección',
+  },
   mcp_conexion_nueva: {
     clase: ACCION, etiqueta: 'Claude pide conectarse', agrupa: false,
     descripcion: 'Un Claude se ha conectado con tu URL del MCP y espera a que lo autorices',
+  },
+  // Moodle (#335): el de un campus ha dejado de responder o su token ya no vale. Lo arregla un
+  // super admin (nuevo token en Conexión → Moodle, o revisar el servidor del campus).
+  moodle_campus_caido: {
+    clase: ACCION, etiqueta: 'Moodle de un campus', agrupa: false,
+    descripcion: 'El Moodle de un campus no responde o su token ya no vale',
+  },
+  // #471: la renovación diaria de un token de Meta Ads o de Instagram ha fallado,
+  // o el token caduca en menos de 7 días. Hay que volver a conectar la cuenta.
+  // Una vez por fallo y una por fecha de caducidad (jobs/metaTokensScheduler.js).
+  meta_token: {
+    clase: ACCION, etiqueta: 'Token de Meta o Instagram', agrupa: false,
+    descripcion: 'La renovación de un token de Meta Ads o Instagram ha fallado, o el token caduca en menos de 7 días',
   },
   // MCP (Diego, 22/10): tu Claude consulta con la URL sola, conectado como antes
   // de la #326, y el CRM no le da datos. Hay que conectarlo una vez. Como mucho

@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import { query } from '../src/shared/config/db.js';
 import { verifyToken } from '../src/shared/middleware/auth.js';
 import { errorHandler } from '../src/shared/middleware/errorHandler.js';
-import { soloEsTutorRedactor, tutorRedactorPuede } from '../src/shared/utils/roles.js';
+import { rutaDeRolCerrado } from '../src/shared/utils/roles.js';
 import { ROLES_FIJOS, ACCIONES } from '../src/modules/permissions/catalogo.js';
 import { SYSTEM_ROLE_DEFAULTS } from '../src/modules/permissions/permissions.defaults.js';
 import { resolverPermisos } from '../src/modules/permissions/resolver.js';
@@ -17,6 +17,7 @@ import conversions from '../src/modules/conversions/index.js';
 import accounting from '../src/modules/accounting/index.js';
 import invoices from '../src/modules/invoices/index.js';
 import tasks from '../src/modules/tasks/index.js';
+import consultas from '../src/modules/consultas/index.js';
 import tutores from '../src/modules/tutores/index.js';
 import facturasColaborador from '../src/modules/facturas-colaborador/index.js';
 
@@ -25,8 +26,7 @@ import facturasColaborador from '../src/modules/facturas-colaborador/index.js';
  *
  * Lo que pide la issue:
  *   · existe y se puede dar (está en el catálogo, en Roles y en la ficha);
- *   · entra y ve su tablero, su factura del mes y Mis cursos (Consultas llega
- *     a producción con el módulo de consultas, #187);
+ *   · entra y ve su tablero, su factura del mes y Consultas/Mis cursos;
  *   · prospectos, ventas y finanzas: 403, y lo niega el SERVIDOR;
  *   · puede tener ficha de colaborador para subir su factura.
  */
@@ -34,7 +34,11 @@ import facturasColaborador from '../src/modules/facturas-colaborador/index.js';
 const LO_SUYO = [
   'tasks.view_own', 'tasks.create', 'tasks.edit',
   'facturas_colaborador.subir',
-  'tutores.mis_cursos',
+  'tutores.mis_cursos', 'consultas.atender',
+  // CRM#820 (17/11): pedir acceso o permiso a soporte, como todos los roles.
+  'accesos.pedir',
+  // #211 (Diego, 06/11): su propio correo, con código, como todos los roles.
+  'cuenta.cambiar_correo',
 ];
 
 describe('#708 · el rol en el catálogo', () => {
@@ -45,7 +49,7 @@ describe('#708 · el rol en el catálogo', () => {
     expect(r.descripcion).toMatch(/Moodle/);
   });
 
-  it('de serie trae su tablero, su factura y sus cursos, y nada más', () => {
+  it('de serie trae su tablero, su factura, sus consultas y sus cursos, y nada más', () => {
     const suyas = Object.entries(SYSTEM_ROLE_DEFAULTS.tutor_redactor).filter(([, v]) => v).map(([k]) => k).sort();
     expect(suyas).toEqual([...LO_SUYO].sort());
   });
@@ -76,18 +80,18 @@ describe('#708 · el corte del servidor (verifyToken)', () => {
     }
   });
 
-  it('lo suyo sí: su tablero, su factura y sus cursos', async () => {
+  it('lo suyo sí: su tablero, su factura, sus consultas y sus cursos', async () => {
     for (const url of ['/api/auth/me', '/api/tasks', '/api/tasks/historial', '/api/facturas-colaborador/mias',
-      '/api/tutores/colaboraciones', '/api/notifications', '/api/users/mis-avisos',
+      '/api/consultas/mias', '/api/tutores/colaboraciones', '/api/notifications', '/api/users/mis-avisos',
       '/api/permissions/system-defaults']) {
       expect(await pasa(redactor, url), url).toBe('ok');
     }
   });
 
-  it('quien además tiene otro rol no se recorta', async () => {
-    expect(soloEsTutorRedactor({ role: 'gestor', roles_extra: ['tutor_redactor'] })).toBe(false);
-    expect(await pasa({ userId: 1, role: 'gestor', roles_extra: ['tutor_redactor'] }, '/api/leads')).toBe('ok');
-    expect(tutorRedactorPuede('/api/leads')).toBe(false);
+  it('quien además tiene otro rol sin lista cerrada no se recorta; el tutor y el colaborador, igual que antes', () => {
+    expect(rutaDeRolCerrado({ role: 'gestor', roles_extra: ['tutor_redactor'] }, '/api/leads')).toBeNull();
+    expect(rutaDeRolCerrado({ role: 'tutor', roles_extra: [] }, '/api/facturas-colaborador/mias')).toBe(false);
+    expect(rutaDeRolCerrado({ role: 'colaborador', roles_extra: [] }, '/api/consultas/mias')).toBe(false);
   });
 });
 
@@ -121,7 +125,7 @@ afterAll(async () => {
 describe('#708 · un redactor de verdad (API)', () => {
   const app = express();
   app.use(express.json());
-  for (const m of [leads, conversions, accounting, invoices, tasks, tutores, facturasColaborador]) app.use(m.prefix, m.router);
+  for (const m of [leads, conversions, accounting, invoices, tasks, consultas, tutores, facturasColaborador]) app.use(m.prefix, m.router);
   app.use(errorHandler);
   const get = (u) => supertest(app).get(u).set('Authorization', `Bearer ${jwt.sign({ userId: redactorId, role: 'tutor_redactor', roles_extra: [] }, process.env.JWT_SECRET)}`);
 
@@ -129,9 +133,9 @@ describe('#708 · un redactor de verdad (API)', () => {
     expect(hayBase, porQueNo || '').toBe(true);
   });
 
-  it('entra a su tablero, a su factura y a sus cursos', async () => {
+  it('entra a su tablero, a su factura, a sus consultas y a sus cursos', async () => {
     if (!hayBase) return;
-    for (const url of ['/api/tasks', '/api/facturas-colaborador/mias', '/api/tutores/colaboraciones']) {
+    for (const url of ['/api/tasks', '/api/facturas-colaborador/mias', '/api/consultas/mias', '/api/tutores/colaboraciones']) {
       const r = await get(url);
       expect(r.status, `${url}: ${JSON.stringify(r.body)}`).toBe(200);
     }
@@ -139,7 +143,7 @@ describe('#708 · un redactor de verdad (API)', () => {
 
   it('prospectos, ventas y finanzas: 403', async () => {
     if (!hayBase) return;
-    for (const url of ['/api/leads', '/api/conversions', '/api/accounting/income', '/api/invoices']) {
+    for (const url of ['/api/leads', '/api/conversions', '/api/accounting/income', '/api/invoices', '/api/consultas']) {
       const r = await get(url);
       expect(r.status, url).toBe(403);
     }

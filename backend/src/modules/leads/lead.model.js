@@ -4,6 +4,8 @@ import { EN_EL_PROCESO } from '../../shared/utils/enElProceso.js';
 import { recolocarPasos } from '../../shared/utils/recolocarPasos.js';
 import { logger } from '../../shared/utils/logger.js';
 import { gestoresDelReparto } from './reparto.js';
+import { comoIds } from '../../shared/utils/roles.js';
+import { paisDeEntrada, sqlPaisDelLead } from './pais.js';
 
 // ============================================================
 // WEBHOOK + ROUND-ROBIN
@@ -565,6 +567,15 @@ export async function createLeadWithRoundRobin({ projectId, nombre, email, telef
     );
     const lead = leadRows[0];
 
+    // El país de entrada (#221): el subdominio por el que entró y la tabla de su
+    // campus. Va aquí porque por aquí pasan TODAS las altas (webhook, Make,
+    // formularios, alta manual, admisión). Sin dirección o sin tabla, nada.
+    const pais = await paisDeEntrada(client, projectId, landingUrl || utms?.landing_url || null);
+    if (pais) {
+      await client.query('UPDATE leads SET pais_origen = $2 WHERE id = $1', [lead.id, pais]);
+      lead.pais_origen = pais;
+    }
+
     // Guardar UTMs si hay datos relevantes. Antes esto SOLO insertaba si había
     // utm_source/medium/campaign, ignorando canal_detectado. Resultado: al crear
     // manualmente con "WhatsApp" el canal no se guardaba. Ahora también dispara
@@ -572,13 +583,13 @@ export async function createLeadWithRoundRobin({ projectId, nombre, email, telef
     if (
       utms && (
         utms.utm_source || utms.utm_medium || utms.utm_campaign ||
-        utms.canal_detectado || utms.landing_url
+        utms.canal_detectado || utms.landing_url || utms.referrer
       )
     ) {
       await client.query(
-        `INSERT INTO lead_utms (lead_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, canal_detectado)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [lead.id, utms.utm_source, utms.utm_medium, utms.utm_campaign, utms.utm_content, utms.utm_term, utms.landing_url, utms.canal_detectado]
+        `INSERT INTO lead_utms (lead_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, canal_detectado, referrer)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [lead.id, utms.utm_source, utms.utm_medium, utms.utm_campaign, utms.utm_content, utms.utm_term, utms.landing_url, utms.canal_detectado, utms.referrer || null]
       );
     }
 
@@ -787,7 +798,7 @@ export const FILTROS_RAPIDOS = {
   get urgent() { return desdeElInicio(`(${PROXIMO} <= CURRENT_DATE OR ${SIN_TOCAR})`); },
 };
 
-export async function findAll({ projectId, projectIds, status, seguimiento, pasoProceso, responsableId, unassigned, canal, productId, search, page, limit, includeConverted, dateFrom, dateTo, sort, dir, duplicated, reincidente, conConversion, qf }) {
+export async function findAll({ projectId, projectIds, status, seguimiento, pasoProceso, responsableId, unassigned, canal, paisEntrada = null, productId, search, page, limit, includeConverted, dateFrom, dateTo, sort, dir, duplicated, reincidente, conConversion, qf }) {
   const conditions = [];
   const params = [];
   let paramIdx = 1;
@@ -880,12 +891,18 @@ export async function findAll({ projectId, projectIds, status, seguimiento, paso
   if (unassigned) {
     conditions.push(`l.responsable_id IS NULL`);
   } else if (responsableId) {
-    conditions.push(`l.responsable_id = $${paramIdx++}`);
-    params.push(responsableId);
+    // Una persona o varias: las de un equipo comercial (09/11/2026).
+    conditions.push(`l.responsable_id = ANY($${paramIdx++}::int[])`);
+    params.push(comoIds(responsableId));
   }
   if (canal) {
     conditions.push(`EXISTS (SELECT 1 FROM lead_utms lu WHERE lu.lead_id = l.id AND lu.canal_detectado = $${paramIdx++})`);
     params.push(canal);
+  }
+  // País de entrada (#221): un código ISO o `sin_pais`.
+  if (paisEntrada) {
+    conditions.push(`${sqlPaisDelLead('l')} = $${paramIdx++}`);
+    params.push(paisEntrada);
   }
   if (productId) {
     conditions.push(conConversion
@@ -1017,6 +1034,7 @@ export async function findAll({ projectId, projectIds, status, seguimiento, paso
     `SELECT l.id, l.nombre, l.email, l.telefono, l.whatsapp_usuario, l.status, l.fecha_solicitud, l.dossier_enviado, l.lead_duplicado_de,
             l.reincidente, l.es_propuesto, l.propuesto_de, l.updated_at, l.created_at,
             l.landing_url,
+            l.pais_origen,
             l.project_id,
             l.responsable_id,
             proj.nombre AS proyecto_nombre,
@@ -1076,8 +1094,8 @@ export async function contarFiltrosRapidos({ projectId, projectIds, responsableI
     params.push(projectId);
   }
   if (responsableId) {
-    cond.push(`l.responsable_id = $${i++}`);
-    params.push(responsableId);
+    cond.push(`l.responsable_id = ANY($${i++}::int[])`);
+    params.push(comoIds(responsableId));
   }
   // Igual que el listado: los convertidos no cuentan salvo que se pidan.
   if (!includeConverted) cond.push(NO_ES_CLIENTE);
@@ -1114,7 +1132,7 @@ export async function comoVaLaRevision({ projectId, responsableId }) {
   const params = [];
   let i = 1;
   if (projectId) { cond.push(`l.project_id = $${i++}`); params.push(projectId); }
-  if (responsableId) { cond.push(`l.responsable_id = $${i++}`); params.push(responsableId); }
+  if (responsableId) { cond.push(`l.responsable_id = ANY($${i++}::int[])`); params.push(comoIds(responsableId)); }
 
   const { rows } = await query(
     `SELECT COUNT(*)::int AS total,
@@ -1436,11 +1454,14 @@ export async function getLeadProjectId(leadId) {
 // ============================================================
 
 // Panel "Hoy" - actividad del dia, reminders pendientes, alertas
-export async function getTodaySummary({ userId, role, soloSuyo, projectId, projectIds = null }) {
+export async function getTodaySummary({ userId, role, soloSuyo, alcanceIds, projectId, projectIds = null }) {
   // Usamos parametros para evitar SQL injection
-  // Solo lo suyo: la gestora, el project manager y quien tiene la gestora añadida (02/11,
-  // `soloLoSuyo` de shared/utils/roles.js). Sin `soloSuyo`, por el rol, como antes.
-  const userIdParam = (soloSuyo ?? role === 'gestor') ? userId : null;
+  // De quién: `alcanceIds` (09/11/2026, `alcanceComercial`) es la gestora sola o
+  // la líder con su equipo; null, todo el campus. Quien aún pase `soloSuyo`
+  // (02/11) o nada (por el rol, como antes) sigue funcionando igual.
+  const userIdParam = alcanceIds !== undefined
+    ? comoIds(alcanceIds)
+    : ((soloSuyo ?? role === 'gestor') ? comoIds(userId) : null);
   // Uno o varios campus en la MISMA consulta (#224). Con una empresa elegida
   // el Dashboard pedia esto una vez por campus —siete con CEDIA, cada una con
   // seis consultas seguidas— y sumaba en el navegador. Ahora es una sola
@@ -1457,7 +1478,7 @@ export async function getTodaySummary({ userId, role, soloSuyo, projectId, proje
      JOIN leads l ON l.id = lr.lead_id
      WHERE lr.completado = false
        AND lr.fecha_recordatorio <= CURRENT_DATE
-       AND ($1::int IS NULL OR lr.created_by = $1)
+       AND ($1::int[] IS NULL OR lr.created_by = ANY($1::int[]))
        AND ($2::int[] IS NULL OR l.project_id = ANY($2::int[]))
      ORDER BY lr.fecha_recordatorio ASC, lr.id DESC
      LIMIT 20`,
@@ -1467,7 +1488,7 @@ export async function getTodaySummary({ userId, role, soloSuyo, projectId, proje
   const { rows: nuevosHoy } = await query(
     `SELECT COUNT(*) FROM leads l
      WHERE l.fecha_solicitud::date = CURRENT_DATE
-       AND ($1::int IS NULL OR l.responsable_id = $1)
+       AND ($1::int[] IS NULL OR l.responsable_id = ANY($1::int[]))
        AND ($2::int[] IS NULL OR l.project_id = ANY($2::int[]))`,
     [userIdParam, pidParam]
   );
@@ -1475,7 +1496,7 @@ export async function getTodaySummary({ userId, role, soloSuyo, projectId, proje
   const { rows: nuevosSemana } = await query(
     `SELECT COUNT(*) FROM leads l
      WHERE l.fecha_solicitud >= CURRENT_DATE - INTERVAL '7 days'
-       AND ($1::int IS NULL OR l.responsable_id = $1)
+       AND ($1::int[] IS NULL OR l.responsable_id = ANY($1::int[]))
        AND ($2::int[] IS NULL OR l.project_id = ANY($2::int[]))`,
     [userIdParam, pidParam]
   );
@@ -1486,7 +1507,7 @@ export async function getTodaySummary({ userId, role, soloSuyo, projectId, proje
      LEFT JOIN projects p ON p.id = l.project_id
      WHERE l.status NOT IN ('convertido', 'no_interesado')
        AND EXTRACT(DAY FROM NOW() - GREATEST(l.updated_at, COALESCE((SELECT MAX(fecha) FROM lead_interactions WHERE lead_id = l.id), l.created_at))) > p.dias_alerta_inactividad
-       AND ($1::int IS NULL OR l.responsable_id = $1)
+       AND ($1::int[] IS NULL OR l.responsable_id = ANY($1::int[]))
        AND ($2::int[] IS NULL OR l.project_id = ANY($2::int[]))`,
     [userIdParam, pidParam]
   );
@@ -1498,7 +1519,7 @@ export async function getTodaySummary({ userId, role, soloSuyo, projectId, proje
      WHERE c.importe_pagado < c.importe_total
        AND c.fecha_compromiso_pago IS NOT NULL
        AND c.fecha_compromiso_pago < CURRENT_DATE
-       AND ($1::int IS NULL OR l.responsable_id = $1)
+       AND ($1::int[] IS NULL OR l.responsable_id = ANY($1::int[]))
        AND ($2::int[] IS NULL OR c.project_id = ANY($2::int[]))`,
     [userIdParam, pidParam]
   );
@@ -1509,7 +1530,7 @@ export async function getTodaySummary({ userId, role, soloSuyo, projectId, proje
      JOIN conversions c ON c.id = cp.conversion_id
      LEFT JOIN leads l ON l.id = c.lead_id
      WHERE cp.fecha = CURRENT_DATE
-       AND ($1::int IS NULL OR l.responsable_id = $1)
+       AND ($1::int[] IS NULL OR l.responsable_id = ANY($1::int[]))
        AND ($2::int[] IS NULL OR c.project_id = ANY($2::int[]))`,
     [userIdParam, pidParam]
   );
@@ -1524,7 +1545,7 @@ export async function getTodaySummary({ userId, role, soloSuyo, projectId, proje
   };
 }
 
-export async function getStats(projectId, { responsableId = null, dateFrom = null, dateTo = null, productId = null, canal = null, search = null } = {}) {
+export async function getStats(projectId, { responsableId = null, dateFrom = null, dateTo = null, productId = null, canal = null, paisEntrada = null, search = null } = {}) {
   // Los chips de stats deben reflejar los mismos filtros que el listado, no el
   // total global del proyecto. WHERE incremental igual que findAll.
   // `projectId` puede ser una LISTA de campus (#224): el Dashboard con una
@@ -1532,7 +1553,7 @@ export async function getStats(projectId, { responsableId = null, dateFrom = nul
   const params = [Array.isArray(projectId) ? projectId.map(Number) : [Number(projectId)]];
   let idx = 2;
   const extra = [];
-  if (responsableId) { extra.push(`responsable_id = $${idx++}`); params.push(responsableId); }
+  if (responsableId) { extra.push(`responsable_id = ANY($${idx++}::int[])`); params.push(comoIds(responsableId)); }
   if (productId)     { extra.push(`producto_interes_id = $${idx++}`); params.push(productId); }
   const APP_TZ = process.env.APP_TIMEZONE || 'Europe/Madrid';
   if (dateFrom) {
@@ -1547,6 +1568,7 @@ export async function getStats(projectId, { responsableId = null, dateFrom = nul
     extra.push(`EXISTS (SELECT 1 FROM lead_utms lu WHERE lu.lead_id = leads.id AND lu.canal_detectado = $${idx++})`);
     params.push(canal);
   }
+  if (paisEntrada) { extra.push(`${sqlPaisDelLead('')} = $${idx++}`); params.push(paisEntrada); }
   // La misma búsqueda que la lista (#591): sin acentos y el teléfono por cifras.
   const busqueda = condicionDeBusqueda(search, { idx });
   if (busqueda) {

@@ -2,14 +2,28 @@ import { useEffect, useState, useCallback } from 'react';
 import client from '@/shared/api/client';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import CorteDeFacturacion from '../components/CorteDeFacturacion';
+import ProyectosIAConectados from '../components/ProyectosIAConectados';
+import EstadoDeLasIntegraciones from '../components/EstadoDeLasIntegraciones';
+import SaludDeLasConexiones from '../components/SaludDeLasConexiones';
+import { TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
+import EstadoDeLaSincronizacion from '../components/EstadoDeLaSincronizacion';
+import SupabaseCard from '../components/SupabaseCard';
+import MonitaskCard from '@/modules/monitask/components/MonitaskCard';
 import { toast } from '@/shared/hooks/useToast';
+import usePermission from '@/shared/hooks/usePermission';
+import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
+import { esProyectoIA, PROYECTOS_IA } from '@/shared/lib/proyectosIA';
+import { PLUGIN_MOODLE } from '@/shared/lib/pluginMoodle';
+import { EtiquetaEnPruebas } from '@/shared/components/ui/EnPruebas';
 import {
   CreditCard, EnvelopeSimple, CheckCircle, WarningCircle, Eye, EyeSlash,
-  ArrowSquareOut, FloppyDisk, PlugsConnected, Trash, Question,
+  ArrowSquareOut, FloppyDisk, PlugsConnected, Trash, Question, GraduationCap,
+  LinkSimple, Percent, MinusCircle,
 } from '@phosphor-icons/react';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────
-type Provider = 'stripe' | 'brevo';
+type Provider = 'stripe' | 'brevo' | 'supabase' | 'moodle' | 'stripe_links' | 'paypal';
 interface Integration {
   id?: number;
   project_id?: number;
@@ -65,8 +79,21 @@ function fmt(d: string | null): string {
 }
 
 export default function IntegrationsPage() {
-  const { activeProject } = useProjectContext() as { activeProject: { id?: number | null; nombre?: string } };
-  const pid = activeProject?.id;
+  const { activeProject, isAllProjects, activeIssuerId } = useProjectContext() as {
+    activeProject: { id?: number | null; nombre?: string; type?: string };
+    isAllProjects?: boolean;
+    activeIssuerId?: number | null;
+  };
+  // Con «Todos» o una empresa arriba no hay UN campus que configurar: la
+  // pantalla enseña el estado de cada uno, solo para ver (#218, Diego 04/11).
+  const vistaGeneral = !!isAllProjects || !!activeIssuerId || activeProject?.id === TODOS_LOS_PROYECTOS;
+  const pid = vistaGeneral ? null : activeProject?.id;
+  // Lo del #44, solo en pruebas (`shared/lib/proyectosIA`).
+  const esIA = esProyectoIA(activeProject);
+  // La salud de las conexiones (CRM#533): superadmin y admin, de «Todos», de una
+  // empresa o de un campus.
+  const { can } = usePermission();
+  const verSalud = can('integrations.salud');
 
   return (
     <div className="space-y-5 pb-8">
@@ -77,7 +104,9 @@ export default function IntegrationsPage() {
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning-soft text-warning-soft-foreground">PRUEBAS</span>
           </span>
         ) as unknown as string}
-        subtitle={`Configura conexiones externas (Stripe, Brevo) para ${activeProject?.nombre || 'el proyecto activo'}.`}
+        subtitle={vistaGeneral
+          ? 'El estado de las conexiones (Stripe, Brevo, el campus Moodle) de cada campus.'
+          : `Configura conexiones externas (Stripe, Brevo, el campus Moodle${esIA ? ', Supabase' : ''}) para ${activeProject?.nombre || 'el proyecto activo'}.`}
       />
 
       <div className="bg-info-soft border border-info/30 rounded-lg p-4 text-sm space-y-2">
@@ -89,8 +118,14 @@ export default function IntegrationsPage() {
           <p><strong>2) Probar conexión</strong> — el CRM hace 1 request a la API del proveedor para validar la key. Si responde 200, queda <em>Conectado</em>.</p>
           <p><strong>3) Uso real:</strong></p>
           <ul className="list-disc list-inside pl-2 space-y-0.5">
-            <li><strong>Stripe:</strong> en proyectos IA, el dashboard hace live fetch de MRR / suscripciones / cobros fallidos. El webhook de pagos para crear conversions automáticas <em>está en desarrollo</em>.</li>
+            <li><strong>Stripe:</strong> con el access token guardado, el CRM sondea los cobros cada cinco minutos y los deja en <em>Pagos Stripe</em> para asociarlos a una venta. En proyectos IA, además, el dashboard lee MRR, suscripciones y cobros fallidos en vivo. El webhook es <em>opcional</em>: sirve para no esperar esos cinco minutos, y sin su secreto de firma se rechaza.</li>
+            <li><strong>Campus (Moodle):</strong> las consultas de alumnos. Con el token del campus, el CRM comprueba que cada tutor es usuario del campus de su proyecto.</li>
             <li><strong>Brevo:</strong> envía emails transaccionales (lead asignado, recordatorios, confirmación de pago) usando el From email validado. La automatización de resúmenes diarios / SLA 30min está en desarrollo.</li>
+            {esIA && (
+              <li><strong>Supabase:</strong> la base de la propia app IA. De ahí salen sus usuarios y
+                suscripciones, con más detalle del que da Stripe — quién compró, qué plan y desde qué
+                país. Se trae a mano, con «Traer al CRM», y no duplica lo que ya esté.</li>
+            )}
           </ul>
           <p className="text-warning-soft-foreground pt-1">
             <strong>⚠ Importante:</strong> cada proyecto tiene sus propias credenciales. Cambiá el proyecto en el sidebar antes de configurar para no mezclar cuentas.
@@ -98,14 +133,37 @@ export default function IntegrationsPage() {
         </div>
       </div>
 
-      {!pid ? (
+      {/* La lista de proyectos IA va FUERA del `pid`: sirve precisamente
+          cuando todavia no se ha elegido ninguno, para saber por cual empezar.
+          Se pinta sola solo si hay proyectos IA. Solo en pruebas (#44). */}
+      {PROYECTOS_IA && <ProyectosIAConectados />}
+
+      {verSalud && (vistaGeneral || pid) && <SaludDeLasConexiones />}
+      {/* Monitask (#236): de todo el CRM, no de un campus. Sale sola si el servidor
+          lo tiene encendido (MONITASK_ACTIVO) y quien mira puede configurarlo. */}
+      <MonitaskCard />
+
+      {vistaGeneral ? (
+        <EstadoDeLasIntegraciones />
+      ) : !pid ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center text-muted-foreground">
-          Selecciona un proyecto en el sidebar para configurar sus integraciones.
+          Selecciona un proyecto en el sidebar —o pulsa «Configurar» arriba— para configurar sus integraciones.
         </div>
       ) : (
         <div className="space-y-5">
           <StripeCard projectId={pid} />
+          {/* Links de pago (#680, fase 1): la clave de escritura, aparte de la
+              de lectura de arriba. Solo en /testeo y local hasta que Diego lo apruebe. */}
+          {/* `key`: al cambiar de campus la tarjeta empieza de cero; si no,
+              enseñaba un momento el descuento del campus anterior. */}
+          {SOLO_EN_PRUEBAS && <StripeLinksCard key={pid} projectId={pid} />}
+          {/* Supabase solo en los proyectos IA: es donde vive su app. En un
+              proyecto CRM la tarjeta no diría nada. */}
+          {esIA && <SupabaseCard projectId={pid} />}
+          {/* PayPal (#766): solo si el servidor tiene encendido PAYPAL_COBROS_ACTIVO. */}
+          <PaypalSiEstaEncendido key={`paypal-${pid}`} projectId={pid} />
           <BrevoCard projectId={pid} />
+          <MoodleCard projectId={pid} />
         </div>
       )}
     </div>
@@ -209,7 +267,7 @@ function StripeCard({ projectId }: { projectId: number }) {
         </div>
         <div className="flex-1">
           <h3 className="font-semibold text-base">Stripe</h3>
-          <p className="text-xs text-muted-foreground">Importar payouts y comisiones de pasarela como egresos automáticos.</p>
+          <p className="text-xs text-muted-foreground">Los cobros entran <strong>por consulta</strong>: con el access token guardado, el CRM le pregunta a Stripe cada cinco minutos. Stripe no tiene que avisar de nada.</p>
         </div>
         <StatusPill data={data} />
       </div>
@@ -217,7 +275,7 @@ function StripeCard({ projectId }: { projectId: number }) {
       <div className="p-5 space-y-4">
         <button onClick={() => setShowHelp((v) => !v)}
           className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
-          <Question size={12} weight="bold" /> {showHelp ? 'Ocultar tutorial' : 'Cómo obtener mi API key de Stripe'}
+          <Question size={12} weight="bold" /> {showHelp ? 'Ocultar tutorial' : 'Cómo sacar el access token de Stripe'}
         </button>
         {showHelp && (
           <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-3">
@@ -231,12 +289,13 @@ function StripeCard({ projectId }: { projectId: number }) {
             </div>
 
             <div>
-              <p className="font-semibold mb-1">🔑 Paso 1 — Obtener tu API key</p>
+              <p className="font-semibold mb-1">🔑 Paso 1 — Sacar el access token</p>
               <ol className="list-decimal list-inside space-y-1 pl-1 text-muted-foreground">
                 <li>Entra a <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-0.5 hover:underline">dashboard.stripe.com/apikeys <ArrowSquareOut size={10} weight="bold" /></a></li>
-                <li><strong>Pruebas:</strong> arriba a la izquierda activa <strong>"Modo prueba"</strong> y copia la "Secret key" (empieza por <code className="px-1 rounded bg-card">sk_test_…</code>).</li>
-                <li><strong>Producción:</strong> desactiva modo prueba y copia la "Secret key live" (<code className="px-1 rounded bg-card">sk_live_…</code>). <span className="text-destructive font-semibold">Acceso real a movimientos de dinero.</span></li>
-                <li>Pégala abajo en <em>API Key</em>, pulsa <strong>Guardar</strong> y luego <strong>Probar conexión</strong>.</li>
+                <li><strong>Lo recomendado:</strong> «Create restricted key». Marca <strong>Read</strong> en <em>Charges</em> y en <em>Balance</em>, y deja todo lo demás en <em>None</em>. Sale una <code className="px-1 rounded bg-card">rk_live_…</code>.</li>
+                <li><strong>Por qué restringida:</strong> el CRM solo lee. Con la <code className="px-1 rounded bg-card">sk_live_…</code> le das además permiso para cobrar, devolver y transferir, que no usa nunca. <span className="text-destructive font-semibold">Si se filtra, esa es toda la diferencia.</span></li>
+                <li><strong>Para probar:</strong> activa «Modo prueba» arriba a la izquierda y usa la clave de test (<code className="px-1 rounded bg-card">sk_test_…</code>). Ahí no hay dinero de verdad.</li>
+                <li>Pégala abajo en <em>Access token</em>, pulsa <strong>Guardar</strong> y luego <strong>Probar conexión</strong>.</li>
               </ol>
             </div>
 
@@ -269,7 +328,8 @@ function StripeCard({ projectId }: { projectId: number }) {
             <div>
               <p className="font-semibold mb-1">🔄 Paso 3 — Cómo se cruzan los datos con el CRM</p>
               <ul className="list-disc list-inside space-y-0.5 pl-1 text-muted-foreground">
-                <li>Stripe envía evento → CRM verifica firma con el Signing Secret.</li>
+                <li><strong>Por consulta (lo normal):</strong> cada cinco minutos el CRM pide a Stripe los cargos nuevos con el access token. No hace falta nada más.</li>
+                <li><strong>Por webhook (opcional):</strong> Stripe envía el evento → el CRM verifica la firma con el Signing Secret. Solo ahorra la espera.</li>
                 <li>Busca el cliente por email en la tabla <code className="px-1 rounded bg-card">leads</code> del proyecto.</li>
                 <li>Si existe → crea/actualiza <code className="px-1 rounded bg-card">conversions</code> + <code className="px-1 rounded bg-card">conversion_payments</code>.</li>
                 <li>Si no existe → registra el pago como huérfano para que la gestora lo asocie manualmente.</li>
@@ -282,16 +342,33 @@ function StripeCard({ projectId }: { projectId: number }) {
           </div>
         )}
 
+        {/* El corte va ANTES del campo, no debajo: guardar la clave es lo que
+            arranca el sondeo, asi que el aviso tiene que leerse antes de
+            pegarla, no despues. */}
+        <CorteDeFacturacion projectId={projectId} />
+
         <div>
           <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
-            API Key {data?.has_secret && <span className="font-normal text-muted-foreground/80 ml-1">(actualmente: <code className="bg-muted px-1 rounded text-[10px]">{data.secret_preview}</code> — deja vacío para no cambiar)</span>}
+            Access token {data?.has_secret && <span className="font-normal text-muted-foreground/80 ml-1">(actualmente: <code className="bg-muted px-1 rounded text-[10px]">{data.secret_preview}</code> — deja vacío para no cambiar)</span>}
           </label>
+          {/* CLAVE RESTRINGIDA DE SOLO LECTURA, NO LA SECRETA.
+
+              El CRM solo LEE de Stripe: consulta el saldo para probar la
+              conexion y lista cargos para el sondeo. Con una `sk_live_` se le
+              esta dando ademas permiso para mover dinero --cobrar, devolver,
+              transferir-- que no usa nunca. Si esa clave se filtra, la
+              diferencia entre las dos es toda la diferencia. */}
+          <p className="text-[11px] text-muted-foreground mb-1.5">
+            Usa una <strong>clave restringida de solo lectura</strong> (<code className="px-1 rounded bg-muted">rk_…</code>)
+            con permiso de lectura en <em>Charges</em> y <em>Balance</em>. El CRM no cobra ni
+            devuelve nada: con la clave secreta le estarías dando permisos que no usa.
+          </p>
           <div className="relative">
             <input
               type={showKey ? 'text' : 'password'}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={data?.has_secret ? 'Sin cambios' : 'sk_test_... o sk_live_...'}
+              placeholder={data?.has_secret ? 'Sin cambios' : 'rk_live_… (recomendado) o sk_test_…'}
               className="w-full h-10 pl-3 pr-10 rounded-md border border-border bg-card text-sm font-mono"
             />
             <button type="button" onClick={() => setShowKey((v) => !v)}
@@ -301,7 +378,21 @@ function StripeCard({ projectId }: { projectId: number }) {
           </div>
         </div>
 
-        <div>
+        {/* EL WEBHOOK ES OPCIONAL, Y CONVIENE QUE LO PAREZCA.
+
+            Se pedia como si fuera un paso obligatorio del alta, y no lo es:
+            los cobros entran por el sondeo con solo el access token. El
+            webhook unicamente ahorra la espera de cinco minutos.
+
+            Importa para los proyectos IA, que se conectan SIN webhook --no hay
+            secretos de firma--. Presentarlo como obligatorio dejaba el alta a
+            medias en apariencia, y empujaba a publicar un endpoint que sin
+            secreto se rechaza igual. Va plegado. */}
+        <details className="rounded-md border border-border bg-muted/20 p-3">
+          <summary className="text-[11px] font-semibold cursor-pointer select-none">
+            Webhook <span className="font-normal text-muted-foreground">— opcional, solo para no esperar los cinco minutos</span>
+          </summary>
+          <div className="pt-3">
           <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
             Secreto de firma del webhook
           </label>
@@ -323,9 +414,15 @@ function StripeCard({ projectId }: { projectId: number }) {
           <code className="block w-full px-3 py-2 rounded-md border border-border bg-muted/40 text-xs font-mono break-all">
             {urlWebhook(projectId)}
           </code>
-        </div>
+          </div>
+        </details>
 
         <TestStatus data={data} />
+
+        {/* Como va el cron. «Probar conexion» dice que la clave sirve AHORA;
+            esto dice si los cobros estan entrando de verdad, que es otra
+            pregunta y la que importa cuando no hay webhook. */}
+        <EstadoDeLaSincronizacion projectId={projectId} />
 
         <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
           <button onClick={save} disabled={saving}
@@ -333,7 +430,7 @@ function StripeCard({ projectId }: { projectId: number }) {
             <FloppyDisk size={14} weight="bold" /> {saving ? 'Guardando…' : 'Guardar'}
           </button>
           <button onClick={test} disabled={testing || !data?.has_secret}
-            title={!data?.has_secret ? 'Guarda primero la API key' : 'Probar conexión con Stripe'}
+            title={!data?.has_secret ? 'Guarda primero el access token' : 'Probar conexión con Stripe'}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-sm font-semibold hover:bg-muted disabled:opacity-50">
             <PlugsConnected size={14} weight="bold" /> {testing ? 'Probando…' : 'Probar conexión'}
           </button>
@@ -341,6 +438,267 @@ function StripeCard({ projectId }: { projectId: number }) {
             <button onClick={clear}
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-destructive/30 bg-card text-sm font-semibold text-destructive hover:bg-destructive-soft ml-auto">
               <Trash size={14} weight="bold" /> Eliminar
+            </button>
+          )}
+        </div>
+      </div>
+      {loading && <div className="px-5 py-3 text-xs text-muted-foreground border-t border-border">Cargando…</div>}
+    </div>
+  );
+}
+
+// ─── Links de pago (Stripe, escritura) ────────────────────────────────────
+// #680, fase 1. La clave que podrá CREAR links de pago, en un hueco aparte de la
+// de lectura del sondeo: si esta falla o se borra, los cobros siguen entrando.
+// «Probar conexión» solo hace GET de un elemento; no crea nada en Stripe.
+const PERMISOS_DE_LA_CLAVE: ReadonlyArray<{ clave: string; nombre: string; nivel: string }> = [
+  { clave: 'payment_links', nombre: 'Payment Links', nivel: 'Escritura' },
+  { clave: 'products', nombre: 'Products', nivel: 'Escritura' },
+  { clave: 'prices', nombre: 'Prices', nivel: 'Escritura' },
+  { clave: 'checkout_sessions', nombre: 'Checkout Sessions', nivel: 'Lectura' },
+];
+
+type Permisos = Record<string, boolean | null>;
+
+function StripeLinksCard({ projectId }: { projectId: number }) {
+  const { can } = usePermission();
+  const puedeEditar = can('integrations.edit');
+  const puedeConfigurar = can('links_pago.configurar');
+  const [data, setData] = useState<Integration | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [permisos, setPermisos] = useState<Permisos | null>(null);
+  // El tope de descuento vive en el campus, no en la clave (migración 250).
+  const [descuento, setDescuento] = useState('');
+  const [descuentoGuardado, setDescuentoGuardado] = useState<number | null>(null);
+  const [guardandoDescuento, setGuardandoDescuento] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await client.get<Integration>(`/integrations/stripe_links?projectId=${projectId}`);
+      if (res.success) setData(res.data || EMPTY('stripe_links'));
+    } catch {/* ignore */} finally { setLoading(false); }
+  }, [projectId]);
+  useEffect(() => { load(); setPermisos(null); }, [load]);
+
+  useEffect(() => {
+    setDescuento('');
+    setDescuentoGuardado(null);
+    if (!puedeConfigurar) return undefined;
+    // Una respuesta que llega tarde, de otro campus, no pisa la de este.
+    let vigente = true;
+    client.get<{ descuento_max_pct: number }>(`/links-pago/config?projectId=${projectId}`)
+      .then((res) => {
+        if (vigente && res.success) {
+          setDescuentoGuardado(res.data.descuento_max_pct);
+          setDescuento(String(res.data.descuento_max_pct));
+        }
+      })
+      .catch(() => { /* la tarjeta sigue sirviendo para la clave */ });
+    return () => { vigente = false; };
+  }, [projectId, puedeConfigurar]);
+
+  async function save() {
+    if (!apiKey.trim()) {
+      toast({ title: 'Falta la clave', description: 'Pega la clave restringida (rk_…) que creó Diego para los links.', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await client.put<Integration>('/integrations', {
+        projectId, provider: 'stripe_links', active: true, api_key: apiKey.trim(),
+      });
+      if (res.success) {
+        setData(res.data);
+        setApiKey('');
+        setPermisos(null);
+        toast({ title: 'Clave de links guardada', description: 'Queda cifrada. Pulsa «Probar conexión».' });
+      }
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string }; message?: string };
+      toast({ title: 'No se ha podido guardar', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally { setSaving(false); }
+  }
+
+  async function test() {
+    setTesting(true);
+    try {
+      const res = await client.post<{ ok: boolean; message: string; permisos?: Permisos }>(`/integrations/stripe_links/test?projectId=${projectId}`);
+      setPermisos(res.data?.permisos || null);
+      if (res.success) toast({ title: '✓ Conexión OK', description: res.data?.message });
+      else toast({ title: 'La prueba ha fallado', description: res.data?.message || 'Stripe no ha contestado.', variant: 'destructive' });
+      await load();
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string } };
+      toast({ title: 'La prueba ha fallado', description: err?.data?.error || 'Error de red', variant: 'destructive' });
+    } finally { setTesting(false); }
+  }
+
+  async function clear() {
+    if (!confirm('¿Quitar la clave de links de pago de este campus? La de lectura (tarjeta «Stripe») no se toca.')) return;
+    try {
+      await client.delete(`/integrations/stripe_links?projectId=${projectId}`);
+      toast({ title: 'Clave de links quitada' });
+      setData(EMPTY('stripe_links')); setApiKey(''); setPermisos(null);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      toast({ title: 'No se ha podido quitar', description: err?.message, variant: 'destructive' });
+    }
+  }
+
+  async function guardarDescuento() {
+    const n = Number(descuento.replace(',', '.'));
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      toast({ title: 'Descuento no válido', description: 'Un número de 0 a 100.', variant: 'destructive' });
+      return;
+    }
+    setGuardandoDescuento(true);
+    try {
+      const res = await client.put<{ descuento_max_pct: number }>('/links-pago/config', { projectId, descuento_max_pct: n });
+      if (res.success) {
+        setDescuentoGuardado(res.data.descuento_max_pct);
+        setDescuento(String(res.data.descuento_max_pct));
+        toast({ title: 'Descuento máximo guardado', description: `${res.data.descuento_max_pct} % sobre el precio del catálogo.` });
+      }
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string }; message?: string };
+      toast({ title: 'No se ha podido guardar', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally { setGuardandoDescuento(false); }
+  }
+
+  const modo = data?.config_public?.modo;
+  const restringida = String(data?.config_public?.restringida) === 'true';
+  // Lo de la última prueba: el servidor lo guarda, así se ve también al volver.
+  const vistos: Permisos | null = permisos
+    ?? ((data?.config_public as unknown as { permisos?: Permisos | null } | undefined)?.permisos || null);
+  const descuentoCambiado = descuento.trim() !== '' && Number(descuento.replace(',', '.')) !== descuentoGuardado;
+
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+          <LinkSimple size={22} weight="duotone" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-base flex flex-wrap items-center gap-2">
+            Links de pago
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning-soft text-warning-soft-foreground">PRUEBAS</span>
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            La clave con la que el CRM <strong>creará</strong> links de pago en la cuenta de Stripe de este campus.
+            Va aparte de la de lectura de arriba, que no se toca. Todavía no se crea ningún link: esto deja la clave lista.
+          </p>
+        </div>
+        <StatusPill data={data} />
+      </div>
+
+      <div className="p-5 space-y-4">
+        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-2">
+          <p className="font-semibold">Qué permisos tiene que llevar la clave restringida</p>
+          <p className="text-muted-foreground">
+            En <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-0.5 hover:underline">dashboard.stripe.com/apikeys <ArrowSquareOut size={10} weight="bold" /></a> →
+            «Create restricted key». Primero en <strong>modo test</strong>. Todo lo demás, en <em>None</em>:
+          </p>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+            {PERMISOS_DE_LA_CLAVE.map((x) => {
+              const visto = vistos ? vistos[x.clave] : undefined;
+              return (
+                <li key={x.clave} className="flex items-center gap-1.5">
+                  {visto === true && <CheckCircle size={12} weight="fill" className="text-success flex-shrink-0" aria-hidden="true" />}
+                  {visto === false && <WarningCircle size={12} weight="fill" className="text-destructive flex-shrink-0" aria-hidden="true" />}
+                  {(visto === undefined || visto === null) && <MinusCircle size={12} className="text-muted-foreground flex-shrink-0" aria-hidden="true" />}
+                  <span><strong>{x.nombre}</strong> · {x.nivel}</span>
+                  {visto === true && <span className="text-success-soft-foreground">(la lee)</span>}
+                  {visto === false && <span className="text-destructive-soft-foreground">(sin permiso)</span>}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-muted-foreground">
+            Con cuotas harán falta también <em>Subscriptions</em> y <em>Subscription Schedules</em> con escritura.
+            «Probar conexión» solo lee (no crea nada en Stripe), así que dice si cada permiso <strong>lee</strong>;
+            la escritura se confirmará con el primer link de prueba.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor={`stripe-links-key-${projectId}`} className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+            Clave restringida de escritura
+            {data?.has_secret && (
+              <span className="font-normal text-muted-foreground/80 ml-1">
+                (actualmente: <code className="bg-muted px-1 rounded text-[10px]">{data.secret_preview}</code>
+                {modo && <> · {modo === 'live' ? 'LIVE' : 'TEST'}{restringida ? ', restringida' : ', secreta'}</>}
+                {' '}— deja vacío para no cambiar)
+              </span>
+            )}
+          </label>
+          <div className="relative">
+            <input
+              id={`stripe-links-key-${projectId}`}
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              autoComplete="off"
+              disabled={!puedeEditar}
+              placeholder={data?.has_secret ? 'Sin cambios' : 'rk_test_… (primero en modo test)'}
+              className="w-full h-10 pl-3 pr-10 rounded-md border border-border bg-card text-sm font-mono disabled:opacity-60"
+            />
+            <button type="button" onClick={() => setShowKey((v) => !v)} aria-label={showKey ? 'Ocultar la clave' : 'Ver la clave'}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground">
+              {showKey ? <EyeSlash size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+          {data?.has_secret && modo && !restringida && (
+            <p className="text-[11px] text-warning-soft-foreground mt-1.5">
+              Es la clave secreta de la cuenta (sk_…), con todos los permisos. Mejor una restringida solo para los links.
+            </p>
+          )}
+        </div>
+
+        {puedeConfigurar && (
+          <div className="rounded-md border border-border p-3 space-y-2">
+            <label htmlFor={`links-descuento-${projectId}`} className="text-sm font-semibold flex items-center gap-1.5">
+              <Percent size={14} weight="bold" aria-hidden="true" /> Descuento máximo en este campus
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Lo que una gestora puede rebajar sobre el precio del catálogo al crear un link. Con 0, solo el admin descuenta.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-28">
+                <input id={`links-descuento-${projectId}`} type="number" inputMode="decimal" min={0} max={100} step={0.5}
+                  value={descuento} onChange={(e) => setDescuento(e.target.value)}
+                  className="w-full h-10 pl-3 pr-7 rounded-md border border-border bg-card text-sm tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground" aria-hidden="true">%</span>
+              </div>
+              <button onClick={guardarDescuento} disabled={guardandoDescuento || !descuentoCambiado}
+                className="inline-flex items-center gap-1.5 h-10 px-3 rounded-md border border-border bg-card text-sm font-semibold hover:bg-muted disabled:opacity-50">
+                <FloppyDisk size={14} weight="bold" /> {guardandoDescuento ? 'Guardando…' : 'Guardar descuento'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <TestStatus data={data} />
+
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+          <button onClick={save} disabled={saving || !puedeEditar}
+            title={!puedeEditar ? 'Hace falta «Configurar integraciones»' : undefined}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+            <FloppyDisk size={14} weight="bold" /> {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+          <button onClick={test} disabled={testing || !data?.has_secret || !puedeEditar}
+            title={!data?.has_secret ? 'Guarda primero la clave' : 'Probar la clave con Stripe (solo lee)'}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-sm font-semibold hover:bg-muted disabled:opacity-50">
+            <PlugsConnected size={14} weight="bold" /> {testing ? 'Probando…' : 'Probar conexión'}
+          </button>
+          {data?.has_secret && puedeEditar && (
+            <button onClick={clear}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-destructive/30 bg-card text-sm font-semibold text-destructive hover:bg-destructive-soft ml-auto">
+              <Trash size={14} weight="bold" /> Quitar
             </button>
           )}
         </div>
@@ -521,6 +879,529 @@ function BrevoCard({ projectId }: { projectId: number }) {
         </div>
       </div>
       {loading && <div className="px-5 py-3 text-xs text-muted-foreground border-t border-border">Cargando…</div>}
+    </div>
+  );
+}
+
+// ─── PayPal (#766) ─────────────────────────────────────────────────────────
+// Los cobros de la cuenta PayPal Business del campus: el CRM los lee (sondeo
+// cada 30 minutos y, si se da de alta, el webhook) y los registra en su venta.
+// Solo lectura: con estas credenciales el CRM no cobra ni devuelve nada.
+const EVENTOS_PAYPAL = [
+  'PAYMENT.CAPTURE.COMPLETED', 'PAYMENT.CAPTURE.PENDING', 'PAYMENT.CAPTURE.DENIED',
+  'PAYMENT.CAPTURE.REVERSED', 'PAYMENT.CAPTURE.REFUNDED', 'PAYMENT.SALE.COMPLETED',
+] as const;
+
+function urlWebhookPaypal(projectId: number): string {
+  const base = (import.meta.env.VITE_API_URL as string | undefined) || `${window.location.origin}/api`;
+  return `${base.replace(/\/+$/, '')}/paypal-webhook/${projectId}`;
+}
+
+function PaypalSiEstaEncendido({ projectId }: { projectId: number }) {
+  const [encendido, setEncendido] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    client.get<{ paypal: boolean }>('/cobros-externos/estado')
+      .then((r) => { if (vivo) setEncendido(!!r.data?.paypal); })
+      .catch(() => { /* sin permiso o sin módulo: no se enseña */ });
+    return () => { vivo = false; };
+  }, []);
+  return encendido ? <PaypalCard projectId={projectId} /> : null;
+}
+
+function PaypalCard({ projectId }: { projectId: number }) {
+  const [data, setData] = useState<Integration | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [secret, setSecret] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [modo, setModo] = useState<'live' | 'sandbox'>('live');
+  const [webhookId, setWebhookId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await client.get<Integration>(`/integrations/paypal?projectId=${projectId}`);
+      if (res.success) {
+        const d = res.data || EMPTY('paypal');
+        setData(d);
+        setClientId((d.config_public?.client_id as string) || '');
+        setModo(d.config_public?.modo === 'sandbox' ? 'sandbox' : 'live');
+        setWebhookId((d.config_public?.webhook_id as string) || '');
+      }
+    } catch {/* ignore */} finally { setLoading(false); }
+  }, [projectId]);
+  useEffect(() => { load(); }, [load]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        projectId, provider: 'paypal', active: true,
+        config_public: { client_id: clientId.trim(), modo, webhook_id: webhookId.trim() || null },
+      };
+      if (secret.trim()) body.api_key = secret.trim();
+      const res = await client.put<Integration>('/integrations', body);
+      if (res.success) {
+        setData(res.data || null);
+        setSecret('');
+        toast({ title: 'PayPal guardado', description: 'El secreto queda cifrado en la base.' });
+      }
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string }; message?: string };
+      toast({ title: 'Error', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally { setSaving(false); }
+  }
+
+  async function test() {
+    setTesting(true);
+    try {
+      const res = await client.post<{ ok: boolean; message: string }>(`/integrations/paypal/test?projectId=${projectId}`);
+      if (res.success) toast({ title: '✓ Conexión OK', description: res.data?.message });
+      else toast({ title: 'Test falló', description: res.data?.message || 'Error desconocido', variant: 'destructive' });
+      await load();
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string } };
+      toast({ title: 'Test falló', description: err?.data?.error || 'Error de red', variant: 'destructive' });
+    } finally { setTesting(false); }
+  }
+
+  async function clear() {
+    if (!confirm('¿Borrar las credenciales de PayPal de este campus? Los cobros ya registrados se quedan.')) return;
+    try {
+      await client.delete(`/integrations/paypal?projectId=${projectId}`);
+      toast({ title: 'PayPal eliminado' });
+      setData(EMPTY('paypal')); setSecret(''); setClientId(''); setWebhookId('');
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      toast({ title: 'Error', description: err?.message, variant: 'destructive' });
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-info-soft text-info-soft-foreground flex items-center justify-center flex-shrink-0">
+          <CreditCard size={22} weight="duotone" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-base flex items-center gap-2">PayPal <EtiquetaEnPruebas /></h3>
+          <p className="text-xs text-muted-foreground">Los cobros de la cuenta PayPal Business de este campus entran solos en su venta (por el correo del cliente o la referencia «venta-N»).</p>
+        </div>
+        <StatusPill data={data} />
+      </div>
+
+      <div className="p-5 space-y-4">
+        <button onClick={() => setShowHelp((v) => !v)}
+          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+          <Question size={12} weight="bold" /> {showHelp ? 'Ocultar tutorial' : 'Cómo sacar las credenciales de PayPal'}
+        </button>
+        {showHelp && (
+          <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-2">
+            <ol className="list-decimal list-inside space-y-1 pl-1 text-muted-foreground">
+              <li>Entra con la cuenta <strong>Business</strong> del campus en <a href="https://developer.paypal.com/dashboard/applications/live" target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-0.5 hover:underline">developer.paypal.com <ArrowSquareOut size={10} weight="bold" /></a> → <strong>Apps &amp; Credentials</strong>, en modo <strong>Live</strong>.</li>
+              <li>Crea una aplicación REST (por ejemplo «CRM»). Copia su <strong>Client ID</strong> y su <strong>Secret</strong>.</li>
+              <li>En la aplicación, activa <strong>Transaction search</strong> (la lectura de movimientos). Sin eso, el sondeo no ve nada.</li>
+              <li>Opcional, para no esperar al sondeo: en la misma aplicación, <strong>Add webhook</strong> con la dirección de abajo y los eventos de la lista. Copia el <strong>Webhook ID</strong> que te da y pégalo aquí.</li>
+              <li>Guarda y pulsa <strong>Probar conexión</strong>.</li>
+            </ol>
+            <div>
+              <p className="font-semibold">Dirección del webhook</p>
+              <code className="block mt-1 px-2 py-1 rounded bg-card break-all">{urlWebhookPaypal(projectId)}</code>
+            </div>
+            <div>
+              <p className="font-semibold">Eventos</p>
+              <p className="text-muted-foreground">{EVENTOS_PAYPAL.join(', ')}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">Client ID *</label>
+            <input value={clientId} onChange={(e) => setClientId(e.target.value)}
+              className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm font-mono" />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">Modo</label>
+            <select value={modo} onChange={(e) => setModo(e.target.value === 'sandbox' ? 'sandbox' : 'live')}
+              className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm">
+              <option value="live">Live (cobros de verdad)</option>
+              <option value="sandbox">Sandbox (pruebas de PayPal)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+            Secret {data?.has_secret && <span className="font-normal text-muted-foreground/80 ml-1">(actualmente: <code className="bg-muted px-1 rounded text-[10px]">{data.secret_preview}</code> — deja vacío para no cambiar)</span>}
+          </label>
+          <div className="relative">
+            <input type={showKey ? 'text' : 'password'} value={secret} onChange={(e) => setSecret(e.target.value)}
+              placeholder={data?.has_secret ? 'Sin cambios' : 'El Secret de la aplicación REST'}
+              className="w-full h-10 pl-3 pr-10 rounded-md border border-border bg-card text-sm font-mono" />
+            <button type="button" onClick={() => setShowKey((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground">
+              {showKey ? <EyeSlash size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">Webhook ID (opcional)</label>
+          <input value={webhookId} onChange={(e) => setWebhookId(e.target.value)} placeholder="Sin webhook: solo el sondeo"
+            className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm font-mono" />
+        </div>
+
+        <TestStatus data={data} />
+
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+          <button onClick={save} disabled={saving || !clientId.trim() || (!data?.has_secret && !secret.trim())}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+            <FloppyDisk size={14} weight="bold" /> {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+          <button onClick={test} disabled={testing || !data?.has_secret}
+            title={!data?.has_secret ? 'Guarda primero las credenciales' : 'Probar conexión con PayPal'}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-sm font-semibold hover:bg-muted disabled:opacity-50">
+            <PlugsConnected size={14} weight="bold" /> {testing ? 'Probando…' : 'Probar conexión'}
+          </button>
+          {data?.has_secret && (
+            <button onClick={clear}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-destructive/30 bg-card text-sm font-semibold text-destructive hover:bg-destructive-soft ml-auto">
+              <Trash size={14} weight="bold" /> Eliminar
+            </button>
+          )}
+        </div>
+      </div>
+      {loading && <div className="px-5 py-3 text-xs text-muted-foreground border-t border-border">Cargando…</div>}
+    </div>
+  );
+}
+
+// ─── Campus (Moodle) ───────────────────────────────────────────────────────
+// Consultas de alumnos (#187): el campus del proyecto. La dirección va en
+// config_public.url y el token, cifrado, como las demás claves. Con él, el CRM
+// comprueba que el correo de cada tutor es usuario del campus.
+function MoodleCard({ projectId }: { projectId: number }) {
+  const [data, setData] = useState<Integration | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
+  const [token, setToken] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [url, setUrl] = useState('');
+  // #188: leer las consultas de los alumnos de este campus.
+  const [consultas, setConsultas] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await client.get<Integration>(`/integrations/moodle?projectId=${projectId}`);
+      if (res.success) {
+        const d = res.data || EMPTY('moodle');
+        setData(d);
+        setUrl((d.config_public?.url as string) || '');
+        setConsultas(String(d.config_public?.consultas) === 'true');
+      }
+    } catch {/* ignore */} finally { setLoading(false); }
+  }, [projectId]);
+  useEffect(() => { load(); }, [load]);
+
+  async function save() {
+    if (!url.trim()) {
+      toast({ title: 'Falta la dirección del campus', description: 'Escríbela en «Dirección del campus» (por ejemplo, https://iseih.com/campus).', variant: 'destructive' });
+      return;
+    }
+    if (!data?.has_secret && !token.trim()) {
+      toast({ title: 'Falta el token', description: 'Pega en «Token del campus» el token del servicio web del Moodle.', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        projectId, provider: 'moodle', active: true,
+        config_public: { url: url.trim(), consultas },
+      };
+      if (token.trim()) body.api_key = token.trim();
+      const res = await client.put<Integration>('/integrations', body);
+      if (res.success) {
+        setData(res.data);
+        setUrl((res.data?.config_public?.url as string) || url.trim());
+        setToken('');
+        toast({ title: 'Campus guardado', description: 'El token queda cifrado. Pulsa «Probar conexión».' });
+      }
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string }; message?: string };
+      toast({ title: 'No se ha podido guardar', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally { setSaving(false); }
+  }
+
+  async function test() {
+    setTesting(true);
+    try {
+      const res = await client.post<{ ok: boolean; message: string }>(`/integrations/moodle/test?projectId=${projectId}`);
+      if (res.success) {
+        toast({ title: '✓ Conexión OK', description: res.data?.message });
+      } else {
+        toast({ title: 'La prueba ha fallado', description: res.data?.message || (res as { error?: string }).error || 'El campus no ha contestado.', variant: 'destructive' });
+      }
+      await load();
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string } };
+      toast({ title: 'La prueba ha fallado', description: err?.data?.error || 'Error de red', variant: 'destructive' });
+    } finally { setTesting(false); }
+  }
+
+  async function clear() {
+    if (!confirm('¿Quitar el campus (Moodle) de este proyecto? Se dejará de comprobar a sus tutores.')) return;
+    try {
+      await client.delete(`/integrations/moodle?projectId=${projectId}`);
+      toast({ title: 'Campus quitado' });
+      setData(EMPTY('moodle')); setToken(''); setUrl('');
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      toast({ title: 'No se ha podido quitar', description: err?.message, variant: 'destructive' });
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-info-soft text-info-soft-foreground flex items-center justify-center flex-shrink-0">
+          <GraduationCap size={22} weight="duotone" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-base">Campus (Moodle)</h3>
+          <p className="text-xs text-muted-foreground">Consultas de alumnos: comprobar que cada tutor es usuario del campus de este proyecto.</p>
+        </div>
+        <StatusPill data={data} />
+      </div>
+
+      <div className="p-5 space-y-4">
+        {/* Lo fácil primero: con el plugin, instalar y pegar un código (#679). Solo en
+            pruebas hasta aprobarlo (`shared/lib/pluginMoodle`): en /crm, como siempre. */}
+        {PLUGIN_MOODLE && (
+          <>
+            <PluginDelCrm projectId={projectId} alConectar={load} />
+            <p className="text-xs font-semibold text-muted-foreground">O, sin el plugin, a mano:</p>
+          </>
+        )}
+        <button onClick={() => setShowHelp((v) => !v)}
+          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+          <Question size={12} weight="bold" /> {showHelp ? 'Ocultar tutorial' : 'Cómo obtener el token del campus'}
+        </button>
+        {showHelp && (
+          <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-2">
+            <p className="font-semibold">En el Moodle del campus, con un usuario administrador:</p>
+            <ol className="list-decimal list-inside space-y-1 pl-1 text-muted-foreground">
+              <li><strong>Administración del sitio → Servidor → Servicios web</strong>: que estén habilitados los servicios web y el protocolo <strong>REST</strong>.</li>
+              <li><strong>Servicios externos → Agregar</strong>: un servicio para el CRM, habilitado.</li>
+              <li>En ese servicio, <strong>Funciones → Agregar</strong>: <code className="px-1 rounded bg-card">core_webservice_get_site_info</code> y <code className="px-1 rounded bg-card">core_user_get_users_by_field</code>. Solo leen.</li>
+              <li><strong>Administrar tokens → Crear token</strong> para ese servicio y cópialo.</li>
+              <li>Pega abajo la dirección del campus y el token, guarda y pulsa <strong>«Probar conexión»</strong>.</li>
+            </ol>
+          </div>
+        )}
+
+        <div>
+          <label htmlFor={`moodle-url-${projectId}`} className="text-[11px] font-semibold text-muted-foreground mb-1 block">Dirección del campus *</label>
+          <input id={`moodle-url-${projectId}`} value={url} onChange={(e) => setUrl(e.target.value)} autoComplete="off"
+            placeholder="https://iseih.com/campus"
+            className="w-full h-10 px-3 rounded-md border border-border bg-card text-sm" />
+        </div>
+
+        <div>
+          <label htmlFor={`moodle-token-${projectId}`} className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+            Token del campus * {data?.has_secret && <span className="font-normal text-muted-foreground/80 ml-1">(actualmente: <code className="bg-muted px-1 rounded text-[10px]">{data.secret_preview}</code> — deja vacío para no cambiar)</span>}
+          </label>
+          <div className="relative">
+            <input
+              id={`moodle-token-${projectId}`}
+              type={showKey ? 'text' : 'password'}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              autoComplete="off"
+              placeholder={data?.has_secret ? 'Sin cambios' : 'El token del servicio web'}
+              className="w-full h-10 pl-3 pr-10 rounded-md border border-border bg-card text-sm font-mono"
+            />
+            <button type="button" onClick={() => setShowKey((v) => !v)} aria-label={showKey ? 'Ocultar el token' : 'Ver el token'}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground">
+              {showKey ? <EyeSlash size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border p-3 space-y-1">
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input type="checkbox" checked={consultas} onChange={(e) => setConsultas(e.target.checked)} />
+            Leer las consultas de este campus
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Cada 5 minutos el CRM lee los mensajes que los alumnos escriben a sus tutores en el campus y los pone en «Consultas».
+            Solo lo escrito desde que se marca (no el historial). El token tiene que poder leer los mensajes de todos
+            (usuario administrador) y su servicio, tener <code>core_message_get_conversations</code> y <code>core_message_get_conversation_messages</code>,
+            y para «Alumnos sin mensajes», <code>core_enrol_get_users_courses</code> y <code>core_enrol_get_enrolled_users</code>.
+            «Probar conexión» dice si falta alguna.
+          </p>
+          {consultas && data?.config_public?.consultas_desde && (
+            <p className="text-xs text-muted-foreground">Leyendo desde el {fmt(String(data.config_public.consultas_desde))}.</p>
+          )}
+        </div>
+
+        <TestStatus data={data} />
+
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+          <button onClick={save} disabled={saving}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+            <FloppyDisk size={14} weight="bold" /> {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+          <button onClick={test} disabled={testing || !data?.has_secret}
+            title={!data?.has_secret ? 'Guarda primero el token' : 'Probar la conexión con el campus'}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-sm font-semibold hover:bg-muted disabled:opacity-50">
+            <PlugsConnected size={14} weight="bold" /> {testing ? 'Probando…' : 'Probar conexión'}
+          </button>
+          {data?.has_secret && (
+            <button onClick={clear}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-destructive/30 bg-card text-sm font-semibold text-destructive hover:bg-destructive-soft ml-auto">
+              <Trash size={14} weight="bold" /> Quitar
+            </button>
+          )}
+        </div>
+      </div>
+      {loading && <div className="px-5 py-3 text-xs text-muted-foreground border-t border-border">Cargando…</div>}
+    </div>
+  );
+}
+
+// ─── Plugin del CRM en el Moodle (#679) ───────────────────────────────────
+interface EstadoPlugin {
+  configurado: boolean;
+  activo: boolean;
+  ultimo_aviso_at: string | null;
+  clave_desde: string | null;
+  ruta: string;
+  /** El repaso de cada 15 minutos (plugin 1.8.0). */
+  sincronizado_at?: string | null;
+  sincronizacion_error?: string | null;
+  version_plugin?: string | null;
+}
+
+/**
+ * Conectar el campus con el plugin `local_crm`, como Certifex: se instala el plugin
+ * en el Moodle y se pega UN código. El plugin crea su token y se presenta al CRM, que
+ * guarda la conexión (dirección, token, «Leer las consultas») y le da su clave. Aquí
+ * se genera el código y se ve si el campus está avisando.
+ */
+function PluginDelCrm({ projectId, alConectar }: { projectId: number; alConectar: () => void }) {
+  const [estado, setEstado] = useState<EstadoPlugin | null>(null);
+  const [codigo, setCodigo] = useState<{ codigo: string; expira_at: string } | null>(null);
+  const [trabajando, setTrabajando] = useState(false);
+
+  const cargar = useCallback(async () => {
+    try {
+      const res = await client.get<EstadoPlugin>(`/consultas/campus/${projectId}/plugin`);
+      if (res.success) setEstado(res.data);
+    } catch {/* sin permiso: no se enseña */}
+  }, [projectId]);
+  useEffect(() => { setCodigo(null); cargar(); }, [cargar]);
+
+  // Mientras hay un código a la vista, se mira cada 5 s si el campus ya se ha conectado.
+  useEffect(() => {
+    if (!codigo) return undefined;
+    const t = setInterval(async () => {
+      const res = await client.get<EstadoPlugin>(`/consultas/campus/${projectId}/plugin`).catch(() => null);
+      if (res?.success && res.data.activo && res.data.clave_desde && (!estado?.clave_desde || res.data.clave_desde !== estado.clave_desde)) {
+        setEstado(res.data); setCodigo(null);
+        toast({ title: 'Campus conectado', description: 'El plugin ya está avisando al CRM.' });
+        alConectar();
+      }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [codigo, projectId, estado?.clave_desde, alConectar]);
+
+  async function generar() {
+    setTrabajando(true);
+    try {
+      const res = await client.post<{ codigo: string; expira_at: string }>(`/consultas/campus/${projectId}/plugin/codigo`);
+      if (res.success) setCodigo(res.data);
+    } catch (e: unknown) {
+      const err = e as { data?: { error?: string }; message?: string };
+      toast({ title: 'No se ha podido generar el código', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally { setTrabajando(false); }
+  }
+
+  async function apagar() {
+    if (!confirm('El CRM dejará de aceptar los avisos de este campus y las respuestas volverán a necesitar el token de cada tutora. ¿Seguir?')) return;
+    setTrabajando(true);
+    try {
+      const res = await client.delete<EstadoPlugin>(`/consultas/campus/${projectId}/plugin`);
+      if (res.success) { setEstado(res.data); setCodigo(null); }
+    } finally { setTrabajando(false); }
+  }
+
+  if (!estado) return null;
+  const conectado = estado.activo;
+  return (
+    <div className="space-y-3 rounded-lg border border-border p-4" data-testid="plugin-del-crm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">Plugin del CRM <EtiquetaEnPruebas /></p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Los mensajes del campus llegan al momento y las tutoras contestan desde el CRM.
+          </p>
+        </div>
+        {conectado ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-1 text-[11px] font-bold text-success-soft-foreground">
+            <CheckCircle size={12} weight="fill" aria-hidden />
+            {estado.ultimo_aviso_at ? `Conectado · último aviso ${fmt(estado.ultimo_aviso_at)}` : 'Conectado · sin mensajes todavía'}
+          </span>
+        ) : (
+          <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-bold text-muted-foreground">Sin conectar</span>
+        )}
+      </div>
+      {conectado && (estado.sincronizado_at || estado.sincronizacion_error) && (
+        <p className={`mt-2 text-xs ${estado.sincronizacion_error ? 'text-destructive' : 'text-muted-foreground'}`}>
+          {estado.sincronizacion_error
+            ? <>{estado.sincronizacion_error}{estado.sincronizado_at ? ` · último repaso bueno ${fmt(estado.sincronizado_at)}` : ''}</>
+            : <>Al día · repasado {fmt(estado.sincronizado_at!)}{estado.version_plugin ? ` · plugin ${estado.version_plugin}` : ''}</>}
+        </p>
+      )}
+
+      {codigo ? (
+        <div className="space-y-2 rounded-md bg-muted/60 p-3">
+          <ol className="list-decimal space-y-1 pl-4 text-xs text-foreground">
+            <li>Instala el plugin <code>local_crm</code> en el Moodle (Extensiones › Instalar complementos, con el ZIP).</li>
+            <li>En el Moodle: <strong>Extensiones › Extensiones locales › Conectar con el CRM</strong>.</li>
+            <li>Pega este código y pulsa <strong>Conectar</strong>. Nada más.</li>
+          </ol>
+          <div className="flex items-start gap-2">
+            <code className="min-w-0 flex-1 break-all rounded border border-border bg-card px-2 py-1.5 text-[11px] leading-5" data-testid="codigo-de-conexion">{codigo.codigo}</code>
+            <button type="button"
+              onClick={() => navigator.clipboard?.writeText(codigo.codigo).then(() => toast({ title: 'Código copiado' }), () => {})}
+              className="inline-flex h-8 shrink-0 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
+              Copiar
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Sirve una vez y caduca el {fmt(codigo.expira_at)}. Esta pantalla avisa sola cuando el campus se conecte.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={generar} disabled={trabajando}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+            <PlugsConnected size={14} weight="bold" aria-hidden /> {conectado ? 'Volver a conectar' : 'Conectar campus'}
+          </button>
+          {conectado && (
+            <button type="button" onClick={apagar} disabled={trabajando}
+              className="inline-flex h-9 items-center rounded-md border border-destructive/30 bg-card px-3 text-sm font-semibold text-destructive hover:bg-destructive-soft disabled:opacity-50">
+              Desconectar
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { rellenoDeAbajo, altoDelMarco, ALTO_MINIMO } from '@/modules/whatsapp/lib/altoDelMarco';
+import { rellenoDeAbajo, altoDelMarco, ALTO_MINIMO, loQueHayEncima } from '@/modules/whatsapp/lib/altoDelMarco';
 
 /**
  * El marco del chat termina donde termina el sitio (#112).
@@ -95,5 +95,35 @@ describe('el alto que le toca', () => {
 
   it('se redondea, que un alto con decimales deja una linea de medio pixel', () => {
     expect(altoDelMarco(77.6, 900, 32)).toBe(790);
+  });
+});
+
+describe('lo que hay que vigilar por encima (#128)', () => {
+  // En el movil la barra de estado arranca en dos o tres lineas («No tienes
+  // WhatsApp enlazado») y se queda en una cuando llega la conexion. El body no
+  // cambia de tamaño —el contenedor es min-h-screen— y el marco subia sin
+  // volver a medirse. Lo que se vigila tiene que incluir esa barra.
+  it('los hermanos de delante del marco y los de cada contenedor', () => {
+    const cabeceraCrm = document.createElement('header');
+    const main = document.createElement('main');
+    const barra = document.createElement('div');
+    const pagina = document.createElement('div');
+    const marco = document.createElement('div');
+    const detras = document.createElement('div');
+    document.body.append(cabeceraCrm, main);
+    main.append(pagina);
+    pagina.append(barra, marco, detras);
+    hechos.push(cabeceraCrm, main);
+
+    const encima = loQueHayEncima(marco);
+    expect(encima).toContain(barra);
+    expect(encima).toContain(cabeceraCrm);
+    // Lo de detras no lo mueve: no hace falta vigilarlo.
+    expect(encima).not.toContain(detras);
+    expect(encima).not.toContain(marco);
+  });
+
+  it('sin marco todavia, nada', () => {
+    expect(loQueHayEncima(null)).toEqual([]);
   });
 });

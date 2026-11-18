@@ -11,6 +11,8 @@
 // Se activa con VITE_BETA_MODE=true (lo pone el build de producción).
 // ============================================================
 
+import { PROYECTOS_IA } from '@/shared/lib/proyectosIA';
+
 // La versión que enseña el menú. Ya no se escribe a mano: salía «BETA 2.2.0»
 // con producción en la 2.5.24 (11/11). La pone Vite al compilar, de la etiqueta
 // de Git (`scripts/versionDeLaApp.js`); en las pruebas no hay compilación y
@@ -35,12 +37,19 @@ export const BETA_ROUTES: readonly string[] = [
   '/whatsapp',               // WhatsApp: cola, plantillas y el panel del equipo
   '/tutores',                // Tutores: alta, colaboraciones y comisiones
   '/mis-cursos',             // La pantalla del propio tutor
+  '/consultas',              // Consultas de alumnos (#187–#190): bandeja, carga, tutores y métricas (2.6.0)
   '/mi-factura',             // «Mi factura» del colaborador (#202), aprobada en la 2.2.0
   '/tareas',                 // Equipo de Desarrollo: tablero, «Por revisar» y «Configurar tablero» (#210)
   '/secuencias-email',         // Email de seguimiento
   '/documentos',              // Documentos comerciales
   '/solicitudes-cambio',     // RFC — Solicitud de Cambio (todos los roles)
+  '/soporte',                // Soporte: ya tiene backend (#38)
   '/notificaciones',         // Sistema básico
+  // El resumen de un proyecto IA (#44). La pantalla existe desde hace
+  // semanas y salia como «Proximamente»: es la de MRR, altas, bajas y por
+  // que se van, y es la primera que se abre de una marca IA.
+  // Solo en pruebas hasta que se apruebe el #44: en /crm sigue «Próximamente».
+  ...(PROYECTOS_IA ? ['/stripe'] : []), // Proyecto IA › Resumen
   '/manual',                 // Manual de usuario
   '/preferencias',            // Mis preferencias
   '/perfil',                // Perfil

@@ -16,6 +16,11 @@ env
 env.*
 !env.example
 
+# Los ficheros del script de la #630 (avisos-de-otro-crm-630.mjs): llevan nombres y
+# correos de alumnos.
+avisos-630*.json
+metidos-630*.json
+
 
 # Build
 dist/

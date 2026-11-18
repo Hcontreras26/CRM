@@ -6,6 +6,8 @@ import {
   Sparkle, FileText, ClockCounterClockwise, FilePdf, CircleNotch, WarningCircle,
 } from '@phosphor-icons/react';
 import { useReportsIA } from '../hooks/useReportsIA';
+import { useCampusDeLaPantalla } from '@/shared/hooks/useCampusDeLaPantalla';
+import ElegirCampus from '@/shared/components/ui/ElegirCampus';
 import { exportReportPdf } from '../api/reports-ia.api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -18,6 +20,8 @@ interface Project {
 }
 
 interface ReportsIAViewProps {
+  /** Con «Todos» o una empresa (#218): lo que se manda al servidor. */
+  ambito?: Record<string, string | number> | null;
   project: Project | null | undefined;
   showGenerateButton?: boolean;
 }
@@ -40,9 +44,13 @@ function fmtDateIA(s: string | null | undefined): string {
  * Responsive: grid se colapsa a 1 columna en <lg, max-h del historial se
  * adapta al viewport.
  */
-export default function ReportsIAView({ project, showGenerateButton = true }: ReportsIAViewProps) {
+export default function ReportsIAView({ project, showGenerateButton = true, ambito = null }: ReportsIAViewProps) {
   const { user } = useAuth();
-  const reportsIA = useReportsIA(project?.id);
+  // Con «Todos» o una empresa (#218): el historial de todos los campus y, para
+  // uno nuevo, el campus se elige aquí (un informe es de un campus).
+  const campus = useCampusDeLaPantalla();
+  const general = !!ambito;
+  const reportsIA = useReportsIA(general ? undefined : project?.id, { ambito, campusParaGenerar: campus.id });
   const [pdfLoading, setPdfLoading] = useState(false);
   // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
   const { can } = usePermission();
@@ -75,10 +83,11 @@ export default function ReportsIAView({ project, showGenerateButton = true }: Re
   return (
     <div className="space-y-3">
       {showGenerateButton && isAdmin && can('reports_ia.generar') && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {general && <ElegirCampus campus={campus} que="el informe nuevo" />}
           <button
             onClick={handleGenerate}
-            disabled={reportsIA.generating}
+            disabled={reportsIA.generating || (general && !campus.id)}
             aria-label="Generar reporte con Claude AI"
             className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
@@ -128,6 +137,9 @@ export default function ReportsIAView({ project, showGenerateButton = true }: Re
                     className={`w-full text-left p-3 hover:bg-muted/40 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 ${active ? 'bg-primary/5 border-l-2 border-primary' : 'border-l-2 border-transparent'}`}
                   >
                     <div className="text-sm font-semibold capitalize">{fmtPeriodo(r.periodo)}</div>
+                    {general && (r as { proyecto_nombre?: string }).proyecto_nombre && (
+                      <div className="text-[11px] font-medium text-primary/80 truncate">{(r as { proyecto_nombre?: string }).proyecto_nombre}</div>
+                    )}
                     <div className="text-[11px] text-muted-foreground mt-0.5">{fmtDateIA(r.createdAt)} · por {r.generadoPor?.nombre}</div>
                   </button>
                 );

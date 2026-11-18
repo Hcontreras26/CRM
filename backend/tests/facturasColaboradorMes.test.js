@@ -15,7 +15,7 @@ import jwt from 'jsonwebtoken';
 import app from '../src/app.js';
 import pool from '../src/shared/config/db.js';
 import { uploadToR2 } from '../src/shared/services/r2.service.js';
-import { prepararMes, huella } from '../src/modules/facturas-colaborador/facturas.service.js';
+import { prepararMes, huella, caducidad } from '../src/modules/facturas-colaborador/facturas.service.js';
 
 /**
  * Facturas de colaboradores (#202) · el mes, el enlace y la subida, contra la base.
@@ -38,6 +38,11 @@ const request = supertest(app);
 const MARCA = `FCMES_${Date.now().toString(36)}`;
 const PERIODO = '2026-09-01';
 const API = '/api/facturas-colaborador';
+
+// La caducidad que dio la regla en algún momento de la llamada. Sin contar horas:
+// la semana del cambio de hora los «6 días enteros» tienen una hora más o menos.
+const caducaSegunLaRegla = (caduca, antes, despues) =>
+  [caducidad(PERIODO, antes), caducidad(PERIODO, despues)].some((c) => c.getTime() === new Date(caduca).getTime());
 
 const q = (sql, params) => pool.query(sql, params).then((r) => r.rows);
 const one = async (sql, params) => (await q(sql, params))[0];
@@ -145,7 +150,9 @@ afterAll(async () => {
 
 describe('facturas de colaboradores (#202) · preparar el mes', () => {
   it('una fila y un enlace por colaborador y empresa; en la base, solo la huella', async () => {
+    const antes = new Date();
     const preparados = (await prepararMes(PERIODO)).filter((p) => Object.values(C).some((c) => c.id === p.colaboradorId));
+    const despues = new Date();
     expect(preparados).toHaveLength(3);
     for (const p of preparados) {
       const clave = `${p.colaboradorId === C.laura.id ? 'laura' : 'pedro'}-${p.issuerId === E.A.id ? 'A' : 'B'}`;
@@ -153,8 +160,9 @@ describe('facturas de colaboradores (#202) · preparar el mes', () => {
       const fila = await one('SELECT token_hash, caduca_at FROM facturas_colaborador WHERE id = $1', [p.facturaId]);
       expect(fila.token_hash).toBe(huella(p.token));
       expect(fila.token_hash).not.toContain(p.token);
-      const dias = (new Date(fila.caduca_at) - Date.now()) / 86400000;
-      expect(Math.round(dias)).toBe(60);
+      // Septiembre se prepara después del 6 de octubre: vale 6 días enteros desde hoy
+      // (la regla, día a día, en facturasColaboradorCaducidad.test.js).
+      expect(caducaSegunLaRegla(fila.caduca_at, antes, despues)).toBe(true);
     }
     expect(Object.keys(enlace).sort()).toEqual(['laura-A', 'laura-B', 'pedro-B']);
   });
@@ -318,11 +326,16 @@ describe('facturas de colaboradores (#202) · administración', () => {
 
   it('reenviar cambia el enlace: el viejo deja de valer y no se devuelve el nuevo', async () => {
     const pedroB = await filaViva(C.pedro, E.B);
+    const antes = new Date();
     const res = await request.post(`${API}/facturas/${pedroB}/reenviar`).set(como('super'));
+    const despues = new Date();
     expect(res.status).toBe(200);
     expect(JSON.stringify(res.body)).not.toMatch(/token/);
     expect((await request.get(`${API}/enlace/${enlace['pedro-B']}`)).status).toBe(404);
     expect((await subir(enlace['pedro-B'])).status).toBe(404);
+    // Reenviado después del 6 de octubre: el enlace nuevo vale 6 días enteros desde hoy.
+    const { caduca_at: caduca } = await one('SELECT caduca_at FROM facturas_colaborador WHERE id = $1', [pedroB]);
+    expect(caducaSegunLaRegla(caduca, antes, despues)).toBe(true);
 
     const reg = await request.get(`${API}/facturas/${pedroB}/registro`).set(como('super'));
     expect(reg.body.data.map((r) => r.evento)).toEqual(['reenviado']);

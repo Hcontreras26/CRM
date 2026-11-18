@@ -1,4 +1,5 @@
 import { query } from '../../shared/config/db.js';
+import { comoIds } from '../../shared/utils/roles.js';
 import { logger } from '../../shared/utils/logger.js';
 import { AppError } from '../../shared/utils/AppError.js';
 
@@ -119,7 +120,8 @@ export async function cola({ projectId, responsableId, estado, productoId, soloS
   const cond = ['l.deleted_at IS NULL', "l.status NOT IN ('convertido', 'no_interesado')"];
   const params = [];
   if (projectId) { params.push(projectId); cond.push(`l.project_id = $${params.length}`); }
-  if (responsableId) { params.push(responsableId); cond.push(`l.responsable_id = $${params.length}`); }
+  // Una gestora o varias (las de un equipo comercial, 09/11/2026).
+  if (responsableId) { params.push(comoIds(responsableId)); cond.push(`l.responsable_id = ANY($${params.length}::int[])`); }
   if (estado) { params.push(estado); cond.push(`l.status = $${params.length}`); }
   if (productoId) { params.push(productoId); cond.push(`l.producto_interes_id = $${params.length}`); }
   // Sin telefono no hay nada que hacer aqui.

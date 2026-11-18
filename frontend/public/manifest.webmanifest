@@ -1,6 +1,6 @@
 {
-  "name": "MultiCRM",
-  "short_name": "MultiCRM",
+  "name": "360 CRM",
+  "short_name": "360 CRM",
   "description": "CRM multiproyecto — gestión de leads, campañas e ingresos",
   "start_url": "./",
   "scope": "./",

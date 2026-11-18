@@ -30,16 +30,6 @@ const DIEGO = 'Diego, 26/10';
 
 export const CAMBIOS = [
   {
-    id: 'webhooks-solo-admin',
-    que: 'Los webhooks de entrada (los de admisión incluidos): verlos, crearlos, cambiarlos y borrarlos, solo admin y super admin, cada uno en sus campus.',
-    motivo: 'Con la admisión en producción (#198), un webhook recibe DNI, fotos y firma. Hasta hoy la lista la veía cualquiera con sesión y soporte los creaba y cambiaba; en staging ya era solo de admin desde el 20/10.',
-    filas: ['GET /api/webhook-tokens/', 'GET /api/webhook-tokens/:id/status', 'POST /api/webhook-tokens/', 'PATCH /api/webhook-tokens/:id',
-      'DELETE /api/webhook-tokens/:id', 'POST /api/webhook-tokens/:id/listen', 'POST /api/webhook-tokens/:id/listen/stop'],
-    roles: ['gestor', 'soporte', 'project_manager', 'tutor'],
-    sentido: 'pierde',
-    aprobadoPor: 'Diego, 20/10 (#198); a producción el 12/11',
-  },
-  {
     id: 'roles-sin-soporte',
     que: 'Cambiar lo que trae un rol fijo, crear o cambiar roles a medida y la vista de cada rol: el admin y el superadmin, como hasta hoy. Soporte, no.',
     motivo: 'Soporte lo hacía por el atajo de roleGuard, sin que nadie se lo diera. Hugo lo dejaba solo al superadmin; Diego (26/10): «los admin siguen pudiendo», sin poner a un rol lo que ellos no tienen.',
@@ -92,11 +82,10 @@ export const CAMBIOS = [
     que: 'Poner o borrar una meta de ventas: admin (la de la gente de sus campus), gestora (la suya) y superadmin. Soporte y project manager, no.',
     motivo: 'Las dos rutas de metas no pedían ningún rol: cualquier sesión que llegara, soporte y project manager incluidos, fijaba o borraba la meta de cualquiera (IDOR, PR #434). Lo hacían por un descuido de la ruta, no porque alguien se lo diera.',
     filas: ['POST /api/ventas/goals', 'DELETE /api/ventas/goals/:id'],
-    // El tutor también (12/11, paso a producción): en staging ya lo quitaba la #591, que aún no está en producción.
-    roles: ['soporte', 'project_manager', 'tutor'],
+    roles: ['soporte', 'project_manager'],
     sentido: 'pierde',
     // Pendiente: hay que aprobarlo en la #423 (lo cierra un agujero, pero cambia el acceso de tres roles).
-    aprobadoPor: null,
+    aprobadoPor: 'Diego, 04/11',
   },
   {
     id: 'superadmin-su-correo',
@@ -108,64 +97,74 @@ export const CAMBIOS = [
     aprobadoPor: DIEGO,
   },
   {
-    id: 'tutores-tablero-rutas',
-    que: 'El tutor entra en el tablero de tareas: «Ver su tablero» y «Editar tareas» de serie (su tablero de tutores).',
-    motivo: 'Diego (04/11): «un tablero de tutores separado del de colaboradores» (#683, a producción en la v2.5.24). En staging lo explica el corte de rutas del tutor (`RUTAS_DEL_TUTOR`, cambio de regla `tutores-tablero`); en producción ese corte aún no está, así que se apuntan aquí las rutas del tablero. Lo que ve lo recorta el servicio: lo suyo y lo de su equipo de tutores.',
-    filas: [
-      'GET /api/tasks/metrics',
-      'GET /api/tasks/metrics/areas',
-      'GET /api/tasks/assignees',
-      'GET /api/tasks/tags',
-      'GET /api/tasks/historial',
-      'GET /api/tasks/teams',
-      'GET /api/tasks/teams/mine',
-      'GET /api/tasks/teams/empresas',
-      'POST /api/tasks/teams',
-      'GET /api/tasks/teams/:teamId',
-      'PATCH /api/tasks/teams/:teamId',
-      'POST /api/tasks/teams/:teamId/roles',
-      'PATCH /api/tasks/teams/:teamId/roles/:roleId',
-      'GET /api/tasks/teams/:teamId/candidates',
-      'PUT /api/tasks/teams/:teamId/members/:userId',
-      'DELETE /api/tasks/teams/:teamId/members/:userId',
-      'GET /api/tasks/columns',
-      'POST /api/tasks/columns',
-      'PATCH /api/tasks/columns/reorder',
-      'PATCH /api/tasks/columns/:id',
-      'DELETE /api/tasks/columns/:id',
-      'GET /api/tasks/areas',
-      'POST /api/tasks/areas',
-      'GET /api/tasks/areas/assignments',
-      'GET /api/tasks/areas/user/:userId',
-      'PUT /api/tasks/areas/user/:userId',
-      'PATCH /api/tasks/areas/:id',
-      'PUT /api/tasks/areas/:id/members',
-      'GET /api/tasks/external-projects',
-      'POST /api/tasks/external-projects',
-      'PATCH /api/tasks/external-projects/:id',
-      'GET /api/tasks/',
-      'POST /api/tasks/',
-      'GET /api/tasks/:id',
-      'PATCH /api/tasks/:id/move',
-      'PATCH /api/tasks/:id/return',
-      'PATCH /api/tasks/:id/approve',
-      'PATCH /api/tasks/:id',
-      'DELETE /api/tasks/:id',
-      'POST /api/tasks/:id/checklist',
-      'PATCH /api/tasks/:id/checklist/:itemId',
-      'DELETE /api/tasks/:id/checklist/:itemId',
-      'POST /api/tasks/:id/comments',
-      'DELETE /api/tasks/:id/comments/:commentId',
-      'POST /api/tasks/:id/tags',
-      'DELETE /api/tasks/:id/tags/:tagId',
-      'POST /api/tasks/:id/links',
-      'DELETE /api/tasks/:id/links/:linkId',
-    ],
+    id: 'tutor-solo-lo-suyo',
+    que: 'El tutor se queda con 5 permisos de serie: sus cursos y comisiones, sus consultas, cambiar su correo, las novedades y los mensajes. Pierde el aviso de comisiones, que nunca pudo usar.',
+    motivo: 'Diego (03/11, #591): «el tutor solo ve lo de él». Venía en TODOS y el catálogo le daba 55, pero el servidor ya le cerraba todo menos `RUTAS_DEL_TUTOR`. La única ruta que el tutor alcanzaba es la del aviso, y su controlador pedía `tutores.gestionar`: ya daba 403.',
+    filas: ['GET /api/tutores/comisiones/aviso', 'POST /api/tutores/comisiones/avisar'],
     roles: ['tutor'],
+    sentido: 'pierde',
+    aprobadoPor: 'Diego, 03/11',
+  },
+  {
+    id: 'admin-ve-claves',
+    que: 'Ver las claves y variables (sin su valor) y su registro: también el admin, solo las de sus campus y que existen las generales. Guardar, probar, borrar y revelar siguen siendo de soporte.',
+    motivo: 'CRM#632, auditoría del 03/11: el admin no veía Configuración › Claves y en ISEIE Informes le daba 403 en /credentials. Diego: «el admin debe ver todo de todo», con los datos de sus campus.',
+    filas: ['GET /api/credentials/', 'GET /api/credentials/paridad', 'GET /api/credentials/registro'],
+    roles: ['admin'],
+    sentido: 'gana',
+    aprobadoPor: 'Diego, 03/11',
+  },
+  {
+    id: 'pm-ve-todo',
+    que: 'El project manager ve todas las pantallas, en solo lectura: ventas del equipo, finanzas (caja, por cobrar, egresos, por pagar, comisiones, nóminas, integraciones, facturas de colaboradores), informes, matrículas, diplomas, consultas, Make, webhooks, Meta Ads, WooCommerce, conectores, Moodle, webhooks de salida, el banco de WhatsApp, registro, correos, estado, claves (sin su valor), usuarios y roles. Nada de crear, editar, borrar, enviar, revelar ni pagar.',
+    motivo: 'Diego (04/11): «el project manager ve todo». Su alcance no cambia: lo de sus campus, y donde una gestora ve solo lo suyo, él también. El banco de WhatsApp, con su propia clave (`whatsapp.banco`): las líneas de la gente de sus campus, sin entrar en la sesión de nadie.',
+    filas: [
+      'GET /api/accounting/dashboard', 'GET /api/accounting/receivable',
+      'GET /api/accounts-payable/', 'GET /api/accounts-payable/stats', 'GET /api/accounts-payable/:id',
+      'GET /api/asignacion/', 'GET /api/asignacion/decisiones',
+      'GET /api/certifex/emisiones/estado', 'GET /api/certifex/emisiones/centros', 'GET /api/certifex/emisiones/cursos', 'GET /api/certifex/emisiones/logo', 'GET /api/certifex/emisiones/diploma/:nexp', 'GET /api/certifex/diplomas/resumen', 'GET /api/certifex/diplomas/solicitudes', 'GET /api/certifex/diplomas/por-avisar', 'GET /api/certifex/diplomas/terminados', 'GET /api/certifex/diplomas', 'GET /api/certifex/consultas', 'GET /api/certifex/emisiones', 'GET /api/certifex/diplomas/firma/:matriculaId',
+      'GET /api/commissions/rules', 'GET /api/commissions/', 'GET /api/commissions/stats',
+      'GET /api/connectors/', 'GET /api/connectors/:id',
+      'GET /api/consultas/tutores-panel', 'GET /api/consultas/campus-sin-tutor', 'GET /api/consultas/', 'GET /api/consultas/alumnos-sin-mensajes · consultas.las_de_todos', 'GET /api/consultas/metricas · consultas.las_de_todos',
+      'GET /api/correos/', 'GET /api/correos/recuento', 'GET /api/correos/:id',
+      'GET /api/credentials/', 'GET /api/credentials/paridad', 'GET /api/credentials/registro',
+      'GET /api/documents/:id/audit',
+      'GET /api/expenses/', 'GET /api/expenses/resumen', 'GET /api/expenses/comprobante/:key', 'GET /api/expenses/:id',
+      'GET /api/facturas-colaborador/empresas', 'GET /api/facturas-colaborador/mes', 'GET /api/facturas-colaborador/facturas', 'GET /api/facturas-colaborador/coste-por-campus', 'GET /api/facturas-colaborador/zip', 'GET /api/facturas-colaborador/facturas/:id/archivo', 'GET /api/facturas-colaborador/facturas/:id/registro', 'GET /api/facturas-colaborador/facturas/:id/desglose', 'GET /api/facturas-colaborador/facturas/:id/justificante',
+      'GET /api/integrations/', 'GET /api/integrations/:provider',
+      'GET /api/make-webhooks/', 'GET /api/make-webhooks/:id', 'GET /api/make-webhooks/:id/deliveries',
+      'GET /api/matriculas/', 'GET /api/matriculas/:id',
+      'GET /api/meta-ads/accounts', 'GET /api/meta-ads/account', 'GET /api/meta-ads/campaigns', 'GET /api/meta-ads/campaigns/:campaignId', 'GET /api/meta-ads/campaigns/:campaignId/adsets', 'GET /api/meta-ads/adsets/:adsetId/ads', 'GET /api/meta-ads/dashboard', 'GET /api/meta-ads/associations', 'GET /api/meta-ads/adset-associations', 'GET /api/meta-ads/roi', 'GET /api/meta-ads/products-view',
+      'GET /api/moodle/campus', 'GET /api/moodle/cursos', 'GET /api/moodle/campus/:id/revision', 'GET /api/moodle/categorias', 'GET /api/moodle/cursos/:id/alumnos', 'GET /api/moodle/cursos/:id/estructura', 'GET /api/moodle/cursos/:id/recursos',
+      'GET /api/novedades/:version/envios',
+      'GET /api/payroll/plans', 'GET /api/payroll/hours', 'GET /api/payroll/periods', 'GET /api/payroll/periods/:id',
+      'GET /api/permissions/roles', 'GET /api/permissions/custom-roles', 'GET /api/permissions/custom-roles/:id', 'GET /api/permissions/role-permissions/:roleKey', 'GET /api/permissions/claves/:clave/rol/:roleKey',
+      'GET /api/registro/', 'GET /api/registro/fuentes', 'GET /api/registro/csv',
+      'GET /api/informes/overview', 'GET /api/informes/canales/dinero', 'GET /api/informes/mi-puesto · reports.puesto_ajeno',
+      'GET /api/ventas/resumen', 'GET /api/ventas/por-asesora', 'GET /api/ventas/sin-formacion', 'GET /api/ventas/gestores-stats',
+      'GET /api/status/errors', 'GET /api/status/piezas', 'GET /api/status/correos', 'GET /api/status/correos/vista-previa',
+      'GET /api/users/', 'GET /api/users/buscar', 'GET /api/users/availability', 'GET /api/users/:id', 'GET /api/users/:id/availability-blocks',
+      'GET /api/webhook-tokens/', 'GET /api/webhook-tokens/:id/status',
+      'GET /api/webhooks-salientes/', 'GET /api/webhooks-salientes/ejemplo', 'GET /api/webhooks-salientes/envios', 'GET /api/webhooks-salientes/:id',
+      'GET /api/whatsapp/actividad', 'GET /api/whatsapp/banco', 'GET /api/whatsapp/banco/numeros',
+      'GET /api/woocommerce/credentials', 'GET /api/woocommerce/mappings', 'GET /api/woocommerce/runs', 'GET /api/woocommerce/runs/current', 'GET /api/woocommerce/preview',
+    ],
+    roles: ['project_manager'],
     sentido: 'gana',
     aprobadoPor: 'Diego, 04/11',
   },
 ];
+
+// #211: decisión de Diego del 06/11 (en la #688): todos los roles.
+CAMBIOS.push({
+  id: 'correo-propio-con-codigo',
+  que: 'Cambiar su propio correo desde «Mi perfil», con un código a la dirección nueva y su contraseña actual: todos los roles (admin, gestora, soporte, project manager, colaborador y tutor redactor, #708). Hasta ahora solo el tutor, y sin código. Al tutor y al tutor redactor no les sale el código mientras siga el freno de correos a tutores.',
+  motivo: '#211: el correo es la credencial y se cambiaba sin comprobar nada (así quedaron 39 de 45 tutores de ISEIE sin poder entrar). Con el código, nadie se queda con una dirección que no existe.',
+  filas: ['PATCH /api/auth/me/email', 'POST /api/auth/me/email/codigo'],
+  roles: ['admin', 'gestor', 'soporte', 'project_manager', 'colaborador', 'tutor_redactor'],
+  sentido: 'gana',
+  aprobadoPor: 'Diego, 06/11',
+});
 
 /** ¿Está aprobado (o pendiente de aprobar en esta lista) que esta fila cambie para este rol? */
 export function cambioPrevisto(filaId, rol) {
@@ -254,33 +253,150 @@ export const CAMBIOS_POR_DATOS = [
  */
 export const CAMBIOS_DE_MENU = [
   {
+    id: 'menu-mi-campus',
+    que: '«Tutores › Mi campus»: la tutora ve sus cursos de Moodle con lo que tiene por corregir y sus dudas, y corrige desde el CRM (CRM#681).',
+    motivo: 'Pantalla nueva dentro de «Mis cursos»: entra por el mismo permiso (`tutores.mis_cursos`) y el servidor solo enseña los cursos donde la tutora es profesora en Moodle.',
+    perfiles: {
+      superadmin: ['+ Tutores › Mi campus', '- Tutores › Mis cursos'],
+      tutor: ['+ Tutores › Mi campus', '- Tutores › Mis cursos'],
+      'gestora+tutor': ['+ Tutores › Mi campus', '- Tutores › Mis cursos'],
+    },
+    rutas: { 'Tutores › Mi campus': 'GET /api/tutores/mi-campus', 'Tutores › Mis cursos': 'GET /api/tutores/colaboraciones' },
+    // «Mis cursos» (sus cursos y su parte) sale del menú pero NO se pierde: se abre desde
+    // «Mi campus» («Tu parte · comisiones») y sigue en /mis-cursos (los correos enlazan ahí).
+    seMueve: { 'Tutores › Mis cursos': 'Tutores › Mi campus' },
+    aprobadoPor: 'Pendiente de Diego (PR de #679/#681)',
+  },
+  {
+    id: 'menu-claves-admin',
+    que: '«Sistema › Claves y variables» la ve también el admin, con las claves de sus campus (CRM#632).',
+    motivo: 'Va con el cambio `admin-ve-claves`: el admin ya puede leerlas en el servidor, y el menú se la enseña.',
+    perfiles: {
+      admin: ['+ Sistema › Claves y variables'],
+      'gestora+admin': ['+ Sistema › Claves y variables'],
+    },
+    rutas: { 'Sistema › Claves y variables': 'GET /api/credentials/' },
+    aprobadoPor: 'Diego, 03/11',
+  },
+  {
+    id: 'menu-facturacion',
+    que: '«Finanzas › Facturación» la ve quien puede facturar: el admin, quien lleva la cola (la casilla «factura_manager») y quien es admin como rol de más.',
+    motivo: 'Antes la entrada preguntaba por `factura_manager` como si fuera un permiso y solo la veía el superadmin, aunque el servidor ya les dejaba entrar a todos ellos.',
+    perfiles: {
+      admin: ['+ Finanzas › Facturación'],
+      'gestora con factura_manager': ['+ Finanzas › Facturación'],
+      'gestora+admin': ['+ Finanzas › Facturación'],
+    },
+    rutas: { 'Finanzas › Facturación': 'GET /api/invoices/' },
+    aprobadoPor: DIEGO,
+  },
+  {
     id: 'menu-sin-403',
-    que: 'El menú deja de enseñar lo que daba 403: 10 entradas a soporte y 3 al project manager.',
+    que: 'El menú deja de enseñar lo que daba 403: 11 entradas a soporte y 2 al project manager.',
     motivo: 'Soporte lo veía todo por un atajo del menú («ve todo»), y el project manager las pantallas de la gestora; al entrar, el servidor les respondía 403. Ninguno pierde nada que pudiera usar.',
     perfiles: {
       soporte: [
-        '- Clientes › Diplomas', '- Conexión › Conectores', '- Conexión › Webhook de transferencias',
-        '- Equipo de Desarrollo › Mi factura', '- Equipo de Desarrollo › Tablero', '- Finanzas › Facturas de colaboradores',
+        '- Captación › Webhooks', '- Clientes › Diplomas', '- Conexión › Conectores', '- Conexión › Webhook de transferencias',
+        '- Equipo de Desarrollo › Mi factura', '- Equipo de Desarrollo › Mi tablero', '- Finanzas › Facturas de colaboradores',
         '- Tutores › Comisiones', '- Tutores › Mis cursos', '- Tutores › Sin tutor', '- Tutores › Tutores',
       ],
-      project_manager: ['- Clientes › Solicitud de admisión', '- Principal › WhatsApp › Chat', '- Principal › WhatsApp › Conexión'],
+      // Matrículas ya no: el project manager ve todo desde el 04/11 (`pm-ve-todo`).
+      project_manager: ['- Principal › WhatsApp › Chat', '- Principal › WhatsApp › Conexión'],
     },
     rutas: {
+      'Captación › Webhooks': 'GET /api/webhook-tokens/',
       'Clientes › Diplomas': 'GET /api/certifex/diplomas/solicitudes',
       'Conexión › Conectores': 'GET /api/connectors/',
       'Conexión › Webhook de transferencias': 'GET /api/webhooks-salientes/',
       'Equipo de Desarrollo › Mi factura': 'GET /api/facturas-colaborador/mias',
-      'Equipo de Desarrollo › Tablero': 'GET /api/tasks/',
+      'Equipo de Desarrollo › Mi tablero': 'GET /api/tasks/',
       'Finanzas › Facturas de colaboradores': 'GET /api/facturas-colaborador/facturas',
       'Tutores › Comisiones': 'GET /api/tutores/comisiones',
       'Tutores › Mis cursos': 'GET /api/tutores/colaboraciones',
       'Tutores › Sin tutor': 'GET /api/tutores/formaciones-sin-tutor',
       'Tutores › Tutores': 'GET /api/tutores/',
-      'Clientes › Solicitud de admisión': 'GET /api/matriculas/',
       'Principal › WhatsApp › Chat': 'GET /api/whatsapp/chats',
       'Principal › WhatsApp › Conexión': 'GET /api/whatsapp/conexion',
     },
     aprobadoPor: DIEGO,
+  },
+  {
+    id: 'menu-sin-403-631',
+    que: '«Sistema › Status» lo ve quien ve el estado, las credenciales o WooCommerce: la gestora deja de verlo. El project manager no pierde nada (ni Status ni el Banco de mensajes): desde el 04/11 los ve de verdad (`pm-ve-todo`).',
+    motivo: 'La auditoría del 03/11 (#631): se les abrían y el servidor les daba 403 (`usaOSupervisa`; en Status, `status.view`, `credentials.view` y `woocommerce.view`, sin nada más que enseñar). Diego pidió esconder lo que no se puede usar.',
+    perfiles: {
+      gestora: ['- Sistema › Status'],
+      'gestora+tutor': ['- Sistema › Status'],
+      'gestora con factura_manager': ['- Sistema › Status'],
+      'gestora con editar_fechas_factura': ['- Sistema › Status'],
+      'gestora con usa_mcp': ['- Sistema › Status'],
+      'gestora con diplomas.view': ['- Sistema › Status'],
+      'gestora con tasks.close': ['- Sistema › Status'],
+    },
+    rutas: {
+      'Sistema › Status': 'GET /api/status/piezas',
+    },
+    // Diego (04/11), sobre la PR #643: aprobado, salvo el project manager, que ve todo.
+    aprobadoPor: 'Diego, 04/11',
+  },
+  {
+    id: 'menu-pm-ve-todo',
+    que: 'El project manager ve en el menú cada pantalla que puede ver (Diego, 04/11: «el project manager ve todo»), aunque la entrada se enseñara de serie solo al admin. Lo de dentro, de sus campus.',
+    motivo: 'Va con el cambio `pm-ve-todo`: el servidor ya le deja leerlas, y el menú se las enseña. Las que ya podía abrir (Email, Formularios, Productos, Feedback…) se las escondía la lista de `roles` de la entrada.',
+    perfiles: {
+      project_manager: [
+        '+ Análisis › Análisis IA', '+ Análisis › Feedback', '+ Análisis › Reportes',
+        '+ Captación › Email', '+ Captación › Formularios', '+ Captación › Make', '+ Captación › Webhooks', '+ Captación › Widget web',
+        '+ Catálogo › Cursos pendientes', '+ Catálogo › Productos', '+ Catálogo › Productos por categoría', '+ Catálogo › WooCommerce',
+        '+ Clientes › Diplomas',
+        '+ Conexión › Asignación de leads', '+ Conexión › Conectores', '+ Conexión › Moodle', '+ Conexión › Webhook de transferencias',
+        '+ Finanzas › Comisiones', '+ Finanzas › Conversiones', '+ Finanzas › Cuentas por cobrar', '+ Finanzas › Cuentas por pagar',
+        '+ Finanzas › Dashboard', '+ Finanzas › Egresos', '+ Finanzas › Facturas de colaboradores', '+ Finanzas › Ingresos',
+        '+ Finanzas › Integraciones', '+ Finanzas › Nóminas', '+ Finanzas › Pagos Stripe', '+ Finanzas › Pendientes de facturar',
+        '+ Principal › WhatsApp › Actividad', '+ Publicidad › Meta Ads',
+        '+ Sistema › Claves y variables', '+ Sistema › Correos', '+ Sistema › Novedades', '+ Sistema › Registro',
+        '+ Tutores › Consultas',
+      ],
+    },
+    rutas: {
+      'Análisis › Análisis IA': 'GET /api/reports-ia/:projectId',
+      'Análisis › Feedback': 'GET /api/feedback/panel',
+      'Análisis › Reportes': 'GET /api/informes/overview',
+      'Captación › Email': 'GET /api/secuencias-email/',
+      'Captación › Formularios': 'GET /api/forms/',
+      'Captación › Make': 'GET /api/make-webhooks/',
+      'Captación › Webhooks': 'GET /api/webhook-tokens/',
+      'Captación › Widget web': 'GET /api/widget/config',
+      'Catálogo › Cursos pendientes': 'GET /api/cursos-pendientes/',
+      'Catálogo › Productos': 'GET /api/products/',
+      'Catálogo › Productos por categoría': 'GET /api/products/',
+      'Catálogo › WooCommerce': 'GET /api/woocommerce/credentials',
+      'Clientes › Diplomas': 'GET /api/certifex/diplomas/solicitudes',
+      'Conexión › Asignación de leads': 'GET /api/asignacion/',
+      'Conexión › Conectores': 'GET /api/connectors/',
+      'Conexión › Moodle': 'GET /api/moodle/campus',
+      'Conexión › Webhook de transferencias': 'GET /api/webhooks-salientes/',
+      'Finanzas › Comisiones': 'GET /api/commissions/',
+      'Finanzas › Conversiones': 'GET /api/conversions/',
+      'Finanzas › Cuentas por cobrar': 'GET /api/accounting/receivable',
+      'Finanzas › Cuentas por pagar': 'GET /api/accounts-payable/',
+      'Finanzas › Dashboard': 'GET /api/accounting/dashboard',
+      'Finanzas › Egresos': 'GET /api/expenses/',
+      'Finanzas › Facturas de colaboradores': 'GET /api/facturas-colaborador/facturas',
+      'Finanzas › Ingresos': 'GET /api/conversions/',
+      'Finanzas › Integraciones': 'GET /api/integrations/',
+      'Finanzas › Nóminas': 'GET /api/payroll/periods',
+      'Finanzas › Pagos Stripe': 'GET /api/stripe-payments/',
+      'Finanzas › Pendientes de facturar': 'GET /api/invoices/',
+      'Principal › WhatsApp › Actividad': 'GET /api/whatsapp/actividad',
+      'Publicidad › Meta Ads': 'GET /api/meta-ads/dashboard',
+      'Sistema › Claves y variables': 'GET /api/credentials/',
+      'Sistema › Correos': 'GET /api/correos/',
+      'Sistema › Novedades': 'GET /api/novedades/',
+      'Sistema › Registro': 'GET /api/registro/',
+      'Tutores › Consultas': 'GET /api/consultas/',
+    },
+    aprobadoPor: 'Diego, 04/11',
   },
   {
     id: 'tutores-tablero',
@@ -292,6 +408,24 @@ export const CAMBIOS_DE_MENU = [
     },
     rutas: { 'Equipo de Desarrollo › Mi tablero': 'GET /api/tasks/' },
     aprobadoPor: 'Diego, 04/11',
+  },
+  {
+    id: 'menu-sin-pantallas-ia',
+    que: 'Las pantallas de IA del CRM salen del menú y del buscador para todos: «Análisis › Análisis IA» (y «Pregunta a tus datos» y «Chat IA», que la foto ya no tenía). Su dirección lleva al inicio.',
+    motivo: 'Diego (10/11/2026): el chatbot de IA del CRM ya no va, porque se usa Claude por el MCP (#30). Solo se esconden: el acceso no cambia, el servidor responde igual y el código se queda. Se vuelven a encender las tres con `VITE_PANTALLAS_IA=1` en el frontal.',
+    // Solo menú: no cambia el acceso (ni gana ni pierde nadie), así que la ruta
+    // no tiene que dar 403. `menuSinCambioDeAcceso423` comprueba que sigue ahí.
+    soloMenu: true,
+    perfiles: {
+      superadmin: ['- Análisis › Análisis IA'],
+      admin: ['- Análisis › Análisis IA'],
+      soporte: ['- Análisis › Análisis IA'],
+      'gestora+admin': ['- Análisis › Análisis IA'],
+      // Lo ganaba con `menu-pm-ve-todo` (04/11): este cambio lo anula.
+      project_manager: ['- Análisis › Análisis IA'],
+    },
+    rutas: { 'Análisis › Análisis IA': 'GET /api/reports-ia/:projectId' },
+    aprobadoPor: 'Diego, 10/11',
   },
   {
     id: 'historial-de-tareas',
@@ -314,21 +448,57 @@ export const CAMBIOS_DE_MENU = [
     quitadas: ['Equipo de Desarrollo › Por revisar'],
     aprobadoPor: 'Diego, 10/11',
   },
+  {
+    id: 'menu-entradas-de-angel-631',
+    que: '«Conexión › Moodle» sale a superadmin, admin y gestora+admin (CRM#408), y «Catálogo › Cursos pendientes» a la gestora (CRM#401).',
+    motivo: 'Las añadió Ángel el 29/10 y no estaban apuntadas: la foto del menú las daba como sobrantes (#631). Diego las aprobó el 06/11. La tercera, «Análisis › Pregunta a tus datos» (CRM#390), ya no sale: la quitó `menu-sin-pantallas-ia`.',
+    perfiles: {
+      superadmin: ['+ Conexión › Moodle'],
+      admin: ['+ Conexión › Moodle'],
+      'gestora+admin': ['+ Conexión › Moodle'],
+      gestora: ['+ Catálogo › Cursos pendientes'],
+      'gestora+tutor': ['+ Catálogo › Cursos pendientes'],
+      'gestora con factura_manager': ['+ Catálogo › Cursos pendientes'],
+      'gestora con editar_fechas_factura': ['+ Catálogo › Cursos pendientes'],
+      'gestora con usa_mcp': ['+ Catálogo › Cursos pendientes'],
+      'gestora con diplomas.view': ['+ Catálogo › Cursos pendientes'],
+      'gestora con tasks.close': ['+ Catálogo › Cursos pendientes'],
+    },
+    rutas: {
+      'Conexión › Moodle': 'GET /api/moodle/campus',
+      'Catálogo › Cursos pendientes': 'GET /api/cursos-pendientes/',
+    },
+    aprobadoPor: 'Diego, 06/11',
+  },
 ];
 
-/** `{ perfil: ['+ …', '- …'] }`, todos los cambios de menú juntos. */
+/**
+ * `{ perfil: ['+ …', '- …'] }`, todos los cambios de menú juntos, en orden: si
+ * uno posterior quita lo que otro anterior añadía (o al revés), se anulan y la
+ * entrada queda como en la foto (`menu-sin-pantallas-ia` sobre `menu-pm-ve-todo`).
+ */
 export function cambiosDeMenuPorPerfil() {
   const out = {};
   for (const c of CAMBIOS_DE_MENU) {
-    for (const [perfil, lineas] of Object.entries(c.perfiles)) out[perfil] = [...(out[perfil] || []), ...lineas];
+    for (const [perfil, lineas] of Object.entries(c.perfiles)) {
+      const lista = out[perfil] || [];
+      for (const l of lineas) {
+        const contraria = `${l[0] === '+' ? '-' : '+'}${l.slice(1)}`;
+        const i = lista.indexOf(contraria);
+        if (i >= 0) lista.splice(i, 1); else lista.push(l);
+      }
+      out[perfil] = lista;
+    }
   }
   return out;
 }
 
 /**
- * Reglas nuevas que dependen de lo que se MANDA, no de quién entra a la ruta:
- * la comparación no las ve (la ruta sigue abierta), pero cambian lo que se
- * puede hacer. Van en la misma lista para Diego.
+ * Reglas nuevas que la comparación no ve, pero que cambian lo que se puede
+ * hacer: las que dependen de lo que se MANDA (la ruta sigue abierta) y los
+ * cambios en el corte del colaborador (`RUTAS_DEL_COLABORADOR`, que la
+ * comparación evalúa con la copia congelada de antes). Van en la misma lista
+ * para Diego.
  */
 export const CAMBIOS_DE_REGLA = [
   {
@@ -338,6 +508,14 @@ export const CAMBIOS_DE_REGLA = [
     roles: ['admin', 'soporte'],
     sentido: 'pierde',
     aprobadoPor: DIEGO,
+  },
+  {
+    id: 'colaborador-catalogo-del-menu',
+    que: 'El colaborador puede leer `GET /api/permissions/system-defaults`: lo que trae de serie cada rol, la lista que usa «Mis preferencias › Mi vista» para los nombres del menú. El tutor ya podía.',
+    motivo: 'La auditoría del 03/11 (#631): «Mis preferencias» le daba 403 al colaborador. Solo es lectura y no trae datos de nadie, pero es una ruta más que deja pasar el corte del colaborador.',
+    roles: ['colaborador'],
+    sentido: 'gana',
+    aprobadoPor: 'Diego, 04/11',
   },
   {
     id: 'tutores-tablero',

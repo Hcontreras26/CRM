@@ -24,7 +24,12 @@ const PERFILES = {
   project_manager: inv.personaDePrueba('project_manager'),
   'gestora con factura_manager': inv.personaDePrueba('gestor', { factura_manager: true }),
   'gestora+admin': inv.personaDePrueba('gestor', { roles_extra: ['admin'] }),
+  gestora: inv.personaDePrueba('gestor'),
   'gestora+tutor': inv.personaDePrueba('gestor', { roles_extra: ['tutor'] }),
+  'gestora con editar_fechas_factura': inv.personaDePrueba('gestor', { editar_fechas_factura: true }),
+  'gestora con usa_mcp': inv.personaDePrueba('gestor', { usa_mcp: true }),
+  'gestora con diplomas.view': inv.personaDePrueba('gestor', { excepciones: { 'diplomas.view': true } }),
+  'gestora con tasks.close': inv.personaDePrueba('gestor', { excepciones: { 'tasks.view_own': true, 'tasks.close': true, 'tasks.manage': true } }),
 };
 
 let porId;
@@ -35,6 +40,8 @@ beforeAll(async () => {
 const casos = CAMBIOS_DE_MENU.flatMap((c) => Object.entries(c.perfiles).flatMap(([perfil, lineas]) =>
   lineas.map((l) => ({
     id: c.id, perfil, signo: l[0], entrada: l.slice(2), ruta: c.rutas[l.slice(2)],
+    movidaA: c.seMueve?.[l.slice(2)] || null,
+    soloMenu: Boolean(c.soloMenu),
     quitada: (c.quitadas || []).includes(l.slice(2)) && !!c.aprobadoPor,
   }))));
 
@@ -42,7 +49,9 @@ describe('los cambios del menú no cambian el acceso (#423, punto 6)', () => {
   it('cada entrada tiene su ruta y su perfil', () => {
     expect(casos.length).toBeGreaterThan(0);
     for (const x of casos) {
-      expect(x.ruta, `${x.perfil} · ${x.entrada}`).toBeTruthy();
+      // Lo que solo se esconde puede no tener ruta («Próximamente»): lo dice con `null`.
+      if (x.soloMenu) expect(x.ruta !== undefined, `${x.perfil} · ${x.entrada}`).toBe(true);
+      else expect(x.ruta, `${x.perfil} · ${x.entrada}`).toBeTruthy();
       expect(PERFILES[x.perfil], x.perfil).toBeTruthy();
     }
   });
@@ -52,6 +61,10 @@ describe('los cambios del menú no cambian el acceso (#423, punto 6)', () => {
     for (const x of casos) {
       const p = PERFILES[x.perfil];
       const fila = porId.get(x.ruta);
+      // Solo se esconde del menú, sin tocar el acceso (`menu-sin-pantallas-ia`,
+      // Diego 10/11): basta con que la ruta, si la tiene, siga existiendo
+      // —responde igual que antes—; no tiene que dar 403.
+      if (x.soloMenu) { if (x.ruta && !fila) mal.push(`${x.ruta}: no existe`); continue; }
       // Una pantalla que se quita entera con su ruta (`quitadas`, CRM#707: «Por
       // revisar»): no se le cierra a nadie, ya no existe. Basta con que de verdad
       // ya no esté en el inventario.
@@ -76,6 +89,10 @@ describe('los cambios del menú no cambian el acceso (#423, punto 6)', () => {
       const regla = CAMBIOS_DE_REGLA.find((c) => c.id === x.id && c.aprobadoPor
         && c.roles.some((r) => [p.role, ...(p.roles_extra || [])].includes(r)));
       if (regla && !antes && esperado) continue;
+      // Sale del menú pero se abre desde otra entrada que sigue (`seMueve`, #681): no pierde
+      // nada, siempre que ese perfil siga entrando ahora y vea la entrada de destino.
+      if (x.signo === '-' && x.movidaA && despues === true
+        && casos.some((o) => o.perfil === x.perfil && o.signo === '+' && o.entrada === x.movidaA)) continue;
       if (antes !== esperado || despues !== esperado) mal.push(`${x.perfil} ${x.signo} ${x.entrada} (${x.ruta}): antes ${antes}, ahora ${despues}`);
     }
     expect(mal).toEqual([]);

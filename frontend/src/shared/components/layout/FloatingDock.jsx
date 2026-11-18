@@ -33,7 +33,8 @@ export function setFloatingDockHidden(hidden, mode = 'persist') {
 }
 
 /**
- * Wrapper de las herramientas flotantes (chat AI + canales).
+ * Wrapper de las herramientas flotantes: el soporte (tickets). El Chat IA ya
+ * no va aquí: las pantallas de IA del CRM están apagadas (#30, Diego 10/11).
  * El toggle de visibilidad vive en el menu de avatar (sidebar).
  * Cuando estan ocultas se muestra una pildora pequena en la esquina para restaurar.
  */
@@ -59,7 +60,7 @@ export default function FloatingDock() {
         type="button"
         onClick={() => setFloatingDockHidden(false)}
         aria-label="Mostrar herramientas flotantes"
-        title="Mostrar herramientas (chat IA, canales)"
+        title="Mostrar herramientas (soporte)"
         className="fixed bottom-4 right-4 z-50 w-9 h-9 rounded-full bg-card border border-border shadow-md text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all flex items-center justify-center"
       >
         <Wrench size={14} weight="regular" />

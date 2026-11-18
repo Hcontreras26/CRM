@@ -21,6 +21,33 @@ function generateEvolution(baseMrr: number, baseSubs: number, growth: number): S
   return months;
 }
 
+/**
+ * Por qué se van, de ejemplo (#44).
+ *
+ * Con los mismos valores que devuelve Stripe en `cancellation_details`, que
+ * son los que enseña el panel de cada proyecto. El mock se mantiene al día
+ * con el tipo a propósito: uno que se queda corto deja de servir para ver la
+ * pantalla, que es justo para lo que existe.
+ *
+ * «No lo dijo» va con peso de verdad --la mayoría cancela sin decir nada-- 
+ * para que la pantalla se vea como se va a ver, y no como nos gustaría.
+ */
+const POR_QUE_SE_VAN = {
+  total: 24,
+  motivos: [
+    { clave: 'sin_motivo', etiqueta: 'No lo dijo', bajas: 8, pct: 33 },
+    { clave: 'unused', etiqueta: 'No lo uso suficiente', bajas: 7, pct: 29 },
+    { clave: 'missing_features', etiqueta: 'No cubre mis necesidades', bajas: 4, pct: 17 },
+    { clave: 'too_expensive', etiqueta: 'Es demasiado caro', bajas: 3, pct: 13 },
+    { clave: 'switched_service', etiqueta: 'He encontrado una alternativa', bajas: 2, pct: 8 },
+  ],
+};
+
+const COMENTARIOS_DE_BAJA = [
+  { cuando: '2026-09-15', motivo: 'No cubre mis necesidades', comentario: 'esperaba poder hablar con una persona de verdad' },
+  { cuando: '2026-09-11', motivo: 'Es demasiado caro', comentario: 'lo retomo cuando pueda' },
+];
+
 const SAMPLE: Record<string | number, StripeMetrics> = {
   // Psicologo IA
   4: (() => {
@@ -34,6 +61,8 @@ const SAMPLE: Record<string | number, StripeMetrics> = {
       failedPayments: 5,
       churnRate: last.churnRate,
       evolution12Months: evo,
+      porQueSeVan: POR_QUE_SE_VAN,
+      comentariosDeBaja: COMENTARIOS_DE_BAJA,
     };
   })(),
   // Nutricionista IA
@@ -48,6 +77,8 @@ const SAMPLE: Record<string | number, StripeMetrics> = {
       failedPayments: 3,
       churnRate: last.churnRate,
       evolution12Months: evo,
+      porQueSeVan: POR_QUE_SE_VAN,
+      comentariosDeBaja: COMENTARIOS_DE_BAJA,
     };
   })(),
   // Tarot IA
@@ -62,9 +93,12 @@ const SAMPLE: Record<string | number, StripeMetrics> = {
       failedPayments: 2,
       churnRate: last.churnRate,
       evolution12Months: evo,
+      porQueSeVan: POR_QUE_SE_VAN,
+      comentariosDeBaja: COMENTARIOS_DE_BAJA,
     };
   })(),
 };
+
 
 // Default para proyectos no IA: datos vacios para que el frontend muestre empty state
 const EMPTY: StripeMetrics = {

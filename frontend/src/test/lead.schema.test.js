@@ -18,6 +18,15 @@ describe('leadSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  // QA de Diego, 22/10, punto 11: «con el nombre vacío dice «debe tener al menos 2 caracteres»».
+  it('nombre vacío: «Falta el nombre»; con una letra, sigue «al menos 2 caracteres»', () => {
+    const vacio = leadSchema.safeParse({ ...validLead, nombre: '' });
+    expect(vacio.success).toBe(false);
+    expect(vacio.error.issues.find((i) => i.path[0] === 'nombre').message).toBe('Falta el nombre');
+    const corto = leadSchema.safeParse({ ...validLead, nombre: 'A' });
+    expect(corto.error.issues.find((i) => i.path[0] === 'nombre').message).toBe('El nombre debe tener al menos 2 caracteres');
+  });
+
   it('invalid email fails', () => {
     const result = leadSchema.safeParse({ ...validLead, email: 'not-an-email' });
     expect(result.success).toBe(false);

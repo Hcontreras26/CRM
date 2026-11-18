@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { verifyToken } from '../../shared/middleware/auth.js';
 import { puede } from '../../shared/middleware/permissions.js';
+import { pluginMoodleActivo } from '../../shared/config/soloEnPruebas.js';
 import * as ctrl from './tutor.controller.js';
 
 const router = Router();
@@ -43,8 +44,24 @@ router.get('/anuncios', puede('tutores.gestionar'), ctrl.anunciosDeTutores);
 
 // La ficha del curso que imparte, sin poder tocarla.
 router.get('/curso/:productId', puede('tutores.mis_cursos', 'tutores.gestionar'), ctrl.cursoDetalle);
+// «Mi campus» (#681): sus cursos de Moodle con alumnos, dudas y tareas por corregir. Solo lo suyo.
+router.get('/mi-campus', puede('tutores.mis_cursos'), ctrl.miCampus);
+// Corregir desde el CRM (#681): la tarea con sus entregas, un archivo entregado y la nota.
+router.get('/mi-campus/tareas/:projectId/:cursoId/:tareaId/archivo', puede('tutores.mis_cursos'), ctrl.archivoEntregado);
+router.get('/mi-campus/tareas/:projectId/:cursoId/:tareaId', puede('tutores.mis_cursos'), ctrl.verTarea);
+// El curso entero, como en Moodle: temas y todas sus actividades.
+router.get('/mi-campus/cursos/:projectId/:cursoId', puede('tutores.mis_cursos'), ctrl.verCurso);
+// Poner la nota ESCRIBE en el Moodle del alumno (por el plugin, `local_crm_calificar`):
+// con NODE_ENV=production no se monta —404— salvo en /testeo o con
+// PLUGIN_MOODLE_EN_PRODUCCION=1, como las rutas del plugin en consultas.routes.js.
+// Leer (Mi campus, la tarea, el curso, los archivos) sí va siempre: no cambia nada.
+if (pluginMoodleActivo()) {
+  router.post('/mi-campus/tareas/:projectId/:cursoId/:tareaId/calificar', puede('tutores.mis_cursos'), ctrl.calificar);
+}
 router.get('/curso/:productId/brochure', puede('tutores.mis_cursos', 'tutores.gestionar'), ctrl.brochureDelCurso);
 
+// El buscador (Ctrl K, #591). Antes que `/:id`, o «buscar» se leería como un id.
+router.get('/buscar', puede('tutores.gestionar'), ctrl.buscar);
 router.get('/', puede('tutores.gestionar'), ctrl.listar);
 router.post('/', puede('tutores.gestionar'), ctrl.alta);
 router.get('/:id', ctrl.ficha);
@@ -55,5 +72,20 @@ router.patch('/:id/cobra-desde', puede('tutores.gestionar'), ctrl.cambiarCobraDe
 router.post('/:id/contrasena', puede('tutores.contrasena'), ctrl.cambiarContrasena);
 router.post('/:id/reactivar', puede('tutores.gestionar'), ctrl.reactivarTutor);
 router.delete('/:id', puede('tutores.gestionar'), ctrl.retirarTutor);
+
+// Consultas de alumnos, fase 1 (#187): en qué campus atiende, por campus o por
+// empresa entera, si está matriculado en cada uno y «No disponible».
+router.get('/:id/campus', ctrl.campusDelTutor);
+router.post('/:id/campus', puede('tutores.gestionar'), ctrl.asignarCampus);
+router.post('/:id/campus/comprobar', puede('tutores.gestionar'), ctrl.comprobarCampus);
+// Su cuenta de Moodle, campus a campus y solo en los de tu empresa (#679, revisión de la #689).
+// Su cuenta cambió de verdad: olvidar la vinculada y buscarla de nuevo.
+router.post('/:id/campus/:projectId/desvincular', puede('tutores.gestionar'), ctrl.desvincularCuenta);
+// Su correo del CRM no es el de Moodle: buscar su cuenta y vincularla a mano.
+router.get('/:id/campus/:projectId/buscar-cuenta', puede('tutores.gestionar'), ctrl.buscarCuentaMoodle);
+router.post('/:id/campus/:projectId/vincular', puede('tutores.gestionar'), ctrl.vincularCuentaMoodle);
+router.post('/:id/empresas', puede('tutores.gestionar'), ctrl.asignarEmpresa);
+router.delete('/:id/empresas/:issuerId', puede('tutores.gestionar'), ctrl.quitarEmpresa);
+router.patch('/:id/disponible', puede('tutores.gestionar'), ctrl.cambiarDisponible);
 
 export default router;

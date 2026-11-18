@@ -1,14 +1,18 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { toast } from '@/shared/hooks/useToast';
+import { useAuth } from '@/contexts/AuthContext';
 import Portal from '@/shared/components/ui/portal';
 
 const ConfirmDialog = lazy(() => import('@/shared/components/ui/ConfirmDialog'));
 const CreateTicketForm = lazy(() => import('./CreateTicketForm'));
 import {
-  Ticket, Plus, X, Bug, Lightning, Question, Trash, ClockCounterClockwise, ArrowLeft,
+  Ticket, Plus, X, Bug, Lightning, Question, Trash, ClockCounterClockwise, ArrowLeft, Key,
 } from '@phosphor-icons/react';
+import usePermission from '@/shared/hooks/usePermission';
+import { resumenDeAcceso, moverPeticion } from '../lib/accesos';
 import {
-  listTickets, updateTicketStatus, deleteTicket,
+  listTickets, updateTicketStatus, deleteTicket, ticketsViejos,
+  type Ticket as TicketDato,
   TICKET_STATUS, TICKET_SEVERITY, TICKET_KIND,
 } from '../lib/tickets';
 
@@ -21,21 +25,32 @@ const TONE_BG = {
   violet:  'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
 };
 
-const KIND_ICON = { bug: Bug, feature: Lightning, question: Question };
+const KIND_ICON = { bug: Bug, feature: Lightning, question: Question, access: Key };
 
 export default function TicketsLauncher() {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState('list'); // 'list' | 'create'
-  const [tickets, setTickets] = useState(() => listTickets());
+  // Arranca vacio y se carga en el efecto: los tickets ya no estan en el
+  // navegador, vienen del servidor (#38). El evento `crm:tickets-changed` que
+  // ya existia sigue siendo lo que dispara la recarga, asi que nada mas de
+  // este componente cambia.
+  const [tickets, setTickets] = useState<TicketDato[]>([]);
+  // Los que quedaron en el localStorage de esta maquina. No se migran —desde
+  // el servidor no se alcanzan— y la pantalla lo dice en vez de que
+  // desaparezcan sin explicacion.
+  const [viejos] = useState(() => ticketsViejos());
 
   useEffect(() => {
-    function onChange() { setTickets(listTickets()); }
+    let vivo = true;
+    function onChange() { listTickets().then((t) => { if (vivo) setTickets(t); }); }
+    onChange();
     function onOpen() { setOpen(true); setView('list'); }
     function onOpenCreate() { setOpen(true); setView('create'); }
     window.addEventListener('crm:tickets-changed', onChange);
     window.addEventListener('crm:open-tickets', onOpen);
     window.addEventListener('crm:open-ticket-create', onOpenCreate);
     return () => {
+      vivo = false;
       window.removeEventListener('crm:tickets-changed', onChange);
       window.removeEventListener('crm:open-tickets', onOpen);
       window.removeEventListener('crm:open-ticket-create', onOpenCreate);
@@ -97,7 +112,7 @@ export default function TicketsLauncher() {
                   <p className="text-[11px] text-muted-foreground">
                     {view === 'list'
                       ? `${tickets.length} ${tickets.length === 1 ? 'ticket' : 'tickets'}`
-                      : 'Cuentanos lo que pasa, mientras mas detalle mejor.'}
+                      : 'Cuéntanos lo que pasa: cuanto más detalle, mejor.'}
                   </p>
                 </div>
               </div>
@@ -167,12 +182,22 @@ function TicketCard({ ticket }) {
   const kind = TICKET_KIND[ticket.kind] || TICKET_KIND.question;
   const KindIcon = KIND_ICON[ticket.kind] || Question;
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Cambiar el estado y borrar un ticket es cosa de quien administra (el servidor lo exige igual:
+  // a un usuario raso le devolvería 403 y, como estas llamadas no muestran el error, fallaría callado).
+  const { user } = useAuth() as { user: { role?: string } | null };
+  // Una petición de acceso (CRM#820) la mueve quien tiene «Gestionar las peticiones de acceso».
+  const { can } = usePermission();
+  const esAcceso = ticket.kind === 'access';
+  const administra = esAcceso ? can('accesos.gestionar') : ['admin', 'superadmin', 'soporte'].includes(user?.role ?? '');
+  const queSePide = esAcceso ? resumenDeAcceso(ticket.acceso) : [];
 
   function cycleStatus() {
     const order: Array<'open' | 'in_review' | 'resolved' | 'closed'> = ['open', 'in_review', 'resolved', 'closed'];
     const idx = order.indexOf(ticket.status);
     const next = order[(idx + 1) % order.length];
-    updateTicketStatus(ticket.id, next);
+    // Una petición de acceso se mueve por su ruta, que pide «Gestionar las peticiones de acceso».
+    if (esAcceso) moverPeticion(ticket.id, next).catch(() => {});
+    else updateTicketStatus(ticket.id, next);
     toast({ title: `Ticket → ${TICKET_STATUS[next].label}` });
   }
 
@@ -193,16 +218,24 @@ function TicketCard({ ticket }) {
         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{kind.label}</span>
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${TONE_BG[status.tone]}`}>{status.label}</span>
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${TONE_BG[severity.tone]}`}>{severity.label}</span>
-        <div className="ml-auto flex items-center gap-0.5">
-          <button onClick={cycleStatus} title="Avanzar estado" aria-label="Cambiar estado" className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted">
-            <ClockCounterClockwise size={12} />
-          </button>
-          <button onClick={handleDelete} title="Eliminar" aria-label="Eliminar ticket" className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30">
-            <Trash size={12} />
-          </button>
-        </div>
+        {administra && (
+          <div className="ml-auto flex items-center gap-0.5">
+            <button onClick={cycleStatus} title="Avanzar estado" aria-label="Cambiar estado" className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted">
+              <ClockCounterClockwise size={12} />
+            </button>
+            <button onClick={handleDelete} title="Eliminar" aria-label="Eliminar ticket" className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30">
+              <Trash size={12} />
+            </button>
+          </div>
+        )}
       </header>
       <p className="text-sm font-semibold leading-snug">{ticket.title}</p>
+      {queSePide.length > 0 && (
+        <ul className="mt-1 space-y-0.5 text-xs">
+          {queSePide.map((l) => <li key={l} className="font-medium">{l}</li>)}
+          {ticket.autor && <li className="text-muted-foreground">Lo pide: {ticket.autor}</li>}
+        </ul>
+      )}
       {ticket.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 whitespace-pre-wrap">{ticket.description}</p>}
       {ticket.attachments?.length > 0 && (
         <div className="flex gap-1 mt-2 flex-wrap">

@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import client from '@/shared/api/client';
+import { formatDate } from '@/shared/lib/format';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
@@ -20,8 +21,12 @@ function fmt(n: unknown) {
     style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(Number(n || 0));
 }
+// La fecha de la venta es un DATE («2026-10-12»). `new Date('2026-10-12')` es
+// medianoche UTC y, en un navegador de Latinoamérica, el 11 por la tarde: la
+// lista (Finanzas › Ventas) decía 12 y este detalle 11 (#693). Mismo
+// formateador que la lista, que lee el día tal cual.
 function fecha(d: unknown) {
-  return d ? new Date(String(d)).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  return d ? formatDate(String(d)) : '—';
 }
 
 type Cuota = {
@@ -38,6 +43,9 @@ type Pago = {
 type Venta = {
   id: number; lead_id: number; producto_contratado: string;
   importe_total: string | number; importe_pagado: string | number; importe_pendiente: string | number;
+  // #692: `importe_pagado` ya es la suma de los pagos; el guardado en la venta
+  // viene aparte para avisar si no cuadra. Opcionales: un servidor anterior no los manda.
+  importe_pagado_guardado?: string | number | null; cobrado_de_mas?: string | number | null;
   fecha_conversion: string; fecha_compromiso_pago: string | null; metodo_pago: string | null;
   notas_pago: string | null; lead_nombre: string; lead_email: string; proyecto_nombre: string;
   payments?: Pago[]; installments?: Cuota[]; items?: Array<{ id: number; descripcion: string; cantidad: number; precio_unitario: string | number }>;
@@ -93,6 +101,9 @@ export default function SaleDetailPage() {
   const cuotasPend = cuotas.filter((c) => !c.fecha_cobro);
   const cuotasVenc = cuotasPend.filter((c) => new Date(c.fecha_vencimiento) < new Date());
   const deAnteriores = cuotas.filter((c) => (c.notas || '').toLowerCase().includes('facturacion anterior'));
+  const cobradoDeMas = Number(venta.cobrado_de_mas || 0);
+  const guardado = venta.importe_pagado_guardado;
+  const noCuadra = guardado != null && Math.abs(Number(guardado) - Number(venta.importe_pagado || 0)) > 0.005;
 
   return (
     <div className="space-y-5 pb-8">
@@ -137,11 +148,42 @@ export default function SaleDetailPage() {
           label="Cuotas vencidas" value={String(cuotasVenc.length)} trend="down" />
       </div>
 
+      {/* #692: «Cobrado» es lo que suman los pagos de abajo. Si el importe que
+          guardaba la venta dice otra cosa, se avisa: se corrige venta a venta. */}
+      {noCuadra && (
+        <p role="alert" className="text-xs rounded-md border border-warning/40 bg-warning-soft text-warning-soft-foreground px-3 py-2">
+          El cobrado que tenía apuntado la venta ({fmt(guardado)}) no coincide con sus pagos registrados
+          ({fmt(venta.importe_pagado)}). Aquí se cuenta lo de los pagos. Hay que revisarla: o falta apuntar un pago o sobra el importe.
+        </p>
+      )}
+      {cobradoDeMas > 0.005 && (
+        <p role="note" className="text-xs rounded-md border border-warning/40 bg-warning-soft text-warning-soft-foreground px-3 py-2">
+          Sus pagos suman {fmt(cobradoDeMas)} más que el importe de la venta. Suele ser un cobro repetido o un importe mal puesto.
+        </p>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Primera columna: los datos y quien la vendio, uno debajo del otro. */}
         <div className="space-y-4">
         <div className="bg-card border border-border rounded-lg p-4 space-y-2.5 text-sm">
           <h3 className="font-semibold mb-1">Datos de la venta</h3>
+          {/* Con varias líneas, sus cursos en una lista con su cantidad, en vez
+              del «1x A + 2x B» que se guardaba en el nombre (#223). */}
+          {(venta.items?.length ?? 0) > 1 && (
+            <div className="pb-2.5 border-b border-border">
+              <span className="text-muted-foreground">Cursos</span>
+              <ul className="mt-1 space-y-1" aria-label="Cursos de la venta">
+                {venta.items!.map((it) => (
+                  <li key={it.id} className="flex justify-between gap-3">
+                    <span className="font-medium">{it.descripcion}</span>
+                    <span className="text-muted-foreground whitespace-nowrap">
+                      {Number(it.cantidad) > 1 ? `${it.cantidad} × ` : ''}{fmt(it.precio_unitario)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="flex justify-between gap-3">
             <span className="text-muted-foreground">Fecha</span>
             <span className="font-medium">{fecha(venta.fecha_conversion)}</span>

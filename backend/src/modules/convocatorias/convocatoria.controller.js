@@ -1,18 +1,16 @@
 import * as Conv from './convocatoria.service.js';
-import { listaDelAmbito } from '../../shared/utils/ambito.js';
+import { listaDelAmbito, campusDeTodos } from '../../shared/utils/ambito.js';
+import { personaDelInforme } from '../../shared/utils/roles.js';
 import {
   crearConvocatoriaSchema, editarConvocatoriaSchema,
   ofrecerSchema, actualizarOfrecimientoSchema,
 } from './convocatoria.validation.js';
 
 // A quién se le recorta. Igual que en los informes: lo decide el servidor, no
-// lo que llegue por la URL. Una gestora solo ve lo suyo.
+// lo que llegue por la URL. Una gestora solo ve lo suyo; quien lleva un equipo
+// comercial (09/11/2026), lo de su equipo.
 function deQuien(req) {
-  const rol = req.user?.role;
-  if (rol === 'admin' || rol === 'superadmin') {
-    return req.query.gestoraId ? Number(req.query.gestoraId) : null;
-  }
-  return req.user?.userId || -1;
+  return personaDelInforme(req.user, req.query.gestoraId ? Number(req.query.gestoraId) : null);
 }
 
 // Los campus del embudo y de los pendientes: los que pida, dentro de los suyos;
@@ -22,6 +20,18 @@ const proyectos = (req) => listaDelAmbito(req);
 export async function listar(req, res, next) {
   try {
     const data = await Conv.listar(req.projectId, {
+      incluirInactivas: req.query.incluirInactivas === 'true',
+    });
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// GET /api/convocatorias/ambito — las de todos los campus de quien pide, para
+// «Todos» o una empresa (#218, Diego 04/11). Crear sigue siendo de un campus.
+export async function listarDelAmbito(req, res, next) {
+  try {
+    const campus = (await listaDelAmbito(req)) || await campusDeTodos(req);
+    const data = await Conv.listar(campus, {
       incluirInactivas: req.query.incluirInactivas === 'true',
     });
     res.json({ success: true, data });
@@ -70,7 +80,7 @@ export async function deLead(req, res, next) {
 export async function pendientes(req, res, next) {
   try {
     const data = await Conv.pendientesDeRespuesta({
-      projectIds: await proyectos(req), asesoraId: deQuien(req),
+      projectIds: await proyectos(req), asesoraId: await deQuien(req),
     });
     res.json({ success: true, data });
   } catch (err) { next(err); }

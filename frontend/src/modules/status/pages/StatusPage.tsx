@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import client from '@/shared/api/client';
+import usePermission from '@/shared/hooks/usePermission';
 import CorreosEnviados from '../components/CorreosEnviados';
 import PiezasDelSistema from '../components/PiezasDelSistema';
 import PageHeader from '@/shared/components/ui/PageHeader';
@@ -58,6 +59,15 @@ function StatusBadge({ status }: { status: Status }) {
 
 export default function StatusPage() {
   const { activeProject } = useProjectContext();
+  // Cada bloque, con su permiso (#631): sin él el servidor da 403, así que ni se
+  // pide ni se pinta. Las piezas y los correos son `status.view`; las
+  // credenciales, `credentials.view`, y la de WooCommerce, `woocommerce.view`
+  // (el admin la ve, pero no las demás credenciales).
+  const { can } = usePermission();
+  const veEstado = can('status.view');
+  const veCredenciales = can('credentials.view');
+  const veWoo = can('woocommerce.view');
+  const integraciones = INTEGRATIONS.filter((i) => (i.service === 'woocommerce' ? veWoo : veCredenciales));
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [woo, setWoo] = useState<WooCredential | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,9 +76,12 @@ export default function StatusPage() {
     if (!activeProject?.id) return;
     setLoading(true);
     try {
+      const nada = { success: false, data: null };
       const [credRes, wooRes] = await Promise.all([
-        client.get(`/credentials?projectId=${activeProject.id}`),
-        client.get(`/woocommerce/credentials?projectId=${activeProject.id}`).catch(() => ({ success: false, data: null })),
+        veCredenciales ? client.get(`/credentials?projectId=${activeProject.id}`) : Promise.resolve(nada),
+        veWoo
+          ? client.get(`/woocommerce/credentials?projectId=${activeProject.id}`).catch(() => nada)
+          : Promise.resolve(nada),
       ]);
       if (credRes.success) setCredentials((credRes.data as Credential[]) || []);
       if (wooRes.success) setWoo((wooRes as { data?: WooCredential }).data || null);
@@ -76,20 +89,20 @@ export default function StatusPage() {
     finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, [activeProject?.id]);
+  useEffect(() => { load(); }, [activeProject?.id, veCredenciales, veWoo]);
 
   function getStatus(service: ServiceKey): Status {
     if (service === 'woocommerce') return woo?.store_url ? 'ok' : 'missing';
     return credentials.find(c => c.service === service) ? 'ok' : 'missing';
   }
 
-  const configured = INTEGRATIONS.filter(i => getStatus(i.service) === 'ok').length;
+  const configured = integraciones.filter(i => getStatus(i.service) === 'ok').length;
 
   return (
     <div className="space-y-6 pb-8">
       <PageHeader
         title="Estado del sistema"
-        subtitle={activeProject ? `${activeProject.nombre} — ${configured}/${INTEGRATIONS.length} integraciones configuradas` : 'Selecciona un proyecto'}
+        subtitle={activeProject ? (integraciones.length ? `${activeProject.nombre} — ${configured}/${integraciones.length} integraciones configuradas` : activeProject.nombre) : 'Selecciona un proyecto'}
         actions={
           <button
             onClick={load}
@@ -105,11 +118,12 @@ export default function StatusPage() {
       {/* Lo primero, porque es la pregunta que se hace de verdad. Lo de abajo
           —si hay una credencial guardada— solo importa cuando esto dice que
           algo no va. */}
-      <PiezasDelSistema />
+      {veEstado && <PiezasDelSistema />}
 
+      {integraciones.length > 0 && <>
       <h2 className="font-bold pt-2">Credenciales guardadas</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 !mt-3">
-        {INTEGRATIONS.map(({ service, name, desc, icon: Icon, color }) => {
+        {integraciones.map(({ service, name, desc, icon: Icon, color }) => {
           const status = loading ? 'loading' : getStatus(service);
           return (
             <div key={service} className={`bg-card border rounded-xl p-5 flex items-start gap-4 transition-colors ${status === 'ok' ? 'border-emerald-200/60 dark:border-emerald-800/30' : status === 'missing' ? 'border-amber-200/60 dark:border-amber-800/30' : 'border-border'}`}>
@@ -127,11 +141,12 @@ export default function StatusPage() {
           );
         })}
       </div>
+      </>}
 
       {/* Los correos, aqui y no en una pantalla propia: esto es «estado del
           sistema» y lo primero que se pregunta cuando algo no llega es si
           salio. Antes habia que entrar a Postgres para saberlo. */}
-      <CorreosEnviados />
+      {veEstado && <CorreosEnviados />}
 
       <p className="text-xs text-muted-foreground text-center">
         Las credenciales se configuran en <strong>Configuración → APIs</strong> de cada proyecto.

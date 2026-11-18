@@ -87,15 +87,41 @@ export function soloLoSuyo(user) {
  * `proyectos` = [{ id, nombre, sociedad_id, sociedad_nombre }]. Los de prueba y
  * los inactivos ya vienen filtrados por el modelo.
  */
-export function construirAmbito(user, proyectos) {
+export function construirAmbito(user, proyectos, equipo = []) {
+  // El equipo comercial (09/11/2026, migración 246): quien tiene gestoras a su
+  // cargo ve lo suyo y lo de ellas, y nada más, sea cual sea su rol. Lo lee de
+  // la base quien llama (`gestorasACargo`): aquí no hay SQL. Un super admin lo
+  // ve todo siempre, tenga o no equipo.
+  const yo = Number(user.id);
+  const equipoIds = user.role === 'superadmin' ? []
+    : [...new Set((equipo || []).map(Number))].filter((id) => Number.isInteger(id) && id !== yo);
+  const restringido = equipoIds.length > 0 || soloLoSuyo(user);
   return {
     userId: user.id,
     nombre: user.nombre,
     role: user.role,
     soloLoSuyo: soloLoSuyo(user),
+    equipo: equipoIds,
+    // null = todo lo de sus campus; si no, de quién puede ver (ella la primera).
+    alcance: restringido ? [yo, ...equipoIds] : null,
     proyectos,
     projectIds: proyectos.map((p) => Number(p.id)),
   };
+}
+
+/**
+ * De quién puede ver: null = de todo su campus; una lista = solo de esas
+ * personas. Vale también para un ámbito escrito a mano sin `alcance`.
+ */
+export function alcanceDelAmbito(ambito) {
+  if (Array.isArray(ambito?.alcance)) return ambito.alcance;
+  return ambito?.soloLoSuyo ? [Number(ambito.userId)] : null;
+}
+
+/** Si pedir los datos de esta gestora se sale de lo que puede ver. */
+export function fueraDelAlcance(ambito, id) {
+  const alcance = alcanceDelAmbito(ambito);
+  return Boolean(id) && Boolean(alcance) && !alcance.includes(Number(id));
 }
 
 /**
@@ -133,10 +159,13 @@ export function acotarProyectos(ambito, { proyecto_id, sociedad_id } = {}) {
 
 /**
  * El dueño a imponer en la consulta: la propia persona si solo ve lo suyo,
- * nadie si ve todo su campus. No se acepta de fuera.
+ * ella y su equipo si lleva uno (una lista), nadie si ve todo su campus. No se
+ * acepta de fuera.
  */
 export function responsableImpuesto(ambito) {
-  return ambito.soloLoSuyo ? ambito.userId : null;
+  const alcance = alcanceDelAmbito(ambito);
+  if (!alcance) return null;
+  return alcance.length === 1 ? alcance[0] : alcance;
 }
 
 // ─── Tokens ───────────────────────────────────────────────────────────────

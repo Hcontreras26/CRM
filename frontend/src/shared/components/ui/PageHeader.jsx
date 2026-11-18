@@ -64,7 +64,10 @@ export default function PageHeader({
 
     return createPortal(
       <>
-        <div className="min-w-0 flex-1">
+        {/* En el móvil el título no baja de 160px: si con los botones al lado
+            quedaría más estrecho, son los botones los que bajan (Ingresos se
+            quedaba en «Ingr…»). */}
+        <div className="min-w-0 flex-1 max-sm:min-w-40">
           {(volver || breadcrumbs) && (
             <div className="flex items-center gap-2 leading-none">
               {volver}
@@ -77,7 +80,9 @@ export default function PageHeader({
           )}
         </div>
         {actions && (
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
+          // En el móvil, si no caben junto al título bajan debajo y se reparten en
+          // líneas (Feedback: los atajos de fecha ensanchaban la página a 703px).
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 max-sm:max-w-full max-sm:justify-start">
             {actions}
           </div>
         )}

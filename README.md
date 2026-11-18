@@ -110,7 +110,7 @@ con diagramas.
 
 ## Empezar en tu equipo
 
-Hacen falta **Node 20 o superior**, **Docker** y **git**. Nada más: ni acceso al
+Hacen falta **Node 22 o superior** (producción y CI usan el 24; versión en `.nvmrc`), **Docker** y **git**. Nada más: ni acceso al
 servidor, ni credenciales de producción.
 
 ```bash

@@ -2,9 +2,77 @@ import { z } from 'zod';
 import * as model from './integrations.model.js';
 import { encrypt, decrypt, maskSecret } from '../../shared/utils/crypto.js';
 import { AppError } from '../../shared/utils/AppError.js';
+import { listaDelAmbito, campusDeTodos } from '../../shared/utils/ambito.js';
 import { logger } from '../../shared/utils/logger.js';
+import { infoDelCampus, urlDelCampus } from '../../shared/services/moodle.client.js';
+import { urlDeStripe } from '../../shared/config/stripeApi.js';
+import { linksPagoActivos, proyectosIAActivos } from '../../shared/config/soloEnPruebas.js';
+import { paypalActivo } from '../cobros-externos/interruptores.js';
+import { probarCredenciales as probarPaypal } from '../cobros-externos/paypal.service.js';
 
-const SUPPORTED = ['stripe', 'brevo'];
+/*
+  SUPABASE, EL TERCERO (#44).
+
+  Los proyectos IA guardan sus propios datos en Supabase --usuarios,
+  suscripciones, consumo-- y de ahi se puede leer lo que la app sabe de cada
+  cliente, que es mas de lo que dice Stripe.
+
+  Se conecta con un ACCESS TOKEN de la Management API. Lo que NO sirve es
+  sacar de ahi las claves de otros servicios: los secrets de un proyecto
+  vuelven como SHA-256 de 64 caracteres, no como su valor. Comprobado contra
+  Tarot IA: los 19, incluido `SUPABASE_URL`, que es publica. Queda escrito para
+  que nadie lo intente otra vez.
+
+  La referencia del proyecto (`project_ref`) va en `config_public`: no es
+  secreta --sale en la URL de la propia app-- y hace falta en cada llamada.
+*/
+
+
+// moodle: el campus del proyecto, para las consultas de alumnos (#187). La
+// dirección va en config_public.url y el token, cifrado, como api_key.
+//
+// stripe_links: la clave de ESCRITURA de Stripe para crear links de pago (#680).
+// Va aparte de `stripe`, que es la de solo lectura del sondeo y no se toca: si
+// esta se filtra o se borra, los cobros siguen entrando. Se cifra igual.
+//
+// paypal: la aplicación REST de la cuenta Business del campus (#766). El secreto,
+// cifrado como api_key; el client id, el modo (live/sandbox) y el id del webhook
+// van en config_public: no son secretos y hacen falta en cada llamada.
+const SUPPORTED = ['stripe', 'brevo', 'supabase', 'moodle', 'stripe_links', 'paypal'];
+
+// Una clave secreta (`sk_`) o restringida (`rk_`) de Stripe, de test o de live.
+// La publicable (`pk_`) no sirve para nada en el servidor y se rechaza al guardar.
+const CLAVE_DE_STRIPE = /^(sk|rk)_(test|live)_[A-Za-z0-9]{8,}$/;
+
+// Lo cifrado no sale nunca hacia el navegador, ni siquiera cifrado: ni el valor,
+// ni su iv, ni su etiqueta. El secreto del webhook de Stripe vive dentro de
+// `config_public` (`webhook_secret_encrypted`, `_iv`, `_auth_tag`) y salía tal
+// cual en la respuesta. Se queda en la base; la pantalla tiene su `_preview`.
+const CIFRADO = /(_encrypted|_iv|_auth_tag)$/;
+function sinCifrado(config) {
+  return Object.fromEntries(Object.entries(config || {}).filter(([k]) => !CIFRADO.test(k)));
+}
+
+/**
+ * ¿Se acepta este proveedor? UNA sola puerta para lo que aún no está aprobado: en
+ * producción, sin su bandera, se contesta como a un proveedor desconocido (400
+ * BAD_PROVIDER), igual que antes de que existiera. Se mira en cada petición.
+ *
+ *   supabase      solo de los proyectos IA (#44)          PROYECTOS_IA_EN_PRODUCCION=1
+ *   stripe_links  la clave de escritura de los links (#680) LINKS_PAGO_EN_PRODUCCION=1
+ *   paypal        los cobros de PayPal (#766)              PAYPAL_COBROS_ACTIVO=1 (apagado
+ *                 en todas partes, también fuera de producción)
+ *
+ * Eran dos funciones, una de cada PR (#715 y #713). Al juntarlas hay que mirar las
+ * dos banderas: con una sola, el otro proveedor volvía a aceptarse en producción.
+ */
+export function proveedorSoportado(provider, env = process.env) {
+  if (!SUPPORTED.includes(provider)) return false;
+  if (provider === 'supabase') return proyectosIAActivos(env);
+  if (provider === 'stripe_links') return linksPagoActivos(env);
+  if (provider === 'paypal') return paypalActivo(env);
+  return true;
+}
 
 // Sólo aceptamos los providers conocidos. Cada provider tiene su shape de
 // config_public propia, pero validamos lo mínimo aquí (el detalle de cada
@@ -51,7 +119,7 @@ function sanitize(row) {
     active: row.active,
     has_secret: !!row.encrypted_value,
     secret_preview: preview,
-    config_public: row.config_public || {},
+    config_public: sinCifrado(row.config_public),
     last_test_status: row.last_test_status,
     last_test_message: row.last_test_message,
     last_test_at: row.last_test_at,
@@ -67,8 +135,21 @@ export async function list(req, res, next) {
     // listByProject NO trae los campos crypto, así que no hay que descifrar
     res.json({ success: true, data: rows.map((r) => ({
       ...r,
+      config_public: sinCifrado(r.config_public),
       secret_preview: null,  // sólo el GET de detalle por provider devuelve preview
     })) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/integrations/estado?issuerId=N | projectIds=1,2 | nada («Todos»)
+// El estado de cada campus del ámbito, solo para ver (#218). Los campus salen
+// de quien pide: un admin, los suyos; superadmin y soporte, todos los activos
+// menos los de pruebas, salvo que los elija.
+export async function estado(req, res, next) {
+  try {
+    const lista = (await listaDelAmbito(req)) || await campusDeTodos(req);
+    const campus = await model.estadoDeLosCampus(lista);
+    res.json({ success: true, data: campus });
   } catch (err) { next(err); }
 }
 
@@ -76,7 +157,7 @@ export async function list(req, res, next) {
 export async function getOne(req, res, next) {
   try {
     const provider = String(req.params.provider || '').toLowerCase();
-    if (!SUPPORTED.includes(provider)) throw new AppError('Provider no soportado', 400, 'BAD_PROVIDER');
+    if (!proveedorSoportado(provider)) throw new AppError('Provider no soportado', 400, 'BAD_PROVIDER');
     const row = await model.get(projectId(req), provider);
     res.json({ success: true, data: sanitize(row) });
   } catch (err) { next(err); }
@@ -88,7 +169,17 @@ export async function upsert(req, res, next) {
     const parsed = upsertSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
     const { provider, active, api_key, webhook_secret, config_public } = parsed.data;
+    if (!proveedorSoportado(provider)) throw new AppError('Provider no soportado', 400, 'BAD_PROVIDER');
     const pid = projectId(req);
+    if (provider === 'stripe_links') {
+      // Solo la clave. El webhook es uno por cuenta y va en la tarjeta de Stripe.
+      if (webhook_secret) {
+        throw new AppError('El secreto del webhook va en la tarjeta «Stripe», no en la de links de pago.', 400, 'VALIDATION_ERROR');
+      }
+      if (api_key && !CLAVE_DE_STRIPE.test(api_key.trim())) {
+        throw new AppError('Eso no es una clave secreta (sk_…) ni restringida (rk_…) de Stripe. La publicable (pk_…) no sirve.', 400, 'VALIDATION_ERROR');
+      }
+    }
     let encryptedFields = {};
     if (api_key && api_key.trim()) {
       const enc = encrypt(api_key.trim());
@@ -103,6 +194,52 @@ export async function upsert(req, res, next) {
     // guardar cualquier otra cosa borraria el secreto sin que nadie se entere.
     const anterior = await model.get(pid, provider);
     let config = { ...(anterior?.config_public || {}), ...(config_public || {}) };
+    if (provider === 'stripe_links') {
+      // Aquí no se guarda nada que mande el navegador: solo lo que se sabe de la
+      // clave por su forma (test o live, restringida o secreta), para la tarjeta.
+      config = { ...(anterior?.config_public || {}) };
+      if (api_key && api_key.trim()) {
+        const [, tipo, modo] = api_key.trim().match(CLAVE_DE_STRIPE);
+        // Clave nueva: lo que se probó con la anterior ya no vale.
+        config = { ...config, modo, restringida: tipo === 'rk', permisos: null };
+        delete config.permisos_probados_el;
+      }
+    }
+    if (provider === 'paypal') {
+      // Solo lo que se sabe que es de PayPal (#766): el client id, el modo y el id
+      // del webhook. Lo demás que mande el navegador no se guarda.
+      if (webhook_secret) {
+        throw new AppError('PayPal no usa secreto de webhook: se comprueba con el id del webhook.', 400, 'VALIDATION_ERROR');
+      }
+      const clientId = String(config.client_id || '').trim();
+      if (!/^[A-Za-z0-9_-]{10,128}$/.test(clientId)) {
+        throw new AppError('Falta el client id de la aplicación REST de PayPal (o no tiene buena forma).', 400, 'VALIDATION_ERROR');
+      }
+      const webhookId = String(config.webhook_id || '').trim();
+      if (webhookId && !/^[A-Za-z0-9-]{5,64}$/.test(webhookId)) {
+        throw new AppError('El id del webhook de PayPal no tiene buena forma.', 400, 'VALIDATION_ERROR');
+      }
+      config = {
+        client_id: clientId,
+        modo: config.modo === 'sandbox' ? 'sandbox' : 'live',
+        ...(webhookId ? { webhook_id: webhookId } : {}),
+      };
+    }
+    if (provider === 'moodle') {
+      // Sin la dirección del campus el token no sirve de nada: se pide aquí y
+      // no al probar, para que no se guarde algo que nunca va a funcionar.
+      const url = urlDelCampus(config.url);
+      // Un dominio (iseih.com/campus) o localhost, para el Moodle de pruebas.
+      if (!url || !/^https?:\/\/(?:localhost(?::\d+)?|[^/\s]+\.[^/\s]+)(?:\/|$)/i.test(url)) {
+        throw new AppError('Falta la dirección del campus: escríbela en «Dirección del campus» (por ejemplo, https://iseih.com/campus).', 400, 'VALIDATION_ERROR');
+      }
+      config = { ...config, url };
+      // «Leer las consultas de este campus» (#188). Al marcarla se apunta desde
+      // cuándo: se lee lo escrito a partir de ahí, no el historial entero.
+      config.consultas = config.consultas === true || config.consultas === 'true';
+      if (config.consultas && !anterior?.config_public?.consultas) config.consultas_desde = new Date().toISOString();
+      if (!config.consultas) delete config.consultas_desde;
+    }
     if (webhook_secret && webhook_secret.trim()) {
       const w = encrypt(webhook_secret.trim());
       config = {
@@ -127,7 +264,7 @@ export async function upsert(req, res, next) {
 export async function test(req, res, next) {
   try {
     const provider = String(req.params.provider || '').toLowerCase();
-    if (!SUPPORTED.includes(provider)) throw new AppError('Provider no soportado', 400, 'BAD_PROVIDER');
+    if (!proveedorSoportado(provider)) throw new AppError('Provider no soportado', 400, 'BAD_PROVIDER');
     const pid = projectId(req);
     const row = await model.get(pid, provider);
     if (!row || !row.encrypted_value) {
@@ -146,7 +283,13 @@ export async function test(req, res, next) {
     let testResult;
     try {
       if (provider === 'stripe') testResult = await testStripe(apiKey);
+      else if (provider === 'stripe_links') testResult = await testStripeLinks(apiKey);
+      else if (provider === 'paypal') testResult = await probarPaypal({
+        clientId: row.config_public?.client_id, secret: apiKey, modo: row.config_public?.modo,
+      });
       else if (provider === 'brevo') testResult = await testBrevo(apiKey);
+      else if (provider === 'supabase') testResult = await testSupabase(apiKey, row.config_public?.project_ref);
+      else if (provider === 'moodle') testResult = await testMoodle(apiKey, row.config_public?.url, undefined, { consultas: row.config_public?.consultas === true });
     } catch (e) {
       testResult = { ok: false, message: e.message };
     }
@@ -155,6 +298,14 @@ export async function test(req, res, next) {
       status: testResult.ok ? 'success' : 'error',
       message: testResult.message,
     });
+    // Lo que contestó cada permiso, para que la tarjeta lo enseñe al volver a
+    // entrar y no solo justo después de probar. Sin la clave, claro.
+    if (provider === 'stripe_links') {
+      await model.fundirConfigPublica({
+        projectId: pid, provider,
+        campos: { permisos: testResult.permisos || null, permisos_probados_el: new Date().toISOString() },
+      });
+    }
     res.json({ success: testResult.ok, data: testResult });
   } catch (err) { next(err); }
 }
@@ -163,7 +314,7 @@ export async function test(req, res, next) {
 export async function remove(req, res, next) {
   try {
     const provider = String(req.params.provider || '').toLowerCase();
-    if (!SUPPORTED.includes(provider)) throw new AppError('Provider no soportado', 400, 'BAD_PROVIDER');
+    if (!proveedorSoportado(provider)) throw new AppError('Provider no soportado', 400, 'BAD_PROVIDER');
     await model.remove(projectId(req), provider);
     res.json({ success: true });
   } catch (err) { next(err); }
@@ -171,9 +322,24 @@ export async function remove(req, res, next) {
 
 // ─── Test helpers ────────────────────────────────────────────────────────
 
+/**
+ * Probar una clave de Stripe.
+ *
+ * Se prueba con `/v1/balance`, que es de solo lectura y no cuesta nada. Pero
+ * una CLAVE RESTRINGIDA —las `rk_`, las que hay que crear cuando no se tiene
+ * la secreta original— puede no llevar permiso de balance y responder 403
+ * aunque sirva perfectamente para leer cobros.
+ *
+ * Con el 403 como error, la pantalla decía «Stripe HTTP 403» y la clave
+ * parecía inválida: cerraba justo el camino recomendado, que es dar al CRM una
+ * clave de solo lectura en vez de la secreta de la cuenta.
+ *
+ * Así que ante un 403 se vuelve a preguntar por lo que el CRM de verdad
+ * necesita —los cobros— y, si eso responde, la clave vale. Se dice que es
+ * limitada, porque importa saberlo: con ella no se puede leer el saldo.
+ */
 async function testStripe(apiKey) {
-  // /v1/balance es read-only y siempre disponible. Devuelve 401 si la key es mala.
-  const r = await fetch('https://api.stripe.com/v1/balance', {
+  const r = await fetch(urlDeStripe('/v1/balance'), {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
   if (r.ok) {
@@ -186,7 +352,133 @@ async function testStripe(apiKey) {
     };
   }
   if (r.status === 401) return { ok: false, message: 'API key inválida (401 Unauthorized)' };
+
+  if (r.status === 403) {
+    // Lo que el CRM lee de verdad. `limit=1` para no traerse nada.
+    const c = await fetch(urlDeStripe('/v1/charges?limit=1'), {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (c.ok) {
+      const data = await c.json().catch(() => null);
+      const livemode = data?.data?.[0]?.livemode === true;
+      return {
+        ok: true,
+        limitada: true,
+        livemode,
+        message: 'Conexión OK con una clave restringida: lee los cobros, pero no el saldo. '
+               + 'Es suficiente para el CRM.',
+      };
+    }
+    return {
+      ok: false,
+      message: 'La clave no tiene permiso ni para el saldo ni para los cobros. '
+             + 'Si es restringida, dale lectura de «Charges».',
+    };
+  }
   return { ok: false, message: `Stripe HTTP ${r.status}` };
+}
+
+/**
+ * Probar la clave de ESCRITURA para los links de pago (#680).
+ *
+ * Solo con GET y `limit=1`: probar no crea nada en Stripe, ni un producto ni un
+ * precio ni un link. La prueba de verdad es `GET /v1/payment_links`, que pide
+ * leer Payment Links.
+ *
+ * Stripe no tiene una llamada que diga qué permisos lleva una clave
+ * restringida, así que se pregunta por cada recurso que hará falta (Payment
+ * Links, Products, Prices y Checkout Sessions) y se dice cuál contesta 403. La
+ * ESCRITURA no se puede comprobar sin escribir: se dice, en vez de dar por
+ * hecho que la tiene. El primer link de prueba (fase 2) lo confirmará.
+ */
+const RECURSOS_DE_LOS_LINKS = [
+  { clave: 'payment_links', nombre: 'Payment Links', ruta: '/v1/payment_links?limit=1' },
+  { clave: 'products', nombre: 'Products', ruta: '/v1/products?limit=1' },
+  { clave: 'prices', nombre: 'Prices', ruta: '/v1/prices?limit=1' },
+  { clave: 'checkout_sessions', nombre: 'Checkout Sessions', ruta: '/v1/checkout/sessions?limit=1' },
+];
+const QUE_DARLE = 'En Stripe, la clave restringida necesita Payment Links, Products y Prices con escritura, '
+  + 'y Checkout Sessions con lectura.';
+
+async function testStripeLinks(apiKey) {
+  const forma = String(apiKey || '').match(CLAVE_DE_STRIPE);
+  if (!forma) {
+    return { ok: false, message: 'La clave guardada no es una clave secreta (sk_…) ni restringida (rk_…) de Stripe.' };
+  }
+  const [, tipo, modo] = forma;
+  const restringida = tipo === 'rk';
+  const enModo = modo === 'live' ? 'LIVE (producción)' : 'TEST (sandbox)';
+  const pedir = (ruta) => fetch(urlDeStripe(ruta), { headers: { Authorization: `Bearer ${apiKey}` } });
+
+  const r = await pedir(RECURSOS_DE_LOS_LINKS[0].ruta);
+  if (r.status === 401) return { ok: false, modo, restringida, message: 'Stripe no reconoce la clave (401): revisa que esté bien copiada y no se haya revocado.' };
+  if (!r.ok && r.status !== 403) return { ok: false, modo, restringida, message: `Stripe HTTP ${r.status}` };
+
+  if (!restringida) {
+    // La secreta de la cuenta lo puede todo, también cobrar y devolver.
+    return {
+      ok: true, modo, restringida,
+      permisos: Object.fromEntries(RECURSOS_DE_LOS_LINKS.map((x) => [x.clave, true])),
+      message: `Conexión OK. Modo: ${enModo}. Es la clave secreta de la cuenta, con todos los permisos: `
+        + `mejor una restringida solo para los links. ${QUE_DARLE}`,
+    };
+  }
+
+  const resto = await Promise.all(RECURSOS_DE_LOS_LINKS.slice(1).map((x) => pedir(x.ruta)));
+  const permisos = {};
+  [r, ...resto].forEach((resp, i) => {
+    const { clave } = RECURSOS_DE_LOS_LINKS[i];
+    // 200: la lee. 403: no tiene ni lectura. Otra cosa: no se sabe.
+    permisos[clave] = resp.ok ? true : resp.status === 403 ? false : null;
+  });
+  const faltan = RECURSOS_DE_LOS_LINKS.filter((x) => permisos[x.clave] === false).map((x) => x.nombre);
+  const dudas = RECURSOS_DE_LOS_LINKS.filter((x) => permisos[x.clave] === null).map((x) => x.nombre);
+  if (faltan.length) {
+    return {
+      ok: false, modo, restringida, permisos,
+      message: `La clave restringida no puede ni leer: ${faltan.join(', ')}. ${QUE_DARLE}`,
+    };
+  }
+  if (dudas.length) {
+    return {
+      ok: false, modo, restringida, permisos,
+      message: `Stripe no ha contestado bien al preguntar por: ${dudas.join(', ')}. Vuelve a probar en un rato.`,
+    };
+  }
+  return {
+    ok: true, modo, restringida, permisos,
+    message: `Conexión OK con una clave restringida. Modo: ${enModo}. Lee Payment Links, Products, Prices y `
+      + 'Checkout Sessions. Si además puede escribir en los tres primeros no se sabe sin crear nada: '
+      + 'lo dirá el primer link de prueba.',
+  };
+}
+
+/**
+ * Probar el access token de Supabase.
+ *
+ * Se pide la lista de proyectos, que es la llamada mas inocua que hay, y se
+ * comprueba ademas que el `project_ref` guardado esta entre los que el token
+ * alcanza. Un token valido de OTRA cuenta daria 200 y no serviria de nada: sin
+ * esa segunda comprobacion la pantalla diria «conectado» y no traeria un dato.
+ */
+async function testSupabase(accessToken, projectRef) {
+  const r = await fetch('https://api.supabase.com/v1/projects', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (r.status === 401) return { ok: false, message: 'Access token invalido (401 Unauthorized)' };
+  if (!r.ok) return { ok: false, message: `Supabase HTTP ${r.status}` };
+  const proyectos = await r.json().catch(() => []);
+  if (!projectRef) {
+    return { ok: false, message: `Token valido (${proyectos.length} proyectos), pero falta la referencia del proyecto.` };
+  }
+  const suyo = proyectos.find((x) => x.id === projectRef);
+  if (!suyo) {
+    return {
+      ok: false,
+      message: `El token no alcanza el proyecto ${projectRef}. Alcanza: ${proyectos.map((x) => x.name).join(', ') || 'ninguno'}.`,
+    };
+  }
+  return { ok: true, message: `Conexion OK con «${suyo.name}» (${suyo.region}).`, projectRef };
 }
 
 async function testBrevo(apiKey) {
@@ -202,3 +494,37 @@ async function testBrevo(apiKey) {
   if (r.status === 401) return { ok: false, message: 'API key inválida (401 Unauthorized)' };
   return { ok: false, message: `Brevo HTTP ${r.status}` };
 }
+
+// Para las pruebas. `testStripe` es interna —no es un endpoint— y lo que hay
+// que fijar es su comportamiento ante el 403 de una clave restringida, que es
+// justo lo que impedia conectar los proyectos de IA.
+export { testStripe as testStripeParaPruebas, testStripeLinks as testStripeLinksParaPruebas };
+// Moodle: core_webservice_get_site_info es de solo lectura y es la que valida
+// el token. Además dice qué funciones tiene el servicio: si falta la de buscar
+// usuarios, el token «vale» pero no sirve para comprobar a los tutores.
+export async function testMoodle(token, url, opciones, { consultas = false } = {}) {
+  try {
+    const info = await infoDelCampus({ url, token }, opciones);
+    const quien = [info.sitio, info.version && `Moodle ${info.version}`].filter(Boolean).join(' · ');
+    // Con «Leer las consultas» marcado, el token también tiene que poder leer
+    // la mensajería (#188).
+    const faltan = [...info.faltan, ...(consultas ? info.faltanConsultas : [])];
+    if (faltan.length) {
+      return { ok: false, message: `Conecta con ${quien || 'el campus'}, pero al servicio del token le falta: ${faltan.join(', ')}.` };
+    }
+    return { ok: true, message: `Conexión OK con ${quien || 'el campus'}.`, sitio: info.sitio, version: info.version };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+}
+
+/**
+ * Las mismas pruebas de «Probar conexión», para «Comprobar ahora» de la salud de
+ * las conexiones (CRM#533, `salud.service.js`). Una sola forma de probar cada
+ * proveedor: si cambia aquí, cambia en los dos sitios.
+ */
+export const PROBAR = {
+  stripe: (clave) => testStripe(clave),
+  brevo: (clave) => testBrevo(clave),
+  moodle: (clave, config = {}) => testMoodle(clave, config.url, undefined, { consultas: config.consultas === true }),
+};

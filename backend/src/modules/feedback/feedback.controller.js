@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AppError } from '../../shared/utils/AppError.js';
 import { query } from '../../shared/config/db.js';
 import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
+import { personaDelInforme, alcanceComercial } from '../../shared/utils/roles.js';
 import * as service from './feedback.service.js';
 import { CLAVES, DISPARADORES, MOTIVOS } from './motivos.js';
 import { preguntasPara } from './preguntas.js';
@@ -14,6 +15,7 @@ const FECHA = /^\d{4}-\d{2}-\d{2}$/;
  *   · superadmin y soporte: lo que pidan.
  *   · admin: lo que pida, pero solo dentro de SUS campus.
  *   · gestora: solo lo suyo, lo pida como lo pida.
+ *   · quien lleva un equipo comercial (09/11/2026): lo de su equipo.
  */
 async function recorteDe(req) {
   const rol = req.user?.role;
@@ -22,10 +24,10 @@ async function recorteDe(req) {
     .split(',').map((x) => Number(x.trim())).filter((n) => Number.isInteger(n) && n > 0);
   const projectIds = ambito.projectIds
     || (varios.length ? varios : (ambito.projectId ? [ambito.projectId] : null));
-  const esJefe = rol === 'admin' || rol === 'superadmin' || rol === 'soporte';
   return {
     projectIds,
-    gestoraId: esJefe ? (Number(req.query.gestoraId) || null) : req.user.userId,
+    gestoraId: await personaDelInforme(req.user, Number(req.query.gestoraId) || null,
+      { jefes: ['admin', 'superadmin', 'soporte'] }),
     deUsuario: rol === 'superadmin' || rol === 'soporte' ? null : req.user.userId,
     desde: FECHA.test(req.query.desde || '') ? req.query.desde : null,
     hasta: FECHA.test(req.query.hasta || '') ? req.query.hasta : null,
@@ -34,9 +36,12 @@ async function recorteDe(req) {
 
 /** Si la gestora no lleva ese prospecto, no puede tocar su correo. */
 async function exigirQueSeaSuyo(req, leadId) {
-  if (['admin', 'superadmin', 'soporte'].includes(req.user?.role)) return;
+  // Quien lleva un equipo comercial (09/11/2026), los de su equipo.
+  const alcance = await alcanceComercial(req.user);
+  if (['admin', 'superadmin', 'soporte'].includes(req.user?.role) && !alcance) return;
+  const permitidos = alcance || [req.user.userId];
   const { rows } = await query('SELECT responsable_id FROM leads WHERE id = $1', [leadId]);
-  if (!rows[0] || rows[0].responsable_id !== req.user.userId) {
+  if (!rows[0] || !permitidos.includes(rows[0].responsable_id)) {
     throw new AppError('Este prospecto no es tuyo', 403, 'FORBIDDEN');
   }
 }

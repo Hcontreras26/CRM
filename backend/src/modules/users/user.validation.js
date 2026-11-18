@@ -42,6 +42,9 @@ export const createUserSchema = z.object({
   // Empresas ENTERAS de un admin, también los campus que se creen (#220). Solo
   // las da el super admin: lo comprueba el controlador.
   empresaIds: empresaIdsSchema,
+  // #694: sus excepciones de permisos, ya en el alta: `{ 'clave.accion': true | false }`.
+  // Las comprueba el controlador con las reglas de la ficha.
+  excepciones: z.record(z.boolean()).optional(),
 }).refine(
   (d) => d.role !== 'gestor' || tieneCampus(d),
   {
@@ -157,4 +160,14 @@ export const listUsersSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
   // La pantalla de Usuarios los pide expresamente; el resto de listas no.
   incluirTodos: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+  // Los desplegables de gestora (Prospectos, Ventas, la Cola, Reasignar…):
+  // a quien lleva un equipo comercial, solo ella y su equipo (QA del 09/11/2026).
+  // A los demás no les cambia nada.
+  alcance: z.enum(['comercial']).optional(),
+});
+
+// El equipo comercial de una administradora (Carlos, 09/11/2026): la lista
+// ENTERA de gestoras a su cargo. Vacía = sin equipo (lo ve todo, como antes).
+export const equipoComercialSchema = z.object({
+  gestoraIds: z.array(z.number().int().positive()).max(200, 'Demasiadas gestoras'),
 });

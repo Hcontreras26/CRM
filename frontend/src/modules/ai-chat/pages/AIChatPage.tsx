@@ -7,7 +7,8 @@ import { toast } from '@/shared/hooks/useToast';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import Markdown from '@/shared/components/ui/Markdown';
-import { useProjectContext } from '@/contexts/ProjectContext';
+import { useCampusDeLaPantalla } from '@/shared/hooks/useCampusDeLaPantalla';
+import ElegirCampus from '@/shared/components/ui/ElegirCampus';
 import { useClaudeChat, type ChatMessage } from '../hooks/useClaudeChat';
 
 /**
@@ -183,8 +184,11 @@ function Intercambio({ m }: { m: ChatMessage }) {
 }
 
 export default function AIChatPage() {
-  const { activeProject } = useProjectContext();
-  const projectId = activeProject?.id && activeProject.id > 0 ? activeProject.id : null;
+  // Las respuestas salen de los datos de UN campus. Con una empresa o «Todos»
+  // arriba, se elige aquí cuál (#218, tanda 3).
+  const campus = useCampusDeLaPantalla();
+  const projectId = campus.id;
+  const activeProject = { nombre: campus.nombre };
   const {
     mensajes, enviando, gasto, conversaciones, conversacionId,
     porQueNoSePuede, enviar, parar, nueva, abrir,
@@ -266,10 +270,11 @@ export default function AIChatPage() {
     return (
       <div className="space-y-4">
         <PageHeader title="Preguntar a la IA" subtitle="Sobre los datos del CRM, en castellano." />
+        <ElegirCampus campus={campus} que="la conversación" />
         <EmptyState
           icon={ChatCircleText}
-          title="Elige un proyecto"
-          description="Las respuestas salen de los datos de un proyecto concreto —sus prospectos, sus ventas—, así que hay que decir de cuál. Selecciónalo arriba a la izquierda."
+          title="Elige un campus"
+          description="Las respuestas salen de los datos de un campus concreto —sus prospectos, sus ventas—, así que hay que decir de cuál."
         />
       </div>
     );
@@ -309,6 +314,7 @@ export default function AIChatPage() {
           </div>
         }
       />
+      <ElegirCampus campus={campus} que="la conversación" />
 
       {/* El motivo por el que no se puede escribir, arriba y en una frase.
           Cada uno se arregla en un sitio distinto, asi que decir «no se puede»

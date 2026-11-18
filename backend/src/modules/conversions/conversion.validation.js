@@ -95,6 +95,8 @@ export const listConversionsSchema = z.object({
   // Filtro por producto: hasta ahora se hacia en el navegador sobre las filas
   // cargadas, asi que con paginacion dejaba fuera el resto.
   producto: z.string().max(255).optional(),
+  // Todas · Solo compartidas · Solo enteras (#163).
+  compartidas: z.enum(['todas', 'solo', 'enteras']).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });

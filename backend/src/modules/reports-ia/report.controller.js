@@ -1,4 +1,5 @@
 import * as model from './report.model.js';
+import { listaDelAmbito, campusDeTodos, exigirCampusSuyo } from '../../shared/utils/ambito.js';
 import { query } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { getDecryptedValue } from '../credentials/credentials.model.js';
@@ -128,10 +129,21 @@ export async function list(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// GET /api/reports-ia/ambito — los informes de todos los campus de quien pide (#218).
+export async function listarDelAmbito(req, res, next) {
+  try {
+    const campus = (await listaDelAmbito(req)) || await campusDeTodos(req);
+    res.json({ success: true, data: await model.listByProject(campus) });
+  } catch (err) { next(err); }
+}
+
 export async function getDetail(req, res, next) {
   try {
     const r = await model.findById(req.params.id);
     if (!r) throw new AppError('Reporte no encontrado', 404, 'NOT_FOUND');
+    // Solo el de un campus suyo (#218): antes cualquier id valía. Con el mismo
+    // 404 que si no existiera, para no decir qué ids hay.
+    await exigirCampusSuyo(req, r.project_id, 'Reporte no encontrado', 'NOT_FOUND');
     res.json({ success: true, data: r });
   } catch (err) { next(err); }
 }
@@ -218,6 +230,7 @@ export async function exportPdf(req, res, next) {
   try {
     const r = await model.findById(req.params.id);
     if (!r) throw new AppError('Reporte no encontrado', 404, 'NOT_FOUND');
+    await exigirCampusSuyo(req, r.project_id, 'Reporte no encontrado', 'NOT_FOUND');
     res.json({
       success: true,
       data: {

@@ -91,10 +91,11 @@ describe('GET /api/credentials', () => {
     });
   });
 
-  it('admin NO puede listar', async () => {
+  // CRM#632 (03/11): el admin ve la lista, recortada a sus campus. Guardar, no.
+  it('admin puede listar (las de sus campus)', async () => {
     const res = await request.get('/api/credentials')
       .set('Authorization', `Bearer ${adminToken}`);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 });
 

@@ -64,8 +64,9 @@ import {
   Flask, House, Funnel, Books, ChalkboardTeacher, Bank, Shuffle, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
-import { rolesDe, soloEsColaborador } from '@/shared/lib/roles';
+import { rolesDe, soloEsColaborador, soloEsTutor } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/shared/lib/utils';
 import { lazy, Suspense } from 'react';
@@ -77,6 +78,12 @@ import { toast } from '@/shared/hooks/useToast';
 import { isBetaAllowed, BETA_MODE, BETA_VERSION } from '@/shared/config/betaConfig';
 import { moduloApagado } from '@/shared/lib/modulos';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
+import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
+import { PANTALLAS_IA } from '@/shared/lib/pantallasIA';
+// Lo del #44 (proyectos IA) solo en pruebas: apagado, un proyecto IA ve el menú de siempre.
+import { tipoDelMenu } from '@/shared/lib/proyectosIA';
+import { abrirPedirAcceso } from '@/modules/soporte/lib/accesos';
+import { MARCA } from '@/shared/config/marca';
 
 const ProjectSettingsDialog = lazy(() => import('@/modules/settings/components/ProjectSettingsDialog'));
 const NotificationsBell = lazy(() => import('./NotificationsBell'));
@@ -127,6 +134,7 @@ export const NAV_SECTIONS = [
       // propia pantalla y el servidor.
       {
         label: 'Prospectos',
+        salvoTipo: ['ia'],
         icon: Users,
         module: 'leads',
         defaultOpen: true,
@@ -148,6 +156,7 @@ export const NAV_SECTIONS = [
       // tres pantallas del mismo sitio, no tres apartados sueltos del menu.
       {
         label: 'WhatsApp',
+        salvoTipo: ['ia'],
         icon: WhatsappLogo,
         module: 'whatsapp',
         apagable: 'whatsapp',
@@ -164,7 +173,9 @@ export const NAV_SECTIONS = [
           // es el chat: uno sirve para conversar y este para buscar, auditar y
           // llevarse una copia. El servidor recorta lo que ve cada cual — un
           // admin lo ve entero, una gestora solo su numero.
-          { label: 'Banco de mensajes', to: '/whatsapp/banco', detail: 'Buscar y auditar', icon: ChatText },
+          // El servidor pide usarlo, supervisarlo o verlo (#631; `whatsapp.banco`, el project
+          // manager, Diego 04/11: «el project manager ve todo», con las líneas de sus campus).
+          { label: 'Banco de mensajes', to: '/whatsapp/banco', detail: 'Buscar y auditar', icon: ChatText, permiso: ['whatsapp.usar', 'whatsapp.supervisar', 'whatsapp.banco'] },
           // Si cada gestora responde y lo que apunta (Diego, 30/10). Para quien ve Reportes.
           { label: 'Actividad', to: '/whatsapp/actividad', detail: 'Quién responde', icon: ChartBar, permiso: 'reports.view' },
           // «WhatsApp del equipo» no esta: entraba en la sesion de cada gestora
@@ -203,10 +214,16 @@ export const NAV_SECTIONS = [
       { label: 'Configurar tablero', to: '/tareas/configurar', detail: 'Columnas, áreas y proyectos', icon: SlidersHorizontal, roles: ROLES_TAREAS, permiso: 'tasks.manage', oPermiso: 'tasks.manage' },
       // «Mi factura» (#202): el colaborador con usuario sube aquí su factura del mes.
       { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador', 'tutor_redactor'], permiso: 'facturas_colaborador.subir' },
+      // Monitask (#236): qué hace cada colaborador y el cotejo con sus facturas. Solo en
+      // /testeo y local hasta que Diego lo apruebe; además, con MONITASK_ACTIVO en el servidor.
+      ...(SOLO_EN_PRUEBAS
+        ? [{ label: 'Actividad', to: '/equipo/actividad', detail: 'Horas de Monitask y cotejo', icon: ChartBar, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'monitask.view' }]
+        : []),
     ],
   },
   {
     label: 'Captación',
+    salvoTipo: ['ia'],
     icon: Funnel,
     items: [
       { label: 'Email', to: '/secuencias-email', detail: 'Correos automáticos', icon: Envelope, roles: ['superadmin', 'admin'], module: 'email_sequences', permiso: 'email_sequences.view' },
@@ -221,6 +238,7 @@ export const NAV_SECTIONS = [
   },
   {
     label: 'Publicidad',
+    salvoTipo: ['ia'],
     icon: Megaphone,
     items: [
       // Meta Ads: administración por su rol; y en solo lectura a quien se le da
@@ -234,10 +252,11 @@ export const NAV_SECTIONS = [
   },
   {
     label: 'Catálogo',
+    salvoTipo: ['ia'],
     icon: Books,
     items: [
       { label: 'Productos', to: '/productos', detail: 'Cursos a la venta', icon: Package, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.view' },
-      { label: 'Cursos pendientes', to: '/productos/pendientes', detail: 'Vendidos sin fecha', icon: Clock, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.view' },
+      { label: 'Cursos pendientes', to: '/productos/pendientes', detail: 'Por campus, con tutora y fecha', icon: Clock, roles: ['superadmin', 'admin', 'gestor', 'tutor'], module: 'products', permiso: 'products.view' },
       { label: 'WooCommerce', to: '/productos/woocommerce', detail: 'Sincronía de tienda', icon: ShoppingBag, roles: ['superadmin', 'admin'], module: 'woocommerce', permiso: 'woocommerce.view' },
       // Cada entrada se llama como la pantalla que abre (#79). «Árbol de
       // categorías» apuntaba a /productos/arbol, que es OTRA pantalla, y el
@@ -250,17 +269,50 @@ export const NAV_SECTIONS = [
   },
   {
     label: 'Tutores',
+    salvoTipo: ['ia'],
     icon: ChalkboardTeacher,
     items: [
       { label: 'Tutores', to: '/tutores', detail: 'Quién imparte qué', icon: GraduationCap, roles: ['superadmin', 'admin'], module: 'tutores', permiso: 'tutores.gestionar', oPermiso: 'tutores.gestionar' },
-      // Lo unico que ve un tutor: sus cursos y lo que le corresponde.
-      { label: 'Mis cursos', to: '/mis-cursos', detail: 'Tus cursos y tu parte', icon: GraduationCap, roles: ['tutor', 'tutor_redactor'], permiso: 'tutores.mis_cursos' },
+      // «Mis cursos» (sus cursos y su parte) ya no va en el menú (05/11): la tutora trabaja
+      // desde «Mi campus». La pantalla sigue en /mis-cursos para los enlaces de los correos.
+      // #681: sus cursos en Moodle, con lo que tiene por corregir y contestar.
+      { label: 'Mi campus', to: '/mis-cursos/campus', detail: 'Por corregir, dudas y alumnos', icon: ClipboardText, roles: ['tutor', 'tutor_redactor'], statusTag: 'Pruebas', permiso: 'tutores.mis_cursos' },
+      // Consultas de alumnos (#188): el tutor, su bandeja; administración, todas.
+      { label: 'Consultas', to: '/consultas', detail: 'Las dudas de los alumnos', icon: ChatCircleText, roles: ['superadmin', 'admin', 'tutor', 'tutor_redactor'], module: 'tutores', statusTag: 'Pruebas', permiso: ['consultas.view', 'consultas.atender'], oPermiso: 'consultas.view' },
       { label: 'Sin tutor', to: '/tutores/sin-tutor', detail: 'Formaciones sin asignar', icon: Warning, roles: ['superadmin', 'admin'], module: 'tutores', permiso: 'tutores.gestionar', oPermiso: 'tutores.gestionar' },
       { label: 'Comisiones', to: '/tutores/comisiones', detail: 'Lo que se les debe', icon: Coins, roles: ['superadmin', 'admin'], module: 'tutores', permiso: 'tutores.gestionar', oPermiso: 'tutores.gestionar' },
     ],
   },
   {
+    // EL APARTADO DE LOS PROYECTOS IA.
+    //
+    // Angel: «deberias hacer un apartado especifico para los proyectos IA,
+    // estos no estan muy cargados, por ende la cantidad de apartados son
+    // menores». Un proyecto IA es una suscripcion: quien paga, cuanto entra
+    // y por que se va. No hay embudo, ni equipo, ni catalogo.
+    //
+    // Cuatro entradas y se acabo. El resto del menu se esconde solo, porque
+    // sus secciones no aplican a este tipo.
+    label: 'Proyecto IA',
+    icon: Robot,
+    items: [
+      // Lleva al panel de Contabilidad, que en IA YA trae lo suyo: MRR,
+      // activas, altas, bajas y por que se van, ademas de cobrado, gastos y
+      // balance. Antes eran dos pantallas de resumen del mismo proyecto, que
+      // es como se llega a que digan cifras distintas.
+      { label: 'Resumen', to: '/finanzas', detail: 'Lo que entra y lo que se va', icon: ChartBar, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'accounting.view' },
+      { label: 'Cobros', to: '/finanzas/pagos-stripe', detail: 'Lo que ha entrado', icon: CreditCard, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'stripe.view' },
+      { label: 'Suscriptores', to: '/clientes', detail: 'Quien paga', icon: UserCheck, projectType: 'ia', permiso: 'clients.view' },
+      { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
+      { label: 'Conexión', to: '/finanzas/integraciones', detail: 'Stripe y Supabase', icon: PlugsConnected, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'integrations.view' },
+    ],
+  },
+  {
     label: 'Finanzas',
+    // En IA no: sus doce entradas se resumen en las cinco de «Proyecto IA»,
+    // que estan justo encima. Doce apartados para un proyecto que solo
+    // cobra suscripciones es lo que hacia que no se encontrara ninguno.
+    salvoTipo: ['ia'],
     icon: Bank,
     items: [
       { label: 'Dashboard', to: '/finanzas', detail: 'Caja del mes', icon: ChartBar, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'accounting.view' },
@@ -270,11 +322,16 @@ export const NAV_SECTIONS = [
       { label: 'Egresos', to: '/finanzas/egresos', detail: 'Gastos y salidas', icon: TrendDown, roles: ['superadmin', 'admin'], module: 'accounting_expenses', statusTag: 'Pruebas', permiso: 'expenses.view' },
       { label: 'Cuentas por cobrar', to: '/finanzas/por-cobrar', detail: 'Pendiente de cobro', icon: Wallet, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'accounting.por_cobrar' },
       { label: 'Cuentas por pagar', to: '/finanzas/por-pagar', detail: 'Pendiente de pago', icon: Receipt, roles: ['superadmin', 'admin'], module: 'accounting_payable', statusTag: 'Pruebas', permiso: 'accounts_payable.view' },
-      { label: 'Comisiones', to: '/finanzas/comisiones', detail: 'Del equipo comercial', icon: HandCoins, roles: ['superadmin', 'admin'], module: 'commissions', statusTag: 'Pruebas', permiso: 'commissions.view' },
-      { label: 'Nóminas', to: '/finanzas/nominas', detail: 'Pagos al equipo', icon: Calculator, roles: ['superadmin', 'admin'], module: 'payroll', statusTag: 'Pruebas', permiso: 'payroll.view' },
+      { label: 'Comisiones', salvoTipo: ['ia'], to: '/finanzas/comisiones', detail: 'Del equipo comercial', icon: HandCoins, roles: ['superadmin', 'admin'], module: 'commissions', statusTag: 'Pruebas', permiso: 'commissions.view' },
+      { label: 'Nóminas', salvoTipo: ['ia'], to: '/finanzas/nominas', detail: 'Pagos al equipo', icon: Calculator, roles: ['superadmin', 'admin'], module: 'payroll', statusTag: 'Pruebas', permiso: 'payroll.view' },
       { label: 'Pendientes de facturar', to: '/finanzas/pendiente-facturar', detail: 'Ventas sin factura', icon: WarningCircle, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'facturas.view' },
       { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', detail: 'Cobros por Stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'stripe.view' },
-      { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: ['facturas.emitir', 'facturas.configurar'], oPermiso: 'facturas.emitir' },
+      // Registro automático de cobros (#766): solo en /testeo y en local hasta que
+      // Diego lo apruebe. Además, cada parte va con su interruptor del servidor.
+      ...(SOLO_EN_PRUEBAS
+        ? [{ label: 'PayPal y banco', to: '/finanzas/cobros-externos', detail: 'Cobros de PayPal y extractos', icon: Wallet, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'cobros_externos.view' }]
+        : []),
+      { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
       { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'], permiso: 'facturas_colaborador.ver_todas' },
       { label: 'Integraciones', to: '/finanzas/integraciones', detail: 'Servicios conectados', icon: PlugsConnected, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'integrations.view' },
@@ -287,14 +344,20 @@ export const NAV_SECTIONS = [
       { label: 'Reportes', to: '/informes', detail: 'Números descargables', icon: ChartLineUp, roles: ['superadmin', 'admin'], module: 'reports', permiso: 'reports.view' },
       // Por que no compran: enviados, respondidos y motivos (#170).
       { label: 'Feedback', to: '/informes/feedback', detail: 'Por qué no compran', icon: ChatCircleText, roles: ['superadmin', 'admin'], module: 'reports', permiso: 'feedback.view' },
-      // Para cualquier campus (#216): el informe sale de sus leads, ventas y UTM.
-      { label: 'Análisis IA', to: '/informes/ia', detail: 'Lectura automática', icon: Sparkle, roles: ['superadmin', 'admin'], permiso: 'reports_ia.view' },
-      // El Chat IA (#30) esta APARCADO hasta la fase 5: no se va a usar la API
-      // todavia. La pantalla y la ruta se quedan —el trabajo esta hecho y
-      // probado—, pero no se ofrece en el menu: enseñar una puerta que no
-      // lleva a ningun sitio es peor que no tenerla.
-      // Para devolverla, quitar el comentario de la linea de abajo.
-      // { label: 'Chat IA', to: '/chat-ia', detail: 'Preguntar a tus datos', icon: ChatCircleText, roles: ['superadmin', 'admin'] },
+      // Las pantallas de IA del CRM (#30) —Análisis IA, Pregunta a tus datos y
+      // Chat IA— están APAGADAS (Diego, 10/11/2026: se usa Claude por el MCP).
+      // Se encienden las tres juntas con `PANTALLAS_IA` (`shared/lib/pantallasIA.js`).
+      ...(PANTALLAS_IA
+        ? [
+          // Para cualquier campus (#216): el informe sale de sus leads, ventas y UTM.
+          { label: 'Análisis IA', to: '/informes/ia', detail: 'Lectura automática', icon: Sparkle, roles: ['superadmin', 'admin'], permiso: 'reports_ia.view' },
+          // Preguntarle a los datos (#30): además, solo en pruebas hasta que haya clave y tope (#22).
+          ...(SOLO_EN_PRUEBAS
+            ? [{ label: 'Pregunta a tus datos', to: '/informes/preguntar', detail: 'Con IA, sin inventar', icon: Sparkle, roles: ['superadmin', 'admin'], module: 'reports', permiso: 'reports_ia.generar' }]
+            : []),
+          { label: 'Chat IA', to: '/chat-ia', detail: 'Preguntar a tus datos', icon: ChatCircleText, roles: ['superadmin', 'admin'] },
+        ]
+        : []),
     ],
   },
   {
@@ -329,6 +392,8 @@ export const NAV_SECTIONS = [
     icon: PlugsConnected,
     items: [
       { label: 'MCP', to: '/conexion/mcp', detail: 'Consultar desde Claude', icon: Robot, accesoMcp: true },
+      // #335: los cursos, alumnos y recursos de los Moodle de cada campus.
+      { label: 'Moodle', to: '/conexion/moodle', detail: 'Cursos y alumnos de cada campus', icon: GraduationCap, roles: ['superadmin', 'admin'], permiso: 'moodle.view' },
       { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors', permiso: 'connectors.view' },
       // Diego, 15/10: «un apartado en Conexión para enviar esos datos ÚNICAMENTE
       // CUANDO SE PONGA DATOS POR TRANSFERENCIA BANCARIA / DEPÓSITO BANCARIO».
@@ -341,17 +406,16 @@ export const NAV_SECTIONS = [
     icon: Gear,
     items: [
       // Lo que trae cada versión del CRM (Diego, 28/09). Para todo el equipo.
-      { label: 'Novedades', to: '/novedades', detail: 'Versión 2.0.0', icon: Sparkle, roles: ['superadmin', 'admin', 'gestor', 'soporte'], permiso: 'novedades.view' },
+      { label: 'Novedades', to: '/novedades', detail: 'Lo nuevo de cada versión', icon: Sparkle, roles: ['superadmin', 'admin', 'gestor', 'soporte'], permiso: 'novedades.view' },
       { label: 'Mensajes', to: '/mensajes', detail: 'Del equipo', icon: ChatsCircle, permiso: 'mensajes.usar' },
       { label: 'Solicitudes de cambio', to: '/solicitudes-cambio', detail: 'Pedir un cambio', icon: GitMerge, permiso: 'change_requests.view' },
       { label: 'Notificaciones', to: '/notificaciones', detail: 'Lo que ha pasado', icon: BookOpen },
       // El tutor entra aqui: es donde cambia su contraseña.
       { label: 'Mis preferencias', to: '/preferencias', detail: 'Tus ajustes', icon: UserCircle, roles: ['superadmin', 'admin', 'gestor', 'tutor', 'colaborador', 'tutor_redactor'] },
       { label: 'Soporte', to: '/soporte', detail: 'Ayuda y contacto', icon: Headset },
-      // Claves y variables (#80). Los mismos roles que exige el servidor con
-      // `soloRoles`: ofrecer en el menu lo que la API va a negar es peor que
-      // no ofrecerlo.
-      { label: 'Claves y variables', to: '/configuracion/claves', detail: 'Credenciales del proyecto', icon: Key, roles: ['superadmin', 'soporte'], permiso: 'credentials.view' },
+      // Claves y variables (#80). Desde CRM#632 (03/11) también el admin, que
+      // ve las de sus campus; guardar y revelar siguen siendo de soporte.
+      { label: 'Claves y variables', to: '/configuracion/claves', detail: 'Credenciales del proyecto', icon: Key, roles: ['superadmin', 'admin', 'soporte'], permiso: 'credentials.view' },
       // El registro (#111). Los mismos roles que exige el servidor con
       // `roleGuard('admin', 'superadmin')`: cruza todas las fichas y a todos
       // los compañeros, y ofrecerlo a quien la API va a negar es peor que no
@@ -360,7 +424,9 @@ export const NAV_SECTIONS = [
       // Los correos que salen del CRM (#146). Mismos roles que el Registro, y
       // aqui pesa mas: esto enseña el TEXTO de correos a personas.
       { label: 'Correos', to: '/correos', detail: 'Lo que ha mandado el CRM', icon: EnvelopeSimple, roles: ['superadmin', 'admin'], permiso: 'correos.view' },
-      { label: 'Status', to: '/status', detail: 'Si algo está caído', icon: Activity },
+      // Lo que enseña pide `status.view` (piezas y correos), `credentials.view` o
+      // `woocommerce.view`: sin ninguno, la pantalla era solo 403 (#631).
+      { label: 'Status', to: '/status', detail: 'Si algo está caído', icon: Activity, permiso: ['status.view', 'credentials.view', 'woocommerce.view'] },
       { label: 'Manual de usuario', to: '/manual', detail: 'Cómo se usa cada cosa', icon: BookOpen },
     ],
   },
@@ -474,8 +540,66 @@ export function tieneAccesoMcp(can) {
  */
 export function pasaPermisoDeRoles(item, can) {
   if (!item?.permiso) return true;
-  // `permiso` puede ser una lista: basta con una (Facturación: emitir O configurar).
+  // `permiso` puede ser una lista: basta con una.
   return [].concat(item.permiso).some((p) => !String(p).includes('.') || (typeof can === 'function' && can(p) === true));
+}
+
+/**
+ * ¿Puede abrir esta pantalla, por la dirección? (#631)
+ *
+ * El menú ya esconde lo que no se puede usar cuando la entrada declara su
+ * `permiso`, pero escribiendo la dirección la pantalla se abría igual y luego
+ * llegaba el 403. Esta es la misma regla, para la ruta: todas las entradas del
+ * menú que llevan a ella (Clientes sale dos veces); si alguna pide `permiso` y
+ * ninguna lo cumple, está cerrada. Solo el permiso, nunca el rol (#423): los
+ * `roles` de cada entrada dicen a quién se le enseña de serie, no quién entra.
+ * Lo que no está en el menú (fichas de detalle…) no se toca.
+ */
+const SIN_ENTRADA = {
+  // El chat de WhatsApp también se abre por `/whatsapp` (App.jsx), sin entrada.
+  '/whatsapp': ['whatsapp.usar', 'whatsapp.supervisar'],
+  // La pestaña Tutores de Consultas: la del panel de tutores en el servidor
+  // (`/api/consultas/tutores-panel`). Escrita a mano por una tutora decía «No
+  // hay tutores aquí» en vez de que no tiene acceso (#188).
+  '/consultas/tutores': 'consultas.view',
+};
+
+export function rutaPermitida(pathname, can) {
+  const ruta = String(pathname || '').replace(/\/+$/, '') || '/';
+  const suyas = [];
+  const recorrer = (items) => {
+    for (const it of items || []) {
+      if (it.to && !it.href && it.to === ruta) suyas.push(it);
+      if (it.children) recorrer(it.children);
+    }
+  };
+  for (const s of NAV_SECTIONS) recorrer(s.items);
+  // Rutas sin entrada propia en el menú: su permiso, aquí.
+  if (!suyas.length && SIN_ENTRADA[ruta]) suyas.push({ permiso: SIN_ENTRADA[ruta] });
+  if (!suyas.length) return true;
+  return suyas.some((it) => !it.permiso || pasaPermisoDeRoles(it, can)
+    || (it.oPermiso && [].concat(it.oPermiso).some((p) => typeof can === 'function' && can(p) === true)));
+}
+
+/**
+ * La clave del permiso que le falta para abrir esta pantalla (CRM#820), para
+ * que «No tienes acceso» ofrezca pedir ESE. Con la misma regla que
+ * `rutaPermitida`: la primera clave del catálogo que pide su entrada del menú y
+ * no tiene. `null` si la puede abrir o no se sabe cuál es.
+ */
+export function permisoQueFalta(pathname, can) {
+  if (rutaPermitida(pathname, can)) return null;
+  const ruta = String(pathname || '').replace(/\/+$/, '') || '/';
+  const claves = [];
+  const recorrer = (items) => {
+    for (const it of items || []) {
+      if (it.to && !it.href && it.to === ruta && it.permiso) claves.push(...[].concat(it.permiso));
+      if (it.children) recorrer(it.children);
+    }
+  };
+  for (const s of NAV_SECTIONS) recorrer(s.items);
+  if (!claves.length && SIN_ENTRADA[ruta]) claves.push(...[].concat(SIN_ENTRADA[ruta]));
+  return claves.find((c) => String(c).includes('.') && !(typeof can === 'function' && can(c) === true)) || null;
 }
 
 export function canSeeItem(item, roles, modules, projectType, soloColaboraciones, permisos, can) {
@@ -497,6 +621,14 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   // `permiso` también puede ser una lista: basta con uno (Diplomas: ver O emitir).
   const tienePermisoDeLaPantalla = !item.permiso || (typeof can === 'function' && [].concat(item.permiso).some((p) => can(p) === true));
   if (!tienePermisoDeLaPantalla) return false;
+  // Y al reves: lo que en un tipo de proyecto NO EXISTE.
+  //
+  // Un proyecto IA no tiene tutores, ni comisiones, ni nominas, ni campañas
+  // ni catalogo de veinte cursos: tiene suscriptores y cobros. Enseñarle ocho
+  // apartados vacios es lo que hace que no encuentre los dos que si tienen
+  // algo. Angel, mirando Tarot: «estos no estan muy cargados, por ende la
+  // cantidad de apartados son menores».
+  if (Array.isArray(item.salvoTipo) && item.salvoTipo.includes(projectType)) return false;
   // Un tutor solo ve lo suyo: lo que no le nombre expresamente queda fuera.
   // Al reves —listar lo prohibido— se olvida siempre algo, y lo que se olvida
   // es un tutor paseandose por Prospectos o por Finanzas.
@@ -540,6 +672,14 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
 
   // soporte ve todo (rol generico tipo dev)
   if (es('soporte', 'superadmin')) {
+    if (item.module && modules && modules[item.module] === false) return false;
+    return true;
+  }
+  // El project manager ve todo (Diego, 04/11): cada pantalla cuyo permiso tiene,
+  // aunque su rol no esté en `roles` (que dicen a quién se le enseña de serie).
+  // Lo que no pide permiso sigue la regla de siempre. Lo que ve dentro, de sus
+  // campus: lo recorta el servidor.
+  if (es('project_manager') && item.permiso && !item.comingSoon) {
     if (item.module && modules && modules[item.module] === false) return false;
     return true;
   }
@@ -924,9 +1064,17 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const [userMenuView, setUserMenuView] = useState('main'); // 'main' | 'hide-dock'
   const [dockHidden, setDockHidden] = useState(() => isFloatingDockHidden());
   const [newLeadsBadge, setNewLeadsBadge] = useState(0);
+  // Los campus de «Todos» o de la empresa de arriba, para el contador (#218).
+  const idsDelAmbito = useIdsDelAmbito();
+  const idsDelAmbitoCsv = idsDelAmbito.join(',');
   const [spamReportsBadge, setSpamReportsBadge] = useState(0);
   const [msgUnreadBadge, setMsgUnreadBadge] = useState(0);
   const { can } = usePermission();
+  // Para los contadores: un sí o un no, no la función `can`, que es nueva en
+  // cada render y, en las dependencias de un efecto, lo relanzaría sin parar.
+  const veProspectosNuevos = can('leads.view');
+  const veReportesDeSpam = can('leads.spam');
+  const usaMensajes = can('mensajes.usar');
 
   // Estado de secciones colapsadas (Captación, Catálogo, Finanzas, etc.).
   // Persistido en localStorage. Por defecto, abierto: Principal + la sección
@@ -1042,17 +1190,23 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   useEffect(() => { setUserMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
-    if (!activeProject?.id || soloEsColaborador(user)) return;
+    // El tutor tampoco: no ve prospectos y el servidor se los niega (#187). Y quien
+    // no tiene «Ver prospectos», tampoco: el servidor se lo niega (#631).
+    if (!activeProject?.id || !veProspectosNuevos || soloEsColaborador(user) || soloEsTutor(user)) return;
     let cancelled = false;
     let interval = null;
 
     async function fetchBadge() {
       if (typeof document !== 'undefined' && document.hidden) return;
       try {
-        // -1 = «Todos» o una empresa: sin proyecto, cuenta los nuevos de todo lo
-        // suyo (con -1 el servidor lo rechazaba cada vez).
-        const pid = activeProject.id > 0 ? `projectId=${activeProject.id}&` : '';
-        const res = await client.get(`/leads?${pid}status=nuevo&limit=1`);
+        // -1 = «Todos» o una empresa: cuenta los nuevos de sus campus. Sin
+        // campus el servidor lo rechaza (`projectId o projectIds requerido`),
+        // y así fallaba con 400 cada 5 minutos (#218, /testeo 05/11).
+        const ambito = activeProject.id > 0
+          ? `projectId=${activeProject.id}&`
+          : (idsDelAmbitoCsv ? `projectIds=${idsDelAmbitoCsv}&` : null);
+        if (ambito === null) return;
+        const res = await client.get(`/leads?${ambito}status=nuevo&limit=1`);
         if (!cancelled && res.success) setNewLeadsBadge(res.pagination?.total || 0);
       } catch {}
     }
@@ -1081,11 +1235,12 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
         document.removeEventListener('visibilitychange', onVisibilityChange);
       }
     };
-  }, [activeProject?.id, user]);
+  }, [activeProject?.id, user, veProspectosNuevos, idsDelAmbitoCsv]);
 
-  // Badge de reportes de spam pendientes — solo superadmin
+  // Badge de reportes de spam pendientes: quien puede verlos (`leads.spam`), por
+  // permiso y no por rol (#423, #631).
   useEffect(() => {
-    if (user?.role !== 'superadmin') return;
+    if (!veReportesDeSpam) return;
     let cancelled = false;
     async function fetchSpamCount() {
       try {
@@ -1096,11 +1251,13 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
     fetchSpamCount();
     const interval = setInterval(fetchSpamCount, 60000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [user?.role]);
+  }, [veReportesDeSpam]);
 
-  // Badge de mensajes no leidos
+  // Badge de mensajes no leidos: solo a quien puede usar Mensajes. A quien se lo
+  // han quitado (la tutora de prueba de /testeo) el servidor le daba un 403 en
+  // cada página (#188).
   useEffect(() => {
-    if (soloEsColaborador(user)) return;
+    if (soloEsColaborador(user) || !usaMensajes) return;
     let cancelled = false;
     async function fetchMsgCount() {
       try {
@@ -1111,7 +1268,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
     fetchMsgCount();
     const interval = setInterval(fetchMsgCount, 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [user]);
+  }, [user, usaMensajes]);
 
   const initials = user?.nombre?.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) || '??';
   // Vanessa y quien lleve las colaboraciones: solo tutores, nada mas.
@@ -1175,7 +1332,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
         {!collapsed && (
           <div className="mt-2 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-semibold text-sm text-foreground truncate">MultiCRM</span>
+              <span className="font-semibold text-sm text-foreground truncate">{MARCA}</span>
               {BETA_MODE && (
                 <span className="text-[9px] font-bold uppercase tracking-wider bg-warning-soft text-warning-soft-foreground px-1.5 py-0.5 rounded flex-shrink-0">
                   BETA{BETA_VERSION ? ` ${BETA_VERSION}` : ''}
@@ -1243,7 +1400,13 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       )}>
         {NAV_SECTIONS.map((section, sIdx) => {
           // Filtrar items que el usuario puede ver
-          const visibleItems = entradasDeSeccion(section, { user, can, modules: activeProject?.modules, projectType: activeProject?.type, soloColab });
+          // Una seccion entera puede no aplicar a un tipo de proyecto (en IA no hay
+          // campañas, ni catalogo, ni tutores).
+          const seccionAplica = !(Array.isArray(section.salvoTipo)
+            && section.salvoTipo.includes(tipoDelMenu(activeProject?.type)));
+          const visibleItems = seccionAplica
+            ? entradasDeSeccion(section, { user, can, modules: activeProject?.modules, projectType: tipoDelMenu(activeProject?.type), soloColab })
+            : [];
           if (visibleItems.length === 0) return null;
           const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
@@ -1259,7 +1422,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                 // tener mas de uno, el menu tiene que sumar lo de cada uno.
                 role={rolesDe(user)}
                 modules={activeProject?.modules}
-                projectType={activeProject?.type}
+                projectType={tipoDelMenu(activeProject?.type)}
                 soloColab={soloColab}
                 permisos={user}
                 can={can}
@@ -1412,7 +1575,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                   label="Mi perfil"
                   onClick={() => { setUserMenuOpen(false); navigate('/perfil'); onNavigate?.(); }}
                 />
-                {(user?.role === 'admin' || user?.role === 'superadmin') && (
+                {/* Y el project manager, que ve todo (Diego, 04/11): Usuarios y Roles, en solo lectura. */}
+                {(user?.role === 'admin' || user?.role === 'superadmin' || rolesDe(user).includes('project_manager')) && (
                   // «del CRM»: desde el menú personal se esperaba llegar a lo
                   // suyo, y esto son los proyectos, usuarios y APIs de todo el
                   // CRM (#208). Lo personal es «Mi perfil», justo encima.
@@ -1422,6 +1586,12 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                     onClick={() => { setUserMenuOpen(false); navigate('/configuracion'); onNavigate?.(); }}
                   />
                 )}
+                {/* CRM#820: un alta, un permiso, un campus o Claude, a soporte como ticket. Para todos. */}
+                <UserMenuItem
+                  icon={Key}
+                  label="Pedir acceso o permiso"
+                  onClick={() => { setUserMenuOpen(false); abrirPedirAcceso(); onNavigate?.(); }}
+                />
                 <UserMenuItem
                   icon={theme === 'dark' ? Sun : Moon}
                   label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}

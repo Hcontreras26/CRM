@@ -27,6 +27,7 @@ vi.mock('@/shared/hooks/useAmbito', () => ({ useIdsDelAmbito: () => AMBITO }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 
 const { default: CommandPalette } = await import('@/shared/components/layout/CommandPalette');
+const { CERTIFEX_PANEL } = await import('@/shared/lib/certifexPanel');
 
 const vacio = { success: true, data: [] };
 const urls = () => get.mock.calls.map(([u]) => u);
@@ -61,8 +62,57 @@ describe('el buscador, usándolo', () => {
     await abrirYEscribir('go');
     await waitFor(() => expect(urls().some((u) => u.startsWith('/leads?'))).toBe(true));
     const rutas = urls().map((u) => u.split('?')[0]);
-    expect(rutas).toEqual(expect.arrayContaining(['/leads', '/products', '/invoices', '/tasks', '/consultas', '/users/buscar']));
+    expect(rutas).toEqual(expect.arrayContaining([
+      '/leads', '/products', '/invoices', '/tasks', '/consultas', '/users/buscar',
+      '/tutores/buscar', '/facturas-colaborador/facturas',
+    ]));
     expect(rutas).not.toContain('/conversions/go');
+    // Certifex y Moodle se preguntan en vivo: con dos letras, todavía no.
+    expect(rutas).not.toContain('/certifex/diplomas');
+    expect(rutas).not.toContain('/moodle/cursos');
+  });
+
+  it('desde tres letras, también diplomas y cursos de Moodle (sin contar alumnos)', async () => {
+    await abrirYEscribir('log');
+    await waitFor(() => expect(urls().some((u) => u.startsWith('/moodle/cursos?'))).toBe(true));
+    const moodle = urls().find((u) => u.startsWith('/moodle/cursos?'));
+    expect(moodle).toContain('proyecto_id=7');
+    expect(moodle).toContain('con_alumnos=0');
+    if (CERTIFEX_PANEL) expect(urls().some((u) => u.startsWith('/certifex/diplomas?'))).toBe(true);
+  });
+
+  it('un Moodle lento no hace esperar a las personas, y su curso llega después', async () => {
+    let soltarMoodle;
+    get.mockImplementation((url) => {
+      if (url.startsWith('/moodle/cursos?')) {
+        return new Promise((r) => { soltarMoodle = () => r({ success: true, data: { cursos: [{ id: 40, nombre: 'Logopedia infantil', estado: 'activo' }] } }); });
+      }
+      if (url.startsWith('/leads?')) return Promise.resolve({ success: true, data: [{ id: 3, nombre: 'Lola Gómez', status: 'nuevo' }] });
+      return Promise.resolve(vacio);
+    });
+    await abrirYEscribir('log');
+    expect(await screen.findByText('Lola Gómez')).toBeTruthy();
+    expect(screen.queryByText('Logopedia infantil')).toBeNull();
+    await act(async () => { soltarMoodle(); await new Promise((r) => setTimeout(r, 50)); });
+    expect(screen.getByText('Logopedia infantil')).toBeTruthy();
+    expect(screen.getByText('Lola Gómez')).toBeTruthy();
+  });
+
+  it('un Moodle que contesta tarde a «log» no cuela su curso en «lola»', async () => {
+    let soltarViejo;
+    get.mockImplementation((url) => {
+      if (url.startsWith('/moodle/cursos?') && url.includes('texto=log&')) {
+        return new Promise((r) => { soltarViejo = () => r({ success: true, data: { cursos: [{ id: 41, nombre: 'Curso Viejo' }] } }); });
+      }
+      if (url.startsWith('/leads?') && url.includes('search=lola')) return Promise.resolve({ success: true, data: [{ id: 3, nombre: 'Lola Gómez', status: 'nuevo' }] });
+      return Promise.resolve(vacio);
+    });
+    const input = await abrirYEscribir('log');
+    await waitFor(() => expect(soltarViejo).toBeTypeOf('function'));
+    fireEvent.change(input, { target: { value: 'lola' } });
+    expect(await screen.findByText('Lola Gómez')).toBeTruthy();
+    await act(async () => { soltarViejo(); await new Promise((r) => setTimeout(r, 50)); });
+    expect(screen.queryByText('Curso Viejo')).toBeNull();
   });
 
   // El bucle (una búsqueda que se repetía sola) tiene su prueba en commandPaletteBucle.test.jsx.

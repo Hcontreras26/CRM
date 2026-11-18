@@ -41,6 +41,11 @@ export async function listReports(projectId: string | number, params: ListReport
   return client.get<ReportSummary[]>(`/reports-ia/${projectId}${qs ? '?' + qs : ''}`);
 }
 
+/** Los informes de todos los campus de quien mira, con «Todos» o una empresa (#218). */
+export async function listReportsDelAmbito(ambito: Record<string, string | number>): Promise<ApiResponse<ReportSummary[]>> {
+  return client.get<ReportSummary[]>('/reports-ia/ambito', { params: ambito });
+}
+
 export async function getReport(id: string): Promise<ApiResponse<Report>> {
   if (USE_MOCKS) { await delay(250); return { success: true, data: reportDetailMock(id) as Report }; }
   return client.get<Report>(`/reports-ia/detail/${id}`);

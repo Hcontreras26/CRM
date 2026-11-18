@@ -204,6 +204,24 @@ async function separaPorEntorno() {
 /** Para las pruebas, y para despues de aplicar la migracion sin reiniciar. */
 export const olvidarIndice = () => { hayIndicePorEntorno = null; };
 
+/**
+ * El secreto del que se enseñan los cuatro ultimos caracteres.
+ *
+ * Casi siempre es el valor entero. Pero Moodle guarda un JSON ({"url":…,"token":…}) y
+ * sus ultimos cuatro caracteres son `a9"}`: comillas y llave, no el token. Si el valor es
+ * un JSON con `token`, se enseña la cola del TOKEN.
+ */
+export function secretoVisible(value) {
+  const texto = String(value);
+  if (texto.trim().startsWith('{')) {
+    try {
+      const o = JSON.parse(texto);
+      if (o && typeof o.token === 'string' && o.token.length >= 4) return o.token;
+    } catch { /* no es JSON: vale el valor entero */ }
+  }
+  return texto;
+}
+
 export async function upsert({ project_id, service, value, metadata, userId = null, entorno = null }) {
   const porEntorno = await separaPorEntorno();
 
@@ -228,7 +246,7 @@ export async function upsert({ project_id, service, value, metadata, userId = nu
   const meta = {
     ...(metadata || {}),
     ...(entorno ? { entorno } : {}),
-    cola: String(value).slice(-4),
+    cola: secretoVisible(value).slice(-4),
     updated_by: userId,
   };
   const { rows } = await query(
@@ -256,7 +274,7 @@ export async function upsert({ project_id, service, value, metadata, userId = nu
     [pId, service, encrypted, iv, authTag, JSON.stringify(meta)]
   );
   const r = rows[0];
-  return { ...r, masked_value: maskSecret(value) };
+  return { ...r, masked_value: maskSecret(secretoVisible(value)) };
 }
 
 export async function remove(id) {

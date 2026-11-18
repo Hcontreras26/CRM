@@ -100,7 +100,7 @@ Te dejo por aquí el link para que puedas revisarlas todas:
 [enlace de opiniones]
 ```
 
-En ISEIE el enlace ya viene escrito: `https://web.opynio.com/es/empresa/iseie_innovation_school` (corregido el 02/10, #209: el de antes, sin «_innovation_school», daba 404).
+En ISEIE el enlace ya viene escrito: `https://web.opynio.com/es/empresa/iseie_innovation_school` (corregido el 02/10, #209: el de antes, sin «_innovation_school», daba 404). También está corregido en `docs/proceso-comercial.pdf` (20/10): se cambió solo esa línea dentro del propio PDF (con `scripts/cambiar-texto-de-pdf.cjs`), sin recomponer el documento, porque el `.txt` es una extracción plana donde las cinco columnas salen mezcladas y no sirve para volver a maquetarlo.
 En los demás proyectos se queda el hueco, porque poner el enlace de otra
 institución sería peor que no poner ninguno.
 

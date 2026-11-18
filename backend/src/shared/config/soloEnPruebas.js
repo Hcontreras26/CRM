@@ -38,3 +38,45 @@ export function tareasActivas(env = process.env) {
 export function facturasColaboradorActivas(env = process.env) {
   return enPruebasOAprobado('FACTURAS_COLABORADOR_EN_PRODUCCION', env);
 }
+
+/**
+ * Links de pago (#680): ni `/api/links-pago` ni el hueco `stripe_links` de
+ * Integraciones en el servidor de producción mientras Diego no lo apruebe (revisión
+ * de la fase 1). Se aprueba con LINKS_PAGO_EN_PRODUCCION=1.
+ */
+export function linksPagoActivos(env = process.env) {
+  return enPruebasOAprobado('LINKS_PAGO_EN_PRODUCCION', env);
+}
+
+/**
+ * Lo que el #44 añade para los proyectos IA (PR #386 y #387): sus cobros
+ * (`/api/ia/cobros`) y la conexión con su Supabase (`/api/ia/supabase/*` y el
+ * proveedor `supabase` de Integraciones). Está en /testeo y aún no aprobado:
+ * sin esto, al pasar `staging` a `main` saldría en /crm sin que nadie lo
+ * hubiera visto. Se aprueba con PROYECTOS_IA_EN_PRODUCCION=1.
+ *
+ * NO apaga lo que ya estaba en producción antes del #44: `/api/ia/metrics` (el
+ * «Monitor SaaS» del Dashboard y la pestaña Stripe de un proyecto IA) ni
+ * `/api/ia/gasto` (el tope de gasto de la IA del propio CRM, #22). Tampoco el
+ * sondeo de Stripe: es de todos los campus, no solo de los proyectos IA.
+ */
+export function proyectosIAActivos(env = process.env) {
+  return enPruebasOAprobado('PROYECTOS_IA_EN_PRODUCCION', env);
+}
+
+/**
+ * El plugin del CRM en cada Moodle (#679, PR #689): todo lo que ESCRIBE en un
+ * campus o lo cambia — la respuesta de la tutora por el plugin, el aviso de
+ * disponibilidad, el código de conexión, el repaso de los campus conectados y
+ * el aviso que el plugin manda al CRM (`/api/moodle-avisos`). Diego, revisión
+ * de la #689: «que no salga a producción sin verlo». Sin esto, al pasar
+ * `staging` a `main` el CRM de producción empezaría a escribir en los Moodle
+ * de los alumnos. Se aprueba con PLUGIN_MOODLE_EN_PRODUCCION=1.
+ *
+ * Apagado, la respuesta de la tutora sale como hasta ahora (con su token del
+ * campus) y el CRM no acepta avisos del plugin. El plugin también viene
+ * apagado de serie en el propio Moodle (ajustes del plugin).
+ */
+export function pluginMoodleActivo(env = process.env) {
+  return enPruebasOAprobado('PLUGIN_MOODLE_EN_PRODUCCION', env);
+}

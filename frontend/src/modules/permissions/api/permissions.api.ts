@@ -162,6 +162,22 @@ export async function getFicha(userId: number): Promise<FichaDePermisos> {
   return res.data as FichaDePermisos;
 }
 
+/** #694: lo que traería un alta, antes de crearla, y si quien la hace puede ajustarlo. */
+export interface VistaPreviaDeAlta {
+  mapa: PermissionMap;
+  origenes: Record<string, Origen>;
+  puedeEditar: boolean;
+  /** Por qué no se pueden dar excepciones (la persona nueva es admin, o falta un campus suyo), o null. */
+  motivo?: string | null;
+  /** Lo que tiene quien da de alta (null = superadmin, todo): no se ofrece dar más. */
+  misPermisos: string[] | null;
+}
+
+export async function vistaPreviaDeAlta(datos: { role: string; roles_extra: string[]; excepciones: PermissionMap; projectIds?: number[] }): Promise<VistaPreviaDeAlta> {
+  const res = await client.post('/permissions/vista-previa-alta', datos);
+  return res.data as VistaPreviaDeAlta;
+}
+
 /** `null` = como diga su rol. */
 export async function guardarExcepciones(userId: number, cambios: Record<string, boolean | null>): Promise<PermissionMap> {
   const res = await client.put(`/permissions/personas/${userId}/excepciones`, { cambios });

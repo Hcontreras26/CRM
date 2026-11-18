@@ -40,7 +40,7 @@ const fila = (projectId, provider) => ({ id: 1, project_id: projectId, provider,
 
 vi.mock('../src/modules/integrations/integrations.model.js', () => ({
   get: vi.fn(async (projectId, provider) => fila(projectId, provider)),
-  listByProject: vi.fn(async (projectId) => [fila(projectId, 'brevo')]),
+  listByProject: vi.fn(async (projectId) => [fila(projectId, 'moodle')]),
   upsert: vi.fn(async ({ projectId, provider }) => fila(projectId, provider)),
   recordTestResult: vi.fn(async () => {}),
   remove: vi.fn(async () => {}),
@@ -76,39 +76,39 @@ beforeEach(() => { vi.clearAllMocks(); });
 describe('un admin, en su campus', () => {
   it('ve, guarda, prueba y borra', async () => {
     expect((await api.get('/api/integrations?projectId=10').set(ANA)).status).toBe(200);
-    expect((await api.get('/api/integrations/brevo?projectId=10').set(ANA)).status).toBe(200);
+    expect((await api.get('/api/integrations/moodle?projectId=10').set(ANA)).status).toBe(200);
     expect((await api.put('/api/integrations').set(ANA).send({ projectId: 10, provider: 'brevo', active: true })).status).toBe(200);
-    expect((await api.delete('/api/integrations/brevo?projectId=10').set(ANA)).status).toBe(200);
+    expect((await api.delete('/api/integrations/moodle?projectId=10').set(ANA)).status).toBe(200);
     expect(model.upsert).toHaveBeenCalledWith(expect.objectContaining({ projectId: 10, provider: 'brevo' }));
-    expect(model.remove).toHaveBeenCalledWith(10, 'brevo');
+    expect(model.remove).toHaveBeenCalledWith(10, 'moodle');
   });
 });
 
 describe('un admin, en el campus de otra empresa', () => {
   it('no ve la lista ni la integración de Moodle', async () => {
     expect((await api.get('/api/integrations?projectId=20').set(ANA)).status).toBe(403);
-    expect((await api.get('/api/integrations/brevo?projectId=20').set(ANA)).status).toBe(403);
+    expect((await api.get('/api/integrations/moodle?projectId=20').set(ANA)).status).toBe(403);
     noTocoElCampus20();
   });
 
   it('no puede cambiar la URL ni el token del Moodle', async () => {
     const r = await api.put('/api/integrations').set(ANA)
-      .send({ projectId: 20, provider: 'brevo', api_key: 'token-de-otro-12345', config_public: { url: 'https://atacante.example.com' } });
+      .send({ projectId: 20, provider: 'moodle', api_key: 'token-de-otro-12345', config_public: { url: 'https://atacante.example.com' } });
     expect(r.status).toBe(403);
     expect(model.upsert).not.toHaveBeenCalled();
   });
 
   it('no puede probarla ni borrarla', async () => {
-    expect((await api.post('/api/integrations/brevo/test?projectId=20').set(ANA)).status).toBe(403);
-    expect((await api.delete('/api/integrations/brevo?projectId=20').set(ANA)).status).toBe(403);
+    expect((await api.post('/api/integrations/moodle/test?projectId=20').set(ANA)).status).toBe(403);
+    expect((await api.delete('/api/integrations/moodle?projectId=20').set(ANA)).status).toBe(403);
     expect(model.remove).not.toHaveBeenCalled();
     noTocoElCampus20();
   });
 
   it('su campus en el cuerpo y el ajeno en la URL no le abren el ajeno', async () => {
-    await api.get('/api/integrations/brevo?projectId=20').set(ANA).send({ projectId: 10 });
-    await api.delete('/api/integrations/brevo?projectId=20').set(ANA).send({ projectId: 10 });
-    await api.post('/api/integrations/brevo/test?projectId=20').set(ANA).send({ projectId: 10 });
+    await api.get('/api/integrations/moodle?projectId=20').set(ANA).send({ projectId: 10 });
+    await api.delete('/api/integrations/moodle?projectId=20').set(ANA).send({ projectId: 10 });
+    await api.post('/api/integrations/moodle/test?projectId=20').set(ANA).send({ projectId: 10 });
     noTocoElCampus20();
   });
 });
@@ -118,7 +118,7 @@ describe('un projectId que no es un número', () => {
     const db = await import('../src/shared/config/db.js');
     for (const r of [
       api.get('/api/integrations?projectId=abc').set(ANA),
-      api.get('/api/integrations/brevo?projectId=99999999999').set(ANA),
+      api.get('/api/integrations/moodle?projectId=99999999999').set(ANA),
       api.put('/api/integrations').set(ANA).send({ projectId: 'abc', provider: 'brevo', active: true }),
     ]) {
       expect((await r).status).toBe(400);
@@ -137,7 +137,7 @@ describe('una gestora, sin el permiso de Integraciones', () => {
 
 describe('el super admin', () => {
   it('sigue entrando en cualquier campus', async () => {
-    expect((await api.get('/api/integrations/brevo?projectId=20').set(MANUEL)).status).toBe(200);
-    expect(model.get).toHaveBeenCalledWith(20, 'brevo');
+    expect((await api.get('/api/integrations/moodle?projectId=20').set(MANUEL)).status).toBe(200);
+    expect(model.get).toHaveBeenCalledWith(20, 'moodle');
   });
 });

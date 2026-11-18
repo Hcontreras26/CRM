@@ -1,10 +1,11 @@
 import { useState, lazy, Suspense } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CaretRight, Lightning, WarningCircle, Link as LinkIcon, GitMerge, ChatCircle, FileText } from '@phosphor-icons/react';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import { getLeadPriority, getPriorityStyle } from '../../lib/leadPriority';
 import { avatarColor, getInitials } from './InfoField';
 import type { Lead } from '@/shared/types';
+import { etiquetaCampusPais } from '@/shared/lib/paises';
 import usePermission from '@/shared/hooks/usePermission';
 
 const MergeLeadDialog = lazy(() => import('../MergeLeadDialog'));
@@ -25,6 +26,8 @@ export default function LeadHeaderCard({ lead, isAdmin, onReassign, onBack, onMe
   const { can } = usePermission();
   const [mergeOpen, setMergeOpen] = useState(false);
   const navigate = useNavigate();
+  // Sin página anterior dentro del CRM (enlace pegado, pestaña nueva), a Prospectos.
+  const hayAnterior = useLocation().key !== 'default';
   return (
     <>
       {lead.lead_duplicado_de && (
@@ -43,6 +46,16 @@ export default function LeadHeaderCard({ lead, isAdmin, onReassign, onBack, onMe
       )}
 
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {/* Volver a la página de la que se viene (Reportes, el Dashboard…), no siempre a Prospectos. */}
+        <button
+          type="button"
+          onClick={() => (hayAnterior ? navigate(-1) : navigate('/prospectos'))}
+          aria-label="Volver a la página anterior"
+          title="Volver a la página anterior"
+          className="p-1 -ml-1 rounded-md hover:bg-muted hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
+        >
+          <ArrowLeft size={14} weight="bold" />
+        </button>
         <Link to="/prospectos" className="hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 rounded px-1">
           Prospectos
         </Link>
@@ -63,7 +76,8 @@ export default function LeadHeaderCard({ lead, isAdmin, onReassign, onBack, onMe
               </div>
               <p className="text-muted-foreground text-xs mt-0.5">
                 Prospecto #{lead.id} · creado {lead.created_at ? new Date(lead.created_at).toLocaleString('es-ES', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '--'}
-                {lead.proyecto_nombre && <> · {lead.proyecto_nombre}</>}
+                {/* «Fono Aprende · Chile»: el campus y el país por el que entró (#221). */}
+                {lead.proyecto_nombre && <> · {etiquetaCampusPais(lead.proyecto_nombre, lead.pais_origen)}</>}
               </p>
             </div>
           </div>

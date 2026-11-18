@@ -6,8 +6,10 @@ import { DownloadSimple, FileXls, FileCsv, CalendarBlank, ChartBar, UsersThree, 
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 import { ponerAmbito } from '@/shared/lib/ambitoInforme';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { nombreDelPais, opcionesDePais } from '@/shared/lib/paises';
 
-type ColType = 'string' | 'number' | 'date' | 'estado';
+type ColType = 'string' | 'number' | 'date' | 'estado' | 'pais';
 interface Col { h: string; k: string; t?: ColType }
 interface ReportDef { key: string; label: string; desc: string; icon: React.ElementType; cols: Col[] }
 
@@ -34,6 +36,7 @@ const REPORTS: ReportDef[] = [
       { h: 'Proyecto', k: 'proyecto' }, { h: 'Nombre', k: 'nombre' }, { h: 'Teléfono', k: 'telefono' },
       { h: 'Email', k: 'email' }, { h: 'Estado', k: 'estado', t: 'estado' }, { h: 'Producto', k: 'producto' },
       { h: 'Valor estimado', k: 'valor_estimado', t: 'number' }, { h: 'Responsable', k: 'responsable' },
+      { h: 'País de entrada', k: 'pais_entrada', t: 'pais' },
       { h: 'Fecha entrada', k: 'fecha_entrada', t: 'date' },
     ],
   },
@@ -46,6 +49,7 @@ const REPORTS: ReportDef[] = [
       { h: 'Cobrado €', k: 'cobrado', t: 'number' }, { h: 'Pendiente €', k: 'pendiente', t: 'number' },
       { h: 'Estado pago', k: 'estado_pago' }, { h: 'Estado lead', k: 'estado', t: 'estado' },
       { h: 'Responsable', k: 'responsable' }, { h: 'País', k: 'pais' },
+      { h: 'País de entrada', k: 'pais_entrada', t: 'pais' },
       { h: 'Método', k: 'metodo_pago' }, { h: 'Proyecto', k: 'proyecto' },
     ],
   },
@@ -55,6 +59,7 @@ const REPORTS: ReportDef[] = [
     cols: [
       { h: 'Proyecto', k: 'proyecto' }, { h: 'Nombre', k: 'nombre' }, { h: 'Teléfono', k: 'telefono' },
       { h: 'Estado', k: 'estado', t: 'estado' }, { h: 'País', k: 'pais' },
+      { h: 'País de entrada', k: 'pais_entrada', t: 'pais' },
       { h: 'Producto interés', k: 'producto_interes' }, { h: 'Valor estimado', k: 'valor_estimado', t: 'number' },
       { h: 'Producto contratado', k: 'producto_contratado' }, { h: 'Venta total', k: 'venta_total', t: 'number' },
       { h: 'Cobrado', k: 'venta_cobrado', t: 'number' }, { h: 'Pendiente', k: 'venta_pendiente', t: 'number' },
@@ -79,6 +84,7 @@ const REPORTS: ReportDef[] = [
       { h: 'Asesora', k: 'asesora' }, { h: 'Fecha venta', k: 'fecha_venta', t: 'date' },
       { h: 'Cliente', k: 'cliente' }, { h: 'Email', k: 'cliente_email' },
       { h: 'Telefono', k: 'cliente_telefono' }, { h: 'Pais', k: 'pais' },
+      { h: 'País de entrada', k: 'pais_entrada', t: 'pais' },
       { h: 'Formacion', k: 'formacion' }, { h: 'Venta total EUR', k: 'venta_total', t: 'number' },
       { h: 'Cobrado EUR', k: 'cobrado', t: 'number' }, { h: 'Pendiente EUR', k: 'pendiente', t: 'number' },
       { h: 'Estado pago', k: 'estado_pago' }, { h: 'Metodo', k: 'metodo_pago' },
@@ -160,6 +166,7 @@ function scalar(c: Col, row: Record<string, unknown>): string | number | null {
   if (c.t === 'number') { const n = Number(v); return Number.isNaN(n) ? null : n; }
   if (c.t === 'date') return fmtDate(v);
   if (c.t === 'estado') return ESTADO[v as string] || String(v);
+  if (c.t === 'pais') return nombreDelPais(String(v));
   return String(v);
 }
 
@@ -167,6 +174,7 @@ function csvCell(c: Col, row: Record<string, unknown>) {
   const v = row[c.k];
   if (v == null || v === '') return SIN_ASIGNAR.has(c.k) ? 'Sin asignar' : '';
   if (c.t === 'estado') return ESTADO[v as string] || String(v);
+  if (c.t === 'pais') return nombreDelPais(String(v));
   if (c.t === 'date') return fmtDate(v) || '';
   return String(v);
 }
@@ -176,6 +184,7 @@ function cellText(c: Col, row: Record<string, unknown>): string {
   const v = row[c.k];
   if (v == null || v === '') return SIN_ASIGNAR.has(c.k) ? 'Sin asignar' : '—';
   if (c.t === 'estado') return ESTADO[v as string] || String(v);
+  if (c.t === 'pais') return nombreDelPais(String(v));
   if (c.t === 'date') return fmtDate(v) || '—';
   if (c.t === 'number') { const n = Number(v); return Number.isNaN(n) ? String(v) : n.toLocaleString('es-ES'); }
   return String(v);
@@ -193,6 +202,15 @@ export default function ReportsDownloadSection({ projectId, issuerId, projectNam
   const from = desdeArriba || '';
   const to = hastaArriba || '';
   const [busy, setBusy] = useState<string | null>(null);
+  // País de entrada (#221): las descargas, solo de un país. Solo sale si algún
+  // campus del ámbito tiene tabla de países.
+  const { projects } = useProjectContext() as { projects?: Array<{ id: number; sociedad_emisora_id?: number | null; paises_por_subdominio?: Record<string, string> | null }> };
+  const [paisEntrada, setPaisEntrada] = useState('');
+  const opcionesPais = opcionesDePais(
+    issuerId ? (projects || []).filter((x) => Number(x.sociedad_emisora_id) === Number(issuerId))
+      : projectId && projectId > 0 ? (projects || []).filter((x) => x.id === projectId)
+        : projects,
+  );
   const [preview, setPreview] = useState<{ report: ReportDef; rows: Record<string, unknown>[]; base: string } | null>(null);
   const [bajandoTodo, setBajandoTodo] = useState(false);
   // Lo que el informe «por factura» va a dejar fuera. Se pregunta ANTES de
@@ -241,10 +259,12 @@ export default function ReportsDownloadSection({ projectId, issuerId, projectNam
     ponerAmbito(p, { activeIssuerId: issuerId, activeProject: { id: projectId } });
     if (dFrom) p.set('from', dFrom);
     if (dTo) p.set('to', dTo);
+    if (paisEntrada) p.set('paisEntrada', paisEntrada);
     const res = await client.get(`/informes/${report.key}?${p.toString()}`);
     const rows: Record<string, unknown>[] = (res as { data?: Record<string, unknown>[] }).data || [];
     const sufijo = dFrom || dTo ? `${dFrom || 'inicio'}_${dTo || 'hoy'}` : 'todo';
-    return { rows, base: `${report.key}-${projectName || 'crm'}-${sufijo}` };
+    const dePais = paisEntrada ? `-${paisEntrada.toLowerCase()}` : '';
+    return { rows, base: `${report.key}-${projectName || 'crm'}${dePais}-${sufijo}` };
   }
 
   async function openPreview(report: ReportDef) {
@@ -300,6 +320,20 @@ export default function ReportsDownloadSection({ projectId, issuerId, projectNam
             Usan el mismo rango de fechas que has elegido arriba. Descarga en Excel o CSV.
           </p>
         </div>
+        {(opcionesPais.length > 0 || paisEntrada) && (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            País de entrada
+            <select
+              value={paisEntrada}
+              onChange={(e) => setPaisEntrada(e.target.value)}
+              className="h-9 px-2 rounded-md border border-border bg-card text-sm text-foreground"
+              aria-label="País de entrada de las descargas"
+            >
+              <option value="">Todos</option>
+              {opcionesPais.map((o) => <option key={o.valor} value={o.valor}>{o.etiqueta}</option>)}
+            </select>
+          </label>
+        )}
         <button
           type="button"
           onClick={() => comprobarAntes(bajarTodo)}

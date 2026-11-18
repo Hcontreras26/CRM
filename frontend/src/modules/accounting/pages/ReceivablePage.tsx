@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
+import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import {
   CurrencyEur, WarningCircle, Wallet, Receipt, CaretLeft, CaretRight,
@@ -34,7 +35,9 @@ interface Row {
 
 export default function ReceivablePage() {
   const navigate = useNavigate();
-  const { activeProject, projects, activeIssuerId } = useProjectContext();
+  const { activeProject, activeIssuerId } = useProjectContext();
+  // El filtro «Proyecto»: los campus de la empresa de arriba, o los suyos sin los de pruebas (#346).
+  const campusDelAmbito = useProyectosDelAmbito<{ id: number; nombre?: string }>();
   const { user } = useAuth() as { user: { role?: string } | null };
   const isGestor = user?.role === 'gestor';
 
@@ -145,7 +148,7 @@ export default function ReceivablePage() {
           <label className="text-[11px] font-medium text-muted-foreground">Proyecto</label>
           <select value={projectId} onChange={e => setProjectId(e.target.value)} className="h-9 px-2 rounded-md border border-border bg-card text-sm min-w-[160px]">
             <option value="">{activeProject?.nombre || 'Proyecto activo'}</option>
-            {(projects || []).map((p: any) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            {campusDelAmbito.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
         </div>
         {!isGestor && (

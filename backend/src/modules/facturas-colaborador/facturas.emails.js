@@ -102,7 +102,8 @@ export function armarCorreoDelMes({ f, token, recordatorio = false, nuevo = fals
       }),
       parrafo(`Concepto sugerido: <strong>${esc(conceptoSugerido(f.area, f.periodo))}</strong>`),
       boton({ texto: `Subir mi factura de ${mes}`, url: urlDelEnlace(token) }),
-      f.caduca_at ? parrafo(`El enlace es solo tuyo y caduca el ${esc(diaMes(f.caduca_at))}.`) : null,
+      // Caduca a las 00:00: el último día para subirla es el anterior.
+      f.caduca_at ? parrafo(`El enlace es solo tuyo. Puedes subirla hasta el ${esc(diaMes(new Date(f.caduca_at).getTime() - 1))}.`) : null,
     ],
   });
   return { asunto, htmlContent, textContent, fromName: `${corta} · Facturación` };
@@ -139,6 +140,9 @@ const FORMAS_PAGO = { transferencia: 'transferencia', bizum: 'Bizum', paypal: 'P
  * El aviso de pago: «Tu factura de septiembre para CEDIA está pagada ·
  * 636,00 € · transferencia del 05/10» (el ejemplo de Diego, 01/10 tarde).
  */
+/** El enlace de «No lo he recibido»: la misma página de confirmación, con ?no=1. */
+export const urlNoRecibido = (urlConfirmar) => `${urlConfirmar}${String(urlConfirmar).includes('?') ? '&' : '?'}no=1`;
+
 export function armarAvisoDePago({ f, marca = null, urlConfirmar = null }) {
   const mes = mesDe(f.periodo);
   const corta = empresaCorta(f.razon_social);
@@ -163,6 +167,10 @@ export function armarAvisoDePago({ f, marca = null, urlConfirmar = null }) {
       // la página, si quiere, su opinión. Sin enlace (p. ej. sin JWT_SECRET), sin botón.
       urlConfirmar ? parrafo('Cuando lo veas en tu cuenta, confírmalo con un clic:') : null,
       urlConfirmar ? boton({ texto: 'He recibido el pago y lo confirmo', url: urlConfirmar }) : null,
+      // «No lo he recibido» (Diego, 04/11: «otro botón de que no lo he recibido»), también
+      // en el correo y no solo en la página: lleva a la misma página con ?no=1, que abre
+      // directamente el cuadro para contarlo. Abrirla no avisa a nadie: avisa al enviarlo.
+      urlConfirmar ? boton({ texto: 'No lo he recibido', url: urlNoRecibido(urlConfirmar), tono: 'neutro' }) : null,
     ],
   });
   return { asunto: linea, htmlContent, textContent, fromName: `${corta} · Facturación` };

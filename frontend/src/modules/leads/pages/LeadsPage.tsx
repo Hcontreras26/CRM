@@ -72,6 +72,7 @@ import usePermission from '@/shared/hooks/usePermission';
 import { getLeadPriority, getPriorityStyle } from '../lib/leadPriority';
 import { getLeadExportColumns } from '../lib/leadFormat';
 import { yaPaso } from '@/shared/lib/fechas';
+import { etiquetaCampusPais, nombreDelPais } from '@/shared/lib/paises';
 import {
   getInitials,
   getAvatarColor,
@@ -84,7 +85,7 @@ import BloquePlegable from '@/shared/components/ui/BloquePlegable';
 // pasado en vez de lo que va a pasar. El componente viejo sigue en el repo.
 import UltimoLeadAsignado from '../components/UltimoLeadAsignado';
 import ParaHoyYManana from '@/shared/components/dashboard/ParaHoyYManana';
-import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
+import { useIdsDelAmbito, useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 
 
 function StatPill({ label, value, dot }: { label: string; value: number; dot?: string }) {
@@ -159,6 +160,7 @@ export default function LeadsPage() {
     filterSeguimiento, setFilterSeguimiento,
     filterPaso, setFilterPaso,
     filterOrigen, setFilterOrigen,
+    filterPais, setFilterPais,
     filterResponsable, setFilterResponsable,
     filterProducto, setFilterProducto,
     selectedProjectIds, setSelectedProjectIds,
@@ -180,6 +182,10 @@ export default function LeadsPage() {
    * es lo que el servidor sabe sumar.
    */
   const idsDelAmbito = useIdsDelAmbito();
+  // Los campus que ofrece el filtro «Proyecto» y el export: los de la empresa
+  // elegida arriba, o todos los suyos sin los de pruebas (#346). Antes era la
+  // lista entera: con CEDIA salían ICTESS, Academia IA y Pruebas.
+  const campusDelAmbito = useProyectosDelAmbito<{ id: number; nombre?: string; sociedad_emisora_id?: number | null; es_prueba?: boolean }>();
   const proyectoDeLaCola = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
   const campusCsv = !proyectoDeLaCola && activeIssuerId && idsDelAmbito.length
     ? idsDelAmbito.join(',')
@@ -245,7 +251,7 @@ export default function LeadsPage() {
   const [expScope, setExpScope] = useState('filtros'); // 'filtros' | 'todos'
 
   // Proyectos elegibles para el export (con nombre).
-  const exportableProjects = (projects || []).filter((p) => p.id > 0);
+  const exportableProjects = campusDelAmbito;
 
   // Token para evitar que respuestas lentas de un cálculo anterior pisen al
   // último (al cambiar rápido de proyecto/alcance se combinaban datos).
@@ -403,7 +409,8 @@ export default function LeadsPage() {
   useEffect(() => {
     if (user?.role !== 'superadmin' && user?.role !== 'admin') return;
     const pidParam = activeProject?.id && activeProject.id > 0 ? `&projectId=${activeProject.id}` : '';
-    client.get(`/users?limit=100${pidParam}`)
+    // alcance=comercial: a quien lleva un equipo, solo su equipo (QA 09/11/2026).
+    client.get(`/users?limit=100&alcance=comercial${pidParam}`)
       .then((res) => {
         if (res.success) setGestores(res.data || []);
       })
@@ -931,11 +938,12 @@ export default function LeadsPage() {
         onBusqueda={setSearch}
         placeholder="Buscar por nombre, email o teléfono"
         desplegables={[]}
-        hayFiltros={!!(search || filterEstado || filterOrigen || filterResponsable || filterProducto || dateFrom || dateTo || filterDup || filterReincidente || quickFilter)}
+        hayFiltros={!!(search || filterEstado || filterOrigen || filterPais || filterResponsable || filterProducto || dateFrom || dateTo || filterDup || filterReincidente || quickFilter)}
         onLimpiar={() => {
           setSearch('');
           setFilterEstado('');
           setFilterOrigen('');
+          setFilterPais('');
           setFilterResponsable('');
           setFilterProducto('');
           setDateRange('', '');
@@ -952,7 +960,7 @@ export default function LeadsPage() {
           puesto ahora mismo, y «Asignar pendientes». */}
       <LeadsFiltersBar
         activeProject={activeProject}
-        projects={projects}
+        projects={campusDelAmbito}
         selectedProjectIds={selectedProjectIds}
         setSelectedProjectIds={setSelectedProjectIds}
         gestores={gestores}
@@ -964,6 +972,7 @@ export default function LeadsPage() {
         filterPaso={filterPaso} setFilterPaso={setFilterPaso}
         pasosDelProceso={pasosDelProceso}
         filterOrigen={filterOrigen} setFilterOrigen={setFilterOrigen}
+        filterPais={filterPais} setFilterPais={setFilterPais}
         filterResponsable={filterResponsable} setFilterResponsable={setFilterResponsable}
         filterProducto={filterProducto} setFilterProducto={setFilterProducto}
         dateFrom={dateFrom} dateTo={dateTo} setDateRange={setDateRange}
@@ -1150,10 +1159,14 @@ export default function LeadsPage() {
                     {!lead.valor_oportunidad && <span className="text-muted-foreground/60">—</span>}
                   </td>
                   {showProjectColumn && (
-                    <td className="px-5 py-3.5 text-xs text-muted-foreground">{lead.proyecto_nombre || '—'}</td>
+                    <td className="px-5 py-3.5 text-xs text-muted-foreground">{etiquetaCampusPais(lead.proyecto_nombre, lead.pais_origen) || '—'}</td>
                   )}
                   <td className="px-5 py-3.5">
                     <ChannelBadge channel={lead.origen} />
+                    {/* Con un solo campus no hay columna de campus: el país va aquí (#221). */}
+                    {!showProjectColumn && lead.pais_origen && (
+                      <span className="block mt-0.5 text-secundario text-muted-foreground">{nombreDelPais(lead.pais_origen)}</span>
+                    )}
                   </td>
                   <td className="px-5 py-3.5">
                     <QuickStatusChange

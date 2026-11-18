@@ -4,6 +4,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { toast } from '@/shared/hooks/useToast';
 import client from '@/shared/api/client';
+import usePermission from '@/shared/hooks/usePermission';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -51,19 +52,45 @@ const ROLE_LABELS = { superadmin: 'Superadmin', admin: 'Admin', gestor: 'Gestor'
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
   const { logout } = useAuth();
-  // El propio correo, solo un tutor (#246, Diego 09/10). El resto lo pide a administración.
-  const esTutor = user?.role === 'tutor';
+  // El propio correo (#211), en dos pasos: con su contraseña, un código a la
+  // dirección NUEVA; con el código, el cambio. Quien tenga «Cambiar su correo».
+  const { can } = usePermission();
+  const puedeCambiarCorreo = can('cuenta.cambiar_correo');
   const [correoNuevo, setCorreoNuevo] = useState('');
+  const [claveActual, setClaveActual] = useState('');
+  const [codigo, setCodigo] = useState('');
+  // null hasta que se manda el código; luego, a qué dirección fue.
+  const [codigoEnviadoA, setCodigoEnviadoA] = useState(null);
+  // A un tutor, mientras siga el freno de correos a tutores, no le sale el código
+  // (Diego, 06/11, #688): se le explica en vez del formulario. Lo dice /auth/me
+  // de entrada, y por si acaso también la respuesta al pedirlo.
+  const [frenadoAlPedir, setFrenado] = useState(null);
+  const frenado = frenadoAlPedir || user?.correo_propio_frenado || null;
   const [cambiandoCorreo, setCambiandoCorreo] = useState(false);
-  async function onCambiarCorreo(e) {
+  const mismoCorreo = correoNuevo.trim().toLowerCase() === String(user?.email || '').toLowerCase();
+  async function onPedirCodigo(e) {
     e.preventDefault();
     const nuevo = correoNuevo.trim().toLowerCase();
-    if (!nuevo || nuevo === String(user?.email || '').toLowerCase()) return;
+    if (!nuevo || mismoCorreo || !claveActual) return;
     setCambiandoCorreo(true);
     try {
-      await client.patch('/auth/me/email', { email: nuevo });
+      const r = await client.post('/auth/me/email/codigo', { email: nuevo, password: claveActual });
+      setClaveActual('');
+      if (r?.data?.frenado) { setFrenado(r.data.motivo); return; }
+      setCodigoEnviadoA(nuevo);
+      toast({ title: 'Te hemos mandado un código', description: `Míralo en ${nuevo}. Caduca en ${r?.data?.minutos || 15} minutos.` });
+    } catch (err) {
+      toast({ title: 'No se pudo mandar el código', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally { setCambiandoCorreo(false); }
+  }
+  async function onConfirmarCodigo(e) {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(codigo.trim())) return;
+    setCambiandoCorreo(true);
+    try {
+      await client.patch('/auth/me/email', { codigo: codigo.trim() });
       // Es con lo que se entra: el servidor cierra las sesiones, hay que volver a entrar.
-      toast({ title: 'Correo cambiado', description: `Vuelve a entrar con ${nuevo}. Hemos avisado a administración.` });
+      toast({ title: 'Correo cambiado', description: `Vuelve a entrar con ${codigoEnviadoA}.` });
       setTimeout(() => { logout?.(); }, 2500);
     } catch (err) {
       toast({ title: 'No se pudo cambiar', description: err?.data?.error || err?.message, variant: 'destructive' });
@@ -257,7 +284,7 @@ export default function ProfilePage() {
             </Field>
             <Field label="Email" error={errProfile.email?.message}>
               <input {...regProfile('email')} type="email" readOnly aria-readonly="true"
-                title={esTutor ? "Es con lo que entras. Cámbialo abajo." : "Es con lo que entras. Para cambiarlo, pídeselo a un administrador."}
+                title={puedeCambiarCorreo && !frenado ? "Es con lo que entras. Cámbialo abajo." : "Es con lo que entras. Para cambiarlo, pídeselo a un administrador."}
                 className={inputClass + ' bg-muted/40 text-muted-foreground cursor-not-allowed'} />
             </Field>
           </div>
@@ -267,19 +294,51 @@ export default function ProfilePage() {
             </button>
           </div>
         </form>
-        {esTutor && (
-          <form onSubmit={onCambiarCorreo} className="mt-5 pt-4 border-t border-border space-y-2">
-            <Field label="Cambiar mi correo">
-              <input value={correoNuevo} onChange={(e) => setCorreoNuevo(e.target.value)} type="email" maxLength={255}
-                placeholder="tu.correo.nuevo@ejemplo.com" className={inputClass} />
-            </Field>
+        {puedeCambiarCorreo && frenado && (
+          <p role="status" className="mt-5 pt-4 border-t border-border text-sm text-muted-foreground">
+            {frenado}
+          </p>
+        )}
+        {puedeCambiarCorreo && !frenado && !codigoEnviadoA && (
+          <form onSubmit={onPedirCodigo} aria-label="Cambiar mi correo" className="mt-5 pt-4 border-t border-border space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Mi correo nuevo" htmlFor="correo-nuevo">
+                <input id="correo-nuevo" value={correoNuevo} onChange={(e) => setCorreoNuevo(e.target.value)} type="email" maxLength={255}
+                  placeholder="tu.correo.nuevo@ejemplo.com" className={inputClass} />
+              </Field>
+              <Field label="Mi contraseña actual" htmlFor="correo-clave">
+                <input id="correo-clave" value={claveActual} onChange={(e) => setClaveActual(e.target.value)} type="password"
+                  autoComplete="current-password" className={inputClass} />
+              </Field>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Es con lo que entras y a donde va la factura de tu comisión. Al cambiarlo se cierra tu sesión y entras con el nuevo; avisamos a administración.
+              Es con lo que entras. Te mandamos un código de 6 cifras a la dirección nueva; hasta que lo metas, sigues entrando con la de siempre.
             </p>
             <div className="flex justify-end">
               <button type="submit" className={primaryBtn}
-                disabled={cambiandoCorreo || !correoNuevo.trim() || correoNuevo.trim().toLowerCase() === String(user?.email || '').toLowerCase()}>
-                {cambiandoCorreo ? 'Cambiando…' : 'Cambiar correo'}
+                disabled={cambiandoCorreo || !correoNuevo.trim() || mismoCorreo || !claveActual}>
+                {cambiandoCorreo ? 'Mandando…' : 'Mandarme el código'}
+              </button>
+            </div>
+          </form>
+        )}
+        {puedeCambiarCorreo && !frenado && codigoEnviadoA && (
+          <form onSubmit={onConfirmarCodigo} aria-label="Confirmar mi correo nuevo" className="mt-5 pt-4 border-t border-border space-y-2">
+            <Field label={`El código que te ha llegado a ${codigoEnviadoA}`} htmlFor="correo-codigo">
+              <input id="correo-codigo" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric" autoComplete="one-time-code" placeholder="000000" maxLength={6}
+                className={inputClass + ' tracking-[0.3em] font-mono'} />
+            </Field>
+            <p className="text-xs text-muted-foreground">
+              Caduca a los 15 minutos y admite 5 intentos. Al confirmarlo se cierra tu sesión y entras con el correo nuevo.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="inline-flex items-center h-9 px-3 rounded-md border border-border text-sm hover:bg-muted"
+                onClick={() => { setCodigoEnviadoA(null); setCodigo(''); }} disabled={cambiandoCorreo}>
+                Pedir otro
+              </button>
+              <button type="submit" className={primaryBtn} disabled={cambiandoCorreo || !/^\d{6}$/.test(codigo)}>
+                {cambiandoCorreo ? 'Cambiando…' : 'Cambiar mi correo'}
               </button>
             </div>
           </form>

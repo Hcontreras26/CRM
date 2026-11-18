@@ -4,6 +4,7 @@ import { puede } from '../../shared/middleware/permissions.js';
 import { projectAccess } from '../../shared/middleware/projectAccess.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import * as ctrl from './integrations.controller.js';
+import * as salud from './salud.controller.js';
 
 const router = Router();
 
@@ -27,6 +28,14 @@ router.use(function projectIdConFormato(req, _res, next) {
 });
 
 router.get('/',                puede('integrations.view'), projectAccess, ctrl.list);
+// Antes de `/:provider`, que si no se la come. Sin `projectAccess`: no es de un
+// campus, y el controlador recorta por el ámbito de quien pide (#218).
+router.get('/estado',          puede('integrations.view'), ctrl.estado);
+// La salud de las conexiones de cada campus (CRM#533). Antes de `/:provider`,
+// por lo mismo. Sin `projectAccess`: el controlador recorta por el ámbito de
+// quien pide, como `/estado`. Solo superadmin y admin (`integrations.salud`).
+router.get('/salud',            puede('integrations.salud'), salud.salud);
+router.post('/salud/comprobar', puede('integrations.salud'), salud.comprobar);
 router.get('/:provider',       puede('integrations.view'), projectAccess, ctrl.getOne);
 router.put('/',                puede('integrations.edit'), projectAccess, ctrl.upsert);
 router.post('/:provider/test', puede('integrations.edit'), projectAccess, ctrl.test);

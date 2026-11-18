@@ -82,17 +82,17 @@ beforeEach(() => {
   });
 });
 
-describe('sin proyecto elegido', () => {
+describe('sin campus elegido (#218: ahora se elige en la propia pantalla)', () => {
   it('lo dice, en vez de dejar una caja que no hace nada', async () => {
     proyectoActivo = null;
     render(<AIChatPage />);
-    expect(await screen.findByText('Elige un proyecto')).toBeInTheDocument();
+    expect(await screen.findByText('Elige un campus')).toBeInTheDocument();
   });
 
   it('ni siquiera le pregunta al servidor', async () => {
     proyectoActivo = null;
     render(<AIChatPage />);
-    await waitFor(() => expect(screen.getByText('Elige un proyecto')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Elige un campus')).toBeInTheDocument());
     expect(get).not.toHaveBeenCalledWith(expect.stringContaining('/claude/status'));
   });
 
@@ -101,7 +101,7 @@ describe('sin proyecto elegido', () => {
     // /claude/status?projectId=-1.
     proyectoActivo = { id: -1, nombre: 'Todos' };
     render(<AIChatPage />);
-    expect(await screen.findByText('Elige un proyecto')).toBeInTheDocument();
+    expect(await screen.findByText('Elige un campus')).toBeInTheDocument();
   });
 });
 

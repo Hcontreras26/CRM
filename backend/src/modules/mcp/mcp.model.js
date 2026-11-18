@@ -2,6 +2,12 @@ import { query, getClient } from '../../shared/config/db.js';
 import { registrarCambio } from '../permissions/permissions.model.js';
 import { getReceivable } from '../accounting/accounting.model.js';
 import { RIGE_HOY, formacionesSinTutor } from '../tutores/tutor.model.js';
+import { findAll as clientesDeLeads } from '../leads/lead.model.js';
+// `responsableId` es una persona o, con un equipo comercial (09/11/2026), varias.
+import { comoIds } from '../../shared/utils/roles.js';
+import { getTree as arbolDeCategorias } from '../product-categories/category.model.js';
+import * as nomina from '../payroll/payroll.model.js';
+import { claseDe, metaDe } from '../notifications/tipos.js';
 
 /**
  * Todo el SQL del MCP.
@@ -40,14 +46,18 @@ export async function findUserById(id) {
  * el selector de proyecto. Los de prueba no entran: un curso inventado con
  * ventas falsas no es una respuesta.
  */
-export async function proyectosDeLaPersona(user) {
-  const cols = `p.id, p.nombre, p.sociedad_emisora_id AS sociedad_id, s.razon_social AS sociedad_nombre`;
+export async function proyectosDeLaPersona(user, { conPruebas = false } = {}) {
+  const cols = `p.id, p.nombre, p.type AS tipo, p.sociedad_emisora_id AS sociedad_id, s.razon_social AS sociedad_nombre`;
+  // `conPruebas`: para una pantalla en la que se ha ELEGIDO un campus o una
+  // empresa (migración 148: «un proyecto de pruebas solo se ve si lo eliges»).
+  // Claude no lo pasa nunca.
+  const pruebas = conPruebas ? '' : 'AND NOT COALESCE(p.es_prueba, false)';
   if (user.role === 'superadmin') {
     const { rows } = await query(
       `SELECT ${cols}
          FROM projects p
          LEFT JOIN invoice_issuers s ON s.id = p.sociedad_emisora_id
-        WHERE p.active = true AND NOT COALESCE(p.es_prueba, false)
+        WHERE p.active = true ${pruebas}
         ORDER BY s.razon_social NULLS LAST, p.nombre`
     );
     return rows;
@@ -58,7 +68,7 @@ export async function proyectosDeLaPersona(user) {
        JOIN projects p ON p.id = up.project_id
        LEFT JOIN invoice_issuers s ON s.id = p.sociedad_emisora_id
       WHERE up.user_id = $1 AND up.active = true AND p.active = true
-        AND NOT COALESCE(p.es_prueba, false)
+        ${pruebas}
       ORDER BY s.razon_social NULLS LAST, p.nombre`,
     [user.id]
   );
@@ -161,13 +171,19 @@ export async function tokensDeConectores(userId, connectorIds) {
 
 /**
  * Todas las URLs vivas de la persona (sueltas y de conexiones), para la línea
- * de estado de «Código para Claude» (#192).
+ * de estado de cada URL (#192).
  */
 export async function urlsVivasDeLaPersona(userId) {
   const { rows } = await query(
-    `SELECT t.id, COALESCE(c.label, t.nombre) AS nombre
+    // `ambito` (#260): dónde está la conexión, para decir «cambia arriba a X para verla».
+    `SELECT t.id, COALESCE(c.label, t.nombre) AS nombre,
+            CASE c.alcance WHEN 'sistema' THEN 'Todo el sistema'
+                           WHEN 'empresa' THEN COALESCE(s.razon_social, 'una empresa')
+                           ELSE p.nombre END AS ambito
        FROM mcp_tokens t
        LEFT JOIN project_connectors c ON c.id = t.connector_id
+       LEFT JOIN projects p ON p.id = c.project_id
+       LEFT JOIN invoice_issuers s ON s.id = c.issuer_id
       WHERE t.user_id = $1 AND t.revoked_at IS NULL AND (t.expires_at IS NULL OR t.expires_at > NOW())
       ORDER BY t.created_at`,
     [userId]
@@ -245,6 +261,8 @@ export async function porCaducarSinAviso(dias) {
        FROM mcp_tokens t JOIN users u ON u.id = t.user_id AND u.active
        LEFT JOIN project_connectors c ON c.id = t.connector_id
       WHERE t.revoked_at IS NULL AND t.aviso_caducidad_at IS NULL
+        -- A un tutor no se le escribe (freno de correos a tutores) ni usa el MCP (#262).
+        AND u.role <> 'tutor'
         AND t.expires_at > NOW()
         AND t.expires_at <= NOW() + make_interval(days => $1::int)
       GROUP BY u.id, u.nombre, u.email`,
@@ -346,12 +364,45 @@ const paginado = (pagina = 1, limite = 25) => ({ limit: limite, offset: (pagina 
 
 const fechaLocal = (col) => `(${col} AT TIME ZONE '${TZ}')::date`;
 
+// ─── Equipo (#325) ────────────────────────────────────────────────────────
+
+/**
+ * Quién hay en los campus de la persona, con su rol y sus campus. SIN correos
+ * ni teléfonos: solo el nombre, el rol y a qué campus pertenece. Una persona de
+ * varios campus sale una vez, con los suyos dentro de los pedidos.
+ */
+export async function equipoDeLosCampus({ projectIds, incluirInactivos = false }) {
+  const { rows } = await query(
+    `SELECT u.id, u.nombre, u.role AS rol, u.active AS activo,
+            array_agg(DISTINCT p.nombre ORDER BY p.nombre) AS campus
+       FROM users u
+       JOIN user_projects up ON up.user_id = u.id AND up.active
+       JOIN projects p ON p.id = up.project_id
+      WHERE up.project_id = ANY($1::int[]) ${incluirInactivos ? '' : 'AND u.active'}
+      GROUP BY u.id, u.nombre, u.role, u.active
+      ORDER BY u.role, u.nombre`,
+    [projectIds]
+  );
+  const porRol = {};
+  for (const r of rows) porRol[r.rol] = (porRol[r.rol] || 0) + 1;
+  return { total: rows.length, por_rol: porRol, personas: rows };
+}
+
 // ─── Prospectos ───────────────────────────────────────────────────────────
 
-function filtrosProspectos({ projectIds, responsableId, estado, texto, desde, hasta, canal }) {
+function filtrosProspectos({ projectIds, responsableId, gestoraId, programa, estado, texto, desde, hasta, canal }) {
   const f = condiciones('l.project_id', projectIds);
   f.cond.push('l.deleted_at IS NULL');
-  if (responsableId) f.add('l.responsable_id = ?', responsableId);
+  if (responsableId) f.add('l.responsable_id = ANY(?::int[])', comoIds(responsableId));
+  // Por gestora y por programa (#325). La gestora la pide quien ve todo el campus;
+  // a quien ve solo lo suyo ya se le impone `responsableId` arriba.
+  if (gestoraId) f.add('l.responsable_id = ?', gestoraId);
+  if (programa) {
+    f.add(`(EXISTS (SELECT 1 FROM products fp WHERE fp.id = l.producto_interes_id AND ${SIN_TILDES('fp.nombre')} LIKE ?)
+            OR EXISTS (SELECT 1 FROM lead_products lp JOIN products fp2 ON fp2.id = lp.product_id
+                        WHERE lp.lead_id = l.id AND ${SIN_TILDES('fp2.nombre')} LIKE ?))`,
+    `%${comoTexto(programa)}%`, `%${comoTexto(programa)}%`);
+  }
   if (estado) f.add('l.status::text = ?', estado);
   if (canal) f.add('EXISTS (SELECT 1 FROM lead_utms cu WHERE cu.lead_id = l.id AND cu.canal_detectado::text = ?)', canal);
   if (texto) f.add(`(l.nombre ILIKE ? OR l.email ILIKE ? OR l.telefono ILIKE ?)`, `%${texto}%`, `%${texto}%`, `%${texto}%`);
@@ -368,7 +419,13 @@ export async function buscarProspectos(filtros) {
             l.fecha_solicitud, l.project_id AS proyecto_id, p.nombre AS proyecto,
             pr.nombre AS producto_interes, u.nombre AS responsable,
             lu.canal_detectado AS canal,
-            EXISTS (SELECT 1 FROM conversions c WHERE c.lead_id = l.id) AS es_cliente
+            EXISTS (SELECT 1 FROM conversions c WHERE c.lead_id = l.id) AS es_cliente,
+            -- Lo que hace falta para decidir a quién llamar (#325): cuándo se le tocó por última vez,
+            -- cuándo toca la próxima, en qué paso del proceso va y cuánto ha comprado.
+            (SELECT max(li.fecha) FROM lead_interactions li WHERE li.lead_id = l.id AND li.tipo <> 'nota') AS ultimo_contacto,
+            (SELECT min(ls.fecha_prevista) FROM lead_steps ls WHERE ls.lead_id = l.id AND ls.estado = 'pendiente') AS proximo_contacto,
+            (SELECT ls.clave FROM lead_steps ls WHERE ls.lead_id = l.id AND ls.estado = 'pendiente' ORDER BY ls.orden LIMIT 1) AS paso_actual,
+            (SELECT COALESCE(SUM(c.importe_total), 0) FROM conversions c WHERE c.lead_id = l.id AND NOT COALESCE(c.es_mensualidad, false)) AS valor_vendido
        FROM leads l
        JOIN projects p ON p.id = l.project_id
        LEFT JOIN products pr ON pr.id = l.producto_interes_id
@@ -387,7 +444,7 @@ export async function verProspecto({ id, projectIds, responsableId }) {
   const f = condiciones('l.project_id', projectIds);
   f.cond.push('l.deleted_at IS NULL');
   f.add('l.id = ?', id);
-  if (responsableId) f.add('l.responsable_id = ?', responsableId);
+  if (responsableId) f.add('l.responsable_id = ANY(?::int[])', comoIds(responsableId));
 
   const { rows } = await query(
     `SELECT l.id, l.nombre, l.email, l.telefono, l.status AS estado, l.notas,
@@ -406,7 +463,7 @@ export async function verProspecto({ id, projectIds, responsableId }) {
   const prospecto = rows[0];
   if (!prospecto) return null;
 
-  const [{ rows: interacciones }, { rows: ventas }] = await Promise.all([
+  const [{ rows: interacciones }, { rows: ventas }, { rows: pasos }, { rows: recordatorios }, { rows: programas }] = await Promise.all([
     query(
       `SELECT li.tipo, li.nota, li.fecha, u.nombre AS por
          FROM lead_interactions li
@@ -423,8 +480,34 @@ export async function verProspecto({ id, projectIds, responsableId }) {
         ORDER BY c.fecha_conversion DESC`,
       [id, projectIds]
     ),
+    // El proceso comercial de esta persona (#325): en qué paso va y cuándo toca el siguiente.
+    query(
+      `SELECT ls.orden, ls.clave, ls.estado, ls.fecha_prevista
+         FROM lead_steps ls WHERE ls.lead_id = $1 ORDER BY ls.orden`,
+      [id]
+    ),
+    query(
+      `SELECT lr.fecha_recordatorio, lr.nota
+         FROM lead_reminders lr WHERE lr.lead_id = $1 AND NOT lr.completado
+        ORDER BY lr.fecha_recordatorio LIMIT 10`,
+      [id]
+    ),
+    query(
+      `SELECT pr.id, pr.nombre FROM lead_products lp JOIN products pr ON pr.id = lp.product_id
+        WHERE lp.lead_id = $1 ORDER BY pr.nombre LIMIT 20`,
+      [id]
+    ),
   ]);
-  return { ...prospecto, ultimas_interacciones: interacciones, ventas };
+  const pendiente = pasos.find((p) => p.estado === 'pendiente') || null;
+  return {
+    ...prospecto,
+    ultimas_interacciones: interacciones,
+    ventas,
+    paso_actual: pendiente ? { orden: pendiente.orden, clave: pendiente.clave, fecha_prevista: pendiente.fecha_prevista } : null,
+    pasos_del_proceso: pasos,
+    recordatorios_pendientes: recordatorios,
+    programas_de_interes: programas,
+  };
 }
 
 export async function resumenProspectos(filtros) {
@@ -452,13 +535,25 @@ export async function resumenProspectos(filtros) {
 
 const COBRADO = `COALESCE((SELECT SUM(cp.importe) FROM conversion_payments cp WHERE cp.conversion_id = c.id), 0)`;
 
-function filtrosVentas({ projectIds, responsableId, desde, hasta, texto, pendiente }) {
+function filtrosVentas({ projectIds, responsableId, vendedoraId, facturada, desde, hasta, texto, pendiente }) {
   const f = condiciones('c.project_id', projectIds);
   // Las mensualidades son cuotas de una venta, no ventas: la pantalla de
   // Ventas tampoco las cuenta.
   f.cond.push('NOT COALESCE(c.es_mensualidad, false)');
   if (responsableId) {
-    f.add('EXISTS (SELECT 1 FROM conversion_reparto r WHERE r.conversion_id = c.id AND r.vendedora_id = ?)', responsableId);
+    f.add('EXISTS (SELECT 1 FROM conversion_reparto r WHERE r.conversion_id = c.id AND r.vendedora_id = ANY(?::int[]))', comoIds(responsableId));
+  }
+  // Una vendedora concreta (#325). Solo la pide quien ve todo el campus: a una gestora
+  // se le impone ella misma arriba (responsableId) y esto no la ensancha.
+  if (vendedoraId) {
+    f.add('EXISTS (SELECT 1 FROM conversion_reparto r2 WHERE r2.conversion_id = c.id AND r2.vendedora_id = ?)', vendedoraId);
+  }
+  // Con factura: la misma regla que «Pendientes de facturar» (la factura puede colgar de la venta o de un cobro suyo;
+  // ni proformas ni canceladas).
+  if (facturada === true || facturada === false) {
+    f.cond.push(`${facturada ? '' : 'NOT '}EXISTS (SELECT 1 FROM invoices i
+       WHERE i.tipo <> 'proforma' AND i.estado <> 'cancelada'
+         AND (i.conversion_id = c.id OR i.payment_id IN (SELECT cp2.id FROM conversion_payments cp2 WHERE cp2.conversion_id = c.id)))`);
   }
   if (desde) f.add('c.fecha_conversion >= ?::date', desde);
   if (hasta) f.add('c.fecha_conversion <= ?::date', hasta);
@@ -519,12 +614,149 @@ export async function resumenVentas(filtros) {
   };
 }
 
+// ─── Pagos de Stripe, uno a uno (puerta 3, CRM#806) ─────────────────────
+//
+// Los cargos que deja el sincronizador en `stripe_payments`, los mismos que
+// Finanzas → Pagos Stripe. Por cada uno: estado, lo reembolsado, la venta y la
+// formación si está asociado, y si es el primer pago, una cuota u otro pago.
+//
+// Monedas. `amount` se guarda ya liquidado en euros (con `metadata.original_amount`
+// cuando el cargo era en otra moneda), pero `refunded_amount` va en la moneda
+// ORIGINAL del cargo (amount_refunded de Stripe): en un cargo en otra moneda se
+// pasa a euros con la proporción de ese mismo cargo. Hasta el 21/07 (3ec0cb81)
+// los cargos en otra moneda se guardaban SIN convertir: esos salen con su moneda
+// y fuera de las cifras en euros (`sin_convertir`), en vez de sumar pesos como euros.
+const SIN_CONVERTIR = `(UPPER(COALESCE(sp.currency, 'EUR')) <> 'EUR' AND NOT (COALESCE(sp.metadata, '{}'::jsonb) ? 'original_amount'))`;
+
+// Lo reembolsado en la moneda de `amount`, con tope: nunca más que el cargo (un
+// reembolso total sin `refunded_amount` vale el cargo entero).
+const REEMBOLSADO = `(CASE
+  WHEN sp.refunded THEN sp.amount
+  WHEN COALESCE(sp.refunded_amount, 0) = 0 THEN 0
+  WHEN (sp.metadata->>'original_amount') ~ '^[0-9.]+$' AND (sp.metadata->>'original_amount')::numeric > 0
+    THEN LEAST(sp.amount, ROUND(sp.refunded_amount * sp.amount / (sp.metadata->>'original_amount')::numeric, 2))
+  ELSE LEAST(sp.amount, sp.refunded_amount) END)`;
+
+const ESTADO_PAGO_STRIPE = `(CASE
+  WHEN sp.status = 'succeeded' AND ${REEMBOLSADO} >= sp.amount THEN 'reembolsado'
+  WHEN sp.status = 'succeeded' AND ${REEMBOLSADO} > 0 THEN 'reembolsado_en_parte'
+  WHEN sp.status = 'succeeded' THEN 'cobrado'
+  WHEN sp.status = 'failed' THEN 'fallido'
+  ELSE sp.status END)`;
+
+function filtrosPagosStripe({ projectIds, responsableId, desde, hasta, estado, sinAsociar }) {
+  const f = condiciones('sp.project_id', projectIds);
+  // Quien ve solo lo suyo o lo de su equipo (una líder con rol de admin): los
+  // cargos de SUS ventas, con la misma regla que «listar_ventas». Un cargo sin
+  // asociar no es de nadie y no le sale.
+  if (responsableId) {
+    f.add('EXISTS (SELECT 1 FROM conversion_reparto r WHERE r.conversion_id = sp.conversion_id AND r.vendedora_id = ANY(?::int[]))', comoIds(responsableId));
+  }
+  // Días de Madrid, como el resto del conector.
+  if (desde) f.add(`${fechaLocal('sp.stripe_created_at')} >= ?::date`, desde);
+  if (hasta) f.add(`${fechaLocal('sp.stripe_created_at')} <= ?::date`, hasta);
+  if (estado === 'cobrado') f.cond.push(`sp.status = 'succeeded' AND NOT sp.refunded AND COALESCE(sp.refunded_amount, 0) = 0`);
+  if (estado === 'reembolsado') f.cond.push(`sp.status = 'succeeded' AND (sp.refunded OR COALESCE(sp.refunded_amount, 0) > 0)`);
+  if (estado === 'fallido') f.cond.push(`sp.status = 'failed'`);
+  if (sinAsociar === true) f.cond.push(`sp.status = 'succeeded' AND sp.conversion_id IS NULL`);
+  if (sinAsociar === false) f.cond.push('sp.conversion_id IS NOT NULL');
+  return f;
+}
+
+export async function listarPagosStripe(filtros) {
+  const f = filtrosPagosStripe(filtros);
+  const { limit, offset } = paginado(filtros.pagina, filtros.limite);
+  // Primero la página (CTE) y después, solo para esas filas, la venta, la cuota
+  // y el primer pago: así las subconsultas no corren por cada cargo del filtro.
+  const { rows } = await query(
+    `WITH pagina AS (
+       SELECT sp.* FROM stripe_payments sp
+        ${f.where()}
+        ORDER BY sp.stripe_created_at DESC, sp.id DESC
+        LIMIT ${limit} OFFSET ${offset}
+     )
+     SELECT sp.id, sp.stripe_id,
+            (sp.stripe_created_at AT TIME ZONE '${TZ}') AS fecha,
+            sp.amount AS importe,
+            CASE WHEN ${SIN_CONVERTIR} THEN UPPER(sp.currency) ELSE 'EUR' END AS moneda,
+            ${ESTADO_PAGO_STRIPE} AS estado,
+            ${REEMBOLSADO} AS importe_reembolsado,
+            CASE WHEN sp.status = 'succeeded' THEN sp.amount - ${REEMBOLSADO} ELSE 0 END AS neto,
+            sp.disputed AS disputado,
+            CASE WHEN sp.disputed THEN sp.dispute_status END AS estado_disputa,
+            sp.metadata->>'original_currency' AS moneda_original,
+            sp.metadata->>'original_amount' AS importe_original,
+            COALESCE(l.nombre, sp.customer_name) AS cliente,
+            sp.customer_email AS cliente_email,
+            sp.project_id AS proyecto_id, p.nombre AS campus,
+            sp.conversion_id AS venta_id,
+            COALESCE(pr.nombre, cv.producto_contratado) AS formacion,
+            CASE
+              WHEN sp.conversion_id IS NULL THEN NULL
+              WHEN cuota.numero IS NOT NULL THEN 'cuota ' || cuota.numero || ' de ' || cuota.de
+              WHEN sp.conversion_payment_id IS NULL THEN 'sin cobro apuntado'
+              WHEN primero.id = sp.conversion_payment_id THEN 'primer pago'
+              ELSE 'pago'
+            END AS tipo_de_pago
+       FROM pagina sp
+       JOIN projects p ON p.id = sp.project_id
+       LEFT JOIN conversions cv ON cv.id = sp.conversion_id
+       -- El cliente: el prospecto del cargo o, si no lo tiene apuntado, el de su venta.
+       LEFT JOIN leads l ON l.id = COALESCE(sp.lead_id, cv.lead_id)
+       LEFT JOIN products pr ON pr.id = cv.producto_contratado_id
+       LEFT JOIN LATERAL (
+         SELECT ci.numero,
+                (SELECT COUNT(*) FROM conversion_installments x WHERE x.conversion_id = ci.conversion_id)::int AS de
+           FROM conversion_installments ci
+          WHERE ci.payment_id = sp.conversion_payment_id
+          LIMIT 1
+       ) cuota ON sp.conversion_payment_id IS NOT NULL
+       LEFT JOIN LATERAL (
+         SELECT cp.id FROM conversion_payments cp
+          WHERE cp.conversion_id = sp.conversion_id
+          ORDER BY cp.fecha, cp.id
+          LIMIT 1
+       ) primero ON sp.conversion_id IS NOT NULL
+      ORDER BY sp.stripe_created_at DESC, sp.id DESC`,
+    f.params
+  );
+  // Las cifras del periodo ENTERO con esos filtros, no solo de esta página. En
+  // euros: los cargos antiguos sin convertir se cuentan aparte.
+  const { rows: c } = await query(
+    `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE sp.status = 'failed')::int AS fallidos,
+            COUNT(*) FILTER (WHERE sp.status = 'succeeded' AND sp.conversion_id IS NULL)::int AS sin_asociar,
+            COUNT(*) FILTER (WHERE ${SIN_CONVERTIR})::int AS sin_convertir,
+            COALESCE(SUM(sp.amount) FILTER (WHERE sp.status = 'succeeded' AND NOT ${SIN_CONVERTIR}), 0) AS cobrado,
+            COALESCE(SUM(${REEMBOLSADO}) FILTER (WHERE sp.status = 'succeeded' AND NOT ${SIN_CONVERTIR}), 0) AS reembolsado
+       FROM stripe_payments sp ${f.where()}`,
+    f.params
+  );
+  const cifras = c[0];
+  const pagina = filtros.pagina || 1;
+  const limite = filtros.limite || 25;
+  return {
+    total: cifras.total,
+    pagina,
+    paginas: Math.max(1, Math.ceil(cifras.total / limite)),
+    cifras: {
+      cobrado: Number(cifras.cobrado),
+      reembolsado: Number(cifras.reembolsado),
+      neto: Math.round((Number(cifras.cobrado) - Number(cifras.reembolsado)) * 100) / 100,
+      fallidos: cifras.fallidos,
+      sin_asociar: cifras.sin_asociar,
+      sin_convertir: cifras.sin_convertir,
+    },
+    pagos: rows,
+  };
+}
+
 // ─── Facturas ─────────────────────────────────────────────────────────────
 
 function filtrosFacturas({ projectIds, responsableId, estado, tipo, texto, desde, hasta }) {
   const f = condiciones('i.project_id', projectIds);
   // Igual que el listado de Facturas: la gestora ve las de lo que vendio ella.
-  if (responsableId) f.add('COALESCE(cv.vendedora_id, l.responsable_id) = ?', responsableId);
+  if (responsableId) f.add('COALESCE(cv.vendedora_id, l.responsable_id) = ANY(?::int[])', comoIds(responsableId));
   if (estado) f.add('i.estado::text = ?', estado);
   if (tipo) f.add('i.tipo::text = ?', tipo);
   if (texto) f.add('(i.cliente_nombre ILIKE ? OR i.codigo ILIKE ?)', `%${texto}%`, `%${texto}%`);
@@ -759,7 +991,8 @@ export async function comisionesDeTutores({ projectIds, periodo = null, desde = 
   const suma = (k) => Math.round(filas.reduce((t, r) => t + Number(r[k] || 0), 0) * 100) / 100;
   return {
     periodo: periodo || (de || a ? `${de || 'el principio'} a ${a || 'hoy'}` : 'todos los meses'),
-    totales: { generado: suma('generado'), por_pagar: suma('por_pagar'), pagado: suma('pagado'), revertido: suma('revertido') },
+    // La base de cálculo, en los totales: antes había que sumarla fila a fila (#325).
+    totales: { base: suma('base'), generado: suma('generado'), por_pagar: suma('por_pagar'), pagado: suma('pagado'), revertido: suma('revertido') },
     filas,
   };
 }
@@ -767,7 +1000,6 @@ export async function comisionesDeTutores({ projectIds, periodo = null, desde = 
 /**
  * Las formaciones que se venden y no tienen tutor: la MISMA consulta que la
  * pantalla «Cursos sin tutor» (#207). Por defecto, desde el corte, como allí.
- * Se devuelve lo que sirve para contestar; lo de los anuncios de Meta, no.
  */
 export async function formacionesSinTutorDe({ projectIds, incluir_anteriores_al_corte = false }) {
   const filas = await formacionesSinTutor({ projectIds, desdeElCorte: !incluir_anteriores_al_corte });
@@ -778,8 +1010,48 @@ export async function formacionesSinTutorDe({ projectIds, incluir_anteriores_al_
       ventas: f.ventas, alumnos: f.alumnos, cobrado: Number(f.cobrado || 0),
       ultima_venta: f.ultima_venta, antes_del_corte: f.antes_del_corte,
       buscando_tutor: f.buscando, nota_de_la_busqueda: f.busqueda_nota,
+      meta: columnaMeta(f),
     })),
   };
+}
+
+/**
+ * La columna META de «Cursos sin tutor» (#325), con las MISMAS cinco respuestas
+ * y el mismo orden que la pantalla (`Meta` en FormacionesSinTutorPage):
+ *
+ *   1. el anuncio que alguien apuntó ya no está en Meta (archivado o borrado allí);
+ *   2. hay anuncio apuntado: «activo» si Meta lo da como ACTIVE, y si no «pausado»;
+ *   3. se busca tutor y todavía no hay anuncio enganchado;
+ *   4. no se busca.
+ *
+ * El enganche anuncio-formación lo hace una persona (`tutor_busquedas`): Meta no
+ * sabe a qué curso del catálogo apunta cada conjunto de anuncios. Por eso el
+ * gasto y los leads son los del conjunto de anuncios apuntado, tal como los dejó
+ * la última sincronización con Meta, no lo gastado «solo» en buscar tutor.
+ */
+export function columnaMeta(f) {
+  if (f.anuncio_desaparecido) {
+    return {
+      situacion: 'anuncio_desaparecido',
+      texto: 'Se apuntó un anuncio y ya no está en Meta (archivado o borrado allí)',
+    };
+  }
+  if (f.anuncio_estado) {
+    const activo = f.anuncio_estado === 'ACTIVE';
+    return {
+      situacion: activo ? 'anuncio_activo' : 'anuncio_pausado',
+      texto: activo ? 'Anuncio activo' : 'Anuncio pausado',
+      estado_en_meta: f.anuncio_estado,
+      anuncio: f.anuncio_nombre || null,
+      gasto: Number(f.anuncio_gasto || 0),
+      leads: Number(f.anuncio_leads || 0),
+      buscando_desde: f.busqueda_desde || null,
+    };
+  }
+  if (f.buscando) {
+    return { situacion: 'buscando', texto: 'Se busca tutor; todavía sin anuncio enganchado', buscando_desde: f.busqueda_desde || null };
+  }
+  return { situacion: 'no_se_busca', texto: 'No se busca tutor para esta formación' };
 }
 
 // ─── El catálogo de cada campus (#215) ────────────────────────────────────
@@ -809,16 +1081,21 @@ const CON_PRECIO = (col) => `(${col} IS NOT NULL AND ${col} > 0)`;
 /** Por encima de esto, sin texto, se pide acotar: el catálogo entero no cabe en una respuesta. */
 export const AVISO_FORMACIONES = 100;
 
-export async function listarFormaciones({ projectIds, texto, pagina = 1, limite = 25 }) {
+export async function listarFormaciones({ projectIds, texto, incluirInactivas = false, pagina = 1, limite = 25 }) {
   const f = condiciones('p.project_id', projectIds);
-  f.cond.push('p.active = true');
+  // Por defecto solo las activas, como el catálogo; con `incluir_inactivas` también las dadas de baja (#325).
+  if (!incluirInactivas) f.cond.push('p.active = true');
   if (texto) f.add(`${SIN_TILDES('p.nombre')} LIKE ?`, `%${comoTexto(texto)}%`);
   const { limit, offset } = paginado(pagina, limite);
   const { rows } = await query(
     `SELECT p.id, p.nombre AS curso, pr.nombre AS campus, p.project_id AS campus_id,
-            p.precio, p.moneda, p.url_info AS enlace, p.modalidad
+            p.precio, p.moneda, p.url_info AS enlace, p.modalidad, p.sku, p.active AS activa,
+            -- La categoría (curso, diplomado, máster…), como en la ficha (#362, puerta 4).
+            cat.nombre AS categoria, sub.nombre AS subcategoria
        FROM products p
        JOIN projects pr ON pr.id = p.project_id
+       LEFT JOIN product_categories cat ON cat.id = p.categoria_id
+       LEFT JOIN product_categories sub ON sub.id = p.subcategoria_id
       ${f.where()}
       ORDER BY pr.nombre, p.nombre, p.id
       LIMIT ${limit} OFFSET ${offset}`,
@@ -1013,19 +1290,19 @@ async function metricasDeCampanas({ projectIds, desde, hasta }) {
   const enProspectos = periodo('l.created_at::date', { desde, hasta }, params);
   const { rows } = await query(
     `WITH camp AS (
-       SELECT mc.campaign_id, mc.project_id, mc.nombre, mc.objective, mc.status, mc.effective_status, mc.daily_budget,
-              (SELECT a.currency FROM meta_ad_accounts a
-                WHERE a.project_id = mc.project_id AND a.ad_account_id = mc.ad_account_id LIMIT 1) AS moneda
+       SELECT mc.campaign_id, mc.project_id
          FROM meta_campaigns mc
         WHERE mc.project_id = ANY($1::int[])
      ),
+     -- El gasto, por el campus de la FILA DIARIA y no por el de la campaña (QA de
+     -- Diego, 22/10, punto 10), como la pantalla Publicidad (getDashboard): un día
+     -- apuntado a otro campus es gasto de ese campus, aunque la campaña sea de este.
      gasto AS (
-       SELECT d.campaign_id, SUM(d.spend) AS gasto, SUM(d.impressions) AS impresiones,
+       SELECT d.campaign_id, d.project_id, SUM(d.spend) AS gasto, SUM(d.impressions) AS impresiones,
               SUM(d.clicks) AS clics, SUM(d.leads) AS leads_segun_meta
          FROM meta_campaigns_daily d
-         JOIN camp ON camp.campaign_id = d.campaign_id
-        WHERE TRUE${enGasto}
-        GROUP BY d.campaign_id
+        WHERE d.project_id = ANY($1::int[])${enGasto}
+        GROUP BY d.campaign_id, d.project_id
      ),
      -- Una fila de UTM por prospecto (lead_utms.lead_id es UNIQUE) y sus ventas
      -- sumadas aparte: ningún JOIN multiplica nada. Solo los prospectos del
@@ -1045,19 +1322,30 @@ async function metricasDeCampanas({ projectIds, desde, hasta }) {
             WHERE c.lead_id = l.id AND NOT COALESCE(c.es_mensualidad, false)
          ) v ON TRUE
         GROUP BY camp.campaign_id
+     ),
+     -- Una fila por campaña y campus: los de su gasto y el de la campaña (sus prospectos).
+     filas AS (
+       SELECT campaign_id, project_id FROM gasto
+       UNION
+       SELECT campaign_id, project_id FROM camp
      )
-     SELECT camp.campaign_id, camp.project_id, camp.nombre, camp.objective, camp.status, camp.effective_status,
-            camp.daily_budget, camp.moneda, pr.nombre AS campus,
+     SELECT f.campaign_id, f.project_id, mc.nombre, mc.objective, mc.status, mc.effective_status, mc.daily_budget,
+            (SELECT a.currency FROM meta_ad_accounts a
+              WHERE a.ad_account_id = mc.ad_account_id
+              ORDER BY (a.project_id = f.project_id) DESC LIMIT 1) AS moneda,
+            pr.nombre AS campus,
             COALESCE(g.gasto, 0) AS gasto, COALESCE(g.impresiones, 0) AS impresiones,
             COALESCE(g.clics, 0) AS clics, COALESCE(g.leads_segun_meta, 0) AS leads_segun_meta,
             COALESCE(a.prospectos, 0) AS prospectos, COALESCE(a.compraron, 0) AS compraron,
             COALESCE(a.facturado, 0) AS facturado
-       FROM camp
-       JOIN projects pr ON pr.id = camp.project_id
-       LEFT JOIN gasto g ON g.campaign_id = camp.campaign_id
-       LEFT JOIN atrib a ON a.campaign_id = camp.campaign_id
+       FROM filas f
+       JOIN meta_campaigns mc ON mc.campaign_id = f.campaign_id
+       JOIN projects pr ON pr.id = f.project_id
+       LEFT JOIN gasto g ON g.campaign_id = f.campaign_id AND g.project_id = f.project_id
+       -- Los prospectos, como hasta ahora: solo en la fila del campus de la campaña.
+       LEFT JOIN atrib a ON a.campaign_id = f.campaign_id AND f.project_id = mc.project_id
       WHERE COALESCE(g.gasto, 0) > 0 OR COALESCE(a.prospectos, 0) > 0
-      ORDER BY COALESCE(g.gasto, 0) DESC, camp.nombre`,
+      ORDER BY COALESCE(g.gasto, 0) DESC, mc.nombre, pr.nombre`,
     params
   );
   return rows.map((r) => ({
@@ -1207,6 +1495,229 @@ export async function campanasPublicitarias({ projectIds, desde, hasta, limite =
   };
 }
 
+// ─── Conjuntos y anuncios de Meta (#362) ──────────────────────────────────
+//
+// Para «qué formaciones cambiamos esta semana, cuáles se quedan y qué
+// creativos cambiamos» (Manuel). Parten de las tablas de conjuntos y anuncios,
+// NO de las diarias: salen también los pausados y los que no han gastado en el
+// periodo. El gasto del periodo se suma de las diarias, como la pantalla; el de
+// toda la vida es el que da Meta (`lifetime_*`), que NO es `total_spend`: eso es
+// solo lo de los días sincronizados (desde 90 días antes de conectar la cuenta).
+// La cuenta sale siempre aparte: un campus puede tener varias (Psiko, tres).
+
+const ESTADOS_META = {
+  activos: ['ACTIVE'],
+  pausados: ['PAUSED', 'CAMPAIGN_PAUSED', 'ADSET_PAUSED'],
+  archivados: ['ARCHIVED', 'DELETED'],
+};
+
+export const AVISO_GASTO_TOTAL = '«gasto_total» es el de toda la vida, tal como lo da Meta. Donde viene vacío, aún no se ha pedido a Meta: '
+  + '«gasto_sincronizado» es solo lo de los días que tiene el CRM (desde 90 días antes de conectar la cuenta), no lo digas como total.';
+
+/** La cuenta de Meta tal como la guarda el CRM: «act_» y el número. */
+export const cuentaDeMeta = (v) => (v == null ? null : (/^\d+$/.test(String(v)) ? `act_${v}` : String(v)));
+
+/** Las condiciones de las dos consultas. `t` es la tabla de la que se lista (ma o mad). */
+function filtrosMeta(t, { projectIds, cuenta, campanaId, conjuntoId, estado, texto, creadosDesde, creadosHasta }) {
+  const f = condiciones(`${t}.project_id`, projectIds);
+  if (cuenta) f.add('mc.ad_account_id = ?', cuentaDeMeta(cuenta));
+  if (campanaId) f.add(`${t}.campaign_id = ?`, String(campanaId));
+  if (conjuntoId) f.add(`${t}.adset_id = ?`, String(conjuntoId));
+  if (estado && ESTADOS_META[estado]) f.add(`COALESCE(${t}.effective_status, ${t}.status) = ANY(?::text[])`, ESTADOS_META[estado]);
+  if (texto) f.add(`${SIN_TILDES(`${t}.nombre`)} LIKE ?`, `%${comoTexto(texto)}%`);
+  if (creadosDesde) f.add(`${fechaLocal(`${t}.created_time`)} >= ?::date`, creadosDesde);
+  if (creadosHasta) f.add(`${fechaLocal(`${t}.created_time`)} <= ?::date`, creadosHasta);
+  return f;
+}
+
+/** El gasto del periodo, de la tabla diaria (`g.gasto`, `g.impresiones`, `g.clics`). */
+function gastoDelPeriodo(f, { diaria, id, t, desde, hasta }) {
+  const cond = [`d.${id} = ${t}.${id}`];
+  if (desde) { f.params.push(desde); cond.push(`d.date >= $${f.params.length}::date`); }
+  if (hasta) { f.params.push(hasta); cond.push(`d.date <= $${f.params.length}::date`); }
+  return `LEFT JOIN LATERAL (
+         SELECT SUM(d.spend) AS gasto, SUM(d.impressions) AS impresiones, SUM(d.clicks) AS clics
+           FROM ${diaria} d WHERE ${cond.join(' AND ')}
+       ) g ON TRUE`;
+}
+
+const dinero = (v) => (v == null ? null : redondeo(Number(v)));
+const entero0 = (v) => (v == null ? null : Number(v));
+
+/** Lo común de una fila de conjunto o de anuncio: campus, cuenta, campaña y cifras. */
+function cifrasMeta(r) {
+  const sinTotal = r.lifetime_spend == null;
+  return {
+    campus_id: r.campus_id,
+    campus: r.campus,
+    cuenta: { id: r.cuenta_id || null, nombre: r.cuenta_nombre || null },
+    campana: { id: r.campaign_id || null, nombre: r.campana || null },
+    moneda: r.moneda || null,
+    gasto_periodo: dinero(r.gasto) ?? 0,
+    impresiones_periodo: Number(r.impresiones || 0),
+    clics_periodo: Number(r.clics || 0),
+    gasto_total: dinero(r.lifetime_spend),
+    impresiones_totales: entero0(r.lifetime_impressions),
+    clics_totales: entero0(r.lifetime_clicks),
+    gasto_total_al: r.lifetime_synced_at || null,
+    ...(sinTotal ? { gasto_sincronizado: dinero(r.total_spend) ?? 0 } : {}),
+  };
+}
+
+const COLUMNAS_COMUNES = (t) => `
+       ${t}.status, ${t}.effective_status, ${t}.created_time,
+       ${t}.total_spend, ${t}.lifetime_spend, ${t}.lifetime_impressions, ${t}.lifetime_clicks, ${t}.lifetime_synced_at,
+       pr.id AS campus_id, pr.nombre AS campus,
+       mc.ad_account_id AS cuenta_id, acc.ad_account_nombre AS cuenta_nombre, acc.currency AS moneda,
+       mc.campaign_id, mc.nombre AS campana,
+       COALESCE(g.gasto, 0) AS gasto, COALESCE(g.impresiones, 0) AS impresiones, COALESCE(g.clics, 0) AS clics`;
+
+// La cuenta, por campus Y por id: la misma cuenta puede estar en dos campus.
+const JOIN_CUENTA = `LEFT JOIN meta_ad_accounts acc ON acc.project_id = mc.project_id AND acc.ad_account_id = mc.ad_account_id`;
+
+/**
+ * Los conjuntos de anuncios de esos campus, con su cuenta, campaña, estado,
+ * fechas, gasto del periodo y de toda la vida, cuántos anuncios tienen y la
+ * formación (o formaciones) a la que están asociados.
+ */
+export async function conjuntosDeMeta({ projectIds, desde, hasta, cuenta, campanaId, estado, texto, creadosDesde, creadosHasta, soloConGasto = false, pagina = 1, limite = 25 }) {
+  const f = filtrosMeta('ma', { projectIds, cuenta, campanaId, estado, texto, creadosDesde, creadosHasta });
+  const gasto = gastoDelPeriodo(f, { diaria: 'meta_adsets_daily', id: 'adset_id', t: 'ma', desde, hasta });
+  if (soloConGasto) f.cond.push('COALESCE(g.gasto, 0) > 0');
+  const desdeDonde = `FROM meta_adsets ma
+       JOIN meta_campaigns mc ON mc.campaign_id = ma.campaign_id
+       JOIN projects pr ON pr.id = ma.project_id
+       ${JOIN_CUENTA}
+       ${gasto}`;
+  const { limit, offset } = paginado(pagina, limite);
+  const [{ rows }, { rows: porCuenta }] = await Promise.all([
+    query(
+      `SELECT ma.adset_id, ma.nombre, ma.daily_budget, ma.start_time, ma.end_time, ${COLUMNAS_COMUNES('ma')},
+              an.anuncios, an.anuncios_activos, fp.formaciones
+       ${desdeDonde}
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS anuncios,
+                COUNT(*) FILTER (WHERE COALESCE(ad.effective_status, ad.status) = 'ACTIVE')::int AS anuncios_activos
+           FROM meta_ads ad WHERE ad.adset_id = ma.adset_id
+       ) an ON TRUE
+       -- Las formaciones: las del conjunto (a mano o automáticas) y las de su campaña.
+       LEFT JOIN LATERAL (
+         SELECT json_agg(json_build_object('id', p.id, 'nombre', p.nombre, 'origen', x.origen) ORDER BY p.nombre, x.origen) AS formaciones
+           FROM (SELECT mp.product_id, mp.origen::text AS origen FROM meta_adset_products mp WHERE mp.adset_id = ma.adset_id
+                 UNION ALL
+                 SELECT cp.product_id, 'campaña'::text FROM meta_campaign_products cp WHERE cp.campaign_id = ma.campaign_id) x
+           JOIN products p ON p.id = x.product_id
+       ) fp ON TRUE
+      ${f.where()}
+      ORDER BY COALESCE(g.gasto, 0) DESC, ma.nombre, ma.adset_id
+      LIMIT ${limit} OFFSET ${offset}`,
+      f.params
+    ),
+    query(
+      `SELECT pr.nombre AS campus, mc.ad_account_id AS cuenta_id, acc.ad_account_nombre AS cuenta_nombre, acc.currency AS moneda,
+              COUNT(*)::int AS conjuntos,
+              COUNT(*) FILTER (WHERE COALESCE(ma.effective_status, ma.status) = 'ACTIVE')::int AS activos,
+              COALESCE(SUM(g.gasto), 0) AS gasto
+       ${desdeDonde}
+      ${f.where()}
+      GROUP BY pr.nombre, mc.ad_account_id, acc.ad_account_nombre, acc.currency
+      ORDER BY pr.nombre, acc.ad_account_nombre, mc.ad_account_id`,
+      f.params
+    ),
+  ]);
+  const total = porCuenta.reduce((s, c) => s + Number(c.conjuntos || 0), 0);
+  const conjuntos = rows.map((r) => ({
+    conjunto_id: r.adset_id,
+    nombre: r.nombre,
+    estado: r.effective_status || r.status || null,
+    estado_configurado: r.status || null,
+    ...cifrasMeta(r),
+    fecha_creacion: r.created_time || null,
+    fecha_inicio: r.start_time || null,
+    fecha_fin: r.end_time || null,
+    presupuesto_diario: numero(r.daily_budget),
+    anuncios: Number(r.anuncios || 0),
+    anuncios_activos: Number(r.anuncios_activos || 0),
+    formaciones: Array.isArray(r.formaciones) ? r.formaciones : [],
+  }));
+  return {
+    desde: desde || null,
+    hasta: hasta || null,
+    total,
+    pagina,
+    paginas: Math.max(1, Math.ceil(total / limite)),
+    por_cuenta: porCuenta.map((c) => ({
+      campus: c.campus, cuenta: { id: c.cuenta_id || null, nombre: c.cuenta_nombre || null }, moneda: c.moneda || null,
+      conjuntos: Number(c.conjuntos || 0), activos: Number(c.activos || 0), gasto_periodo: dinero(c.gasto) ?? 0,
+    })),
+    ...(conjuntos.some((c) => c.gasto_total == null) ? { aviso_gasto_total: AVISO_GASTO_TOTAL } : {}),
+    conjuntos,
+  };
+}
+
+/**
+ * Los anuncios (creativos) de esos campus: conjunto, estado, fechas, gasto del
+ * periodo y de toda la vida, y la URL de destino que se saca del creativo.
+ */
+export async function anunciosDeMeta({ projectIds, desde, hasta, cuenta, campanaId, conjuntoId, estado, texto, creadosDesde, creadosHasta, soloConGasto = false, pagina = 1, limite = 25 }) {
+  const f = filtrosMeta('mad', { projectIds, cuenta, campanaId, conjuntoId, estado, texto, creadosDesde, creadosHasta });
+  const gasto = gastoDelPeriodo(f, { diaria: 'meta_ads_daily', id: 'ad_id', t: 'mad', desde, hasta });
+  if (soloConGasto) f.cond.push('COALESCE(g.gasto, 0) > 0');
+  const desdeDonde = `FROM meta_ads mad
+       JOIN meta_adsets ma ON ma.adset_id = mad.adset_id
+       JOIN meta_campaigns mc ON mc.campaign_id = mad.campaign_id
+       JOIN projects pr ON pr.id = mad.project_id
+       ${JOIN_CUENTA}
+       ${gasto}`;
+  const { limit, offset } = paginado(pagina, limite);
+  const [{ rows }, { rows: [cuenta0] }] = await Promise.all([
+    query(
+      `SELECT mad.ad_id, mad.nombre, mad.creative_id, mad.url_destino, mad.urls_destino, mad.formato_creativo,
+              mad.lead_form_id, mad.url_tags, ${COLUMNAS_COMUNES('mad')},
+              ma.adset_id, ma.nombre AS conjunto, ma.start_time AS inicio_conjunto
+       ${desdeDonde}
+      ${f.where()}
+      ORDER BY COALESCE(g.gasto, 0) DESC, mad.nombre, mad.ad_id
+      LIMIT ${limit} OFFSET ${offset}`,
+      f.params
+    ),
+    query(`SELECT COUNT(*)::int AS total ${desdeDonde} ${f.where()}`, f.params),
+  ]);
+  const total = Number(cuenta0?.total || 0);
+  const anuncios = rows.map((r) => {
+    const urls = Array.isArray(r.urls_destino) ? r.urls_destino : [];
+    return {
+      anuncio_id: r.ad_id,
+      nombre: r.nombre,
+      estado: r.effective_status || r.status || null,
+      estado_configurado: r.status || null,
+      conjunto: { id: r.adset_id || null, nombre: r.conjunto || null },
+      ...cifrasMeta(r),
+      fecha_creacion: r.created_time || null,
+      // Un anuncio no tiene fecha de inicio propia en Meta: empieza con su conjunto.
+      fecha_inicio_del_conjunto: r.inicio_conjunto || null,
+      url_destino: r.url_destino || null,
+      ...(urls.length > 1 ? { todas_las_urls: urls } : {}),
+      formato: r.formato_creativo || null,
+      ...(r.lead_form_id ? { formulario_id: r.lead_form_id } : {}),
+      creativo_id: r.creative_id || null,
+      ...(r.url_tags ? { parametros_url: r.url_tags } : {}),
+    };
+  });
+  return {
+    desde: desde || null,
+    hasta: hasta || null,
+    total,
+    pagina,
+    paginas: Math.max(1, Math.ceil(total / limite)),
+    ...(anuncios.some((a) => a.gasto_total == null) ? { aviso_gasto_total: AVISO_GASTO_TOTAL } : {}),
+    ...(anuncios.some((a) => a.formato == null) ? {
+      aviso_url: 'Donde «formato» viene vacío, el anuncio no se ha vuelto a sincronizar desde que el CRM guarda la URL: no es que no tenga.',
+    } : {}),
+    anuncios,
+  };
+}
+
 // ─── Actividad por comercial (#203, parte A) ──────────────────────────────
 //
 // Ficha de Diego del 07/10. Cada contacto cuenta para QUIÉN LO HIZO
@@ -1231,7 +1742,7 @@ export async function actividadPorComercial({ projectIds, responsableId = null, 
   const f = condiciones('l.project_id', projectIds);
   f.cond.push('l.deleted_at IS NULL');
   // Quien solo ve lo suyo se ve a sí misma: sus contactos, en la ficha que sea.
-  if (responsableId) f.add('li.created_by = ?', responsableId);
+  if (responsableId) f.add('li.created_by = ANY(?::int[])', comoIds(responsableId));
   f.add(`${fechaLocal('li.fecha')} >= ?::date`, desde);
   f.add(`${fechaLocal('li.fecha')} <= ?::date`, hasta);
   const { rows: contactos } = await query(
@@ -1266,7 +1777,7 @@ export async function actividadPorComercial({ projectIds, responsableId = null, 
   // no tiene autora va a «Sin asignar», para que el total cuadre (#128).
   const w = condiciones('l.project_id', projectIds);
   w.cond.push('l.deleted_at IS NULL', `m.direccion = 'saliente'`);
-  if (responsableId) w.add('m.enviado_por = ?', responsableId);
+  if (responsableId) w.add('m.enviado_por = ANY(?::int[])', comoIds(responsableId));
   w.add(`${fechaLocal('m.ts')} >= ?::date`, desde);
   w.add(`${fechaLocal('m.ts')} <= ?::date`, hasta);
   const { rows: mensajes } = await query(
@@ -1289,7 +1800,9 @@ export async function actividadPorComercial({ projectIds, responsableId = null, 
   const CERO = { llamadas: 0, whatsapp: 0, whatsapp_texto: 0, whatsapp_voz: 0, correos: 0, notas: 0, personas: 0, toques: 0 };
   const porPersona = new Map();
   const de = (id, comercial) => {
-    if (!porPersona.has(id)) porPersona.set(id, { comercial: comercial || 'Sin asignar', ...CERO });
+    // `user_id` para que la pantalla (parte B) abra la lista de cada una; null
+    // en «Sin asignar».
+    if (!porPersona.has(id)) porPersona.set(id, { user_id: id ?? null, comercial: comercial || 'Sin asignar', ...CERO });
     return porPersona.get(id);
   };
   for (const { user_id: id, comercial, ...n } of contactos) Object.assign(de(id, comercial), n);
@@ -1316,4 +1829,595 @@ export async function actividadPorComercial({ projectIds, responsableId = null, 
       toques: suma('toques'),
     },
   };
+}
+
+// ─── Lo que faltaba del CRM, parte 2 (#325) ───────────────────────────────
+//
+// Matrículas, catálogo completo, correos, WhatsApp, solicitudes y avisos,
+// nóminas y clientes. Mismas reglas que lo de arriba: SOLO lectura, el campus
+// (`= ANY($1::int[])`) en cada consulta, columnas nombradas una a una y nada de
+// correos ni teléfonos en claro. De WhatsApp y de los correos solo salen CIFRAS:
+// ni el texto de un mensaje, ni el asunto, ni el destinatario, ni un número.
+//
+// Cuando la pantalla de origen ya tiene su función de modelo, se llama a esa
+// (Clientes, Nóminas, categorías, cuentas por cobrar) para que las cifras sean
+// las de la pantalla. Cuando no la tiene o no admite lo que el MCP impone (una
+// gestora que solo ve lo suyo, varios campus), el SQL está aquí.
+//
+// En los comentarios de SQL no se escribe nunca la palabra de las escrituras:
+// `mcpAmbito.test.js` vigila con una expresión que no distingue un comentario
+// de una orden.
+
+const entero = (v) => Number(v || 0);
+
+/** Los números de una fila de totales: un `COUNT` sin filas sigue siendo un 0. */
+const enteros = (fila, claves) => Object.fromEntries(claves.map((k) => [k, entero(fila?.[k])]));
+
+// ── Matrículas ─────────────────────────────────────────────────────────────
+
+/**
+ * La pantalla de Matrículas en cifras: cuántas hay por estado, por producto, por
+ * campus y por mes de alta. Los cuatro primeros números (total, pendientes,
+ * validadas, rechazadas) son los de `getStats` de la pantalla.
+ *
+ * El producto es el de la VENTA a la que cuelga la matrícula
+ * (`producto_contratado`); la matrícula no tiene producto propio (su «título» es
+ * la titulación previa de la persona). Las que se crean a mano sin venta salen
+ * como «Sin producto».
+ *
+ * `asesoraId` recorta a las matrículas de las ventas de una persona (la
+ * vendedora de la venta o, si no la tiene, la responsable del prospecto). La
+ * herramienta `matriculas` ya no lo pasa (17/11/2026): una gestora ve en la
+ * pantalla todas las solicitudes de sus campus, y por Claude cuenta lo mismo.
+ */
+export async function resumenMatriculas({ projectIds, asesoraId = null, from = null, to = null }) {
+  const f = condiciones('m.project_id', projectIds);
+  if (asesoraId) f.add('COALESCE(c.vendedora_id, l.responsable_id) = ?', asesoraId);
+  if (from) f.add(`${fechaLocal('m.created_at')} >= ?::date`, from);
+  if (to) f.add(`${fechaLocal('m.created_at')} <= ?::date`, to);
+  const DE = `FROM matriculas m
+       JOIN projects p ON p.id = m.project_id
+       LEFT JOIN conversions c ON c.id = m.conversion_id
+       LEFT JOIN leads l ON l.id = m.lead_id
+      ${f.where()}`;
+  const POR_ESTADO = `COUNT(*)::int AS matriculas,
+            COUNT(*) FILTER (WHERE m.estado = 'pendiente')::int AS pendientes,
+            COUNT(*) FILTER (WHERE m.estado = 'validada')::int AS validadas,
+            COUNT(*) FILTER (WHERE m.estado = 'rechazada')::int AS rechazadas`;
+  const [{ rows: [t] }, { rows: porCampus }, { rows: porProducto }, { rows: porMes }] = await Promise.all([
+    query(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE m.estado = 'pendiente')::int AS pendientes,
+              COUNT(*) FILTER (WHERE m.estado = 'validada')::int AS validadas,
+              COUNT(*) FILTER (WHERE m.estado = 'rechazada')::int AS rechazadas,
+              COUNT(*) FILTER (WHERE m.estado = 'solicitud_admision')::int AS solicitudes_de_admision,
+              COUNT(*) FILTER (WHERE m.estado = 'datos_validados')::int AS datos_validados
+         ${DE}`, f.params),
+    query(
+      `SELECT p.nombre AS campus, ${POR_ESTADO}
+         ${DE} GROUP BY p.nombre ORDER BY COUNT(*) DESC, p.nombre`, f.params),
+    query(
+      `SELECT COALESCE(NULLIF(BTRIM(c.producto_contratado), ''), 'Sin producto') AS producto, ${POR_ESTADO}
+         ${DE} GROUP BY 1 ORDER BY COUNT(*) DESC, 1 LIMIT 50`, f.params),
+    query(
+      `SELECT to_char(${fechaLocal('m.created_at')}, 'YYYY-MM') AS mes, ${POR_ESTADO}
+         ${DE} GROUP BY 1 ORDER BY 1 DESC LIMIT 24`, f.params),
+  ]);
+  return {
+    ...enteros(t, ['total', 'pendientes', 'validadas', 'rechazadas', 'solicitudes_de_admision', 'datos_validados']),
+    por_campus: porCampus,
+    por_producto: porProducto,
+    por_mes: porMes,
+  };
+}
+
+// ── Catálogo completo ──────────────────────────────────────────────────────
+
+/** Una categoría del árbol de la pantalla de Productos, solo con lo que sirve para contestar. */
+function nodoDeCategoria(n) {
+  return {
+    id: n.id,
+    categoria: n.nombre,
+    formaciones: entero(n.productos_count),
+    subcategorias: (n.children || []).map(nodoDeCategoria),
+  };
+}
+
+/**
+ * Lo que `listar_formaciones` y `resumen_catalogo` no dicen: por campus, cuántas
+ * formaciones hay entre activas e inactivas, cuántas no tienen SKU o lo repiten,
+ * el árbol de categorías (el mismo `getTree` de la pantalla) y las últimas cinco
+ * importaciones de WooCommerce.
+ *
+ * Del historial de importaciones NO sale el texto del error, solo si lo hubo: un
+ * fallo de WooCommerce puede traer en su mensaje la dirección que se llamó, y
+ * esa puede llevar la clave. Las credenciales de la tienda no se tocan.
+ */
+export async function catalogoCompleto({ projectIds }) {
+  const [{ rows: campus }, { rows: importaciones }] = await Promise.all([
+    query(
+      `SELECT pr.id AS campus_id, pr.nombre AS campus,
+              COUNT(p.id)::int AS formaciones,
+              COUNT(p.id) FILTER (WHERE p.active)::int AS activas,
+              COUNT(p.id) FILTER (WHERE NOT p.active)::int AS inactivas,
+              COUNT(p.id) FILTER (WHERE p.sku IS NULL OR BTRIM(p.sku) = '')::int AS sin_sku,
+              COUNT(p.id) FILTER (WHERE p.active AND NOT ${CON_PRECIO('p.precio')})::int AS activas_sin_precio,
+              COUNT(p.id) FILTER (WHERE p.categoria_id IS NULL)::int AS sin_categoria,
+              (SELECT COUNT(*)::int FROM (
+                 SELECT x.sku FROM products x
+                  WHERE x.project_id = pr.id AND BTRIM(COALESCE(x.sku, '')) <> ''
+                  GROUP BY x.sku HAVING COUNT(*) > 1) d) AS skus_repetidos
+         FROM projects pr
+         LEFT JOIN products p ON p.project_id = pr.id
+        WHERE pr.id = ANY($1::int[])
+        GROUP BY pr.id, pr.nombre
+        ORDER BY pr.nombre`, [projectIds]),
+    query(
+      `SELECT r.project_id AS campus_id, r.id, r.status AS estado,
+              r.total_fetched AS leidos, r.total_created AS creados,
+              r.total_updated AS actualizados, r.total_skipped AS saltados,
+              (r.error_message IS NOT NULL AND BTRIM(r.error_message) <> '') AS con_error,
+              r.started_at AS inicio, r.finished_at AS fin
+         FROM (
+           SELECT w.id, w.project_id, w.status, w.total_fetched, w.total_created, w.total_updated,
+                  w.total_skipped, w.error_message, w.started_at, w.finished_at,
+                  ROW_NUMBER() OVER (PARTITION BY w.project_id ORDER BY w.started_at DESC) AS n
+             FROM wc_import_runs w
+            WHERE w.project_id = ANY($1::int[])
+         ) r
+        WHERE r.n <= 5
+        ORDER BY r.project_id, r.started_at DESC`, [projectIds]),
+  ]);
+  const arboles = await Promise.all(campus.map((c) => arbolDeCategorias(c.campus_id)));
+  const salida = campus.map((c, i) => ({
+    ...c,
+    categorias: (arboles[i] || []).map(nodoDeCategoria),
+    importaciones_woocommerce: importaciones
+      .filter((r) => Number(r.campus_id) === Number(c.campus_id))
+      .map(({ campus_id: _campus, ...resto }) => resto),
+  }));
+  const suma = (k) => salida.reduce((s, c) => s + entero(c[k]), 0);
+  return {
+    totales: { formaciones: suma('formaciones'), activas: suma('activas'), inactivas: suma('inactivas'), sin_sku: suma('sin_sku') },
+    campus: salida,
+  };
+}
+
+// ── Correos ────────────────────────────────────────────────────────────────
+
+/**
+ * Los correos del CRM en cifras (pantalla Correos) y sus secuencias. Salen: lo
+ * que se manda (`enviado`), lo recibido en el buzón, lo FRENADO (`bloqueado`: el
+ * freno de correos de pruebas) y lo que falló. No sale ni un asunto, ni un
+ * destinatario, ni un cuerpo.
+ *
+ * Solo cuentan los correos de un campus: los que no son de ninguno (el aviso a
+ * un tutor, que cruza varios) no se pueden atribuir a tus campus y la pantalla
+ * Correos, que es de administración, los enseña aparte.
+ */
+export async function resumenCorreos({ projectIds, from = null, to = null }) {
+  const f = condiciones('e.project_id', projectIds);
+  if (from) f.add(`${fechaLocal('e.created_at')} >= ?::date`, from);
+  if (to) f.add(`${fechaLocal('e.created_at')} <= ?::date`, to);
+  const CUENTAS = `COUNT(*)::int AS correos,
+            COUNT(*) FILTER (WHERE e.estado = 'enviado')::int AS enviados,
+            COUNT(*) FILTER (WHERE e.estado = 'recibido')::int AS recibidos,
+            COUNT(*) FILTER (WHERE e.estado = 'bloqueado')::int AS frenados,
+            COUNT(*) FILTER (WHERE e.estado = 'fallido')::int AS fallidos`;
+  const DE = `FROM email_envios e ${f.where()}`;
+  const [{ rows: [t] }, { rows: porCampus }, { rows: porTipo }, { rows: porMes }, { rows: secuencias }] = await Promise.all([
+    query(`SELECT ${CUENTAS} ${DE}`, f.params),
+    query(
+      `SELECT p.nombre AS campus, ${CUENTAS}
+         FROM email_envios e JOIN projects p ON p.id = e.project_id ${f.where()}
+        GROUP BY p.nombre ORDER BY COUNT(*) DESC, p.nombre`, f.params),
+    // El «tipo» es la etiqueta con la que el CRM marca cada correo (lead-assigned,
+    // welcome-user…). Un correo con dos etiquetas cuenta en las dos; «crm» no dice nada.
+    query(
+      `SELECT t.etiqueta AS tipo, ${CUENTAS}
+         FROM email_envios e
+         CROSS JOIN LATERAL unnest(e.etiquetas) AS t(etiqueta)
+        ${f.where()} AND t.etiqueta <> 'crm'
+        GROUP BY t.etiqueta ORDER BY COUNT(*) DESC, t.etiqueta LIMIT 20`, f.params),
+    query(
+      `SELECT to_char(${fechaLocal('e.created_at')}, 'YYYY-MM') AS mes, ${CUENTAS}
+         ${DE} GROUP BY 1 ORDER BY 1 DESC LIMIT 12`, f.params),
+    // Las secuencias de correo automáticas de cada campus y cómo van. No se lee el
+    // contenido de los pasos (el texto de los correos) ni el error de cada ejecución.
+    query(
+      `SELECT s.id, s.nombre AS secuencia, p.nombre AS campus, s.trigger_event AS disparador, s.active AS activa,
+              CASE WHEN jsonb_typeof(s.steps) = 'array' THEN jsonb_array_length(s.steps) ELSE 0 END AS pasos,
+              COUNT(r.id) FILTER (WHERE r.status = 'active')::int AS en_curso,
+              COUNT(r.id) FILTER (WHERE r.status = 'completed')::int AS completadas,
+              COUNT(r.id) FILTER (WHERE r.status = 'stopped')::int AS paradas,
+              COUNT(r.id) FILTER (WHERE r.last_error IS NOT NULL)::int AS con_error
+         FROM email_sequences s
+         JOIN projects p ON p.id = s.project_id
+         LEFT JOIN email_sequence_runs r ON r.sequence_id = s.id
+        WHERE s.project_id = ANY($1::int[])
+        GROUP BY s.id, s.nombre, p.nombre, s.trigger_event, s.active, s.steps
+        ORDER BY p.nombre, s.nombre`, [projectIds]),
+  ]);
+  return {
+    ...enteros(t, ['correos', 'enviados', 'recibidos', 'frenados', 'fallidos']),
+    por_campus: porCampus,
+    por_tipo: porTipo,
+    por_mes: porMes,
+    secuencias: secuencias.map((s) => ({ ...s, pasos: entero(s.pasos) })),
+  };
+}
+
+// ── WhatsApp ───────────────────────────────────────────────────────────────
+
+/**
+ * WhatsApp en CIFRAS: mensajes enviados y recibidos, por gestora (la sesión de
+ * WhatsApp es de una persona), por campus, por tipo de mensaje y por prospecto.
+ *
+ * NUNCA sale el texto de un mensaje, ni un número de teléfono (de hecho esta
+ * consulta no lee ninguna de las dos columnas): de las personas solo se cuentan
+ * los números distintos y, de los prospectos, el nombre abreviado de siempre.
+ * Los grupos no cuentan: no son prospectos.
+ *
+ * El campus de una conversación es el de su prospecto o, si no lo tiene, el que
+ * se le puso al abrirla; sin ninguno de los dos no es de ningún campus y no sale.
+ * A quien ve solo lo suyo se le cuentan los prospectos que lleva y su propia
+ * sesión (la instancia lleva el id de la persona al final).
+ */
+export async function resumenWhatsapp({ projectIds, asesoraId = null, from = null, to = null }) {
+  const f = condiciones('COALESCE(l.project_id, c.project_id)', projectIds);
+  f.cond.push(`c.jid NOT LIKE '%@g.us'`);
+  if (asesoraId) {
+    f.add(`(l.responsable_id = ? OR substring(c.instancia from '-u([0-9]+)$') = ?::text)`, asesoraId, String(asesoraId));
+  }
+  if (from) f.add(`${fechaLocal('m.ts')} >= ?::date`, from);
+  if (to) f.add(`${fechaLocal('m.ts')} <= ?::date`, to);
+  const DE = `FROM wa_mensajes m
+       JOIN wa_conversaciones c ON c.id = m.conversacion_id
+       LEFT JOIN leads l ON l.id = c.lead_id
+       LEFT JOIN projects p ON p.id = COALESCE(l.project_id, c.project_id)
+      ${f.where()}`;
+  const CUENTAS = `COUNT(*)::int AS mensajes,
+            COUNT(*) FILTER (WHERE m.direccion = 'saliente')::int AS enviados,
+            COUNT(*) FILTER (WHERE m.direccion = 'entrante')::int AS recibidos`;
+  const [{ rows: [t] }, { rows: porGestora }, { rows: porCampus }, { rows: porTipo }, { rows: porProspecto }, { rows: porMes }] = await Promise.all([
+    query(
+      `SELECT ${CUENTAS},
+              COUNT(*) FILTER (WHERE m.estado = 'fallido')::int AS fallidos,
+              COUNT(DISTINCT c.id)::int AS conversaciones,
+              COUNT(DISTINCT c.telefono)::int AS numeros,
+              COUNT(DISTINCT c.lead_id)::int AS prospectos,
+              COUNT(DISTINCT c.id) FILTER (WHERE c.lead_id IS NULL)::int AS conversaciones_sin_prospecto,
+              MIN(m.ts) AS primer_mensaje, MAX(m.ts) AS ultimo_mensaje
+         ${DE}`, f.params),
+    query(
+      `SELECT COALESCE(u.nombre, 'Sin identificar') AS gestora, ${CUENTAS},
+              COUNT(DISTINCT c.id)::int AS conversaciones
+         FROM wa_mensajes m
+         JOIN wa_conversaciones c ON c.id = m.conversacion_id
+         LEFT JOIN leads l ON l.id = c.lead_id
+         LEFT JOIN users u ON u.id = NULLIF(substring(c.instancia from '-u([0-9]+)$'), '')::int
+        ${f.where()}
+        GROUP BY 1 ORDER BY COUNT(*) DESC, 1`, f.params),
+    query(`SELECT COALESCE(p.nombre, 'Sin campus') AS campus, ${CUENTAS} ${DE} GROUP BY 1 ORDER BY COUNT(*) DESC, 1`, f.params),
+    query(`SELECT m.tipo, COUNT(*)::int AS mensajes ${DE} GROUP BY m.tipo ORDER BY COUNT(*) DESC, m.tipo`, f.params),
+    query(
+      `SELECT l.id AS prospecto_id, l.nombre AS cliente, p.nombre AS campus, ${CUENTAS}, MAX(m.ts) AS ultimo_mensaje
+         ${DE} AND c.lead_id IS NOT NULL
+        GROUP BY l.id, l.nombre, p.nombre ORDER BY COUNT(*) DESC, l.id LIMIT 25`, f.params),
+    query(`SELECT to_char(${fechaLocal('m.ts')}, 'YYYY-MM') AS mes, ${CUENTAS} ${DE} GROUP BY 1 ORDER BY 1 DESC LIMIT 12`, f.params),
+  ]);
+  return {
+    ...enteros(t, ['mensajes', 'enviados', 'recibidos', 'fallidos', 'conversaciones', 'numeros', 'prospectos', 'conversaciones_sin_prospecto']),
+    primer_mensaje: t?.primer_mensaje || null,
+    ultimo_mensaje: t?.ultimo_mensaje || null,
+    por_gestora: porGestora,
+    por_campus: porCampus,
+    por_tipo: porTipo,
+    por_prospecto: porProspecto,
+    por_mes: porMes,
+  };
+}
+
+// ── Solicitudes de cambio y avisos ─────────────────────────────────────────
+
+/**
+ * Las solicitudes de cambio (RFC) por estado y campus, y las últimas quince.
+ * Como en la pantalla, una gestora solo ve las que ha pedido ella. Las
+ * solicitudes generales (RFC-G, sin campus) no son de ningún campus y no salen.
+ */
+export async function resumenSolicitudes({ projectIds, asesoraId = null, from = null, to = null }) {
+  const f = condiciones('r.project_id', projectIds);
+  if (asesoraId) f.add('r.solicitante_user_id = ?', asesoraId);
+  if (from) f.add('r.fecha_solicitud >= ?::date', from);
+  if (to) f.add('r.fecha_solicitud <= ?::date', to);
+  const [{ rows: porEstado }, { rows: porCampus }, { rows: recientes }] = await Promise.all([
+    query(`SELECT r.estado, COUNT(*)::int AS total FROM change_requests r ${f.where()} GROUP BY r.estado ORDER BY COUNT(*) DESC, r.estado`, f.params),
+    query(
+      `SELECT p.nombre AS campus, COUNT(*)::int AS total
+         FROM change_requests r JOIN projects p ON p.id = r.project_id ${f.where()}
+        GROUP BY p.nombre ORDER BY COUNT(*) DESC, p.nombre`, f.params),
+    query(
+      `SELECT r.codigo_rfc AS codigo, r.titulo, r.estado, p.nombre AS campus,
+              u.nombre AS solicitante, r.fecha_solicitud
+         FROM change_requests r
+         JOIN projects p ON p.id = r.project_id
+         LEFT JOIN users u ON u.id = r.solicitante_user_id
+        ${f.where()}
+        ORDER BY r.created_at DESC, r.id DESC LIMIT 15`, f.params),
+  ]);
+  return {
+    total: porEstado.reduce((s, r) => s + entero(r.total), 0),
+    por_estado: porEstado,
+    por_campus: porCampus,
+    recientes,
+  };
+}
+
+/**
+ * Los avisos (la campana del CRM) que la PERSONA tiene sin leer, contados por
+ * tipo y separados entre los que piden hacer algo y los que solo informan: el
+ * mismo reparto que el globo de la campana (`unreadCount`). Cada persona ve los
+ * suyos; los que se emiten a todos los administradores los ve quien lo es, y
+ * los que ha apagado en sus preferencias no cuentan. Solo salen cifras: ni el
+ * título ni el mensaje de un aviso (llevan nombres de clientes).
+ *
+ * Es la misma regla de visibilidad que `visibilityClause` de Notificaciones.
+ */
+export async function avisosPendientes({ userId, role }) {
+  const comoAdmin = ['admin', 'superadmin', 'soporte'].includes(role);
+  const visible = comoAdmin
+    ? '(n.target_user_ids IS NULL OR $1 = ANY(n.target_user_ids))'
+    : '(n.target_user_ids IS NOT NULL AND $1 = ANY(n.target_user_ids))';
+  const { rows } = await query(
+    `SELECT n.type AS tipo, COUNT(*)::int AS pendientes, MAX(n.created_at) AS ultimo
+       FROM admin_notifications n
+      WHERE ${visible}
+        AND NOT ($1 = ANY(n.read_by_user_ids))
+        AND NOT EXISTS (SELECT 1 FROM avisos_apagados a WHERE a.user_id = $1 AND a.aviso = n.type)
+      GROUP BY n.type
+      ORDER BY COUNT(*) DESC, n.type`,
+    [userId]
+  );
+  const porTipo = rows.filter((r) => r.tipo).map((r) => ({
+    tipo: metaDe(r.tipo).etiqueta,
+    clase: claseDe(r.tipo),
+    pendientes: entero(r.pendientes),
+    ultimo: r.ultimo,
+  }));
+  const suma = (clase) => porTipo.filter((r) => r.clase === clase).reduce((s, r) => s + r.pendientes, 0);
+  return {
+    total: porTipo.reduce((s, r) => s + r.pendientes, 0),
+    piden_hacer_algo: suma('accion'),
+    solo_informan: suma('aviso'),
+    por_tipo: porTipo,
+  };
+}
+
+// ── Nóminas ────────────────────────────────────────────────────────────────
+
+const mesDeNomina = (p) => `${p.periodo_year}-${String(p.periodo_month).padStart(2, '0')}`;
+const redondeoEn0 = (n) => Math.round(Number(n || 0) * 100) / 100;
+
+/**
+ * Planes, periodos y horas: las MISMAS funciones que la pantalla de Nóminas
+ * (`listPlans`, `listPeriods`, `listHours`), con los campus de la persona. De
+ * cada plan y periodo solo salen las cifras de la nómina: ni el correo de la
+ * persona, ni las notas del plan, ni el detalle del cálculo.
+ *
+ * Sin fechas, el último año; el periodo de una nómina es un mes y entra si ese
+ * mes cae dentro de `desde`–`hasta`.
+ */
+export async function nominasDe({ projectIds, from = null, to = null, hoy = hoyLocal() }) {
+  const desde = from || `${Number(hoy.slice(0, 4)) - 1}${hoy.slice(4)}`;
+  const hasta = to || hoy;
+  const ym = (fecha) => Number(fecha.slice(0, 4)) * 100 + Number(fecha.slice(5, 7));
+  const [planes, periodos, horas] = await Promise.all([
+    nomina.listPlans({ projectIds }),
+    nomina.listPeriods({ projectIds }),
+    nomina.listHours({ projectIds, from: desde, to: hasta }),
+  ]);
+  const delRango = periodos
+    .filter((p) => {
+      const v = Number(p.periodo_year) * 100 + Number(p.periodo_month);
+      return v >= ym(desde) && v <= ym(hasta);
+    })
+    .map((p) => ({
+      periodo: mesDeNomina(p), persona: p.user_nombre, campus: p.proyecto_nombre, estado: p.estado,
+      fijo: redondeoEn0(p.fijo), horas: redondeoEn0(p.horas_total), precio_hora: p.precio_hora == null ? null : redondeoEn0(p.precio_hora),
+      importe_horas: redondeoEn0(p.monto_horas), comisiones: redondeoEn0(p.monto_comisiones), ajustes: redondeoEn0(p.ajustes),
+      total: redondeoEn0(p.total), fecha_pago: p.fecha_pago || null,
+    }));
+  const porEstado = {};
+  for (const p of delRango) {
+    const e = porEstado[p.estado] || { periodos: 0, importe: 0 };
+    e.periodos += 1;
+    e.importe = redondeoEn0(e.importe + p.total);
+    porEstado[p.estado] = e;
+  }
+  const horasPorPersona = new Map();
+  for (const h of horas) {
+    const clave = `${h.user_nombre}|${h.proyecto_nombre}`;
+    const x = horasPorPersona.get(clave) || { persona: h.user_nombre, campus: h.proyecto_nombre, horas: 0, registros: 0 };
+    x.horas = redondeoEn0(x.horas + Number(h.horas || 0));
+    x.registros += 1;
+    horasPorPersona.set(clave, x);
+  }
+  return {
+    rango: { desde, hasta },
+    planes: planes.map((p) => ({
+      persona: p.user_nombre, rol: p.role, campus: p.proyecto_nombre, activo: p.active,
+      fijo_mensual: p.modo_fijo == null ? null : redondeoEn0(p.modo_fijo),
+      precio_hora: p.modo_horas == null ? null : redondeoEn0(p.modo_horas),
+      con_comisiones: p.modo_comisiones === true,
+    })),
+    periodos: { total: delRango.length, por_estado: porEstado, detalle: delRango.slice(0, 100) },
+    horas: {
+      total: redondeoEn0([...horasPorPersona.values()].reduce((s, x) => s + x.horas, 0)),
+      por_persona: [...horasPorPersona.values()].sort((a, b) => b.horas - a.horas),
+    },
+  };
+}
+
+// ── Clientes ───────────────────────────────────────────────────────────────
+
+/** Hoy, AAAA-MM-DD, en la zona horaria de la aplicación. */
+export function hoyLocal(ahora = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(ahora);
+}
+
+/** Días de hoy a esa fecha (negativo si ya pasó). Las fechas llegan como texto AAAA-MM-DD. */
+export function diasDesdeHoy(fecha, hoy = hoyLocal()) {
+  const f = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(fecha || ''));
+  if (!f) return null;
+  const [y, m, d] = hoy.split('-').map(Number);
+  return Math.round((Date.UTC(+f[1], +f[2] - 1, +f[3]) - Date.UTC(y, m - 1, d)) / 86400000);
+}
+
+/**
+ * Cómo se reparte lo que se debe según lo cerca que esté de vencer, y cuánto
+ * vence mañana, en 7 y en 30 días: la «Salud de cobro» y los «Próximos cobros»
+ * de la pantalla de Clientes. Sale de la misma «Cuentas por cobrar» que
+ * `cobros_pendientes`, así que se fía igual del campo de importe pagado de la
+ * venta. Las ventanas son las de la pantalla: «mañana» es hoy y mañana, y las de
+ * 7 y 30 días empiezan hoy y no cuentan lo vencido, que va aparte.
+ */
+export async function saludDeCobro({ projectIds, responsableId = null, hoy = hoyLocal() }) {
+  const partes = await Promise.all(projectIds.map((projectId) => getReceivable({ projectId, responsableId })));
+  const items = partes.flatMap((p) => p.items || []);
+  const vacio = () => ({ cobros: 0, importe: 0 });
+  const salud = { vencido: vacio(), esta_semana: vacio(), este_mes: vacio(), mas_adelante: vacio(), sin_fecha: vacio() };
+  const proximos = { vencidos: vacio(), hasta_manana: vacio(), en_7_dias: vacio(), en_30_dias: vacio() };
+  const apuntar = (cubo, importe) => { cubo.cobros += 1; cubo.importe = redondeoEn0(cubo.importe + importe); };
+  for (const it of items) {
+    const importe = Number(it.importe || 0);
+    const dias = diasDesdeHoy(it.vence, hoy);
+    if (dias === null) { apuntar(salud.sin_fecha, importe); continue; }
+    if (dias < 0) { apuntar(salud.vencido, importe); apuntar(proximos.vencidos, importe); continue; }
+    apuntar(dias <= 7 ? salud.esta_semana : dias <= 30 ? salud.este_mes : salud.mas_adelante, importe);
+    if (dias <= 1) apuntar(proximos.hasta_manana, importe);
+    if (dias <= 7) apuntar(proximos.en_7_dias, importe);
+    if (dias <= 30) apuntar(proximos.en_30_dias, importe);
+  }
+  return {
+    total_pendiente: redondeoEn0(items.reduce((s, it) => s + Number(it.importe || 0), 0)),
+    cobros: items.length,
+    salud_de_cobro: salud,
+    proximos_cobros: proximos,
+  };
+}
+
+/**
+ * Las cuatro cifras de arriba de la pantalla de Clientes (clientes, facturado,
+ * cobrado, pendiente), de TODOS los que cumplen los filtros y no solo de la
+ * página. Mismo criterio que el listado: cliente es quien tiene al menos una
+ * venta, y el rango de fechas es el de su última compra.
+ */
+async function cifrasDeClientes({ projectIds, responsableId, texto, desde, hasta }) {
+  const f = condiciones('l.project_id', projectIds);
+  f.cond.push('l.deleted_at IS NULL');
+  if (responsableId) f.add('l.responsable_id = ANY(?::int[])', comoIds(responsableId));
+  if (texto) {
+    f.add('(l.nombre ILIKE ? OR l.email ILIKE ? OR l.telefono ILIKE ? OR l.whatsapp_usuario ILIKE ?)',
+      `%${texto}%`, `%${texto}%`, `%${texto}%`, `%${texto}%`);
+  }
+  if (desde) f.add('s.ultima >= ?::date', desde);
+  if (hasta) f.add(`s.ultima < (?::date + INTERVAL '1 day')`, hasta);
+  const { rows: [t] } = await query(
+    `SELECT COUNT(*)::int AS clientes,
+            COALESCE(SUM(s.compras), 0)::float AS facturado,
+            COALESCE(SUM(s.cobrado), 0)::float AS cobrado,
+            COALESCE(SUM(s.pendiente), 0)::float AS pendiente
+       FROM leads l
+       JOIN LATERAL (
+         SELECT COUNT(*) AS n, SUM(cs.importe_total) AS compras, SUM(cs.importe_pagado) AS cobrado,
+                SUM(cs.importe_total - cs.importe_pagado) AS pendiente, MAX(cs.fecha_conversion) AS ultima
+           FROM conversions cs WHERE cs.lead_id = l.id
+       ) s ON s.n > 0
+      ${f.where()}`,
+    f.params
+  );
+  return { clientes: entero(t?.clientes), facturado: redondeoEn0(t?.facturado), cobrado: redondeoEn0(t?.cobrado), pendiente: redondeoEn0(t?.pendiente) };
+}
+
+/**
+ * La pantalla de Clientes: quién ha comprado y cómo va el dinero. El listado es
+ * el MISMO `findAll` de Prospectos con `conConversion`, es decir, cliente es
+ * quien tiene al menos una venta, sin importar el estado del prospecto; así
+ * facturado, cobrado y pendiente de cada fila son los de la pantalla. Esos
+ * importes se fían del campo de importe pagado de la venta (como «Cuentas por
+ * cobrar»), no de la suma de pagos registrados: si una venta está marcada como
+ * pagada sin pagos, aquí consta como cobrada.
+ *
+ * Como la pantalla, las filas de una página se ordenan por última compra; entre
+ * páginas manda la fecha de alta del prospecto. De cada cliente no sale ni el
+ * correo ni el teléfono (esta consulta no los lee) y el nombre sale abreviado
+ * salvo con `datos_completos`.
+ */
+export async function clientesDe({ projectIds, responsableId = null, gestoraId = null, texto = null, desde = null, hasta = null, pagina = 1, limite = 25 }) {
+  // A quien ve solo lo suyo se le impone ella misma; quien ve todo el campus puede acotar a una gestora.
+  // La gestora pedida manda si la hay: la herramienta ya ha comprobado que es
+  // de su alcance (una líder puede mirar a una de su equipo).
+  const gestora = gestoraId || responsableId || null;
+  const termino = typeof texto === 'string' && texto.trim() ? texto.trim() : null;
+  const [lista, cifras, cobros] = await Promise.all([
+    clientesDeLeads({
+      projectIds, conConversion: true, responsableId: gestora || undefined, search: termino || undefined,
+      dateFrom: desde || undefined, dateTo: hasta || undefined, page: pagina, limit: limite,
+    }),
+    cifrasDeClientes({ projectIds, responsableId: gestora, texto: termino, desde, hasta }),
+    saludDeCobro({ projectIds, responsableId: gestora }),
+  ]);
+  const hora = (v) => (v ? new Date(v).getTime() : 0);
+  const clientes = (lista.leads || []).map((c) => ({
+    prospecto_id: c.id,
+    cliente: c.nombre,
+    campus: c.proyecto_nombre,
+    gestora: c.responsable_nombre || null,
+    estado: c.status,
+    compras: entero(c.conversiones),
+    productos: c.cursos || [],
+    facturado: redondeoEn0(c.total_compras),
+    cobrado: redondeoEn0(c.total_pagado),
+    pendiente: redondeoEn0(c.pendiente),
+    cuotas: { total: entero(c.total_cuotas), pagadas: entero(c.cuotas_pagadas), pendientes: entero(c.cuotas_pendientes) },
+    ultima_compra: c.ultima_compra || null,
+    proximo_vencimiento: c.proximo_vencimiento || null,
+    ultimo_contacto: c.last_interaction_at || null,
+  })).sort((a, b) => hora(b.ultima_compra) - hora(a.ultima_compra));
+  return {
+    total: entero(lista.total),
+    pagina,
+    paginas: Math.max(1, Math.ceil(entero(lista.total) / limite)),
+    cifras,
+    cobro: cobros,
+    clientes,
+  };
+}
+
+// Los contactos que hay detrás de un número de `actividadPorComercial` (#203,
+// parte B: «al pulsar un número se abre la lista de esos toques: lead, hora y
+// nota»). Los mismos filtros que la tabla, para que la lista y la cifra cuadren:
+// quien lo hizo, el día de Madrid, sin fichas borradas. `tipo` 'toques' son
+// todos los contactos (sin las notas, que no lo son).
+export const TIPOS_DE_DETALLE = ['llamada', 'whatsapp', 'email', 'nota', 'toques'];
+
+export async function detalleActividadPorComercial({ projectIds, userId, tipo, desde, hasta, limite = 500 }) {
+  const f = condiciones('l.project_id', projectIds);
+  f.cond.push('l.deleted_at IS NULL');
+  f.add('li.created_by = ?', userId);
+  f.add(`${fechaLocal('li.fecha')} >= ?::date`, desde);
+  f.add(`${fechaLocal('li.fecha')} <= ?::date`, hasta);
+  if (tipo === 'toques') f.cond.push(`li.tipo <> 'nota'`);
+  else f.add('li.tipo = ?::interaction_type', tipo);
+  f.params.push(limite);
+  const { rows } = await query(
+    `SELECT li.id, li.lead_id, l.nombre AS lead, li.tipo, li.fecha, li.nota
+       FROM lead_interactions li
+       JOIN leads l ON l.id = li.lead_id
+      ${f.where()}
+      ORDER BY li.fecha DESC, li.id DESC
+      LIMIT $${f.params.length}`,
+    f.params
+  );
+  return rows;
 }

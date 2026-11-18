@@ -55,7 +55,12 @@ function mesActual() {
   return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export default function MisCursosPage() {
+/**
+ * «Mis cursos»: sus cursos y lo que le corresponde. Desde el 11/11 (Diego: «que sea
+ * complemento dentro de Mi campus») va como pestaña de «Mi campus»; con `incrustada`
+ * no pinta su propia cabecera, solo el selector del mes.
+ */
+export default function MisCursosPage({ incrustada = false }: { incrustada?: boolean } = {}) {
   const { user } = useAuth() as { user: { role?: string; nombre?: string } | null };
   // Tambien si lo es «ademas de»: sus cursos son suyos igual.
   const esTutor = tieneRol(user, ...ROLES_DE_TUTOR);
@@ -195,14 +200,22 @@ export default function MisCursosPage() {
 
   return (
     <div className="space-y-3">
-      <PageHeader
-        title="Mis cursos"
-        subtitle="Lo que te corresponde por lo que se ha cobrado de tus formaciones"
-        actions={(
-          <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)}
+      {incrustada ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">Lo que te corresponde por lo que se ha cobrado de tus formaciones</p>
+          <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)} aria-label="Mes"
             className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
-        )}
-      />
+        </div>
+      ) : (
+        <PageHeader
+          title="Mis cursos"
+          subtitle="Lo que te corresponde por lo que se ha cobrado de tus formaciones"
+          actions={(
+            <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)}
+              className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
+          )}
+        />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <KpiCard icon={Coins} iconBg="bg-warning-soft text-warning-soft-foreground"

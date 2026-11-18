@@ -87,7 +87,8 @@ const soporte = (req) => req.set('Authorization', `Bearer ${soporteToken}`);
 
 const solicitud = (extra = {}) => ({
   matriculaId: base,
-  centro: 'iseie',
+  // Un campus del 360 (está en el seed). Uno de otro CRM se rechaza (#630).
+  centro: 'iseih',
   curso: { ref: 12, nombre: 'Máster en Prueba' },
   alumno: { nombreDiploma: 'María José Pérez Ruiz', nombreMoodle: 'maria perez', email: 'alumna.diploma@prueba.test' },
   solicitadaEn: '2026-10-08T10:00:00.000Z',
@@ -113,13 +114,29 @@ describe('POST /api/certifex/solicitudes (desde el servidor de Certifex)', () =>
   it('se guarda, se enlaza con la ficha por correo y suena la campana de administracion', async () => {
     const { rows: [lead] } = await pool.query(
       `INSERT INTO leads (project_id, nombre, email) VALUES (1, 'Alumna Diploma', 'ALUMNA.DIPLOMA@prueba.test') RETURNING id`);
+    // A quién debe sonar, contado ANTES y DESPUÉS: los demás ficheros crean y borran sus
+    // usuarios a la vez, y uno creado (o borrado) en medio no puede contar. Es lo mismo que
+    // la prueba de «completado» de más abajo (fallaba a ratos en la CI: 04/11 y 10/11).
+    const destinatarios = async () => {
+      const { rows: sas } = await pool.query(
+        `SELECT id FROM users WHERE active AND (role = 'superadmin' OR roles_extra && ARRAY['superadmin']::user_role[])`);
+      const { rows: delCampus } = await pool.query(
+        `SELECT DISTINCT u.id FROM users u JOIN user_projects up ON up.user_id = u.id AND up.active
+           JOIN projects p ON p.id = up.project_id AND NOT COALESCE(p.es_prueba, false)
+          WHERE u.active AND (u.role = 'admin' OR u.roles_extra && ARRAY['admin']::user_role[])
+            AND (regexp_replace(lower(p.nombre), '[^a-z0-9]', '', 'g') LIKE 'iseih%' OR regexp_replace(lower(p.slug), '[^a-z0-9]', '', 'g') LIKE 'iseih%')`);
+      return new Set([...sas, ...delCampus].map((x) => x.id));
+    };
+    const usuarios = async () => new Set((await pool.query('SELECT id FROM users')).rows.map((u) => u.id));
+    const antes = await destinatarios();
+    const existianAntes = await usuarios();
     try {
       const r = await entregar(solicitud());
       expect(r.status).toBe(201);
       expect(r.body.data).toMatchObject({ estado: 'nueva', duplicada: false, enCrm: true });
 
       const { rows: [s] } = await pool.query('SELECT * FROM certifex_solicitudes WHERE matricula_id = $1', [base]);
-      expect(s).toMatchObject({ centro: 'ISEIE', nombre_diploma: 'María José Pérez Ruiz', nombre_moodle: 'maria perez', lead_id: lead.id, veces: 1 });
+      expect(s).toMatchObject({ centro: 'ISEIH', nombre_diploma: 'María José Pérez Ruiz', nombre_moodle: 'maria perez', lead_id: lead.id, veces: 1 });
 
       await vi.waitFor(() => expect(avisos).toHaveLength(1));
       const a = avisos[0];
@@ -128,16 +145,15 @@ describe('POST /api/certifex/solicitudes (desde el servidor de Certifex)', () =>
       expect(a.title).toContain('María José Pérez Ruiz');
       expect(a.message).toContain('en Moodle: maria perez');
       expect(a.metadata).toMatchObject({ matriculaId: base, leadId: lead.id });
-      // Dirigida: super admin y los admin del proyecto de ese campus (ISEIE), no el
-      // reparto general (que ve soporte) ni los admin de otros campus.
-      const { rows: sas } = await pool.query(
-        `SELECT id FROM users WHERE active AND (role = 'superadmin' OR roles_extra && ARRAY['superadmin']::user_role[])`);
-      const { rows: delCampus } = await pool.query(
-        `SELECT DISTINCT u.id FROM users u JOIN user_projects up ON up.user_id = u.id AND up.active
-           JOIN projects p ON p.id = up.project_id AND NOT COALESCE(p.es_prueba, false)
-          WHERE u.active AND (u.role = 'admin' OR u.roles_extra && ARRAY['admin']::user_role[])
-            AND (regexp_replace(lower(p.nombre), '[^a-z0-9]', '', 'g') LIKE 'iseie%' OR regexp_replace(lower(p.slug), '[^a-z0-9]', '', 'g') LIKE 'iseie%')`);
-      expect([...a.targetUserIds].sort()).toEqual([...new Set([...sas, ...delCampus].map((x) => x.id))].sort());
+      // Dirigida: super admin y los admin del proyecto de ese campus (ISEIH), no el
+      // reparto general (que ve soporte) ni los admin de otros campus. Se comparan solo los
+      // usuarios que existían antes y siguen después, y que eran destinatarios en los dos momentos.
+      const despues = await destinatarios();
+      const existenAhora = await usuarios();
+      const estable = (id) => existianAntes.has(id) && existenAhora.has(id);
+      const esperados = [...antes].filter((id) => despues.has(id) && estable(id)).sort();
+      const recibidos = [...a.targetUserIds].filter(estable).sort();
+      expect(recibidos).toEqual(esperados);
       expect(a.broadcast).toBeUndefined();
     } finally {
       await pool.query('UPDATE certifex_solicitudes SET lead_id = NULL WHERE lead_id = $1', [lead.id]);
@@ -204,6 +220,58 @@ describe('POST /api/certifex/solicitudes (desde el servidor de Certifex)', () =>
     expect(t).toEqual({ nombre_diploma: null, email: null });
     await vi.waitFor(() => expect(avisos).toHaveLength(1));
     expect(avisos[0].message).toMatch(/Sin nombre para el diploma/);
+  });
+});
+
+// ───────────────────────────────────────────────────────────── de otro CRM (#630)
+
+describe('avisos de un campus que no es de este CRM (#630)', () => {
+  // Del 19/10 al 01/11 llegaron al 360 avisos de «terminado» de ISEIE. El seed del 360
+  // no tiene proyecto ISEIE: aqui es un campus de otro CRM.
+  const ajeno = base + 130;
+  const contar = async (id) => (await pool.query('SELECT COUNT(*)::int AS n FROM certifex_solicitudes WHERE matricula_id = $1', [id])).rows[0].n;
+
+  it('la solicitud de diploma se rechaza (422): no se guarda ni suena la campana', async () => {
+    const r = await entregar(solicitud({ matriculaId: ajeno, centro: 'iseie' }));
+    expect(r.status).toBe(422);
+    expect(r.body.code).toBe('CENTRO_DE_OTRO_CRM');
+    expect(r.body.error).toBe('El campus ISEIE no es de este CRM');
+    expect(await contar(ajeno)).toBe(0);
+    await new Promise((ok) => setTimeout(ok, 50));
+    expect(avisos).toHaveLength(0);
+  });
+
+  it('el aviso de «terminado» se rechaza igual', async () => {
+    const r = await request.post('/api/certifex/completados').set('X-Certifex-Secreto', SECRETO).send({
+      matriculaId: ajeno + 1, centro: 'ISEIE', curso: { ref: 12, nombre: 'Máster en Prueba' },
+      alumno: { nombreMoodle: 'Alumno de ISEIE', email: 'alumno.iseie@prueba.test' }, completadoEn: '2026-10-19T08:00:00.000Z',
+    });
+    expect(r.status).toBe(422);
+    expect(await contar(ajeno + 1)).toBe(0);
+    await new Promise((ok) => setTimeout(ok, 50));
+    expect(avisos).toHaveLength(0);
+  });
+
+  it('un proyecto de prueba no hace suyo el campus', async () => {
+    const { rows: [p] } = await pool.query(
+      `INSERT INTO projects (nombre, slug, webhook_api_key, es_prueba) VALUES ('Zsolo Prueba', $1, 'whk_test', true) RETURNING id`,
+      [`zsolo-prueba-${base}`]);
+    try {
+      expect((await entregar(solicitud({ matriculaId: ajeno + 2, centro: 'zsolo' }))).status).toBe(422);
+      expect(await contar(ajeno + 2)).toBe(0);
+    } finally {
+      await pool.query('DELETE FROM projects WHERE id = $1', [p.id]);
+    }
+  });
+
+  it('el secreto se mira antes: sin el bueno, 401 aunque el campus sea ajeno', async () => {
+    expect((await entregar(solicitud({ matriculaId: ajeno + 3, centro: 'iseie' }), 'otro')).status).toBe(401);
+  });
+
+  it('y la validacion antes que el campus: mal formado y ajeno, 400 (no 422)', async () => {
+    const r = await entregar(solicitud({ matriculaId: 'x', centro: 'iseie' }));
+    expect(r.status).toBe(400);
+    expect(r.body.code).toBe('VALIDATION_ERROR');
   });
 });
 
@@ -1241,7 +1309,7 @@ describe('«ha terminado la formacion»: aviso de Certifex y lista', () => {
   const id = base + 120;
   const completado = (extra = {}) => ({
     matriculaId: id,
-    centro: 'iseie',
+    centro: 'iseih',
     curso: { ref: 12, nombre: 'Máster en Prueba' },
     alumno: { nombreMoodle: 'Lucía Terminó', email: 'lucia.termino@prueba.test' },
     notaFinal: 8.8,
@@ -1263,18 +1331,24 @@ describe('«ha terminado la formacion»: aviso de Certifex y lista', () => {
   });
 
   it('se guarda una vez por matricula y suena la campana de administracion de ese campus', async () => {
+    // Los super admin que hay antes Y después del aviso: los demás ficheros crean y borran
+    // los suyos a la vez, y uno creado (o borrado) en medio no puede contar (fallaba a
+    // ratos en la CI, 04/11).
+    const superAdmins = async () => (await pool.query(`SELECT id FROM users WHERE active AND role = 'superadmin'`)).rows.map((u) => u.id);
+    const antes = await superAdmins();
     const r = await avisar(completado());
     expect(r.status).toBe(201);
     expect(r.body.data).toMatchObject({ estado: 'nueva', duplicada: false });
     const { rows: [s] } = await pool.query('SELECT * FROM certifex_solicitudes WHERE matricula_id = $1', [id]);
-    expect(s).toMatchObject({ centro: 'ISEIE', curso_nombre: 'Máster en Prueba', nombre_moodle: 'Lucía Terminó', email: 'lucia.termino@prueba.test', solicitada_en: null });
+    expect(s).toMatchObject({ centro: 'ISEIH', curso_nombre: 'Máster en Prueba', nombre_moodle: 'Lucía Terminó', email: 'lucia.termino@prueba.test', solicitada_en: null });
     expect(Number(s.completado_nota)).toBe(8.8);
     expect(s.completado_en.toISOString()).toBe('2026-10-09T08:00:00.000Z');
     expect(s.completado_recibido_en).not.toBeNull();
     await vi.waitFor(() => expect(avisos).toHaveLength(1));
     expect(avisos[0]).toMatchObject({ type: 'certifex_completado', link_path: '/clientes/matriculas/diplomas?pestana=terminados' });
     expect(avisos[0].title).toContain('Lucía Terminó');
-    const { rows: sas } = await pool.query(`SELECT id FROM users WHERE active AND role = 'superadmin'`);
+    const despues = new Set(await superAdmins());
+    const sas = antes.filter((u) => despues.has(u)).map((id) => ({ id }));
     for (const u of sas) expect(avisos[0].targetUserIds).toContain(u.id);
 
     // Un reintento de Certifex: ni duplica ni vuelve a avisar.

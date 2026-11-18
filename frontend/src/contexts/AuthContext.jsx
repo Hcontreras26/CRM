@@ -207,8 +207,13 @@ export function AuthProvider({ children }) {
     }));
 
     // Y /auth/me, que trae lo mismo y lo que se haya cambiado desde entonces.
+    // Y el usuario: el alcance comercial (#704) solo viene aquí.
     client.get('/auth/me')
-      .then((me) => { if (me.success) setPermissions(me.data.permissions || null); })
+      .then((me) => {
+        if (!me.success) return;
+        setPermissions(me.data.permissions || null);
+        if (me.data.user) setUser((antes) => (antes ? { ...antes, ...me.data.user } : antes));
+      })
       .catch(() => {});
 
     return userData;

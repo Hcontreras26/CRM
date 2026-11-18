@@ -1,12 +1,16 @@
 import { query } from '../../shared/config/db.js';
 
+// Un campus o varios (#218: con «Todos» o una empresa, los del ámbito). Cada
+// informe lleva el nombre de su campus.
 export async function listByProject(projectId) {
   const { rows } = await query(
     `SELECT r.id, r.project_id, r.periodo, r.metadata, r.pdf_url, r.created_at,
-            u.nombre as generated_by_nombre
-       FROM reports r LEFT JOIN users u ON u.id = r.generated_by
-      WHERE r.project_id = $1
-      ORDER BY r.periodo DESC`, [projectId]);
+            u.nombre as generated_by_nombre, p.nombre as proyecto_nombre
+       FROM reports r
+       LEFT JOIN users u ON u.id = r.generated_by
+       LEFT JOIN projects p ON p.id = r.project_id
+      WHERE r.project_id = ANY($1::int[])
+      ORDER BY r.periodo DESC, p.nombre`, [[].concat(projectId).map(Number)]);
   return rows;
 }
 export async function findById(id) {

@@ -1,5 +1,6 @@
 import { comoLista } from '../../shared/utils/ambito.js';
 import { query } from '../../shared/config/db.js';
+import { recalcularCobrado } from '../conversions/cobrado.js';
 
 export async function upsertPayment(p) {
   const { rows } = await query(
@@ -74,11 +75,18 @@ export async function findPagoDuplicado(conversionId, importe, fecha, stripeId =
   // cuadre. Sin esto, reorganizar una venta o perder el enlace hacia que el
   // reintento de "cargos sin asociar" registrara el cobro por segunda vez.
   if (stripeId) {
-    const { rows: porId } = await query(
+    // El id EXACTO, no un trozo: con LIKE '%id%', «ch_x_r1» coincidía con la nota
+    // de «ch_x_r10» y el cargo se daba por duplicado (la prueba de los 30 cargos
+    // de stripeCobroUnaVez680 fallaba a ratos por eso). Delante y detrás, nada que
+    // pueda ser parte de un id (letra, número o guion bajo).
+    // Los ids de Stripe solo llevan letras, números y guion bajo: así no hay nada que escapar.
+    const idStripe = String(stripeId);
+    const idExacto = /^[A-Za-z0-9_]+$/.test(idStripe) ? `(^|[^A-Za-z0-9_])${idStripe}([^A-Za-z0-9_]|$)` : null;
+    const { rows: porId } = idExacto === null ? { rows: [] } : await query(
       `SELECT cp.id FROM conversion_payments cp
-        WHERE cp.notas LIKE '%' || $1 || '%'
+        WHERE cp.notas ~ $1
         ORDER BY cp.id LIMIT 1`,
-      [stripeId]
+      [idExacto]
     );
     if (porId[0]) return porId[0];
   }
@@ -123,11 +131,13 @@ export async function createConversionPayment(conversionId, amount, fecha, notas
   return rows[0].id;
 }
 
-export async function updateConversionPaid(conversionId, addAmount) {
-  await query(
-    `UPDATE conversions SET importe_pagado = LEAST(importe_total, importe_pagado + $1), updated_at=NOW() WHERE id=$2`,
-    [addAmount, conversionId]
-  );
+// El cobro ya está apuntado en `conversion_payments`: lo cobrado de la venta
+// pasa a ser la suma de sus pagos (#692). Antes se sumaba el cargo y se topaba
+// en el total (`LEAST`): si Stripe cobraba de más, la venta decía «pagada» con
+// menos de lo que sumaban sus pagos, y Análisis enseñaba más cobrado que
+// vendido. El importe se deja en la firma por compatibilidad.
+export async function updateConversionPaid(conversionId, _addAmount) {
+  await recalcularCobrado({ query }, conversionId);
 }
 
 // Las condiciones del listado, en un solo sitio: las usan tanto listPayments
@@ -318,6 +328,52 @@ export async function fechaDeCorte(projectId) {
     [projectId]
   );
   return rows[0]?.corte || null;
+}
+
+/**
+ * Los TRES ESCALONES del corte, por separado y con cual manda.
+ *
+ * `fechaDeCorte` devuelve el resultado; esto devuelve el porque. Hace falta
+ * para poder enseñarlo ANTES de guardar la clave de un proyecto, que es el
+ * momento en que importa: en cuanto hay clave, el sondeo empieza a traer
+ * cobros por su cuenta cada cinco minutos, y si el suelo esta mal se importa
+ * el historico entero. Hay 576 cobros anteriores al alta de su proyecto; cada
+ * uno que se asocie crea una factura de algo que ya se facturo fuera.
+ *
+ * Se consultan los tres aunque solo mande uno: quien lo mira necesita ver que
+ * el que manda es el que cree, no solo el resultado.
+ */
+export async function escalonesDelCorte(projectId) {
+  const { rows } = await query(
+    `SELECT
+       (SELECT st.al_dia_hasta FROM invoicing_status st WHERE st.project_id = $1) AS corte_mano,
+       (SELECT MIN(f.fecha_emision) FROM invoices f
+         WHERE f.issuer_id = (SELECT pr.sociedad_emisora_id FROM projects pr WHERE pr.id = $1)
+           AND f.tipo <> 'proforma' AND f.numero IS NOT NULL) AS primera_factura,
+       (SELECT pr3.created_at::date FROM projects pr3 WHERE pr3.id = $1) AS alta_proyecto,
+       (SELECT pr4.nombre FROM projects pr4 WHERE pr4.id = $1) AS proyecto,
+       (SELECT pr5.sociedad_emisora_id FROM projects pr5 WHERE pr5.id = $1) AS sociedad_emisora_id`,
+    [projectId]
+  );
+  const r = rows[0];
+  // OJO: una consulta de subselects SIEMPRE devuelve una fila, aunque el
+  // proyecto no exista — saldria con los tres escalones a null, que la pantalla
+  // pinta como «este proyecto no tiene suelo de facturacion», en rojo. Eso es
+  // otra cosa: no es que falte el suelo, es que no hay proyecto. `nombre` es
+  // NOT NULL, asi que sirve para distinguirlo.
+  if (!r || r.proyecto == null) return null;
+  const corte = r.corte_mano || r.primera_factura || r.alta_proyecto || null;
+  const manda = r.corte_mano ? 'corte_mano' : r.primera_factura ? 'primera_factura'
+    : r.alta_proyecto ? 'alta_proyecto' : null;
+  return {
+    proyecto: r.proyecto,
+    sociedadEmisoraId: r.sociedad_emisora_id,
+    corteMano: r.corte_mano,
+    primeraFactura: r.primera_factura,
+    altaProyecto: r.alta_proyecto,
+    corte,
+    manda,
+  };
 }
 
 export async function getSyncState(projectId) {

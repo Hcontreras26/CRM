@@ -6,9 +6,9 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import { saveLocal, getLocal, deleteLocal } from '../../shared/services/localStorage.service.js';
 import { createInvoiceSchema, setSequenceSchema, updateConfigSchema, issuerSchema, cobrarProformaSchema } from './invoices.validation.js';
-import { proyectosDelAmbito, veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
+import { proyectosDelAmbito, veTodoElCrm, campusDeLaPersona, campusDeTodos } from '../../shared/utils/ambito.js';
 import { tienePermiso } from '../../shared/middleware/permissions.js';
-import { soloLoSuyo } from '../../shared/utils/roles.js';
+import { alcanceComercial, alcanceDeLider } from '../../shared/utils/roles.js';
 
 function logoExt(mime) {
   if (mime === 'image/png') return 'png';
@@ -53,15 +53,20 @@ export async function list(req, res, next) {
     // Vista por SOCIEDAD (todas las facturas de una empresa emisora entre
     // proyectos): global, solo admin/superadmin. Si no, se exige projectId.
     const isAdmin = req.user?.role === 'admin' || req.user?.role === 'superadmin';
+    // «Todos los proyectos» (#218): sin campus ni empresa, las de los campus de
+    // quien pide (super admin y soporte, todos menos los de pruebas). Antes,
+    // «projectId requerido» y la pantalla se quedaba tras el muro.
+    const todos = !issuerId && !req.query.projectId;
     let pid = null;
     if (issuerId && isAdmin) {
       pid = req.query.projectId ? Number(req.query.projectId) : null; // opcional en modo sociedad
-    } else {
+    } else if (!todos) {
       pid = projectId(req);
     }
-    const projectIds = await campusPermitidos(req, pid);
+    const projectIds = todos ? await campusDeTodos(req) : await campusPermitidos(req, pid);
     // Gestor: solo ve SUS facturas (las de sus leads). Admin/superadmin, todas.
-    const responsableId = soloLoSuyo(req.user) ? req.user.userId : null;
+    // Quien lleva un equipo comercial (09/11/2026), las suyas y las de su equipo.
+    const responsableId = await alcanceComercial(req.user);
     const data = await model.list({ projectId: pid, projectIds, issuerId: issuerId && isAdmin ? issuerId : null,
       estado, search, from, to, tipo, responsableId,
       page: Number(page) || 1, limit: Math.min(Number(limit) || 50, 200) });
@@ -83,9 +88,14 @@ export async function stats(req, res, next) {
     const issuerId = req.query.issuerId ? Number(req.query.issuerId) : null;
     // Con issuerId → stats de la sociedad (opcionalmente acotada a un proyecto).
     // Sin issuerId → stats del proyecto activo (comportamiento clásico).
-    const pid = req.query.projectId ? Number(req.query.projectId) : (issuerId ? null : projectId(req));
-    const projectIds = await campusPermitidos(req, pid);
-    res.json({ success: true, data: await model.getStats({ projectId: pid, projectIds, issuerId, ...periodo(req) }) });
+    // Sin campus ni empresa: «Todos los proyectos» (#218), como la lista.
+    const todos = !issuerId && !req.query.projectId;
+    const pid = req.query.projectId ? Number(req.query.projectId) : null;
+    const projectIds = todos ? await campusDeTodos(req) : await campusPermitidos(req, pid);
+    // Recortadas como la lista (QA del 09/11/2026): una gestora, las suyas;
+    // quien lleva un equipo comercial, las de su equipo.
+    const personas = await alcanceComercial(req.user);
+    res.json({ success: true, data: await model.getStats({ projectId: pid, projectIds, issuerId, ...periodo(req), personas }) });
   } catch (e) { next(e); }
 }
 
@@ -668,7 +678,9 @@ export async function ventasSinFactura(req, res, next) {
     // Un proyecto O una sociedad entera: el mismo helper que Ventas y Reportes.
     // Antes solo sabia de un proyecto y con CEDIA elegida no devolvia nada.
     res.json({ success: true, data: await model.listVentasSinFactura({
-      ...(await proyectosDelAmbito(req)), from: periodo(req).from, to: periodo(req).to }) });
+      ...(await proyectosDelAmbito(req)), from: periodo(req).from, to: periodo(req).to,
+      // Una gestora o un equipo comercial, solo lo suyo (QA del 09/11/2026).
+      personas: await alcanceComercial(req.user) }) });
   } catch (e) { next(e); }
 }
 
@@ -716,7 +728,9 @@ export async function facturacionAlDia(req, res, next) {
   try {
     const projectId = parseInt(req.query.projectId);
     if (!projectId) throw new AppError('projectId requerido', 400, 'MISSING_PROJECT');
-    res.json({ success: true, data: await service.getFacturacionAlDia(projectId) });
+    // Con equipo comercial (QA del 09/11/2026), solo lo de ella y su equipo.
+    const personas = await alcanceDeLider(req.user);
+    res.json({ success: true, data: await service.getFacturacionAlDia(projectId, { personas }) });
   } catch (err) { next(err); }
 }
 
@@ -733,6 +747,11 @@ export async function setFacturacionAlDia(req, res, next) {
     // El flag no viaja en el token, asi que se consulta en la base de datos.
     if (!(await tienePermiso(req, 'facturas.cola'))) {
       throw new AppError('Solo quien gestiona la facturacion puede mover esta fecha', 403, 'FORBIDDEN');
+    }
+    // La fecha «al día» es de todo el campus: mueve la cola de todas las
+    // gestoras. Quien lleva un equipo comercial no la toca (QA del 09/11/2026).
+    if (await alcanceDeLider(req.user)) {
+      throw new AppError('La fecha «al día» es de todo el campus: la mueve la administración sin equipo', 403, 'LLEVA_EQUIPO');
     }
     const r = await service.setFacturacionAlDia(projectId, alDiaHasta, req.user.userId, req.body?.stripeOkHasta || null);
     res.json({ success: true, data: r });
@@ -752,6 +771,10 @@ export async function generarDeCola(req, res, next) {
       forzar: req.body?.forzar === true,
       // El numero que haya elegido quien factura. Sin el, el siguiente libre.
       numero: req.body?.numero != null && req.body?.numero !== '' ? Number(req.body.numero) : null,
+      // Quien lleva un equipo comercial, solo los de su cola.
+      personas: await alcanceDeLider(req.user),
+      // «Emitir igualmente» tras el aviso de posible duplicada (CRM#819).
+      confirmarDuplicada: req.body?.confirmar_duplicada === true,
     });
     res.json({ success: true, data: inv });
   } catch (err) { next(err); }
@@ -765,6 +788,11 @@ export async function emitirColaHasta(req, res, next) {
     if (!projectId || !hasta) throw new AppError('projectId y hasta requeridos', 400, 'BAD_REQUEST');
     if (!(await tienePermiso(req, 'facturas.cola'))) {
       throw new AppError('Solo quien gestiona la facturacion puede emitir desde la cola', 403, 'FORBIDDEN');
+    }
+    // «Emitir hasta» emite la cola ENTERA del campus: con equipo comercial no
+    // (QA del 09/11/2026); sus cobros, uno a uno desde su cola.
+    if (await alcanceDeLider(req.user)) {
+      throw new AppError('Emitir la cola entera es de administración sin equipo: emite tus cobros uno a uno.', 403, 'FUERA_DE_TU_EQUIPO');
     }
     res.json({ success: true, data: await service.emitirColaHasta(projectId, hasta, req.user.userId) });
   } catch (err) { next(err); }

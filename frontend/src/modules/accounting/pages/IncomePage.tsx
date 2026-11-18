@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '@/shared/api/client';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -16,6 +16,7 @@ import { decodificarEntidades } from '@/shared/lib/entidadesHtml';
 // funcion que usa SalesPage, para que las dos pantallas digan el mismo mes.
 import { mesDe } from '@/modules/sales/components/FiltroPeriodo';
 import RangoRapido, { rangoDe } from '@/shared/components/ui/RangoRapido';
+import { esProyectoIA } from '@/shared/lib/proyectosIA';
 
 const RegisterSaleDialog = lazy(() => import('@/modules/sales/components/RegisterSaleDialog'));
 const TutorialesVentas = lazy(() => import('@/modules/sales/components/TutorialesVentas'));
@@ -92,6 +93,39 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   // pedia el proyecto numero MENOS UNO, que no existe: la pantalla salia vacia
   // y parecia que faltaban ventas.
   const projectIdParam = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
+
+  /**
+   * En un proyecto IA esta pantalla enseña MENOS.
+   *
+   * Un proyecto IA no tiene equipo comercial: nadie vende, la gente se
+   * suscribe sola y los cobros entran de Stripe o de su propia base. Con la
+   * pantalla entera se veia «Mi meta del mes» a cero, «Equipo de ventas — 0
+   * gestores», un filtro de gestoras vacio y un boton de registrar ventas a
+   * mano que nadie va a pulsar.
+   *
+   * Media pantalla para decir que no hay nadie, y lo que si importa --cuanto
+   * entro y de quien-- debajo de todo eso.
+   *
+   * No se esconde por ser IA porque si: se esconde lo que en un proyecto sin
+   * equipo NO PUEDE tener contenido nunca.
+   */
+  // Lo del #44, solo en pruebas (`shared/lib/proyectosIA`).
+  const esIA = esProyectoIA(activeProject);
+
+  // Se ajusta cuando se sabe de que proyecto se trata, y UNA sola vez por
+  // proyecto: si se forzara en cada render, cambiar el filtro a mano no
+  // serviria de nada.
+  const rangoAjustado = useRef<number | null>(null);
+  useEffect(() => {
+    if (!esIA || !activeProject?.id) return;
+    if (rangoAjustado.current === activeProject.id) return;
+    rangoAjustado.current = activeProject.id;
+    const hoy = new Date();
+    setRango({
+      from: `${hoy.getFullYear()}-01-01`,
+      to: rangoDe('hoy').to,
+    });
+  }, [esIA, activeProject?.id]);
   const issuerIdParam = activeIssuerId ?? null;
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
@@ -108,6 +142,18 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   const puedeDeOtra = can('leads.assign');
   const [modoVenta, setModoVenta] = useState<'existing' | 'otra_gestora' | 'sin_gestora'>('existing');
   const [menuVenta, setMenuVenta] = useState(false);
+  // Pulsar fuera lo cierra. Con un clic en el documento y no con una capa
+  // `fixed` encima: en la cabecera (#79 punto 3) el `backdrop-blur` del Topbar
+  // encierra esa capa en la propia cabecera y el resto de la pantalla no la toca.
+  const menuVentaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuVenta) return undefined;
+    function fuera(e: MouseEvent) {
+      if (!menuVentaRef.current?.contains(e.target as Node)) setMenuVenta(false);
+    }
+    document.addEventListener('mousedown', fuera);
+    return () => document.removeEventListener('mousedown', fuera);
+  }, [menuVenta]);
   function abrirVenta(modo: 'existing' | 'otra_gestora' | 'sin_gestora') {
     setModoVenta(modo);
     setMenuVenta(false);
@@ -118,6 +164,9 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   const [viewUserId, setViewUserId] = useState('all');
   const [gestores, setGestores] = useState([]);
   const [filterCurso, setFilterCurso] = useState('all');
+  // Todas · Solo compartidas · Solo enteras (#163): las ventas atendidas entre
+  // dos gestoras, aparte. El servidor filtra; la parte de cada una no cambia.
+  const [filterCompartidas, setFilterCompartidas] = useState<'todas' | 'solo' | 'enteras'>('todas');
   const [cursos, setCursos] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -126,11 +175,19 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
     facturadas: 0, sinFactura: 0, noRequiereFactura: 0, pendientesDeFacturar: 0,
     facturasDeAntes: { n: 0, importe: 0 },
     facturadoEnPeriodo: { n: 0, importe: 0 },
-    cobrosDelPeriodo: { matricula: { n: 0, importe: 0 }, cuotas: { n: 0, importe: 0 } }, facturasPorClase: { venta: { n: 0, importe: 0 }, cuota: { n: 0, importe: 0 }, parte: { n: 0, importe: 0 }, suelta: { n: 0, importe: 0 } }, porProyecto: [],
+    cobrosDelPeriodo: { matricula: { n: 0, importe: 0 }, cuotas: { n: 0, importe: 0 } }, facturasPorClase: { venta: { n: 0, importe: 0 }, cuota: { n: 0, importe: 0 }, parte: { n: 0, importe: 0 }, suelta: { n: 0, importe: 0 } }, porProyecto: [], cobradoDeMas: { n: 0, importe: 0 },
   });
   // Por defecto, ESTE MES. Diego: «por defecto es este mes». Sin fechas la
   // lista era el historico entero, y la etiqueta venta/cuota solo tiene sentido
   // con un periodo: asi la pantalla abre ya con la lista mezclada y etiquetada.
+  /**
+   * El periodo con el que abre.
+   *
+   * «Este mes» para un proyecto normal, que es lo que se mira a diario. Pero
+   * en un proyecto IA los cobros se importan de golpe y pueden ser de meses
+   * atras: Tarot tiene 23 ventas de enero a julio, asi que la pantalla abria
+   * con seis ceros y parecia que no habia nada. El año en curso los enseña.
+   */
   const [rango, setRango] = useState(rangoDe('mes'));
   // La lista de abajo con fechas puestas: ventas + cuotas facturadas, cada una
   // con su etiqueta. Sin fechas, la lista sigue siendo la de ventas.
@@ -168,10 +225,23 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   // Cualquier cambio de filtro devuelve a la primera pagina, y tira el desglose
   // de cuotas: era el de las fechas de antes.
   useEffect(() => { setCuotas([]); setVerCuotas(false); },
-    [projectIdParam, issuerIdParam, effectiveResponsableId, rango.from, rango.to]);
-  useEffect(() => { setPage(1); }, [projectIdParam, issuerIdParam, effectiveResponsableId, filterCurso, rango.from, rango.to]);
+    [projectIdParam, issuerIdParam, effectiveResponsableId, filterCompartidas, rango.from, rango.to]);
+  useEffect(() => { setPage(1); }, [projectIdParam, issuerIdParam, effectiveResponsableId, filterCurso, filterCompartidas, rango.from, rango.to]);
 
   useEffect(() => {
+    /**
+     * LA RESPUESTA VIEJA NO PISA A LA NUEVA.
+     *
+     * Dos peticiones seguidas --cambiar de filtro, o el ajuste automatico del
+     * periodo en los proyectos IA-- y la que sale primero puede volver
+     * despues. Sin esto, la pantalla acababa enseñando el resultado del filtro
+     * ANTERIOR: Tarot decia «0 ventas · 0,00 EUR» con el rango del año puesto
+     * en la barra y 23 ventas en la base.
+     *
+     * Lo peor no es que falle: es que el numero que se queda es plausible, y
+     * nadie sospecha de un cero.
+     */
+    let cancelado = false;
     (async () => {
       setLoading(true);
       try {
@@ -180,6 +250,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         if (issuerIdParam) params.issuerId = issuerIdParam;
         if (effectiveResponsableId) params.responsableId = effectiveResponsableId;
         if (filterCurso !== 'all') params.producto = filterCurso;
+        if (filterCompartidas !== 'todas') params.compartidas = filterCompartidas;
         if (rango.from) params.from = rango.from;
         if (rango.to) params.to = rango.to;
         const res = await client.get('/conversions', { params });
@@ -190,6 +261,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         // se quedan; solo se vacia la lista. Antes un 500 aqui lo borraba todo.
         const resFilas = conFechas
           ? await client.get('/conversions/filas', { params }).catch(() => null) : null;
+        if (cancelado) return;
         if (res.success) {
           setItems(res.data || []);
           setTotal(res.pagination?.total ?? (res.data || []).length);
@@ -203,13 +275,15 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           } else { setFilas([]); setTotalFilas(0); }
           // Los totales vienen del servidor sobre TODO el filtro; antes se
           // sumaban las filas cargadas y las tarjetas no cuadraban nunca.
-          setTotales(res.totales || { importe: 0, pagado: 0, pendiente: 0, iva: 0, facturadas: 0, sinFactura: 0, noRequiereFactura: 0, pendientesDeFacturar: 0, facturasDeAntes: { n: 0, importe: 0 }, facturadoEnPeriodo: { n: 0, importe: 0 }, cobrosDelPeriodo: { matricula: { n: 0, importe: 0 }, cuotas: { n: 0, importe: 0 } }, facturasPorClase: { venta: { n: 0, importe: 0 }, cuota: { n: 0, importe: 0 }, parte: { n: 0, importe: 0 }, suelta: { n: 0, importe: 0 } }, porProyecto: [] });
+          setTotales(res.totales || { importe: 0, pagado: 0, pendiente: 0, iva: 0, facturadas: 0, sinFactura: 0, noRequiereFactura: 0, pendientesDeFacturar: 0, facturasDeAntes: { n: 0, importe: 0 }, facturadoEnPeriodo: { n: 0, importe: 0 }, cobrosDelPeriodo: { matricula: { n: 0, importe: 0 }, cuotas: { n: 0, importe: 0 } }, facturasPorClase: { venta: { n: 0, importe: 0 }, cuota: { n: 0, importe: 0 }, parte: { n: 0, importe: 0 }, suelta: { n: 0, importe: 0 } }, porProyecto: [], cobradoDeMas: { n: 0, importe: 0 } });
         }
       } catch {
-        setItems([]); setTotal(0); setFilas([]); setTotalFilas(0); setTotales({ importe: 0, pagado: 0, pendiente: 0, iva: 0, facturadas: 0, sinFactura: 0, noRequiereFactura: 0, pendientesDeFacturar: 0, facturasDeAntes: { n: 0, importe: 0 }, facturadoEnPeriodo: { n: 0, importe: 0 }, cobrosDelPeriodo: { matricula: { n: 0, importe: 0 }, cuotas: { n: 0, importe: 0 } }, facturasPorClase: { venta: { n: 0, importe: 0 }, cuota: { n: 0, importe: 0 }, parte: { n: 0, importe: 0 }, suelta: { n: 0, importe: 0 } }, porProyecto: [] });
-      } finally { setLoading(false); }
+        if (cancelado) return;
+        setItems([]); setTotal(0); setFilas([]); setTotalFilas(0); setTotales({ importe: 0, pagado: 0, pendiente: 0, iva: 0, facturadas: 0, sinFactura: 0, noRequiereFactura: 0, pendientesDeFacturar: 0, facturasDeAntes: { n: 0, importe: 0 }, facturadoEnPeriodo: { n: 0, importe: 0 }, cobrosDelPeriodo: { matricula: { n: 0, importe: 0 }, cuotas: { n: 0, importe: 0 } }, facturasPorClase: { venta: { n: 0, importe: 0 }, cuota: { n: 0, importe: 0 }, parte: { n: 0, importe: 0 }, suelta: { n: 0, importe: 0 } }, porProyecto: [], cobradoDeMas: { n: 0, importe: 0 } });
+      } finally { if (!cancelado) setLoading(false); }
     })();
-  }, [projectIdParam, issuerIdParam, reloadKey, effectiveResponsableId, page, filterCurso, rango.from, rango.to]);
+    return () => { cancelado = true; };
+  }, [projectIdParam, issuerIdParam, reloadKey, effectiveResponsableId, page, filterCurso, filterCompartidas, rango.from, rango.to]);
 
   async function abrirCuotas() {
     if (verCuotas) { setVerCuotas(false); return; }
@@ -221,6 +295,8 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       if (projectIdParam) params.projectId = projectIdParam;
       if (issuerIdParam) params.issuerId = issuerIdParam;
       if (effectiveResponsableId) params.responsableId = effectiveResponsableId;
+      // #163: el mismo «Reparto» que la lista y las tarjetas.
+      if (filterCompartidas !== 'todas') params.compartidas = filterCompartidas;
       const r = await client.get('/conversions/cuotas', { params });
       setCuotas(r?.success ? (r.data || []) : []);
     } catch { setCuotas([]); }
@@ -252,19 +328,24 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
 
   return (
     <div className="space-y-5 pb-8">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <PageHeader
-          title={title}
-          /* Con una empresa elegida decia «en Todos los proyectos», que es
-             justo lo contrario de lo que se esta mirando: son los campus de esa
-             empresa y ninguno mas. */
-          subtitle={`${subtitlePrefix}${
-            activeIssuer ? ' en ' + activeIssuer.nombre + ' (todos sus campus)'
-              : activeProject ? ' en ' + activeProject.nombre : ''}`}
-        />
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+      <PageHeader
+        title={title}
+        /* Con una empresa elegida decia «en Todos los proyectos», que es
+           justo lo contrario de lo que se esta mirando: son los campus de esa
+           empresa y ninguno mas. */
+        subtitle={`${subtitlePrefix}${
+          activeIssuer ? ' en ' + activeIssuer.nombre + ' (todos sus campus)'
+            : activeProject ? ' en ' + activeProject.nombre : ''}`}
+        /* #79 punto 3: estos botones iban en un <div> suelto que caía DEBAJO del
+           SubNav de Finanzas (dos barras). Ahora van como acciones del PageHeader,
+           que las sube a la barra con el título. En Ventas el SubNav ya no sale
+           (ver SIN_SUBMENU en FinanzasLayout) y «Análisis de ventas» se alcanza
+           desde el botón «Análisis». */
+        actions={(
+          <>
         {/* Como leer esta pantalla. Casi todas las dudas salen de comparar
             cifras que cuentan cosas distintas, asi que se explica aqui mismo. */}
+        {!esIA && (<>
         <button
           type="button"
           onClick={() => setTutorialesOpen(true)}
@@ -281,8 +362,18 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         >
           Análisis
         </button>
-        {activeProject?.id && ((puedeSinGestora || puedeDeOtra) ? (
-          <div className="relative self-start sm:self-auto">
+        {/* «Sin formación» (#41) tampoco está en el menú lateral: sin el SubNav,
+            desde Ventas solo se llega por aquí. */}
+        <button
+          type="button"
+          onClick={() => navigate('/finanzas/ventas-sin-formacion')}
+          className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm font-semibold hover:bg-muted"
+        >
+          Sin formación
+        </button>
+        </>)}
+        {activeProject?.id && !esIA && ((puedeSinGestora || puedeDeOtra) ? (
+          <div ref={menuVentaRef} className="relative self-start sm:self-auto">
             <button
               type="button"
               onClick={() => setMenuVenta((v) => !v)}
@@ -296,8 +387,6 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
             </button>
             {menuVenta && (
               <>
-                {/* Pulsar fuera lo cierra. */}
-                <div className="fixed inset-0 z-10" onClick={() => setMenuVenta(false)} aria-hidden="true" />
                 <div role="menu" className="absolute right-0 z-20 mt-1 w-72 overflow-hidden rounded-md border border-border bg-card shadow-lg">
                   <button
                     type="button" role="menuitem" onClick={() => abrirVenta('existing')}
@@ -347,8 +436,9 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
             Nueva venta
           </button>
         ))}
-        </div>
-      </div>
+          </>
+        )}
+      />
 
       <Suspense fallback={null}>
         {tutorialesOpen && <TutorialesVentas onCerrar={() => setTutorialesOpen(false)} />}
@@ -473,6 +563,17 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
               </select>
             </>
           )}
+          <label className="text-xs font-semibold text-muted-foreground" htmlFor="filtro-compartidas">Reparto:</label>
+          <select
+            id="filtro-compartidas"
+            value={filterCompartidas}
+            onChange={(e) => setFilterCompartidas(e.target.value as 'todas' | 'solo' | 'enteras')}
+            className="h-9 px-3 rounded-md border border-border bg-card text-sm font-medium"
+          >
+            <option value="todas">Todas</option>
+            <option value="solo">Solo compartidas</option>
+            <option value="enteras">Solo enteras</option>
+          </select>
           {/* Aqui habia OTRO RangoRapido, ademas del de la fila «Rápido:»: salian
               dos filas de «Hoy · Ayer · …» en Ingresos y en Ventas, que es esta
               misma pantalla (#223, #234). Queda el de su fila. */}
@@ -482,8 +583,8 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           <label className="text-xs font-semibold text-muted-foreground">Hasta:</label>
           <input type="date" value={rango.to} onChange={(e) => setRango((v) => ({ ...v, to: e.target.value }))}
             className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
-          {(viewUserId !== 'all' || filterCurso !== 'all' || rango.from !== rangoDe('mes').from || rango.to !== rangoDe('mes').to) && (
-            <button type="button" onClick={() => { setViewUserId('all'); setFilterCurso('all'); setRango(rangoDe('mes')); }} className="text-[11px] text-primary hover:underline">
+          {(viewUserId !== 'all' || filterCurso !== 'all' || filterCompartidas !== 'todas' || rango.from !== rangoDe('mes').from || rango.to !== rangoDe('mes').to) && (
+            <button type="button" onClick={() => { setViewUserId('all'); setFilterCurso('all'); setFilterCompartidas('todas'); setRango(rangoDe('mes')); }} className="text-[11px] text-primary hover:underline">
               Quitar filtros
             </button>
           )}
@@ -514,7 +615,8 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
             no es una venta nueva y no puede sumarse con ellas. Solo tiene
             sentido con un periodo elegido: sin fechas, «cobrado en estas
             fechas» no significa nada. */}
-        {(rango.from && rango.to) && (
+        {/* En IA no se facturan cuotas: son suscripciones que cobra Stripe. */}
+        {(rango.from && rango.to) && !esIA && (
           <div title={`Facturas con etiqueta CUOTA emitidas en estas fechas: las mismas que se ven en Facturación con este filtro`}>
             <KpiCard
               icon={Receipt}
@@ -532,6 +634,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         {/* Ventas por facturas: cuantas de estas ventas tienen factura.
             El detalle va en el texto que sale al pasar el raton, que es donde
             lo pidio Diego — la tarjeta enseña la proporcion de un vistazo. */}
+        {!esIA && (
         <div title={`${totales.facturadas} ventas facturadas · ${totales.noRequiereFactura} no necesitan factura · ${totales.pendientesDeFacturar} pendientes de facturar`}>
           <KpiCard
             icon={Receipt}
@@ -547,6 +650,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
             trend="down"
           />
         </div>
+        )}
         {/* Se llamaba «Facturado» y NO es lo facturado: es la suma del importe
             de las ventas del periodo. El 8/9 en ISEIH decia 200 € cuando ese
             dia se emitieron 317,50 € en facturas, y por eso Ventas y
@@ -569,6 +673,9 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
             format={fmt}
           />
         </div>
+        {/* El IVA de una suscripcion de 9,99 EUR no se mira a diario: esta
+            en Facturacion cuando haga falta. */}
+        {!esIA && (
         <KpiCard
           icon={Receipt}
           iconBg="bg-warning-soft text-warning-soft-foreground"
@@ -576,7 +683,19 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           numericValue={totales.iva}
           format={fmt}
         />
+        )}
       </div>
+
+      {/* #692: «Cobrado» y «Pagado» salen ya de los pagos registrados, como en
+          Análisis y en el ranking. Si alguna venta suma más pagos que su
+          importe, se dice aquí en vez de dejar que se compense con otras. */}
+      {(totales.cobradoDeMas?.n ?? 0) > 0 && (
+        <p role="note" className="text-xs rounded-md border border-warning/40 bg-warning-soft text-warning-soft-foreground px-3 py-2">
+          <strong>{totales.cobradoDeMas.n}</strong>{' '}
+          {totales.cobradoDeMas.n === 1 ? 'venta de estas tiene' : 'ventas de estas tienen'} pagos por encima de su importe:{' '}
+          <strong>{fmt(totales.cobradoDeMas.importe)}</strong> de más. Suele ser un cobro repetido o un importe mal puesto.
+        </p>
+      )}
 
 
       {/* Con una empresa elegida: en que campus hubo ventas y cuotas. La suma
@@ -626,7 +745,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
 
       {/* Lo unico que hay que HACER: las ventas que esperan factura. Lleva a la
           pantalla donde se emiten, que cuenta exactamente lo mismo. */}
-      {totales.pendientesDeFacturar > 0 && (
+      {!esIA && totales.pendientesDeFacturar > 0 && (
         <div className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <p className="text-sm text-warning-soft-foreground">
             <strong>{totales.pendientesDeFacturar}</strong>{' '}
@@ -741,10 +860,12 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${esIA ? '' : 'lg:grid-cols-2'}`}>
+        {!esIA && (
         <Suspense fallback={null}>
           <MyGoalCard projectId={projectIdParam} />
         </Suspense>
+        )}
         <Suspense fallback={null}>
           <TopProductsCard projectId={projectIdParam} issuerId={issuerIdParam}
             from={rango.from || null} to={rango.to || null}
@@ -752,7 +873,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         </Suspense>
       </div>
 
-      {isAdmin && (
+      {isAdmin && !esIA && (
         <Suspense fallback={null}>
           {/* El mes ES el del filtro de arriba. Sin pasarlo, la tabla cogia
               siempre el mes en curso: con el filtro en agosto decia

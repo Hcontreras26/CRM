@@ -1,6 +1,7 @@
 import PageHeader from '@/shared/components/ui/PageHeader';
 import { useEffect, useState, useMemo } from 'react';
 import { useProject } from '@/shared/hooks/useProject';
+import { useVistaGeneral } from '@/shared/hooks/useVistaGeneral';
 import client from '@/shared/api/client';
 import {
   getTree,
@@ -91,38 +92,57 @@ function containsSearch(node: CategoryNode, search: string): boolean {
 
 export default function ProductsTreePage() {
   const { activeProject } = useProject();
-  const projectId = activeProject?.id;
+  // Con «Todos» o una empresa (#218, Diego 04/11): el árbol de cada campus, uno
+  // debajo de otro, y la lista con su columna «Campus». Una categoría es de un
+  // campus, así que al elegirla se piden los productos de ese campus.
+  const { general, ambito } = useVistaGeneral();
+  const projectId = general ? null : activeProject?.id;
 
   const [tree, setTree] = useState<CategoryNode[]>([]);
+  const [arboles, setArboles] = useState<Array<{ id: number; nombre: string; arbol: CategoryNode[] }>>([]);
   const [selected, setSelected] = useState<CategoryNode | null>(null);
+  // En la vista general: el campus de lo elegido (su nombre o una de sus categorías).
+  const [campusSel, setCampusSel] = useState<number | null>(null);
+  const elegir = (campus: number | null, node: CategoryNode | null) => { setCampusSel(campus); setSelected(node); };
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingTree, setLoadingTree] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [search, setSearch] = useState('');
   const [productSearch, setProductSearch] = useState('');
 
-  // Cargar árbol
+  // Cargar árbol (o los de cada campus)
   useEffect(() => {
+    setSelected(null); setCampusSel(null);
+    if (general) {
+      setLoadingTree(true);
+      client.get('/product-categories/ambito', { params: ambito || {} })
+        .then((res: any) => setArboles(res.data || []))
+        .catch(() => setArboles([]))
+        .finally(() => setLoadingTree(false));
+      return;
+    }
     if (!projectId) return;
     setLoadingTree(true);
     getTree(projectId)
       .then(setTree)
       .finally(() => setLoadingTree(false));
-  }, [projectId]);
+  }, [projectId, general, ambito]);
 
   // Cargar productos al cambiar selección
   useEffect(() => {
-    if (!projectId) return;
+    const campus = general ? campusSel : projectId;
+    if (!campus && !general) return;
     setLoadingProducts(true);
-    const url = selected
-      ? `/products?projectId=${projectId}&categoryId=${selected.id}`
-      : `/products?projectId=${projectId}`;
-    client
-      .get(url)
+    const pedido = !campus
+      ? client.get('/products/ambito', { params: ambito || {} })
+      : client.get(selected
+        ? `/products?projectId=${campus}&categoryId=${selected.id}`
+        : `/products?projectId=${campus}`);
+    pedido
       .then((res: any) => setProducts((res.data as Product[]) || []))
       .catch(() => setProducts([]))
       .finally(() => setLoadingProducts(false));
-  }, [projectId, selected]);
+  }, [projectId, selected, general, campusSel, ambito]);
 
   const filteredProducts = useMemo(() => {
     if (!productSearch) return products;
@@ -146,9 +166,9 @@ export default function ProductsTreePage() {
           <div className="flex items-center gap-2 p-3 border-b">
             <Tree size={16} className="text-primary" />
             <span className="font-medium text-sm">Categorías</span>
-            {selected && (
+            {(selected || campusSel) && (
               <button
-                onClick={() => setSelected(null)}
+                onClick={() => elegir(null, null)}
                 className="ml-auto text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
               >
                 <X size={12} /> Quitar filtro
@@ -170,14 +190,38 @@ export default function ProductsTreePage() {
           <div className="p-1 max-h-[600px] overflow-y-auto">
             <div
               className={`flex items-center gap-1 py-1.5 px-3 rounded text-sm cursor-pointer ${
-                !selected ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/50'
+                !selected && !campusSel ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/50'
               }`}
-              onClick={() => setSelected(null)}
+              onClick={() => elegir(null, null)}
             >
               <span className="flex-1">Todos los productos</span>
             </div>
             {loadingTree && <div className="text-xs text-muted-foreground p-3">Cargando…</div>}
-            {!loadingTree &&
+            {!loadingTree && general && arboles.map((c) => (
+              <div key={c.id} className="mt-1">
+                <div
+                  className={`py-1.5 px-3 rounded text-xs font-semibold uppercase tracking-wide cursor-pointer ${
+                    campusSel === c.id && !selected ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'
+                  }`}
+                  onClick={() => elegir(c.id, null)}
+                  role="button"
+                  aria-label={`Productos de ${c.nombre}`}
+                >
+                  {c.nombre}
+                </div>
+                {c.arbol.map((node) => (
+                  <NodeItem
+                    key={node.id}
+                    node={node}
+                    depth={0}
+                    selectedId={selected?.id ?? null}
+                    onSelect={(n) => elegir(c.id, n)}
+                    search={search}
+                  />
+                ))}
+              </div>
+            ))}
+            {!loadingTree && !general &&
               tree.map((node) => (
                 <NodeItem
                   key={node.id}
@@ -196,7 +240,9 @@ export default function ProductsTreePage() {
           <div className="p-3 border-b flex items-center gap-3">
             <div className="flex-1">
               <div className="font-medium text-sm">
-                {selected ? selected.nombre : 'Todos los productos'}
+                {selected ? selected.nombre
+                  : campusSel ? (arboles.find((c) => c.id === campusSel)?.nombre || 'Todos los productos')
+                    : 'Todos los productos'}
               </div>
               <div className="text-xs text-muted-foreground">
                 {loadingProducts ? 'Cargando…' : `${totalProducts} producto${totalProducts !== 1 ? 's' : ''}`}
@@ -231,6 +277,7 @@ export default function ProductsTreePage() {
               <thead className="bg-muted/30 border-b">
                 <tr>
                   <th className="text-left px-3 py-2 font-medium">Nombre</th>
+                  {general && <th className="text-left px-3 py-2 font-medium">Campus</th>}
                   <th className="text-left px-3 py-2 font-medium hidden md:table-cell">SKU</th>
                   <th className="text-left px-3 py-2 font-medium hidden md:table-cell">Categoría</th>
                   <th className="text-right px-3 py-2 font-medium">Precio</th>
@@ -240,6 +287,7 @@ export default function ProductsTreePage() {
                 {filteredProducts.map((p) => (
                   <tr key={p.id} className="border-b last:border-b-0 hover:bg-muted/20">
                     <td className="px-3 py-2 font-medium">{p.nombre}</td>
+                    {general && <td className="px-3 py-2 text-muted-foreground">{(p as Product & { proyecto_nombre?: string }).proyecto_nombre || '—'}</td>}
                     <td className="px-3 py-2 font-mono text-xs text-muted-foreground hidden md:table-cell">
                       {p.sku || '—'}
                     </td>

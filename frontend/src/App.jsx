@@ -4,6 +4,11 @@ import { useProjectContext } from './contexts/ProjectContext';
 import { tituloDeRuta } from './shared/lib/rutasTitulos';
 
 
+import { SOLO_EN_PRUEBAS } from './shared/lib/soloEnPruebas';
+import { PANTALLAS_IA } from './shared/lib/pantallasIA';
+import ConPermiso from './shared/components/layout/ConPermiso';
+import RedirigeA from './shared/components/RedirigeA';
+import { MARCA } from '@/shared/config/marca';
 const APP_BASE_URL = import.meta.env.BASE_URL || '';
 const IS_TESTEO_PREVIEW_BASE = APP_BASE_URL.startsWith('/testeo/');
 const IS_TESTEO2_BASE = APP_BASE_URL.startsWith('/testeo2/');
@@ -19,7 +24,7 @@ function DocumentTitle() {
   const { pathname } = useLocation();
   const { activeProject: project, activeIssuer } = useProjectContext();
   useEffect(() => {
-    const base = 'MultiCRM';
+    const base = MARCA;
     // El nombre sale del mismo sitio que usa la cabecera: una pantalla no
     // puede llamarse de una forma en la pestaña y de otra encima del contenido.
     const route = tituloDeRuta(pathname);
@@ -82,8 +87,13 @@ const CorreosPage = lazy(() => import('./modules/correos/pages/CorreosPage'));
 const NotificacionesPage = lazy(() => import('./modules/notificaciones/pages/NotificacionesPage'));
 const ReportsPage = lazy(() => import('./modules/reports/pages/ReportsPage'));
 const ReportsIAPage = lazy(() => import('./modules/reports-ia/pages/ReportsIAPage'));
+// Preguntarle a los datos en lenguaje natural (#30). Solo en pruebas hasta que Diego
+// ponga la clave y el tope de gasto (#22).
+const PreguntarPage = lazy(() => import('./modules/ia-analisis/pages/PreguntarPage'));
 // El feedback de «¿por que has desistido?» (#169, #170): la encuesta es PUBLICA.
 const FeedbackEncuestaPage = lazy(() => import('./modules/feedback/pages/FeedbackEncuestaPage'));
+// El formulario de datos fiscales de la factura automática (#764): sin sesión, desde el correo.
+const DatosFiscalesPage = lazy(() => import('./modules/factura-automatica/pages/DatosFiscalesPage'));
 const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPanelPage'));
 const AIChatPage = lazy(() => import('./modules/ai-chat/pages/AIChatPage'));
 const SettingsPage = lazy(() => import('./modules/settings/pages/SettingsPage'));
@@ -94,6 +104,10 @@ const IncomePage = lazy(() => import('./modules/accounting/pages/IncomePage'));
 const IntegrationsPage = lazy(() => import('./modules/accounting/pages/IntegrationsPage'));
 const PendienteFacturarPage = lazy(() => import('./modules/accounting/pages/PendienteFacturarPage'));
 const StripePaymentsPage = lazy(() => import('./modules/accounting/pages/StripePaymentsPage'));
+// Cobros de PayPal y extractos del banco (#766).
+const CobrosExternosPage = lazy(() => import('./modules/accounting/pages/CobrosExternosPage'));
+// Equipo › Actividad (#236): lo que registra Monitask y el cotejo con las facturas.
+const MonitaskActividadPage = lazy(() => import('./modules/monitask/pages/MonitaskActividadPage'));
 const WhatsappWidgetPage = lazy(() => import('./modules/widget/pages/WhatsappWidgetPage'));
 // Todo WhatsApp pasa por aqui: el chat, con quien enlaza su numero y sus
 // plantillas. La pantalla del equipo y «Mi WhatsApp» eran del metodo viejo —el
@@ -109,7 +123,18 @@ const AyudaWhatsappPage = lazy(() => import('./modules/whatsapp/pages/AyudaPage'
 const TutoresPage = lazy(() => import('./modules/tutores/pages/TutoresPage'));
 const ComisionesTutoresPage = lazy(() => import('./modules/tutores/pages/ComisionesTutoresPage'));
 const FormacionesSinTutorPage = lazy(() => import('./modules/tutores/pages/FormacionesSinTutorPage'));
-const MisCursosPage = lazy(() => import('./modules/tutores/pages/MisCursosPage'));
+const MiCampusPage = lazy(() => import('./modules/tutores/pages/MiCampusPage'));
+const CorregirTareaPage = lazy(() => import('./modules/tutores/pages/CorregirTareaPage'));
+const CursoCompletoPage = lazy(() => import('./modules/tutores/pages/CursoCompletoPage'));
+// Consultas de alumnos (#188): la bandeja del tutor y el panel de administración.
+const ConsultasPage = lazy(() => import('./modules/consultas/pages/ConsultasPage'));
+const ConsultaPage = lazy(() => import('./modules/consultas/pages/ConsultaPage'));
+// Fase 3 (#189): alumnos sin mensajes, carga de trabajo, panel de tutores y métricas.
+const AlumnosSinMensajesPage = lazy(() => import('./modules/consultas/pages/AlumnosSinMensajesPage'));
+const MiCargaPage = lazy(() => import('./modules/consultas/pages/MiCargaPage'));
+const TutoresConsultasPage = lazy(() => import('./modules/consultas/pages/TutoresConsultasPage'));
+const MetricasConsultasPage = lazy(() => import('./modules/consultas/pages/MetricasConsultasPage'));
+const RespuestasCampusPage = lazy(() => import('./modules/consultas/pages/RespuestasCampusPage'));
 const InvoicesPage = lazy(() => import('./modules/invoices/pages/InvoicesPage'));
 const InvoicingConfigPage = lazy(() => import('./modules/invoices/pages/InvoicingConfigPage'));
 const InvoiceTemplateEditorPage = lazy(() => import('./modules/invoices/pages/InvoiceTemplateEditorPage'));
@@ -121,6 +146,7 @@ const ClientDetailPage = lazy(() => import('./modules/clients/pages/ClientDetail
 const CommissionsPage = lazy(() => import('./modules/commissions/pages/CommissionsPage'));
 const MatriculasPage = lazy(() => import('./modules/matriculas/pages/MatriculasPage'));
 const SalesAnalysisPage = lazy(() => import('./modules/sales/pages/SalesAnalysisPage'));
+const VentasSinFormacionPage = lazy(() => import('./modules/sales/pages/VentasSinFormacionPage'));
 const SaleDetailPage = lazy(() => import('./modules/sales/pages/SaleDetailPage'));
 const SalesPage = lazy(() => import('./modules/sales/pages/SalesPage'));
 const MetaAdsPage = lazy(() => import('./modules/meta-ads/pages/MetaAdsPage'));
@@ -142,6 +168,8 @@ const MakeWebhookDetailPage = lazy(() => import('./modules/make-webhooks/pages/M
 const FieldDefinitionsPage = lazy(() => import('./modules/field-definitions/pages/FieldDefinitionsPage'));
 const ClavesPage = lazy(() => import('./modules/settings/pages/ClavesPage'));
 const McpPage = lazy(() => import('./modules/mcp/pages/McpPage'));
+const MoodlePage = lazy(() => import('./modules/moodle/pages/MoodlePage'));
+const MoodleCampusPage = lazy(() => import('./modules/moodle/pages/MoodleCampusPage'));
 const RolesPage = lazy(() => import('./modules/permissions/pages/RolesPage'));
 const CategoriesTreePage = lazy(() => import('./modules/product-categories/pages/CategoriesTreePage'));
 const ChannelsConfigPage = lazy(() => import('./modules/settings/pages/ChannelsConfigPage'));
@@ -191,6 +219,12 @@ const DevComponentsPage = (UI_PREVIEW_ENABLED || IS_TESTEO2_BASE)
   ? lazy(() => import('./modules/dev/pages/DevComponentsPage'))
   : null;
 
+// Las direcciones de Finanzas de antes, sin el prefijo /finanzas (CRM#633).
+const FINANZAS_SIN_PREFIJO = [
+  'comisiones', 'facturas', 'pagos-stripe', 'por-cobrar', 'por-pagar', 'ingresos', 'egresos',
+  'nominas', 'conversiones', 'integraciones', 'pendiente-facturar', 'facturas-colaboradores',
+];
+
 function App() {
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center text-muted-foreground">Cargando…</div>}>
@@ -200,6 +234,8 @@ function App() {
         <Route path="/embed/form/:embedId" element={<EmbedFormPage />} />
         {/* Sin sesion: la abre desde el correo quien no compro. */}
         <Route path="/feedback/:token" element={<FeedbackEncuestaPage />} />
+        {/* Sin sesion: el alumno da sus datos para la factura (#764). El enlace es la llave. */}
+        <Route path="/datos-fiscales/:token" element={<DatosFiscalesPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
         {/* El enlace personal del colaborador (#202): sin usuario, el enlace es la llave. */}
@@ -253,7 +289,18 @@ function App() {
           <Route path="/tutores" element={<TutoresPage />} />
           <Route path="/tutores/comisiones" element={<ComisionesTutoresPage />} />
           <Route path="/tutores/sin-tutor" element={<FormacionesSinTutorPage />} />
-          <Route path="/mis-cursos" element={<MisCursosPage />} />
+          {/* «Mis cursos» va dentro de «Mi campus» como pestaña (Diego, 11/11); los enlaces de los correos siguen sirviendo. */}
+          <Route path="/mis-cursos" element={<Navigate to="/mis-cursos/campus?vista=cursos" replace />} />
+          <Route path="/mis-cursos/campus" element={<MiCampusPage />} />
+          <Route path="/mis-cursos/campus/tarea/:projectId/:cursoId/:tareaId" element={<CorregirTareaPage />} />
+          <Route path="/mis-cursos/campus/curso/:projectId/:cursoId" element={<CursoCompletoPage />} />
+          <Route path="/consultas" element={<ConsultasPage />} />
+          <Route path="/consultas/alumnos" element={<AlumnosSinMensajesPage />} />
+          <Route path="/consultas/carga" element={<MiCargaPage />} />
+          <Route path="/consultas/tutores" element={<TutoresConsultasPage />} />
+          <Route path="/consultas/metricas" element={<MetricasConsultasPage />} />
+          <Route path="/consultas/respuestas" element={<RespuestasCampusPage />} />
+          <Route path="/consultas/:id" element={<ConsultaPage />} />
 
           {/* Captación — tabs */}
           <Route path="/captacion" element={<CaptacionLayout />}>
@@ -294,6 +341,7 @@ function App() {
           <Route path="/finanzas" element={<FinanzasLayout />}>
             <Route index element={<AccountingDashboardPage />} />
             <Route path="ventas-analisis" element={<SalesAnalysisPage />} />
+            <Route path="ventas-sin-formacion" element={<VentasSinFormacionPage />} />
             <Route path="ventas/:id" element={<SaleDetailPage />} />
             <Route path="ventas" element={<IncomePage title="Ventas" subtitlePrefix="Todas las ventas registradas" />} />
             <Route path="ingresos" element={<IncomePage />} />
@@ -306,6 +354,7 @@ function App() {
             <Route path="integraciones" element={<IntegrationsPage />} />
             <Route path="pendiente-facturar" element={<PendienteFacturarPage />} />
             <Route path="pagos-stripe" element={<StripePaymentsPage />} />
+            <Route path="cobros-externos" element={<CobrosExternosPage />} />
             <Route path="facturas" element={<InvoicesPage />} />
             <Route path="facturas/nueva" element={<InvoiceCreatePage />} />
             <Route path="facturas/configuracion" element={<InvoicingConfigPage />} />
@@ -322,6 +371,9 @@ function App() {
           <Route path="/configuracion/claves" element={<ClavesPage />} />
           {/* Conexión → MCP. Quién puede usarlo lo decide el servidor; la página lo dice. */}
           <Route path="/conexion/mcp" element={<McpPage />} />
+          {/* Conexión → Moodle (#335): cursos, alumnos y recursos de cada campus. Solo super admin y admin: lo corta el servidor. */}
+          <Route path="/conexion/moodle" element={<MoodlePage />} />
+          <Route path="/conexion/moodle/:campusId" element={<MoodleCampusPage />} />
           {/* Conexión → Conectores (WordPress, tiendas, APIs). Estaba en Captación
               hasta el 29/09; la dirección vieja lleva a la nueva. */}
           <Route path="/conexion/conectores" element={<ConnectorsPage />} />
@@ -337,9 +389,13 @@ function App() {
           <Route path="/configuracion/documentos" element={<DocumentsConfigPage />} />
           <Route path="/configuracion/plantillas-email" element={<EmailTemplatesPage />} />
           <Route path="/informes" element={<ReportsPage />} />
-          <Route path="/informes/ia" element={<ReportsIAPage />} />
+          {/* Las pantallas de IA del CRM (#30) están apagadas (Diego, 10/11/2026:
+              se usa Claude por el MCP). Quien entre por su dirección va al
+              inicio, sin error. Se encienden con `PANTALLAS_IA`. */}
+          <Route path="/informes/ia" element={PANTALLAS_IA ? <ReportsIAPage /> : <Navigate to="/" replace />} />
+          <Route path="/informes/preguntar" element={PANTALLAS_IA && SOLO_EN_PRUEBAS ? <ConPermiso permiso="reports_ia.generar" a="/informes"><PreguntarPage /></ConPermiso> : <Navigate to={PANTALLAS_IA ? '/informes' : '/'} replace />} />
           <Route path="/informes/feedback" element={<FeedbackPanelPage />} />
-          <Route path="/chat-ia" element={<AIChatPage />} />
+          <Route path="/chat-ia" element={PANTALLAS_IA ? <AIChatPage /> : <Navigate to="/" replace />} />
           <Route path="/soporte" element={<SoportePage />} />
           {/* Las direcciones de antes (avisos ya enviados, marcadores): a Certificaciones. */}
           <Route path="/certifex/consultas" element={<Navigate to="/clientes/matriculas/certificaciones?vista=consultas" replace />} />
@@ -362,6 +418,8 @@ function App() {
           <Route path="/tareas/revisar" element={<Navigate to="/tareas/historial" replace />} />
           <Route path="/tareas/configurar" element={<TaskBoardConfigPage />} />
           <Route path="/mi-factura" element={<MiFacturaPage />} />
+          {/* Monitask (#236): la pantalla dice si el servidor lo tiene apagado (MONITASK_ACTIVO). */}
+          <Route path="/equipo/actividad" element={<ConPermiso permiso="monitask.view"><MonitaskActividadPage /></ConPermiso>} />
           <Route path="/external/:panelId" element={<ExternalPanelPage />} />
           <Route path="/configuracion" element={<SettingsPage />} />
           <Route path="/perfil" element={<ProfilePage />} />
@@ -386,15 +444,31 @@ function App() {
               que haya en correos ya enviados: quien pulse uno veria «pagina no
               encontrada» y pensaria que el CRM esta roto. */}
           <Route path="/settings" element={<Navigate to="/configuracion" replace />} />
-          <Route path="/reports/ia" element={<Navigate to="/informes/ia" replace />} />
+          <Route path="/reports/ia" element={<Navigate to={PANTALLAS_IA ? '/informes/ia' : '/'} replace />} />
           <Route path="/reports" element={<Navigate to="/informes" replace />} />
           <Route path="/sales" element={<Navigate to="/ventas" replace />} />
           <Route path="/profile" element={<Navigate to="/perfil" replace />} />
           <Route path="/preferences" element={<Navigate to="/preferencias" replace />} />
           <Route path="/messages" element={<Navigate to="/mensajes" replace />} />
           <Route path="/email-sequences" element={<Navigate to="/secuencias-email" replace />} />
-          <Route path="/ai-chat" element={<Navigate to="/chat-ia" replace />} />
+          <Route path="/ai-chat" element={<Navigate to={PANTALLAS_IA ? '/chat-ia' : '/'} replace />} />
           <Route path="/configuracion/email-templates" element={<Navigate to="/configuracion/plantillas-email" replace />} />
+          {/* Prospectos, productos, formularios y webhooks con su dirección de
+              antes (CRM#633). Siguen guardadas en los atajos de cada proyecto
+              (la base copia la ruta al guardarlos), en avisos ya creados y en
+              el Registro; con `RedirigeA` no se pierden ni el id ni el `?new=1`. */}
+          <Route path="/leads" element={<RedirigeA a="/prospectos" />} />
+          <Route path="/leads/:id" element={<RedirigeA a="/prospectos/:id" />} />
+          <Route path="/products" element={<RedirigeA a="/productos" />} />
+          <Route path="/products/:id" element={<RedirigeA a="/productos/:id" />} />
+          <Route path="/formularios" element={<RedirigeA a="/captacion" />} />
+          <Route path="/webhooks" element={<RedirigeA a="/captacion/webhooks" />} />
+          {/* Finanzas sin su prefijo (CRM#633). Eran las direcciones de antes de
+              agrupar Finanzas bajo /finanzas: alguien las tiene guardadas y la
+              auditoría del 03/11 las encontró dando «página no encontrada». */}
+          {FINANZAS_SIN_PREFIJO.map((r) => (
+            <Route key={r} path={`/${r}`} element={<Navigate to={`/finanzas/${r}`} replace />} />
+          ))}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

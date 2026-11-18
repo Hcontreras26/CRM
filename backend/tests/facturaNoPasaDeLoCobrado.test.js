@@ -165,10 +165,11 @@ describe('de quien es una factura, para una gestora', () => {
     respuestas = [{ rows: [] }, { rows: [{ total: 0 }] }];
     await real.list({ projectId: 4, responsableId: 11 });
     const lista = consultas[0];
-    expect(lista.sql).toMatch(/i\.created_by = \$\d+\s+OR COALESCE\(cv\.vendedora_id, l\.responsable_id\) = \$\d+/);
-    expect(lista.params).toContain(11);
+    // Una lista de personas desde el equipo comercial (09/11/2026): para ella, solo ella.
+    expect(lista.sql).toMatch(/i\.created_by = ANY\(\$\d+::int\[\]\)\s+OR COALESCE\(cv\.vendedora_id, l\.responsable_id\) = ANY\(\$\d+::int\[\]\)/);
+    expect(lista.params).toContainEqual([11]);
     // Y el recuento, con la misma condicion: si no, la paginacion no cuadra.
-    expect(consultas[1].sql).toContain('i.created_by =');
+    expect(consultas[1].sql).toContain('i.created_by = ANY(');
   });
 
   it('y las sin gestora, solo de sus campus', async () => {
@@ -178,21 +179,32 @@ describe('de quien es una factura, para una gestora', () => {
     await real.list({ projectId: 4, responsableId: 11 });
     const sql = consultas[0].sql;
     expect(sql).toMatch(/COALESCE\(cv\.vendedora_id, l\.responsable_id\) IS NULL/);
-    expect(sql).toMatch(/user_projects up\s+WHERE up\.user_id = \$\d+ AND up\.project_id = i\.project_id AND up\.active/);
+    expect(sql).toMatch(/user_projects up\s+WHERE up\.user_id = ANY\(\$\d+::int\[\]\) AND up\.project_id = i\.project_id AND up\.active/);
   });
 
   it('y puede tocar la suya aunque no tenga ficha', async () => {
     // El permiso lo pide la ruta (#423); esto es solo de quién es.
-    respuestas = [{ rows: [{ '?column?': 1 }] }];
+    // Primero se mira si lleva un equipo comercial (09/11/2026): no lo lleva.
+    respuestas = [{ rows: [] }, { rows: [{ '?column?': 1 }] }];
     expect(await real.esFacturaQueGestiona(11, 'gestor', 392)).toBe(true);
-    const sql = consultas[0].sql;
-    expect(sql).toContain('i.created_by = $2');
+    expect(consultas[0].sql).toMatch(/FROM equipo_comercial/);
+    const sql = consultas[1].sql;
+    expect(sql).toContain('i.created_by = ANY($2::int[])');
+    expect(consultas[1].params).toEqual([392, [11]]);
     expect(sql).toContain('LEFT JOIN conversions cv');
   });
 
   it('pero no la de otra', async () => {
-    respuestas = [{ rows: [] }];
+    respuestas = [{ rows: [] }, { rows: [] }];
     expect(await real.esFacturaQueGestiona(6, 'gestor', 392)).toBe(false);
+  });
+
+  it('quien lleva un equipo comercial no corrige ni abona ninguna (Diego, 09/11/2026)', async () => {
+    respuestas = [{ rows: [{ gestora_id: 12 }] }];
+    expect(await real.esFacturaQueGestiona(5, 'admin', 392)).toBe(false);
+    consultas.length = 0;
+    respuestas = [{ rows: [] }];
+    expect(await real.esFacturaQueGestiona(5, 'admin', 392)).toBe(true);
   });
 });
 

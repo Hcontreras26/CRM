@@ -6,7 +6,8 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import { CurrencyEur, TrendUp, Receipt, CheckCircle } from '@phosphor-icons/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatNumber } from '@/shared/lib/format';
+import { formatNumber, formatDate } from '@/shared/lib/format';
+import { soloFecha } from '@/shared/lib/fechas';
 import { ponerAmbito } from '@/shared/lib/ambitoInforme';
 
 type TipoPago = 'pago_completo' | 'abono_parcial' | string;
@@ -35,9 +36,12 @@ function fmt(n: number | string | null | undefined): string {
   return formatNumber(n);
 }
 
+// Las fechas de venta llegan como DATE («2026-10-12»): `new Date()` las lee
+// en UTC y en Latinoamérica salían un día antes (#693). `formatDate` lee el día
+// tal cual y, si trae hora, la respeta.
 function fmtDate(d: string | null | undefined): string {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDate(d);
 }
 
 interface CustomTooltipProps {
@@ -76,7 +80,9 @@ export default function RevenuePage() {
     const mesActual = now.getMonth();
     const anioActual = now.getFullYear();
     const estesMes = conversions.filter(c => {
-      const d = new Date(c.fecha_conversion);
+      // Una venta del día 1 contaba en el mes anterior en Latinoamérica (#693).
+      const d = soloFecha(c.fecha_conversion);
+      if (!d) return false;
       return d.getMonth() === mesActual && d.getFullYear() === anioActual;
     });
     const ingresosMes = estesMes.reduce((s, c) => s + Number(c.importe_total || 0), 0);
@@ -94,7 +100,8 @@ export default function RevenuePage() {
       map[key] = { mes: key, ingresos: 0 };
     }
     conversions.forEach(c => {
-      const d = new Date(c.fecha_conversion);
+      const d = soloFecha(c.fecha_conversion);
+      if (!d) return;
       const key = d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
       if (map[key]) map[key].ingresos += Number(c.importe_total || 0);
     });
@@ -138,7 +145,7 @@ export default function RevenuePage() {
       <div className="bg-card p-6 rounded-lg border border-border">
         <div className="mb-6">
           <h3 className="font-semibold">Evolucion de Ingresos</h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Ultimos 6 meses</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Últimos 6 meses</p>
         </div>
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={monthly}>
@@ -160,7 +167,7 @@ export default function RevenuePage() {
       <div className="bg-card rounded-lg border border-border overflow-x-auto">
         <div className="p-5">
           <h3 className="font-semibold">Conversiones Recientes</h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Ultimos pagos registrados</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Últimos pagos registrados</p>
         </div>
         {loading ? (
           <SkeletonTable rows={4} columns={5} className="border-0 rounded-none" />

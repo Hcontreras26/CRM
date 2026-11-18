@@ -29,6 +29,8 @@ const SERVICIOS = [
   { id: 'r2', nombre: 'Cloudflare R2', pista: '' },
   { id: 'make', nombre: 'Make', pista: '' },
   { id: 'claude', nombre: 'Claude', pista: 'sk-ant-…' },
+  // Un Moodle por campus (elige el proyecto, no «Global»); lo lee el MCP de Claude.
+  { id: 'moodle', nombre: 'Moodle del campus', pista: '{"url":"https://campus.ejemplo.com","token":"…"}' },
 ];
 
 interface Props {

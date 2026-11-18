@@ -472,7 +472,7 @@ export default function ConversionsTab({ lead, projectId, canManage }: Conversio
                 Cancelar
               </button>
               <button onClick={doDeleteConversion}
-                className="h-9 px-4 rounded-md bg-destructive text-white text-sm font-semibold hover:bg-destructive inline-flex items-center gap-1">
+                className="h-9 px-4 rounded-md bg-destructive text-white text-sm font-semibold hover:bg-destructive/90 inline-flex items-center gap-1">
                 <Trash size={14} weight="bold" /> Eliminar
               </button>
             </div>

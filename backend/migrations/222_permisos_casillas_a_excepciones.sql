@@ -20,8 +20,8 @@
 --
 -- LO QUE HOY NO SURTE EFECTO. Antes de #423 las rutas miraban solo estas
 -- claves: leads.delete, facturas_colaborador.*, diplomas.view, diplomas.emit
--- (#437/#438, 22/10: las gestoras que emiten diplomas, como Dayana), tasks.*,
--- conversions.sin_gestora y meta_ads.view (CRM#495, 26/10: Meta para el equipo). Y la pantalla, con `can()`, estas otras: crear,
+-- (#437/#438, 22/10: las gestoras que emiten diplomas, como Dayana), tasks.* y
+-- conversions.sin_gestora. Y la pantalla, con `can()`, estas otras: crear,
 -- borrar y exportar clientes, editar ventas, crear, editar, asignar y exportar
 -- prospectos, crear, editar y borrar productos y sincronizar WooCommerce (QA
 -- de Diego, punto 5: «no se archiva ninguna clave en uso»). Todas se quedan

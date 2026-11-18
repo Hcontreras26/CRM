@@ -15,6 +15,9 @@ router.get('/', puede('stripe.view'), ctrl.list);
 router.get('/stats', puede('stripe.view'), ctrl.stats);
 // Solo los campus de quien lo pide (#717): antes el projectId del cuerpo iba tal cual.
 router.post('/sync', puede('stripe.view'), projectAccess, ctrl.sync);
+// Antes de `/:id`: con el comodin por delante, `/corte` se leeria como el
+// cargo con id «corte» y llegaria un NaN a la consulta.
+router.get('/corte', puede('stripe.view'), projectAccess, ctrl.corte);
 router.get('/:id', puede('stripe.view'), ctrl.getOne);
 
 // Asociar o desasociar a mano y decidir disputas: solo admin y superadmin.

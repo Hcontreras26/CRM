@@ -71,3 +71,29 @@ export function soloEsTutorRedactor(user: Quien | null | undefined): boolean {
 
 /** Los roles que dan clase: donde se pregunta «¿es tutor?», el redactor también cuenta. */
 export const ROLES_DE_TUTOR: UserRole[] = ['tutor', 'tutor_redactor'];
+
+/**
+ * Los permisos con los que el servidor contesta a los avisos de WhatsApp
+ * (`usaOSupervisa` en whatsapp.routes.js: `/sin-leer` y `/respuesta-llamada`).
+ * Una prueba comprueba que no se separan.
+ */
+export const PERMISOS_DE_LOS_AVISOS = ['whatsapp.usar', 'whatsapp.supervisar'];
+
+/**
+ * Si tiene WhatsApp, con el mismo criterio con el que el servidor contesta a los
+ * avisos: «Usar su WhatsApp» o «Supervisar WhatsApp» en su mapa de permisos, el
+ * que llega con el login y con /auth/me (#423). A quien no, le contesta 403, así
+ * que los avisos de mensajes y de llamadas no deben preguntar por él (QA de
+ * Diego, 22/10, punto 8: el tutor recibía un 403 cada pocos segundos en
+ * `/api/whatsapp/sin-leer`). Ni más ni menos: a quien el servidor contesta, se
+ * le pregunta.
+ *
+ * El mapa tal cual, como `tienePermiso` en el servidor, y no `can()`: `can()` le
+ * da todo al superadmin, y un superadmin puede tener su WhatsApp apagado (#503).
+ * Sin mapa todavía, no se pregunta. Antes se miraba la casilla «usa WhatsApp» de
+ * la ficha, pero desde #423 el servidor no la mira y nadie la actualiza.
+ */
+export function tieneWhatsapp(permissions: Record<string, boolean> | null | undefined): boolean {
+  if (!permissions) return false;
+  return PERMISOS_DE_LOS_AVISOS.some((clave) => permissions[clave] === true);
+}

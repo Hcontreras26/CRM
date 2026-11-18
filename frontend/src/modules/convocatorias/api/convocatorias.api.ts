@@ -30,6 +30,8 @@ export type Convocatoria = {
   nota_interna: string | null;
   /** Cuántas veces se ha ofrecido. Solo lo trae el listado. */
   ofrecimientos?: number;
+  /** El nombre de su campus, para la vista general (#218). */
+  proyecto_nombre?: string;
 };
 
 export type ResultadoOfrecimiento = 'pendiente' | 'concedida' | 'denegada' | 'caducada';
@@ -71,6 +73,7 @@ export type Ofrecimiento = {
 
 export type Pendiente = Ofrecimiento & {
   convocatoria: string;
+  proyecto_nombre?: string;
   lead_nombre: string | null;
   gestora: string | null;
   dias_de_retraso: number;
@@ -107,11 +110,15 @@ function consulta(params: Record<string, string | number | undefined | null>) {
   return s ? `?${s}` : '';
 }
 
+// Sin un campus (#218: «Todos» o una empresa), las de todos los campus de quien
+// mira, por `/convocatorias/ambito`; con `issuerId`, las de esa empresa.
 export async function traerConvocatorias(opciones: {
-  projectId?: number | null; incluirInactivas?: boolean;
+  projectId?: number | null; issuerId?: number | null; incluirInactivas?: boolean;
 } = {}): Promise<Convocatoria[]> {
-  const r = await client.get(`/convocatorias${consulta({
-    projectId: opciones.projectId,
+  const unCampus = opciones.projectId && opciones.projectId > 0 && !opciones.issuerId;
+  const r = await client.get(`/convocatorias${unCampus ? '' : '/ambito'}${consulta({
+    projectId: unCampus ? opciones.projectId : undefined,
+    issuerId: unCampus ? undefined : opciones.issuerId,
     incluirInactivas: opciones.incluirInactivas ? 'true' : undefined,
   })}`);
   return r?.success ? r.data : [];
@@ -154,14 +161,15 @@ export async function actualizarOfrecimiento(id: number, datos: Partial<{
 }
 
 export async function traerPendientes(opciones: {
-  projectId?: number | null; gestoraId?: number | null;
+  projectId?: number | null; issuerId?: number | null; gestoraId?: number | null;
 } = {}): Promise<Pendiente[]> {
   const r = await client.get(`/convocatorias/pendientes${consulta(opciones)}`);
   return r?.success ? r.data : [];
 }
 
 export async function traerEmbudo(opciones: {
-  convocatoriaId?: number | null; projectId?: number | null; from?: string | null; to?: string | null;
+  convocatoriaId?: number | null; projectId?: number | null; issuerId?: number | null;
+  from?: string | null; to?: string | null;
 } = {}): Promise<Embudo | null> {
   const r = await client.get(`/convocatorias/embudo${consulta(opciones)}`);
   return r?.success ? r.data : null;

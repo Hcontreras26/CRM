@@ -214,7 +214,8 @@ export default function ClientsPage() {
   useEffect(() => {
     if (user?.role !== 'superadmin' && user?.role !== 'admin') return;
     const projectFilter = !isAllProjects && activeProject?.id ? `&projectId=${activeProject.id}` : '';
-    client.get(`/users?active=true&role=gestor&limit=100${projectFilter}`).then((r) => {
+    // alcance=comercial: a quien lleva un equipo, solo su equipo (QA 09/11/2026).
+    client.get(`/users?active=true&role=gestor&limit=100&alcance=comercial${projectFilter}`).then((r) => {
       if (r.success) setGestores(((r.data as Array<{ id: number; nombre: string }>) || []));
     }).catch(() => setGestores([]));
   }, [user?.role, activeProject?.id, isAllProjects]);
@@ -307,9 +308,12 @@ export default function ClientsPage() {
   // Lo que está pendiente de cobrar. Va aparte de la lista porque el endpoint
   // que lo sabe es el de contabilidad, y trae todo sin paginar: así las
   // columnas de abajo hablan de todo el proyecto y no de la página.
+  // Sin «Por cobrar» ni se pide ni se pinta: el servidor da 403 (#631).
+  const veCobros = can('accounting.por_cobrar');
   const { items: cobros, tramos } = useCobrosClientes({
     projectId: isAllProjects ? null : (activeProject?.id ?? null),
     responsableId: filterResp,
+    activo: veCobros,
   });
 
   const totalFacturado = filtered.reduce((s, c) => s + Number(c.total_compras), 0);
@@ -387,15 +391,19 @@ export default function ClientsPage() {
           estrecha. Antes aquí se pasaba de las cifras a la tabla directamente:
           no había forma de saber qué tocaba cobrar sin irse a Contabilidad. */}
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)_minmax(260px,0.7fr)]">
-        <SaludDeCobro
-          tramos={tramos}
-          onVerPorCobrar={() => navigate('/finanzas/por-cobrar')}
-        />
-        <ProximosCobros
-          cobros={cobros}
-          onAbrir={(leadId) => navigate(`/clientes/${leadId}`)}
-          onVerTodos={() => navigate('/finanzas/por-cobrar')}
-        />
+        {veCobros && (
+          <>
+            <SaludDeCobro
+              tramos={tramos}
+              onVerPorCobrar={() => navigate('/finanzas/por-cobrar')}
+            />
+            <ProximosCobros
+              cobros={cobros}
+              onAbrir={(leadId) => navigate(`/clientes/${leadId}`)}
+              onVerTodos={() => navigate('/finanzas/por-cobrar')}
+            />
+          </>
+        )}
         <AccesosClave
           accesos={[
             // Matrículas no se ofrece si el proyecto no las tiene. Dos señales:
@@ -407,7 +415,7 @@ export default function ClientsPage() {
             ] : []),
             { label: 'Por cobrar', detail: 'Cuotas pendientes', icon: Wallet, to: '/finanzas/por-cobrar' },
             { label: 'Ventas', detail: 'Registrar y consultar', icon: Receipt, to: '/finanzas/ventas' },
-            { label: 'Reportes', detail: 'Numeros descargables', icon: ChartLineUp, to: '/informes' },
+            { label: 'Reportes', detail: 'Números descargables', icon: ChartLineUp, to: '/informes' },
           ]}
         />
       </section>

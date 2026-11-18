@@ -3,6 +3,7 @@ import { crearPasoSchema, editarPasoSchema, reordenarSchema, ajustarPasoSchema, 
 import { leadsToWasapiCsv, leadsToWasapiXlsx, detectCountry } from '../../shared/utils/wasapiCsv.js';
 import { avanzarPorContacto } from '../../shared/services/estado-prospecto.service.js';
 import { listaDelAmbito } from '../../shared/utils/ambito.js';
+import { personaDelInforme } from '../../shared/utils/roles.js';
 
 export async function listarPasos(req, res, next) {
   try {
@@ -48,13 +49,10 @@ export async function desactivarPaso(req, res, next) {
 
 // De quien es la cola. Se decide AQUI y no con lo que llegue por la URL: una
 // gestora solo ve lo suyo aunque escriba el id de otra a mano. Admin y
-// superadmin ven todo, o el de una en concreto si lo piden.
+// superadmin ven todo, o el de una en concreto si lo piden. Quien lleva un
+// equipo comercial (09/11/2026), el de su equipo o el de una de ellas.
 function deQuienEsLaCola(req) {
-  const rol = req.user?.role;
-  if (rol === 'admin' || rol === 'superadmin') {
-    return req.query.gestoraId ? Number(req.query.gestoraId) : null;
-  }
-  return req.user?.userId || -1;
+  return personaDelInforme(req.user, req.query.gestoraId ? Number(req.query.gestoraId) : null);
 }
 
 // Que proyectos entran: los que pida la pantalla (un campus, los de una
@@ -118,7 +116,7 @@ export async function wasapiSeguimiento(req, res, next) {
     // forma mas silenciosa de mandar una difusion a quien no tocaba.
     const { filas } = await Proceso.baseDeSeguimiento({
       projectIds: await proyectosDeLaCola(req),
-      asesoraId: deQuienEsLaCola(req),
+      asesoraId: await deQuienEsLaCola(req),
       ...filtrosDelRepaso(req),
       // Sin tope: se descarga TODO lo que cumple el filtro, no solo la pagina.
       limite: 100000,
@@ -191,7 +189,7 @@ export async function cola(req, res, next) {
     const pagina = Math.max(Number(req.query.pagina) || 1, 1);
     const filtros = {
       projectIds: await proyectosDeLaCola(req),
-      asesoraId: deQuienEsLaCola(req),
+      asesoraId: await deQuienEsLaCola(req),
       hasta: /^\d{4}-\d{2}-\d{2}$/.test(req.query.hasta || '') ? req.query.hasta : null,
       estado: req.query.estado || null,
       busca: req.query.busca || null,
@@ -231,7 +229,7 @@ export async function seguimiento(req, res, next) {
     const pagina = Math.max(Number(req.query.pagina) || 1, 1);
     const comunes = {
       projectIds: await proyectosDeLaCola(req),
-      asesoraId: deQuienEsLaCola(req),
+      asesoraId: await deQuienEsLaCola(req),
       ...filtrosDelRepaso(req),
     };
     const [{ filas, total }, { formaciones }] = await Promise.all([
@@ -254,7 +252,7 @@ export async function resumenSeguimiento(req, res, next) {
   try {
     const data = await Proceso.resumenDeSeguimiento({
       projectIds: await proyectosDeLaCola(req),
-      asesoraId: deQuienEsLaCola(req),
+      asesoraId: await deQuienEsLaCola(req),
       desdeDias: Number(req.query.desdeDias) || 15,
       descansoDias: Number(req.query.descansoDias) || 30,
     });
@@ -266,7 +264,7 @@ export async function resumenCola(req, res, next) {
   try {
     const data = await Proceso.resumenDeLaCola({
       projectIds: await proyectosDeLaCola(req),
-      asesoraId: deQuienEsLaCola(req),
+      asesoraId: await deQuienEsLaCola(req),
     });
     res.json({ success: true, data });
   } catch (err) { next(err); }

@@ -1,9 +1,20 @@
-import { proyectosDelAmbito, exigirCampusSuyo } from '../../shared/utils/ambito.js';
+import { proyectosDelAmbito, campusDeTodos, exigirCampusSuyo } from '../../shared/utils/ambito.js';
 import * as model from './stripe-payments.model.js';
 import * as service from './stripe-payments.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import { anotaWebhook } from '../status/webhooks.js';
+
+/**
+ * El ámbito de la lista y las cifras. Con «Todos los proyectos» (#218), super
+ * admin y soporte reciben `{null, null}` de `proyectosDelAmbito`: antes eso era
+ * «projectId requerido»; ahora, todos los campus menos los de pruebas.
+ */
+async function ambitoDeLaLista(req) {
+  const ambito = await proyectosDelAmbito(req);
+  if (!ambito.projectId && !ambito.projectIds) return { projectId: null, projectIds: await campusDeTodos(req) };
+  return ambito;
+}
 
 function projectId(req) {
   const pid = Number(req.query.projectId || req.body?.projectId);
@@ -13,8 +24,7 @@ function projectId(req) {
 
 export async function list(req, res, next) {
   try {
-    const ambito = await proyectosDelAmbito(req);
-    if (!ambito.projectId && !ambito.projectIds) projectId(req); // sigue exigiendo ambito
+    const ambito = await ambitoDeLaLista(req);
     const { status, linked, search, from, to, page, limit, facturables, sinEquivalente } = req.query;
     const data = await model.listPayments({
       ...ambito, status, linked, search, from, to,
@@ -29,8 +39,8 @@ export async function list(req, res, next) {
 
 export async function stats(req, res, next) {
   try {
-    const ambito = await proyectosDelAmbito(req);
-    const pid = ambito.projectId || (ambito.projectIds ? null : projectId(req));
+    const ambito = await ambitoDeLaLista(req);
+    const pid = ambito.projectId;
     const { status, linked, search, from, to, facturables, sinEquivalente } = req.query;
     // Los mismos filtros que el listado: si no, la cabecera cuenta una cosa y la
     // tabla de debajo otra.
@@ -46,12 +56,32 @@ export async function stats(req, res, next) {
   } catch (e) { next(e); }
 }
 
+/**
+ * De que fecha para adelante se factura, y por que (GET /corte).
+ *
+ * Existe para poder enseñarlo en la pantalla donde se pega la clave, ANTES de
+ * guardarla: guardar la clave es lo que arranca el sondeo. Hasta ahora este
+ * dato solo se podia mirar con un SELECT a mano.
+ */
+export async function corte(req, res, next) {
+  try {
+    const data = await model.escalonesDelCorte(projectId(req));
+    if (!data) throw new AppError('Proyecto no encontrado', 404, 'NOT_FOUND');
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
 export async function sync(req, res, next) {
   try {
     const pid = projectId(req);
     const fullHistory = req.body?.fullHistory === true || req.query?.fullHistory === 'true';
+    // El historico ABSOLUTO: se salta el corte para TRAER, no para facturar.
+    // Solo si se pide explicitamente; ni el cron ni el boton normal lo mandan.
+    const desdeElPrincipio = req.body?.desdeElPrincipio === true || req.query?.desdeElPrincipio === 'true';
     // Sincronizar a mano reintenta ademas los cargos que quedaron sin asociar.
-    const result = await service.syncStripePayments(pid, { fullHistory, retryPending: true });
+    const result = await service.syncStripePayments(pid, {
+      fullHistory: fullHistory || desdeElPrincipio, desdeElPrincipio, retryPending: true,
+    });
     res.json({ success: true, data: result });
   } catch (e) {
     logger.error({ e: e.message }, 'sync stripe failed');
@@ -141,21 +171,21 @@ export async function webhook(req, res, next) {
       logger.error({ projectId: pid },
         'Webhook de Stripe RECHAZADO: el proyecto no tiene secreto configurado. ' +
         'Ponlo en Integraciones; mientras tanto los cobros entran por el sondeo.');
-      anotaWebhook('stripe', 'rechazado', 'el proyecto no tiene el secreto configurado');
+      anotaWebhook('stripe', 'rechazado', 'el proyecto no tiene el secreto configurado', pid);
       return res.status(400).send('webhook secret no configurado para este proyecto');
     }
     if (!service.verifyStripeSignature(rawBody, sigHeader, secret)) {
       logger.warn({ projectId: pid }, 'Webhook de Stripe con firma invalida');
-      anotaWebhook('stripe', 'rechazado', 'firma invalida');
+      anotaWebhook('stripe', 'rechazado', 'firma invalida', pid);
       return res.status(400).send('Firma invalida');
     }
     const event = JSON.parse(rawBody);
     const result = await service.handleWebhookEvent(pid, event);
-    anotaWebhook('stripe', 'aceptado');
+    anotaWebhook('stripe', 'aceptado', null, pid);
     res.json({ received: true, ...result });
   } catch (e) {
     logger.error({ e: e.message }, 'webhook stripe failed');
-    anotaWebhook('stripe', 'error', e.message);
+    anotaWebhook('stripe', 'error', e.message, Number(req.params.projectId) || null);
     res.status(500).send(`Error: ${e.message}`);
   }
 }

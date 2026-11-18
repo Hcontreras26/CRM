@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { leerFiltroPais } from './pais.js';
 
 export const webhookLeadSchema = z.object({
   nombre: z.string().min(1, 'Nombre requerido').max(200),
@@ -14,11 +15,18 @@ export const webhookLeadSchema = z.object({
   producto_interes_sku: z.string().max(100).optional(),
   notas: z.string().max(2000).optional(),
   landing_url: z.string().url().optional().or(z.literal('')),
+  // La página del formulario con el nombre que usan Elementor y Make («Page
+  // URL» → `page_url`). Si no viene `landing_url`, se usa esta: de ella salen
+  // el canal, el producto y el país de entrada (#221).
+  page_url: z.string().url().optional().or(z.literal('')),
   utm_source: z.string().max(100).optional(),
   utm_medium: z.string().max(100).optional(),
   utm_campaign: z.string().max(255).optional(),
   utm_content: z.string().max(255).optional(),
   utm_term: z.string().max(255).optional(),
+  // De dónde venía la persona (document.referrer). Va junto a las UTM porque
+  // ChatGPT a veces no manda utm_source y a veces no manda referrer (#48).
+  referrer: z.string().max(2000).optional(),
   // Make puede decidir el canal directamente (override de la deteccion automatica)
   canal: z.enum(['meta_ads', 'google_ads', 'tiktok_ads', 'organico', 'chatgpt_ia', 'directo', 'referido', 'whatsapp']).optional(),
   // Asignacion explicita desde Make (saltea round-robin si vienen).
@@ -61,6 +69,11 @@ export const listLeadsSchema = z.object({
   responsableId: z.coerce.number().int().positive().optional(),
   unassigned: z.coerce.boolean().optional(),
   canal: z.enum(['meta_ads', 'google_ads', 'tiktok_ads', 'organico', 'chatgpt_ia', 'directo', 'referido', 'whatsapp']).optional(),
+  // País de entrada (#221): código ISO de dos letras o `sin_pais`.
+  paisEntrada: z.string()
+    .refine((v) => leerFiltroPais(v) !== null, 'País no válido: un código de dos letras (CL, MX…) o sin_pais')
+    .transform((v) => leerFiltroPais(v))
+    .optional(),
   productId: z.coerce.number().int().positive().optional(),
   search: z.string().max(100).optional(),
   page: z.coerce.number().int().positive().default(1),
@@ -124,6 +137,8 @@ export const createInteractionSchema = z.object({
   // se rechazaba entera (M.ª Eugenia, seis veces en una tarde). La columna es TEXT.
   nota: z.string().max(10000, 'La nota es demasiado larga (máx. 10.000 caracteres)').optional(),
   fecha: z.string().datetime().optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/)).optional(),
+  // El paso de la cola del día que se está atendiendo (#259): se marca hecho.
+  paso_id: z.number().int().positive().optional(),
 });
 
 export const updateInteractionSchema = z.object({

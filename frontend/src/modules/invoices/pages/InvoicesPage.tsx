@@ -54,10 +54,17 @@ export default function InvoicesPage() {
   // eliminar, abonar) es «Corregir y abonar» —el backend valida además que sean
   // SUS facturas—; quien factura de verdad, «Emitir desde la cola». Los totales
   // de la sociedad, las ventas sin factura y los cobros sueltos son trabajo suyo.
-  const { can } = usePermission();
+  const { can, llevaEquipo } = usePermission();
   const canManage = can('facturas.gestionar');
+  // Corregir, abonar, asociar a una venta y eliminar: el permiso Y no llevar un
+  // equipo comercial (Diego, 09/11/2026). El servidor ya le da 403 a quien lo
+  // lleva; aquí no se le enseñan los botones (QA del 09/11).
+  const puedeCorregir = canManage && !llevaEquipo;
   const puedeFacturar = can('facturas.cola');
   const pid = activeProject?.id;
+  // «Todos los proyectos» (#218): sin campus, las de todos los suyos. El servidor
+  // las recorta a los campus de quien mira; los ajustes siguen siendo por campus.
+  const todos = pid === -1;
   const loc = useLocation();
   const [tab, setTab] = useState<'facturas' | 'proformas' | 'abonos'>(() => {
     const t = new URLSearchParams(loc.search).get('tab');
@@ -167,19 +174,21 @@ export default function InvoicesPage() {
       // siguen siendo por proyecto, que es como se configuran.
       const listParams = porSociedad
         ? { issuerId: Number(filterIssuer), ...(filterProject ? { projectId: Number(filterProject) } : {}), ...filters, tipo: tipoTab, page, limit: PER_PAGE }
-        : { projectId: pid, ...filters, tipo: tipoTab, page, limit: PER_PAGE };
+        : todos
+          ? { ...filters, tipo: tipoTab, page, limit: PER_PAGE }
+          : { projectId: pid, ...filters, tipo: tipoTab, page, limit: PER_PAGE };
       const [r1, r2, r3, r4] = await Promise.all([
         invoicesApi.list(listParams),
         porSociedad
           ? invoicesApi.stats({ issuerId: Number(filterIssuer), projectId: filterProject ? Number(filterProject) : null, ...periodo })
-          : invoicesApi.stats({ projectId: pid, ...periodo }),
-        invoicesApi.listIssuers(pid).catch(() => ({ success: false, data: [] as Issuer[] })),
+          : invoicesApi.stats({ projectId: todos ? null : pid, ...periodo }),
+        invoicesApi.listIssuers(todos ? undefined : pid).catch(() => ({ success: false, data: [] as Issuer[] })),
         // Con una sociedad elegida se piden las de TODOS sus campus: es la
         // pantalla que dice que falta por facturar, y acotarla a un proyecto
         // dejaba fuera justo lo que se estaba mirando.
         invoicesApi.ventasSinFactura(porSociedad
           ? { issuerId: Number(filterIssuer) }
-          : { projectId: pid }, periodo).catch(() => ({ success: false, data: [] as VentaSinFactura[] })),
+          : (todos ? {} : { projectId: pid }), periodo).catch(() => ({ success: false, data: [] as VentaSinFactura[] })),
       ]);
       if (r1.success) {
         setInvoices(r1.data || []);
@@ -195,6 +204,8 @@ export default function InvoicesPage() {
       // repetido con la cola de facturacion (los 859,10 de Innovacion Verde).
       // Para enlazarlos uno a uno esta la pantalla de Pagos Stripe, que los
       // sigue enseñando todos.
+      // Con «Todos», no: es la cola de UN campus, y la de todos ya está en Pagos Stripe.
+      if (todos) { setStripeSinAsociar([]); return; }
       client.get<typeof stripeSinAsociar>(`/stripe-payments?projectId=${pid}&linked=no&status=succeeded&facturables=1&sinEquivalente=1&limit=50`)
         .then((r) => { if (r.success) setStripeSinAsociar(r.data || []); })
         .catch(() => setStripeSinAsociar([]));
@@ -310,7 +321,7 @@ export default function InvoicesPage() {
             <TutorialButton />
             {/* Los abonos (rectificativas) los emite un admin o una gestora con
                 permiso factura_manager. Las demás ven la pestaña pero no crean. */}
-            {!(esAbonos && !canManage) && (
+            {!(esAbonos && !puedeCorregir) && (
               <Link to={esAbonos ? 'nueva?tipo=rectificativa' : esProformas ? 'nueva?tipo=proforma' : 'nueva'}
                 className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
                 {esProformas ? <FileText size={14} weight="bold" /> : <Receipt size={14} weight="bold" />}
@@ -328,6 +339,13 @@ export default function InvoicesPage() {
       {/* Si la serie tiene agujeros, se dice aqui: es donde se factura. */}
       <AvisoHuecosFacturas projectId={activeProject?.id} />
 
+      {canManage && llevaEquipo && (
+        <p role="note" className="text-xs text-muted-foreground border border-border rounded-md px-3 py-2 bg-muted/40">
+          Llevas un equipo comercial: ves las facturas de tu equipo, pero corregirlas, abonarlas, asociarlas a una
+          venta o eliminarlas lo hace la administración sin equipo.
+        </p>
+      )}
+
       {/* Solo sale en el listado normal: es el estado de la facturacion, no de las proformas. */}
       {/* Con una empresa elegida arriba no hay un proyecto en la cabecera: una cola por campus
           suyo. Antes salía «todo facturado» con 20 cobros esperando en ACADEMIA IA (21/10). */}
@@ -340,7 +358,7 @@ export default function InvoicesPage() {
             <FacturacionAlDiaCard key={p.id} projectId={p.id} titulo={p.nombre} ocultarSiVacia={!filterProject && sociedadProjects.length > 1} />
           ))}
         </>
-      ) : <FacturacionAlDiaCard projectId={activeProject?.id} />)}
+      ) : <FacturacionAlDiaCard projectId={todos ? null : activeProject?.id} />)}
 
       {/* Pestañas: facturas fiscales vs proformas (presupuestos) */}
       <div className="inline-flex rounded-lg border border-border bg-muted/30 p-1 text-sm font-semibold">
@@ -387,7 +405,7 @@ export default function InvoicesPage() {
               </span>
             </div>
             <Link to="/finanzas/pagos-stripe"
-              className="h-8 px-3 rounded-md bg-destructive text-white text-[11px] font-semibold hover:bg-destructive inline-flex items-center gap-1">
+              className="h-8 px-3 rounded-md bg-destructive text-white text-[11px] font-semibold hover:bg-destructive/90 inline-flex items-center gap-1">
               Asociar en Pagos Stripe →
             </Link>
           </div>
@@ -753,13 +771,13 @@ export default function InvoicesPage() {
                       {inv.estado === 'borrador' && (
                         <button onClick={() => setEmittingInv(inv)}
                           title="Validar los datos y emitir la factura (asigna número fiscal)"
-                          className="h-7 px-2 rounded bg-warning text-warning-foreground text-[11px] font-semibold hover:bg-warning inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded bg-warning text-warning-foreground text-[11px] font-semibold hover:bg-warning/90 inline-flex items-center gap-1">
                           <CheckCircle size={11} weight="bold" /> Validar y emitir
                         </button>
                       )}
                       {/* Corregir una factura YA emitida/pagada (IVA, datos, concepto) — admin.
                           Usa el MISMO panel completo que crear/editar (?editId). */}
-                      {inv.estado !== 'borrador' && inv.estado !== 'cancelada' && canManage && (
+                      {inv.estado !== 'borrador' && inv.estado !== 'cancelada' && puedeCorregir && (
                         <Link to={`nueva?editId=${inv.id}`}
                           title="Editar IVA, datos del cliente o concepto"
                           className="h-7 px-2 rounded border border-info/30 text-info-soft-foreground text-[11px] font-semibold hover:bg-info-soft inline-flex items-center gap-1">
@@ -769,7 +787,7 @@ export default function InvoicesPage() {
                       {inv.estado !== 'borrador' && inv.estado !== 'cancelada' && inv.tipo !== 'proforma' && invoiceFaltantes(inv).length > 0 && (
                         <button onClick={() => setEmittingInv(inv)}
                           title={`Para descargar/enviar debes rellenar: ${invoiceFaltantes(inv).join(', ')}`}
-                          className="h-7 px-2 rounded bg-warning text-warning-foreground text-[11px] font-semibold hover:bg-warning inline-flex items-center gap-1">
+                          className="h-7 px-2 rounded bg-warning text-warning-foreground text-[11px] font-semibold hover:bg-warning/90 inline-flex items-center gap-1">
                           <CheckCircle size={11} weight="bold" /> Completar datos
                         </button>
                       )}
@@ -799,7 +817,7 @@ export default function InvoicesPage() {
                           <CheckCircle size={11} weight="bold" /> Cobrada
                         </button>
                       )}
-                      {inv.estado !== 'borrador' && inv.tipo !== 'rectificativa' && canManage && (
+                      {inv.estado !== 'borrador' && inv.tipo !== 'rectificativa' && puedeCorregir && (
                         <button onClick={() => rectificar(inv)}
                           title="Crear factura rectificativa (de abono)"
                           className="h-7 px-2 rounded border border-destructive/40 text-[11px] text-destructive hover:bg-destructive-soft inline-flex items-center gap-1">
@@ -807,7 +825,7 @@ export default function InvoicesPage() {
                         </button>
                       )}
                       {/* Asociar la factura a una venta del cliente — Opción B. */}
-                      {inv.estado !== 'cancelada' && canManage && (
+                      {inv.estado !== 'cancelada' && puedeCorregir && (
                         <button onClick={() => setAsociarInv(inv)}
                           title="Asociar esta factura a una venta del cliente"
                           className="h-7 px-2 rounded border border-border text-[11px] hover:bg-muted inline-flex items-center gap-1">
@@ -815,7 +833,7 @@ export default function InvoicesPage() {
                         </button>
                       )}
                       {/* Eliminar factura + liberar número (errores de carga). */}
-                      {canManage && inv.estado !== 'cancelada' && (
+                      {puedeCorregir && inv.estado !== 'cancelada' && (
                         <button onClick={() => setDeletingInv(inv)}
                           title="Eliminar la factura y liberar su número (se equivocaron al cargarla)"
                           className="h-7 px-2 rounded border border-destructive/40 text-[11px] text-destructive hover:bg-destructive-soft inline-flex items-center gap-1">
@@ -937,7 +955,7 @@ export default function InvoicesPage() {
                     toast({ title: 'Error', description: e?.data?.error || e?.message, variant: 'destructive' });
                   } finally { setDeleting(false); }
                 }}
-                className="h-9 px-4 rounded-md bg-destructive text-white text-sm font-semibold hover:bg-destructive inline-flex items-center gap-1.5 disabled:opacity-50">
+                className="h-9 px-4 rounded-md bg-destructive text-white text-sm font-semibold hover:bg-destructive/90 inline-flex items-center gap-1.5 disabled:opacity-50">
                 <Trash size={15} weight="bold" /> {deleting ? 'Eliminando…' : 'Eliminar y liberar número'}
               </button>
             </div>

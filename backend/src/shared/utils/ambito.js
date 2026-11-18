@@ -47,6 +47,18 @@ export async function campusDeLaPersona(userId) {
 }
 
 /**
+ * Los campus a los que se recorta lo que ve esta persona: `null` para quien ve
+ * el CRM entero (super admin y soporte); el resto, los suyos, o `[-1]` (que no
+ * casa con nada) si no tiene ninguno. Para las consultas que filtran con
+ * `= ANY($n::int[])` (Diego, 04/11: el project manager ve todo, pero lo suyo).
+ */
+export async function campusParaRecortar(req) {
+  if (veTodoElCrm(req.user)) return null;
+  const mios = await campusDeLaPersona(req.user?.userId);
+  return mios.length ? mios : [-1];
+}
+
+/**
  * Que la cosa (un prospecto, una regla, un campus…) sea de uno de SUS campus.
  *
  * Para los permisos que de serie solo trae soporte y que un admin de empresa
@@ -123,6 +135,21 @@ export async function listaDelAmbito(req) {
   }
   const { projectId, projectIds } = await proyectosDelAmbito(req);
   return comoLista(projectId, projectIds);
+}
+
+/**
+ * «Todos los proyectos» como UNA lista (#218): los campus de quien pide; super
+ * admin y soporte, todos los activos menos los de pruebas (la regla de la 148:
+ * un campus de pruebas solo se ve si se elige). Para los modelos que, sin lista,
+ * devolverían todo, también lo de pruebas.
+ */
+export async function campusDeTodos(req) {
+  if (!veTodoElCrm(req.user)) {
+    const mios = await campusDeLaPersona(req.user?.userId);
+    return mios.length ? mios : [-1];
+  }
+  const { rows } = await query('SELECT id FROM projects WHERE active AND NOT COALESCE(es_prueba, false) ORDER BY id');
+  return rows.map((r) => Number(r.id));
 }
 
 /**

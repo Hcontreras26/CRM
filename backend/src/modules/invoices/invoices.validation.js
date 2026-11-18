@@ -10,12 +10,15 @@ export const createInvoiceSchema = z.object({
   projectId: z.number().int().positive(),
   conversionId: z.number().int().positive().optional(),
   // El numero lo puede poner quien emite (Diego, 14/09). Si no llega, se coge
-  // el siguiente libre. `permitirParecida` es el «emitir igualmente» cuando el
-  // CRM avisa de que esa venta ya tiene una factura igual ese dia.
+  // el siguiente libre. `permitirParecida` es el nombre viejo de
+  // `confirmar_duplicada` (abajo): se sigue aceptando.
   numero: z.coerce.number().int().positive().optional().nullable(),
   permitirParecida: z.coerce.boolean().optional(),
   // Y este, cuando avisa de que la factura pasa de lo cobrado de la venta.
   permitirMasDeLoCobrado: z.coerce.boolean().optional(),
+  // «Emitir igualmente» cuando el CRM avisa de que ya hay una factura del mismo
+  // cliente por el mismo importe en la misma semana (POSIBLE_DUPLICADA, CRM#819).
+  confirmar_duplicada: z.boolean().optional(),
   leadId: z.number().int().positive().optional(),
   // 'proforma' = presupuesto no fiscal. 'normal' = factura. (rectificativa va por su ruta)
   tipo: z.enum(['normal', 'proforma']).optional(),

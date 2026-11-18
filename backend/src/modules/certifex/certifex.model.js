@@ -396,6 +396,16 @@ export async function idsAdministracionDeCentro(centro) {
   return rows.map((r) => r.id);
 }
 
+/**
+ * ¿Ese campus de Certifex es de este CRM? Si casa con algun proyecto (sin los de
+ * prueba), con la misma regla que la campana y los permisos (`proyectosDeCentro`).
+ * Lo usan las entradas de Certifex para no guardar avisos de otro CRM (#630).
+ */
+export async function esCentroDeEsteCrm(centro) {
+  const { rows } = await query(`SELECT id, nombre, slug FROM projects WHERE NOT COALESCE(es_prueba, false)`);
+  return proyectosDeCentro(centro, rows).length > 0;
+}
+
 // ── Terminaron sin pedir el diploma (aviso «ha terminado la formacion») ─────
 
 /**

@@ -3,12 +3,13 @@ import { encrypt, decrypt } from '../../shared/utils/crypto.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import * as metaClient from './meta-ads.client.js';
+import { destinoDelCreativo, formacionDelConjunto } from './meta-ads.enlaces.js';
 
-function packToken(plain) {
+export function packToken(plain) {
   const { encrypted, iv, authTag } = encrypt(plain);
   return `${iv}:${authTag}:${encrypted}`;
 }
-function unpackToken(packed) {
+export function unpackToken(packed) {
   const [iv, authTag, encrypted] = String(packed).split(':');
   if (!iv || !authTag || !encrypted) throw new AppError('Token corrupto', 500, 'TOKEN_CORRUPT');
   return decrypt(encrypted, iv, authTag);
@@ -159,6 +160,7 @@ export async function syncIncremental(accountId) {
   const projectId = account.project_id;
   const token = await loadTokenById(accountId);
   await query(`UPDATE meta_ad_accounts SET last_sync_status='in_progress' WHERE id=$1`, [accountId]);
+  const inicio = new Date();
   try {
     await syncCampaignsSnapshot({ account, token });
     await syncAdSetsSnapshot({ account, token });
@@ -175,6 +177,7 @@ export async function syncIncremental(accountId) {
     await recalcCampaignTotals(projectId);
     await recalcAdSetTotals(projectId);
     await recalcAdTotals(projectId);
+    await despuesDeSincronizar({ account, token, inicio });
     await query(
       `UPDATE meta_ad_accounts SET last_synced_at=NOW(), last_sync_status='ok', last_sync_error=NULL WHERE id=$1`,
       [accountId]
@@ -198,6 +201,7 @@ export async function runBackfill(accountId, days = 90) {
   const projectId = account.project_id;
   const token = await loadTokenById(accountId);
   await query(`UPDATE meta_ad_accounts SET last_sync_status='in_progress', last_sync_error=NULL WHERE id=$1`, [accountId]);
+  const inicio = new Date();
   try {
     await syncCampaignsSnapshot({ account, token });
     await syncAdSetsSnapshot({ account, token });
@@ -225,6 +229,7 @@ export async function runBackfill(accountId, days = 90) {
     await recalcCampaignTotals(projectId);
     await recalcAdSetTotals(projectId);
     await recalcAdTotals(projectId);
+    await despuesDeSincronizar({ account, token, inicio, forzarGastoTotal: true });
     await query(
       `UPDATE meta_ad_accounts SET last_synced_at=NOW(), last_sync_status='ok', backfill_done=TRUE, last_sync_error=NULL WHERE id=$1`,
       [accountId]
@@ -305,20 +310,21 @@ async function syncAdSetsSnapshot({ account, token }) {
     await query(
       `INSERT INTO meta_adsets
          (adset_id, campaign_id, project_id, nombre, status, effective_status,
-          optimization_goal, billing_event, daily_budget, lifetime_budget, start_time, end_time, synced_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW())
+          optimization_goal, billing_event, daily_budget, lifetime_budget, start_time, end_time, created_time, synced_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
        ON CONFLICT (adset_id) DO UPDATE SET
          campaign_id=EXCLUDED.campaign_id, nombre=EXCLUDED.nombre, status=EXCLUDED.status,
          effective_status=EXCLUDED.effective_status, optimization_goal=EXCLUDED.optimization_goal,
          billing_event=EXCLUDED.billing_event, daily_budget=EXCLUDED.daily_budget,
          lifetime_budget=EXCLUDED.lifetime_budget, start_time=EXCLUDED.start_time,
-         end_time=EXCLUDED.end_time, synced_at=NOW()`,
+         end_time=EXCLUDED.end_time, created_time=COALESCE(EXCLUDED.created_time, meta_adsets.created_time),
+         synced_at=NOW()`,
       [
         a.id, a.campaign_id, account.project_id, a.name || '', a.status || null, a.effective_status || null,
         a.optimization_goal || null, a.billing_event || null,
         a.daily_budget ? Number(a.daily_budget) / 100 : null,
         a.lifetime_budget ? Number(a.lifetime_budget) / 100 : null,
-        a.start_time || null, a.end_time || null,
+        a.start_time || null, a.end_time || null, a.created_time || null,
       ]
     );
   }
@@ -371,18 +377,26 @@ async function syncAdsSnapshot({ account, token }) {
     // se borra el adset durante la paginación).
     const { rowCount } = await query(`SELECT 1 FROM meta_adsets WHERE adset_id=$1`, [ad.adset_id]);
     if (!rowCount) continue;
+    // La URL de destino sale del creativo (#362): enlace, carrusel (todas las
+    // tarjetas), vídeo, dinámico; un formulario instantáneo no tiene URL.
+    const destino = destinoDelCreativo(ad.creative);
     await query(
       `INSERT INTO meta_ads
-         (ad_id, adset_id, campaign_id, project_id, nombre, status, effective_status, creative_id, created_time, synced_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+         (ad_id, adset_id, campaign_id, project_id, nombre, status, effective_status, creative_id, created_time,
+          url_destino, urls_destino, formato_creativo, lead_form_id, url_tags, synced_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())
        ON CONFLICT (ad_id) DO UPDATE SET
          adset_id=EXCLUDED.adset_id, campaign_id=EXCLUDED.campaign_id, nombre=EXCLUDED.nombre,
          status=EXCLUDED.status, effective_status=EXCLUDED.effective_status,
-         creative_id=EXCLUDED.creative_id, created_time=EXCLUDED.created_time, synced_at=NOW()`,
+         creative_id=EXCLUDED.creative_id, created_time=EXCLUDED.created_time,
+         url_destino=EXCLUDED.url_destino, urls_destino=EXCLUDED.urls_destino,
+         formato_creativo=EXCLUDED.formato_creativo, lead_form_id=EXCLUDED.lead_form_id,
+         url_tags=EXCLUDED.url_tags, synced_at=NOW()`,
       [
         ad.id, ad.adset_id, ad.campaign_id, account.project_id, ad.name || '',
         ad.status || null, ad.effective_status || null,
         ad.creative?.id || null, ad.created_time || null,
+        destino.url, destino.urls, destino.formato, destino.formulario_id, destino.url_tags,
       ]
     );
   }
@@ -446,6 +460,150 @@ async function recalcCampaignTotals(projectId) {
      WHERE mc.campaign_id = s.campaign_id AND mc.project_id=$1`,
     [projectId]
   );
+}
+
+// ────────────────────────────────────────────────────────────
+// Después de cada sincronización (#362): el gasto de toda la vida y la
+// asociación automática conjunto ↔ formación. Ninguna de las dos tumba la
+// sincronización si falla: se apunta en el log y la próxima lo vuelve a probar.
+
+/** Cada cuánto se vuelve a pedir a Meta el gasto de toda la vida (horas). */
+const GASTO_TOTAL_CADA_HORAS = () => Number(process.env.META_GASTO_TOTAL_CADA_HORAS || 12);
+
+async function despuesDeSincronizar({ account, token, inicio, forzarGastoTotal = false }) {
+  try {
+    if (forzarGastoTotal || !(await gastoTotalAlDia(account))) {
+      await syncGastoTotal({ account, token, inicio });
+    }
+  } catch (err) {
+    logger.warn({ err: err.message, account_id: account.id }, 'Meta: no se pudo traer el gasto total (date_preset=maximum)');
+  }
+  try {
+    const r = await autoAsociarConjuntos({ account });
+    if (r.asociados || r.quitados) logger.info({ account_id: account.id, ...r }, 'Meta: asociación automática de conjuntos');
+  } catch (err) {
+    logger.warn({ err: err.message, account_id: account.id }, 'Meta: falló la asociación automática de conjuntos');
+  }
+}
+
+/** ¿Se pidió el gasto de toda la vida de esta cuenta hace menos de N horas? */
+async function gastoTotalAlDia(account) {
+  const { rows } = await query(
+    `SELECT MAX(ma.lifetime_synced_at) AS ultima
+       FROM meta_adsets ma
+       JOIN meta_campaigns mc ON mc.campaign_id = ma.campaign_id
+      WHERE mc.project_id = $1 AND mc.ad_account_id = $2`,
+    [account.project_id, account.ad_account_id]
+  );
+  const ultima = rows[0]?.ultima ? new Date(rows[0].ultima).getTime() : 0;
+  return ultima > Date.now() - GASTO_TOTAL_CADA_HORAS() * 3600_000;
+}
+
+/**
+ * Gasto, impresiones y clics de toda la vida de cada conjunto y cada anuncio de
+ * la cuenta, tal como los da Meta (`date_preset=maximum`). Dos llamadas (más
+ * sus páginas).
+ *
+ * El que no sale en la respuesta no ha tenido entrega nunca: se le pone 0, pero
+ * SOLO si ha salido en el listado de esta misma sincronización (`synced_at` ≥
+ * `inicio`). Uno que ya no lista Meta (archivado o borrado) se queda con lo
+ * último que se supo: un 0 ahí sería mentira.
+ */
+export async function syncGastoTotal({ account, token, inicio = new Date() }) {
+  const niveles = [
+    { level: 'adset', tabla: 'meta_adsets', id: 'adset_id' },
+    { level: 'ad', tabla: 'meta_ads', id: 'ad_id' },
+  ];
+  const hechos = {};
+  for (const n of niveles) {
+    const filas = await metaClient.fetchLifetimeInsights({ adAccountId: account.ad_account_id, accessToken: token, level: n.level });
+    await query(
+      `UPDATE ${n.tabla} t SET
+         lifetime_spend = COALESCE(v.spend, 0),
+         lifetime_impressions = COALESCE(v.impressions, 0),
+         lifetime_clicks = COALESCE(v.clicks, 0),
+         lifetime_synced_at = NOW()
+       FROM (
+         SELECT x.${n.id} AS id, g.spend, g.impressions, g.clicks, g.id IS NOT NULL AS en_meta, x.synced_at
+           FROM ${n.tabla} x
+           JOIN meta_campaigns mc ON mc.campaign_id = x.campaign_id
+           LEFT JOIN unnest($3::text[], $4::numeric[], $5::bigint[], $6::bigint[]) AS g(id, spend, impressions, clicks)
+                  ON g.id = x.${n.id}
+          WHERE mc.project_id = $1 AND mc.ad_account_id = $2
+       ) v
+      WHERE t.${n.id} = v.id AND (v.en_meta OR v.synced_at >= $7)`,
+      [
+        account.project_id, account.ad_account_id,
+        filas.map((f) => f.id), filas.map((f) => f.spend), filas.map((f) => f.impressions), filas.map((f) => f.clicks),
+        inicio,
+      ]
+    );
+    hechos[n.level] = filas.length;
+  }
+  return hechos;
+}
+
+/**
+ * Asociación automática conjunto ↔ formación por la URL de destino (#362,
+ * puerta 7). Para cada conjunto de la cuenta se juntan las URLs de TODOS sus
+ * anuncios y se buscan en el enlace (`products.url_info`) de las formaciones
+ * ACTIVAS de su campus (`formacionDelConjunto`):
+ *
+ *   · coincide una  → se asocia, con origen 'auto' (sin persona, notas 'auto');
+ *   · ninguna/varias → no se asocia, y se quita la automática que hubiera.
+ *
+ * Lo de una persona manda siempre: si el conjunto tiene alguna asociación
+ * manual, o alguien guardó sus formaciones a mano (`productos_manual_at`,
+ * aunque fuera dejarlo vacío), no se toca. Y nunca se borra una manual: todos
+ * los DELETE llevan `origen = 'auto'`.
+ */
+export async function autoAsociarConjuntos({ account }) {
+  const { rows: conjuntos } = await query(
+    `SELECT ma.adset_id, ma.project_id,
+            (ma.productos_manual_at IS NOT NULL
+              OR EXISTS (SELECT 1 FROM meta_adset_products x WHERE x.adset_id = ma.adset_id AND x.origen = 'manual')) AS manual,
+            COALESCE((SELECT array_agg(DISTINCT u)
+                        FROM meta_ads ad, unnest(COALESCE(ad.urls_destino, '{}'::text[])) AS u
+                       WHERE ad.adset_id = ma.adset_id), '{}'::text[]) AS urls,
+            COALESCE((SELECT array_agg(x.product_id ORDER BY x.product_id)
+                        FROM meta_adset_products x
+                       WHERE x.adset_id = ma.adset_id AND x.origen = 'auto'), '{}'::int[]) AS autos
+       FROM meta_adsets ma
+       JOIN meta_campaigns mc ON mc.campaign_id = ma.campaign_id
+      WHERE mc.project_id = $1 AND mc.ad_account_id = $2`,
+    [account.project_id, account.ad_account_id]
+  );
+  const { rows: productos } = await query(
+    `SELECT id, url_info FROM products
+      WHERE project_id = $1 AND active = true AND url_info IS NOT NULL AND btrim(url_info) <> ''`,
+    [account.project_id]
+  );
+  const r = { asociados: 0, quitados: 0, ninguno: 0, varios: 0, manuales: 0 };
+  for (const c of conjuntos) {
+    if (c.manual) { r.manuales++; continue; }
+    const { productId, motivo } = formacionDelConjunto(c.urls || [], productos);
+    const autos = (c.autos || []).map(Number);
+    if (!productId) r[motivo]++;
+    // Fuera las automáticas que ya no valen (todas, si no hay formación).
+    const sobran = autos.filter((id) => id !== productId);
+    if (sobran.length) {
+      await query(
+        `DELETE FROM meta_adset_products WHERE adset_id = $1 AND origen = 'auto' AND product_id = ANY($2::int[])`,
+        [c.adset_id, sobran]
+      );
+      r.quitados += sobran.length;
+    }
+    if (productId && !autos.includes(productId)) {
+      await query(
+        `INSERT INTO meta_adset_products (adset_id, product_id, project_id, asociado_por_user_id, notas, origen)
+         VALUES ($1, $2, $3, NULL, 'auto', 'auto')
+         ON CONFLICT (adset_id, product_id) DO NOTHING`,
+        [c.adset_id, productId, c.project_id]
+      );
+      r.asociados++;
+    }
+  }
+  return r;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -714,11 +872,14 @@ export async function setAdSetAssociations({ projectId, adsetId, productIds, use
   await query(`DELETE FROM meta_adset_products WHERE adset_id = $1 AND project_id = $2`, [adsetId, projectId]);
   for (const pid of productIds || []) {
     await query(
-      `INSERT INTO meta_adset_products (adset_id, product_id, project_id, asociado_por_user_id)
-       VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+      `INSERT INTO meta_adset_products (adset_id, product_id, project_id, asociado_por_user_id, origen)
+       VALUES ($1, $2, $3, $4, 'manual') ON CONFLICT DO NOTHING`,
       [adsetId, pid, projectId, userId || null]
     );
   }
+  // Lo ha decidido una persona (aunque sea dejarlo sin ninguna): la asociación
+  // automática ya no toca este conjunto (#362).
+  await query(`UPDATE meta_adsets SET productos_manual_at = NOW() WHERE adset_id = $1 AND project_id = $2`, [adsetId, projectId]);
   return { adset_id: adsetId, product_ids: productIds || [] };
 }
 
@@ -791,7 +952,8 @@ export async function getProductsView({ projectId, dateFrom = null, dateTo = nul
        SELECT c.producto_contratado_id AS product_id,
               COUNT(DISTINCT c.id)::int AS ventas,
               COALESCE(SUM(c.importe_total), 0)::numeric AS facturado,
-              COALESCE(SUM(c.importe_pagado), 0)::numeric AS cobrado
+              -- Lo cobrado sale de los apuntes, no de importe_pagado, que declara de más (#53).
+              COALESCE(SUM((SELECT COALESCE(SUM(cp.importe), 0) FROM conversion_payments cp WHERE cp.conversion_id = c.id)), 0)::numeric AS cobrado
        FROM conversions c
        WHERE ${convW.join(' AND ')} AND c.producto_contratado_id IS NOT NULL
        GROUP BY c.producto_contratado_id
@@ -845,44 +1007,82 @@ export async function getProductsView({ projectId, dateFrom = null, dateTo = nul
 }
 
 /**
- * ROI: por cada campaña con productos asociados, calcular:
- *   spend (suma de campaign daily en rango)
- *   facturado (suma conversions.importe_total de productos asociados en rango)
- *   ROI = (facturado - spend) / spend
+ * Retorno por campaña: del gasto a la venta, no al lead (#53).
+ *
+ * LA CADENA. campaña de Meta → lead (`lead_utms.utm_campaign` = id de la
+ * campaña; una sola fila de UTM por lead, así que un lead cuenta en UNA
+ * campaña) → venta (`conversions.lead_id`) → lo COBRADO de verdad
+ * (`conversion_payments`, nunca `conversions.importe_pagado`, que declara de
+ * más). Antes esto cruzaba el gasto con TODAS las ventas de los productos
+ * asociados a la campaña, vinieran de ella o no.
+ *
+ * LO QUE ES UNA VENTA aquí: la que ya tiene algún cobro apuntado y no es una
+ * mensualidad. Es la misma regla de «Ventas» (getTopProducts), para que las
+ * cifras cuadren con Finanzas.
+ *
+ * EL DESFASE entre el clic y el dinero. Una campaña de hace dos meses puede
+ * estar cobrando ahora; mirar solo lo cobrado dentro del rango la deja en
+ * pérdidas. Por eso hay DOS lecturas del mismo rango [dateFrom, dateTo]:
+ *   · COHORTE: el gasto del rango frente a lo que han vendido y cobrado
+ *     —hasta hoy— los leads captados EN el rango. Es la que responde «¿qué
+ *     campaña nos ha traído más dinero este trimestre?» (`ventas`, `vendido`,
+ *     `cobrado`, `retorno`, `roi_pct`).
+ *   · CAJA: lo que ha entrado en el rango por los leads de la campaña, sean
+ *     de cuando sean (`cobrado_en_periodo`, `retorno_en_periodo`). Dice qué
+ *     campañas están cobrando AHORA.
+ * Sin rango, las dos coinciden con el total de la vida de la campaña.
+ *
+ * `facturado` se queda por no romper a quien ya lo lee: es lo VENDIDO (el
+ * importe de las ventas), como en «Ventas»; `ganancia` es el retorno.
  */
 export async function getRoi({ projectId, dateFrom = null, dateTo = null }) {
-  const params = [projectId];
-  const dailyWhere = ['d.project_id = $1'];
-  const convWhere = ['c.project_id = $1'];
-  if (dateFrom) {
-    params.push(dateFrom);
-    dailyWhere.push(`d.date >= $${params.length}`);
-    convWhere.push(`c.fecha_conversion >= $${params.length}`);
-  }
-  if (dateTo) {
-    params.push(dateTo);
-    dailyWhere.push(`d.date <= $${params.length}`);
-    convWhere.push(`c.fecha_conversion <= $${params.length}`);
-  }
   const { rows } = await query(
     `WITH camp_spend AS (
        SELECT mc.campaign_id, mc.nombre, mc.status, mc.effective_status,
               COALESCE(SUM(d.spend), 0)::numeric AS spend,
               COALESCE(SUM(d.leads), 0)::int AS leads_meta
        FROM meta_campaigns mc
-       LEFT JOIN meta_campaigns_daily d ON d.campaign_id = mc.campaign_id AND ${dailyWhere.join(' AND ').replace('d.project_id = $1', 'mc.project_id = $1')}
+       LEFT JOIN meta_campaigns_daily d ON d.campaign_id = mc.campaign_id
+            AND ($2::date IS NULL OR d.date >= $2::date)
+            AND ($3::date IS NULL OR d.date <= $3::date)
        WHERE mc.project_id = $1
        GROUP BY mc.campaign_id, mc.nombre, mc.status, mc.effective_status
      ),
-     camp_revenue AS (
-       SELECT mcp.campaign_id,
-              COUNT(DISTINCT c.id)::int AS ventas,
-              COALESCE(SUM(c.importe_total), 0)::numeric AS facturado,
-              COALESCE(SUM(c.importe_pagado), 0)::numeric AS cobrado
-       FROM meta_campaign_products mcp
-       LEFT JOIN conversions c ON c.producto_contratado_id = mcp.product_id AND ${convWhere.join(' AND ')}
-       WHERE mcp.project_id = $1
-       GROUP BY mcp.campaign_id
+     -- Cada lead del proyecto que llegó por una campaña de Meta, con su fecha.
+     lead_campana AS (
+       SELECT l.id AS lead_id, lu.utm_campaign AS campaign_id, l.created_at::date AS dia
+       FROM lead_utms lu
+       JOIN leads l ON l.id = lu.lead_id
+       WHERE l.project_id = $1 AND l.deleted_at IS NULL
+         AND lu.utm_campaign IN (SELECT campaign_id FROM meta_campaigns WHERE project_id = $1)
+     ),
+     -- Ventas de esos leads, con lo cobrado (todo, hasta hoy) de cada una.
+     venta AS (
+       SELECT lc.lead_id, lc.campaign_id, c.id AS conversion_id, c.importe_total,
+              (SELECT COALESCE(SUM(cp.importe), 0) FROM conversion_payments cp WHERE cp.conversion_id = c.id) AS cobrado
+       FROM lead_campana lc
+       JOIN conversions c ON c.lead_id = lc.lead_id AND c.project_id = $1 AND NOT c.es_mensualidad
+       WHERE EXISTS (SELECT 1 FROM conversion_payments cx WHERE cx.conversion_id = c.id)
+     ),
+     camp_cohorte AS (
+       SELECT lc.campaign_id,
+              COUNT(DISTINCT lc.lead_id)::int AS leads_crm,
+              COUNT(v.conversion_id)::int AS ventas,
+              COALESCE(SUM(v.importe_total), 0)::numeric AS vendido,
+              COALESCE(SUM(v.cobrado), 0)::numeric AS cobrado
+       FROM lead_campana lc
+       LEFT JOIN venta v ON v.lead_id = lc.lead_id
+       WHERE ($2::date IS NULL OR lc.dia >= $2::date) AND ($3::date IS NULL OR lc.dia <= $3::date)
+       GROUP BY lc.campaign_id
+     ),
+     camp_caja AS (
+       SELECT lc.campaign_id, COALESCE(SUM(cp.importe), 0)::numeric AS cobrado_periodo
+       FROM lead_campana lc
+       JOIN conversions c ON c.lead_id = lc.lead_id AND c.project_id = $1 AND NOT c.es_mensualidad
+       JOIN conversion_payments cp ON cp.conversion_id = c.id
+            AND ($2::date IS NULL OR cp.fecha >= $2::date)
+            AND ($3::date IS NULL OR cp.fecha <= $3::date)
+       GROUP BY lc.campaign_id
      ),
      camp_products AS (
        SELECT mcp.campaign_id, COUNT(*)::int AS n_productos,
@@ -894,23 +1094,29 @@ export async function getRoi({ projectId, dateFrom = null, dateTo = null }) {
      )
      SELECT cs.campaign_id, cs.nombre, cs.status, cs.effective_status,
             cs.spend, cs.leads_meta,
-            COALESCE(cr.ventas, 0) AS ventas,
-            COALESCE(cr.facturado, 0)::numeric AS facturado,
-            COALESCE(cr.cobrado, 0)::numeric AS cobrado,
+            COALESCE(cc.leads_crm, 0) AS leads_crm,
+            COALESCE(cc.ventas, 0) AS ventas,
+            COALESCE(cc.vendido, 0)::numeric AS vendido,
+            COALESCE(cc.cobrado, 0)::numeric AS cobrado,
+            COALESCE(cj.cobrado_periodo, 0)::numeric AS cobrado_periodo,
             COALESCE(cp.n_productos, 0) AS n_productos,
             cp.productos_nombres
      FROM camp_spend cs
-     LEFT JOIN camp_revenue cr ON cr.campaign_id = cs.campaign_id
+     LEFT JOIN camp_cohorte cc ON cc.campaign_id = cs.campaign_id
+     LEFT JOIN camp_caja cj ON cj.campaign_id = cs.campaign_id
      LEFT JOIN camp_products cp ON cp.campaign_id = cs.campaign_id
-     WHERE cs.spend > 0 OR cp.n_productos > 0
-     ORDER BY cs.spend DESC`,
-    params
+     WHERE cs.spend > 0 OR COALESCE(cc.leads_crm, 0) > 0 OR COALESCE(cj.cobrado_periodo, 0) > 0
+     ORDER BY cs.spend DESC, cs.nombre`,
+    [projectId, dateFrom, dateTo]
   );
   return rows.map((r) => {
     const spend = Number(r.spend || 0);
-    const facturado = Number(r.facturado || 0);
+    const vendido = Number(r.vendido || 0);
     const cobrado = Number(r.cobrado || 0);
-    const roi = spend > 0 ? ((facturado - spend) / spend) * 100 : null;
+    const cobradoPeriodo = Number(r.cobrado_periodo || 0);
+    const ventas = Number(r.ventas || 0);
+    const leadsCrm = Number(r.leads_crm || 0);
+    const pct = (dinero) => (spend > 0 ? Number((((dinero - spend) / spend) * 100).toFixed(2)) : null);
     return {
       campaign_id: r.campaign_id,
       nombre: r.nombre,
@@ -918,11 +1124,19 @@ export async function getRoi({ projectId, dateFrom = null, dateTo = null }) {
       effective_status: r.effective_status,
       spend,
       leads_meta: Number(r.leads_meta || 0),
-      ventas: Number(r.ventas || 0),
-      facturado,
+      leads_crm: leadsCrm,
+      ventas,
+      vendido,
+      facturado: vendido,
       cobrado,
-      ganancia: facturado - spend,
-      roi_pct: roi != null ? Number(roi.toFixed(2)) : null,
+      cobrado_en_periodo: cobradoPeriodo,
+      coste_por_lead: leadsCrm > 0 ? Number((spend / leadsCrm).toFixed(2)) : null,
+      coste_por_venta: ventas > 0 ? Number((spend / ventas).toFixed(2)) : null,
+      retorno: Number((cobrado - spend).toFixed(2)),
+      retorno_en_periodo: Number((cobradoPeriodo - spend).toFixed(2)),
+      ganancia: Number((cobrado - spend).toFixed(2)),
+      roi_pct: pct(cobrado),
+      roi_en_periodo_pct: pct(cobradoPeriodo),
       n_productos_asociados: Number(r.n_productos || 0),
       productos_nombres: r.productos_nombres,
     };

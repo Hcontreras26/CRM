@@ -37,8 +37,9 @@ export default function ProjectDialog({ open, onClose, existing, onSaved }: { op
     if (open) {
       setNewSoc(null);
       // `client` ya devuelve el cuerpo ({ success, data }): la lista es `r.data`.
-      // Se leía `r.data.data` y el desplegable salía sin ninguna empresa (28/10).
-      client.get('/projects/sociedades').then(r => setSociedades(Array.isArray(r?.data) ? r.data : [])).catch(() => setSociedades([]));
+      // Con `r.data.data` el desplegable salía siempre vacío y no se podía
+      // elegir la empresa de un campus nuevo (#187).
+      client.get('/projects/sociedades').then(r => setSociedades(r.data || [])).catch(() => setSociedades([]));
       if (existing) {
         setForm({
           nombre: existing.nombre || '',
@@ -95,7 +96,7 @@ export default function ProjectDialog({ open, onClose, existing, onSaved }: { op
           razon_social: newSoc.razon_social.trim(),
           serie: newSoc.serie.trim() || null,
         });
-        sociedadId = r?.data?.id ?? null;
+        sociedadId = r.data?.id ?? null;
       }
       const payload: Record<string, unknown> = {
         nombre: form.nombre,

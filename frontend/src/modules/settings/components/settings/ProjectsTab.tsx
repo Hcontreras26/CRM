@@ -6,8 +6,8 @@ import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import ProjectSettingsDialog from '../ProjectSettingsDialog';
 import ProjectDialog from './ProjectDialog';
 import { lista } from '@/shared/lib/lista';
-import usePermission from '@/shared/hooks/usePermission';
 import { ProjectAvatar } from '@/shared/components/ui/ProjectAvatar';
+import usePermission from '@/shared/hooks/usePermission';
 
 export default function ProjectsTab() {
   const { user, refreshUser } = useAuth();

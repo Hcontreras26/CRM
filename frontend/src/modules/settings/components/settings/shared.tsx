@@ -15,7 +15,7 @@ export const TABS: SettingsTab[] = [
   { id: 'availability', label: 'Disponibilidad',      icon: CalendarBlank },
   { id: 'roles',        label: 'Roles y Permisos',    icon: ShieldCheck,    to: '/configuracion/roles' },
   { id: 'fields',       label: 'Campos custom',       icon: ListChecks,     to: '/configuracion/campos' },
-  { id: 'cat-tree',     label: 'Árbol de categorías', icon: Tree,           to: '/configuracion/categorias-arbol' },
+  { id: 'cat-tree',     label: 'Árbol de categorías', icon: Tree,           to: '/productos/categorias' },
   { id: 'channels',     label: 'Canales',             icon: ChatCircleText, to: '/configuracion/canales' },
   { id: 'proceso',      label: 'Proceso comercial',   icon: ListChecks,     to: '/prospectos/proceso' },
   { id: 'forms',        label: 'Formularios',         icon: Globe },

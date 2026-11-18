@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useVistaGeneral } from '@/shared/hooks/useVistaGeneral';
+import EstadoDeWooCommerce from '../components/EstadoDeWooCommerce';
 import client from '@/shared/api/client';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
@@ -111,7 +113,11 @@ interface WooPreview {
 }
 
 export default function WooCommercePage() {
-  const { activeProject } = useProjectContext();
+  const { activeProject: cabecera } = useProjectContext();
+  // Con «Todos» o una empresa (#218, Diego 04/11): la tienda de cada campus,
+  // solo para ver (`EstadoDeWooCommerce`). Sin campus arriba, nada de aquí pide.
+  const { general, ambito } = useVistaGeneral();
+  const activeProject = general ? null : cabecera;
   const [creds, setCreds] = useState<WooCredentials | null>(null);
   const [form, setForm] = useState<WooForm>({
     store_url: '', consumer_key: '', consumer_secret: '',
@@ -287,6 +293,15 @@ export default function WooCommercePage() {
       else next[crmField] = arr;
       return next;
     });
+  }
+
+  if (general) {
+    return (
+      <div className="space-y-5 pb-8">
+        <PageHeader title="WooCommerce" subtitle="La tienda de cada campus, solo para ver. Para conectarla o importar, entra en el campus." />
+        <EstadoDeWooCommerce ambito={ambito} />
+      </div>
+    );
   }
 
   return (

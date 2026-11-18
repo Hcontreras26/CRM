@@ -36,6 +36,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import StatusBadge, { STATUS_KEYS, STATUS_LABELS } from '@/shared/components/ui/StatusBadge';
 import ChannelBadge, { CHANNEL_LABELS } from '@/shared/components/ui/ChannelBadge';
 import { cn } from '@/shared/lib/utils';
+import { PANTALLAS_IA } from '@/shared/lib/pantallasIA';
 
 const SUITEDASH_NAV_SECTIONS = [
   {
@@ -126,8 +127,11 @@ const SUITEDASH_NAV_SECTIONS = [
     label: 'Analisis',
     items: [
       { label: 'Reportes', detail: 'KPIs por proyecto', icon: TrendUp, route: '/informes', tone: 'cyan' },
-      { label: 'Analisis IA', detail: 'Lectura inteligente', icon: Sparkle, route: '/informes/ia', tone: 'violet' },
-      { label: 'Chat IA', detail: 'Asistente interno', icon: ChatCircleText, route: '/chat-ia', tone: 'blue' },
+      // Las pantallas de IA del CRM (#30), apagadas desde el 10/11 (`PANTALLAS_IA`).
+      ...(PANTALLAS_IA ? [
+        { label: 'Analisis IA', detail: 'Lectura inteligente', icon: Sparkle, route: '/informes/ia', tone: 'violet' },
+        { label: 'Chat IA', detail: 'Asistente interno', icon: ChatCircleText, route: '/chat-ia', tone: 'blue' },
+      ] : []),
     ],
   },
   {
@@ -201,7 +205,7 @@ const CHILD_ROUTES = {
   Egresos: '/finanzas/egresos',
   Facturas: '/finanzas/facturas',
   Reportes: '/informes',
-  'Analisis IA': '/informes/ia',
+  ...(PANTALLAS_IA ? { 'Analisis IA': '/informes/ia' } : {}),
   Messages: '/mensajes',
   Files: '/documentos',
   Billing: '/finanzas/facturas',

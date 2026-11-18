@@ -94,7 +94,8 @@ export default function WasapiExportDialog({
     if (!open) return;
     // Solo admin/superadmin necesitan la lista de gestores; gestor solo ve sus leads.
     if (!isGestor && seVe('gestor')) {
-      client.get('/users', { params: { limit: 100 } })
+      // alcance=comercial: a quien lleva un equipo, solo su equipo (QA 09/11/2026).
+      client.get('/users', { params: { limit: 100, alcance: 'comercial' } })
         .then((res: any) => setGestores(Array.isArray(res?.data) ? res.data : []))
         .catch(() => setGestores([]));
     }

@@ -125,8 +125,10 @@ describe('un solo tablero', () => {
   it('una tarea sin cerrar de un mes anterior sale en el mes y dice de dónde viene', async () => {
     const hoy = hoyEnOficina();
     const mesPasado = moverReferencia('mes', hoy, -1);
+    // La otra tarea, creada este mes: con la fecha fija de TAREAS (20/10), en
+    // noviembre también contaba como «de antes» y la prueba fallaba al cambiar de mes.
     api.getTasks.mockResolvedValue([
-      ...TAREAS.slice(0, 1),
+      { ...TAREAS[0], created_at: `${hoy.slice(0, 8)}01T10:00:00Z` },
       tarea(9, 'Pendiente del mes pasado', 2, 'Ruth Sánchez', { status: 'en_curso', created_at: `${mesPasado.slice(0, 8)}10T10:00:00Z` }),
     ]);
     abrir();

@@ -1,6 +1,5 @@
 // Foto de SYSTEM_ROLE_DEFAULTS y ALL_RESOURCES el 21/10/2026, antes de #423.
 // NO SE EDITA: es el «antes» con el que se compara (inventario/legado.js).
-// En la rama de PRODUCCIÓN, la de main: con «Meta Ads · Ver» (CRM#495, 26/10).
 export const SYSTEM_ROLE_DEFAULTS = {
  "superadmin": null,
  "admin": {
@@ -85,15 +84,13 @@ export const SYSTEM_ROLE_DEFAULTS = {
   "tasks.delete": true,
   "tasks.close": true,
   "tasks.manage": true,
-  "tasks.manage_teams": true,
   "facturas_colaborador.ver_todas": true,
   "facturas_colaborador.gestionar": true,
   "facturas_colaborador.anular": true,
   "facturas_colaborador.pagar": true,
   "facturas_colaborador.subir": false,
   "diplomas.view": true,
-  "diplomas.emit": true,
-  "meta_ads.view": true
+  "diplomas.emit": true
  },
  "gestor": {
   "leads.view": true,
@@ -177,7 +174,6 @@ export const SYSTEM_ROLE_DEFAULTS = {
   "tasks.delete": false,
   "tasks.close": false,
   "tasks.manage": false,
-  "tasks.manage_teams": false,
   "facturas_colaborador.ver_todas": false,
   "facturas_colaborador.gestionar": false,
   "facturas_colaborador.anular": false,
@@ -267,7 +263,6 @@ export const SYSTEM_ROLE_DEFAULTS = {
   "tasks.delete": false,
   "tasks.close": false,
   "tasks.manage": false,
-  "tasks.manage_teams": false,
   "facturas_colaborador.ver_todas": false,
   "facturas_colaborador.gestionar": false,
   "facturas_colaborador.anular": false,
@@ -285,15 +280,13 @@ export const SYSTEM_ROLE_DEFAULTS = {
   "tasks.delete": false,
   "tasks.close": false,
   "tasks.manage": false,
-  "tasks.manage_teams": false,
   "facturas_colaborador.ver_todas": false,
   "facturas_colaborador.gestionar": false,
   "facturas_colaborador.anular": false,
   "facturas_colaborador.pagar": false,
   "facturas_colaborador.subir": true,
   "diplomas.view": false,
-  "diplomas.emit": false,
-  "meta_ads.view": false
+  "diplomas.emit": false
  }
 };
 
@@ -421,8 +414,7 @@ export const ALL_RESOURCES = {
   "edit",
   "delete",
   "close",
-  "manage",
-  "manage_teams"
+  "manage"
  ],
  "facturas_colaborador": [
   "ver_todas",
@@ -434,8 +426,5 @@ export const ALL_RESOURCES = {
  "diplomas": [
   "view",
   "emit"
- ],
- "meta_ads": [
-  "view"
  ]
 };

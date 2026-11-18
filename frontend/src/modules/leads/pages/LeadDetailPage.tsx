@@ -100,7 +100,8 @@ export default function LeadDetailPage() {
 
   useEffect(() => {
     if (!isAdmin || gestores.length > 0) return;
-    client.get('/users?limit=100')
+    // alcance=comercial: a quien lleva un equipo, solo su equipo (QA 09/11/2026).
+    client.get('/users?limit=100&alcance=comercial')
       .then((res) => { if (res.success) setGestores(res.data || []); })
       .catch(() => toast({ title: 'Error al cargar gestores', variant: 'destructive' }));
   }, [isAdmin, gestores.length]);

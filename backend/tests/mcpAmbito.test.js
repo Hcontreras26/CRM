@@ -42,7 +42,15 @@ const PROYECTOS = [
   { id: 20, nombre: 'Ictess', sociedad_id: 2, sociedad_nombre: 'Ictess' },
 ];
 const persona = (role, extra = {}) => ({ id: 7, nombre: 'Ana', role, active: true, usa_mcp: false, ...extra });
-const ambitoDe = (role, proyectos = PROYECTOS) => construirAmbito(persona(role), proyectos);
+const ambitoDe = (role, proyectos = PROYECTOS, equipo = []) => construirAmbito(persona(role), proyectos, equipo);
+
+// La persona impuesta: el id suelto o, desde el equipo comercial (09/11/2026),
+// la lista de personas. Para una gestora, la lista es SOLO ella: [7].
+const llevaSoloA7 = (params) => (params || []).some((p) => p === 7
+  || (Array.isArray(p) && p.length === 1 && p[0] === 7));
+// Una líder (7) con su equipo (8 y 9): la lista exacta, ni una más.
+const llevaAlEquipo = (params) => (params || []).some((p) => Array.isArray(p)
+  && [...p].sort().join(',') === '7,8,9');
 
 beforeEach(() => { consultas.length = 0; });
 
@@ -149,9 +157,15 @@ const ARGS = {
   resumen_prospectos: { desde: '2026-01-01' },
   listar_ventas: { texto: 'master', pendiente: true, desde: '2026-01-01', pagina: 1, limite: 25 },
   resumen_ventas: { hasta: '2026-09-01' },
+  listar_pagos_stripe: { desde: '2026-11-09', hasta: '2026-11-15', estado: 'reembolsado', sin_asociar: false, pagina: 1, limite: 25 },
   listar_facturas: { estado: 'pagada', tipo: 'normal', texto: 'F-1', pagina: 1, limite: 25 },
   resumen_facturas: {},
   cobros_pendientes: { limite: 50 },
+  meta_ads: { vista: 'campanas', desde: '2026-01-01', hasta: '2026-09-01', limite: 30 },
+  meta_conjuntos: { desde: '2026-09-01', hasta: '2026-09-30', estado: 'todos', cuenta_id: 'act_1', texto: 'máster', creados_desde: '2026-09-01', pagina: 1, limite: 25 },
+  meta_anuncios: { desde: '2026-09-01', hasta: '2026-09-30', estado: 'pausados', conjunto_id: '1', pagina: 1, limite: 25 },
+  clientes: { texto: 'ana', desde: '2026-01-01', hasta: '2026-09-01', pagina: 1, limite: 25 },
+  equipo: { incluir_inactivos: true },
   informe: { tipo: 'resumen_mensual', desde: '2026-01-01', hasta: '2026-09-01' },
   listar_tutores: { texto: 'ana', incluir_retirados: true },
   comisiones_tutores: { desde: '2026-08', hasta: '2026-09', tutor_id: 3 },
@@ -159,6 +173,10 @@ const ARGS = {
   listar_formaciones: { texto: 'máster', pagina: 1, limite: 25 },
   resumen_catalogo: {},
   ver_formacion: { id: 5 },
+  moodle_cursos: { estado: 'todos', texto: 'máster', pagina: 1, limite: 25 },
+  moodle_alumnos: { texto: 'máster', estado: 'activos', limite_cursos: 10 },
+  moodle_recursos_externos: { texto: 'máster', limite_cursos: 10 },
+  moodle_estructura: {},
   cuentas_publicitarias: {},
   resumen_publicidad: { desde: '2026-09-01', hasta: '2026-09-30' },
   campanas_publicitarias: { desde: '2026-09-01', hasta: '2026-09-30', limite: 50 },
@@ -173,7 +191,10 @@ const ejecutarTodas = async (ambito, extra = {}, omitir = []) => {
     await h.ejecutar(ambito, { ...ARGS[h.nombre], ...extra }).catch((e) => {
       // ver_formacion, con la base de mentira, recibe una fila sin campus: la
       // rechaza por ajena, que es justo lo que tiene que hacer.
-      if (e.code !== 'MCP_NO_ENCONTRADO' && e.code !== 'MCP_SOLO_ADMIN'
+      // Y las de Moodle, con la base de mentira, no encuentran ninguna
+      // credencial: contestan «sin Moodle configurado» (no hay Moodle de
+      // verdad; lo suyo se prueba en mcpMoodle.test.js).
+      if (e.code !== 'MCP_NO_ENCONTRADO' && e.code !== 'MCP_SOLO_ADMIN' && e.code !== 'MOODLE_NO_DISPONIBLE'
         && !(h.nombre === 'ver_formacion' && e.code === 'MCP_FUERA_DE_AMBITO')) throw e;
     });
   }
@@ -235,8 +256,42 @@ describe('cada consulta va acotada a los campus de la persona', () => {
       /\b(leads l|conversions c|invoices i)\b/.test(c.sql) && !/lead_interactions|WHERE c\.lead_id/.test(c.sql));
     expect(deDatos.length).toBeGreaterThan(10);
     for (const { params } of deDatos) {
-      expect(params).toContain(7);
+      expect(llevaSoloA7(params)).toBe(true);
     }
+  });
+
+  it('a una líder de equipo comercial se le impone ella y su equipo en todas las consultas de datos (09/11/2026)', async () => {
+    const lider = ambitoDe('admin', PROYECTOS, [8, 9]);
+    expect(lider.alcance).toEqual([7, 8, 9]);
+    expect(responsableImpuesto(lider)).toEqual([7, 8, 9]);
+    // La publicidad (cuentas y campañas de Meta) es del campus, no de una
+    // gestora: la ve por su permiso, como la pantalla de Meta Ads. No se mira aquí.
+    await ejecutarTodas(lider, {}, ['cuentas_publicitarias', 'resumen_publicidad', 'campanas_publicitarias', 'meta_ads', 'meta_conjuntos', 'meta_anuncios']);
+    const deDatos = consultas.filter((c) =>
+      /\b(leads l|conversions c|invoices i)\b/.test(c.sql) && !/lead_interactions|WHERE c\.lead_id/.test(c.sql));
+    expect(deDatos.length).toBeGreaterThan(10);
+    for (const { params } of deDatos) {
+      expect(llevaAlEquipo(params)).toBe(true);
+    }
+  });
+
+  it('una líder puede pedir a una de su equipo, no a otra gestora', async () => {
+    const lider = ambitoDe('admin', PROYECTOS, [8, 9]);
+    const buscar = HERRAMIENTAS.find((h) => h.nombre === 'buscar_prospectos');
+    await expect(buscar.ejecutar(lider, { gestora_id: 12 })).rejects.toMatchObject({ code: 'MCP_FUERA_DE_AMBITO' });
+    await expect(buscar.ejecutar(lider, { gestora_id: 8 })).resolves.toBeDefined();
+    const ventas = HERRAMIENTAS.find((h) => h.nombre === 'listar_ventas');
+    await expect(ventas.ejecutar(lider, { vendedora_id: 12 })).rejects.toMatchObject({ code: 'MCP_FUERA_DE_AMBITO' });
+    // Los informes «de todo el campus» tampoco: solo ve su equipo.
+    const informe = HERRAMIENTAS.find((h) => h.nombre === 'informe');
+    const soloAdmin = Object.keys(INFORMES).find((k) => INFORMES[k].soloAdmin);
+    await expect(informe.ejecutar(lider, { tipo: soloAdmin })).rejects.toMatchObject({ code: 'MCP_INFORME_SOLO_ADMIN' });
+  });
+
+  it('un super admin con filas de equipo lo sigue viendo todo', () => {
+    const sa = construirAmbito(persona('superadmin'), PROYECTOS, [8, 9]);
+    expect(sa.alcance).toBeNull();
+    expect(responsableImpuesto(sa)).toBeNull();
   });
 
   it('cada informe, a un gestor, o le recorta a lo suyo o se le niega', async () => {
@@ -244,6 +299,11 @@ describe('cada consulta va acotada a los campus de la persona', () => {
     // 19/10/2026; sigue siendo solo de admin. Si un
     // informe nuevo hace lo mismo, esta prueba lo caza antes de que Claude le
     // cuente a una gestora los totales de todo el campus.
+    //
+    // La excepción, a propósito: lo que la gestora ya ve ENTERO en su pantalla se le
+    // cuenta entero de SUS campus (nunca de otros). Diego, 17/11/2026: Solicitud de
+    // admisión (`matriculas`), «que todas las gestoras puedan ver la información».
+    const DEL_CAMPUS_PARA_LA_GESTORA = ['matriculas'];
     const informe = HERRAMIENTAS.find((h) => h.nombre === 'informe');
     for (const tipo of Object.keys(INFORMES)) {
       consultas.length = 0;
@@ -251,9 +311,15 @@ describe('cada consulta va acotada a los campus de la persona', () => {
       if (r instanceof Error) {
         expect(r.code).toBe('MCP_INFORME_SOLO_ADMIN');
         expect(consultas).toEqual([]);
+      } else if (DEL_CAMPUS_PARA_LA_GESTORA.includes(tipo)) {
+        expect(consultas.length).toBeGreaterThan(0);
+        for (const { params } of consultas) {
+          const lista = (params || []).find((p) => Array.isArray(p));
+          expect([...(lista || [])].sort(), `${tipo}: ${JSON.stringify(params)}`).toEqual(PROYECTOS.map((p) => p.id).sort());
+        }
       } else {
         expect(consultas.length).toBeGreaterThan(0);
-        for (const { params } of consultas) expect(params).toContain(7);
+        for (const { params } of consultas) expect(llevaSoloA7(params)).toBe(true);
       }
     }
   });
@@ -265,8 +331,8 @@ describe('cada consulta va acotada a los campus de la persona', () => {
     await HERRAMIENTAS.find((h) => h.nombre === 'actividad_por_comercial').ejecutar(ambitoDe('gestor'), ARGS.actividad_por_comercial);
     expect(consultas.length).toBe(3);
     for (const { sql, params } of consultas) {
-      expect(sql).toMatch(/li\.created_by = \$\d|m\.enviado_por = \$\d/);
-      expect(params).toContain(7);
+      expect(sql).toMatch(/li\.created_by = ANY\(\$\d|m\.enviado_por = ANY\(\$\d/);
+      expect(llevaSoloA7(params)).toBe(true);
     }
   });
 
@@ -391,7 +457,8 @@ describe('el catálogo (#215: «¿cuánto cuesta el Máster X en Psiko?»)', () 
 });
 
 describe('la publicidad (#235: «¿cuánto hemos gastado en Meta y cuánto ha vendido?»)', () => {
-  const PUBLICIDAD = ['cuentas_publicitarias', 'resumen_publicidad', 'campanas_publicitarias'];
+  // Y los conjuntos y anuncios de Meta (#362).
+  const PUBLICIDAD = ['cuentas_publicitarias', 'resumen_publicidad', 'campanas_publicitarias', 'meta_conjuntos', 'meta_anuncios'];
 
   it('a una gestora se le niega sin llegar a la base', async () => {
     for (const n of PUBLICIDAD) {

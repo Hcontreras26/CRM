@@ -202,7 +202,11 @@ describe('a quién y a qué escenario', () => {
     const dec = await one('SELECT responsable_id FROM asignacion_decisiones WHERE uid = $1', [`${MARCA}-isecd`]);
     expect(dec.responsable_id).toBe(U.cris.id);
     await esperar();
-    const [correo] = correosA(MAIL2);
+    // El correo de ESTE lead, no el primero que haya: el de la prueba anterior
+    // («ana-y-bea») sale sin esperar y, con la CI cargada, a veces llega después
+    // del mockClear y se colaba aquí (CI de la #731, 11/11).
+    const correo = correosA(MAIL2).find((m) => m.textContent?.includes(email));
+    expect(correo, 'el correo de Make de este lead').toBeTruthy();
     expect(correo.textContent).toContain(`GESTORA ASIGNADA: ${MARCA} cris`);
     expect(correo.textContent).not.toContain(`GESTORA ASIGNADA: ${MARCA} ana`);
   });

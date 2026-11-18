@@ -51,8 +51,14 @@ export const updateMyProfileSchema = z.object({
 });
 
 // El propio correo, solo para tutores (#246, Diego 09/10).
-export const updateMyEmailSchema = z.object({
+// #211: el correo propio va en dos pasos. Primero se pide el código, con la
+// contraseña actual; luego se confirma con el código que llegó.
+export const pedirCodigoCorreoSchema = z.object({
   email: z.string().trim().toLowerCase().email('Correo no válido').max(255),
+  password: z.string().min(1, 'Falta tu contraseña actual').max(200),
+});
+export const updateMyEmailSchema = z.object({
+  codigo: z.string().trim().regex(/^\d{6}$/, 'El código son 6 cifras'),
 });
 /**
  * Lo unico que se pide para recuperar: el correo (#37).

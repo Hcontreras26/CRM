@@ -292,7 +292,8 @@ describe('el webhook de Stripe, que no dejaba rastro en ninguna parte', () => {
     const fs = require('node:fs');
     const src = fs.readFileSync('src/modules/stripe-payments/stripe-payments.controller.js', 'utf8');
     expect(src.match(/anotaWebhook\(/g).length).toBeGreaterThanOrEqual(4);
-    expect(src).toMatch(/anotaWebhook\('stripe', 'aceptado'\)/);
+    // Desde #533 cada llamada lleva tambien el campus: `anotaWebhook('stripe', 'aceptado', null, pid)`.
+    expect(src).toMatch(/anotaWebhook\('stripe', 'aceptado'[,)]/);
     expect(src).toMatch(/anotaWebhook\('stripe', 'rechazado'/);
   });
 });

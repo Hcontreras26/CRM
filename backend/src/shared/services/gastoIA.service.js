@@ -1,5 +1,6 @@
 import { query } from '../config/db.js';
 import { logger } from '../utils/logger.js';
+import { avisaSiCruzaUmbral } from './gastoIAAviso.service.js';
 
 /**
  * Cuanto llevamos gastado en IA este mes, y cuando hay que parar (#22, #30).
@@ -269,6 +270,21 @@ export async function compruebaAntesDeGastar() {
 }
 
 /**
+ * Despues de apuntar una llamada, ¿se ha cruzado el 80 % o el 100 % del tope?
+ * El aviso al super admin vive en `gastoIAAviso.service.js` (una vez por umbral
+ * y mes). Aqui solo se le dice cuanto llevamos; no lanza nunca.
+ */
+async function avisarSiToca() {
+  try {
+    const e = await estado();
+    if (!e.instalado || !(e.tope > 0) || e.gastado == null) return;
+    await avisaSiCruzaUmbral({ gastado: e.gastado, tope: e.tope });
+  } catch (err) {
+    logger.error({ err: err.message }, 'Gasto IA: no se pudo comprobar si toca avisar del tope');
+  }
+}
+
+/**
  * Apunta lo que costo una llamada.
  *
  * No lanza nunca: que falle el contador no puede tumbar la respuesta que el
@@ -292,6 +308,7 @@ export async function registrar({
         entrada || 0, salida || 0, cacheLectura || 0, cacheEscritura || 0,
         usd, incierto, fallo || null]
     );
+    await avisarSiToca();
     return { apuntado: true, usd, incierto };
   } catch (err) {
     fallosAlApuntar += 1;

@@ -1,4 +1,5 @@
 import { query } from '../../shared/config/db.js';
+import { sqlPaisDelLead } from '../leads/pais.js';
 
 // Filtra leads segun filtros del wizard
 export async function previewAudience({ projectId, filters = {} }) {
@@ -13,6 +14,11 @@ export async function previewAudience({ projectId, filters = {} }) {
   if (Array.isArray(filters.canales) && filters.canales.length) {
     conditions.push(`EXISTS (SELECT 1 FROM lead_utms lu WHERE lu.lead_id = l.id AND lu.canal_detectado = ANY($${i++}::text[]))`);
     params.push(filters.canales);
+  }
+  // País de entrada (#221): el retargeting de Meta, separado por país.
+  if (Array.isArray(filters.paises) && filters.paises.length) {
+    conditions.push(`${sqlPaisDelLead('l')} = ANY($${i++}::text[])`);
+    params.push(filters.paises);
   }
   if (filters.fechaDesde) { conditions.push(`l.fecha_solicitud >= $${i++}`); params.push(filters.fechaDesde); }
   if (filters.fechaHasta) { conditions.push(`l.fecha_solicitud <= $${i++}`); params.push(filters.fechaHasta); }
@@ -66,6 +72,10 @@ export async function exportAudience({ projectId, filters = {} }) {
   if (Array.isArray(filters.canales) && filters.canales.length) {
     conditions.push(`EXISTS (SELECT 1 FROM lead_utms lu WHERE lu.lead_id = l.id AND lu.canal_detectado = ANY($${i++}::text[]))`);
     params.push(filters.canales);
+  }
+  if (Array.isArray(filters.paises) && filters.paises.length) {
+    conditions.push(`${sqlPaisDelLead('l')} = ANY($${i++}::text[])`);
+    params.push(filters.paises);
   }
   if (filters.fechaDesde) { conditions.push(`l.fecha_solicitud >= $${i++}`); params.push(filters.fechaDesde); }
   if (filters.fechaHasta) { conditions.push(`l.fecha_solicitud <= $${i++}`); params.push(filters.fechaHasta); }

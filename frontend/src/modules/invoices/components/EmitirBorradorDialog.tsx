@@ -47,8 +47,12 @@ export default function EmitirBorradorDialog({ invoice, onClose, onEmitted }: { 
         clienteCiudad: ciudad.trim(), clienteCp: cp.trim(), clientePais: pais.trim(),
       };
       const res = esBorrador
-        ? await emitirPreguntandoSiPasa((permitir) =>
-            invoicesApi.emitir(invoice.id, permitir ? { ...payload, permitirMasDeLoCobrado: true } : payload))
+        ? await emitirPreguntandoSiPasa((permitir, duplicada) =>
+            invoicesApi.emitir(invoice.id, {
+              ...payload,
+              ...(permitir ? { permitirMasDeLoCobrado: true } : {}),
+              ...(duplicada ? { confirmar_duplicada: true } : {}),
+            }))
         : await invoicesApi.completarDatos(invoice.id, payload);
       if (res.success && res.data) onEmitted(res.data.codigo || '', invoice.id);
       else toast({ title: 'Error', description: (res as { error?: string }).error || 'No se pudo emitir', variant: 'destructive' });
@@ -89,7 +93,7 @@ export default function EmitirBorradorDialog({ invoice, onClose, onEmitted }: { 
         <div className="p-3 border-t border-border flex justify-end gap-2 bg-muted/20">
           <button onClick={onClose} className="h-9 px-3 rounded-md border border-border bg-card text-sm">Cancelar</button>
           <button onClick={emitir} disabled={working || !completo}
-            className="h-9 px-3 rounded-md bg-warning text-warning-foreground text-sm font-semibold hover:bg-warning disabled:opacity-50 inline-flex items-center gap-1.5">
+            className="h-9 px-3 rounded-md bg-warning text-warning-foreground text-sm font-semibold hover:bg-warning/90 disabled:opacity-50 inline-flex items-center gap-1.5">
             <CheckCircle size={14} weight="bold" /> {working ? 'Guardando…' : (esBorrador ? 'Validar y emitir' : 'Guardar y desbloquear')}
           </button>
         </div>
