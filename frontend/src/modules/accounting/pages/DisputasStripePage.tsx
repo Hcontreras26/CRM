@@ -286,7 +286,8 @@ export default function DisputasStripePage() {
       {!cargando && !error && grupos.map((g) => (
         <section key={g.clave} aria-label={g.nombre} className="bg-card border border-border rounded-md">
           <h2 className="px-3 py-2 border-b border-border text-sm font-semibold">{g.nombre} <span className="text-muted-foreground font-normal">· {g.filas.length}</span></h2>
-          <div className="overflow-x-auto">
+          {/* `relative`: el `sr-only` de la cabecera es absoluto; sin esto se escapa y en móvil la página se desplaza de lado. */}
+          <div className="relative overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr>

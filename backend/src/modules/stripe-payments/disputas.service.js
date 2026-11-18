@@ -1,4 +1,5 @@
 import { logger } from '../../shared/utils/logger.js';
+import { AppError } from '../../shared/utils/AppError.js';
 import { sendEmail } from '../../shared/services/brevo.service.js';
 import { correo, parrafo, boton, nota, esc, enlace } from '../../shared/services/email-plantilla.service.js';
 import { notifyUsers } from '../notifications/notifications.service.js';
@@ -256,7 +257,8 @@ export async function sincronizar(projectId, { ahora = Date.now() } = {}) {
 
 async function sincroniza(projectId, ahora) {
   const apiKey = await getStripeKey(projectId);
-  if (!apiKey) throw new Error('Stripe API key no configurada para este proyecto');
+  // Sin clave no es un fallo del servidor: es un campus sin Stripe configurado (409, no 500).
+  if (!apiKey) throw new AppError('Stripe API key no configurada para este proyecto', 409, 'STRIPE_SIN_CLAVE');
   const filtro = await filtroDeMetadata(projectId);
   const desde = Math.floor(ahora / 1000) - ventanaDias() * 86400;
 

@@ -245,6 +245,15 @@ describe('el sondeo', () => {
     expect(pagos.upsertSyncState).toHaveBeenCalledWith(2, { disputes_last_error: 'Stripe /v1/disputes HTTP 401' });
   });
 
+  it('sin clave de Stripe en el campus es un 409 de negocio, no un 500, y se apunta el motivo', async () => {
+    stripe.getStripeKey.mockResolvedValue(null);
+    const err = await svc.sincronizar(2, { ahora: AHORA }).catch((e) => e);
+    expect(err.statusCode).toBe(409);
+    expect(err.code).toBe('STRIPE_SIN_CLAVE');
+    expect(stripe.stripeGet).not.toHaveBeenCalled();
+    expect(pagos.upsertSyncState).toHaveBeenCalledWith(2, { disputes_last_error: 'Stripe API key no configurada para este proyecto' });
+  });
+
   it('el segundo aviso: las que vencen pronto sin respuesta, con su propio tipo', async () => {
     modelo.porRecordar.mockResolvedValue([fila({ avisada_at: 'ya' })]);
     const r = await svc.recordar();
