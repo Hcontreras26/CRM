@@ -93,12 +93,18 @@ describe('Facturas: los botones que el servidor le niega a quien lleva equipo', 
     expect(screen.getByText('Cliente Uno')).toBeTruthy();
   };
 
-  it('admin sin equipo: Editar, Abono, Venta y Eliminar, y sin la nota', async () => {
+  // Desde la #793 (18/11) una factura EMITIDA no se edita ni se borra: «Editar» y la
+  // papelera salen apagados, con el porqué, y en su lugar está «Anular».
+  it('admin sin equipo: Abono, Venta y Anular; Editar y Eliminar, apagados por ser emitida; sin la nota', async () => {
     await pintar();
-    expect(screen.getByTitle('Editar IVA, datos del cliente o concepto')).toBeTruthy();
     expect(screen.getByTitle('Crear factura rectificativa (de abono)')).toBeTruthy();
     expect(screen.getByTitle('Asociar esta factura a una venta del cliente')).toBeTruthy();
-    expect(screen.getByTitle('Eliminar la factura y liberar su número (se equivocaron al cargarla)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Anular/ })).toBeTruthy();
+    const editar = screen.getByRole('button', { name: /^Editar: Emitida/ }) as HTMLButtonElement;
+    const eliminar = screen.getByRole('button', { name: /^Eliminar: Emitida/ }) as HTMLButtonElement;
+    expect(editar.disabled).toBe(true);
+    expect(eliminar.disabled).toBe(true);
+    expect(screen.queryByTitle('Editar IVA, datos del cliente o concepto')).toBeNull();
     expect(screen.queryByText(/Llevas un equipo comercial/)).toBeNull();
   });
 
@@ -109,6 +115,10 @@ describe('Facturas: los botones que el servidor le niega a quien lleva equipo', 
     expect(screen.queryByTitle('Crear factura rectificativa (de abono)')).toBeNull();
     expect(screen.queryByTitle('Asociar esta factura a una venta del cliente')).toBeNull();
     expect(screen.queryByTitle('Eliminar la factura y liberar su número (se equivocaron al cargarla)')).toBeNull();
+    // Tampoco «Anular» ni los botones apagados de la emitida (#793): no son suyos.
+    expect(screen.queryByRole('button', { name: /^Anular/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Editar: Emitida/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Eliminar: Emitida/ })).toBeNull();
     expect(screen.getByText(/Llevas un equipo comercial/)).toBeTruthy();
   });
 });

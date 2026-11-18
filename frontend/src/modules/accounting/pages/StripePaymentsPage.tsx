@@ -233,28 +233,6 @@ export default function StripePaymentsPage() {
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
               <ArrowCounterClockwise size={14} weight="bold" /> Importar desde el alta
             </button>
-            {/* EL HISTÓRICO ABSOLUTO, APARTE Y CON AVISO.
-
-                Trae también lo anterior al corte. Sirve para que el CRM cuadre
-                con lo que dice Stripe —la última casilla del #44— y no cambia
-                lo facturable: lo de antes del corte sigue fuera de ese filtro
-                y en la tabla sale marcado. Pero es la vez que más datos entran
-                de golpe, así que se pregunta. */}
-            <button
-              onClick={() => {
-                if (!confirm(
-                  'Se traerá TODO el histórico de la cuenta de Stripe, incluido lo anterior '
-                  + 'a la fecha de alta del proyecto.' + BLANCO
-                  + 'Eso no cambia lo facturable: lo anterior al corte seguirá fuera de ese '
-                  + 'filtro y saldrá marcado en la tabla. Sirve para que el CRM cuadre con Stripe.' + BLANCO
-                  + '¿Seguir?')) return;
-                syncNow(true, true);
-              }}
-              disabled={syncing}
-              title="Incluye lo anterior a la fecha de alta. No lo hace facturable."
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-warning/40 bg-card text-sm font-semibold text-warning hover:bg-warning-soft disabled:opacity-50">
-              <ArrowCounterClockwise size={14} weight="bold" /> Histórico absoluto
-            </button>
             {/* Solo cuando YA hay cobros: sirve para cuadrar con Stripe, y
                 antes del primer sincronizado no hay nada que cuadrar. Tres
                 botones de traer datos en una pantalla vacia es la forma mas
