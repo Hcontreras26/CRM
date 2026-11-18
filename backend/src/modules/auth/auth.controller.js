@@ -158,6 +158,8 @@ export async function me(req, res, next) {
           // Para que la pantalla no pregunte por WhatsApp a quien lo tiene
           // apagado (QA de Diego, 22/10, punto 8). null = sin la columna.
           usa_whatsapp: user.usa_whatsapp ?? null,
+          // «Mi factura» (CRM#710): con ficha viva en Facturas de colaboradores.
+          factura_propia: !!user.factura_propia,
           // El equipo comercial (QA del 09/11/2026), igual que en CRM-ISEIE.
           // La pantalla lo usa para no enseñar lo que el servidor le negaría
           // (corregir o abonar facturas, egresos y balance).

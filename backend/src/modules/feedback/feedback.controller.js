@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AppError } from '../../shared/utils/AppError.js';
 import { query } from '../../shared/config/db.js';
-import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
+import { proyectosDelAmbito, veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import { personaDelInforme, alcanceComercial } from '../../shared/utils/roles.js';
 import * as service from './feedback.service.js';
 import { CLAVES, DISPARADORES, MOTIVOS } from './motivos.js';
@@ -24,24 +24,51 @@ async function recorteDe(req) {
     .split(',').map((x) => Number(x.trim())).filter((n) => Number.isInteger(n) && n > 0);
   const projectIds = ambito.projectIds
     || (varios.length ? varios : (ambito.projectId ? [ambito.projectId] : null));
+  // «sin» = los envíos sin gestora (la fila «Sin gestora» del desglose, #593).
+  // Solo vale para quien ve a todas las gestoras (`personaDelInforme` da null);
+  // a una gestora o a quien lleva un equipo se le queda su recorte de siempre.
+  const sinGestora = req.query.gestoraId === 'sin';
+  const deQuien = await personaDelInforme(req.user, sinGestora ? null : (Number(req.query.gestoraId) || null),
+    { jefes: ['admin', 'superadmin', 'soporte'] });
   return {
     projectIds,
-    gestoraId: await personaDelInforme(req.user, Number(req.query.gestoraId) || null,
-      { jefes: ['admin', 'superadmin', 'soporte'] }),
+    gestoraId: sinGestora && deQuien == null ? 'sin' : deQuien,
     deUsuario: rol === 'superadmin' || rol === 'soporte' ? null : req.user.userId,
     desde: FECHA.test(req.query.desde || '') ? req.query.desde : null,
     hasta: FECHA.test(req.query.hasta || '') ? req.query.hasta : null,
   };
 }
 
-/** Si la gestora no lleva ese prospecto, no puede tocar su correo. */
+/**
+ * Quién puede ver y decidir el correo de un prospecto, por su ALCANCE (#593):
+ *
+ *   · superadmin y soporte: cualquiera.
+ *   · quien tiene alcance comercial (`alcanceComercial`): la gestora y la
+ *     project manager, solo los que llevan («solo lo suyo», Diego 02/11/2026);
+ *     quien lleva un equipo comercial, los de su equipo (09/11/2026).
+ *   · un admin sin equipo: los de SUS campus. Antes pasaba sin más, y uno de
+ *     CEDIA podía leer las respuestas de un prospecto de ICTESS y enviarle o
+ *     cancelarle el correo.
+ *   · el resto: solo los que lleva, como hasta ahora.
+ *
+ * El permiso (`feedback.view` / `feedback.enviar`) ya lo pide la ruta; aquí
+ * solo se recorta a qué prospectos llega, como `proyectosDelAmbito` (#245).
+ */
 async function exigirQueSeaSuyo(req, leadId) {
-  // Quien lleva un equipo comercial (09/11/2026), los de su equipo.
+  if (!Number.isInteger(leadId) || leadId <= 0) throw new AppError('Prospecto no válido', 400, 'VALIDATION_ERROR');
+  const { rows } = await query('SELECT responsable_id, project_id FROM leads WHERE id = $1 AND deleted_at IS NULL', [leadId]);
+  if (!rows[0]) throw new AppError('Prospecto no encontrado', 404, 'NOT_FOUND');
+  if (veTodoElCrm(req.user)) return;
   const alcance = await alcanceComercial(req.user);
-  if (['admin', 'superadmin', 'soporte'].includes(req.user?.role) && !alcance) return;
-  const permitidos = alcance || [req.user.userId];
-  const { rows } = await query('SELECT responsable_id FROM leads WHERE id = $1', [leadId]);
-  if (!rows[0] || !permitidos.includes(rows[0].responsable_id)) {
+  if (!alcance && req.user?.role === 'admin') {
+    const suyos = await campusDeLaPersona(req.user?.userId);
+    if (!suyos.includes(Number(rows[0].project_id))) {
+      throw new AppError('Este prospecto es de un campus que no es tuyo', 403, 'FORBIDDEN');
+    }
+    return;
+  }
+  const permitidos = alcance || [req.user?.userId];
+  if (!permitidos.includes(Number(rows[0].responsable_id))) {
     throw new AppError('Este prospecto no es tuyo', 403, 'FORBIDDEN');
   }
 }
@@ -75,6 +102,7 @@ export async function lista(req, res, next) {
       que: req.query.que,
       motivo: CLAVES.includes(req.query.motivo) ? req.query.motivo : null,
       disparador: DISPARADORES[req.query.disparador] ? req.query.disparador : null,
+      limite: Number.isInteger(Number(req.query.limite)) && Number(req.query.limite) > 0 ? Number(req.query.limite) : 500,
     });
     res.json({ success: true, data: filas });
   } catch (err) { next(err); }

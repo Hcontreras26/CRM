@@ -25,12 +25,14 @@ import PanelResumen from '@/shared/components/PanelResumen';
 import TasaDeCierre from '../components/TasaDeCierre';
 import PanelSeguimiento from '@/shared/components/PanelSeguimiento';
 import FeedbackEnReportes, { feedbackEnCsv } from '@/modules/feedback/components/FeedbackEnReportes';
+import { filaCsv, rangoEnNombre } from '@/shared/lib/csv';
 import ActividadPorComercial from '../components/ActividadPorComercial';
 import InformeMensual from '../components/InformeMensual';
 
 function exportReportCSV(data, project, range, panel, seguimiento, feedback = null) {
   const sections = [];
-  const sep = row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+  // A salvo de fórmulas: lleva lo que escribieron en la encuesta pública de feedback (#593).
+  const sep = filaCsv;
 
   sections.push(sep([`Reporte CRM — ${project || 'Todos los proyectos'}`]));
   sections.push(sep([`Período: ${range.from} → ${range.to}`]));
@@ -172,7 +174,7 @@ function exportReportCSV(data, project, range, panel, seguimiento, feedback = nu
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `reporte-${project || 'crm'}-${range.from}_${range.to}.csv`;
+  a.download = `reporte-${project || 'crm'}-${rangoEnNombre(range.from, range.to)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
