@@ -5,7 +5,7 @@ import { toast } from '@/shared/hooks/useToast';
 import * as api from '../api/permissions.api';
 import type { Catalogo, FichaDePermisos } from '../api/permissions.api';
 import { clavesDeSeccion } from '../lib/permisos';
-import ListaDePermisos, { NOMBRE_ROL, type Eleccion } from './ListaDePermisos';
+import ListaDePermisos, { nombreDeRol, type Eleccion } from './ListaDePermisos';
 
 export { textoDeOrigen } from './ListaDePermisos';
 
@@ -60,9 +60,10 @@ export default function PermisosDePersona({ userId, onClose, enLinea = false }: 
   }
 
   const total = catalogo ? catalogo.secciones.flatMap(clavesDeSeccion) : [];
+  const rol = (r: string) => (catalogo ? nombreDeRol(catalogo, r) : r);
   const resumen = ficha && (
     <p className="text-secundario text-muted-foreground">
-      {[ficha.persona.role, ...ficha.persona.roles_extra].map((r) => NOMBRE_ROL[r] || r).join(' + ')}
+      {[ficha.persona.role, ...ficha.persona.roles_extra].map(rol).join(' + ')}
       {ficha.rolAMedida && ` · rol a medida «${ficha.rolAMedida.nombre}»${ficha.rolAMedida.activo ? '' : ' (desactivado, no se aplica)'}`}
       {' · '}puede {total.filter((k) => ficha.mapa[k]).length} de {total.length}
       {!ficha.puedeEditar && ' · solo lectura'}
@@ -83,13 +84,13 @@ export default function PermisosDePersona({ userId, onClose, enLinea = false }: 
                 onChange={(e) => cambiarRol(e.target.value ? Number(e.target.value) : null)}
                 className="h-9 flex-1 rounded-lg border border-border bg-card px-2 text-normal">
                 <option value="">Ninguno: lo de su rol</option>
-                {ficha.rolesAMedida.map((r) => <option key={r.id} value={r.id}>{r.nombre} (parte de {NOMBRE_ROL[r.base] || r.base})</option>)}
+                {ficha.rolesAMedida.map((r) => <option key={r.id} value={r.id}>{r.nombre} (parte de {rol(r.base)})</option>)}
               </select>
             </div>
           )}
 
           <ListaDePermisos catalogo={catalogo} mapa={ficha.mapa} origenes={ficha.origenes} excepciones={ficha.excepciones}
-            puedeEditar={ficha.puedeEditar} ocupado={ocupado} onElegir={elegir} />
+            puedeEditar={ficha.puedeEditar} ocupado={ocupado} onElegir={elegir} role={ficha.persona.role} />
 
           <section className="space-y-2">
             <h3 className="flex items-center gap-1.5 text-normal font-semibold"><ClockCounterClockwise size={16} /> Cambios de permisos</h3>
