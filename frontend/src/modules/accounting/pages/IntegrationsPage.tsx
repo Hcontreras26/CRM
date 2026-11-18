@@ -5,6 +5,7 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import CorteDeFacturacion from '../components/CorteDeFacturacion';
 import ProyectosIAConectados from '../components/ProyectosIAConectados';
 import EstadoDeLasIntegraciones from '../components/EstadoDeLasIntegraciones';
+import SaludDeLasConexiones from '../components/SaludDeLasConexiones';
 import { TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 import EstadoDeLaSincronizacion from '../components/EstadoDeLaSincronizacion';
 import SupabaseCard from '../components/SupabaseCard';
@@ -89,6 +90,10 @@ export default function IntegrationsPage() {
   const pid = vistaGeneral ? null : activeProject?.id;
   // Lo del #44, solo en pruebas (`shared/lib/proyectosIA`).
   const esIA = esProyectoIA(activeProject);
+  // La salud de las conexiones (CRM#533): superadmin y admin, de «Todos», de una
+  // empresa o de un campus.
+  const { can } = usePermission();
+  const verSalud = can('integrations.salud');
 
   return (
     <div className="space-y-5 pb-8">
@@ -133,6 +138,7 @@ export default function IntegrationsPage() {
           Se pinta sola solo si hay proyectos IA. Solo en pruebas (#44). */}
       {PROYECTOS_IA && <ProyectosIAConectados />}
 
+      {verSalud && (vistaGeneral || pid) && <SaludDeLasConexiones />}
       {/* Monitask (#236): de todo el CRM, no de un campus. Sale sola si el servidor
           lo tiene encendido (MONITASK_ACTIVO) y quien mira puede configurarlo. */}
       <MonitaskCard />
