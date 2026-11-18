@@ -164,7 +164,7 @@ export default function SetPasswordPage() {
               <button
                 type="submit"
                 disabled={!allPassed || loading}
-                className="w-full h-12 bg-success text-success-foreground rounded-lg font-semibold text-sm hover:bg-success transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none shadow-sm hover:shadow-md focus:outline-none focus:ring-4 focus:ring-success/20"
+                className="w-full h-12 bg-success text-success-foreground rounded-lg font-semibold text-sm hover:bg-success/90 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none shadow-sm hover:shadow-md focus:outline-none focus:ring-4 focus:ring-success/20"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">

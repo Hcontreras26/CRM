@@ -309,7 +309,7 @@ export default function CommissionsPage() {
               </button>
               <button
                 onClick={() => setBulkPay(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-success text-success-foreground text-xs font-semibold hover:bg-success"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-success text-success-foreground text-xs font-semibold hover:bg-success/90"
               >
                 <CheckCircle size={12} weight="bold" /> Marcar todas como pagadas
               </button>
