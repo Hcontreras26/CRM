@@ -114,7 +114,17 @@ export async function getOne(req, res, next) {
 export async function link(req, res, next) {
   try {
     const cargo = await cargoSuyo(req);
-    const { leadId, conversionId } = req.body || {};
+    const { leadId, conversionId, conversionPaymentId, invoiceId } = req.body || {};
+    // Con el cobro o la factura de ese pago (CRM#888): se enlaza ahí, sin crear
+    // otro cobro aunque el importe o la fecha no coincidan.
+    if (conversionPaymentId || invoiceId) {
+      const r = await service.enlazarConCobro(cargo.id, {
+        conversionPaymentId: conversionPaymentId ? Number(conversionPaymentId) : null,
+        invoiceId: invoiceId ? Number(invoiceId) : null,
+        userId: req.user?.userId,
+      });
+      return res.json({ success: true, data: r });
+    }
     if (!leadId && !conversionId) throw new AppError('leadId o conversionId requerido', 400, 'BAD_REQUEST');
     // La venta y el prospecto, del MISMO campus que el cargo (#717): si no, un cobro de
     // un campus acababa sumado a una venta de otro (y en la factura de otra sociedad).
@@ -126,6 +136,34 @@ export async function link(req, res, next) {
     }
     await service.manualLink(cargo.id, { leadId, conversionId, userId: req.user?.userId });
     res.json({ success: true });
+  } catch (e) { next(e); }
+}
+
+/**
+ * Para la ficha de la venta (CRM#888): los cargos de Stripe cobrados y sin
+ * enlazar que parecen de ella y sus cobros que no tienen cargo, para enlazar
+ * uno con otro.
+ */
+export async function deLaVenta(req, res, next) {
+  try {
+    const conversionId = Number(req.params.conversionId);
+    if (!Number.isInteger(conversionId) || conversionId <= 0) throw new AppError('ID invalido', 400, 'INVALID_ID');
+    await exigirCampusSuyo(req, await model.campusDeLaVenta(conversionId), 'Venta no encontrada');
+    const { cargosStripeSueltos } = await import('../conversions/saldar-cuotas.js');
+    const { query } = await import('../../shared/config/db.js');
+    const cargos = await cargosStripeSueltos(query, conversionId);
+    const { rows: cobros } = await query(
+      `SELECT cp.id, cp.importe::float8 AS importe, cp.fecha::text AS fecha, cp.metodo,
+              f.id AS factura_id, f.codigo AS factura_codigo,
+              (SELECT string_agg(ci.numero::text, ', ' ORDER BY ci.numero)
+                 FROM conversion_installments ci WHERE ci.payment_id = cp.id) AS cuota_numero
+         FROM conversion_payments cp
+         LEFT JOIN invoices f ON f.payment_id = cp.id AND f.tipo <> 'proforma' AND f.estado <> 'cancelada'
+        WHERE cp.conversion_id = $1
+          AND NOT EXISTS (SELECT 1 FROM stripe_payments sp WHERE sp.conversion_payment_id = cp.id AND sp.status = 'succeeded')
+        ORDER BY cp.fecha, cp.id`,
+      [conversionId]);
+    res.json({ success: true, data: { cargos, cobros } });
   } catch (e) { next(e); }
 }
 
