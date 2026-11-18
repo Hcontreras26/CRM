@@ -19,10 +19,11 @@ import { esProyectoIA, PROYECTOS_IA } from '@/shared/lib/proyectosIA';
 import { usePluginMoodle } from '@/shared/lib/pluginMoodle';
 import { EtiquetaEnPruebas } from '@/shared/components/ui/EnPruebas';
 import { apiPublicUrl } from '@/shared/lib/direccionesPublicas';
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import {
   CreditCard, EnvelopeSimple, CheckCircle, WarningCircle, Eye, EyeSlash,
   ArrowSquareOut, FloppyDisk, PlugsConnected, Trash, Question, GraduationCap,
-  LinkSimple, MinusCircle,
+  LinkSimple, MinusCircle, Copy,
 } from '@phosphor-icons/react';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────
@@ -117,6 +118,9 @@ export default function IntegrationsPage() {
         subtitle={vistaGeneral
           ? 'El estado de las conexiones (Stripe, Brevo, el campus Moodle) de cada campus.'
           : `Configura conexiones externas (Stripe, Brevo, el campus Moodle${esIA ? ', Supabase' : ''}) para ${activeProject?.nombre || 'el proyecto activo'}.`}
+        /* El recorrido de Stripe y los links (18/11): con un campus elegido, que es
+           cuando salen sus tarjetas. */
+        actions={pid ? <VerRecorrido id="integraciones-stripe" /> : null}
       />
 
       <div className="bg-info-soft border border-info/30 rounded-lg p-4 text-sm space-y-2">
@@ -182,6 +186,15 @@ export default function IntegrationsPage() {
 }
 
 // ─── Stripe ───────────────────────────────────────────────────────────────
+async function copiarDireccion(url: string) {
+  try {
+    await navigator.clipboard.writeText(url);
+    toast({ title: 'Dirección copiada', description: 'Pégala en Stripe tal cual.' });
+  } catch {
+    toast({ title: 'No se ha podido copiar', description: url, variant: 'destructive' });
+  }
+}
+
 function StripeCard({ projectId }: { projectId: number }) {
   const [data, setData] = useState<Integration | null>(null);
   const [loading, setLoading] = useState(true);
@@ -358,7 +371,7 @@ function StripeCard({ projectId }: { projectId: number }) {
             pegarla, no despues. */}
         <CorteDeFacturacion projectId={projectId} />
 
-        <div>
+        <div data-recorrido="stripe-clave">
           <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
             Access token {data?.has_secret && <span className="font-normal text-muted-foreground/80 ml-1">(actualmente: <code className="bg-muted px-1 rounded text-[10px]">{data.secret_preview}</code> — deja vacío para no cambiar)</span>}
           </label>
@@ -399,7 +412,7 @@ function StripeCard({ projectId }: { projectId: number }) {
             secretos de firma--. Presentarlo como obligatorio dejaba el alta a
             medias en apariencia, y empujaba a publicar un endpoint que sin
             secreto se rechaza igual. Va plegado. */}
-        <details className="rounded-md border border-border bg-muted/20 p-3">
+        <details className="rounded-md border border-border bg-muted/20 p-3" data-recorrido="stripe-webhook">
           <summary className="text-[11px] font-semibold cursor-pointer select-none">
             Webhook <span className="font-normal text-muted-foreground">— opcional, solo para no esperar los cinco minutos</span>
           </summary>
@@ -422,9 +435,17 @@ function StripeCard({ projectId }: { projectId: number }) {
           <label className="text-[11px] font-semibold text-muted-foreground mt-3 mb-1 block">
             Direccion que hay que pegar en Stripe
           </label>
-          <code className="block w-full px-3 py-2 rounded-md border border-border bg-muted/40 text-xs font-mono break-all">
-            {urlWebhook(projectId)}
-          </code>
+          <div className="flex items-stretch gap-2">
+            <code className="block flex-1 min-w-0 px-3 py-2 rounded-md border border-border bg-muted/40 text-xs font-mono break-all">
+              {urlWebhook(projectId)}
+            </code>
+            {/* Copiarla tal cual (18/11): a mano se perdía un trozo. */}
+            <button type="button" onClick={() => copiarDireccion(urlWebhook(projectId))}
+              aria-label="Copiar la dirección del webhook"
+              className="inline-flex items-center gap-1 px-3 rounded-md border border-border bg-card text-xs font-semibold hover:bg-muted">
+              <Copy size={13} weight="bold" aria-hidden="true" /> Copiar
+            </button>
+          </div>
           </div>
         </details>
 
@@ -599,7 +620,7 @@ function StripeLinksCard({ projectId }: { projectId: number }) {
           </p>
         </div>
 
-        <div>
+        <div data-recorrido="links-clave">
           <label htmlFor={`stripe-links-key-${projectId}`} className="text-[11px] font-semibold text-muted-foreground mb-1 block">
             Clave restringida de escritura
             {data?.has_secret && (
