@@ -62,6 +62,7 @@ export const ROUTE_TITLES = {
   '/factura-colaborador/pago': 'Confirmar el pago',
   '/factura-colaborador': 'Tu factura del mes',
   '/datos-fiscales': 'Tus datos para la factura',
+  '/confirmar-diploma': 'Los datos de tu diploma',
   '/stripe': 'Stripe',
   '/soporte': 'Soporte',
   '/status': 'Estado del sistema',

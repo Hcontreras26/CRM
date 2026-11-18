@@ -95,6 +95,8 @@ const PreguntarPage = lazy(() => import('./modules/ia-analisis/pages/PreguntarPa
 const FeedbackEncuestaPage = lazy(() => import('./modules/feedback/pages/FeedbackEncuestaPage'));
 // El formulario de datos fiscales de la factura automática (#764): sin sesión, desde el correo.
 const DatosFiscalesPage = lazy(() => import('./modules/factura-automatica/pages/DatosFiscalesPage'));
+// La confirmación de los datos del diploma (#768): sin sesión, desde el correo.
+const ConfirmarDiplomaPage = lazy(() => import('./modules/diploma-confirmacion/pages/ConfirmarDiplomaPage'));
 const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPanelPage'));
 const AIChatPage = lazy(() => import('./modules/ai-chat/pages/AIChatPage'));
 const SettingsPage = lazy(() => import('./modules/settings/pages/SettingsPage'));
@@ -238,6 +240,8 @@ function App() {
         <Route path="/feedback/:token" element={<FeedbackEncuestaPage />} />
         {/* Sin sesion: el alumno da sus datos para la factura (#764). El enlace es la llave. */}
         <Route path="/datos-fiscales/:token" element={<DatosFiscalesPage />} />
+        {/* Sin sesion: el alumno confirma o corrige los datos de su diploma (#768). El enlace es la llave. */}
+        <Route path="/confirmar-diploma/:token" element={<ConfirmarDiplomaPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
         {/* El enlace personal del colaborador (#202): sin usuario, el enlace es la llave. */}
