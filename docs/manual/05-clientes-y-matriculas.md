@@ -88,7 +88,10 @@ permisos).
 ### Cómo llega una matrícula
 
 Cuando alguien rellena el **formulario de admisión** de la web, el CRM crea una
-matrícula en **Solicitud admisión**. Los formularios de admisión se conectan en
+matrícula en **Solicitud admisión**. Si la persona ya tiene ficha (la gestora que
+le está vendiendo), la solicitud se une a ella y a su venta; si no, se guarda sola
+y **no** se crea ningún prospecto: es un respaldo de sus datos para matricularla,
+que ven todas las gestoras del campus. Los formularios de admisión se conectan en
 la pestaña **Webhooks de admisión** (administración). Hoy no hay un botón para
 crear una matrícula a mano desde la pantalla.
 

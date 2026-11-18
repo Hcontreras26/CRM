@@ -85,9 +85,12 @@ describe('la regla que no se puede romper', () => {
   it('ninguno de los tres usa notifyAdmins', async () => {
     // Es lo que la tarea pide romper: «hoy todo es admin_notifications y eso
     // hay que romperlo». Si alguno vuelve a los admin, este fichero se cae.
-    const codigo = await import('node:fs').then((fs) =>
-      fs.readFileSync(new URL('../src/modules/leads/lead.service.js', import.meta.url), 'utf8'));
-    for (const tipo of ['lead_asignado', 'lead_reasignado']) {
+    // `lead_asignado` vive en `aviso-gestora.js` desde el 18/11: lo usan el alta
+    // por Make, el webhook de formularios y el de token.
+    const fs = await import('node:fs');
+    const leer = (f) => fs.readFileSync(new URL(`../src/modules/leads/${f}`, import.meta.url), 'utf8');
+    for (const [tipo, fichero] of [['lead_asignado', 'aviso-gestora.js'], ['lead_reasignado', 'lead.service.js']]) {
+      const codigo = leer(fichero);
       const i = codigo.indexOf(`'${tipo}'`);
       expect(i, `${tipo} no se dispara en ningun sitio`).toBeGreaterThan(-1);
       // Los 400 caracteres anteriores al tipo: ahi esta la llamada.

@@ -2,7 +2,6 @@ import { AppError } from '../../shared/utils/AppError.js';
 import * as leadModel from './lead.model.js';
 import * as seqModel from '../email-sequences/sequence.model.js';
 import { query } from '../../shared/config/db.js';
-import { sendLeadAssignedEmail } from '../../shared/services/brevo.service.js';
 import { logger } from '../../shared/utils/logger.js';
 import { normalizePhone } from '../../shared/utils/normalizePhone.js';
 import { notifyAdmins, notifyUsers } from '../notifications/notifications.service.js';
@@ -11,6 +10,7 @@ import * as leadProducts from './lead-products.service.js';
 import { deducirCanal } from './canal.js';
 import { planificarPasosDeLead, ajustarPaso } from '../proceso/proceso.model.js';
 import { cruzarConPulsacion } from '../widget/widget.pulsaciones.js';
+import { avisarGestoraDelLeadNuevo } from './aviso-gestora.js';
 import { avanzarPorContacto } from '../../shared/services/estado-prospecto.service.js';
 import { soloLoSuyo, ROLES_DE_TUTOR } from '../../shared/utils/roles.js';
 
@@ -319,18 +319,9 @@ async function _createLeadCore(project, leadData) {
   // Va a ELLA, no a los admin: es su prospecto. Y no duplica ningun correo —
   // hoy no se manda ninguno al asignar.
   //
-  // Sin responsable no hay a quien avisar: pasa cuando el reparto esta apagado
-  // o no hay gestoras en el proyecto, y de eso ya avisa el panel de la cola.
-  if (lead.responsable_id) {
-    notifyUsers({
-      targetUserIds: [lead.responsable_id],
-      type: 'lead_asignado',
-      title: `Nuevo prospecto: ${lead.nombre || 'sin nombre'}`,
-      message: canalDetectado ? `Entro por ${canalDetectado}.` : 'Te lo ha asignado el reparto automatico.',
-      link_path: `/prospectos/${lead.id}`,
-      metadata: { lead_id: lead.id, project_id: project.id },
-    }).catch(() => {});
-  }
+  // La campana y el correo salen de `aviso-gestora.js`, el mismo sitio que usan
+  // el webhook de formularios y el de token (que hasta el 18/11 no avisaban).
+  avisarGestoraDelLeadNuevo({ lead, proyecto: project, canal: canalDetectado });
 
   // Disparar email sequences con trigger lead_created (async)
   triggerSequences('lead_created', lead.id, project.id);
@@ -363,26 +354,6 @@ async function _createLeadCore(project, leadData) {
         addedByUserId: null,
       });
     }
-  }
-
-  // Notificar al gestor asignado (async - no bloquea respuesta del webhook <500ms)
-  if (lead.responsableId) {
-    (async () => {
-      try {
-        const { rows } = await query(`SELECT id, nombre, email FROM users WHERE id = $1`, [lead.responsableId]);
-        if (rows[0]?.email) {
-          const baseUrl = process.env.CRM_BASE_URL || 'http://localhost:5173/crm';
-          await sendLeadAssignedEmail({
-            gestor: rows[0],
-            lead: { id: lead.id, nombre: lead.nombre, email: lead.email, telefono: lead.telefono },
-            proyecto: { id: project.id, nombre: project.nombre, slug: project.slug, logo_url: project.logo_url, emoji: project.emoji },
-            baseUrl,
-          });
-        }
-      } catch (err) {
-        logger.warn({ err: err.message, leadId: lead.id }, 'Notificacion gestor fallo');
-      }
-    })();
   }
 
   return {

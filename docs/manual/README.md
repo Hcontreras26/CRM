@@ -271,8 +271,6 @@ camino, de principio a fin.
   CRM).
 - **Por el botón de WhatsApp de la web.** La persona escribe a tu WhatsApp de
   trabajo. Si la conversación no tiene ficha, la creas tú desde el propio chat.
-- **Por una solicitud de admisión.** Si alguien rellena el formulario de
-  admisión, se crea una matrícula y, si no existía, su ficha.
 - **A mano.** Tú misma puedes dar de alta un prospecto (por ejemplo, alguien que
   llama), con **Nuevo prospecto**. Hace falta al menos una forma de contacto:
   correo, teléfono o usuario de WhatsApp.
