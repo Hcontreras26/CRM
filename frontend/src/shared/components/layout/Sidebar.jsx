@@ -332,6 +332,8 @@ export const NAV_SECTIONS = [
       ...(SOLO_EN_PRUEBAS
         ? [{ label: 'PayPal y banco', to: '/finanzas/cobros-externos', detail: 'Cobros de PayPal y extractos', icon: Wallet, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'cobros_externos.view' }]
         : []),
+      // Disputas de Stripe (#396): solo admin y super admin, cada uno las de sus campus.
+      { label: 'Disputas de Stripe', to: '/finanzas/disputas', detail: 'Abiertas, por empresa y campus', icon: Warning, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'stripe.edit' },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
       { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'], permiso: 'facturas_colaborador.ver_todas' },
