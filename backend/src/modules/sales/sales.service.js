@@ -1029,10 +1029,13 @@ export async function getSerieVentas({ projectId = null, projectIds = null, from
   // El periodo justo anterior, del mismo tamaño.
   const finAnterior = restarDias(desde, 1);
   const iniAnterior = restarDias(desde, dias);
-  const previo = await tramo({ projectId, from: iniAnterior, to: finAnterior, responsableId, porMes });
+  // Con la MISMA lista de campus que el periodo (#245): sin ella, con «Todos» o
+  // una empresa, el anterior y el historial sumaban los campus de todas las
+  // empresas, también los que no son de quien pide.
+  const previo = await tramo({ projectId, projectIds, from: iniAnterior, to: finAnterior, responsableId, porMes });
 
   // Y el historial completo mes a mes, desde que hay datos.
-  const historial = await tramo({ projectId, from: '2026-01-01', to: hoy, responsableId, porMes: true });
+  const historial = await tramo({ projectId, projectIds, from: '2026-01-01', to: hoy, responsableId, porMes: true });
 
   const varia = (a, b) => (b ? Math.round(((a - b) / b) * 1000) / 10 : (a ? 100 : 0));
 
