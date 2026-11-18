@@ -12,7 +12,12 @@ import { pathAllowsAll, rutaAceptaSociedad } from '@/shared/components/layout/Ap
 const { cabecera, get, roles } = vi.hoisted(() => ({ cabecera: { value: {} }, get: vi.fn(), roles: { value: ['superadmin'] } }));
 
 vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => cabecera.value }));
-vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: (k) => k !== 'matriculas.cambiar_estado' || roles.value.some((x) => ['superadmin', 'admin', 'soporte'].includes(x)), tieneRol: (...r) => r.some((x) => roles.value.includes(x)) }) }));
+// Todo permitido salvo «Cambiar el estado», que va como en el catálogo (admin,
+// soporte y superadmin): los botones de estado miran ese permiso, no el rol.
+vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({
+  can: (p) => p !== 'matriculas.cambiar_estado' || roles.value.some((x) => ['superadmin', 'admin', 'soporte'].includes(x)),
+  tieneRol: (...r) => r.some((x) => roles.value.includes(x)),
+}) }));
 vi.mock('@/shared/api/client', () => ({ default: { get, post: vi.fn(), patch: vi.fn() }, API_BASE_URL: '/crm/api' }));
 
 import MatriculasPage from '@/modules/matriculas/pages/MatriculasPage';

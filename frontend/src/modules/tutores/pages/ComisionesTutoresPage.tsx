@@ -397,8 +397,10 @@ export default function ComisionesTutoresPage() {
                     )}
 
                     {/* «Avisar tutor». Va junto a pagar y no dentro del
-                        desplegable: es la otra cosa que se hace con una fila. */}
-                    {esAdmin && can('tutores.liquidar') && Number(r.pendiente) > 0 && (
+                        desplegable: es la otra cosa que se hace con una fila.
+                        Lo que pide el servidor: `tutores.avisar` y gestionar
+                        colaboraciones (`exigirGestion`), no liquidar. */}
+                    {puede && can('tutores.avisar') && Number(r.pendiente) > 0 && (
                       <Button size="sm" variant="outline" disabled={preparando === r.tutor_id}
                         title={r.tutor_email ? `Escribir a ${r.tutor_email}` : 'Este tutor no tiene correo en su ficha'}
                         onClick={() => verElAviso(r)}>
