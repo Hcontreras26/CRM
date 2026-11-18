@@ -1,6 +1,7 @@
 import { query } from '../../shared/config/db.js';
 import * as conversionModel from '../conversions/conversion.model.js';
 import * as integrationsModel from '../integrations/integrations.model.js';
+import { fechaDeCorte } from '../stripe-payments/stripe-payments.model.js';
 import { decrypt } from '../../shared/utils/crypto.js';
 import { logger } from '../../shared/utils/logger.js';
 import { AppError } from '../../shared/utils/AppError.js';
@@ -377,11 +378,52 @@ async function esquemaDe(token, ref) {
   return ESQUEMAS.subscriptions;
 }
 
+/*
+  LO ANTERIOR AL CORTE NO ENTRA, TAMPOCO POR AQUI (#44).
+
+  «Cada proyecto factura desde el dia que entra al CRM, no desde antes.» El
+  sondeo de Stripe ya lo cumplia (`fechaDeCorte`, commit 7c49c67), pero esta
+  importacion leia la tabla de pagos de la app ENTERA: conectar un proyecto IA
+  que lleva meses cobrando metia su historico como ventas, y de ahi salen las
+  cifras del mes, las comisiones y las facturas.
+
+  El corte es el MISMO que usa el sondeo, para que no haya dos:
+  `al_dia_hasta` puesto a mano → primera factura de la sociedad → alta del
+  proyecto. La salida de emergencia tambien es la misma: mover `al_dia_hasta`
+  hacia atras. Y la misma frontera: entra lo del dia del corte en adelante
+  (el sondeo pide `created >= corte`), comparando la fecha que acaba siendo la
+  de la venta.
+
+  Sin corte (solo pasa si el proyecto no existe) no se corta y se avisa en el
+  registro, igual que el sondeo: mejor traer de mas que perder un cobro sin
+  decirlo.
+*/
+export function esAnteriorAlCorte(fila, corte) {
+  if (!corte || !fila?.created_at) return false;
+  return String(fila.created_at).slice(0, 10) < String(corte).slice(0, 10);
+}
+
+/** Cuantas se quedan fuera por el corte y cuanto suman, para poder decirlo. */
+function resumenAnteriores(filas, corte) {
+  const fuera = filas.filter((f) => esAnteriorAlCorte(f, corte));
+  return {
+    n: fuera.length,
+    importe: Number(fuera.reduce((t, f) => t + Number(f.amount || 0), 0).toFixed(2)),
+  };
+}
+
+async function corteDe(projectId) {
+  const corte = await fechaDeCorte(projectId);
+  if (!corte) logger.warn({ projectId }, 'Supabase IA: el proyecto no tiene fecha de corte; no se corta nada');
+  return corte ? String(corte).slice(0, 10) : null;
+}
+
 /** Un vistazo sin escribir nada: que hay al otro lado. */
 export async function previo(projectId) {
   const { token, ref } = await credenciales(projectId);
   const esq = await esquemaDe(token, ref);
   const filas = await consulta(token, ref, esq.suscripciones);
+  const corte = await corteDe(projectId);
   const columnas = await consulta(token, ref, esq.columnas).catch(() => []);
   const pistas = await consulta(token, ref, esq.pistas).catch(() => []);
   const prueba = await consulta(token, ref, esq.dePrueba).catch(() => []);
@@ -407,6 +449,11 @@ export async function previo(projectId) {
     otraMoneda,
     desde: filas[0]?.created_at || null,
     hasta: filas[filas.length - 1]?.created_at || null,
+    // Desde cuando cuenta el proyecto y lo que se queda fuera por ser de antes.
+    // Las cifras de arriba son de TODO lo que hay en la app; estas dicen cuanto
+    // de eso no entrara al pulsar «Traer».
+    corte,
+    anterioresAlCorte: resumenAnteriores(filas, corte),
     // Cuantas traen referencia de Stripe: son las que se podran reconciliar el
     // dia que haya clave.
     conReferenciaStripe: filas.filter((f) => f.stripe_payment_intent_id || f.stripe_subscription_id).length,
@@ -494,6 +541,7 @@ export async function importar(projectId, { soloProbar = false, usuarioId = null
   const { token, ref } = await credenciales(projectId);
   const esq = await esquemaDe(token, ref);
   const filas = await consulta(token, ref, esq.suscripciones);
+  const corte = await corteDe(projectId);
 
   let clientesNuevos = 0;
   let ventasNuevas = 0;
@@ -501,8 +549,12 @@ export async function importar(projectId, { soloProbar = false, usuarioId = null
   let sinEmail = 0;
   let otraMoneda = 0;
   let devueltas = 0;
+  let anterioresAlCorte = 0;
 
   for (const f of filas) {
+    // Lo primero: lo de antes del corte ni se mira. Ni cliente, ni venta, ni
+    // devolucion — es dinero que ya se llevo fuera del CRM.
+    if (esAnteriorAlCorte(f, corte)) { anterioresAlCorte++; continue; }
     if (!f.email) { sinEmail++; continue; }
     const marca = `[supabase:${f.id}]`;
 
@@ -581,9 +633,9 @@ export async function importar(projectId, { soloProbar = false, usuarioId = null
     if (f.reembolsado) { await apuntarDevolucion(venta.id, f, marca, usuarioId); devueltas++; }
   }
 
-  logger.info({ projectId, ventasNuevas, clientesNuevos, yaEstaban, sinEmail, otraMoneda, devueltas, soloProbar },
+  logger.info({ projectId, corte, anterioresAlCorte, ventasNuevas, clientesNuevos, yaEstaban, sinEmail, otraMoneda, devueltas, soloProbar },
     'Supabase IA: importacion');
-  return { suscripciones: filas.length, ventasNuevas, clientesNuevos, yaEstaban, sinEmail, otraMoneda, devueltas, soloProbar };
+  return { suscripciones: filas.length, corte, anterioresAlCorte, ventasNuevas, clientesNuevos, yaEstaban, sinEmail, otraMoneda, devueltas, soloProbar };
 }
 
 /**
