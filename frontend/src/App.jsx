@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import RedirigirAWebhooks from './modules/webhooks/components/RedirigirAWebhooks';
 import { Suspense, lazy, useEffect } from 'react';
 import { useProjectContext } from './contexts/ProjectContext';
 import { tituloDeRuta } from './shared/lib/rutasTitulos';
@@ -80,6 +81,7 @@ const CoursesPendingPage = lazy(() => import('./modules/products/pages/CoursesPe
 const IADashboardPage = lazy(() => import('./modules/ia-dashboard/pages/IADashboardPage'));
 const RevenuePage = lazy(() => import('./modules/revenue/pages/RevenuePage'));
 const SoportePage = lazy(() => import('./modules/soporte/pages/SoportePage'));
+const IncidenciasPage = lazy(() => import('./modules/incidencias/pages/IncidenciasPage'));
 const StatusPage = lazy(() => import('./modules/status/pages/StatusPage'));
 const RegistroPage = lazy(() => import('./modules/registro/pages/RegistroPage'));
 const NovedadesPage = lazy(() => import('./modules/novedades/pages/NovedadesPage'));
@@ -94,6 +96,8 @@ const PreguntarPage = lazy(() => import('./modules/ia-analisis/pages/PreguntarPa
 const FeedbackEncuestaPage = lazy(() => import('./modules/feedback/pages/FeedbackEncuestaPage'));
 // El formulario de datos fiscales de la factura automática (#764): sin sesión, desde el correo.
 const DatosFiscalesPage = lazy(() => import('./modules/factura-automatica/pages/DatosFiscalesPage'));
+// La confirmación de los datos del diploma (#768): sin sesión, desde el correo.
+const ConfirmarDiplomaPage = lazy(() => import('./modules/diploma-confirmacion/pages/ConfirmarDiplomaPage'));
 const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPanelPage'));
 const AIChatPage = lazy(() => import('./modules/ai-chat/pages/AIChatPage'));
 const SettingsPage = lazy(() => import('./modules/settings/pages/SettingsPage'));
@@ -108,6 +112,7 @@ const StripePaymentsPage = lazy(() => import('./modules/accounting/pages/StripeP
 const CobrosExternosPage = lazy(() => import('./modules/accounting/pages/CobrosExternosPage'));
 // Equipo › Actividad (#236): lo que registra Monitask y el cotejo con las facturas.
 const MonitaskActividadPage = lazy(() => import('./modules/monitask/pages/MonitaskActividadPage'));
+const DisputasStripePage = lazy(() => import('./modules/accounting/pages/DisputasStripePage'));
 const WhatsappWidgetPage = lazy(() => import('./modules/widget/pages/WhatsappWidgetPage'));
 // Todo WhatsApp pasa por aqui: el chat, con quien enlaza su numero y sus
 // plantillas. La pantalla del equipo y «Mi WhatsApp» eran del metodo viejo —el
@@ -165,6 +170,9 @@ const WebhooksPage = lazy(() => import('./modules/webhooks/pages/WebhooksPage'))
 const WebhookDetailPage = lazy(() => import('./modules/webhooks/pages/WebhookDetailPage'));
 const MakeWebhooksPage = lazy(() => import('./modules/make-webhooks/pages/MakeWebhooksPage'));
 const MakeWebhookDetailPage = lazy(() => import('./modules/make-webhooks/pages/MakeWebhookDetailPage'));
+// Conexión → Webhooks (#690): todos juntos, señalados por su función.
+const WebhooksLayout = lazy(() => import('./modules/webhooks/pages/WebhooksLayout'));
+const WebhooksResumenPage = lazy(() => import('./modules/webhooks/pages/WebhooksResumenPage'));
 const FieldDefinitionsPage = lazy(() => import('./modules/field-definitions/pages/FieldDefinitionsPage'));
 const ClavesPage = lazy(() => import('./modules/settings/pages/ClavesPage'));
 const McpPage = lazy(() => import('./modules/mcp/pages/McpPage'));
@@ -236,6 +244,8 @@ function App() {
         <Route path="/feedback/:token" element={<FeedbackEncuestaPage />} />
         {/* Sin sesion: el alumno da sus datos para la factura (#764). El enlace es la llave. */}
         <Route path="/datos-fiscales/:token" element={<DatosFiscalesPage />} />
+        {/* Sin sesion: el alumno confirma o corrige los datos de su diploma (#768). El enlace es la llave. */}
+        <Route path="/confirmar-diploma/:token" element={<ConfirmarDiplomaPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
         {/* El enlace personal del colaborador (#202): sin usuario, el enlace es la llave. */}
@@ -305,12 +315,13 @@ function App() {
           {/* Captación — tabs */}
           <Route path="/captacion" element={<CaptacionLayout />}>
             <Route index element={<FormsPage />} />
-            <Route path="webhooks" element={<WebhooksPage />} />
-            <Route path="webhooks/:id" element={<WebhookDetailPage />} />
-            <Route path="make" element={<MakeWebhooksPage />} />
-            <Route path="make/:id" element={<MakeWebhookDetailPage />} />
             <Route path="whatsapp" element={<WhatsappWidgetPage />} />
           </Route>
+          {/* Webhooks y Make vivían aquí; desde la #690 están en Conexión › Webhooks. */}
+          <Route path="/captacion/webhooks" element={<RedirigirAWebhooks a="/conexion/webhooks/prospectos" />} />
+          <Route path="/captacion/webhooks/:id" element={<RedirigirAWebhooks a="/conexion/webhooks/prospectos" />} />
+          <Route path="/captacion/make" element={<RedirigirAWebhooks a="/conexion/webhooks/make" />} />
+          <Route path="/captacion/make/:id" element={<RedirigirAWebhooks a="/conexion/webhooks/make" />} />
 
           {/* Campañas — tabs */}
           {/* #216: Campañas y Tráfico orgánico enseñaban datos de ejemplo. Hasta
@@ -355,6 +366,8 @@ function App() {
             <Route path="pendiente-facturar" element={<PendienteFacturarPage />} />
             <Route path="pagos-stripe" element={<StripePaymentsPage />} />
             <Route path="cobros-externos" element={<CobrosExternosPage />} />
+            {/* Disputas de Stripe (#396): solo lectura, por empresa y por campus. */}
+            <Route path="disputas" element={<DisputasStripePage />} />
             <Route path="facturas" element={<InvoicesPage />} />
             <Route path="facturas/nueva" element={<InvoiceCreatePage />} />
             <Route path="facturas/configuracion" element={<InvoicingConfigPage />} />
@@ -377,8 +390,17 @@ function App() {
           {/* Conexión → Conectores (WordPress, tiendas, APIs). Estaba en Captación
               hasta el 29/09; la dirección vieja lleva a la nueva. */}
           <Route path="/conexion/conectores" element={<ConnectorsPage />} />
-          {/* Conexión → Webhook de transferencias. Solo super admin y admin: lo corta el servidor. */}
-          <Route path="/conexion/webhook-transferencias" element={<WebhookTransferenciasPage />} />
+          {/* Conexión → Webhooks (#690): el resumen por función y, en pestañas, las
+              pantallas que estaban sueltas. Cada una la corta el servidor por su permiso. */}
+          <Route path="/conexion/webhooks" element={<WebhooksLayout />}>
+            <Route index element={<WebhooksResumenPage />} />
+            <Route path="prospectos" element={<WebhooksPage />} />
+            <Route path="prospectos/:id" element={<WebhookDetailPage />} />
+            <Route path="make" element={<MakeWebhooksPage />} />
+            <Route path="make/:id" element={<MakeWebhookDetailPage />} />
+            <Route path="transferencias" element={<WebhookTransferenciasPage />} />
+          </Route>
+          <Route path="/conexion/webhook-transferencias" element={<RedirigirAWebhooks a="/conexion/webhooks/transferencias" />} />
           {/* Conexión → Asignación de leads por actividad (CRM#513). Solo super admin y admin: lo corta el servidor. */}
           <Route path="/conexion/asignacion-leads" element={<AsignacionLeadsPage />} />
           <Route path="/configuracion/roles" element={<RolesPage />} />
@@ -397,6 +419,8 @@ function App() {
           <Route path="/informes/feedback" element={<FeedbackPanelPage />} />
           <Route path="/chat-ia" element={PANTALLAS_IA ? <AIChatPage /> : <Navigate to="/" replace />} />
           <Route path="/soporte" element={<SoportePage />} />
+          {/* Incidencias (#253), al lado de Soporte. */}
+          <Route path="/incidencias" element={<IncidenciasPage />} />
           {/* Las direcciones de antes (avisos ya enviados, marcadores): a Certificaciones. */}
           <Route path="/certifex/consultas" element={<Navigate to="/clientes/matriculas/certificaciones?vista=consultas" replace />} />
           <Route path="/certifex/emisiones" element={<Navigate to="/clientes/matriculas/certificaciones" replace />} />

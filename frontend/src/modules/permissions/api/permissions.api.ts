@@ -90,8 +90,18 @@ export interface AccionDelCatalogo {
   /** Ni con excepción si su rol PRINCIPAL es uno de estos (WhatsApp, MCP). */
   nuncaPrincipal?: string[];
   soloPantalla: boolean;
+  /** Solo sobre lo suyo (su factura, sus consultas). */
+  propia?: boolean;
+  /** No pide el «Ver» de su recurso. */
+  independiente?: boolean;
+  /** De serie solo con el rol principal: los roles de más no la suman. */
+  soloPrincipal?: boolean;
 }
-export interface RecursoDelCatalogo { clave: string; nombre: string; acciones: AccionDelCatalogo[] }
+export interface RecursoDelCatalogo {
+  clave: string; nombre: string; acciones: AccionDelCatalogo[];
+  /** Lo que decide el acceso y no es una casilla (en el tablero, quién cierra). */
+  nota?: string;
+}
 export interface SeccionDelCatalogo { clave: string; nombre: string; recursos: RecursoDelCatalogo[] }
 export interface RolFijoDelCatalogo { clave: string; nombre: string; descripcion: string }
 export interface Catalogo { roles: RolFijoDelCatalogo[]; secciones: SeccionDelCatalogo[] }
@@ -134,11 +144,11 @@ export async function guardarRolAMedida(id: number, datos: DatosRolAMedida): Pro
 
 export type Origen =
   | { tipo: 'superadmin' }
-  | { tipo: 'rol'; rol: string }
-  | { tipo: 'ajuste_rol'; rol: string }
+  | { tipo: 'rol'; rol: string; extra?: boolean }
+  | { tipo: 'ajuste_rol'; rol: string; extra?: boolean }
   | { tipo: 'rol_a_medida'; id: number; nombre: string }
   | { tipo: 'excepcion' }
-  | { tipo: 'nunca'; roles: string[] }
+  | { tipo: 'nunca'; roles: string[]; principal?: boolean }
   | { tipo: 'ninguno' };
 
 export interface ApunteDelRegistro {

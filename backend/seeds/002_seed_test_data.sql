@@ -189,4 +189,47 @@ INSERT INTO user_activity_log (user_id, action, details, ip_address) VALUES
 (2, 'login', '{"method":"password"}', '10.0.0.50'),
 (2, 'logout', NULL, '10.0.0.50');
 
+-- ============================================================
+-- INCIDENCIAS (#253)
+-- Las seis primeras de la tabla de la issue (06/10), solo como datos de
+-- prueba en local: Diego, 27/10, «en el seed local y nunca en una migración».
+-- Los campus y las personas de entonces (ISSLOGG, ICTESS, Dayana, Yolanda) no
+-- existen en esta base: el campus va por nombre si está y la persona, en el
+-- texto. La hora de «la 87» (12:00) y las gravedades no las dice la issue: son
+-- de relleno. Este bloque no duplica si se repite (cada una entra solo si no
+-- está), pero el fichero entero va en una transacción y lo de arriba no es
+-- repetible: en una base ya sembrada, lanzar solo este bloque.
+-- ============================================================
+INSERT INTO incidencias (ocurrio_at, crm, project_id, tipos, entidad_tipo, entidad_id,
+                         que_paso, impacto, como_se_arreglo, gravedad, estado)
+SELECT v.ocurrio_at::timestamptz, 'multicrm', (SELECT id FROM projects WHERE nombre = v.campus),
+       v.tipos::text[], v.entidad_tipo, v.entidad_id, v.que_paso, v.impacto, v.como, v.gravedad, v.estado
+  FROM (VALUES
+    ('2026-10-06 15:10+02', 'ISEIH', '{capa8}', 'lead', 4033,
+     'Alta a mano (Dayana): Irene se dio de alta en ISSLOGG en vez de ISEIH. El buscador de programas solo mira el campus del prospecto, así que no aparecía el «Diplomado en Terapia Craneosacral y Regulación Nerviosa».',
+     'No se podía convertir.',
+     'Diego la pasó a ISEIH con su diplomado (9417), con copia y registro en su ficha.', 'medium', 'resolved'),
+    ('2026-10-06 17:04+02', 'ISEIH', '{capa8}', 'lead', 4033,
+     'Dayana, al no poder convertirla, borró a Irene con el motivo «test», aunque era un prospecto real.',
+     'Se perdió la ficha original.',
+     'No se restaura (Diego, 06/10). Dayana la volvió a dar de alta en ISEIH (ficha 4042), con su venta y su factura, la 2026/0182.', 'medium', 'resolved'),
+    ('2026-10-05 16:34+02', NULL, '{dato_mal}', 'factura', NULL,
+     'Yolanda (ICTESS): factura 2026/0086 (COOPERATIVAS AGRO-ALIMENTARIAS, 200 €, sin venta) emitida con la emisora duplicada (id 11: sin logo ni forma de pago).',
+     'Factura con datos de emisora incorrectos.',
+     'Borrada el 06/10. Yolanda la volvió a emitir a las 17:10 con la emisora buena (id 9). Después no le salía en su lista: eso era fallo del CRM, arreglado en #254.', 'medium', 'resolved'),
+    ('2026-10-06 12:00+02', NULL, '{capa8,fallo_crm}', 'venta', 569,
+     'ICTESS: la 2.ª cuota de Carlos (curso de 333 € en plazos de 111) se facturó a mano por los 333 enteros. La 1.ª cuota ya tenía la suya, la 0077.',
+     'Factura por un importe de más.',
+     'Borrada. Se vuelve a emitir desde la cola, por 111 €. El CRM ya no lo deja pasar sin confirmar (#254).', 'high', 'resolved'),
+    ('2026-10-06 16:02+02', 'Psiko Aprende', '{capa8,fallo_crm}', 'factura', NULL,
+     'Dayana (CEDIA, Psiko Aprende): factura de Delia García Moratilla numerada a mano 0188 en vez de 0180, y con el IVA sumado encima: 345,45 € por un cobro de 285,50. La serie quedó con huecos (180, 185, 186, 187).',
+     'El cobro de Delia, atascado en la cola.',
+     'Pendiente: se borra y se emite desde la cola como 0180 por 285,50 €. El 185 se rellenó con «Emitir la que falta». El CRM ya avisa (#254).', 'high', 'open'),
+    ('2026-10-05 19:24+02', NULL, '{capa8,fallo_crm}', 'lead', 3916,
+     'Yolanda (ICTESS): Orlando Villalobos. Se registró su venta (Diplomado en Mecánico Naval, 1.780 €) y a las 19:24 se borró como «Error al cargar». Igual Eric García (11/08) y Tomás Franco (23/06).',
+     'Su cobro de Stripe de 400 € quedó suelto y la ficha dejó de salir en Prospectos y en Clientes.',
+     'Pendiente: volver a registrar la venta sin el pago y asociar el cobro de Stripe. El CRM no devuelve la ficha a su estado al borrar la última venta.', 'high', 'open')
+  ) AS v(ocurrio_at, campus, tipos, entidad_tipo, entidad_id, que_paso, impacto, como, gravedad, estado)
+ WHERE NOT EXISTS (SELECT 1 FROM incidencias i WHERE i.que_paso = v.que_paso);
+
 COMMIT;

@@ -77,6 +77,10 @@ $services = [
             'core_enrol_get_users_courses',
             'core_enrol_get_enrolled_users',
             'core_course_get_contents',
+            // 1.10.8 (#769): la lista de cursos del campus, para avisar a administración de
+            // las entregas sin corregir de los cursos sin tutora vinculada en el CRM. Solo lee.
+            // Moodle la añade al servicio al actualizar el plugin (no hace falta paso en upgrade.php).
+            'core_course_get_courses_by_field',
             'mod_assign_get_assignments',
             'mod_assign_get_submissions',
             'mod_assign_get_grades',

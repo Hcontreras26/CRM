@@ -222,15 +222,23 @@ export interface CursoFicha {
 }
 
 // «Mi campus» de la tutora (#681): lo que tiene que hacer hoy en Moodle.
-export interface MiCampusAlumno { id: number; nombre: string | null; email: string | null; ultimoAcceso: string | null; mensajeUrl: string }
+export interface MiCampusAlumno {
+  id: number; nombre: string | null; email: string | null; ultimoAcceso: string | null; mensajeUrl: string;
+  /** % del curso hecho según Moodle (#532); null = sin seguimiento o sin dato: «—», no 0 %. */
+  progreso?: number | null;
+}
 export interface MiCampusDuda { consultaId: number; alumnoId: number | null; alumno: string | null; desde: string | null }
 export interface MiCampusTarea {
   id: number; nombre: string | null; entrega: string | null; corregirUrl: string;
-  sinCorregir: Array<{ alumnoId: number; alumno: string | null; entregadaAt: string | null }>;
+  sinCorregir: Array<{ alumnoId: number; alumno: string | null; entregadaAt: string | null; corregirUrl?: string }>;
   notaMax?: number;
 }
 export interface MiCampusCurso {
   id: number; nombre: string | null; url: string; error: string | null;
+  /** ¿Tiene activado el seguimiento de finalización en Moodle? Sin él, el % de todos es «—». */
+  seguimiento?: boolean;
+  /** Por qué no se ha leído el % de sus alumnos (demasiados, o Moodle no contesta). */
+  avisoProgreso?: string | null;
   alumnos: MiCampusAlumno[]; dudas: MiCampusDuda[]; tareas: MiCampusTarea[];
 }
 export interface MiCampusCampus {

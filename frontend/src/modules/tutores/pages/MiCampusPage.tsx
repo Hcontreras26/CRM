@@ -57,6 +57,28 @@ const ESTADO_PENDIENTE: Record<string, string> = {
   pendiente_asignar: 'Sin asignar', asignado: 'Asignado', en_desarrollo: 'En desarrollo', publicado: 'Publicado',
 };
 
+/** Por qué un alumno sale con «—» en vez de un %: no se sabe, que no es «0 %». */
+function sinProgreso(curso: MiCampusCurso) {
+  if (curso.avisoProgreso) return curso.avisoProgreso;
+  if (curso.seguimiento === false) return 'Este curso no tiene activado el seguimiento de finalización en Moodle';
+  return 'Moodle no da su avance: el curso no tiene actividades con finalización';
+}
+
+/** El % del curso hecho por un alumno (el avance de Moodle, #532), con su barra; «—» si no hay dato. */
+function Progreso({ valor, motivo }: { valor: number | null | undefined; motivo: string }) {
+  if (valor === null || valor === undefined) {
+    return <span className="text-muted-foreground" title={motivo}>—<span className="sr-only">: {motivo}</span></span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span aria-hidden className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-muted sm:block">
+        <span className={cn('block h-full rounded-full', valor >= 100 ? 'bg-success' : 'bg-primary')} style={{ width: `${valor}%` }} />
+      </span>
+      <span className="tabular-nums text-foreground">{valor}%</span>
+    </span>
+  );
+}
+
 const porCorregirDe = (k: MiCampusCurso) => k.tareas.reduce((s, t) => s + t.sinCorregir.length, 0);
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
@@ -115,7 +137,7 @@ function Curso({ projectId, curso, abierto, alternar }: { projectId: number; cur
       {abierto && (
         <div id={panel} className="border-t border-border bg-muted/20 px-4 pb-3 pt-1 sm:pl-[3.75rem]">
           {curso.error && (
-            <p role="alert" className="mt-2 flex items-start gap-2 rounded-md bg-warning-soft dark:bg-warning/15 px-3 py-2 text-secundario text-warning-soft-foreground">
+            <p role="alert" className="mt-2 flex items-start gap-2 rounded-md bg-warning-soft dark:bg-transparent dark:ring-1 dark:ring-inset dark:ring-warning/35 px-3 py-2 text-secundario text-warning-soft-foreground">
               <Warning size={14} weight="fill" className="mt-0.5 shrink-0" aria-hidden /> {curso.error}
             </p>
           )}
@@ -176,6 +198,11 @@ function Curso({ projectId, curso, abierto, alternar }: { projectId: number; cur
                 Abrir el curso <ArrowSquareOut size={11} aria-hidden />
               </a>
             </summary>
+            {curso.alumnos.length > 0 && (curso.avisoProgreso || curso.seguimiento === false) && (
+              <p className="pb-1 text-secundario text-muted-foreground">
+                {curso.avisoProgreso || 'Este curso no tiene activado el seguimiento de finalización en Moodle: el % hecho sale como «—».'}
+              </p>
+            )}
             {curso.alumnos.length === 0 ? (
               <p className="pb-2 text-secundario text-muted-foreground">Sin alumnos activos en este curso.</p>
             ) : (
@@ -184,6 +211,7 @@ function Curso({ projectId, curso, abierto, alternar }: { projectId: number; cur
                   <tr className="border-b border-border text-left">
                     <th scope="col" className="py-1.5 text-tabla uppercase text-muted-foreground">Alumno</th>
                     <th scope="col" className="hidden py-1.5 text-tabla uppercase text-muted-foreground sm:table-cell">Último acceso</th>
+                    <th scope="col" className="hidden py-1.5 text-tabla uppercase text-muted-foreground sm:table-cell">Hecho</th>
                     <th scope="col" className="py-1.5"><span className="sr-only">Escribir</span></th>
                   </tr>
                 </thead>
@@ -195,12 +223,17 @@ function Curso({ projectId, curso, abierto, alternar }: { projectId: number; cur
                           <Iniciales nombre={a.nombre} tamano="xs" />
                           <span className="min-w-0">
                             <span className="block truncate text-secundario font-medium text-foreground">{a.nombre || 'Sin nombre'}</span>
-                            <span className="block truncate text-secundario text-muted-foreground sm:hidden">{ultimoAcceso(a.ultimoAcceso)}</span>
+                            <span className="block truncate text-secundario text-muted-foreground sm:hidden">
+                              {ultimoAcceso(a.ultimoAcceso)} · {a.progreso === null || a.progreso === undefined ? <span title={sinProgreso(curso)}>— hecho</span> : <span className="tabular-nums">{a.progreso}% hecho</span>}
+                            </span>
                           </span>
                         </span>
                       </td>
                       <td className={cn('hidden py-2 pr-3 text-secundario tabular-nums sm:table-cell', sinEntrar(a.ultimoAcceso) ? 'font-medium text-warning' : 'text-muted-foreground')}>
                         {ultimoAcceso(a.ultimoAcceso)}
+                      </td>
+                      <td className="hidden py-2 pr-3 text-secundario sm:table-cell" data-testid="progreso-alumno">
+                        <Progreso valor={a.progreso} motivo={sinProgreso(curso)} />
                       </td>
                       <td className="py-2 text-right">
                         <a href={a.mensajeUrl} target="_blank" rel="noopener noreferrer" aria-label={`Escribir a ${a.nombre || 'este alumno'} en Moodle`}
@@ -276,23 +309,44 @@ function Hito({ hecho, texto }: { hecho: boolean; texto: string }) {
   );
 }
 
-function Resumen({ porCorregir, dudas, cursos }: { porCorregir: number; dudas: number; cursos: number }) {
-  if (porCorregir === 0 && dudas === 0) {
+/** «a», «a y b», «a, b y c». */
+function enFrase(partes: React.ReactNode[]) {
+  return partes.map((p, i) => (
+    <span key={i}>{i > 0 && (i === partes.length - 1 ? ' y ' : ', ')}{p}</span>
+  ));
+}
+
+/**
+ * La línea de arriba (Carlos, 05/11): «X cursos por desarrollar · Y dudas sin responder ·
+ * Z tareas por corregir». Sin campus conectado no se dice «al día» (no se sabe), pero los
+ * cursos por desarrollar sí se saben: salen del CRM, no de Moodle.
+ */
+function Resumen({ porCorregir, dudas, porDesarrollar, conCampus }: { porCorregir: number; dudas: number; porDesarrollar: number; conCampus: boolean }) {
+  const desarrollar = porDesarrollar > 0 && (
+    <strong key="p" className="font-semibold text-primary">{plural(porDesarrollar, 'curso por desarrollar', 'cursos por desarrollar')}</strong>
+  );
+  if (!conCampus || (porCorregir === 0 && dudas === 0)) {
+    if (!conCampus && !desarrollar) return null;
     return (
-      <p className="flex items-center gap-2 text-normal text-foreground">
-        <CheckCircle size={18} weight="fill" className="text-success" aria-hidden />
-        Estás al día: nada por corregir ni dudas sin contestar.
+      <p className="flex flex-wrap items-center gap-x-2 text-normal text-foreground" data-testid="resumen-mi-campus">
+        {conCampus && (
+          <>
+            <CheckCircle size={18} weight="fill" className="text-success" aria-hidden />
+            <span>Estás al día: nada por corregir ni dudas sin contestar.</span>
+          </>
+        )}
+        {desarrollar && <span>{conCampus ? (porDesarrollar === 1 ? 'Te queda' : 'Te quedan') : 'Tienes'} {desarrollar}.</span>}
       </p>
     );
   }
   const partes = [
     porCorregir > 0 && <strong key="c" className="font-semibold text-warning">{plural(porCorregir, 'entrega por corregir', 'entregas por corregir')}</strong>,
     dudas > 0 && <strong key="d" className="font-semibold text-info-soft-foreground">{plural(dudas, 'duda sin contestar', 'dudas sin contestar')}</strong>,
-  ].filter(Boolean);
+    desarrollar,
+  ].filter(Boolean) as React.ReactNode[];
   return (
     <p className="text-seccion font-normal text-foreground" data-testid="resumen-mi-campus">
-      Hoy tienes {partes[0]}{partes[1] && <> y {partes[1]}</>}
-      {cursos > 0 && <span className="text-muted-foreground"> en {plural(cursos, 'curso', 'cursos')}</span>}.
+      Hoy tienes {enFrase(partes)}.
     </p>
   );
 }
@@ -338,7 +392,6 @@ export default function MiCampusPage() {
     return {
       porCorregir: cursos.reduce((s, k) => s + porCorregirDe(k), 0),
       dudas: cursos.reduce((s, k) => s + k.dudas.length, 0) + (datos?.campus.reduce((s, c) => s + c.dudasSinCurso.length, 0) || 0),
-      cursosConAlgo: cursos.filter((k) => porCorregirDe(k) > 0 || k.dudas.length > 0).length,
     };
   }, [datos]);
 
@@ -399,10 +452,10 @@ export default function MiCampusPage() {
       {datos && (
         <>
           {/* Sin ningún campus conectado no se dice «estás al día»: no se sabe. */}
-          {datos.campus.length > 0 && <Resumen porCorregir={totales.porCorregir} dudas={totales.dudas} cursos={totales.cursosConAlgo} />}
+          <Resumen porCorregir={totales.porCorregir} dudas={totales.dudas} porDesarrollar={datos.pendientes.length} conCampus={datos.campus.length > 0} />
 
           {(datos.sinConectar?.length ?? 0) > 0 && (
-            <section aria-labelledby="sin-conectar" className="rounded-lg border border-warning/40 bg-warning-soft dark:bg-warning/15 px-4 py-3">
+            <section aria-labelledby="sin-conectar" className="rounded-lg border border-warning/40 bg-warning-soft dark:bg-transparent px-4 py-3">
               <h2 id="sin-conectar" className="flex items-center gap-2 text-normal font-semibold text-warning-soft-foreground">
                 <Warning size={15} weight="bold" aria-hidden /> Campus en los que tu cuenta de Moodle no está conectada
               </h2>
@@ -444,7 +497,7 @@ export default function MiCampusPage() {
                     )}
                   </div>
                   {c.error && (
-                    <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-warning-soft dark:bg-warning/15 px-3 py-2 text-secundario text-warning-soft-foreground">
+                    <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-warning-soft dark:bg-transparent dark:ring-1 dark:ring-inset dark:ring-warning/35 px-3 py-2 text-secundario text-warning-soft-foreground">
                       <Warning size={14} weight="fill" className="mt-0.5 shrink-0" aria-hidden /> {c.error}
                     </p>
                   )}

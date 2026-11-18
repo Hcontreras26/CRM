@@ -178,6 +178,10 @@ class conexion {
         'mod/assign:view',
         'mod/assign:grade',
         'mod/assign:viewgrades',
+        // El % del curso hecho por cada alumno («Mi campus», #681): sin esto Moodle lo
+        // calcula pero no se lo da a quien no es el propio alumno (`progress` sale vacío:
+        // completion_can_view_data, en lib/completionlib.php).
+        'report/completion:view',
     ];
 
     /**

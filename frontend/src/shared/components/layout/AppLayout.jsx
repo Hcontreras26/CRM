@@ -42,6 +42,9 @@ const ALL_PROJECTS_OK = [
   // Consultas de alumnos (#188, #189): cada fila dice de qué campus es, y el
   // tutor ve lo suyo sin mirar la cabecera.
   /^\/consultas(?:\/.*)?$/,
+  // Incidencias (#253): con una empresa o «Todos», las de sus campus; cada
+  // fila dice de dónde es, y el servidor recorta a cada uno lo suyo.
+  /^\/incidencias$/,
   // Feedback (#170): sin campus ni empresa, el servidor suma todos los que ve
   // cada uno (sin los de pruebas). Diego, 02/11: «el panel de feedback está
   // fallando»: con «Todos los proyectos» salía «Selecciona un proyecto».
@@ -65,7 +68,18 @@ const ALL_PROJECTS_OK = [
   // con ámbito «toda la empresa» (migración 206) y la pantalla y el servidor ya lo
   // resuelven. El muro lo dejaba usable solo con un campus elegido. Diego, 19/10: «los
   // webhooks en producción solo se ven por campus y debe ser por empresa».
-  /^\/conexion\/webhook-transferencias$/,
+  /^\/conexion\/webhooks\/transferencias\/?$/,
+  // Su dirección de antes (#690) redirige a la de arriba; si el muro la parara,
+  // los enlaces viejos (Novedades, marcadores) se quedarían en «elige un campus».
+  /^\/conexion\/webhook-transferencias\/?$/,
+  // Las de antes de Make y de los webhooks de prospectos (#690), solo para que
+  // redirijan: los avisos de Make enlazan `/captacion/make/:id`. Adonde llevan
+  // sí es de un campus, y el muro lo pide ahí, ya con la dirección nueva.
+  /^\/captacion\/(?:make|webhooks)(?:\/\d+)?\/?$/,
+  // El resumen de Conexión › Webhooks (#690): con una empresa o «Todos», los
+  // webhooks de sus campus, cada uno con el suyo. Las pestañas de prospectos y
+  // Make siguen siendo de un campus: se montan para uno.
+  /^\/conexion\/webhooks\/?$/,
   // Asignación de leads: con «todos», todas las configuraciones y decisiones que ve cada uno.
   /^\/conexion\/asignacion-leads$/,
   // El botón de WhatsApp de la web: con una empresa o «Todos», sus pulsaciones
@@ -143,6 +157,8 @@ const ALL_PROJECTS_OK = [
   // campus menos los de pruebas. Sincronizar Stripe o crear una nómina sigue
   // pidiendo UN campus: cada uno tiene su cuenta y sus nóminas.
   /^\/finanzas\/pagos-stripe$/,
+  // Disputas de Stripe (#396): por empresa y por campus, en los de quien mira.
+  /^\/finanzas\/disputas$/,
   /^\/finanzas\/nominas$/,
   // #218, tanda 3: pantallas de UN campus que, con una empresa o «Todos», ya no
   // se tapian: piden el campus DENTRO (Proceso comercial, Buscar duplicados,
@@ -217,7 +233,15 @@ const CON_SOCIEDAD_OK = [
   // con ámbito «toda la empresa» (migración 206) y la pantalla y el servidor ya lo
   // resuelven. El muro lo dejaba usable solo con un campus elegido. Diego, 19/10: «los
   // webhooks en producción solo se ven por campus y debe ser por empresa».
-  /^\/conexion\/webhook-transferencias$/,
+  /^\/conexion\/webhooks\/transferencias\/?$/,
+  // Su dirección de antes (#690), que redirige a la de arriba, y las de Make y
+  // los webhooks de prospectos (redirigen; el muro se pide ya en la nueva).
+  /^\/conexion\/webhook-transferencias\/?$/,
+  /^\/captacion\/(?:make|webhooks)(?:\/\d+)?\/?$/,
+  // El resumen de Conexión › Webhooks (#690): con una empresa o «Todos», los
+  // webhooks de sus campus, cada uno con el suyo. Las pestañas de prospectos y
+  // Make siguen siendo de un campus: se montan para uno.
+  /^\/conexion\/webhooks\/?$/,
   // Asignación de leads (CRM#513): con una empresa, sus configuraciones y las
   // decisiones de sus campus, con un filtro de campus. Diego, 28/10: «tengo que
   // verlo por empresa y campus».
@@ -372,6 +396,7 @@ const CON_SOCIEDAD_OK = [
   /^\/finanzas\/por-pagar$/,
   /^\/finanzas\/comisiones$/,
   /^\/finanzas\/pagos-stripe$/,
+  /^\/finanzas\/disputas$/,
   /^\/finanzas\/pendiente-facturar$/,
   // Nominas. Las paga la SOCIEDAD, asi que verlas campus a campus obligaba a
   // sumar siete pantallas a mano. Leer acepta varios; crear una nomina,
@@ -512,7 +537,7 @@ const NEW_ACTIONS = {
   '/clientes': { url: '/prospectos?new=1', label: 'prospecto' },
   '/productos': { url: '/productos?new=1', label: 'producto' },
   '/captacion': { url: '/captacion?new=1', label: 'formulario' },
-  '/captacion/webhooks': { url: '/captacion/webhooks?new=1', label: 'webhook' },
+  '/conexion/webhooks/prospectos': { url: '/conexion/webhooks/prospectos?new=1', label: 'webhook' },
   '/secuencias-email': { url: '/secuencias-email?new=1', label: 'secuencia' },
   // Egresos vive en /finanzas/egresos: /accounting/expenses no existe en este CRM (#227).
   '/finanzas/egresos': { url: '/finanzas/egresos?new=1', label: 'egreso' },

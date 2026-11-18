@@ -329,14 +329,31 @@ export function textoDeMoodle(html) {
 /** Lo que necesita el token del CAMPUS para leer los matriculados (además de lo anterior). */
 export const FUNCIONES_ALUMNOS = ['core_enrol_get_users_courses', 'core_enrol_get_enrolled_users'];
 
-/** Los cursos en los que está matriculado un usuario (para el tutor: los que imparte). */
+/**
+ * Los cursos en los que está matriculado un usuario (para el tutor: los que imparte).
+ *
+ * Es la misma llamada que da el avance de un alumno (#532, #681): Moodle añade a cada
+ * curso si tiene la finalización activada (`enablecompletion`) y el % de actividades
+ * hechas por ESE usuario (`progress`). `progreso` es null si el curso no tiene
+ * seguimiento o ninguna actividad con finalización: no se sabe, que no es «0 %».
+ */
 export async function cursosDe(conexion, moodleUserId, opciones) {
   const r = await llamar(conexion, 'core_enrol_get_users_courses', { userid: moodleUserId }, opciones);
   return (Array.isArray(r) ? r : []).map((c) => ({
     id: Number(c.id), nombre: c.fullname || c.shortname || null,
     // La última vez que ESE usuario entró al curso (0 = nunca).
     ultimoAcceso: Number(c.lastaccess) > 0 ? new Date(Number(c.lastaccess) * 1000) : null,
+    seguimiento: c.enablecompletion === true || Number(c.enablecompletion) === 1,
+    progreso: progresoDeMoodle(c),
   }));
+}
+
+/** El % hecho que da Moodle, redondeado y entre 0 y 100; null si no lo da (sin seguimiento). */
+export function progresoDeMoodle(c) {
+  const seguimiento = c?.enablecompletion === true || Number(c?.enablecompletion) === 1;
+  if (!seguimiento || c.progress === null || c.progress === undefined || c.progress === '') return null;
+  const n = Number(c.progress);
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null;
 }
 
 /** Roles (nombre corto) del equipo del curso: quien tiene uno de estos no es alumno. */
@@ -348,6 +365,22 @@ export const ROLES_DE_EQUIPO = new Set(['editingteacher', 'teacher', 'manager', 
  * y «Alumnos sin mensajes»: los dos tienen que contar a los mismos.
  */
 export const esAlumno = (g) => (g.roles || []).length > 0 && !g.roles.some((r) => ROLES_DE_EQUIPO.has(r));
+
+/**
+ * TODOS los cursos del campus (#769: las entregas de cursos sin tutora vinculada en el
+ * CRM). Sin el curso «sitio» de Moodle. Va con el plugin 1.10.8, que añade la función al
+ * servicio del CRM; con uno anterior Moodle la niega y quien llama se salta el campus.
+ */
+export async function cursosDelCampus(conexion, opciones) {
+  const r = await llamar(conexion, 'core_course_get_courses_by_field', {}, opciones);
+  return (Array.isArray(r?.courses) ? r.courses : [])
+    .filter((c) => c && c.format !== 'site' && Number(c.id) > 1)
+    .map((c) => ({
+      id: Number(c.id),
+      nombre: c.displayname || c.fullname || c.shortname || null,
+      visible: c.visible === undefined ? true : Number(c.visible) === 1 || c.visible === true,
+    }));
+}
 
 /**
  * Los matriculados ACTIVOS de un curso, con su rol y su último acceso. Solo
@@ -390,6 +423,9 @@ export async function tareasDeCursos(conexion, cursoIds, opciones) {
     porCurso.set(Number(c.id), (c.assignments || []).map((a) => ({
       id: Number(a.id), cmid: Number(a.cmid), nombre: a.name || null,
       entrega: Number(a.duedate) > 0 ? new Date(Number(a.duedate) * 1000) : null,
+      // «Recordarme calificar antes de» de la tarea (#769): si va antes que el plazo de
+      // administración, el aviso a administración sale en esa fecha.
+      calificarAntes: Number(a.gradingduedate) > 0 ? new Date(Number(a.gradingduedate) * 1000) : null,
       // La nota máxima (0 = sin nota numérica: escala o sin calificar).
       notaMax: Number(a.grade) > 0 ? Number(a.grade) : 0,
       // Con escala (grade < 0) o sin nota (0) una cifra no vale: se corrige en Moodle.

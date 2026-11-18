@@ -21,7 +21,7 @@ vi.mock('@/modules/permissions/api/permissions.api', () => api);
 const { default: UserFormDialog } = await import('@/modules/users/components/UserFormDialog');
 
 const CATALOGO = {
-  roles: [],
+  roles: [{ clave: 'gestor', nombre: 'Gestora', descripcion: '' }],
   secciones: [{
     clave: 'comercial', nombre: 'Comercial', recursos: [{
       clave: 'leads', nombre: 'Prospectos', acciones: [
@@ -37,8 +37,6 @@ const base = {
   onClose: vi.fn(), onSubmit: vi.fn(), onCheckEmail: vi.fn().mockResolvedValue(null), onResetPassword: vi.fn(),
 };
 const esperar = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-// La sección siempre enseña «Solo lo que puede»; para ver todo, se quita.
-const verTodo = () => fireEvent.click(screen.getByLabelText('Solo lo que puede'));
 const abrirComercial = () => fireEvent.click(screen.getByRole('button', { name: /Comercial/ }));
 
 beforeEach(() => {
@@ -64,14 +62,16 @@ describe('#694 · editando: los permisos en la propia ficha', () => {
     expect(screen.queryByRole('button', { name: /Ver permisos/ })).toBeNull();
     abrirComercial();
     expect(screen.getByText('Ver prospectos')).toBeInTheDocument();
-    expect(screen.getByText('Su rol: Gestora')).toBeInTheDocument();
+    expect(screen.getAllByText('Su rol: Gestora').length).toBeGreaterThan(0);
+    // Todos los permisos, también los que no tiene (Diego, 11/11).
+    expect(screen.getByText('Exportar prospectos')).toBeInTheDocument();
   });
 
   it('una excepción se guarda ahí mismo', async () => {
     api.getFicha.mockResolvedValue(ficha(true));
     render(<UserFormDialog {...base} user={laura} />);
     await esperar();
-    verTodo(); abrirComercial();
+    abrirComercial();
     const grupo = screen.getByRole('radiogroup', { name: 'Excepción para Exportar prospectos' });
     fireEvent.click(within(grupo).getByRole('radio', { name: 'Sí' }));
     await esperar();
@@ -104,11 +104,11 @@ describe('#694 · en el alta: lo que trae el rol, y sus excepciones antes de cre
     render(<UserFormDialog {...base} user={null} />);
     await esperar();
     expect(api.vistaPreviaDeAlta).toHaveBeenLastCalledWith(expect.objectContaining({ role: 'gestor', excepciones: {} }));
-    verTodo(); abrirComercial();
+    abrirComercial();
     fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Excepción para Exportar prospectos' })).getByRole('radio', { name: 'Sí' }));
     await esperar();
     expect(api.vistaPreviaDeAlta).toHaveBeenLastCalledWith(expect.objectContaining({ excepciones: { 'leads.export': true } }));
-    expect(screen.getByText('Excepción suya')).toBeInTheDocument();
+    expect(screen.getByText('Excepción suya: dado a mano')).toBeInTheDocument();
     // No se guarda nada todavía: va con el alta.
     expect(api.guardarExcepciones).not.toHaveBeenCalled();
   });
@@ -118,7 +118,7 @@ describe('#694 · en el alta: lo que trae el rol, y sus excepciones antes de cre
     const onSubmit = vi.fn();
     const { container } = render(<UserFormDialog {...base} user={null} onSubmit={onSubmit} />);
     await esperar();
-    verTodo(); abrirComercial();
+    abrirComercial();
     fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Excepción para Exportar prospectos' })).getByRole('radio', { name: 'Sí' }));
     await esperar();
     fireEvent.change(screen.getByLabelText(/^Nombre/), { target: { value: 'Ana Nueva' } });
@@ -134,7 +134,7 @@ describe('#694 · en el alta: lo que trae el rol, y sus excepciones antes de cre
     api.vistaPreviaDeAlta.mockResolvedValue(vista({}, ['leads.view']));
     render(<UserFormDialog {...base} user={null} />);
     await esperar();
-    verTodo(); abrirComercial();
+    abrirComercial();
     const si = within(screen.getByRole('radiogroup', { name: 'Excepción para Exportar prospectos' })).getByRole('radio', { name: 'Sí' });
     expect(si).toBeDisabled();
     expect(si).toHaveAttribute('title', 'No lo puedes dar: tú no lo tienes');
@@ -149,7 +149,7 @@ describe('#694 · en el alta: lo que trae el rol, y sus excepciones antes de cre
       : vista(excepciones)));
     render(<UserFormDialog {...base} user={null} />);
     await esperar();
-    verTodo(); abrirComercial();
+    abrirComercial();
     esAdmin = true;
     fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Excepción para Exportar prospectos' })).getByRole('radio', { name: 'Sí' }));
     await waitFor(() => expect(api.vistaPreviaDeAlta).toHaveBeenLastCalledWith(expect.objectContaining({ excepciones: {} })));
@@ -165,7 +165,7 @@ describe('#694 · en el alta: lo que trae el rol, y sus excepciones antes de cre
     await esperar();
     expect(api.vistaPreviaDeAlta).toHaveBeenLastCalledWith(expect.objectContaining({ projectIds: [] }));
     expect(screen.getByText('Para darle permisos, ponle primero uno de tus campus.')).toBeInTheDocument();
-    verTodo(); abrirComercial();
+    abrirComercial();
     expect(screen.queryByRole('radiogroup', { name: 'Excepción para Exportar prospectos' })).toBeNull();
     const campus = container.querySelector('input[type="checkbox"][value="1"]') || screen.getAllByRole('checkbox').find((c) => /ISEIH/.test(c.closest('label')?.textContent || ''));
     fireEvent.click(campus);

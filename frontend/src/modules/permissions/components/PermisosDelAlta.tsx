@@ -84,7 +84,7 @@ export default function PermisosDelAlta({
       {(!vista || !catalogo) && !error && <p className="text-normal text-muted-foreground">Cargando…</p>}
       {vista && catalogo && (
         <ListaDePermisos catalogo={catalogo} mapa={vista.mapa} origenes={vista.origenes} excepciones={excepciones}
-          puedeEditar={vista.puedeEditar} onElegir={elegir} puedeDar={(c) => !mios || mios.has(c)} />
+          puedeEditar={vista.puedeEditar} onElegir={elegir} puedeDar={(c) => !mios || mios.has(c)} role={role} />
       )}
     </section>
   );

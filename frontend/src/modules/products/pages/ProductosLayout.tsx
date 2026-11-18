@@ -1,6 +1,8 @@
 import { Outlet } from 'react-router-dom';
 import { Package, ListBullets, Tree, Clock, ShoppingBag } from '@phosphor-icons/react';
 import SubNav from '@/shared/components/ui/SubNav';
+import { useAuth } from '@/contexts/AuthContext';
+import { soloEsTutor, soloEsTutorRedactor } from '@/shared/lib/roles';
 
 // Cada pestaña se llama como la pantalla que abre (#79).
 //
@@ -17,9 +19,15 @@ const TABS = [
 ];
 
 export default function ProductosLayout() {
+  const { user } = useAuth() as { user: Parameters<typeof soloEsTutor>[0] };
+  // Un tutor o un tutor redactor solo entra a «Cursos pendientes» (#770): las
+  // demás pestañas le devolverían a lo suyo (ProtectedRoute).
+  const tabs = soloEsTutor(user) || soloEsTutorRedactor(user)
+    ? TABS.filter((t) => t.to === '/productos/pendientes')
+    : TABS;
   return (
     <div className="flex flex-col h-full">
-      <SubNav tabs={TABS} sectionLabel="Productos" sectionIcon={Package} />
+      <SubNav tabs={tabs} sectionLabel="Productos" sectionIcon={Package} />
       <div className="flex-1 overflow-y-auto">
         <Outlet />
       </div>

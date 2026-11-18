@@ -242,6 +242,17 @@ export const CAMBIOS_POR_DATOS = [
   },
 ];
 
+// #694 / #752 (Diego, 12/11): «MCP del colaborador: bloqueado siempre». Va por DATOS:
+// de serie el colaborador no lo traía; lo pierde solo el que lo tenía con la casilla
+// (o una excepción). Su `mcp.usar` ahora es `nunca` / `nuncaPrincipal`.
+CAMBIOS_POR_DATOS.push({
+  id: 'colaborador-sin-mcp',
+  que: 'El colaborador no puede usar el MCP, ni con la casilla ni con excepción ni con un rol de más, como el tutor y el tutor redactor. El colaborador que lo tenía con la casilla lo pierde. En su ficha sale la casilla bloqueada, con el motivo.',
+  motivo: 'Diego, 11/11 en la #694 («Nunca para ese rol: WhatsApp y el MCP para tutor, tutor redactor y colaborador») y 12/11 en la #752, sabiendo que el colaborador con la casilla lo pierde: «bloqueado siempre».',
+  explica: ({ persona, fila, antes, despues }) => persona.role === 'colaborador' && fila.modulo === 'mcp' && antes === true && despues === false,
+  aprobadoPor: 'Diego, 12/11',
+});
+
 /**
  * Lo que cambia en el MENÚ, por perfil (QA de Diego, punto 6: «soporte pierde
  * 10 entradas del menú; el admin con factura_manager gana Facturación»). Ningún
@@ -469,6 +480,22 @@ export const CAMBIOS_DE_MENU = [
       'Catálogo › Cursos pendientes': 'GET /api/cursos-pendientes/',
     },
     aprobadoPor: 'Diego, 06/11',
+  },
+  {
+    id: 'menu-disputas-stripe-396',
+    que: '«Finanzas › Disputas de Stripe»: las disputas abiertas de cada cuenta de Stripe, por empresa y por campus, solo lectura (CRM#396). La ve quien tiene `stripe.edit` («llevar las disputas»), cada uno en sus campus.',
+    motivo: 'Tarea #396 del tablero (Manuel): ver las disputas abiertas por empresa y proyecto. No cambia el acceso: `stripe.edit` ya decidía las disputas en Pagos Stripe.',
+    perfiles: {
+      superadmin: ['+ Finanzas › Disputas de Stripe'],
+      admin: ['+ Finanzas › Disputas de Stripe'],
+      soporte: ['+ Finanzas › Disputas de Stripe'],
+      'gestora+admin': ['+ Finanzas › Disputas de Stripe'],
+    },
+    rutas: {
+      'Finanzas › Disputas de Stripe': 'GET /api/stripe-payments/disputas',
+    },
+    // Aprobado por Diego el 18/11, tras probarla en /testeo (permisos por rol, filtros, sin claves, solo lectura y móvil).
+    aprobadoPor: 'Diego, 18/11',
   },
 ];
 

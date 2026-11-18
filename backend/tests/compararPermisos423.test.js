@@ -156,7 +156,9 @@ describe('antes y después de #423, persona por persona (#423)', () => {
         // Y el project manager que ve todo (Diego, 04/11): por su rol, con casilla o sin ella.
         'pm-ve-todo',
         // Y el correo propio con código (#211): por el rol, con casilla o sin ella.
-        'correo-propio-con-codigo'].includes(d.cambio?.id));
+        'correo-propio-con-codigo',
+        // Y el MCP del colaborador (Diego, 12/11, #752): bloqueado siempre, aunque tuviera la casilla.
+        'colaborador-sin-mcp'].includes(d.cambio?.id));
     expect(conCasilla.map((d) => `${d.persona.role} · ${d.fila.id}`)).toEqual([]);
   });
 });

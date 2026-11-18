@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-882 rutas en 70 módulos, y 31 acciones con condición dentro de una ruta.
+906 rutas en 72 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -311,6 +311,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
 | resumen | `GET /api/cursos-pendientes/resumen` | (no existía) | (ruta nueva) | lo de cada uno |
+| controlSubidas | `GET /api/cursos-pendientes/subidas` | (no existía) | (ruta nueva) | `tutores.gestionar` |
 | listar | `GET /api/cursos-pendientes/` | (no existía) | (ruta nueva) | lo de cada uno |
 | crear | `POST /api/cursos-pendientes/` | (no existía) | (ruta nueva) | lo de cada uno |
 | detalle | `GET /api/cursos-pendientes/:id` | (no existía) | (ruta nueva) | lo de cada uno |
@@ -318,6 +319,19 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | publicar | `POST /api/cursos-pendientes/:id/publicar` | (no existía) | (ruta nueva) | lo de cada uno |
 | sumarAlumna | `POST /api/cursos-pendientes/:id/alumnas` | (no existía) | (ruta nueva) | lo de cada uno |
 | marcarAlumna | `PATCH /api/cursos-pendientes/:id/alumnas/:alumnaId` | (no existía) | (ruta nueva) | lo de cada uno |
+| abrirSubidas | `POST /api/cursos-pendientes/:id/subidas` | (no existía) | (ruta nueva) | `tutores.gestionar` |
+| marcarSubida | `PATCH /api/cursos-pendientes/:id/subidas/:punto` | (no existía) | (ruta nueva) | `tutores.gestionar` |
+
+## diploma-confirmacion
+
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
+|---|---|---|---|---|
+| estados | `GET /api/diploma-confirmacion/` | (no existía) | (ruta nueva) | `diplomas.view` o `diplomas.emit` |
+| pedir | `POST /api/diploma-confirmacion/pedir` | (no existía) | (ruta nueva) | `diplomas.emit` |
+| reenviar | `POST /api/diploma-confirmacion/:matriculaId/reenviar` | (no existía) | (ruta nueva) | `diplomas.emit` |
+| reaplicar | `POST /api/diploma-confirmacion/:matriculaId/aplicar` | (no existía) | (ruta nueva) | `diplomas.emit` |
+| formulario | `GET /api/cd/:token` | (no existía) | (ruta nueva) | — |
+| responder | `POST /api/cd/:token` | (no existía) | (ruta nueva) | — |
 
 ## documents
 
@@ -495,6 +509,19 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | previoSupabase | `GET /api/ia/supabase/previo/:projectId` | (no existía) | (ruta nueva) | `ia.importar` |
 | importarSupabase | `POST /api/ia/supabase/importar/:projectId` | (no existía) | (ruta nueva) | `ia.importar` |
 | quitarPruebasSupabase | `POST /api/ia/supabase/quitar-pruebas/:projectId` | (no existía) | (ruta nueva) | `ia.importar` |
+
+## incidencias
+
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
+|---|---|---|---|---|
+| listar | `GET /api/incidencias/` | (no existía) | (ruta nueva) | `incidencias.view` |
+| metricas | `GET /api/incidencias/metricas` | (no existía) | (ruta nueva) | `incidencias.view` |
+| descargarAdjunto | `GET /api/incidencias/adjuntos/:adjuntoId` | (no existía) | (ruta nueva) | `incidencias.view` |
+| personas | `GET /api/incidencias/personas` | (no existía) | (ruta nueva) | `incidencias.create` o `incidencias.edit` |
+| crear | `POST /api/incidencias/` | (no existía) | (ruta nueva) | `incidencias.create` |
+| porId | `GET /api/incidencias/:id` | (no existía) | (ruta nueva) | `incidencias.view` |
+| editar | `PATCH /api/incidencias/:id` | (no existía) | (ruta nueva) | `incidencias.edit` |
+| subirAdjunto | `POST /api/incidencias/:id/adjuntos` | (no existía) | (ruta nueva) | `incidencias.create` o `incidencias.edit` |
 
 ## informe-mensual
 
@@ -1023,6 +1050,8 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | stats | `GET /api/stripe-payments/stats` | sesión | superadmin, admin, gestor, soporte, project_manager | `stripe.view` |
 | sync | `POST /api/stripe-payments/sync` | sesión | superadmin, admin, gestor, soporte, project_manager | `stripe.view` |
 | corte | `GET /api/stripe-payments/corte` | (no existía) | (ruta nueva) | `stripe.view` |
+| listar | `GET /api/stripe-payments/disputas` | (no existía) | (ruta nueva) | `stripe.edit` |
+| sincronizar | `POST /api/stripe-payments/disputas/sincronizar` | (no existía) | (ruta nueva) | `stripe.edit` |
 | getOne | `GET /api/stripe-payments/:id` | sesión | superadmin, admin, gestor, soporte, project_manager | `stripe.view` |
 | link | `POST /api/stripe-payments/:id/link` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `stripe.edit` |
 | unlink | `DELETE /api/stripe-payments/:id/link` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `stripe.edit` |
@@ -1033,6 +1062,11 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 | Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
+| githubEstado | `GET /api/tasks/github` | (no existía) | (ruta nueva) | `tasks.github` |
+| githubConfig | `PATCH /api/tasks/github` | (no existía) | (ruta nueva) | `tasks.github` |
+| githubSecretos | `PUT /api/tasks/github/secretos` | (no existía) | (ruta nueva) | `tasks.github` |
+| githubPonerUsuario | `PUT /api/tasks/github/usuarios/:login` | (no existía) | (ruta nueva) | `tasks.github` |
+| githubQuitarUsuario | `DELETE /api/tasks/github/usuarios/:login` | (no existía) | (ruta nueva) | `tasks.github` |
 | (anónima) | `GET /api/tasks/metrics` | sesión · soloRoles(superadmin, admin, colaborador) | superadmin, admin, colaborador | `tasks.view_own` o `tasks.view_all` |
 | (anónima) | `GET /api/tasks/metrics/areas` | sesión · soloRoles(superadmin, admin, colaborador) | superadmin, admin, colaborador | `tasks.view_own` o `tasks.view_all` |
 | (anónima) | `GET /api/tasks/assignees` | sesión · soloRoles(superadmin, admin, colaborador) | superadmin, admin, colaborador | `tasks.view_own` o `tasks.view_all` |
@@ -1360,6 +1394,7 @@ lo que pide para tener sentido (editar pide ver).
 | Devolver tareas | `tasks.close` | Devolver a «En curso», con un comentario, las tareas hechas o en revisión que puede ver. | Admin | `tasks.view_own` |
 | Configurar el tablero | `tasks.manage` | Columnas, áreas y proyectos del tablero. | Admin | `tasks.view_own` |
 | Gestionar equipos | `tasks.manage_teams` | Crear, renombrar y archivar equipos del tablero, sus cargos y quién está en cada uno. | Admin | `tasks.view_own` |
+| Conectar con GitHub | `tasks.github` | El repositorio, el equipo, el supervisor, los secretos y quién es quién en GitHub. | solo superadmin | `tasks.view_own` |
 
 ## Captación
 
@@ -1695,7 +1730,7 @@ lo que pide para tener sentido (editar pide ver).
 
 | Permiso | Clave | Qué deja hacer | De serie | Necesita |
 |---|---|---|---|---|
-| Usar el MCP | `mcp.usar` | Conectar su Claude al CRM con su URL personal. · nunca: Tutor, Tutor redactor · nunca si su rol principal es: Tutor, Tutor redactor | Admin |  |
+| Usar el MCP | `mcp.usar` | Conectar su Claude al CRM con su URL personal. · nunca: Tutor, Tutor redactor, Colaborador · nunca si su rol principal es: Tutor, Tutor redactor, Colaborador | Admin |  |
 | Administrar el MCP | `mcp.administrar` | Dar o quitar el MCP a personas de sus campus y ver qué se ha consultado. | Admin |  |
 | Apagar el MCP | `mcp.supervisar` | El interruptor de emergencia y rechazar conexiones ajenas. | solo superadmin |  |
 
@@ -1760,6 +1795,14 @@ lo que pide para tener sentido (editar pide ver).
 | Aprobar solicitudes | `change_requests.approve` | Firmar la aprobación. | Admin, Gestora, Soporte, Project manager | `change_requests.view` |
 | Borrar solicitudes | `change_requests.delete` | Quitar una solicitud. | Admin, Soporte, Project manager | `change_requests.view` |
 | Reabrir solicitudes | `change_requests.reopen` | Volver a abrir una cerrada. | Admin, Soporte, Project manager | `change_requests.view` |
+
+### Incidencias
+
+| Permiso | Clave | Qué deja hacer | De serie | Necesita |
+|---|---|---|---|---|
+| Ver incidencias | `incidencias.view` | Las incidencias y sus cifras (una gestora, solo las suyas). | Admin, Gestora, Soporte |  |
+| Registrar incidencias | `incidencias.create` | Registrar una incidencia nueva con sus adjuntos. | Admin, Soporte | `incidencias.view` |
+| Editar incidencias | `incidencias.edit` | Cambiar una incidencia, cerrarla o reabrirla. | Admin, Soporte | `incidencias.view` |
 
 ### Registro
 

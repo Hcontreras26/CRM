@@ -10,7 +10,7 @@ import * as tutores from '../tutores/tutor.model.js';
 // Ventas a plazos: al asociar un cargo, su suscripción se apunta y se cierra al completar el pago (#747).
 import { trasAsociarCargo } from './suscripciones.service.js';
 
-async function getStripeKey(projectId) {
+export async function getStripeKey(projectId) {
   try {
     const row = await integrationsModel.get(projectId, 'stripe');
     if (row?.encrypted_value) return decrypt(row.encrypted_value, row.iv, row.auth_tag);
@@ -33,7 +33,7 @@ export async function getWebhookSecret(projectId) {
   } catch (e) { return null; }
 }
 
-async function stripeGet(apiKey, path, params = {}) {
+export async function stripeGet(apiKey, path, params = {}) {
   // La direccion sale de `stripeApi.js`: en produccion es Stripe y nada mas.
   const url = new URL(urlDeStripe(path));
   for (const [k, v] of Object.entries(params)) if (v != null) url.searchParams.set(k, String(v));
@@ -256,17 +256,10 @@ async function fetchAndUpdateDispute(apiKey, projectId, charge) {
     const data = await stripeGet(apiKey, '/v1/disputes', { 'charge': charge.id, limit: 1 });
     const d = data.data?.[0];
     if (!d) return;
-    await query(
-      `UPDATE stripe_payments SET
-         dispute_id = $1,
-         dispute_status = $2,
-         dispute_reason = $3,
-         dispute_amount = $4,
-         dispute_evidence_due_by = to_timestamp($5),
-         updated_at = NOW()
-       WHERE project_id = $6 AND stripe_id = $7`,
-      [d.id, d.status, d.reason, (d.amount || 0) / 100, d.evidence_details?.due_by || null, projectId, charge.id]
-    );
+    // La misma puerta que el webhook y el sondeo de disputas (#396): se guarda en
+    // `stripe_disputes`, se deja al dia el cargo y, si es nueva y abierta, se avisa.
+    const { guardar } = await import('./disputas.service.js');
+    await guardar(projectId, { ...d, charge }, { origen: 'sondeo' });
   } catch (e) {
     logger.warn({ chargeId: charge.id, err: e.message }, 'fetchDispute failed');
   }
@@ -294,7 +287,7 @@ async function fetchAndUpdateDispute(apiKey, projectId, charge) {
  * Sin declararlo NO se filtra nada, que es lo correcto para una cuenta
  * dedicada: es el caso normal y no tiene por que configurarse.
  */
-async function filtroDeMetadata(projectId) {
+export async function filtroDeMetadata(projectId) {
   try {
     const row = await integrationsModel.get(projectId, 'stripe');
     const f = row?.config_public?.filtro_metadata;
@@ -334,7 +327,7 @@ async function filtroDeMetadata(projectId) {
  */
 const GRACIA_SIN_MARCAR_MS = 24 * 60 * 60 * 1000;
 
-function deQuienEs(charge, filtro) {
+export function deQuienEs(charge, filtro) {
   if (!filtro) return 'mio';
   const marca = charge?.metadata?.[filtro.clave];
   if (marca == null || marca === '') return 'sin_marcar';
@@ -801,18 +794,13 @@ export async function handleWebhookEvent(projectId, event) {
     case 'charge.dispute.created':
     case 'charge.dispute.updated':
     case 'charge.dispute.closed': {
-      // obj is the dispute object
-      await query(
-        `UPDATE stripe_payments SET
-           disputed = true,
-           dispute_id = $1, dispute_status = $2, dispute_reason = $3,
-           dispute_amount = $4,
-           dispute_evidence_due_by = to_timestamp($5),
-           updated_at = NOW()
-         WHERE project_id = $6 AND stripe_id = $7`,
-        [obj.id, obj.status, obj.reason, (obj.amount || 0) / 100,
-         obj.evidence_details?.due_by || null, projectId, obj.charge]
-      );
+      // `obj` es la disputa. Antes era un UPDATE sobre el cargo: si el CRM no lo
+      // tenia (anterior al corte del alta, o que nunca entro), la disputa se
+      // perdia sin aviso. Ahora se guarda siempre en `stripe_disputes`, se deja
+      // al dia el cargo si existe y, si es nueva y abierta, se avisa (#396).
+      const { desdeElWebhook } = await import('./disputas.service.js');
+      const r = await desdeElWebhook(projectId, obj, apiKey);
+      if (r?.skipped) return { skipped: r.skipped, stripeId: obj.id };
       return { processed: event.type, stripeId: obj.id };
     }
     case 'payment_intent.succeeded':

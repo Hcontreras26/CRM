@@ -30,6 +30,7 @@ import {
   ShoppingBag,
   BookOpen,
   Headset,
+  WarningDiamond,
   ActivityIcon as Activity,
   ClipboardText,
   FilePdf,
@@ -43,7 +44,6 @@ import {
   ChatCircleText,
   ChatsCircle,
   ArrowSquareOut,
-  Lightning,
   WebhooksLogo,
   Tree,
   ListBullets,
@@ -102,6 +102,15 @@ const ROLES_TAREAS = ['superadmin', 'admin', 'colaborador', 'tutor_redactor'];
 // que existe, que funcione y esté en el menú. Lo vigila
 // `test/menuSinRutasRotas.test.jsx`: cada `to` tiene su <Route> en App.jsx, o
 // lleva `comingSoon`. Las de `href` salen a otra compilación y no cuentan.
+// Conexión › Webhooks (#690): la entrada se ve con el permiso de alguna de las
+// TRES entradas que sustituye (Captación › Webhooks, Captación › Make y
+// Conexión › Webhook de transferencias), ni uno más: así la ve exactamente
+// quien veía alguna de ellas, también con permisos quitados o dados a mano. Lo
+// demás que reúne el resumen (Stripe, formularios…) tiene su pantalla propia, y
+// dentro cada tarjeta pide su permiso. Lo vigilan test/webhooksJuntos690.test.jsx
+// y el traslado de `trasladosDeMenu.js`.
+export const PERMISOS_WEBHOOKS = ['webhooks.view', 'make.view', 'webhooks_salientes.view'];
+
 export const NAV_SECTIONS = [
   {
     label: 'Testeo',
@@ -228,8 +237,8 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'Email', to: '/secuencias-email', detail: 'Correos automáticos', icon: Envelope, roles: ['superadmin', 'admin'], module: 'email_sequences', permiso: 'email_sequences.view' },
       { label: 'Formularios', to: '/captacion', detail: 'Formularios de la web', icon: Globe, roles: ['superadmin', 'admin'], module: 'forms', permiso: 'forms.view' },
-      { label: 'Make', to: '/captacion/make', detail: 'Escenarios de Make', icon: Lightning, roles: ['superadmin', 'admin'], module: 'make', permiso: 'make.view' },
-      { label: 'Webhooks', to: '/captacion/webhooks', detail: 'Entradas de fuera', icon: WebhooksLogo, roles: ['superadmin', 'admin'], module: 'webhooks', permiso: 'webhooks.view' },
+      // Make y Webhooks estaban aquí: desde la #690, en Conexión › Webhooks. Lo
+      // que Webhooks pedía además (`forms.view`, #842) va con su parte y su pestaña.
       { label: 'Widget web', to: '/captacion/whatsapp', detail: 'El botón de la web', icon: WhatsappLogo, roles: ['superadmin', 'admin', 'soporte'], permiso: 'widget.view' },
       // Próximamente (#216): enseñaban datos de ejemplo. El gasto real de Meta, en Publicidad.
       { label: 'Campañas', to: '/campanas', detail: 'Campañas y resultados', icon: Megaphone, roles: ['superadmin', 'admin'], comingSoon: true },
@@ -256,7 +265,11 @@ export const NAV_SECTIONS = [
     icon: Books,
     items: [
       { label: 'Productos', to: '/productos', detail: 'Cursos a la venta', icon: Package, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.view' },
-      { label: 'Cursos pendientes', to: '/productos/pendientes', detail: 'Por campus, con tutora y fecha', icon: Clock, roles: ['superadmin', 'admin', 'gestor', 'tutor'], module: 'products', permiso: 'products.view' },
+      // `oPermiso` (#770): el tutor y el tutor redactor no tienen «Ver productos»,
+      // pero sus avisos («Te han asignado un curso») llevan aquí. Con «Sus cursos»
+      // la pantalla se les abre (`rutaPermitida`); el menú no cambia, porque la
+      // entrada sigue pidiendo `products.view` para salir.
+      { label: 'Cursos pendientes', to: '/productos/pendientes', detail: 'Por campus, con tutora y fecha', icon: Clock, roles: ['superadmin', 'admin', 'gestor', 'tutor'], module: 'products', permiso: 'products.view', oPermiso: 'tutores.mis_cursos' },
       { label: 'WooCommerce', to: '/productos/woocommerce', detail: 'Sincronía de tienda', icon: ShoppingBag, roles: ['superadmin', 'admin'], module: 'woocommerce', permiso: 'woocommerce.view' },
       // Cada entrada se llama como la pantalla que abre (#79). «Árbol de
       // categorías» apuntaba a /productos/arbol, que es OTRA pantalla, y el
@@ -331,6 +344,8 @@ export const NAV_SECTIONS = [
       ...(SOLO_EN_PRUEBAS
         ? [{ label: 'PayPal y banco', to: '/finanzas/cobros-externos', detail: 'Cobros de PayPal y extractos', icon: Wallet, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'cobros_externos.view' }]
         : []),
+      // Disputas de Stripe (#396): solo admin y super admin, cada uno las de sus campus.
+      { label: 'Disputas de Stripe', to: '/finanzas/disputas', detail: 'Abiertas, por empresa y campus', icon: Warning, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'stripe.edit' },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
       { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'], permiso: 'facturas_colaborador.ver_todas' },
@@ -395,9 +410,22 @@ export const NAV_SECTIONS = [
       // #335: los cursos, alumnos y recursos de los Moodle de cada campus.
       { label: 'Moodle', to: '/conexion/moodle', detail: 'Cursos y alumnos de cada campus', icon: GraduationCap, roles: ['superadmin', 'admin'], permiso: 'moodle.view' },
       { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors', permiso: 'connectors.view' },
-      // Diego, 15/10: «un apartado en Conexión para enviar esos datos ÚNICAMENTE
-      // CUANDO SE PONGA DATOS POR TRANSFERENCIA BANCARIA / DEPÓSITO BANCARIO».
-      { label: 'Webhook de transferencias', to: '/conexion/webhook-transferencias', detail: 'Avisar de transferencias y depósitos', icon: Bank, roles: ['superadmin', 'admin'], permiso: 'webhooks_salientes.view' },
+      // Todos los webhooks en un sitio, señalados por su función (#690, Diego 05/11:
+      // «hay demasiados y están repartidos por el menú»). Reúne los que estaban en
+      // Captación (Webhooks, Make) y el de transferencias, que estaba aquí suelto
+      // (Diego, 15/10). Se ve con el permiso de alguna de las tres entradas que
+      // sustituye (PERMISOS_WEBHOOKS, arriba); dentro, cada tarjeta pide el suyo.
+      { label: 'Webhooks', to: '/conexion/webhooks', detail: 'Todos, por su función', icon: WebhooksLogo, roles: ['superadmin', 'admin'], permiso: PERMISOS_WEBHOOKS,
+        // Cada entrada de antes con su permiso, su módulo y su sección (Captación ›
+        // Webhooks llevaba `module: 'webhooks'`; Captación › Make, `module: 'make'`;
+        // y Captación no sale en un proyecto IA, `salvoTipo: ['ia']`).
+        // La de Webhooks pedía además `forms.view` (#842): la pantalla lee `/api/forms`.
+        partes: [{ permiso: 'webhooks.view', tambienPermiso: 'forms.view', module: 'webhooks', salvoTipo: ['ia'] }, { permiso: 'make.view', module: 'make', salvoTipo: ['ia'] }, { permiso: 'webhooks_salientes.view' }],
+        // Para que el buscador (Ctrl K) los siga encontrando por su nombre de antes,
+        // también escrito entero («Webhook de transferencias»: `fuzzyScore` busca
+        // la frase seguida). El buscador enseña lo mismo que el menú, así que no
+        // lista las pestañas: lleva aquí, y desde aquí a cada una.
+        keywords: 'webhook de transferencias · webhooks de captación · webhooks de prospectos · escenarios de make · make zapier n8n transferencias depósitos stripe woocommerce admisión matrícula formularios entradas avisos' },
       { label: 'Asignación de leads', to: '/conexion/asignacion-leads', detail: 'A quién va cada formulario', icon: Shuffle, roles: ['superadmin', 'admin'], permiso: 'webhooks_salientes.view' },
     ],
   },
@@ -413,6 +441,9 @@ export const NAV_SECTIONS = [
       // El tutor entra aqui: es donde cambia su contraseña.
       { label: 'Mis preferencias', to: '/preferencias', detail: 'Tus ajustes', icon: UserCircle, roles: ['superadmin', 'admin', 'gestor', 'tutor', 'colaborador', 'tutor_redactor'] },
       { label: 'Soporte', to: '/soporte', detail: 'Ayuda y contacto', icon: Headset },
+      // Incidencias (#253). Diego: «en el menú, al lado de Soporte». Los mismos
+      // roles que traen `incidencias.view` de serie (la gestora ve las suyas).
+      { label: 'Incidencias', to: '/incidencias', detail: 'Lo que salió mal y cómo se arregló', icon: WarningDiamond, roles: ['superadmin', 'admin', 'gestor', 'soporte'], permiso: 'incidencias.view' },
       // Claves y variables (#80). Desde CRM#632 (03/11) también el admin, que
       // ve las de sus campus; guardar y revelar siguen siendo de soporte.
       { label: 'Claves y variables', to: '/configuracion/claves', detail: 'Credenciales del proyecto', icon: Key, roles: ['superadmin', 'admin', 'soporte'], permiso: 'credentials.view' },
@@ -558,10 +589,21 @@ export function pasaPermisoDeRoles(item, can) {
 const SIN_ENTRADA = {
   // El chat de WhatsApp también se abre por `/whatsapp` (App.jsx), sin entrada.
   '/whatsapp': ['whatsapp.usar', 'whatsapp.supervisar'],
+  // Las pestañas de Conexión › Webhooks (#690): el permiso de las entradas que
+  // tenían en el menú antes de juntarse.
+  '/conexion/webhooks/prospectos': ['webhooks.view'],
+  '/conexion/webhooks/make': ['make.view'],
+  '/conexion/webhooks/transferencias': ['webhooks_salientes.view'],
   // La pestaña Tutores de Consultas: la del panel de tutores en el servidor
   // (`/api/consultas/tutores-panel`). Escrita a mano por una tutora decía «No
   // hay tutores aquí» en vez de que no tiene acceso (#188).
   '/consultas/tutores': 'consultas.view',
+};
+// Lo que esas rutas piden ADEMÁS (todos), como `tambienPermiso` en una entrada
+// del menú. La pestaña Prospectos es la pantalla de Captación › Webhooks, que
+// lee y escribe en `/api/forms` (#842): con `webhooks.view` solo, daba 403.
+const SIN_ENTRADA_TAMBIEN = {
+  '/conexion/webhooks/prospectos': 'forms.view',
 };
 
 export function rutaPermitida(pathname, can) {
@@ -575,10 +617,22 @@ export function rutaPermitida(pathname, can) {
   };
   for (const s of NAV_SECTIONS) recorrer(s.items);
   // Rutas sin entrada propia en el menú: su permiso, aquí.
-  if (!suyas.length && SIN_ENTRADA[ruta]) suyas.push({ permiso: SIN_ENTRADA[ruta] });
+  if (!suyas.length && SIN_ENTRADA[ruta]) suyas.push({ permiso: SIN_ENTRADA[ruta], tambienPermiso: SIN_ENTRADA_TAMBIEN[ruta] });
   if (!suyas.length) return true;
-  return suyas.some((it) => !it.permiso || pasaPermisoDeRoles(it, can)
-    || (it.oPermiso && [].concat(it.oPermiso).some((p) => typeof can === 'function' && can(p) === true)));
+  return suyas.some((it) => tieneLosDeMas(it, can) && (!it.permiso || pasaPermisoDeRoles(it, can)
+    || (it.oPermiso && [].concat(it.oPermiso).some((p) => typeof can === 'function' && can(p) === true))));
+}
+
+/**
+ * `tambienPermiso`: lo que pide ADEMÁS la pantalla, porque es lo que mira el
+ * servidor. Todos, no basta uno. Captación › Webhooks pide `webhooks.view`
+ * —lo que dice el catálogo— pero la pantalla lee y escribe en `/api/forms`
+ * (los webhooks de captación son formularios con `kind='webhook'`), que pide
+ * `forms.*`: con uno solo de los dos la pantalla se abría y daba 403.
+ */
+export function tieneLosDeMas(item, can) {
+  if (!item?.tambienPermiso) return true;
+  return typeof can === 'function' && [].concat(item.tambienPermiso).every((p) => can(p) === true);
 }
 
 /**
@@ -598,7 +652,7 @@ export function permisoQueFalta(pathname, can) {
     }
   };
   for (const s of NAV_SECTIONS) recorrer(s.items);
-  if (!claves.length && SIN_ENTRADA[ruta]) claves.push(...[].concat(SIN_ENTRADA[ruta]));
+  if (!claves.length && SIN_ENTRADA[ruta]) claves.push(...[].concat(SIN_ENTRADA[ruta]), ...[].concat(SIN_ENTRADA_TAMBIEN[ruta] || []));
   return claves.find((c) => String(c).includes('.') && !(typeof can === 'function' && can(c) === true)) || null;
 }
 
@@ -621,6 +675,17 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   // `permiso` también puede ser una lista: basta con uno (Diplomas: ver O emitir).
   const tienePermisoDeLaPantalla = !item.permiso || (typeof can === 'function' && [].concat(item.permiso).some((p) => can(p) === true));
   if (!tienePermisoDeLaPantalla) return false;
+  if (!tieneLosDeMas(item, can)) return false;
+  // Una entrada que junta varias (Conexión › Webhooks, #690): sale si alguna de
+  // sus `partes` se puede abrir, cada una con su permiso (y lo que pide además,
+  // `tambienPermiso`, #842), su módulo y el tipo de proyecto en que no salía
+  // (`salvoTipo`: Make y Webhooks estaban en Captación, que un proyecto IA no
+  // tiene), como salían las entradas que sustituye. Con Make y Webhooks
+  // apagados, quien solo tenía esas dos no la ve.
+  if (Array.isArray(item.partes) && !item.partes.some((p) => (!p.permiso || (typeof can === 'function' && can(p.permiso) === true))
+    && tieneLosDeMas(p, can)
+    && !(p.module && modules && modules[p.module] === false)
+    && !(Array.isArray(p.salvoTipo) && p.salvoTipo.includes(projectType)))) return false;
   // Y al reves: lo que en un tipo de proyecto NO EXISTE.
   //
   // Un proyecto IA no tiene tutores, ni comisiones, ni nominas, ni campañas

@@ -94,6 +94,7 @@ export function menuDe(p, { mapa = legado.mapaDePermisos(p) } = {}) {
  */
 const { cambiosDeMenuPorPerfil } = await import('../../../backend/src/modules/permissions/inventario/cambios-aprobados.js');
 export const CAMBIOS_APROBADOS = cambiosDeMenuPorPerfil();
+const { aplicarTraslados } = await import('@/shared/components/layout/trasladosDeMenu');
 
 describe('menú por perfil (#423)', () => {
   const ahora = Object.fromEntries(Object.entries(PERFILES).map(([k, p]) => [k, menuDe(p, { mapa: mapaDeAhora(p) })]));
@@ -108,13 +109,40 @@ describe('menú por perfil (#423)', () => {
     it(`${perfil}: el mismo menú que antes, salvo lo aprobado`, () => {
       const antes = new Set(foto[perfil] || []);
       const despues = new Set(ahora[perfil]);
-      const diferencias = [
-        ...[...despues].filter((x) => !antes.has(x)).map((x) => `+ ${x}`),
-        ...[...antes].filter((x) => !despues.has(x)).map((x) => `- ${x}`),
+      // Las entradas que solo cambian de sitio (`trasladosDeMenu.js`, #690): se
+      // trasladan en la foto y en lo aprobado, y lo demás se compara igual.
+      const conTraslados = (lineas) => {
+        const conAprobado = new Set(antes);
+        for (const l of lineas) (l[0] === '+' ? conAprobado.add(l.slice(2)) : conAprobado.delete(l.slice(2)));
+        return new Set(aplicarTraslados([...conAprobado]));
+      };
+      // Lo aprobado tiene que ser un cambio de verdad respecto a la foto.
+      const aprobado = CAMBIOS_APROBADOS[perfil] || [];
+      expect(aprobado.filter((l) => (l[0] === '+') === antes.has(l.slice(2)))).toEqual([]);
+      const esperado = conTraslados(aprobado);
+      const sinAprobar = [
+        ...[...despues].filter((x) => !esperado.has(x)).map((x) => `+ ${x}`),
+        ...[...esperado].filter((x) => !despues.has(x)).map((x) => `- ${x}`),
       ].sort();
-      expect(diferencias).toEqual([...(CAMBIOS_APROBADOS[perfil] || [])].sort());
+      expect(sinAprobar).toEqual([]);
     });
   }
+
+  // Un traslado (`trasladosDeMenu.js`) solo se acepta si NO cambia el acceso con
+  // ninguna combinación de permisos, no solo con estos perfiles: la entrada
+  // nueva pide exactamente los permisos de las viejas, ni uno más ni uno menos.
+  // Aprobarlo sigue siendo de Diego (`aprobadoPor`); esto impide que un
+  // traslado esconda un cambio de acceso mientras tanto.
+  it('cada traslado pide en su entrada nueva los permisos de las viejas, ni uno más', async () => {
+    const { TRASLADOS_DE_MENU } = await import('@/shared/components/layout/trasladosDeMenu');
+    for (const t of TRASLADOS_DE_MENU) {
+      const [seccion, etiqueta] = t.a.split(' › ');
+      const entrada = NAV_SECTIONS.find((s) => s.label === seccion)?.items.find((i) => i.label === etiqueta);
+      expect(entrada, t.a).toBeTruthy();
+      expect(new Set([].concat(entrada.permiso)), t.id).toEqual(new Set(t.de.map((d) => d.permiso)));
+      expect('aprobadoPor' in t, `${t.id}: falta aprobadoPor (null hasta que Diego lo apruebe)`).toBe(true);
+    }
+  });
 
   it('la foto recoge el fallo de «Facturación»: hoy solo la ve el superadmin', () => {
     expect(foto.superadmin).toContain('Finanzas › Facturación');
