@@ -4,13 +4,17 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 /**
  * Corregir desde el CRM (#681): poner la nota ESCRIBE en Moodle, así que el formulario
- * va detrás de PLUGIN_MOODLE (revisión de Diego de la #689, punto 1). Apagado (/crm),
+ * va detrás del plugin del CRM (revisión de Diego de la #689, punto 1). Apagado (/crm),
  * se ven las entregas pero no hay nota que poner: queda «Corregir en Moodle».
+ *
+ * Desde la #850 lo decide el servidor (`user.plugin_moodle` de /auth/me): aquí se
+ * compila como /crm (SOLO_EN_PRUEBAS = false) y se cambia lo que dice el servidor.
  *
  *   npx vitest run src/test/corregirTareaPluginMoodle681.test.jsx
  */
 const bandera = vi.hoisted(() => ({ encendida: false }));
-vi.mock('@/shared/lib/pluginMoodle', () => ({ get PLUGIN_MOODLE() { return bandera.encendida; } }));
+vi.mock('@/shared/lib/soloEnPruebas', () => ({ SOLO_EN_PRUEBAS: false }));
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 3, role: 'tutor', plugin_moodle: bandera.encendida } }) }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 vi.mock('@/shared/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() }, API_BASE_URL: '/api', getAccessToken: () => null, setAccessToken: () => {} }));
 
@@ -40,7 +44,7 @@ beforeEach(() => {
   vi.spyOn(tutoresApi, 'verTarea').mockResolvedValue({ success: true, data: TAREA });
 });
 
-describe('CorregirTareaPage y PLUGIN_MOODLE (#681)', () => {
+describe('CorregirTareaPage y el plugin del CRM (#681, #850)', () => {
   it('apagado: se ve la entrega, sin formulario de nota, y se corrige en Moodle', async () => {
     bandera.encendida = false;
     abrir();

@@ -16,7 +16,7 @@ import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 import { useLinksPagoEncendidos } from '@/shared/lib/linksPago';
 import { ReglasDeLosLinks, WebhookDeLaCuentaBloque } from '@/modules/links-pago/components/ConfigLinksPago';
 import { esProyectoIA, PROYECTOS_IA } from '@/shared/lib/proyectosIA';
-import { PLUGIN_MOODLE } from '@/shared/lib/pluginMoodle';
+import { usePluginMoodle } from '@/shared/lib/pluginMoodle';
 import { EtiquetaEnPruebas } from '@/shared/components/ui/EnPruebas';
 import {
   CreditCard, EnvelopeSimple, CheckCircle, WarningCircle, Eye, EyeSlash,
@@ -1035,6 +1035,8 @@ function PaypalCard({ projectId }: { projectId: number }) {
 // config_public.url y el token, cifrado, como las demás claves. Con él, el CRM
 // comprueba que el correo de cada tutor es usuario del campus.
 function MoodleCard({ projectId }: { projectId: number }) {
+  // El plugin del CRM: en /testeo y en local, o si el servidor lo tiene aprobado (#850).
+  const pluginMoodle = usePluginMoodle();
   const [data, setData] = useState<Integration | null>(null);
   const [loading, setLoading] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
@@ -1131,9 +1133,9 @@ function MoodleCard({ projectId }: { projectId: number }) {
       </div>
 
       <div className="p-5 space-y-4">
-        {/* Lo fácil primero: con el plugin, instalar y pegar un código (#679). Solo en
-            pruebas hasta aprobarlo (`shared/lib/pluginMoodle`): en /crm, como siempre. */}
-        {PLUGIN_MOODLE && (
+        {/* Lo fácil primero: con el plugin, instalar y pegar un código (#679). En /crm,
+            solo con PLUGIN_MOODLE_EN_PRODUCCION=1 en el servidor (`shared/lib/pluginMoodle`). */}
+        {pluginMoodle && (
           <>
             <PluginDelCrm projectId={projectId} alConectar={load} />
             <p className="text-xs font-semibold text-muted-foreground">O, sin el plugin, a mano:</p>

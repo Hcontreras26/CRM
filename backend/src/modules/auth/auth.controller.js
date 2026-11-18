@@ -11,7 +11,7 @@ import { sendPasswordResetEmail } from '../../shared/services/brevo.service.js';
 import { logger } from '../../shared/utils/logger.js';
 import { buildPermissionsMap, resolveUserView } from '../permissions/permissions.service.js';
 import { alcanceDeLider } from '../../shared/utils/roles.js';
-import { linksPagoActivos } from '../../shared/config/soloEnPruebas.js';
+import { linksPagoActivos, pluginMoodleActivo } from '../../shared/config/soloEnPruebas.js';
 
 function getClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
@@ -172,6 +172,12 @@ export async function me(req, res, next) {
           // en /crm, con LINKS_PAGO_EN_PRODUCCION=1; en /testeo y en local, siempre.
           // Quién los usa lo dicen después los permisos `links_pago.*`.
           funciones: { links_pago: linksPagoActivos() },
+          // El plugin del CRM en Moodle (#850): lo mismo que decide qué rutas se
+          // montan (PLUGIN_MOODLE_EN_PRODUCCION). El frontal lo lee de aquí y no
+          // de la compilación: para encenderlo en /crm basta con el `.env`.
+          // No es de la persona sino del servidor; va aquí, como lo anterior,
+          // porque es lo que el frontal ya guarda al entrar y al recargar.
+          plugin_moodle: pluginMoodleActivo(),
         },
         permissions,
         // null = sin recorte por equipo; si lleva uno, [ella, ...sus gestoras].

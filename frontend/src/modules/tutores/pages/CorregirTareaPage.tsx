@@ -8,7 +8,7 @@ import Iniciales from '@/shared/components/ui/Iniciales';
 import { toast } from '@/shared/hooks/useToast';
 import { cn } from '@/shared/lib/utils';
 import { EtiquetaEnPruebas } from '@/shared/components/ui/EnPruebas';
-import { PLUGIN_MOODLE } from '@/shared/lib/pluginMoodle';
+import { usePluginMoodle } from '@/shared/lib/pluginMoodle';
 import { tutoresApi, TIPOS_EN_LINEA, type EntregaDeTarea, type EstadoEntrega, type TareaParaCorregir } from '../api/tutores.api';
 
 /*
@@ -17,8 +17,8 @@ import { tutoresApi, TIPOS_EN_LINEA, type EntregaDeTarea, type EstadoEntrega, ty
   la derecha la calificación, siempre a la vista junto a la entrega. Al guardar, la nota
   queda en Moodle a nombre de la tutora (plugin local_crm) y el alumno la ve en su campus.
 
-  Poner la nota ESCRIBE en Moodle: va detrás de PLUGIN_MOODLE (solo en pruebas hasta que
-  Diego lo apruebe). Apagado, se ven las entregas pero no hay formulario de nota: queda el
+  Poner la nota ESCRIBE en Moodle: va detrás del plugin del CRM (`usePluginMoodle`: en
+  /testeo y en local, y en /crm con PLUGIN_MOODLE_EN_PRODUCCION=1 en el servidor). Apagado, se ven las entregas pero no hay formulario de nota: queda el
   enlace para corregir en Moodle (en el servidor, la ruta de calificar ni se monta).
 */
 
@@ -64,6 +64,7 @@ function useAncha() {
 }
 
 export default function CorregirTareaPage() {
+  const pluginMoodle = usePluginMoodle();
   const ancha = useAncha();
   const params = useParams();
   const projectId = Number(params.projectId);
@@ -103,7 +104,7 @@ export default function CorregirTareaPage() {
   const admiteComentario = datos?.tarea.comentarios !== false;
   // Lo que no se corrige desde aquí: sin el plugin aprobado, nada; con él, ni escala o sin
   // nota, ni entregas en grupo.
-  const soloEnMoodle = datos && (!PLUGIN_MOODLE
+  const soloEnMoodle = datos && (!pluginMoodle
     ? 'Poner la nota desde el CRM todavía no está disponible aquí. Corrígela en el campus.'
     : datos.tarea.enGrupo
       ? 'Es una tarea en grupo: Moodle guarda la entrega a nombre del grupo. Corrígela en el campus.'
@@ -337,7 +338,7 @@ export default function CorregirTareaPage() {
                     ) : actual.estado === 'sin_entregar' ? (
                       <div className="rounded-md border border-dashed border-border px-6 py-12 text-center">
                         <p className="text-normal font-medium text-foreground">Todavía no ha entregado</p>
-                        {PLUGIN_MOODLE && <p className="mt-1 text-secundario text-muted-foreground">Puedes ponerle nota igualmente, por ejemplo si la entregó por otra vía.</p>}
+                        {pluginMoodle && <p className="mt-1 text-secundario text-muted-foreground">Puedes ponerle nota igualmente, por ejemplo si la entregó por otra vía.</p>}
                       </div>
                     ) : (
                       <>
