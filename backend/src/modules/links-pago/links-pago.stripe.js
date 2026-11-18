@@ -91,15 +91,16 @@ export function crearPrecio(apiKey, { importe, moneda, nombre, metadata, idempot
 /**
  * El Payment Link. Un solo pago (`completed_sessions.limit = 1`) y la marca del
  * CRM en el link y en el cargo, para atar el cobro sin depender del correo
- * (fase 3).
+ * (fase 3). `metadataDelCargo` (por defecto, la misma) es la del cargo: lleva
+ * además la marca de plataforma si el campus comparte cuenta.
  */
-export function crearLink(apiKey, { priceId, metadata, idempotencia }) {
+export function crearLink(apiKey, { priceId, metadata, metadataDelCargo = metadata, idempotencia }) {
   return llamar(apiKey, 'POST', '/v1/payment_links', {
     idempotencia,
     cuerpo: {
       line_items: [{ price: priceId, quantity: 1 }],
       metadata,
-      payment_intent_data: { metadata },
+      payment_intent_data: { metadata: metadataDelCargo },
       restrictions: { completed_sessions: { limit: 1 } },
       inactive_message: MENSAJE_INACTIVO,
     },
