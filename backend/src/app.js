@@ -128,6 +128,7 @@ import { startFacturasColaboradorAvisosScheduler } from './jobs/facturasColabora
 import { startCopiaDiariaScheduler } from './jobs/copiaDiariaJob.js';
 import { startFacturacionAuditoriaScheduler } from './jobs/facturacionAuditoriaJob.js';
 import { startInformeMensualScheduler } from './jobs/informeMensualJob.js';
+import { startBrevoBloqueadosScheduler } from './jobs/brevoBloqueadosScheduler.js';
 import { tareasActivas, facturasColaboradorActivas, linksPagoActivos, proyectosIAActivos, pluginMoodleActivo } from './shared/config/soloEnPruebas.js';
 import { porteroDelWebhook, topeDelEnvio, traducirTope } from './modules/webhook-tokens/portero.js';
 import { MAX_ENVIO_BYTES } from './modules/matriculas/admision.archivos.js';
@@ -551,6 +552,8 @@ if (process.env.NODE_ENV !== 'test') {
     startFacturacionAuditoriaScheduler();
     // El informe del mes y las facturas a la gestoría (#772). Apagado de serie: INFORME_MENSUAL_ACTIVO.
     startInformeMensualScheduler();
+    // Apagada de serie (BREVO_BLOQUEADOS_ACTIVO): apagada no arranca ni pregunta a Brevo.
+    startBrevoBloqueadosScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }

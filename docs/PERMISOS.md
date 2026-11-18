@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-875 rutas en 70 módulos, y 31 acciones con condición dentro de una ruta.
+877 rutas en 70 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -1144,6 +1144,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | list | `GET /api/users/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.view` |
 | buscar | `GET /api/users/buscar` | (no existía) | (ruta nueva) | `users.view` |
 | rolesAsignables | `GET /api/users/roles-asignables` | (no existía) | (ruta nueva) | `users.create` |
+| brevoBloqueos | `GET /api/users/brevo-bloqueos` | (no existía) | (ruta nueva) | `users.view` |
 | listAvailability | `GET /api/users/availability` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.view` |
 | deleteBlock | `DELETE /api/users/availability-blocks/:blockId` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.edit` |
 | getById | `GET /api/users/:id` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.view` |
@@ -1153,6 +1154,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | reactivate | `PATCH /api/users/:id/reactivate` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.edit` |
 | setPassword | `PATCH /api/users/:id/password` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo · a mano: user.controller.js · setPassword | superadmin, admin | `users.contrasena` |
 | avisoCorreo | `GET /api/users/:id/aviso-correo` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo · soloRoles(superadmin) | superadmin | `users.aviso_correo` |
+| desbloquearBrevo | `DELETE /api/users/:id/brevo-bloqueo` | (no existía) | (ruta nueva) | `users.brevo_desbloquear` |
 | setAvailability | `PATCH /api/users/:id/availability` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.edit` |
 | listBlocks | `GET /api/users/:id/availability-blocks` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.view` |
 | ver | `GET /api/users/:id/equipo-comercial` | (no existía) | (ruta nueva) | `users.view` |
@@ -1799,6 +1801,7 @@ lo que pide para tener sentido (editar pide ver).
 | Contraseña de otros | `users.contrasena` | Ponerle contraseña a otra persona (un admin, a tutores de sus campus). | Admin | `users.view` |
 | Empresas enteras y correos | `users.empresas` | Dar empresas enteras a un admin y cambiar el correo de alguien. | solo superadmin | `users.view` |
 | Aviso de cambio de correo | `users.aviso_correo` | Ver el aviso que recibe quien cambia de correo. | solo superadmin | `users.view` |
+| Desbloquear correos en Brevo | `users.brevo_desbloquear` | Sacar de la lista de bloqueados de Brevo el correo de alguien del equipo para que vuelvan a llegarle los avisos. | Admin | `users.view` |
 
 ### Equipos comerciales
 

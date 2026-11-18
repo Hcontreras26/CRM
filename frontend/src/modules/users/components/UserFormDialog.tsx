@@ -9,7 +9,8 @@ import { avatarColorFor, getInitials, inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
 import EquipoComercial from './EquipoComercial';
 import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
-import { listRolesAsignables, type AvisoCambioCorreo, type CrmUser, type Empresa, type ProjectAssignment, type RolAsignable } from '../api/users.api';
+import BrevoBloqueoAviso from './BrevoBloqueoAviso';
+import { listRolesAsignables, type AvisoCambioCorreo, type BrevoBloqueo, type CrmUser, type Empresa, type ProjectAssignment, type RolAsignable } from '../api/users.api';
 import { ASSIGNABLE_ROLES } from '../lib/usersUi';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '../lib/credenciales';
 import { motivoNoAsignable, porRol } from '../lib/rolesAsignables';
@@ -53,6 +54,10 @@ interface Props {
   empresas?: Empresa[];
   /** La migración 203 aún no está: la casilla sale apagada y se dice por qué. */
   faltaMigracionEmpresas?: boolean;
+  /** Brevo no le entrega los correos (migración 290): la marca de la ficha. */
+  bloqueoBrevo?: BrevoBloqueo | null;
+  /** «Desbloquear en Brevo»: solo con el permiso users.brevo_desbloquear. */
+  onDesbloquearBrevo?: () => Promise<void>;
   loading: boolean;
   onClose: () => void;
   onSubmit: (values: UserFormValues) => void | Promise<void>;
@@ -63,7 +68,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function UserFormDialog({
   user, projects, canResetPassword, canChangeEmail, loading, onClose, onSubmit, onCheckEmail, onResetPassword,
-  empresas, faltaMigracionEmpresas = false,
+  empresas, faltaMigracionEmpresas = false, bloqueoBrevo = null, onDesbloquearBrevo,
 }: Props) {
   const esEdicion = !!user;
   // Escape cierra, como los demás formularios (#106).
@@ -277,6 +282,10 @@ export default function UserFormDialog({
                   <p className="text-secundario text-muted-foreground truncate">{user!.email}</p>
                 </div>
               </div>
+            )}
+
+            {esEdicion && bloqueoBrevo && (
+              <BrevoBloqueoAviso bloqueo={bloqueoBrevo} onDesbloquear={onDesbloquearBrevo} />
             )}
 
             <Field label="Nombre" required htmlFor="user-nombre">

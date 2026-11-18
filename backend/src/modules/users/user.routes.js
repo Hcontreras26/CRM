@@ -36,6 +36,8 @@ router.get('/buscar', puede('users.view'), userController.buscar);
 // Qué roles puede dar quien da de alta (Tony, 03/11). El mismo permiso que el alta, y antes que `/:id`.
 router.get('/roles-asignables', puede('users.create'), userController.rolesAsignables);
 // Disponibilidad (admin/superadmin). Va antes que /:id para no chocar.
+// Quién tiene el correo bloqueado en Brevo (migración 290). Antes que `/:id`.
+router.get('/brevo-bloqueos', puede('users.view'), userController.brevoBloqueos);
 router.get('/availability', puede('users.view'), availabilityController.listAvailability);
 router.delete('/availability-blocks/:blockId', puede('users.edit'), availabilityController.deleteBlock);
 router.get('/:id', puede('users.view'), userController.getById);
@@ -46,6 +48,8 @@ router.patch('/:id/reactivate', puede('users.edit'), userController.reactivate);
 router.patch('/:id/password', puede('users.contrasena'), userController.setPassword);
 // Antes de cambiar un correo, el aviso de Make (#248). `soloRoles`: roleGuard deja pasar a soporte.
 router.get('/:id/aviso-correo', puede('users.aviso_correo'), userController.avisoCorreo);
+// «Desbloquear en Brevo»: solo superadmin y admin (catálogo).
+router.delete('/:id/brevo-bloqueo', puede('users.brevo_desbloquear'), userController.desbloquearBrevo);
 router.patch('/:id/availability', puede('users.edit'), availabilityController.setAvailability);
 router.get('/:id/availability-blocks', puede('users.view'), availabilityController.listBlocks);
 // El equipo comercial de una administradora (Carlos, 09/11/2026): verlo, quien ve
