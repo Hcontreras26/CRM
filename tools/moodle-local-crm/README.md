@@ -16,7 +16,9 @@ Une la mensajería de cada campus con el CRM:
   conversación del alumno (o en su chat de grupo) con el nombre de la tutora. No hace
   falta el token personal de cada tutora.
 - **«Mi campus» de la tutora.** El servicio del plugin incluye las funciones con las
-  que el CRM lee cursos, alumnos y entregas sin corregir.
+  que el CRM lee cursos, alumnos y entregas sin corregir. Desde la 1.10.8 (#769), también
+  la lista de cursos del campus (`core_course_get_courses_by_field`), para avisar a
+  administración de las entregas de los cursos sin tutora en el CRM.
 
 La lectura cada 5 minutos del CRM sigue funcionando como respaldo. Si un aviso se
 pierde, se recoge en la siguiente vuelta.

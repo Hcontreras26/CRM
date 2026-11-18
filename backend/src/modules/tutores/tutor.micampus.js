@@ -208,6 +208,8 @@ async function unCampus(tutorId, c, { conProgreso = true, ...opciones } = {}) {
       return {
         // En grupo, Moodle guarda la entrega a nombre del grupo: no se cuenta aquí, se corrige allí.
         id: t.id, nombre: t.nombre, entrega: t.entrega, sinCorregir: t.enGrupo ? [] : sin, notaMax: t.notaMax,
+        // «Recordarme calificar antes de» (#769): adelanta el aviso a administración.
+        calificarAntes: t.calificarAntes || null,
         enGrupo: Boolean(t.enGrupo), calificable: Boolean(t.calificable),
         corregirUrl: `${url}/mod/assign/view.php?id=${t.cmid}&action=grading`,
       };

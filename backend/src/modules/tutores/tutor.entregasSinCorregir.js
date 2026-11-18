@@ -54,20 +54,27 @@ async function tutorasConCampus(tutorIds) {
   return rows.map((r) => ({ id: Number(r.id), nombre: r.nombre, email: r.email }));
 }
 
-/** Las entregas por corregir de sus campus que ya pasan de las 48 h, una por fila. */
-export function entregasVencidas(campus, ahora, horas = HORAS_SIN_CORREGIR) {
-  const limite = ahora.getTime() - horas * 3600 * 1000;
+/** Todas las entregas por corregir de sus campus (con fecha), una por fila. */
+export function entregasPorCorregir(campus) {
   return campus.flatMap((c) => c.cursos.flatMap((k) => k.tareas.flatMap((t) => t.sinCorregir
-    .filter((e) => e.entregadaAt && new Date(e.entregadaAt).getTime() <= limite)
+    .filter((e) => e.entregadaAt)
     .map((e) => ({
       projectId: c.projectId, campus: c.campus,
       cursoId: k.id, curso: k.nombre, tareaId: t.id, tarea: t.nombre,
       alumnoId: e.alumnoId, alumno: e.alumno, entregadaAt: new Date(e.entregadaAt),
+      calificarAntes: t.calificarAntes ? new Date(t.calificarAntes) : null,
       corregirUrl: e.corregirUrl || t.corregirUrl,
     })))));
 }
 
-const claveDe = (e) => `${e.projectId}-${e.tareaId}-${e.alumnoId}-${new Date(e.entregadaAt).getTime()}`;
+/** Las entregas por corregir de sus campus que ya pasan de las 48 h, una por fila. */
+export function entregasVencidas(campus, ahora, horas = HORAS_SIN_CORREGIR) {
+  const limite = ahora.getTime() - horas * 3600 * 1000;
+  return entregasPorCorregir(campus).filter((e) => e.entregadaAt.getTime() <= limite);
+}
+
+/** Una entrega: campus, tarea, alumno y fecha de entrega (si vuelve a entregar, es otra). */
+export const claveDe = (e) => `${e.projectId}-${e.tareaId}-${e.alumnoId}-${new Date(e.entregadaAt).getTime()}`;
 
 /**
  * Apunta las que aún no se le habían avisado y devuelve SOLO esas (con el id de su fila).
@@ -165,17 +172,35 @@ async function avisarATutora(tutora, entregas, { enviar, freno, ahora }) {
  * Una vuelta: a cada tutora, sus entregas sin corregir de más de 48 h que aún no se le
  * habían avisado. `tutorIds`: solo esas (null = todas). `freno` y `activo` se pueden
  * pasar para probar; de serie, el freno de correos a tutores y el interruptor del plugin.
+ *
+ * `recogida` (#769, el aviso a administración): si se pasa `{ entregas: [], fallos: Set }`,
+ * se le apuntan TODAS las entregas por corregir que ve cada tutora (con su nombre) y lo que
+ * no se ha podido leer (`<campus>` o `<campus>-<curso>`; `*` si no se sabe qué). Así,
+ * administración sabe cuáles tienen tutora y no toma por «sin tutora» lo que no se leyó.
  */
 export async function avisarEntregasSinCorregir({
   ahora = new Date(), enviar = sendEmail, tutorIds = null,
-  freno = NO_ESCRIBIR_A_TUTORES, activo = pluginMoodleActivo(), opciones = {},
+  freno = NO_ESCRIBIR_A_TUTORES, activo = pluginMoodleActivo(), opciones = {}, recogida = null,
 } = {}) {
   const r = { apagado: !activo, tutoras: 0, avisadas: 0, correos: 0, frenados: 0, errores: 0 };
   if (!activo) return r;
   for (const tutora of await tutorasConCampus(tutorIds)) {
     r.tutoras += 1;
     try {
-      const campus = await leerSusCampus(tutora.id, { ...opciones, conProgreso: false });
+      let campus;
+      try {
+        campus = await leerSusCampus(tutora.id, { ...opciones, conProgreso: false });
+      } catch (err) {
+        recogida?.fallos.add('*');
+        throw err;
+      }
+      if (recogida) {
+        for (const c of campus) {
+          if (c.error) recogida.fallos.add(String(c.projectId));
+          for (const k of c.cursos) if (k.error) recogida.fallos.add(`${c.projectId}-${k.id}`);
+        }
+        recogida.entregas.push(...entregasPorCorregir(campus).map((e) => ({ ...e, tutora: tutora.nombre })));
+      }
       const vencidas = entregasVencidas(campus, ahora);
       const hecho = await avisarATutora(tutora, vencidas, { enviar, freno, ahora });
       r.avisadas += hecho.avisadas;

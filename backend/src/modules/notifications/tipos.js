@@ -240,6 +240,13 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Entregas sin corregir', agrupa: false,
     descripcion: 'Entregas de tus alumnos que llevan más de 48 h sin corregir',
   },
+  // El segundo escalón (#769): a administración del campus, las que siguen sin corregir
+  // pasado el plazo (5 días o «Recordarme calificar antes de») y las de cursos sin tutora
+  // en el CRM. Un aviso por campus y vuelta (tutores/tutor.entregasAdministracion.js).
+  entregas_fuera_de_plazo: {
+    clase: ACCION, etiqueta: 'Entregas sin corregir fuera de plazo', agrupa: false,
+    descripcion: 'Entregas de alumnos de tus campus que siguen sin corregir pasado el plazo, o de cursos sin tutora en el CRM',
+  },
   carga_desactualizada: {
     clase: ACCION, etiqueta: 'Carga de trabajo sin actualizar', agrupa: false,
     descripcion: 'Llevas más de una semana sin actualizar tu carga de trabajo',

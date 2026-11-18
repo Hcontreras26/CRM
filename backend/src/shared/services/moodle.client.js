@@ -367,6 +367,22 @@ export const ROLES_DE_EQUIPO = new Set(['editingteacher', 'teacher', 'manager', 
 export const esAlumno = (g) => (g.roles || []).length > 0 && !g.roles.some((r) => ROLES_DE_EQUIPO.has(r));
 
 /**
+ * TODOS los cursos del campus (#769: las entregas de cursos sin tutora vinculada en el
+ * CRM). Sin el curso «sitio» de Moodle. Va con el plugin 1.10.8, que añade la función al
+ * servicio del CRM; con uno anterior Moodle la niega y quien llama se salta el campus.
+ */
+export async function cursosDelCampus(conexion, opciones) {
+  const r = await llamar(conexion, 'core_course_get_courses_by_field', {}, opciones);
+  return (Array.isArray(r?.courses) ? r.courses : [])
+    .filter((c) => c && c.format !== 'site' && Number(c.id) > 1)
+    .map((c) => ({
+      id: Number(c.id),
+      nombre: c.displayname || c.fullname || c.shortname || null,
+      visible: c.visible === undefined ? true : Number(c.visible) === 1 || c.visible === true,
+    }));
+}
+
+/**
  * Los matriculados ACTIVOS de un curso, con su rol y su último acceso. Solo
  * activos (decisión 8: fuera bajas): `onlyactive`.
  */
@@ -407,6 +423,9 @@ export async function tareasDeCursos(conexion, cursoIds, opciones) {
     porCurso.set(Number(c.id), (c.assignments || []).map((a) => ({
       id: Number(a.id), cmid: Number(a.cmid), nombre: a.name || null,
       entrega: Number(a.duedate) > 0 ? new Date(Number(a.duedate) * 1000) : null,
+      // «Recordarme calificar antes de» de la tarea (#769): si va antes que el plazo de
+      // administración, el aviso a administración sale en esa fecha.
+      calificarAntes: Number(a.gradingduedate) > 0 ? new Date(Number(a.gradingduedate) * 1000) : null,
       // La nota máxima (0 = sin nota numérica: escala o sin calificar).
       notaMax: Number(a.grade) > 0 ? Number(a.grade) : 0,
       // Con escala (grade < 0) o sin nota (0) una cifra no vale: se corrige en Moodle.

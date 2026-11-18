@@ -1,5 +1,5 @@
 import { logger } from '../shared/utils/logger.js';
-import { avisarEntregasSinCorregir } from '../modules/tutores/tutor.entregasSinCorregir.js';
+import { vueltaDeEntregas } from '../modules/tutores/tutor.entregasAdministracion.js';
 import { vigilar } from './latido.js';
 
 /**
@@ -8,6 +8,10 @@ import { vigilar } from './latido.js';
  * Cada dos horas: el plazo es de 48 h y no hace falta más precisión, y cada vuelta lee
  * de Moodle los cursos de todas las tutoras. Cada entrega se avisa UNA vez (la tabla
  * `entregas_sin_corregir_avisos` lo recuerda): repetir la vuelta o reiniciar no repite.
+ *
+ * En la misma vuelta, detrás, el segundo escalón (#769): a administración, las que siguen
+ * sin corregir a los ENTREGAS_AVISO_ADMIN_DIAS días (5) o en su «Recordarme calificar antes
+ * de», y las de cursos sin tutora en el CRM a las 48 h (tutor.entregasAdministracion.js).
  *
  * Solo arranca con el plugin del CRM en Moodle aprobado (lo mira app.js con
  * `pluginMoodleActivo`). Se apaga con ENTREGAS_SIN_CORREGIR_DISABLED=1.
@@ -20,6 +24,6 @@ export function startEntregasSinCorregirScheduler() {
     logger.info('Aviso de entregas sin corregir desactivado (ENTREGAS_SIN_CORREGIR_DISABLED=1)');
     return;
   }
-  vigilar('entregas_sin_corregir', 'Aviso a las tutoras de entregas sin corregir de más de 48 h',
-    () => avisarEntregasSinCorregir(), TICK_MS, { alArrancarMs: 5 * 60 * 1000 });
+  vigilar('entregas_sin_corregir', 'Entregas sin corregir: a la tutora a las 48 h y después a administración',
+    () => vueltaDeEntregas(), TICK_MS, { alArrancarMs: 5 * 60 * 1000 });
 }
