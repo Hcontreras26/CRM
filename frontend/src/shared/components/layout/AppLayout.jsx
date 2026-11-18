@@ -42,6 +42,9 @@ const ALL_PROJECTS_OK = [
   // Consultas de alumnos (#188, #189): cada fila dice de qué campus es, y el
   // tutor ve lo suyo sin mirar la cabecera.
   /^\/consultas(?:\/.*)?$/,
+  // Incidencias (#253): con una empresa o «Todos», las de sus campus; cada
+  // fila dice de dónde es, y el servidor recorta a cada uno lo suyo.
+  /^\/incidencias$/,
   // Feedback (#170): sin campus ni empresa, el servidor suma todos los que ve
   // cada uno (sin los de pruebas). Diego, 02/11: «el panel de feedback está
   // fallando»: con «Todos los proyectos» salía «Selecciona un proyecto».

@@ -71,6 +71,7 @@ import cursosPendientesModule from './modules/cursos-pendientes/index.js';
 import correosModule from './modules/correos/index.js';
 import certifexModule from './modules/certifex/index.js';
 import soporteModule from './modules/soporte/index.js';
+import incidenciasModule from './modules/incidencias/index.js';
 import changeRequestsModule from './modules/change-requests/index.js';
 // Los errores del navegador (ErrorBoundary) llegan al registro del servidor, como en
 // CRM-ISEIE (paridad, 15/10). Público y con límite por IP.
@@ -363,6 +364,8 @@ const ALL_MODULES = [
   // Facturas de colaboradores (#202): solo en pruebas también en el servidor, como el tablero.
   ...(facturasColaboradorActivas() ? [{ name: 'facturas-colaborador', mod: facturasColaboradorModule }] : []),
   { name: 'soporte', mod: soporteModule },
+  // Incidencias (#253), al lado de Soporte: sobre todo las de capa 8. Migración 238.
+  { name: 'incidencias', mod: incidenciasModule },
   // Links de pago (#680): solo en pruebas también en el servidor, hasta que Diego lo apruebe.
   ...(linksPagoActivos() ? [{ name: 'links-pago', mod: linksPagoModule }] : []),
   // Siempre montado: cada ruta contesta 404 con su interruptor apagado (#766).

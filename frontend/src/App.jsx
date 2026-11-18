@@ -80,6 +80,7 @@ const CoursesPendingPage = lazy(() => import('./modules/products/pages/CoursesPe
 const IADashboardPage = lazy(() => import('./modules/ia-dashboard/pages/IADashboardPage'));
 const RevenuePage = lazy(() => import('./modules/revenue/pages/RevenuePage'));
 const SoportePage = lazy(() => import('./modules/soporte/pages/SoportePage'));
+const IncidenciasPage = lazy(() => import('./modules/incidencias/pages/IncidenciasPage'));
 const StatusPage = lazy(() => import('./modules/status/pages/StatusPage'));
 const RegistroPage = lazy(() => import('./modules/registro/pages/RegistroPage'));
 const NovedadesPage = lazy(() => import('./modules/novedades/pages/NovedadesPage'));
@@ -397,6 +398,8 @@ function App() {
           <Route path="/informes/feedback" element={<FeedbackPanelPage />} />
           <Route path="/chat-ia" element={PANTALLAS_IA ? <AIChatPage /> : <Navigate to="/" replace />} />
           <Route path="/soporte" element={<SoportePage />} />
+          {/* Incidencias (#253), al lado de Soporte. */}
+          <Route path="/incidencias" element={<IncidenciasPage />} />
           {/* Las direcciones de antes (avisos ya enviados, marcadores): a Certificaciones. */}
           <Route path="/certifex/consultas" element={<Navigate to="/clientes/matriculas/certificaciones?vista=consultas" replace />} />
           <Route path="/certifex/emisiones" element={<Navigate to="/clientes/matriculas/certificaciones" replace />} />
