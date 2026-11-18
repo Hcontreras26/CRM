@@ -59,8 +59,9 @@ beforeEach(() => {
 describe('un solo apartado en el menú', () => {
   const entradas = NAV_SECTIONS.flatMap((s) => s.items.flatMap((i) => [i, ...(i.children || [])]));
 
-  it('«Webhooks» está en Conexión y las entradas sueltas ya no', () => {
-    const conexion = NAV_SECTIONS.find((s) => s.label === 'Conexión');
+  it('«Webhooks» está en Configuración (antes Conexión) y las entradas sueltas ya no', () => {
+    // «Conexión» pasó a «Configuración» con el reparto por bloques (#534, parte 3).
+    const conexion = NAV_SECTIONS.find((s) => s.label === 'Configuración');
     expect(conexion.items.some((i) => i.to === '/conexion/webhooks')).toBe(true);
     for (const vieja of ['/captacion/webhooks', '/captacion/make', '/conexion/webhook-transferencias']) {
       expect(entradas.some((i) => i.to === vieja)).toBe(false);

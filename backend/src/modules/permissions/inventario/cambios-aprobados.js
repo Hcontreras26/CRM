@@ -451,6 +451,18 @@ export const CAMBIOS_DE_MENU = [
     aprobadoPor: 'Diego, 10/11',
   },
   {
+    id: 'menu-sin-proximamente-534',
+    que: 'Las entradas de «Próximamente» salen del menú: «Captación › Campañas», «Captación › Tráfico orgánico» y «Publicidad › Google Ads» (CRM#534, parte 3).',
+    motivo: 'Manuel (29/10) y la maqueta de Diego (03/11): «fuera del menú hasta que funcionen». No llevan a ninguna pantalla —se pintan apagadas, sin enlace—, así que no cambia el acceso de nadie. Vuelven al menú cuando exista su pantalla.',
+    // Solo menú y sin ruta (`null`): no hay pantalla detrás.
+    soloMenu: true,
+    perfiles: Object.fromEntries(['superadmin', 'admin', 'soporte', 'gestora+admin'].map((p) => [p, [
+      '- Captación › Campañas', '- Captación › Tráfico orgánico', '- Publicidad › Google Ads',
+    ]])),
+    rutas: { 'Captación › Campañas': null, 'Captación › Tráfico orgánico': null, 'Publicidad › Google Ads': null },
+    aprobadoPor: 'Pendiente de Diego (CRM#534, parte 3)',
+  },
+  {
     id: 'historial-de-tareas',
     que: '«Equipo de Desarrollo › Por revisar» desaparece y en su sitio sale «Historial de tareas» a quien tiene tablero (CRM#707).',
     motivo: 'Diego y Carlos (10/11): quien hace la tarea la pasa a «Hecha» él mismo; las de programación las cierra Diego. Ya no hay una bandeja de «por aprobar» ni su contador (tampoco para Carlos): la pantalla y su ruta (`/api/tasks/review`) se quitan enteras. El historial enseña lo hecho con el alcance del tablero: no abre nada que no se viera ya en «Mi tablero».',

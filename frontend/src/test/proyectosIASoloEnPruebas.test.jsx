@@ -50,7 +50,8 @@ describe('en /crm (apagado), un proyecto IA se ve como hasta ahora', () => {
   it('el menú no tiene «Proyecto IA» y conserva Prospectos y Finanzas', () => {
     const secciones = seccionesDelMenu(IA, false);
     expect(secciones).not.toContain('Proyecto IA');
-    expect(secciones).toEqual(expect.arrayContaining(['Principal › Prospectos', 'Finanzas']));
+    // Prospectos, en «Comercial» desde el reparto por bloques (#534, parte 3).
+    expect(secciones).toEqual(expect.arrayContaining(['Comercial › Prospectos', 'Finanzas']));
     // Mismo menú que un campus normal.
     expect(secciones).toEqual(seccionesDelMenu(EDUCACION, false));
   });
