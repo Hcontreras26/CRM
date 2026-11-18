@@ -31,6 +31,8 @@ const SERVICIOS = [
   { id: 'claude', nombre: 'Claude', pista: 'sk-ant-…' },
   // Un Moodle por campus (elige el proyecto, no «Global»); lo lee el MCP de Claude.
   { id: 'moodle', nombre: 'Moodle del campus', pista: '{"url":"https://campus.ejemplo.com","token":"…"}' },
+  // El tablero ↔ GitHub (CRM#737), de todo el CRM («Global»). Mejor desde Configurar tablero › GitHub.
+  { id: 'github', nombre: 'GitHub (tablero de tareas)', pista: '{"webhook_secret":"…","token":"…"}' },
 ];
 
 interface Props {
