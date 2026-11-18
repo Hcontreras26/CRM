@@ -21,7 +21,8 @@ vi.mock('@/shared/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() }
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 
 const { NAV_SECTIONS, SECCIONES_DE_ANTES, entradasDeSeccion, canSeeItem, esSoloColaboraciones } = await import('@/shared/components/layout/Sidebar');
-const { reubicar, reagruparMenu, REUBICACIONES } = await import('@/shared/components/layout/bloquesDelMenu');
+const { reubicar, reagruparMenu, REUBICACIONES, BLOQUES_DEL_MENU } = await import('@/shared/components/layout/bloquesDelMenu');
+const { CAMBIOS_DE_MENU } = await import('../../../backend/src/modules/permissions/inventario/cambios-aprobados.js');
 const { crearCan } = await import('@/shared/hooks/usePermission');
 const { rolesDe } = await import('@/shared/lib/roles');
 const { resolverPermisos } = await import('../../../backend/src/modules/permissions/resolver.js');
@@ -114,6 +115,11 @@ describe('los bloques', () => {
   it('las «Próximamente» ya no están', () => {
     const rutas = NAV_SECTIONS.flatMap((s) => s.items.flatMap((i) => [i.to, ...(i.children || []).map((c) => c.to)]));
     for (const r of ['/campanas', '/campanas/seo', '/google-ads']) expect(rutas).not.toContain(r);
+  });
+
+  it('el reparto y la salida de las «Próximamente», aprobados por Diego (18/11)', () => {
+    expect(BLOQUES_DEL_MENU.aprobadoPor).toBe('Diego, 18/11');
+    expect(CAMBIOS_DE_MENU.find((c) => c.id === 'menu-sin-proximamente-534')?.aprobadoPor).toBe('Diego, 18/11');
   });
 
   it('una entrada que sale de su grupo se lleva lo que el grupo le imponía', () => {

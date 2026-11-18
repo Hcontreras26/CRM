@@ -27,13 +27,14 @@
   `despuesDe`: la entrada va justo detrás de esa otra de su bloque nuevo; sin
   él, al final de lo que el bloque ya tenía.
 
-  aprobadoPor: null hasta que Diego lo apruebe en la #534.
+  Aprobado por Diego el 18/11 en la #534, junto con sacar del menú las tres
+  «Próximamente» (`menu-sin-proximamente-534` en `cambios-aprobados.js`).
 */
 
 export const BLOQUES_DEL_MENU = {
   id: 'menu-por-bloques-534',
   que: 'El menú se reparte por uso (Hoy, Comercial, Captación y publicidad, Académico, Finanzas, Análisis, Configuración) sin cambiar quién ve qué.',
-  aprobadoPor: null,
+  aprobadoPor: 'Diego, 18/11',
 };
 
 export const REUBICACIONES = [

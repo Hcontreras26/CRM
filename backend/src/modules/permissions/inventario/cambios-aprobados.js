@@ -460,7 +460,7 @@ export const CAMBIOS_DE_MENU = [
       '- Captación › Campañas', '- Captación › Tráfico orgánico', '- Publicidad › Google Ads',
     ]])),
     rutas: { 'Captación › Campañas': null, 'Captación › Tráfico orgánico': null, 'Publicidad › Google Ads': null },
-    aprobadoPor: 'Pendiente de Diego (CRM#534, parte 3)',
+    aprobadoPor: 'Diego, 18/11',
   },
   {
     id: 'historial-de-tareas',
