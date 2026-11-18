@@ -13,6 +13,7 @@ import { toast } from '@/shared/hooks/useToast';
 import { CreditCard, User, Receipt, CheckCircle } from '@phosphor-icons/react';
 import usePermission from '@/shared/hooks/usePermission';
 import { posibleDuplicada, preguntarSiEmitirDuplicada, fechaLegible, type OtraFactura } from '../lib/posibleDuplicada';
+import { textoDatosFiscales, necesitaPersona, type DatosFiscalesEnCola } from '../lib/datosFiscalesCola';
 
 type ColaItem = {
   payment_id: number; conversion_id: number; fecha: string; importe: number;
@@ -22,21 +23,23 @@ type ColaItem = {
   // mismo importe esa semana. La emision automatica no la saca; aqui se ve por que.
   motivo?: string | null; posible_duplicada?: OtraFactura | null;
   /** Factura automática (#764): en qué están los datos fiscales de esa venta. */
-  datos_fiscales?: { estado: 'pendiente' | 'respondido' | 'ficha' | 'revision'; caduca_at: string; motivo: string | null } | null;
+  datos_fiscales?: DatosFiscalesEnCola | null;
 };
 
-/** La etiqueta de la factura automática, debajo del cliente. Sin ella, nada. */
+/**
+ * La etiqueta de la factura automática, debajo del cliente. Sin ella, nada.
+ * Solo dice «sale sola» si de verdad va a salir; si no, el motivo (CRM#764).
+ */
 function EstadoDatosFiscales({ d }: { d: ColaItem['datos_fiscales'] }) {
   if (!d) return null;
-  const texto = {
-    pendiente: `Esperando datos del alumno (hasta el ${new Date(d.caduca_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })})`,
-    respondido: 'Datos del alumno: sale sola',
-    ficha: 'Con los datos de la ficha: sale sola',
-    revision: 'Revisar datos: no sale sola',
-  }[d.estado];
+  const texto = textoDatosFiscales(d);
   if (!texto) return null;
-  const tono = d.estado === 'revision' ? 'text-warning' : 'text-muted-foreground';
-  return <span className={`block text-[10px] ${tono}`} title={d.motivo || undefined}>{texto}</span>;
+  const tono = necesitaPersona(d) ? 'text-warning' : 'text-muted-foreground';
+  return (
+    <span className={`block whitespace-normal text-[10px] ${tono}`} title={d.detalle || d.motivo || undefined}>
+      {texto}
+    </span>
+  );
 }
 type PorDia = { dia: string; cobros: number; importe: number };
 type Proforma = {
@@ -98,19 +101,31 @@ export default function FacturacionAlDiaCard({ projectId, titulo, ocultarSiVacia
     cuando ya estaba gastado. Ahora primero se pide cual toca, se enseña, y se
     puede cambiar. Cancelar no consume numero.
   */
-  const [pidiendoNumero, setPidiendoNumero] = useState<{ paymentId: number; forzar: boolean; sugerido: string; texto: string } | null>(null);
+  const [pidiendoNumero, setPidiendoNumero] = useState<{ paymentId: number; forzar: boolean; sugerido: string; texto: string; confirmarDuplicada: boolean } | null>(null);
 
-  async function pedirNumero(paymentId: number, forzar = false) {
+  /*
+    POSIBLE DUPLICADA YA SABIDA (CRM#764, 18/11). Si la fila ya dice que se
+    parece a otra factura --es justo por lo que la emisión automática no la
+    sacó--, se pregunta ANTES de pedir el número, y lo que se decida viaja con
+    la emisión (`confirmar_duplicada`). Si no se sabía y el servidor la para,
+    se pregunta igual al volver (más abajo, en `generar`).
+  */
+  async function pedirNumero(paymentId: number, forzar = false, otra: OtraFactura | null = null) {
     if (!projectId) return;
+    let confirmarDuplicada = false;
+    if (otra) {
+      if (!(await preguntarSiEmitirDuplicada(otra))) return;
+      confirmarDuplicada = true;
+    }
     setGenerando(paymentId);
     try {
       const r = await client.get<{ codigo: string; siguiente: number; serie: string }>(
         `/invoices/siguiente-numero?projectId=${projectId}`);
       const sug = r?.success ? String(r.data.siguiente) : '';
-      setPidiendoNumero({ paymentId, forzar, sugerido: sug, texto: sug });
+      setPidiendoNumero({ paymentId, forzar, sugerido: sug, texto: sug, confirmarDuplicada });
     } catch {
       // Si no se puede consultar, se deja escribirlo a mano igualmente.
-      setPidiendoNumero({ paymentId, forzar, sugerido: '', texto: '' });
+      setPidiendoNumero({ paymentId, forzar, sugerido: '', texto: '', confirmarDuplicada });
     } finally { setGenerando(null); }
   }
 
@@ -131,7 +146,9 @@ export default function FacturacionAlDiaCard({ projectId, titulo, ocultarSiVacia
       if (e?.data?.code === 'HAY_ANTERIORES' && !forzar) {
         if (window.confirm(`${e.data.error}\n\n¿Emitirla igualmente, fuera de orden?`)) {
           setGenerando(null);
-          return generar(paymentId, true, pidiendoNumero?.texto);
+          // El número y la confirmación que ya se dieron siguen valiendo: antes
+          // se leía el número del cuadro, que para entonces ya estaba cerrado.
+          return generar(paymentId, true, numero, confirmarDuplicada);
         }
       } else if (!confirmarDuplicada && posibleDuplicada(err)) {
         // Ya hay una factura de este cliente por el mismo importe esa semana
@@ -212,7 +229,7 @@ export default function FacturacionAlDiaCard({ projectId, titulo, ocultarSiVacia
 
           onChange={(e) => setPidiendoNumero({ ...pidiendoNumero, texto: e.target.value.replace(/[^0-9]/g, '') })}
 
-          onKeyDown={(e) => { if (e.key === 'Enter' && pidiendoNumero.texto) { const p = pidiendoNumero; setPidiendoNumero(null); generar(p.paymentId, p.forzar, p.texto); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && pidiendoNumero.texto) { const p = pidiendoNumero; setPidiendoNumero(null); generar(p.paymentId, p.forzar, p.texto, p.confirmarDuplicada); } }}
 
           inputMode="numeric"
 
@@ -228,7 +245,7 @@ export default function FacturacionAlDiaCard({ projectId, titulo, ocultarSiVacia
 
           <button type="button" disabled={!pidiendoNumero.texto}
 
-            onClick={() => { const p = pidiendoNumero; setPidiendoNumero(null); generar(p.paymentId, p.forzar, p.texto); }}
+            onClick={() => { const p = pidiendoNumero; setPidiendoNumero(null); generar(p.paymentId, p.forzar, p.texto, p.confirmarDuplicada); }}
 
             className="h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40">
 
@@ -354,7 +371,7 @@ export default function FacturacionAlDiaCard({ projectId, titulo, ocultarSiVacia
                       {puedeFacturar ? (
                         <button
                           type="button"
-                          onClick={() => pedirNumero(c.payment_id)}
+                          onClick={() => pedirNumero(c.payment_id, false, c.posible_duplicada || null)}
                           disabled={generando === c.payment_id}
                           className={`h-6 px-2 rounded font-semibold whitespace-nowrap disabled:opacity-40 ${
                             c.es_el_siguiente
