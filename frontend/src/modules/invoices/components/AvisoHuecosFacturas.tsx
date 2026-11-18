@@ -48,7 +48,7 @@ export default function AvisoHuecosFacturas({ projectId }: { projectId?: number 
     .join(' · ');
 
   return (
-    <div className="rounded-lg border border-warning/30 bg-warning-soft p-3 sm:p-4">
+    <div className="rounded-lg border border-warning/30 bg-warning-soft p-3 sm:p-4" data-recorrido="facturas-huecos">
       <div className="flex items-start gap-3">
         <WarningCircle size={20} weight="fill" className="text-warning flex-none mt-0.5" />
         <div className="min-w-0">
@@ -96,7 +96,7 @@ function ListaDeAnuladas({ serie, anuladas, dentro = false }: { serie: string; a
     );
   }
   return (
-    <div className="rounded-lg border border-border bg-muted/40 p-3 sm:p-4 text-muted-foreground">
+    <div className="rounded-lg border border-border bg-muted/40 p-3 sm:p-4 text-muted-foreground" data-recorrido="facturas-huecos">
       <p className="text-sm font-semibold text-foreground">
         {anuladas.length === 1 ? `Una factura anulada en la serie ${serie}` : `${anuladas.length} facturas anuladas en la serie ${serie}`}
       </p>
