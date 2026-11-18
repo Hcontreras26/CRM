@@ -10,7 +10,7 @@ import { Button } from '@/shared/components/ui/button';
 import Select from '@/shared/components/ui/Select';
 import Iniciales from '@/shared/components/ui/Iniciales';
 import { cn } from '@/shared/lib/utils';
-import { PLUGIN_MOODLE } from '@/shared/lib/pluginMoodle';
+import { usePluginMoodle } from '@/shared/lib/pluginMoodle';
 import {
   consultasApi, semaforo, haceCuanto as horasEnTexto,
   type ConsultaDetalle, type ConsultaFila, type ContextoConsulta, type NotaInterna, type ParticipanteChat, type RespuestaGuardada, type TipoDeGrupo,
@@ -242,6 +242,8 @@ function Ficha({ c, ctx, cargando, alInsertar, puedeEscribir, admin }: {
   c: ConsultaDetalle; ctx: ContextoConsulta | null; cargando: boolean; alInsertar: (texto: string) => void;
   puedeEscribir: boolean; admin: React.ReactNode;
 }) {
+  // Corregir en el CRM escribe en Moodle: solo con el plugin del CRM encendido (#850).
+  const pluginMoodle = usePluginMoodle();
   const fila = (k: string, v: React.ReactNode) => (
     <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2 py-1">
       <dt className="text-secundario text-muted-foreground">{k}</dt>
@@ -293,7 +295,7 @@ function Ficha({ c, ctx, cargando, alInsertar, puedeEscribir, admin }: {
                     </span>
                     {/* Se corrige en el CRM (#681) si es una tarea suya con nota numérica y el plugin
                         está aprobado (poner la nota escribe en Moodle); si no, en el calificador de Moodle. */}
-                    {PLUGIN_MOODLE && puedeEscribir && e.enElCrm ? (
+                    {pluginMoodle && puedeEscribir && e.enElCrm ? (
                       <Link to={`/mis-cursos/campus/tarea/${c.project_id}/${e.cursoId}/${e.tareaId}`} aria-label={`Corregir «${e.tarea || 'la tarea'}» en el CRM`}
                         className="inline-flex h-7 shrink-0 items-center rounded-md border border-border bg-card px-2.5 text-secundario font-medium text-foreground hover:bg-muted">
                         Corregir

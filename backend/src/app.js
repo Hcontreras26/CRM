@@ -85,7 +85,7 @@ import mcpModule from './modules/mcp/index.js';
 import moodleModule from './modules/moodle/index.js';
 import tasksModule from './modules/tasks/index.js';
 import facturasColaboradorModule from './modules/facturas-colaborador/index.js';
-// Links de pago (#680). Fase 1: solo lectura y el tope de descuento; no llama a Stripe.
+// Links de pago (#680): las vistas, las reglas del campus y, desde la fase 2, crear y anular links.
 import linksPagoModule from './modules/links-pago/index.js';
 // Registro automático de cobros: PayPal y extractos del banco (#766). Cada parte, con su interruptor.
 import cobrosExternosModule from './modules/cobros-externos/index.js';
@@ -115,6 +115,7 @@ import { startCertifexReversionesScheduler } from './jobs/certifexReversionesSch
 import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoScheduler.js';
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startSuscripcionesPlazosScheduler } from './jobs/suscripcionesPlazosScheduler.js';
+import { startLinksPagoCaducidadScheduler } from './jobs/linksPagoCaducidadScheduler.js';
 import { startCursosPendientesScheduler } from './jobs/cursosPendientesScheduler.js';
 import { startEntregasSinCorregirScheduler } from './jobs/entregasSinCorregirScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
@@ -574,6 +575,8 @@ if (process.env.NODE_ENV !== 'test') {
     if (facturasColaboradorActivas()) startFacturasColaboradorScheduler();
     // Los avisos a la empresa: «Han llegado N facturas» y «Faltan por pagar» (Diego, 04/11).
     if (facturasColaboradorActivas()) startFacturasColaboradorAvisosScheduler();
+    // Links de pago (#680, fase 2): desactivar en Stripe los que caducan sin pagar.
+    if (linksPagoActivos()) startLinksPagoCaducidadScheduler();
     // La copia diaria de la base, cifrada y por correo (11/11). Apagada de serie: COPIA_DIARIA_ACTIVA.
     startCopiaDiariaScheduler();
     // La auditoría de facturación cada 2 horas (#765). Apagada de serie: FACTURACION_AUDITORIA_ACTIVA.

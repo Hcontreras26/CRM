@@ -1,13 +1,36 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { SOLO_EN_PRUEBAS } from './soloEnPruebas';
 
 /**
- * El plugin del CRM en cada Moodle (#679, PR #689), detrás de SOLO_EN_PRUEBAS.
+ * El plugin del CRM en cada Moodle (#679, PR #689): el bloque «Plugin del CRM» de
+ * Integraciones › Campus (Moodle) —conectar un campus con un código, ver si avisa,
+ * desconectarlo—, poner la nota desde el CRM y responder por el plugin.
  *
- * El bloque «Plugin del CRM» de Integraciones › Campus (Moodle) —conectar un campus
- * con un código, ver si avisa, desconectarlo— se ve en /testeo y en local, no en
- * /crm, hasta que Diego lo apruebe. Es el espejo de PLUGIN_MOODLE_EN_PRODUCCION del
- * servidor: allí, sin aprobar, ni siquiera existen las rutas que llama el bloque.
+ * Es el espejo de PLUGIN_MOODLE_EN_PRODUCCION del servidor: sin aprobar, allí ni
+ * siquiera existen las rutas que llaman estas pantallas.
  *
- * Para aprobarlo, se quita de detrás de esta bandera.
+ * Antes era una constante de compilación (SOLO_EN_PRUEBAS) y, para encenderlo en
+ * /crm, había que cambiar el código y recompilar el frontal. Ahora lo dice el
+ * servidor (#850): `/auth/me` manda `user.plugin_moodle`, que es lo mismo que
+ * deciden sus rutas (`pluginMoodleActivo()`). Basta con PLUGIN_MOODLE_EN_PRODUCCION=1
+ * en el `.env` de producción y reiniciar la API.
+ *
+ * En /testeo y en local sigue encendido de entrada, sin esperar a `/auth/me`. En
+ * /crm, mientras el servidor no diga que sí, apagado: como hasta ahora.
  */
-export const PLUGIN_MOODLE: boolean = SOLO_EN_PRUEBAS;
+export const PLUGIN_MOODLE_AL_COMPILAR: boolean = SOLO_EN_PRUEBAS;
+
+/** Encendido en /testeo y en local, o si el servidor lo tiene aprobado. */
+export function pluginMoodleEncendido(delServidor?: boolean | null): boolean {
+  return PLUGIN_MOODLE_AL_COMPILAR || delServidor === true;
+}
+
+/**
+ * El interruptor, para una pantalla: lee `user.plugin_moodle` de la sesión. Sin
+ * sesión todavía (o un servidor anterior a la #850, que no lo manda), lo que se sabe
+ * al compilar, que es lo que valía antes.
+ */
+export function usePluginMoodle(): boolean {
+  const { user } = useAuth() as { user?: { plugin_moodle?: boolean | null } | null };
+  return pluginMoodleEncendido(user?.plugin_moodle);
+}

@@ -15,6 +15,9 @@ vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 // La tarjeta de links de pago (#680) mira los permisos de quien entra.
 const permisos = vi.hoisted(() => ({ mapa: {} }));
 vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: (k) => permisos.mapa[k] === true }) }));
+// La sesión (`/auth/me`): si el servidor tiene los links encendidos (#680) y el
+// plugin del CRM en Moodle (#850).
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1, role: 'superadmin', funciones: { links_pago: true } }, permissions: null }) }));
 
 const { default: IntegrationsPage } = await import('@/modules/accounting/pages/IntegrationsPage');
 

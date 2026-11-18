@@ -25,7 +25,7 @@
 import client from '@/shared/api/client';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
-import { PLUGIN_MOODLE } from '@/shared/lib/pluginMoodle';
+import { pluginMoodleEncendido } from '@/shared/lib/pluginMoodle';
 import { formatDateNumeric, formatDateTime } from '@/shared/lib/format';
 
 /** `ambos`: recibe un aviso y avisa a otro (la asignación de leads). */
@@ -118,6 +118,11 @@ export interface Contexto {
    * (el estado del plugin de Moodle pide `consultas.gestionar`).
    */
   can?: (permiso: string) => boolean;
+  /**
+   * El plugin del CRM aprobado en el servidor (`/auth/me` → `plugin_moodle`, #850).
+   * En /testeo y en local está encendido igualmente (`pluginMoodleEncendido`).
+   */
+  pluginMoodle?: boolean;
 }
 
 export interface TipoWebhook {
@@ -158,6 +163,8 @@ export interface TipoWebhook {
   enEsteEntorno?: () => boolean;
   /** Lo que el servidor no guarda de este tipo, dicho en la tarjeta. */
   nota?: string;
+  /** La nota con el plugin del CRM encendido (#850). Sin él, `nota`. */
+  notaConPlugin?: string;
   cargar: (ctx: Contexto) => Promise<FilaWebhook[]>;
 }
 
@@ -716,11 +723,11 @@ export const TIPOS: TipoWebhook[] = [
     // El plugin del CRM en Moodle (#679) SÍ avisa al CRM de cada mensaje
     // (`/api/moodle-avisos/:campus`) y el servidor guarda su último aviso y el
     // error del último repaso (`GET /consultas/campus/:id/plugin`, con
-    // `consultas.gestionar`). Va detrás de PLUGIN_MOODLE: solo en pruebas hasta
-    // que Diego lo apruebe; en /crm esa ruta ni existe y no se pide.
-    nota: PLUGIN_MOODLE
-      ? 'Sin el plugin del CRM no llegan como aviso: el CRM las lee del Moodle, y si esa lectura falla no se ve en ninguna pantalla (solo en el registro del servidor). Con el plugin conectado (solo en pruebas), el campus avisa de cada mensaje; quien gestiona las consultas ve aquí su último aviso y si falló su repaso. Se encienden en Finanzas › Integraciones, en la conexión de Moodle.'
-      : 'No llegan como aviso: el CRM las lee del Moodle. Si la lectura de un campus falla, no se ve en ninguna pantalla (solo en el registro del servidor). Se encienden en Finanzas › Integraciones, en la conexión de Moodle.',
+    // `consultas.gestionar`). Va detrás del plugin del CRM (`pluginMoodleEncendido`):
+    // en /testeo y en local, y en /crm con PLUGIN_MOODLE_EN_PRODUCCION=1 en el
+    // servidor (#850). Apagado, esa ruta ni existe y no se pide.
+    nota: 'No llegan como aviso: el CRM las lee del Moodle. Si la lectura de un campus falla, no se ve en ninguna pantalla (solo en el registro del servidor). Se encienden en Finanzas › Integraciones, en la conexión de Moodle.',
+    notaConPlugin: 'Sin el plugin del CRM no llegan como aviso: el CRM las lee del Moodle, y si esa lectura falla no se ve en ninguna pantalla (solo en el registro del servidor). Con el plugin conectado, el campus avisa de cada mensaje; quien gestiona las consultas ve aquí su último aviso y si falló su repaso. Se encienden en Finanzas › Integraciones, en la conexión de Moodle.',
     cargar: (ctx) => porCampus(ctx.campus, async (c) => {
       const pedir = ctx.pedir || datos;
       const m = await pedir<{ active?: boolean; has_secret?: boolean; config_public?: { consultas?: boolean | string } } | null>(`/integrations/moodle?projectId=${c.id}`);
@@ -736,7 +743,7 @@ export const TIPOS: TipoWebhook[] = [
       // El plugin, si este entorno lo tiene y quien mira puede verlo.
       let plugin: { activo?: boolean; ultimo_aviso_at?: string | null; sincronizacion_error?: string | null } | null = null;
       let sinLeer: string | undefined;
-      if (PLUGIN_MOODLE && ctx.can?.('consultas.gestionar')) {
+      if (pluginMoodleEncendido(ctx.pluginMoodle) && ctx.can?.('consultas.gestionar')) {
         try {
           plugin = await pedir(`/consultas/campus/${c.id}/plugin`);
         } catch (err) {

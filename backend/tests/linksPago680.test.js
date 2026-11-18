@@ -67,10 +67,33 @@ const link = {};
 
 const SQL_250 = fs.readFileSync(path.join(AQUI, '../migrations/250_links_de_pago.sql'), 'utf8');
 
+// Las migraciones de los links (250 y 300) cambian tablas que el resto de las
+// pruebas usan a la vez (projects, stripe_payments). Pasadas en paralelo, Postgres
+// puede contestar «deadlock detected» (40P01) y abortar una de las dos: entre
+// ellas se pasan de una en una con un cerrojo compartido, y si el choque es con
+// otra prueba, se reintenta. Eso no tapa nada: la migración tiene que acabar bien.
+async function aplicarMigracion(sql) {
+  for (let intento = 1; ; intento += 1) {
+    const c = await pool.connect();
+    try {
+      await c.query('SELECT pg_advisory_lock(680680)');
+      await c.query(sql);
+      return;
+    } catch (err) {
+      await c.query('ROLLBACK').catch(() => {});
+      if (err.code !== '40P01' || intento >= 5) throw err;
+      await new Promise((r) => setTimeout(r, 200 * intento));
+    } finally {
+      await c.query('SELECT pg_advisory_unlock(680680)').catch(() => {});
+      c.release();
+    }
+  }
+}
+
 beforeAll(async () => {
   // La 250 primero: en una base sin ella, todo lo de abajo fallaría a medias y
   // dejaría campus y personas de prueba sin borrar. Se puede pasar dos veces.
-  await pool.query(SQL_250);
+  await aplicarMigracion(SQL_250);
   const campus = async (n) => {
     const r = await one('INSERT INTO projects (nombre, slug, webhook_api_key) VALUES ($1, $2, $3) RETURNING id',
       [`${MARCA} ${n}`, `${MARCA.toLowerCase()}-${n}`, `${MARCA}-k-${n}`]);
@@ -140,8 +163,8 @@ describe('la migración 250', () => {
   const sql = SQL_250;
 
   it('se puede pasar dos veces más sin error', async () => {
-    await pool.query(sql);
-    await pool.query(sql);
+    await aplicarMigracion(sql);
+    await aplicarMigracion(sql);
   });
 
   it('deja las tablas, la columna del cargo y el tope de descuento del campus', async () => {

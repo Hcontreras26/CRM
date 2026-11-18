@@ -13,6 +13,7 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import StatusDot from '@/shared/components/ui/StatusDot';
 import { rutaPermitida } from '@/shared/components/layout/Sidebar';
 import { tipoDelMenu } from '@/shared/lib/proyectosIA';
+import { usePluginMoodle } from '@/shared/lib/pluginMoodle';
 import {
   GRUPOS, campusDelTipo, crearPedidor, enlaceDeFila, ordenarFilas, tiposVisibles,
   type Campus, type FilaWebhook, type TipoWebhook,
@@ -41,6 +42,8 @@ export default function WebhooksResumenPage() {
   // `llevaEquipo`: quien lleva un equipo comercial ve las decisiones de
   // asignación recortadas a su equipo (#704).
   const { can, tieneRol, llevaEquipo } = usePermission();
+  // El plugin del CRM (#850): decide si se lee el estado del plugin de cada campus.
+  const pluginMoodle = usePluginMoodle();
   const gestionaConsultas = can('consultas.gestionar');
   const delAmbito = useProyectosDelAmbito<Campus & { sociedad_emisora_id?: number | null; type?: string | null }>();
 
@@ -77,7 +80,7 @@ export default function WebhooksResumenPage() {
     const ambito = ponerAmbito(new URLSearchParams(), { activeIssuerId, activeProject });
     setEstados(Object.fromEntries(tipos.map((t) => [t.id, { cargando: true, filas: [] }])));
     for (const t of tipos) {
-      t.cargar({ campus: campusDelTipo(t, campus), ambito, pedir, llevaEquipo, can })
+      t.cargar({ campus: campusDelTipo(t, campus), ambito, pedir, llevaEquipo, can, pluginMoodle })
         .then((filas) => { if (vivo) setEstados((e) => ({ ...e, [t.id]: { cargando: false, filas } })); })
         .catch((err: any) => {
           if (vivo) setEstados((e) => ({ ...e, [t.id]: { cargando: false, filas: [], error: err?.data?.error || 'No se pudo leer' } }));
@@ -85,8 +88,9 @@ export default function WebhooksResumenPage() {
     }
     return () => { vivo = false; corte.abort(); };
     // `gestionaConsultas`: si cambia, se vuelve a pedir (decide si se lee el
-    // estado del plugin de Moodle). `can` cambia en cada render y no sirve.
-  }, [claveCampus, activeIssuerId, activeProject?.id, llevaEquipo, gestionaConsultas, tipos.map((t) => t.id).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+    // estado del plugin de Moodle), como `pluginMoodle`, que llega con /auth/me.
+    // `can` cambia en cada render y no sirve.
+  }, [claveCampus, activeIssuerId, activeProject?.id, llevaEquipo, gestionaConsultas, pluginMoodle, tipos.map((t) => t.id).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // La ficha de un webhook es de un campus: con «Todos» o una empresa, el muro
   // pararía el enlace. Se elige arriba ese campus y se entra.
@@ -233,6 +237,9 @@ function TarjetaTipo({ tipo, estado, alAbrir, conCampus }: {
   tipo: TipoWebhook; estado?: Estado; alAbrir: (f: FilaWebhook) => void; conCampus: boolean;
 }) {
   const [todas, setTodas] = useState(false);
+  // Con el plugin del CRM encendido (#850), su nota dice también lo que avisa el plugin.
+  const pluginMoodle = usePluginMoodle();
+  const nota = pluginMoodle && tipo.notaConPlugin ? tipo.notaConPlugin : tipo.nota;
   const filas = estado ? ordenarFilas(estado.filas) : [];
   // Lo que falla va primero (`ordenarFilas`): recortar nunca esconde un fallo.
   const aLaVista = todas ? filas : filas.slice(0, Math.max(A_LA_VISTA, filas.filter((f) => f.fallo).length));
@@ -281,7 +288,7 @@ function TarjetaTipo({ tipo, estado, alAbrir, conCampus }: {
       </div>
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span className="text-muted-foreground">{tipo.nota}</span>
+        <span className="text-muted-foreground">{nota}</span>
         {/* Su pantalla es de un campus y no hay uno elegido: el muro pararía el
             enlace. Se dice qué hacer; cada fila ya entra eligiendo el suyo. */}
         {!tipo.enlace ? null : tipo.deUnCampus && !conCampus ? (
