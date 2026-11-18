@@ -1,3 +1,4 @@
+import { apiPublicUrl } from '@/shared/lib/direccionesPublicas';
 import { useState, useEffect, useRef } from 'react';
 import { Copy, CheckCircle, Eye, EyeSlash, ArrowsClockwise } from '@phosphor-icons/react';
 import client from '@/shared/api/client';
@@ -10,8 +11,7 @@ export default function WebhookTab({ project }) {
   const [copied, setCopied] = useState(null);
   const [apiKey, setApiKey] = useState(project.webhook_api_key);
   const copiedTimeoutRef = useRef(null);
-  const baseUrl = window.location.origin + (import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '') + '/api';
-  const url = `${baseUrl}/leads/webhooks/${project.slug}`;
+  const url = apiPublicUrl(`/leads/webhooks/${project.slug}`);
 
   useEffect(() => () => {
     if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
