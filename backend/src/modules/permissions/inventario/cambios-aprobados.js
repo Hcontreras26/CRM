@@ -494,8 +494,8 @@ export const CAMBIOS_DE_MENU = [
     rutas: {
       'Finanzas › Disputas de Stripe': 'GET /api/stripe-payments/disputas',
     },
-    // Pendiente del visto bueno de Diego en la PR.
-    aprobadoPor: null,
+    // Aprobado por Diego el 18/11, tras probarla en /testeo (permisos por rol, filtros, sin claves, solo lectura y móvil).
+    aprobadoPor: 'Diego, 18/11',
   },
 ];
 
