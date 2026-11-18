@@ -65,7 +65,8 @@ describe('getSidebarLabelCatalog', () => {
     const sections = catalog.map((s) => s.section);
     // Estas secciones existen en NAV_SECTIONS y no deben desaparecer sin querer
     expect(sections).toEqual(expect.arrayContaining([
-      'Principal', 'Captación', 'Catálogo', 'Finanzas', 'Análisis', 'Sistema',
+      // Los bloques de uso (#534, parte 3).
+      'Hoy', 'Comercial', 'Captación y publicidad', 'Académico', 'Finanzas', 'Análisis', 'Configuración', 'Sistema',
     ]));
   });
 
@@ -78,7 +79,7 @@ describe('getSidebarLabelCatalog', () => {
   // concreto —que cambia cada vez que se reordena— sino que el catalogo
   // clasifique bien lo que le den. Tarea #70.
   it('un item suelto se clasifica como item', () => {
-    const principal = catalog.find((s) => s.section === 'Principal');
+    const principal = catalog.find((s) => s.section === 'Hoy');
     expect(principal).toBeTruthy();
     const dashboard = principal.labels.find((l) => l.label === 'Dashboard');
     expect(dashboard).toEqual({ label: 'Dashboard', type: 'item' });

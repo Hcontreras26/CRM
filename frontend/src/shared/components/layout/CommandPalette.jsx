@@ -17,6 +17,7 @@ import {
 } from '@/shared/components/layout/Sidebar';
 import { pestanasDe, TABS } from '@/modules/webhooks/lib/pestanas';
 import { TRASLADOS_DE_MENU } from '@/shared/components/layout/trasladosDeMenu';
+import { reubicar } from '@/shared/components/layout/bloquesDelMenu';
 import { isBetaAllowed } from '@/shared/config/betaConfig';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 import { tipoDelMenu } from '@/shared/lib/proyectosIA';
@@ -60,7 +61,10 @@ const MAX_RECENTS = 5;
  */
 export function movidasDe(traslados = TRASLADOS_DE_MENU, pestanas = TABS) {
   return traslados.flatMap((t) => t.de.map((d) => {
-    const [seccion, entrada = seccion] = t.a.includes(' › ') ? t.a.split(' › ') : [t.a];
+    // `t.a` va con los nombres de antes del reparto por bloques (#534, parte 3):
+    // la sección que se enseña es la de ahora («Conexión» → «Configuración»).
+    const a = reubicar(t.a);
+    const [seccion, entrada = seccion] = a.includes(' › ') ? a.split(' › ') : [a];
     const pestana = pestanas.find((x) => x.to === d.a)?.label;
     return { antes: d.ruta, ahora: d.a, seccion, entrada, pestana };
   }));

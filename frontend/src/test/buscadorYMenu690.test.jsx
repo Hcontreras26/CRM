@@ -119,7 +119,8 @@ describe('los recientes de las direcciones de antes', () => {
 
   it('el reciente traducido lleva su nombre y su sección de hoy, no «Captación»', () => {
     expect(recienteDeHoy({ label: 'Make', sublabel: 'Captación', to: '/captacion/make' }))
-      .toEqual({ label: 'Webhooks › Make', sublabel: 'Conexión', to: '/conexion/webhooks/make', movido: { entrada: 'Webhooks', pestana: 'Make', seccion: 'Conexión' } });
+      // «Conexión» es «Configuración» desde el reparto por bloques (#534, parte 3).
+      .toEqual({ label: 'Webhooks › Make', sublabel: 'Configuración', to: '/conexion/webhooks/make', movido: { entrada: 'Webhooks', pestana: 'Make', seccion: 'Configuración' } });
     expect(recienteDeHoy({ label: 'Webhooks', sublabel: 'Captación', to: '/captacion/webhooks' }).label).toBe('Webhooks › Prospectos');
     // El que no se movió, tal cual.
     const otro = { label: 'Prospectos', sublabel: 'Captación', to: '/prospectos' };
@@ -136,7 +137,7 @@ describe('los recientes de las direcciones de antes', () => {
 
   it('un reciente guardado ya con la dirección nueva (o con `movido: true` de antes) recupera su nombre', () => {
     const viejo = { label: 'Webhooks › Make', sublabel: 'Conexión', to: '/conexion/webhooks/make', movido: true };
-    expect(recienteDeHoy(viejo).movido).toEqual({ entrada: 'Webhooks', pestana: 'Make', seccion: 'Conexión' });
+    expect(recienteDeHoy(viejo).movido).toEqual({ entrada: 'Webhooks', pestana: 'Make', seccion: 'Configuración' });
     // Uno normal con esa misma dirección (que no se movió) se queda como está.
     const normal = { label: 'Make', sublabel: 'X', to: '/conexion/webhooks/make' };
     expect(recienteDeHoy(normal)).toBe(normal);

@@ -38,14 +38,15 @@ describe('recientes de antes de juntar los webhooks', () => {
     const lista = await screen.findByRole('listbox');
     const opciones = within(lista).getAllByRole('option').map((o) => o.textContent);
     const prospectos = opciones.find((t) => t.startsWith('Webhooks › Prospectos'));
-    expect(prospectos).toContain('Conexión');
+    // La sección de hoy: «Configuración» desde el reparto por bloques (#534, parte 3).
+    expect(prospectos).toContain('Configuración');
     expect(prospectos).not.toContain('Captación');
     expect(opciones.some((t) => t.startsWith('Webhooks › Transferencias'))).toBe(true);
     expect(opciones.some((t) => t.includes('Make'))).toBe(false);
   });
 
   it('con los nombres que el campus da a su menú (`sidebar_labels`)', async () => {
-    PROYECTO.activeProject.sidebar_labels = { Conexión: 'Integraciones', Webhooks: 'Avisos' };
+    PROYECTO.activeProject.sidebar_labels = { Configuración: 'Integraciones', Webhooks: 'Avisos' };
     try {
       render(<MemoryRouter><CommandPalette /></MemoryRouter>);
       act(() => { window.dispatchEvent(new Event('crm:open-palette')); });
@@ -53,7 +54,7 @@ describe('recientes de antes de juntar los webhooks', () => {
       const opciones = within(lista).getAllByRole('option').map((o) => o.textContent);
       const prospectos = opciones.find((t) => t.startsWith('Avisos › Prospectos'));
       expect(prospectos).toContain('Integraciones');
-      expect(prospectos).not.toContain('Conexión');
+      expect(prospectos).not.toContain('Configuración');
     } finally {
       delete PROYECTO.activeProject.sidebar_labels;
     }
@@ -71,7 +72,7 @@ describe('recientes de antes de juntar los webhooks', () => {
   });
 
   it('pulsado en un campus con otros nombres, en otro sale con los suyos (se guarda con los de serie)', async () => {
-    PROYECTO.activeProject.sidebar_labels = { Conexión: 'Integraciones', Webhooks: 'Avisos' };
+    PROYECTO.activeProject.sidebar_labels = { Configuración: 'Integraciones', Webhooks: 'Avisos' };
     let vista;
     try {
       vista = render(<MemoryRouter><CommandPalette /></MemoryRouter>);
@@ -79,8 +80,8 @@ describe('recientes de antes de juntar los webhooks', () => {
       const lista = await screen.findByRole('listbox');
       fireEvent.click(within(lista).getAllByRole('option').find((o) => o.textContent.startsWith('Avisos › Prospectos')));
       const guardado = JSON.parse(localStorage.getItem('crm.palette.recents'))[0];
-      expect(guardado).toMatchObject({ label: 'Webhooks › Prospectos', sublabel: 'Conexión', to: '/conexion/webhooks/prospectos' });
-      expect(guardado.movido).toEqual({ entrada: 'Webhooks', pestana: 'Prospectos', seccion: 'Conexión' });
+      expect(guardado).toMatchObject({ label: 'Webhooks › Prospectos', sublabel: 'Configuración', to: '/conexion/webhooks/prospectos' });
+      expect(guardado.movido).toEqual({ entrada: 'Webhooks', pestana: 'Prospectos', seccion: 'Configuración' });
     } finally {
       delete PROYECTO.activeProject.sidebar_labels;
       vista?.unmount();
@@ -90,7 +91,7 @@ describe('recientes de antes de juntar los webhooks', () => {
     const lista = await screen.findByRole('listbox');
     const primero = within(lista).getAllByRole('option')[0].textContent;
     expect(primero).toContain('Webhooks › Prospectos');
-    expect(primero).toContain('Conexión');
+    expect(primero).toContain('Configuración');
     expect(primero).not.toContain('Integraciones');
   });
 });
