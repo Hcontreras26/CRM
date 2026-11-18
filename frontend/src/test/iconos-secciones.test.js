@@ -1,15 +1,24 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /*
   Un icono por encabezado de sección del menú (#105).
 
-  Se lee el fichero en vez de importar `NAV_SECTIONS` porque no se exporta, y
-  exportarlo solo para el test sería cambiar el código por la prueba. Lo que
-  interesa aquí es la declaración, que es donde se olvida el icono al añadir
-  una sección nueva.
+  Antes se leía la declaración en el fichero. Desde el reparto por bloques de uso
+  (#534, parte 3) el menú se arma con `reagruparMenu` y los iconos de los bloques
+  nuevos van en esa llamada, así que se mira el menú de verdad: `NAV_SECTIONS`,
+  el que se pinta. Una sección sin icono o con el de una de sus entradas sale
+  igual, venga de donde venga.
 */
+
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: null, permissions: null }) }));
+vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ({}) }));
+vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({}), useOptionalTheme: () => 'dark' }));
+vi.mock('@/shared/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
+
+const { NAV_SECTIONS } = await import('@/shared/components/layout/Sidebar');
 
 const FUENTE = readFileSync(
   resolve(__dirname, '../shared/components/layout/Sidebar.jsx'),
@@ -17,28 +26,11 @@ const FUENTE = readFileSync(
 );
 
 function seccionesDelMenu() {
-  const ini = FUENTE.indexOf('const NAV_SECTIONS');
-  const fin = FUENTE.indexOf('\n];', ini);
-  const bloque = FUENTE.slice(ini, fin);
-
-  const secciones = [];
-  let actual = null;
-  for (const linea of bloque.split('\n')) {
-    const etiqueta = linea.match(/^ {4}label: '([^']+)',/);
-    if (etiqueta) {
-      actual = { nombre: etiqueta[1], icono: null, iconosDeEntradas: [] };
-      secciones.push(actual);
-      continue;
-    }
-    if (!actual) continue;
-    // El icono de la sección va en su propia línea, con la misma sangría que
-    // su `label`. Los de las entradas van dentro de un objeto, más adentro.
-    const suyo = linea.match(/^ {4}icon: (\w+),/);
-    if (suyo) { actual.icono = suyo[1]; continue; }
-    const deEntrada = linea.match(/icon: (\w+)/);
-    if (deEntrada) actual.iconosDeEntradas.push(deEntrada[1]);
-  }
-  return secciones;
+  return NAV_SECTIONS.map((s) => ({
+    nombre: s.label,
+    icono: s.icon || null,
+    iconosDeEntradas: s.items.flatMap((i) => [i.icon, ...(i.children || []).map((c) => c.icon)]).filter(Boolean),
+  }));
 }
 
 describe('los encabezados de sección del menú', () => {
@@ -48,7 +40,7 @@ describe('los encabezados de sección del menú', () => {
     // Si esto falla, la forma del fichero ha cambiado y el resto del test
     // estaría comprobando el vacío sin enterarse.
     expect(secciones.length).toBeGreaterThanOrEqual(8);
-    expect(secciones.map((s) => s.nombre)).toContain('Principal');
+    expect(secciones.map((s) => s.nombre)).toContain('Hoy');
   });
 
   it('todas tienen icono, incluida la que se añada mañana', () => {
@@ -61,16 +53,8 @@ describe('los encabezados de sección del menú', () => {
     // ordenar y pasa a confundir, que es lo contrario de lo que se pedía.
     const repetidos = secciones
       .filter((s) => s.icono && s.iconosDeEntradas.includes(s.icono))
-      .map((s) => `${s.nombre} usa ${s.icono}, que ya es de una de sus entradas`);
+      .map((s) => `${s.nombre} usa ${s.icono.displayName || s.icono.name || 'su icono'}, que ya es de una de sus entradas`);
     expect(repetidos).toEqual([]);
-  });
-
-  it('todos los iconos usados están importados', () => {
-    const importados = FUENTE.slice(0, FUENTE.indexOf("from '@phosphor-icons/react'"));
-    const faltan = secciones
-      .filter((s) => s.icono && !new RegExp(`\\b${s.icono}\\b`).test(importados))
-      .map((s) => `${s.nombre}: ${s.icono}`);
-    expect(faltan).toEqual([]);
   });
 
   it('se pintan del mismo tamaño y peso que los de las entradas', () => {

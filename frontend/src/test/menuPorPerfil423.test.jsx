@@ -95,6 +95,10 @@ export function menuDe(p, { mapa = legado.mapaDePermisos(p) } = {}) {
 const { cambiosDeMenuPorPerfil } = await import('../../../backend/src/modules/permissions/inventario/cambios-aprobados.js');
 export const CAMBIOS_APROBADOS = cambiosDeMenuPorPerfil();
 const { aplicarTraslados } = await import('@/shared/components/layout/trasladosDeMenu');
+// El menú por bloques de uso (#534, parte 3): la foto es del menú de antes, y
+// se lleva al de ahora con la MISMA tabla que reparte el menú. Solo cambia el
+// sitio; lo que aparezca o desaparezca por otra cosa sigue saltando aquí.
+const { aplicarReubicaciones, reubicar } = await import('@/shared/components/layout/bloquesDelMenu');
 
 describe('menú por perfil (#423)', () => {
   const ahora = Object.fromEntries(Object.entries(PERFILES).map(([k, p]) => [k, menuDe(p, { mapa: mapaDeAhora(p) })]));
@@ -114,7 +118,7 @@ describe('menú por perfil (#423)', () => {
       const conTraslados = (lineas) => {
         const conAprobado = new Set(antes);
         for (const l of lineas) (l[0] === '+' ? conAprobado.add(l.slice(2)) : conAprobado.delete(l.slice(2)));
-        return new Set(aplicarTraslados([...conAprobado]));
+        return new Set(aplicarReubicaciones(aplicarTraslados([...conAprobado])));
       };
       // Lo aprobado tiene que ser un cambio de verdad respecto a la foto.
       const aprobado = CAMBIOS_APROBADOS[perfil] || [];
@@ -136,7 +140,8 @@ describe('menú por perfil (#423)', () => {
   it('cada traslado pide en su entrada nueva los permisos de las viejas, ni uno más', async () => {
     const { TRASLADOS_DE_MENU } = await import('@/shared/components/layout/trasladosDeMenu');
     for (const t of TRASLADOS_DE_MENU) {
-      const [seccion, etiqueta] = t.a.split(' › ');
+      // `t.a` está escrito con los nombres de antes del reparto por bloques (#534).
+      const [seccion, etiqueta] = reubicar(t.a).split(' › ');
       const entrada = NAV_SECTIONS.find((s) => s.label === seccion)?.items.find((i) => i.label === etiqueta);
       expect(entrada, t.a).toBeTruthy();
       expect(new Set([].concat(entrada.permiso)), t.id).toEqual(new Set(t.de.map((d) => d.permiso)));
