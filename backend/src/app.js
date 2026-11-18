@@ -121,6 +121,7 @@ import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js'
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
 import { startFacturaAutomaticaScheduler } from './jobs/facturaAutomaticaScheduler.js';
+import { startMatriculaMoodleScheduler } from './jobs/matriculaMoodleScheduler.js';
 import { startWebhooksSalientesScheduler } from './jobs/webhooksSalientesScheduler.js';
 import { startAsignacionScheduler } from './jobs/asignacionScheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
@@ -540,6 +541,7 @@ if (process.env.NODE_ENV !== 'test') {
     startPasoVencidoScheduler();
     startFeedbackDia7Scheduler();
     startFacturaAutomaticaScheduler();
+    startMatriculaMoodleScheduler();
     startNovedadesScheduler();
     startResumenDiarioScheduler();
     startReporteSemanalScheduler();
