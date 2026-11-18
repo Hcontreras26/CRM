@@ -111,6 +111,7 @@ import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoSchedul
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startSuscripcionesPlazosScheduler } from './jobs/suscripcionesPlazosScheduler.js';
 import { startCursosPendientesScheduler } from './jobs/cursosPendientesScheduler.js';
+import { startEntregasSinCorregirScheduler } from './jobs/entregasSinCorregirScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
 import { startReporteSemanalScheduler } from './jobs/reporteSemanalScheduler.js';
 import { startMcpRotacionScheduler } from './jobs/mcpRotacionScheduler.js';
@@ -534,6 +535,8 @@ if (process.env.NODE_ENV !== 'test') {
     // Ventas a plazos: cerrar la suscripción de Stripe al completar el pago (#747).
     startSuscripcionesPlazosScheduler();
     startCursosPendientesScheduler();
+    // Lee Moodle y escribe a las tutoras (#681): con el resto de la #689, apagado en producción hasta aprobarlo.
+    if (pluginMoodleActivo()) startEntregasSinCorregirScheduler();
     startPasoVencidoScheduler();
     startFeedbackDia7Scheduler();
     startFacturaAutomaticaScheduler();

@@ -101,6 +101,7 @@ Las dudas que los alumnos escriben en el campus (mensajería privada de Moodle) 
 | Resumen semanal al tutor (#189) | lunes, 9:00 | `CONSULTAS_RESUMEN_DISABLED=1` |
 | Recordatorio de plazo al tutor y aviso de fuera de plazo a administración (#190) | 15 min | `CONSULTAS_PLAZO_DISABLED=1` |
 | Recordatorio de carga de trabajo desactualizada (#190) | 1 vez al día (como mucho uno por semana a cada tutor) | `CONSULTAS_CARGA_RECORDATORIO_DISABLED=1` |
+| Aviso a la tutora de las entregas sin corregir de más de 48 h (#681; un correo por tutora y vuelta, cada entrega una vez; solo con `PLUGIN_MOODLE_EN_PRODUCCION=1` en producción) | 2 h | `ENTREGAS_SIN_CORREGIR_DISABLED=1` |
 
 Los **correos al tutor** respetan el freno `NO_ESCRIBIR_A_TUTORES` (`backend/src/shared/config/frenoTutores.js`): con él puesto no sale ninguno y se apunta en el registro. Desde el 11/11 (#211, PR de seguimiento de la #688) se quita sin tocar código: **`CORREOS_A_TUTORES=1`** en el `.env` y reiniciar; sin la variable, o con otro valor, sigue puesto. Con el freno, a un tutor tampoco le llega el código para cambiar su correo en «Mi perfil»: la pantalla le dice que lo pida a administración. El código de ese cambio se guarda como HMAC con **`CODIGO_CORREO_SECRET`** (si falta, con `JWT_SECRET`). Los avisos de la **campana** sí llegan. El aviso de fuera de plazo va a los super admin y a los admin de ese campus; la reasignación es manual, desde la consulta.
 

@@ -213,6 +213,12 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Consulta fuera de plazo', agrupa: false,
     descripcion: 'Una consulta de tus campus se ha pasado del plazo sin respuesta',
   },
+  // Mi campus (#681): a la tutora, sus entregas que llevan más de 48 h sin corregir
+  // (una vez por entrega; un aviso por vuelta con todas las nuevas).
+  entregas_sin_corregir: {
+    clase: ACCION, etiqueta: 'Entregas sin corregir', agrupa: false,
+    descripcion: 'Entregas de tus alumnos que llevan más de 48 h sin corregir',
+  },
   carga_desactualizada: {
     clase: ACCION, etiqueta: 'Carga de trabajo sin actualizar', agrupa: false,
     descripcion: 'Llevas más de una semana sin actualizar tu carga de trabajo',

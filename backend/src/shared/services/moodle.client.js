@@ -329,14 +329,31 @@ export function textoDeMoodle(html) {
 /** Lo que necesita el token del CAMPUS para leer los matriculados (además de lo anterior). */
 export const FUNCIONES_ALUMNOS = ['core_enrol_get_users_courses', 'core_enrol_get_enrolled_users'];
 
-/** Los cursos en los que está matriculado un usuario (para el tutor: los que imparte). */
+/**
+ * Los cursos en los que está matriculado un usuario (para el tutor: los que imparte).
+ *
+ * Es la misma llamada que da el avance de un alumno (#532, #681): Moodle añade a cada
+ * curso si tiene la finalización activada (`enablecompletion`) y el % de actividades
+ * hechas por ESE usuario (`progress`). `progreso` es null si el curso no tiene
+ * seguimiento o ninguna actividad con finalización: no se sabe, que no es «0 %».
+ */
 export async function cursosDe(conexion, moodleUserId, opciones) {
   const r = await llamar(conexion, 'core_enrol_get_users_courses', { userid: moodleUserId }, opciones);
   return (Array.isArray(r) ? r : []).map((c) => ({
     id: Number(c.id), nombre: c.fullname || c.shortname || null,
     // La última vez que ESE usuario entró al curso (0 = nunca).
     ultimoAcceso: Number(c.lastaccess) > 0 ? new Date(Number(c.lastaccess) * 1000) : null,
+    seguimiento: c.enablecompletion === true || Number(c.enablecompletion) === 1,
+    progreso: progresoDeMoodle(c),
   }));
+}
+
+/** El % hecho que da Moodle, redondeado y entre 0 y 100; null si no lo da (sin seguimiento). */
+export function progresoDeMoodle(c) {
+  const seguimiento = c?.enablecompletion === true || Number(c?.enablecompletion) === 1;
+  if (!seguimiento || c.progress === null || c.progress === undefined || c.progress === '') return null;
+  const n = Number(c.progress);
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null;
 }
 
 /** Roles (nombre corto) del equipo del curso: quien tiene uno de estos no es alumno. */
