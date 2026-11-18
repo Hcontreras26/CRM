@@ -15,6 +15,8 @@ vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 // La tarjeta de links de pago (#680) mira los permisos de quien entra.
 const permisos = vi.hoisted(() => ({ mapa: {} }));
 vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: (k) => permisos.mapa[k] === true }) }));
+// Y si el servidor tiene los links encendidos (`/auth/me`).
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 1, funciones: { links_pago: true } } }) }));
 
 const { default: IntegrationsPage } = await import('@/modules/accounting/pages/IntegrationsPage');
 

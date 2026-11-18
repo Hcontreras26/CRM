@@ -1,6 +1,7 @@
 import * as model from './links-pago.model.js';
 import * as stripe from './links-pago.stripe.js';
 import * as integrationsModel from '../integrations/integrations.model.js';
+import { filtroDeMetadata } from '../stripe-payments/stripe-payments.service.js';
 import { decrypt } from '../../shared/utils/crypto.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
@@ -149,6 +150,25 @@ export function marca({ linkId, projectId, leadId, conversionId, userId }) {
   };
 }
 
+/*
+  CUENTAS DE STRIPE COMPARTIDAS. Si el campus declara `filtro_metadata` en su
+  tarjeta «Stripe» (varios campus en la misma cuenta, #44), el sondeo de cada 5
+  minutos solo se queda con los cargos que llevan esa marca (`deQuienEs`). Un
+  cargo sin ella es «sin marcar»: no entra y, durante 24 horas, NO deja avanzar
+  la marca de agua del campus. Un link pagado sin la marca frenaba la entrada de
+  todos los cobros de ese campus durante un día y su propio cobro no entraba
+  nunca. Por eso el link y su cargo llevan la misma marca que pone la web de la
+  plataforma en su checkout, con la clave y el valor que declara el campus.
+
+  Sin filtro (cuenta propia del campus, lo normal) no se añade nada. Las marcas
+  `crm_*` mandan: la de plataforma no puede pisar ninguna.
+*/
+export function conMarcaDePlataforma(meta, filtro) {
+  if (!filtro?.clave || filtro.valor == null || filtro.valor === '') return meta;
+  if (Object.prototype.hasOwnProperty.call(meta, filtro.clave)) return meta;
+  return { ...meta, [filtro.clave]: String(filtro.valor) };
+}
+
 /**
  * Crear el link: se apunta, se crea en Stripe y se completa. Si Stripe falla,
  * la fila se borra: no queda un link sin URL que la gestora pueda mandar.
@@ -160,7 +180,10 @@ export async function crear({ projectId, leadId, conversionId, prod, reglas, imp
     precioCatalogo: reglas.precioCatalogo, importe, descuentoPct: reglas.descuentoPct,
     moneda: reglas.moneda, caducidadDias: reglas.caducidadDias,
   });
-  const meta = marca({ linkId: fila.id, projectId, leadId, conversionId, userId });
+  const meta = conMarcaDePlataforma(
+    marca({ linkId: fila.id, projectId, leadId, conversionId, userId }),
+    await filtroDeMetadata(projectId),
+  );
   // Única por link y por entorno: /testeo y local pueden compartir cuenta de test.
   const base = `crm-${meta.crm_entorno}-link-${fila.id}-${new Date(fila.created_at).getTime()}`;
   let precio; let link;
