@@ -322,10 +322,6 @@ function PantallaDeReportes() {
         actions={
           tab === 'crm' ? (
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Los atajos por calendario. «La semana pasada» es la semana
-                  pasada, de lunes a domingo — no los siete dias anteriores,
-                  que pedidos un martes mezclan media semana con media de la
-                  otra y no cuadran con lo que dice nadie. */}
               {/* Se puede bajar al campus, pero hay que pedirlo: el que
                   manda es el conjunto. Solo sale cuando hay mas de uno. */}
               {socDelProyecto && !activeIssuerId && campusDeLaSociedad.length > 1 && (
@@ -345,25 +341,18 @@ function PantallaDeReportes() {
                   {soloCampus ? `Solo ${activeProject?.nombre}` : 'Solo este campus'}
                 </button>
               )}
-              <div className="inline-flex items-center gap-1 flex-wrap" role="group" aria-label="Periodos rapidos">
-                {ATAJOS.map((a) => (
-                  <button
-                    key={a.clave}
-                    type="button"
-                    onClick={() => setRange(a.calcular(new Date()))}
-                    aria-pressed={atajoActivo === a.clave}
-                    className={
-                      'h-8 px-2.5 rounded-md border text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 ' +
-                      (atajoActivo === a.clave
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground')
-                    }
-                  >
-                    {a.etiqueta}
-                  </button>
-                ))}
-              </div>
-              <RangoRapido valor={range} alElegir={(r) => setRange(r)} />
+              {/* UNA barra de atajos, la compartida, como en Ventas e Ingresos
+                  (#223, #234). Aquí salían dos —una copia propia con «Este año»
+                  y además esta—, y con «desde/hasta», CSV y PDF la cabecera
+                  llegaba a 1889 px a 1280 de ancho. «La semana pasada» es de
+                  lunes a domingo, no los siete días anteriores.
+                  Quitar el atajo puesto deja la fecha vacía; aquí no hay
+                  informe sin periodo, así que se vuelve a «Este mes». */}
+              <RangoRapido
+                valor={range}
+                alElegir={(r) => setRange(r.from && r.to ? r : rangoPorDefecto())}
+                esteAno
+              />
               <input
                 type="date"
                 value={range.from}
