@@ -16,6 +16,7 @@ import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 import { esProyectoIA, PROYECTOS_IA } from '@/shared/lib/proyectosIA';
 import { PLUGIN_MOODLE } from '@/shared/lib/pluginMoodle';
 import { EtiquetaEnPruebas } from '@/shared/components/ui/EnPruebas';
+import { apiPublicUrl } from '@/shared/lib/direccionesPublicas';
 import {
   CreditCard, EnvelopeSimple, CheckCircle, WarningCircle, Eye, EyeSlash,
   ArrowSquareOut, FloppyDisk, PlugsConnected, Trash, Question, GraduationCap,
@@ -61,11 +62,10 @@ const EVENTOS_DEL_WEBHOOK = [
   'payment_intent.succeeded', 'payment_intent.payment_failed',
 ] as const;
 
+// Con la base de la compilación: sin ella salía https://360crm.tech/api/...,
+// sin el /crm, y Stripe recibía un 404 (ver shared/lib/direccionesPublicas).
 function urlWebhook(projectId: number | null | undefined): string {
-  const base = (import.meta.env.VITE_API_URL as string | undefined)
-    || `${window.location.origin}/api`;
-  const raiz = base.replace(/\/+$/, '');
-  return `${raiz}/stripe-webhook/${projectId ?? ''}`;
+  return apiPublicUrl(`/stripe-webhook/${projectId ?? ''}`);
 }
 
 const EMPTY = (provider: Provider): Integration => ({
@@ -893,8 +893,7 @@ const EVENTOS_PAYPAL = [
 ] as const;
 
 function urlWebhookPaypal(projectId: number): string {
-  const base = (import.meta.env.VITE_API_URL as string | undefined) || `${window.location.origin}/api`;
-  return `${base.replace(/\/+$/, '')}/paypal-webhook/${projectId}`;
+  return apiPublicUrl(`/paypal-webhook/${projectId}`);
 }
 
 function PaypalSiEstaEncendido({ projectId }: { projectId: number }) {
