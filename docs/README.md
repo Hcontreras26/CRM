@@ -2,6 +2,8 @@
 
 > **Fuente de verdad del esquema:** `backend/migrations/*.sql` — todos los SQL ejecutados, en orden.
 > Este es el **único** documento de referencia; el resto se consolidó aquí (el historial completo queda en git).
+>
+> **Para quien usa el CRM, no para quien lo programa:** [manual/README.md](manual/README.md), el manual de usuario general y uno por apartado del menú, con el guion de cada vídeo (#66). Lo que la pantalla y el servidor dicen distinto está en [manual/descuadres.md](manual/descuadres.md).
 
 ## Deploy y ramas (al día el 09/10/2026)
 
