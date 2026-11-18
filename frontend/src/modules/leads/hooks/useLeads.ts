@@ -236,7 +236,8 @@ export function useLeads(): UseLeadsResult {
           ? (selectedProjectIds.length > 0 ? selectedProjectIds : idsDelAmbito)
           : selectedProjectIds);
     const hasMulti = scopeIds.length > 0;
-    if (!hasMulti && !pid) return [];
+    // Un campus de verdad: con «Todos» `pid` vale -1, y `projectId=-1` da 400 (CRM#859).
+    if (!hasMulti && !(pid && pid > 0)) return [];
     const ignoreFilters = !!opts?.ignoreFilters;
     const baseParams = () => {
       const p = new URLSearchParams();

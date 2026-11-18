@@ -18,6 +18,7 @@ import {
 import { pestanasDe, TABS } from '@/modules/webhooks/lib/pestanas';
 import { TRASLADOS_DE_MENU } from '@/shared/components/layout/trasladosDeMenu';
 import { reubicar } from '@/shared/components/layout/bloquesDelMenu';
+import { esCampusMio } from '@/shared/hooks/useCampusMio';
 import { isBetaAllowed } from '@/shared/config/betaConfig';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 import { tipoDelMenu } from '@/shared/lib/proyectosIA';
@@ -450,6 +451,8 @@ export default function CommandPalette() {
     const nada = { success: true, data: [] };
 
     const catalogoDe = (pid) => {
+      // Solo de un campus suyo: si no, 403 PROJECT_FORBIDDEN (CRM#859).
+      if (!esCampusMio(projects, pid)) return Promise.resolve([]);
       if (!catalogos.current.has(pid)) {
         catalogos.current.set(pid, client.get(`/products?projectId=${pid}`)
           .then((r) => (r.success && Array.isArray(r.data) ? r.data : []))
@@ -550,7 +553,7 @@ export default function CommandPalette() {
     } finally {
       if (vigente()) setSearching(false);
     }
-  }, [activeProject?.id, activeIssuerId, idsDelAmbito, busca]);
+  }, [activeProject?.id, activeIssuerId, idsDelAmbito, busca, projects]);
 
   useEffect(() => {
     // Cerrado no busca: si se cierra con Escape dejando texto y luego cambia la
