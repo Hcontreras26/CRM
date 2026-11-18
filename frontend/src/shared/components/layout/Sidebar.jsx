@@ -257,7 +257,11 @@ export const NAV_SECTIONS = [
     icon: Books,
     items: [
       { label: 'Productos', to: '/productos', detail: 'Cursos a la venta', icon: Package, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.view' },
-      { label: 'Cursos pendientes', to: '/productos/pendientes', detail: 'Por campus, con tutora y fecha', icon: Clock, roles: ['superadmin', 'admin', 'gestor', 'tutor'], module: 'products', permiso: 'products.view' },
+      // `oPermiso` (#770): el tutor y el tutor redactor no tienen «Ver productos»,
+      // pero sus avisos («Te han asignado un curso») llevan aquí. Con «Sus cursos»
+      // la pantalla se les abre (`rutaPermitida`); el menú no cambia, porque la
+      // entrada sigue pidiendo `products.view` para salir.
+      { label: 'Cursos pendientes', to: '/productos/pendientes', detail: 'Por campus, con tutora y fecha', icon: Clock, roles: ['superadmin', 'admin', 'gestor', 'tutor'], module: 'products', permiso: 'products.view', oPermiso: 'tutores.mis_cursos' },
       { label: 'WooCommerce', to: '/productos/woocommerce', detail: 'Sincronía de tienda', icon: ShoppingBag, roles: ['superadmin', 'admin'], module: 'woocommerce', permiso: 'woocommerce.view' },
       // Cada entrada se llama como la pantalla que abre (#79). «Árbol de
       // categorías» apuntaba a /productos/arbol, que es OTRA pantalla, y el
