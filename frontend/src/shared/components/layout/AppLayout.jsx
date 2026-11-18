@@ -68,7 +68,18 @@ const ALL_PROJECTS_OK = [
   // con ámbito «toda la empresa» (migración 206) y la pantalla y el servidor ya lo
   // resuelven. El muro lo dejaba usable solo con un campus elegido. Diego, 19/10: «los
   // webhooks en producción solo se ven por campus y debe ser por empresa».
-  /^\/conexion\/webhook-transferencias$/,
+  /^\/conexion\/webhooks\/transferencias\/?$/,
+  // Su dirección de antes (#690) redirige a la de arriba; si el muro la parara,
+  // los enlaces viejos (Novedades, marcadores) se quedarían en «elige un campus».
+  /^\/conexion\/webhook-transferencias\/?$/,
+  // Las de antes de Make y de los webhooks de prospectos (#690), solo para que
+  // redirijan: los avisos de Make enlazan `/captacion/make/:id`. Adonde llevan
+  // sí es de un campus, y el muro lo pide ahí, ya con la dirección nueva.
+  /^\/captacion\/(?:make|webhooks)(?:\/\d+)?\/?$/,
+  // El resumen de Conexión › Webhooks (#690): con una empresa o «Todos», los
+  // webhooks de sus campus, cada uno con el suyo. Las pestañas de prospectos y
+  // Make siguen siendo de un campus: se montan para uno.
+  /^\/conexion\/webhooks\/?$/,
   // Asignación de leads: con «todos», todas las configuraciones y decisiones que ve cada uno.
   /^\/conexion\/asignacion-leads$/,
   // El botón de WhatsApp de la web: con una empresa o «Todos», sus pulsaciones
@@ -222,7 +233,15 @@ const CON_SOCIEDAD_OK = [
   // con ámbito «toda la empresa» (migración 206) y la pantalla y el servidor ya lo
   // resuelven. El muro lo dejaba usable solo con un campus elegido. Diego, 19/10: «los
   // webhooks en producción solo se ven por campus y debe ser por empresa».
-  /^\/conexion\/webhook-transferencias$/,
+  /^\/conexion\/webhooks\/transferencias\/?$/,
+  // Su dirección de antes (#690), que redirige a la de arriba, y las de Make y
+  // los webhooks de prospectos (redirigen; el muro se pide ya en la nueva).
+  /^\/conexion\/webhook-transferencias\/?$/,
+  /^\/captacion\/(?:make|webhooks)(?:\/\d+)?\/?$/,
+  // El resumen de Conexión › Webhooks (#690): con una empresa o «Todos», los
+  // webhooks de sus campus, cada uno con el suyo. Las pestañas de prospectos y
+  // Make siguen siendo de un campus: se montan para uno.
+  /^\/conexion\/webhooks\/?$/,
   // Asignación de leads (CRM#513): con una empresa, sus configuraciones y las
   // decisiones de sus campus, con un filtro de campus. Diego, 28/10: «tengo que
   // verlo por empresa y campus».
@@ -518,7 +537,7 @@ const NEW_ACTIONS = {
   '/clientes': { url: '/prospectos?new=1', label: 'prospecto' },
   '/productos': { url: '/productos?new=1', label: 'producto' },
   '/captacion': { url: '/captacion?new=1', label: 'formulario' },
-  '/captacion/webhooks': { url: '/captacion/webhooks?new=1', label: 'webhook' },
+  '/conexion/webhooks/prospectos': { url: '/conexion/webhooks/prospectos?new=1', label: 'webhook' },
   '/secuencias-email': { url: '/secuencias-email?new=1', label: 'secuencia' },
   // Egresos vive en /finanzas/egresos: /accounting/expenses no existe en este CRM (#227).
   '/finanzas/egresos': { url: '/finanzas/egresos?new=1', label: 'egreso' },

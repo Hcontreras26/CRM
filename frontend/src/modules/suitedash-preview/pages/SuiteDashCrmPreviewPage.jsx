@@ -81,8 +81,8 @@ const SUITEDASH_NAV_SECTIONS = [
     items: [
       { label: 'Email', detail: 'Secuencias y plantillas', icon: Envelope, route: '/secuencias-email', tone: 'blue' },
       { label: 'Formularios', detail: 'Forms y entradas', icon: Globe, route: '/captacion', tone: 'blue' },
-      { label: 'Make', detail: 'Automatizaciones Make', icon: Lightning, route: '/captacion/make', tone: 'amber' },
-      { label: 'Webhooks', detail: 'Integraciones entrantes', icon: Pulse, route: '/captacion/webhooks', tone: 'slate' },
+      // Make y los webhooks, juntos en Conexión › Webhooks desde la #690.
+      { label: 'Webhooks', detail: 'Todos, por su función', icon: Pulse, route: '/conexion/webhooks', tone: 'slate' },
       { label: 'WhatsApp', detail: 'Widget y captacion', icon: ChatCircleText, route: '/captacion/whatsapp', tone: 'emerald' },
     ],
   },
@@ -192,8 +192,8 @@ const CHILD_ROUTES = {
   Matriculas: '/clientes/matriculas',
   Email: '/secuencias-email',
   Formularios: '/captacion',
-  Make: '/captacion/make',
-  Webhooks: '/captacion/webhooks',
+  Make: '/conexion/webhooks/make',
+  Webhooks: '/conexion/webhooks/prospectos',
   'Meta Ads': '/campanas/meta',
   'Google Ads': '/campanas/google',
   SEO: '/campanas/seo',

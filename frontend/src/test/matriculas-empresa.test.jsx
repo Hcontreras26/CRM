@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { pathAllowsAll, rutaAceptaSociedad } from '@/shared/components/layout/AppLayout';
 
 /**
@@ -208,6 +208,34 @@ describe('el listado sigue a la cabecera', () => {
     fireEvent.click(screen.getByRole('button', { name: /Webhooks/ }));
     expect(await screen.findByText('Elige un campus')).toBeTruthy();
     expect(get.mock.calls.some(([url]) => url.startsWith('/webhook-tokens'))).toBe(false);
+  });
+
+  it('`?pestana=webhooks` (desde Conexión › Webhooks, #690) abre los webhooks, y se quita al volver al listado', async () => {
+    cabecera.value = { activeIssuerId: 7, activeIssuer: { nombre: 'CEDIA' }, activeProject: { id: -1 } };
+    let donde;
+    const Donde = () => { donde = useLocation(); return null; };
+    render(
+      <MemoryRouter initialEntries={['/clientes/matriculas?pestana=webhooks&x=1']}>
+        <MatriculasPage /><Donde />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('Elige un campus')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Listado/ }));
+    await waitFor(() => expect(donde.search).toBe('?x=1'));
+  });
+
+  it('`?pestana=webhooks` sin poder ver esa pestaña: se ve el listado y es el listado el que sale marcado', async () => {
+    roles.value = ['gestor'];
+    cabecera.value = { activeIssuerId: null, activeIssuer: null, activeProject: { id: -1 } };
+    render(
+      <MemoryRouter initialEntries={['/clientes/matriculas?pestana=webhooks']}>
+        <MatriculasPage />
+      </MemoryRouter>,
+    );
+    const listado = await screen.findByRole('button', { name: /Listado/ });
+    expect(screen.queryByRole('button', { name: /Webhooks/ })).toBeNull();
+    expect(listado.className).toContain('border-primary');
+    expect(screen.queryByText('Elige un campus')).toBeNull();
   });
 });
 

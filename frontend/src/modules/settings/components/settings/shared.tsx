@@ -19,7 +19,7 @@ export const TABS: SettingsTab[] = [
   { id: 'channels',     label: 'Canales',             icon: ChatCircleText, to: '/configuracion/canales' },
   { id: 'proceso',      label: 'Proceso comercial',   icon: ListChecks,     to: '/prospectos/proceso' },
   { id: 'forms',        label: 'Formularios',         icon: Globe },
-  { id: 'webhooks',     label: 'Webhooks',            icon: PlugsConnected, to: '/captacion/webhooks' },
+  { id: 'webhooks',     label: 'Webhooks',            icon: PlugsConnected, to: '/conexion/webhooks' },
   { id: 'sequences',    label: 'Email seguimiento',   icon: Envelope,       to: '/secuencias-email' },
   { id: 'templates',    label: 'Plantillas email',    icon: EnvelopeOpen,   to: '/configuracion/plantillas-email' },
   { id: 'shortcuts',    label: 'Atajos rápidos',      icon: Lightning,      to: '/configuracion/atajos' },

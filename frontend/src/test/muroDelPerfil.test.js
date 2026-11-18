@@ -25,6 +25,6 @@ describe('las pantallas personales no tienen muro', () => {
 describe('y el muro sigue donde tiene que estar', () => {
   it('una pantalla de un solo proyecto no se abre con «Todos»', () => {
     // Un webhook es de UN proyecto: «el webhook de todos» no existe.
-    expect(pathAllowsAll('/captacion/webhooks')).toBe(false);
+    expect(pathAllowsAll('/conexion/webhooks/prospectos')).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import RedirigirAWebhooks from './modules/webhooks/components/RedirigirAWebhooks';
 import { Suspense, lazy, useEffect } from 'react';
 import { useProjectContext } from './contexts/ProjectContext';
 import { tituloDeRuta } from './shared/lib/rutasTitulos';
@@ -169,6 +170,9 @@ const WebhooksPage = lazy(() => import('./modules/webhooks/pages/WebhooksPage'))
 const WebhookDetailPage = lazy(() => import('./modules/webhooks/pages/WebhookDetailPage'));
 const MakeWebhooksPage = lazy(() => import('./modules/make-webhooks/pages/MakeWebhooksPage'));
 const MakeWebhookDetailPage = lazy(() => import('./modules/make-webhooks/pages/MakeWebhookDetailPage'));
+// Conexión → Webhooks (#690): todos juntos, señalados por su función.
+const WebhooksLayout = lazy(() => import('./modules/webhooks/pages/WebhooksLayout'));
+const WebhooksResumenPage = lazy(() => import('./modules/webhooks/pages/WebhooksResumenPage'));
 const FieldDefinitionsPage = lazy(() => import('./modules/field-definitions/pages/FieldDefinitionsPage'));
 const ClavesPage = lazy(() => import('./modules/settings/pages/ClavesPage'));
 const McpPage = lazy(() => import('./modules/mcp/pages/McpPage'));
@@ -311,12 +315,13 @@ function App() {
           {/* Captación — tabs */}
           <Route path="/captacion" element={<CaptacionLayout />}>
             <Route index element={<FormsPage />} />
-            <Route path="webhooks" element={<WebhooksPage />} />
-            <Route path="webhooks/:id" element={<WebhookDetailPage />} />
-            <Route path="make" element={<MakeWebhooksPage />} />
-            <Route path="make/:id" element={<MakeWebhookDetailPage />} />
             <Route path="whatsapp" element={<WhatsappWidgetPage />} />
           </Route>
+          {/* Webhooks y Make vivían aquí; desde la #690 están en Conexión › Webhooks. */}
+          <Route path="/captacion/webhooks" element={<RedirigirAWebhooks a="/conexion/webhooks/prospectos" />} />
+          <Route path="/captacion/webhooks/:id" element={<RedirigirAWebhooks a="/conexion/webhooks/prospectos" />} />
+          <Route path="/captacion/make" element={<RedirigirAWebhooks a="/conexion/webhooks/make" />} />
+          <Route path="/captacion/make/:id" element={<RedirigirAWebhooks a="/conexion/webhooks/make" />} />
 
           {/* Campañas — tabs */}
           {/* #216: Campañas y Tráfico orgánico enseñaban datos de ejemplo. Hasta
@@ -385,8 +390,17 @@ function App() {
           {/* Conexión → Conectores (WordPress, tiendas, APIs). Estaba en Captación
               hasta el 29/09; la dirección vieja lleva a la nueva. */}
           <Route path="/conexion/conectores" element={<ConnectorsPage />} />
-          {/* Conexión → Webhook de transferencias. Solo super admin y admin: lo corta el servidor. */}
-          <Route path="/conexion/webhook-transferencias" element={<WebhookTransferenciasPage />} />
+          {/* Conexión → Webhooks (#690): el resumen por función y, en pestañas, las
+              pantallas que estaban sueltas. Cada una la corta el servidor por su permiso. */}
+          <Route path="/conexion/webhooks" element={<WebhooksLayout />}>
+            <Route index element={<WebhooksResumenPage />} />
+            <Route path="prospectos" element={<WebhooksPage />} />
+            <Route path="prospectos/:id" element={<WebhookDetailPage />} />
+            <Route path="make" element={<MakeWebhooksPage />} />
+            <Route path="make/:id" element={<MakeWebhookDetailPage />} />
+            <Route path="transferencias" element={<WebhookTransferenciasPage />} />
+          </Route>
+          <Route path="/conexion/webhook-transferencias" element={<RedirigirAWebhooks a="/conexion/webhooks/transferencias" />} />
           {/* Conexión → Asignación de leads por actividad (CRM#513). Solo super admin y admin: lo corta el servidor. */}
           <Route path="/conexion/asignacion-leads" element={<AsignacionLeadsPage />} />
           <Route path="/configuracion/roles" element={<RolesPage />} />
