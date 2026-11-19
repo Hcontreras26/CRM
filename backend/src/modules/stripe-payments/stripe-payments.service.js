@@ -19,6 +19,8 @@ import {
 import { asociacionV2Activa } from './asociacion.config.js';
 // Links de pago, fase 3 (#680): la marca del CRM en el cargo ata el cobro a su link y su venta.
 import * as cobroDelLink from '../links-pago/links-pago.cobro.js';
+// Cobro automático de las cuotas (309): la cuota que cobra Stripe sola, a su cuota.
+import * as cobroAuto from '../links-pago/links-pago.cobro-auto.js';
 
 export { asociacionV2Activa };
 
@@ -84,6 +86,20 @@ function chargeToPayment(charge, projectId) {
       ...(foreign ? { original_amount: (charge.amount || 0) / 100, original_currency: chargeCur.toUpperCase(), stripe_exchange_rate: bt?.exchange_rate ?? null } : {}),
     },
     payment_method: charge.payment_method_details?.type || null,
+    // Cobro automático de las cuotas (309): con qué tarjeta se pagó, para guardarla
+    // si el link la guardaba. No se escriben en `stripe_payments`; solo viajan.
+    stripe_payment_method_id: typeof charge.payment_method === 'string' ? charge.payment_method : null,
+    // Y de qué pago y factura viene: una cuota que cobra Stripe sola llega como factura.
+    stripe_payment_intent_id: typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id || null,
+    stripe_invoice_id: typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id || null,
+    tarjeta: charge.payment_method_details?.type === 'card' && charge.payment_method_details.card
+      ? {
+        marca: charge.payment_method_details.card.brand || null,
+        ultimos4: charge.payment_method_details.card.last4 || null,
+        mes: charge.payment_method_details.card.exp_month || null,
+        anio: charge.payment_method_details.card.exp_year || null,
+      }
+      : null,
     disputed: !!charge.disputed,
     dispute_status: charge.dispute?.status || null,
     dispute_reason: charge.dispute?.reason || null,
@@ -311,9 +327,14 @@ async function enlazarSiSePuede(projectId, payment, dbRow, { compraDirecta = fal
       'cargo con la marca de un link de pago que no es de aquí: no se asocia');
     return;
   }
+  // COBRO AUTOMÁTICO DE LAS CUOTAS (309): una cuota que Stripe cobra sola llega
+  // como factura de su calendario, sin la marca del link. Su precio dice de qué
+  // cuota es: va a esa venta y salda ESA cuota, sin mirar el correo.
+  const delPlan = !delLink && payment.status === 'succeeded' ? await cobroAuto.cuotaDelCargo(projectId, payment) : null;
+  if (delPlan?.aplazado) return { aplazado: true };
   // Apagado el interruptor, como siempre: sin correo en el cargo no se hace nada.
   const v2 = asociacionV2Activa();
-  if (payment.status !== 'succeeded' || (!delLink && !v2 && !payment.customer_email)) return;
+  if (payment.status !== 'succeeded' || (!delLink && !delPlan && !v2 && !payment.customer_email)) return;
   // Un cargo en otra moneda solo vale si su importe ya viene liquidado en euros.
   // Los importados sin el balance_transaction guardaron el importe en la moneda
   // del cargo: asociarlos meteria 270.000 pesos colombianos como 270.000 euros.
@@ -326,9 +347,9 @@ async function enlazarSiSePuede(projectId, payment, dbRow, { compraDirecta = fal
 
   const destino = delLink
     ? await cobroDelLink.ventaDelLink(projectId, payment, delLink.link)
-    : v2
+    : delPlan || (v2
       ? await ventaConLasReglasNuevas(projectId, payment, dbRow, { compraDirecta, sinEsperarALaTienda })
-      : await ventaComoSiempre(projectId, payment, dbRow);
+      : await ventaComoSiempre(projectId, payment, dbRow));
   if (destino?.aplazado) return { aplazado: true };
   if (!destino) return;
   const { conv, ficha, metodoAuto, email } = destino;
@@ -342,6 +363,7 @@ async function enlazarSiSePuede(projectId, payment, dbRow, { compraDirecta = fal
     // Se vincula al pago que ya existe (y a su factura, si la tiene) SIN volver a sumar.
     await model.linkPayment(dbRow.id, { leadId: ficha.id, conversionId: conv.id, conversionPaymentId: dup.id, userId: null, method: 'auto_dedup' });
     if (destino.link) await cobroDelLink.trasCobrar(destino.link, { payment, conversionId: conv.id, conversionPaymentId: dup.id });
+    if (destino.cobroAuto) await cobroAuto.trasCobrarCuota({ cuotaId: destino.cuotaId, invoiceId: destino.cobroAuto.invoiceId, conversionId: conv.id });
     return;
   }
   // Registrar el cobro con la MISMA lógica que un pago manual (conversion.model.addPayment):
@@ -350,14 +372,16 @@ async function enlazarSiSePuede(projectId, payment, dbRow, { compraDirecta = fal
   const convModel = await import('../conversions/conversion.model.js');
   const res = await convModel.addPayment(conv.id, {
     importe: payment.amount, fecha, metodo: 'tarjeta',
-    notas: destino.link ? `Auto-Stripe ${payment.stripe_id} (link de pago n.º ${destino.link.id})` : `Auto-Stripe ${payment.stripe_id}`,
+    notas: destino.link ? `Auto-Stripe ${payment.stripe_id} (link de pago n.º ${destino.link.id})`
+      : destino.cobroAuto ? `Auto-Stripe ${payment.stripe_id} (cuota cobrada sola por Stripe)` : `Auto-Stripe ${payment.stripe_id}`,
   }, { allowOverpay: true, allowDuplicate: true,
-    // El link de una cuota (plan de pago): el cobro salda esa cuota.
-    cuotaId: destino.link?.installment_id || null });
+    // El link de una cuota (plan de pago) o la cuota que cobra Stripe sola: el cobro salda esa cuota.
+    cuotaId: destino.cuotaId || destino.link?.installment_id || null });
   if (res?.error || !res?.payment) return;
   const cpId = res.payment.id;
   await model.linkPayment(dbRow.id, { leadId: ficha.id, conversionId: conv.id, conversionPaymentId: cpId, userId: null, method: metodoAuto });
   if (destino.link) await cobroDelLink.trasCobrar(destino.link, { payment, conversionId: conv.id, conversionPaymentId: cpId });
+  if (destino.cobroAuto) await cobroAuto.trasCobrarCuota({ cuotaId: destino.cuotaId, invoiceId: destino.cobroAuto.invoiceId, conversionId: conv.id });
   // El cobro queda registrado en la venta y espera EN LA COLA de facturacion.
   // La factura NO sale sola: la emite una persona cuando comprueba que los datos
   // del cliente estan bien. Antes se emitia aqui mismo, y salian facturas
@@ -383,7 +407,7 @@ async function enlazarSiSePuede(projectId, payment, dbRow, { compraDirecta = fal
   //
   // El cobro de un link de pago (#680, fase 3) se avisa a quien creó el link: la
   // venta es suya.
-  const avisarA = destino.link ? destino.avisarA : ficha.responsable_id;
+  const avisarA = destino.link || destino.cobroAuto ? destino.avisarA : ficha.responsable_id;
   if (avisarA) {
     const { notifyUsers } = await import('../notifications/notifications.service.js');
     const euros = Number(payment.amount).toLocaleString('es-ES', {
@@ -394,9 +418,10 @@ async function enlazarSiSePuede(projectId, payment, dbRow, { compraDirecta = fal
       type: 'venta_automatica',
       title: destino.link
         ? `Link de pago cobrado: ${euros} € de ${ficha.nombre || email || 'tu cliente'}`
-        : `Cobro de ${euros} € de ${ficha.nombre || email}`,
-      message: destino.link
-        ? 'Se ha registrado solo en su venta, a tu nombre. Queda en la cola de facturacion.'
+        : destino.cobroAuto ? `Cuota cobrada sola por Stripe: ${euros} € de ${ficha.nombre || email || 'tu cliente'}`
+          : `Cobro de ${euros} € de ${ficha.nombre || email}`,
+      message: destino.link || destino.cobroAuto
+        ? 'Se ha registrado solo en su venta y ha saldado su cuota. Queda en la cola de facturacion.'
         : 'Entro por Stripe y se registro solo en su venta. Queda en la cola de facturacion.',
       link_path: `/prospectos/${ficha.id}`,
       metadata: { lead_id: ficha.id, conversion_id: conv.id, stripe_id: payment.stripe_id, ...(destino.link ? { payment_link_id: destino.link.id } : {}) },
@@ -1139,6 +1164,29 @@ export async function handleWebhookEvent(projectId, event) {
             if (payment.status === 'succeeded') await trasAsociarCargo(dbRow.id);
           }
         } catch (e) { logger.warn({ err: e.message, projectId, linkId: r.link?.id }, 'links de pago: no se pudo traer el cargo de la sesión; lo traerá el sondeo'); }
+      }
+      return { processed: event.type, stripeId: obj.id };
+    }
+    case 'invoice.paid':
+    case 'invoice.payment_failed': {
+      // Cobro automático de las cuotas (309): la factura de una cuota del calendario
+      // de Stripe. Pagada, su cargo entra por el MISMO camino que los demás (y salda
+      // su cuota por el precio). Fallida, se apunta y se avisa.
+      const r = await cobroAuto.desdeLaFactura(projectId, event);
+      if (r?.skipped) return { skipped: r.skipped, stripeId: obj.id };
+      if (r?.paymentIntent && apiKey) {
+        try {
+          const cargos = await stripeGet(apiKey, '/v1/charges', {
+            payment_intent: r.paymentIntent, 'expand[]': 'data.balance_transaction',
+          });
+          for (const ch of cargos.data || []) {
+            const payment = chargeToPayment(ch, projectId);
+            const dbRow = await model.upsertPayment(payment);
+            try { await enlazarDesdeElAviso(projectId, payment, dbRow); }
+            catch (e) { logger.error({ err: e.message, projectId, stripeId: payment.stripe_id }, 'stripe: el cargo de una cuota automática no se pudo enlazar'); }
+            if (payment.status === 'succeeded') await trasAsociarCargo(dbRow.id);
+          }
+        } catch (e) { logger.warn({ err: e.message, projectId, factura: obj.id }, 'cobro automático: no se pudo traer el cargo de la factura; lo traerá el sondeo'); }
       }
       return { processed: event.type, stripeId: obj.id };
     }
