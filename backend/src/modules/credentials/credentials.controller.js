@@ -6,7 +6,7 @@ import { decrypt } from '../../shared/utils/crypto.js';
 import { refreshGoogleAdsAccessToken } from '../../shared/services/googleAds.service.js';
 import { anotar, historial, ACCIONES } from './credentials.registro.js';
 import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
-import { claveDeIA, ORIGENES, DONDE_SE_CONFIGURA } from './clave-ia.js';
+import { claveDeIA, ORIGENES, DONDE_SE_CONFIGURA, probarClaveDeIA } from './clave-ia.js';
 
 /**
  * Lo que ve de las claves quien no ve todo el CRM (CRM#632).
@@ -40,7 +40,7 @@ export async function iaEnUso(req, res, next) {
       const mios = await campusDeLaPersona(req.user?.userId);
       if (!mios.includes(projectId)) projectId = null;
     }
-    const { origen } = await claveDeIA(projectId);
+    const { origen } = await claveDeIA(projectId, { soloMirar: true });
     res.json({
       success: true,
       data: {
@@ -177,7 +177,21 @@ export async function test(req, res, next) {
       });
     }
 
-    // Resto de servicios: stub (solo verifica que decrypta bien).
+    if (row.service === 'claude') {
+      // CRM#893: la clave de IA se prueba contra Anthropic, sin gastar tokens.
+      let clave;
+      try {
+        clave = decrypt(row.encrypted_value, row.iv, row.auth_tag);
+      } catch (err) {
+        await model.recordTestResult(id, 'failed');
+        return res.json({ success: true, data: { result: 'failed', message: `Decrypt fallo: ${err.message}` } });
+      }
+      const r = await probarClaveDeIA(clave);
+      await model.recordTestResult(id, r.result);
+      return res.json({ success: true, data: r });
+    }
+
+    // Resto de servicios: stub (no prueba la clave contra su servicio).
     await model.recordTestResult(id, 'ok');
     res.json({ success: true, data: { result: 'ok', message: 'Credencial decrypted correctamente. Test real disponible solo para google_ads (F2-014).' } });
   } catch (err) {

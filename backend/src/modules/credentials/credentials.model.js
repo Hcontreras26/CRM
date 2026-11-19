@@ -149,17 +149,28 @@ export function marcarUso(service, projectId = null) {
   ).catch(() => { /* el sello no vale una excepcion */ });
 }
 
-export async function getDecryptedValue(service, projectId = null) {
+/**
+ * `marcar: false` para quien solo pregunta si hay clave (la página de estado,
+ * «qué clave usa la IA»): eso no es usarla, y sellarlo escondería en «Claves»
+ * una clave que ya no usa nadie (CRM#893).
+ *
+ * `soloProduccion: true` deja fuera la de «pruebas», como ya hacen el MCP de
+ * Moodle y la salud de las integraciones. Sin él, con las dos guardadas, el
+ * `LIMIT 1` coge una cualquiera (CRM#893; el resto de servicios, en la #80).
+ */
+export async function getDecryptedValue(service, projectId = null, { marcar = true, soloProduccion = false } = {}) {
   const { rows } = await query(
     `SELECT encrypted_value, iv, auth_tag FROM api_credentials
      WHERE service = $1 AND (project_id = $2 OR ($2::int IS NULL AND project_id IS NULL))
-     AND active = true LIMIT 1`,
+     AND active = true
+     ${soloProduccion ? "AND COALESCE(metadata->>'entorno', 'produccion') = 'produccion'" : ''}
+     LIMIT 1`,
     [service, projectId]
   );
   if (!rows[0]) return null;
   // Se sella el uso al vuelo. Es la unica puerta por la que la aplicacion lee
   // una credencial de verdad, asi que es donde el «ultimo uso» significa algo.
-  marcarUso(service, projectId);
+  if (marcar) marcarUso(service, projectId);
   return decrypt(rows[0].encrypted_value, rows[0].iv, rows[0].auth_tag);
 }
 

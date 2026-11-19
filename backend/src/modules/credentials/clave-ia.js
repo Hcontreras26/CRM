@@ -20,7 +20,7 @@ import { logger } from '../../shared/utils/logger.js';
 export const SERVICIO_IA = 'claude';
 
 /** Para los avisos: dónde se pone, en vez de nombrar la variable del servidor. */
-export const DONDE_SE_CONFIGURA = 'Configuración › Integraciones › APIs globales (o la del campus)';
+export const DONDE_SE_CONFIGURA = 'Configuración › APIs globales (la de un campus, en Configuración › Claves y variables)';
 
 export const ORIGENES = {
   campus: 'la del campus',
@@ -28,9 +28,10 @@ export const ORIGENES = {
   servidor: 'la del servidor (ANTHROPIC_API_KEY)',
 };
 
-async function leerGuardada(projectId, leer) {
+async function leerGuardada(projectId, leer, marcar) {
   try {
-    return (await leer(SERVICIO_IA, projectId)) || null;
+    // Solo la de producción: la de «pruebas» es para la paridad (#80), no se usa.
+    return (await leer(SERVICIO_IA, projectId, { marcar, soloProduccion: true })) || null;
   } catch (err) {
     // Ya no se calla: una clave que no se puede leer es algo que hay que ver.
     logger.warn({ err: err.message, projectId }, 'Clave de IA: no se pudo leer la guardada');
@@ -41,14 +42,19 @@ async function leerGuardada(projectId, leer) {
 /**
  * `{ clave, origen }`, con `origen` = 'campus' | 'global' | 'servidor', o
  * `{ clave: null, origen: null }` si no hay ninguna. Sin campus, se empieza por
- * la global. `leer` y `env` solo los cambian las pruebas.
+ * la global.
+ *
+ * `soloMirar: true` para quien solo quiere saber cuál hay (estado, pantallas):
+ * no sella el «último uso» de la credencial, que es lo que en «Claves» delata la
+ * que ya no usa nadie. `leer` y `env` solo los cambian las pruebas.
  */
-export async function claveDeIA(projectId = null, { leer = getDecryptedValue, env = process.env } = {}) {
+export async function claveDeIA(projectId = null, { leer = getDecryptedValue, env = process.env, soloMirar = false } = {}) {
+  const marcar = !soloMirar;
   if (projectId) {
-    const delCampus = await leerGuardada(projectId, leer);
+    const delCampus = await leerGuardada(projectId, leer, marcar);
     if (delCampus) return { clave: delCampus, origen: 'campus' };
   }
-  const global = await leerGuardada(null, leer);
+  const global = await leerGuardada(null, leer, marcar);
   if (global) return { clave: global, origen: 'global' };
   if (env.ANTHROPIC_API_KEY) return { clave: env.ANTHROPIC_API_KEY, origen: 'servidor' };
   return { clave: null, origen: null };
@@ -57,4 +63,28 @@ export async function claveDeIA(projectId = null, { leer = getDecryptedValue, en
 /** Solo la clave (o null), para quien no necesita saber de dónde sale. */
 export async function soloLaClave(projectId = null, opciones) {
   return (await claveDeIA(projectId, opciones)).clave;
+}
+
+/**
+ * «Probar» de verdad una clave de Claude (CRM#893). Antes «Probar» decía «ok» a
+ * cualquier cosa que se pegara: ni la descifraba. Pide la lista de modelos, que
+ * comprueba la clave sin gastar tokens.
+ *
+ * Devuelve `{ result: 'ok' | 'failed', message }`. `fetch` solo lo cambian las
+ * pruebas.
+ */
+export async function probarClaveDeIA(clave, { fetch: pedir = fetch } = {}) {
+  let res;
+  try {
+    res = await pedir('https://api.anthropic.com/v1/models?limit=1', {
+      headers: { 'x-api-key': clave, 'anthropic-version': '2023-06-01' },
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (err) {
+    return { result: 'failed', message: `No se pudo hablar con Anthropic: ${err.message}` };
+  }
+  if (res.ok) return { result: 'ok', message: 'Anthropic acepta la clave.' };
+  if (res.status === 401) return { result: 'failed', message: 'Anthropic rechaza la clave: no es válida o está revocada.' };
+  if (res.status === 403) return { result: 'failed', message: 'Anthropic acepta la clave, pero no le deja usar la API.' };
+  return { result: 'failed', message: `Anthropic contestó ${res.status}: inténtalo de nuevo en un rato.` };
 }

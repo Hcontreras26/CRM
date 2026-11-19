@@ -25,7 +25,8 @@ async function runHealthChecks() {
 
   // IA (Claude): cualquiera de las tres claves vale, no solo la del servidor
   // (CRM#893: con la clave pegada en la web decía «degradado»).
-  checks.ia = (await claveDeIA(null)).clave ? 'operational' : 'degraded';
+  // Solo mirar: comprobar el estado no es usar la clave.
+  checks.ia = (await claveDeIA(null, { soloMirar: true })).clave ? 'operational' : 'degraded';
 
   return checks;
 }

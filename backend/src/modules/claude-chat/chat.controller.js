@@ -239,7 +239,7 @@ export async function status(req, res, next) {
   try {
     const projectId = req.query.projectId ? parseInt(req.query.projectId) : null;
     // De dónde sale la clave (campus, global o servidor), sin enseñarla (CRM#893).
-    const { clave: apiKey, origen } = await claveDeIA(projectId);
+    const { clave: apiKey, origen } = await claveDeIA(projectId, { soloMirar: true });
     // El gasto va aqui y no en otra llamada: la pantalla pregunta «¿puedo
     // escribir ahora?», y la clave sin el tope no contesta esa pregunta —
     // se puede tener clave y estar agotado, y son avisos distintos.

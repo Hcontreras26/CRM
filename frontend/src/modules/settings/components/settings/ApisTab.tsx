@@ -43,7 +43,9 @@ export default function ApisTab() {
   async function handleTest(id) {
     try {
       const res = await client.post(`/credentials/${id}/test`);
-      toast({ title: 'Test', description: res.data?.message || 'OK' });
+      // «failed» o «expired» vienen con 200: también son un fallo (CRM#893).
+      const bien = !res.data?.result || res.data.result === 'ok';
+      toast({ title: bien ? 'Prueba correcta' : 'La prueba falló', description: res.data?.message || (bien ? 'OK' : ''), ...(bien ? {} : { variant: 'destructive' }) });
       await load();
     } catch (err) {
       toast({ title: 'Test fallo', description: err?.data?.error || err.message, variant: 'destructive' });
