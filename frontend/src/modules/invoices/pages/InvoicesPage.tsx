@@ -321,7 +321,9 @@ export default function InvoicesPage() {
         title="Facturas"
         subtitle={`Histórico fiscal — ${activeIssuer ? `${activeIssuer.nombre} · ${activeIssuer.campus.length} campus` : (activeProject?.nombre || '')}`}
         actions={(
-          <div className="flex gap-2">
+          // CRM#917: sin `flex-wrap` los botones iban en una sola línea y, a
+          // 375 px, la página medía 481. Ahora saltan de línea si no caben.
+          <div className="flex flex-wrap gap-2">
             <TutorialButton />
             {/* Anular una emitida, la rectificativa y los huecos (recorrido, 18/11). */}
             <VerRecorrido id="anular-factura" listo={!loading} />
