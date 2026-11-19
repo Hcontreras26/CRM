@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render as pintar, screen, fireEvent, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 /**
  * #680, fase 2 · Los links de pago en la ficha del prospecto y de la venta, y
@@ -16,6 +17,8 @@ vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: (k) => p
 // El servidor tiene los links encendidos (`/auth/me`).
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 2, funciones: { links_pago: true } } }) }));
 
+// La tarjeta enlaza a la venta y el asistente navega (WhatsApp): con router.
+const render = (ui) => pintar(<MemoryRouter>{ui}</MemoryRouter>);
 const { default: LinksDePagoCard } = await import('@/modules/links-pago/components/LinksDePagoCard');
 const { ReglasDeLosLinks } = await import('@/modules/links-pago/components/ConfigLinksPago');
 
@@ -35,6 +38,10 @@ beforeEach(() => {
   get.mockReset(); post.mockReset(); put.mockReset();
   get.mockImplementation(async (url) => {
     if (url === '/links-pago') return { success: true, data: [LINK] };
+    // El asistente (19/11): el prospecto y sus ventas (aquí, ninguna).
+    if (url === '/links-pago/ventas-del-prospecto') {
+      return { success: true, data: { lead: { id: 3, nombre: 'Ana', email: null, telefono: null, project_id: 1, producto_interes_id: 5 }, ventas: [] } };
+    }
     if (url.startsWith('/links-pago/config')) return { success: true, data: CONFIG };
     if (url === '/products') return { success: true, data: CURSOS };
     return { success: true, data: [] };
