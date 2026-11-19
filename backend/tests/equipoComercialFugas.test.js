@@ -241,17 +241,36 @@ describe('2 · Finanzas › Dashboard (GET /api/accounting/dashboard)', () => {
 describe('3 · Facturas: tarjetas y factura por id, como la lista', () => {
   const tarjetas = async (u) => Number(ok(await pedir(u, `/api/invoices/stats?projectId=${A}`)).total_facturado);
 
-  it('las tarjetas: la líder, las de su equipo; una gestora, las suyas; la admin, todas', async () => {
-    expect(await tarjetas(LIDER)).toBe(120);
+  // Diego, 19/11/2026: con acceso a la facturación («Poner número al cobrar»,
+  // que una admin trae de serie) se ven TODAS las facturas del campus, lleve o no
+  // un equipo. Sin él, el recorte de su equipo.
+  const sinAccesoAFacturacion = async (u, fn) => {
+    await q(`INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES ($1, 'facturas', 'emitir', false)
+             ON CONFLICT (user_id, resource, action) DO UPDATE SET allowed = false`, [u.id]);
+    olvidarPermisos();
+    try { await fn(); } finally {
+      await q(`DELETE FROM user_permission_overrides WHERE user_id = $1 AND resource = 'facturas' AND action = 'emitir'`, [u.id]);
+      olvidarPermisos();
+    }
+  };
+
+  it('las tarjetas: con acceso a facturación, todas; sin él, la líder las de su equipo; una gestora, las suyas', async () => {
+    expect(await tarjetas(LIDER)).toBe(420);
     expect(await tarjetas(G1)).toBe(120);
     expect(await tarjetas(ADMIN)).toBe(420);
+    await sinAccesoAFacturacion(LIDER, async () => {
+      expect(await tarjetas(LIDER)).toBe(120);
+    });
   });
 
-  it('la factura de una gestora de fuera por id: 403 a la líder (ficha y PDF) y a otra gestora', async () => {
-    expect((await pedir(LIDER, `/api/invoices/${F.LF}`)).status).toBe(403);
-    expect((await pedir(LIDER, `/api/invoices/${F.LF}/pdf`)).status).toBe(403);
+  it('la factura de una gestora de fuera por id: 403 a otra gestora y a la líder sin acceso a facturación (ficha y PDF)', async () => {
     expect((await pedir(G1, `/api/invoices/${F.LF}`)).status).toBe(403);
     expect((await pedir(G1, `/api/invoices/${F.LF}/pdf`)).status).toBe(403);
+    expect((await pedir(LIDER, `/api/invoices/${F.LF}`)).status).toBe(200);
+    await sinAccesoAFacturacion(LIDER, async () => {
+      expect((await pedir(LIDER, `/api/invoices/${F.LF}`)).status).toBe(403);
+      expect((await pedir(LIDER, `/api/invoices/${F.LF}/pdf`)).status).toBe(403);
+    });
   });
 
   it('la de su equipo, sí; y la admin y la dueña, la suya', async () => {

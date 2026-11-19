@@ -3,7 +3,8 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { issuerFiscalStatus } from '../../shared/utils/spanishTaxId.js';
 import { resolveRegimenClave } from './fiscal-engine.js';
 import { comoLista } from '../../shared/utils/ambito.js';
-import { comoIds, alcanceComercial } from '../../shared/utils/roles.js';
+import { comoIds } from '../../shared/utils/roles.js';
+import { alcanceDeFacturas } from './invoices.alcance.js';
 import { CLASE_FACTURA, SOSPECHA_DUPLICADA } from './clase.sql.js';
 import { recalcularCobrado } from '../conversions/cobrado.js';
 import { frenarSiPosibleDuplicada, vieneConfirmada, normalizarNif } from './posible-duplicada.js';
@@ -928,7 +929,9 @@ export async function puedeEmitirFactura(userId) {
 // corrige, abona, asocia ni borra NINGUNA factura, ni las de su equipo.
 export async function esFacturaQueGestiona(userId, role, invoiceId) {
   const esJefe = role === 'admin' || role === 'superadmin';
-  const alcance = await alcanceComercial({ userId, role });
+  // Con acceso a facturación (19/11/2026), todas las de sus campus.
+  const alcance = await alcanceDeFacturas({ userId, role });
+  if (!alcance) return true;
   if (alcance && alcance.length > 1) return false;
   if (esJefe) return true;
   const { rows } = await query(

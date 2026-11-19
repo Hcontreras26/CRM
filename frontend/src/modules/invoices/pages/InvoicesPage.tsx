@@ -61,7 +61,10 @@ export default function InvoicesPage() {
   // Corregir, abonar, asociar a una venta y eliminar: el permiso Y no llevar un
   // equipo comercial (Diego, 09/11/2026). El servidor ya le da 403 a quien lo
   // lleva; aquí no se le enseñan los botones (QA del 09/11).
-  const puedeCorregir = canManage && !llevaEquipo;
+  // Diego, 19/11/2026: con acceso a facturación («Poner número al cobrar») se ven
+  // todas las facturas del campus y se corrigen, lleve o no un equipo.
+  const accesoFacturacion = can('facturas.emitir');
+  const puedeCorregir = canManage && (!llevaEquipo || accesoFacturacion);
   const puedeFacturar = can('facturas.cola');
   const pid = activeProject?.id;
   // «Todos los proyectos» (#218): sin campus, las de todos los suyos. El servidor
@@ -345,7 +348,7 @@ export default function InvoicesPage() {
       {/* Si la serie tiene agujeros, se dice aqui: es donde se factura. */}
       <AvisoHuecosFacturas projectId={activeProject?.id} />
 
-      {canManage && llevaEquipo && (
+      {canManage && llevaEquipo && !accesoFacturacion && (
         <p role="note" className="text-xs text-muted-foreground border border-border rounded-md px-3 py-2 bg-muted/40">
           Llevas un equipo comercial: ves las facturas de tu equipo, pero corregirlas, abonarlas, asociarlas a una
           venta o eliminarlas lo hace la administración sin equipo.
