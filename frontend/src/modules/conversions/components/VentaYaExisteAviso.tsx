@@ -101,9 +101,9 @@ export default function VentaYaExisteAviso({ venta, onCancelar, onCrearIgualment
       <div role="alertdialog" aria-modal="true" aria-labelledby="venta-ya-existe-titulo"
         className="fixed inset-0 !m-0 z-[90] flex items-center justify-center p-4">
         <div className="fixed inset-0 !m-0 bg-black/50 backdrop-blur-sm" onClick={onCancelar} />
-        <div className="relative bg-card rounded-lg border border-amber-300 dark:border-amber-800 w-full max-w-md p-5 space-y-4">
+        <div className="relative bg-card rounded-lg border border-warning/30 w-full max-w-md p-5 space-y-4">
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-md bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-md bg-warning-soft text-warning-soft-foreground flex items-center justify-center flex-shrink-0">
               <Warning size={18} weight="bold" />
             </div>
             <div className="min-w-0 flex-1">
@@ -128,7 +128,7 @@ export default function VentaYaExisteAviso({ venta, onCancelar, onCrearIgualment
             </div>
             {venta.motivo && POR_QUE[venta.motivo] && <div className="text-xs text-muted-foreground">{POR_QUE[venta.motivo]}</div>}
             {!!venta.otras && venta.otras > 0 && (
-              <div className="text-xs text-amber-700 dark:text-amber-400">Y {venta.otras} venta{venta.otras === 1 ? '' : 's'} más del mismo programa.</div>
+              <div className="text-xs text-warning">Y {venta.otras} venta{venta.otras === 1 ? '' : 's'} más del mismo programa.</div>
             )}
             <Link to={`/ventas/${venta.id}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
               Ver esa venta
