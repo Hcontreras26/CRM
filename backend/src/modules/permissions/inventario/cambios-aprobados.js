@@ -273,7 +273,8 @@ export const CAMBIOS_DE_MENU = [
       superadmin: ['- Equipo de Desarrollo › Mi factura'],
     },
     rutas: { 'Equipo de Desarrollo › Mi factura': 'GET /api/facturas-colaborador/mias' },
-    aprobadoPor: 'Pendiente de Diego (CRM#710)',
+    // Diego lo aprobó el 19/11 en la sesión de trabajo: «sube todo y aprueba».
+    aprobadoPor: 'Diego, 19/11',
   },
   {
     id: 'menu-mi-campus',
@@ -288,7 +289,8 @@ export const CAMBIOS_DE_MENU = [
     // «Mis cursos» (sus cursos y su parte) sale del menú pero NO se pierde: se abre desde
     // «Mi campus» («Tu parte · comisiones») y sigue en /mis-cursos (los correos enlazan ahí).
     seMueve: { 'Tutores › Mis cursos': 'Tutores › Mi campus' },
-    aprobadoPor: 'Pendiente de Diego (PR de #679/#681)',
+    // Diego lo aprobó el 19/11 en la sesión de trabajo: «sube todo y aprueba».
+    aprobadoPor: 'Diego, 19/11',
   },
   {
     id: 'menu-claves-admin',
