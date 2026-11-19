@@ -2088,7 +2088,9 @@ export async function listVentasSinFactura({ projectId = null, projectIds = null
        FROM conversions c
        JOIN leads l ON l.id = c.lead_id
        LEFT JOIN projects pr ON pr.id = c.project_id
-       LEFT JOIN invoices i ON i.conversion_id = c.id AND i.estado <> 'cancelada' AND i.tipo <> 'proforma'
+       -- Una proforma ES una factura de la serie (Diego, 19/11/2026): la venta que
+       -- la tiene ya está facturada y no sale aquí (antes salía Alvaro Agullo con su 2026/0264).
+       LEFT JOIN invoices i ON i.conversion_id = c.id AND i.estado <> 'cancelada'
       WHERE ($1::int[] IS NULL OR c.project_id = ANY($1::int[]))
         AND COALESCE(c.importe_total, 0) > 0
         AND i.id IS NULL
