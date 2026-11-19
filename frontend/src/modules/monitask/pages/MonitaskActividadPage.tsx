@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import RangoRapido, { rangoDe } from '@/shared/components/ui/RangoRapido';
 import { EtiquetaEnPruebas } from '@/shared/components/ui/EnPruebas';
+import VerComoFunciona from '@/shared/components/ui/VerComoFunciona';
 import usePermission from '@/shared/hooks/usePermission';
 import { toast } from '@/shared/hooks/useToast';
 import { CaretDown, CaretRight, WarningCircle, ArrowsClockwise } from '@phosphor-icons/react';
@@ -60,6 +61,7 @@ export default function MonitaskActividadPage() {
       <PageHeader
         title={(<span className="flex items-center gap-2">Actividad del equipo <EtiquetaEnPruebas /></span>) as unknown as string}
         subtitle="Lo que registra Monitask de cada persona —horas, % de actividad, proyectos y tareas— y el cotejo con las horas de sus facturas. Sin capturas de pantalla."
+        actions={<VerComoFunciona id="monitask" />}
       />
 
       {estado === null && <p className="text-sm text-muted-foreground">Cargando…</p>}
@@ -71,7 +73,7 @@ export default function MonitaskActividadPage() {
       {estado && estado !== 'apagado' && (
         <>
           {!estado.conectada && (
-            <div className="bg-warning-soft border border-warning/30 rounded-lg p-4 text-sm text-warning-soft-foreground flex items-start gap-2">
+            <div className="bg-warning-soft border border-warning/30 rounded-lg p-4 text-sm text-warning-soft-foreground flex items-start gap-2" data-recorrido="monitask-sin-conectar">
               <WarningCircle size={16} weight="bold" className="mt-0.5 flex-shrink-0" />
               <span>
                 Monitask no está conectado: lo que se ve es lo último que se trajo.
@@ -79,14 +81,14 @@ export default function MonitaskActividadPage() {
               </span>
             </div>
           )}
-          <div className="flex flex-wrap items-center gap-2 border-b border-border">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border" data-recorrido="monitask-pestanas">
             {pestanas.map((p) => (
               <button key={p.clave} onClick={() => cambiarVista(p.clave)}
                 className={`px-3 py-2 text-sm font-semibold border-b-2 -mb-px ${vista === p.clave ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                 {p.texto}
               </button>
             ))}
-            <span className="ml-auto text-xs text-muted-foreground pb-2">
+            <span className="ml-auto text-xs text-muted-foreground pb-2" data-recorrido="monitask-sync">
               Última sincronización: {estado.ultima_sync_at ? new Date(estado.ultima_sync_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'nunca'}
             </span>
           </div>
@@ -145,7 +147,7 @@ function VistaActividad() {
   const total = visibles.reduce((s, f) => s + f.horas, 0);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-recorrido="monitask-actividad">
       <div className="flex flex-wrap items-end gap-3">
         <RangoRapido valor={rango} alElegir={setRango} />
         <label className="text-xs text-muted-foreground">Desde

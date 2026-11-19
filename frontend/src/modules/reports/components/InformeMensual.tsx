@@ -3,6 +3,7 @@ import { CalendarBlank, FileXls, FileZip, PaperPlaneTilt, UsersThree } from '@ph
 import usePermission from '@/shared/hooks/usePermission';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { toast } from '@/shared/hooks/useToast';
+import VerComoFunciona from '@/shared/components/ui/VerComoFunciona';
 import { informeMensualApi, type InformeMensual as Datos, type CifrasDelMes } from '../api/informeMensual.api';
 
 /**
@@ -111,6 +112,9 @@ function Panel({ issuerInicial }: { issuerInicial: number | null }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Probarlo (CRM#856): solo al pulsarlo. */}
+          <VerComoFunciona id="informe-mensual" compacto />
+          <span className="inline-flex flex-wrap items-center gap-2" data-recorrido="informe-periodo">
           <input
             type="month"
             aria-label="Mes del informe"
@@ -127,7 +131,9 @@ function Panel({ issuerInicial }: { issuerInicial: number | null }) {
             <option value="">Todas mis empresas</option>
             {empresas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
           </select>
+          </span>
           <button
+            data-recorrido="informe-excel"
             type="button"
             onClick={() => bajar('excel')}
             disabled={!!bajando}
@@ -139,6 +145,7 @@ function Panel({ issuerInicial }: { issuerInicial: number | null }) {
             type="button"
             onClick={() => bajar('zip')}
             disabled={!!bajando || !issuerId}
+            data-recorrido="informe-zip"
             title={issuerId ? 'Los PDF de las facturas emitidas del mes, el listado y el informe' : 'Elige una empresa: el ZIP es de una'}
             className="h-8 inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 text-sm hover:bg-muted disabled:opacity-50"
           >
@@ -148,7 +155,7 @@ function Panel({ issuerInicial }: { issuerInicial: number | null }) {
       </div>
 
       {envio && (
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5" data-recorrido="informe-envio">
           <PaperPlaneTilt size={13} />
           {envio.activo
             ? `Envío automático a la gestoría: el día ${envio.dia} de cada mes a las ${envio.hora}, con el mes anterior.`

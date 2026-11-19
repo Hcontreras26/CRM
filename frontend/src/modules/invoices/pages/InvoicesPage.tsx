@@ -22,6 +22,7 @@ import CobrarProformaDialog from '../components/CobrarProformaDialog';
 import AnularFacturaDialog from '../components/AnularFacturaDialog';
 import TutorialButton from '../components/TutorialButton';
 import VerRecorrido from '@/shared/components/ui/VerRecorrido';
+import VerComoFunciona from '@/shared/components/ui/VerComoFunciona';
 import { toast } from '@/shared/hooks/useToast';
 import usePermission from '@/shared/hooks/usePermission';
 
@@ -341,6 +342,16 @@ export default function InvoicesPage() {
           </div>
         )}
       />
+
+      {/* Probar lo nuevo de staging (CRM#856): un recorrido por función, solo al pulsarlo. */}
+      {(can('facturas.cola') || can('facturas.auditoria') || can('facturas.emitir')) && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>Ver cómo funciona:</span>
+          <VerComoFunciona id="factura-automatica" texto="Factura automática" compacto />
+          <VerComoFunciona id="auditoria-facturacion" texto="Auditoría y pausa" compacto />
+          <VerComoFunciona id="factura-duplicada" texto="Factura duplicada" compacto />
+        </div>
+      )}
 
       {/* Si la serie tiene agujeros, se dice aqui: es donde se factura. */}
       <AvisoHuecosFacturas projectId={activeProject?.id} />
