@@ -83,6 +83,7 @@ import { PANTALLAS_IA } from '@/shared/lib/pantallasIA';
 // Lo del #44 (proyectos IA) solo en pruebas: apagado, un proyecto IA ve el menú de siempre.
 import { tipoDelMenu } from '@/shared/lib/proyectosIA';
 import { abrirPedirAcceso } from '@/modules/soporte/lib/accesos';
+import { PERMISOS_DE_TUTORIALES } from '@/modules/manual/tutoriales/tutoriales';
 import { MARCA } from '@/shared/config/marca';
 
 import { reagruparMenu } from './bloquesDelMenu';
@@ -467,6 +468,11 @@ export const SECCIONES_DE_ANTES = [
       // `woocommerce.view`: sin ninguno, la pantalla era solo 403 (#631).
       { label: 'Status', to: '/status', detail: 'Si algo está caído', icon: Activity, permiso: ['status.view', 'credentials.view', 'woocommerce.view'] },
       { label: 'Manual de usuario', to: '/manual', detail: 'Cómo se usa cada cosa', icon: BookOpen },
+      // Ayuda › Tutoriales (Diego, 18/11). Sale a quien tiene algún tutorial: el
+      // permiso de cualquiera de ellos (`PERMISOS_DE_TUTORIALES`); dentro, cada
+      // tutorial pide el suyo.
+      { label: 'Tutoriales', to: '/manual/tutoriales', detail: 'Ayuda paso a paso', icon: GraduationCap, permiso: PERMISOS_DE_TUTORIALES,
+        keywords: 'ayuda tutorial guía cómo se hace links de pago stripe paypal banco brevo moodle meta facturas anular cuotas' },
     ],
   },
 ];

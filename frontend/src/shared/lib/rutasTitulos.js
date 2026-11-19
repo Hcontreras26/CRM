@@ -84,6 +84,7 @@ export const ROUTE_TITLES = {
   '/informes/preguntar': 'Pregunta a tus datos',
   '/mensajes': 'Mensajes',
   '/manual': 'Manual',
+  '/manual/tutoriales': 'Tutoriales',
   '/configuracion': 'Configuración',
   '/perfil': 'Mi perfil',
   '/dev/components': 'Las 22 primitivas',
