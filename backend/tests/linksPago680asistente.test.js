@@ -228,3 +228,62 @@ describe('el link de UNA venta del prospecto: el cobro entra en esa venta y sald
     expect((await one('SELECT estado FROM payment_links WHERE id = $1', [link.id])).estado).toBe('pagado');
   });
 });
+
+describe('«Generar plan de pago» (Diego, 19/11): un link por cuota, y el cobro salda ESA cuota', { timeout: 60_000 }, () => {
+  const plan = (u, cuerpo) => api.post('/api/links-pago/plan').set(como(u)).send(cuerpo);
+
+  it('la gestora genera los links de las 3 cuotas; la segunda vez no duplica; pagar la 3 salda la 3', async () => {
+    const lead = await nuevoLead(A, p.gestora);
+    const venta = await nuevaVenta(A, lead, { total: 900, producto: prod.A, vendedora: p.gestora });
+    await q(`INSERT INTO conversion_installments (conversion_id, numero, importe_previsto, fecha_vencimiento)
+             VALUES ($1, 1, 300, CURRENT_DATE), ($1, 2, 300, CURRENT_DATE + 30), ($1, 3, 300, CURRENT_DATE + 60)`, [venta]);
+
+    const ver = await api.get('/api/links-pago/plan').query({ conversionId: venta }).set(como(p.gestora));
+    expect(ver.status).toBe(200);
+    expect(ver.body.data.cuotas.map((c) => [c.numero, c.importe, c.link_id])).toEqual([[1, 300, null], [2, 300, null], [3, 300, null]]);
+    expect(ver.body.data.venta).toMatchObject({ id: venta, pendiente: 900 });
+
+    stripeCreaBien();
+    const r = await plan(p.gestora, { conversionId: venta });
+    expect(r.status, JSON.stringify(r.body)).toBe(201);
+    expect(r.body.data.creados).toBe(3);
+    expect(r.body.data.cuotas.every((c) => c.link_id && c.link_url)).toBe(true);
+    const links = await q('SELECT l.id, l.importe, ci.numero, l.caduca_el FROM payment_links l JOIN conversion_installments ci ON ci.id = l.installment_id WHERE l.conversion_id = $1 ORDER BY ci.numero', [venta]);
+    expect(links.map((l) => [l.numero, Number(l.importe)])).toEqual([[1, 300], [2, 300], [3, 300]]);
+    // El de la cuota 3 dura hasta su vencimiento más la caducidad del campus.
+    expect(new Date(links[2].caduca_el).getTime()).toBeGreaterThan(new Date(links[0].caduca_el).getTime());
+
+    // Otra vez: no se duplican.
+    const otra = await plan(p.gestora, { conversionId: venta });
+    expect(otra.status).toBe(200);
+    expect(otra.body.data).toMatchObject({ creados: 0, ya_tenian: 3 });
+
+    // Se paga el link de la cuota 3: salda la 3, no la 1.
+    const link3 = links[2];
+    const cargo = {
+      id: `ch_${MARCA}_plan3`, amount: 30000, currency: 'eur', status: 'succeeded', created: Math.floor(Date.now() / 1000),
+      billing_details: { email: 'pagador@otro.test', name: `${MARCA} Pagador` },
+      metadata: { crm_link_id: String(link3.id), crm_project_id: String(A), crm_lead_id: String(lead), crm_conversion_id: String(venta), crm_user_id: String(p.gestora.id), crm_entorno: 'local' },
+      payment_method_details: { type: 'card' },
+    };
+    await servicio.handleWebhookEvent(A, { id: `evt_${cargo.id}`, type: 'charge.succeeded', data: { object: cargo } });
+    const cuotas = await q('SELECT numero, fecha_cobro IS NOT NULL AS cobrada FROM conversion_installments WHERE conversion_id = $1 ORDER BY numero', [venta]);
+    expect(cuotas).toEqual([{ numero: 1, cobrada: false }, { numero: 2, cobrada: false }, { numero: 3, cobrada: true }]);
+    expect((await one('SELECT estado FROM payment_links WHERE id = $1', [link3.id])).estado).toBe('pagado');
+  });
+
+  it('sin plan de cuotas, 400 SIN_CUOTAS; la venta de otra gestora, 404; una cuota de otra venta, 400', async () => {
+    const lead = await nuevoLead(A, p.gestora);
+    const sinCuotas = await nuevaVenta(A, lead, { total: 500, producto: prod.A, vendedora: p.gestora });
+    expect((await plan(p.gestora, { conversionId: sinCuotas })).body.code).toBe('SIN_CUOTAS');
+
+    const deOtra = await nuevaVenta(A, await nuevoLead(A, p.otra), { total: 500, producto: prod.A, vendedora: p.otra });
+    expect((await plan(p.gestora, { conversionId: deOtra })).status).toBe(404);
+
+    const conCuotas = await nuevaVenta(A, lead, { total: 400, producto: prod.A, vendedora: p.gestora });
+    await q('INSERT INTO conversion_installments (conversion_id, numero, importe_previsto, fecha_vencimiento) VALUES ($1, 1, 200, CURRENT_DATE), ($1, 2, 200, CURRENT_DATE + 30)', [conCuotas]);
+    const ajena = await one('INSERT INTO conversion_installments (conversion_id, numero, importe_previsto, fecha_vencimiento) VALUES ($1, 1, 100, CURRENT_DATE) RETURNING id', [deOtra]);
+    const r = await plan(p.gestora, { conversionId: conCuotas, cuotaIds: [ajena.id] });
+    expect(r.status).toBe(400);
+  });
+});

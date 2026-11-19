@@ -36,6 +36,11 @@ router.put('/webhook', puede('links_pago.configurar'), projectAccess, ctrl.cambi
 // (o ninguna). El controlador mira que el prospecto sea de su campus y alcance.
 router.get('/ventas-del-prospecto', puede('links_pago.crear'), ctrl.ventasDelProspecto);
 
+// «Generar plan de pago» (19/11): ver las cuotas pendientes de la venta y crear un
+// link por cuota. Antes de `/:id`. El controlador mira campus y alcance de la venta.
+router.get('/plan', puede('links_pago.crear'), ctrl.verPlan);
+router.post('/plan', puede('links_pago.crear'), ctrl.generarPlan);
+
 // Quien crea links ve los suyos; con «ver todos», los de su alcance. El
 // recorte lo hace el controlador con la sesión.
 router.get('/', puede('links_pago.crear', 'links_pago.ver_todos'), ctrl.listar);

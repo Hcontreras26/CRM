@@ -118,3 +118,35 @@ export function verWebhook(projectId: number) {
 export function cambiarWebhook(projectId: number, accion: 'anadir_eventos' | 'activar' | 'desactivar') {
   return client.put<WebhookDeLaCuenta>('/links-pago/webhook', { projectId, accion });
 }
+
+/** «Generar plan de pago» (19/11): la venta y sus cuotas pendientes, cada una con su link vivo si lo tiene. */
+export interface CuotaDelPlan {
+  id: number;
+  numero: number;
+  importe: number;
+  vence: string | null;
+  concepto: string | null;
+  link_id: number | null;
+  link_estado: EstadoLink | null;
+  link_url: string | null;
+  link_caduca_el: string | null;
+}
+export interface PlanDePago {
+  venta: {
+    id: number; project_id: number; lead_id: number | null; lead_nombre: string | null; lead_email: string | null;
+    producto_contratado_id: number | null; producto_nombre: string | null;
+    importe_total: number; cobrado: number; pendiente: number;
+  };
+  cuotas: CuotaDelPlan[];
+  creados?: number;
+  ya_tenian?: number;
+}
+
+export function verPlan(conversionId: number) {
+  return client.get<PlanDePago>('/links-pago/plan', { params: { conversionId } });
+}
+
+/** Un link por cuota pendiente (las elegidas, o todas las que aún no tienen link). */
+export function generarPlan(conversionId: number, cuotaIds?: number[]) {
+  return client.post<PlanDePago>('/links-pago/plan', { conversionId, ...(cuotaIds?.length ? { cuotaIds } : {}) });
+}

@@ -110,3 +110,11 @@ export const webhookAccionSchema = z.object({
     errorMap: () => ({ message: 'Acción no válida: anadir_eventos, activar o desactivar' }),
   }),
 });
+
+// «Generar plan de pago» (Diego, 19/11): la venta y, si se eligen, qué cuotas.
+// Sin `cuotaIds`, todas las pendientes que aún no tengan link vivo.
+export const planQuerySchema = z.object({ conversionId: id });
+export const planBodySchema = z.object({
+  conversionId: id,
+  cuotaIds: z.array(id).min(1, 'Elige al menos una cuota').max(60).optional(),
+});

@@ -15,6 +15,7 @@ import EnlazarStripeCard from '../components/EnlazarStripeCard';
 // Links de pago (#680): solo en pruebas; la tarjeta se esconde sola en /crm.
 import LinksDePagoCard from '@/modules/links-pago/components/LinksDePagoCard';
 import BotonCrearLink from '@/modules/links-pago/components/BotonCrearLink';
+import AccionesCobroVenta from '@/modules/links-pago/components/AccionesCobroVenta';
 import {
   CurrencyEur, CheckCircle, Wallet, Receipt, ArrowLeft, User, Calendar,
   WarningCircle, CreditCard, ClockCounterClockwise,
@@ -129,6 +130,8 @@ export default function SaleDetailPage() {
           <span className="flex flex-wrap items-center gap-2">
             {/* «Crear link de pago» arriba (Diego, 19/11), con esta venta ya elegida. */}
             <BotonCrearLink leadId={venta.lead_id} conversionId={venta.id} />
+            {/* «Generar plan de pago» (19/11): un link por cuota pendiente. */}
+            <AccionesCobroVenta leadId={venta.lead_id} conversionId={venta.id} pendiente={pendiente} soloPlan />
             <button
               type="button"
               onClick={() => navigate(`/prospectos/${venta.lead_id}`)}
