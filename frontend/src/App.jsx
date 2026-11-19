@@ -154,6 +154,8 @@ const SalesAnalysisPage = lazy(() => import('./modules/sales/pages/SalesAnalysis
 const VentasSinFormacionPage = lazy(() => import('./modules/sales/pages/VentasSinFormacionPage'));
 const SaleDetailPage = lazy(() => import('./modules/sales/pages/SaleDetailPage'));
 const SalesPage = lazy(() => import('./modules/sales/pages/SalesPage'));
+// Comercial › Links de pago (#680; Diego, 19/11).
+const LinksDePagoPage = lazy(() => import('./modules/links-pago/pages/LinksDePagoPage'));
 const MetaAdsPage = lazy(() => import('./modules/meta-ads/pages/MetaAdsPage'));
 const ChangeRequestsPage = lazy(() => import('./modules/change-requests/pages/ChangeRequestsPage'));
 const ChangeRequestDetailPage = lazy(() => import('./modules/change-requests/pages/ChangeRequestDetailPage'));
@@ -273,6 +275,7 @@ function App() {
           <Route path="/prospectos/proceso" element={<ProcesoPage />} />
           <Route path="/prospectos/convocatorias" element={<ConvocatoriasPage />} />
           <Route path="/prospectos/:id" element={<LeadDetailPage />} />
+          <Route path="/links-pago" element={<LinksDePagoPage />} />
 
           {/* Clientes — tabs */}
           <Route path="/clientes" element={<ClientesLayout />}>

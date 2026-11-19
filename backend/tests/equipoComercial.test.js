@@ -282,7 +282,7 @@ describe('lo que ve cada una', () => {
   it('corregir y abonar facturas: la líder sin acceso a facturación no, ni las de su equipo; una admin sin equipo, sí (Diego, 09/11)', async () => {
     // Desde el 19/11/2026 quien tiene acceso a facturación («Poner número al
     // cobrar», de serie en una admin) corrige cualquiera de sus campus: se le quita.
-    await q(`INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES ($1, 'facturas', 'emitir', false)
+    await q(`INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES ($1, 'facturas', 'emitir', false), ($1, 'facturas', 'gestionar', false)
              ON CONFLICT (user_id, resource, action) DO UPDATE SET allowed = false`, [LIDER.id]);
     olvidarPermisos();
     try {
@@ -292,7 +292,7 @@ describe('lo que ve cada una', () => {
       const abonar = await request.post(`/api/invoices/${F1}/rectificar`).set(como(LIDER)).send({ motivo: 'prueba' });
       expect(abonar.status).toBe(403);
     } finally {
-      await q(`DELETE FROM user_permission_overrides WHERE user_id = $1 AND resource = 'facturas' AND action = 'emitir'`, [LIDER.id]);
+      await q(`DELETE FROM user_permission_overrides WHERE user_id = $1 AND resource = 'facturas' AND action IN ('emitir', 'gestionar')`, [LIDER.id]);
       olvidarPermisos();
     }
     expect(await esFacturaQueGestiona(LIDER.id, 'admin', F1)).toBe(true);

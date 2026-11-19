@@ -61,7 +61,8 @@ import {
   // Los de los encabezados de seccion (#105). Ninguno repite el de una
   // entrada de su propia seccion: si el encabezado lleva el mismo dibujo
   // que una de sus filas, deja de ordenar y pasa a confundir.
-  Flask, House, Funnel, Books, ChalkboardTeacher, Bank, Shuffle, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
+  Flask, House, Funnel, Books, ChalkboardTeacher, Bank, Shuffle, ChartPieSlice, EnvelopeSimple, LinkSimple } from '@phosphor-icons/react';
+import { linksPagoEncendidos } from '@/shared/lib/linksPago';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
 import { rolesDe, soloEsColaborador, soloEsTutor } from '@/shared/lib/roles';
@@ -213,6 +214,10 @@ export const SECCIONES_DE_ANTES = [
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions', permiso: 'ventas.view' },
+      // Links de pago de Stripe (#680; Diego, 19/11: «tampoco hay una opción en el
+      // menú»). Quien los crea o los ve todos, y solo con los links encendidos en
+      // el servidor (`funcion`, de /auth/me). Va a Comercial, detrás de Ventas.
+      { label: 'Links de pago', to: '/links-pago', detail: 'Crear y enviar links de Stripe', icon: LinkSimple, permiso: ['links_pago.crear', 'links_pago.ver_todos'], funcion: 'links_pago' },
     ],
   },
   // El tablero del equipo (#210 y mejoras del 07/10). Es lo único que ve quien
@@ -684,6 +689,8 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
     && [].concat(item.oPermiso).some((p) => can(p) === true));
   if (item.apagable && moduloApagado(item.apagable)) return false;
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
+  // Una función que enciende el servidor (`/auth/me` → `funciones`): apagada, no sale.
+  if (item.funcion === 'links_pago' && !linksPagoEncendidos(permisos)) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
   if (item.projectType && projectType !== item.projectType) return false;
   // El permiso de la pantalla (#423): sin él no sale, sea quien sea. Es el mismo

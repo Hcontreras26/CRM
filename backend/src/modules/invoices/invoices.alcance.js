@@ -15,7 +15,9 @@ export async function alcanceDeFacturas(user) {
     try {
       const { explicarPermisos } = await import('../permissions/permissions.service.js');
       const e = await explicarPermisos(id);
-      if (e?.mapa?.['facturas.emitir'] === true) return null;
+      // Y quien corrige facturas («Anular y abonar»): desde el 19/11/2026 también las
+      // gestoras, que editan y borran cualquiera de su campus.
+      if (e?.mapa?.['facturas.emitir'] === true || e?.mapa?.['facturas.gestionar'] === true) return null;
     } catch { /* sin poder leer los permisos, el recorte de siempre */ }
   }
   return alcanceComercial(user);
