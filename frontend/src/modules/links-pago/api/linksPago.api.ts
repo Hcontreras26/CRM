@@ -44,6 +44,11 @@ export interface ConfigLinks {
   cuotas_max: number;
   monedas: string[];
   moneda_defecto: string;
+  /**
+   * Si por la clave no se pueden crear links en el campus (no la tiene, o es
+   * live en pruebas): lo que diría «Crear link». null si se puede. Solo lectura.
+   */
+  aviso_clave?: { code: string; error: string } | null;
 }
 
 export interface WebhookDeLaCuenta {

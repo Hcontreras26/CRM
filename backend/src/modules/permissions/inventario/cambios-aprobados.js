@@ -573,6 +573,19 @@ export const CAMBIOS_DE_MENU = [
     aprobadoPor: 'Pendiente de Diego',
   },
   {
+    id: 'menu-testeo-solo-diseno',
+    que: 'El apartado «Testeo» del menú (TESTEO2, SUITE DASH y «Las 22 primitivas») sale solo a superadmin, admin y soporte. Solo existe en /testeo y en local; en producción no sale a nadie.',
+    motivo: 'QA de /testeo del 18/11: a una gestora le salían la maqueta del rediseño, la referencia y el muestrario de primitivas, que son herramientas de diseño y no pantallas de trabajo. Solo se esconden: no tienen ruta del servidor y sus páginas siguen abriendo igual.',
+    // Solo menú: no tienen ruta del servidor (`null`), el acceso no cambia.
+    soloMenu: true,
+    perfiles: Object.fromEntries([
+      'gestora', 'project_manager', 'gestora+tutor', 'gestora con factura_manager', 'gestora con editar_fechas_factura',
+      'gestora con usa_mcp', 'gestora con diplomas.view', 'gestora con tasks.close',
+    ].map((perfil) => [perfil, ['- Testeo › TESTEO2', '- Testeo › SUITE DASH', '- Testeo › Las 22 primitivas']])),
+    rutas: { 'Testeo › TESTEO2': null, 'Testeo › SUITE DASH': null, 'Testeo › Las 22 primitivas': null },
+    aprobadoPor: 'Pendiente de Diego (QA de /testeo del 18/11)',
+  },
+  {
     id: 'menu-conciliacion-905',
     que: '«Finanzas › Conciliación»: facturas emitidas sin cobro y cobros sin factura, por campus y por mes, con «Enlazar» y «Enlazar todas las seguras» (CRM#905). La ve quien tiene `facturas.gestionar` («asociar a una venta»), admin y super admin de serie, cada uno en sus campus. Una gestora con el permiso por excepción no la ve ni concilia: es de administración.',
     motivo: 'Diego (18/11): enlazó a mano en producción 89 facturas sin cobro; quedan unas 56 y unos 400 cobros sin factura, y tiene que poder hacerlo administración desde el CRM. No cambia el acceso: `facturas.gestionar` ya asociaba una factura a una venta. La pestaña de los cargos de Stripe (CRM#906) irá dentro de esta misma entrada.',

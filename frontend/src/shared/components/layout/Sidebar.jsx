@@ -114,6 +114,13 @@ const ROLES_TAREAS = ['superadmin', 'admin', 'colaborador', 'tutor_redactor'];
 // y el traslado de `trasladosDeMenu.js`.
 export const PERMISOS_WEBHOOKS = ['webhooks.view', 'make.view', 'webhooks_salientes.view'];
 
+// El apartado «Testeo» (solo existe en /testeo y en local) son herramientas de
+// diseño —la maqueta del rediseño, la referencia y el muestrario de
+// primitivas—, no pantallas de trabajo: las ve quien construye o decide el CRM.
+// A una gestora le salían en el menú (QA de /testeo del 18/11). Soporte y
+// superadmin las ven además por su regla de «ve todo».
+export const ROLES_DE_DISENO = ['superadmin', 'admin', 'soporte'];
+
 /*
   LAS SECCIONES DE ANTES, tal cual: cada entrada con sus permisos, roles y
   módulos. El menú que se pinta (`NAV_SECTIONS`, abajo) sale de repartirlas por
@@ -125,12 +132,12 @@ export const SECCIONES_DE_ANTES = [
     label: 'Testeo',
     icon: Flask,
     items: [
-      { label: 'TESTEO2', to: '/testeo2', detail: 'Maqueta del rediseño', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true },
-      { label: 'SUITE DASH', to: '/suite-dash', detail: 'La referencia', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true },
+      { label: 'TESTEO2', to: '/testeo2', detail: 'Maqueta del rediseño', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true, roles: ROLES_DE_DISENO },
+      { label: 'SUITE DASH', to: '/suite-dash', detail: 'La referencia', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true, roles: ROLES_DE_DISENO },
       // El muestrario de primitivas. Sin esta entrada existe pero no lo
       // encuentra nadie: hay que escribir /dev/components a mano, que es
       // exactamente lo que hacía que «no existiera».
-      { label: 'Las 22 primitivas', to: '/dev/components', detail: 'Las piezas, juntas', icon: Sparkle, previewOnly: true },
+      { label: 'Las 22 primitivas', to: '/dev/components', detail: 'Las piezas, juntas', icon: Sparkle, previewOnly: true, roles: ROLES_DE_DISENO },
     ],
   },
   {

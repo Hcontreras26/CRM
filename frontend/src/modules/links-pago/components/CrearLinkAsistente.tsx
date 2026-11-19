@@ -209,10 +209,16 @@ export default function CrearLinkAsistente({ leadId: leadInicial, conversionId: 
   const referencia = venta ? (moneda === 'EUR' && venta.pendiente > 0 ? venta.pendiente : null) : precio;
   const descuento = referencia && n > 0 ? Math.max(0, Math.round(((referencia - n) / referencia) * 10000) / 100) : 0;
 
+  // Sin clave (o con una live en pruebas) el servidor no va a crear nada en este
+  // campus: se dice en cuanto se sabe el campus y no se deja rellenar, en vez de
+  // avisar después de rellenarlo todo (QA de /testeo del 18/11).
+  const sinClave = cfg?.aviso_clave || null;
+
   // Por qué no se puede crear todavía: siempre escrito, nunca un botón gris mudo.
   const motivos: string[] = [];
   if (!consulta) motivos.push('Busca y elige el prospecto.');
   else if (cargandoProspecto) motivos.push('Cargando el prospecto…');
+  else if (sinClave) motivos.push('Todavía no se pueden crear links en este campus.');
   else if (prospecto) {
     if (!ventaElegida) motivos.push('Elige a qué venta va el link, o «Sin venta todavía».');
     if (!cfg) motivos.push('Cargando las reglas del campus…');
@@ -362,6 +368,17 @@ export default function CrearLinkAsistente({ leadId: leadInicial, conversionId: 
                 )}
               </section>
 
+              {sinClave && (
+                <div role="alert" className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning-soft p-3 text-sm text-warning-soft-foreground">
+                  <WarningCircle size={18} weight="fill" className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  <p>
+                    <span className="font-semibold block">Todavía no se pueden crear links en este campus</span>
+                    {sinClave.error}
+                  </p>
+                </div>
+              )}
+
+              <fieldset disabled={!!sinClave} aria-disabled={!!sinClave} className="space-y-4 min-w-0 disabled:opacity-60">
               {/* 2. La venta */}
               {prospecto && (
                 <section data-recorrido="links-asistente-venta">
@@ -443,8 +460,9 @@ export default function CrearLinkAsistente({ leadId: leadInicial, conversionId: 
                   )}
                 </section>
               )}
+              </fieldset>
 
-              {motivos.length > 0 && !cargandoProspecto && (
+              {motivos.length > 0 && !cargandoProspecto && !sinClave && (
                 <ul className="text-xs text-warning-soft-foreground space-y-0.5" aria-live="polite" data-recorrido="links-asistente-motivos">
                   {motivos.map((m) => <li key={m} className="flex gap-1"><WarningCircle size={13} className="mt-0.5 flex-shrink-0" aria-hidden="true" /> {m}</li>)}
                 </ul>
@@ -460,7 +478,7 @@ export default function CrearLinkAsistente({ leadId: leadInicial, conversionId: 
           <div className="flex justify-end gap-2 p-4 border-t border-border bg-muted/20">
             <button type="button" onClick={onClose} disabled={enviando}
               className="inline-flex items-center h-9 px-4 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted disabled:opacity-50">
-              {hecho ? 'Cerrar' : 'Cancelar'}
+              {hecho || sinClave ? 'Cerrar' : 'Cancelar'}
             </button>
             {!hecho && (
               <button type="button" onClick={enviar} disabled={enviando || motivos.length > 0}
