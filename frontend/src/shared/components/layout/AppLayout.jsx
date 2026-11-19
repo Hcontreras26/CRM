@@ -99,8 +99,6 @@ const ALL_PROJECTS_OK = [
   /^\/configuracion$/,
   /^\/notificaciones$/,
   /^\/manual$/,
-  // Ayuda › Tutoriales (18/11): texto de ayuda, no mira el proyecto.
-  /^\/manual\/tutoriales(?:\/[\w-]+)?$/,
   /^\/settings$/,
   /^\/soporte$/,
   /^\/certifex\/consultas$/,
@@ -358,8 +356,6 @@ const CON_SOCIEDAD_OK = [
   /^\/configuracion$/,
   /^\/notificaciones$/,
   /^\/manual$/,
-  // Ayuda › Tutoriales (18/11): texto de ayuda, no mira el proyecto.
-  /^\/manual\/tutoriales(?:\/[\w-]+)?$/,
   /^\/soporte$/,
   /^\/certifex\/consultas$/,
   /^\/certifex\/emisiones$/,

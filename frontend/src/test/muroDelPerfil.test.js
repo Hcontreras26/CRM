@@ -10,7 +10,7 @@ import { pathAllowsAll, rutaAceptaSociedad } from '@/shared/components/layout/Ap
  * Las pantallas personales tienen que estar en las dos.
  */
 
-const PERSONALES = ['/perfil', '/preferencias', '/configuracion', '/notificaciones', '/manual', '/manual/tutoriales', '/manual/tutoriales/stripe', '/soporte'];
+const PERSONALES = ['/perfil', '/preferencias', '/configuracion', '/notificaciones', '/manual', '/soporte'];
 
 describe('las pantallas personales no tienen muro', () => {
   it.each(PERSONALES)('%s se abre con «Todos los proyectos»', (ruta) => {

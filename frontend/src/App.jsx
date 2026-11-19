@@ -192,9 +192,6 @@ const PayrollPage = lazy(() => import('./modules/payroll/pages/PayrollPage'));
 const WooCommercePage = lazy(() => import('./modules/woocommerce/pages/WooCommercePage'));
 const MessagesPage = lazy(() => import('./modules/messages/pages/MessagesPage'));
 const ManualPage = lazy(() => import('./modules/manual/pages/ManualPage'));
-// Ayuda › Tutoriales (Diego, 18/11): los tutoriales, dentro del CRM.
-const TutorialesPage = lazy(() => import('./modules/manual/pages/TutorialesPage'));
-const TutorialPage = lazy(() => import('./modules/manual/pages/TutorialPage'));
 const DocumentsPage = lazy(() => import('./modules/documents/pages/DocumentsPage'));
 const DocumentsConfigPage = lazy(() => import('./modules/documents/pages/DocumentsConfigPage'));
 const PreferencesPage = lazy(() => import('./modules/preferences/pages/PreferencesPage'));
@@ -436,8 +433,6 @@ function App() {
           <Route path="/solicitudes-cambio" element={<ChangeRequestsPage />} />
           <Route path="/solicitudes-cambio/:id" element={<ChangeRequestDetailPage />} />
           <Route path="/manual" element={<ManualPage />} />
-          <Route path="/manual/tutoriales" element={<TutorialesPage />} />
-          <Route path="/manual/tutoriales/:id" element={<TutorialPage />} />
           <Route path="/documentos" element={<DocumentsPage />} />
           <Route path="/preferencias" element={<PreferencesPage />} />
           {/* El tablero (#210): solo en pruebas hasta que Diego lo apruebe (07/10). */}
