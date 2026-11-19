@@ -273,7 +273,8 @@ export const CAMBIOS_DE_MENU = [
       superadmin: ['- Equipo de Desarrollo › Mi factura'],
     },
     rutas: { 'Equipo de Desarrollo › Mi factura': 'GET /api/facturas-colaborador/mias' },
-    aprobadoPor: 'Pendiente de Diego (CRM#710)',
+    // Diego lo aprobó el 19/11 en la sesión de trabajo: «sube todo y aprueba».
+    aprobadoPor: 'Diego, 19/11',
   },
   {
     id: 'menu-mi-campus',
@@ -288,7 +289,8 @@ export const CAMBIOS_DE_MENU = [
     // «Mis cursos» (sus cursos y su parte) sale del menú pero NO se pierde: se abre desde
     // «Mi campus» («Tu parte · comisiones») y sigue en /mis-cursos (los correos enlazan ahí).
     seMueve: { 'Tutores › Mis cursos': 'Tutores › Mi campus' },
-    aprobadoPor: 'Pendiente de Diego (PR de #679/#681)',
+    // Diego lo aprobó el 19/11 en la sesión de trabajo: «sube todo y aprueba».
+    aprobadoPor: 'Diego, 19/11',
   },
   {
     id: 'menu-claves-admin',
@@ -519,6 +521,32 @@ export const CAMBIOS_DE_MENU = [
       'Finanzas › Disputas de Stripe': 'GET /api/stripe-payments/disputas',
     },
     // Aprobado por Diego el 18/11, tras probarla en /testeo (permisos por rol, filtros, sin claves, solo lectura y móvil).
+    aprobadoPor: 'Diego, 18/11',
+  },
+  {
+    id: 'menu-actividad-paypal-incidencias',
+    que: '«Equipo de Desarrollo › Actividad» (Monitask), «Finanzas › PayPal y banco» (cobros de PayPal y extractos del banco) y «Sistema › Incidencias» salen en el menú a quien tiene su permiso.',
+    motivo: 'Entraron con sus funciones y no se habían apuntado aquí: la foto del menú las daba como sobrantes (menuPorPerfil423 en rojo en los dos staging). Diego las aprobó las tres el 18/11. «Actividad» y «PayPal y banco» siguen detrás de su interruptor: en producción no se ven hasta que se encienda. «PayPal y banco» la ven también soporte y project manager, por su permiso.',
+    perfiles: {
+      superadmin: ['+ Equipo de Desarrollo › Actividad', '+ Finanzas › PayPal y banco', '+ Sistema › Incidencias'],
+      admin: ['+ Equipo de Desarrollo › Actividad', '+ Finanzas › PayPal y banco', '+ Sistema › Incidencias'],
+      'gestora+admin': ['+ Equipo de Desarrollo › Actividad', '+ Finanzas › PayPal y banco', '+ Sistema › Incidencias'],
+      soporte: ['+ Finanzas › PayPal y banco', '+ Sistema › Incidencias'],
+      project_manager: ['+ Finanzas › PayPal y banco'],
+      gestora: ['+ Sistema › Incidencias'],
+      'gestora+tutor': ['+ Sistema › Incidencias'],
+      'gestora con factura_manager': ['+ Sistema › Incidencias'],
+      'gestora con editar_fechas_factura': ['+ Sistema › Incidencias'],
+      'gestora con usa_mcp': ['+ Sistema › Incidencias'],
+      'gestora con diplomas.view': ['+ Sistema › Incidencias'],
+      'gestora con tasks.close': ['+ Sistema › Incidencias'],
+    },
+    rutas: {
+      'Equipo de Desarrollo › Actividad': 'GET /api/monitask/actividad',
+      'Finanzas › PayPal y banco': 'GET /api/cobros-externos/estado',
+      'Sistema › Incidencias': 'GET /api/incidencias/',
+    },
+    // Aprobado por Diego el 18/11 en la sesión de trabajo: «apruébalas las tres».
     aprobadoPor: 'Diego, 18/11',
   },
 ];

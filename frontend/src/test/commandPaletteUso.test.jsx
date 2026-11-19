@@ -18,7 +18,9 @@ vi.mock('@/shared/api/client', () => ({ default: { get: (...a) => get(...a) } })
 // Como en la app: el usuario y el proyecto son estado (el mismo objeto entre
 // renders), y los permisos pasan por el `crearCan` de verdad, no por un mock.
 const AUTH = { user: { id: 1, role: 'superadmin', roles_extra: [] }, permissions: {}, logout: () => {} };
-const PROYECTO = { activeProject: { id: 7, nombre: 'Psiko', type: 'educacion' }, projects: [], switchProject: () => {}, activeIssuerId: null };
+// El campus activo es uno de los suyos (`projects`), como en el CRM: el catálogo
+// solo se pide de un campus suyo (CRM#859).
+const PROYECTO = { activeProject: { id: 7, nombre: 'Psiko', type: 'educacion' }, projects: [{ id: 7, nombre: 'Psiko' }], switchProject: () => {}, activeIssuerId: null };
 const AMBITO = [7];
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => AUTH }));
 vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => PROYECTO }));

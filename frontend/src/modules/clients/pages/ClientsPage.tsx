@@ -232,6 +232,8 @@ export default function ClientsPage() {
   const abortRef = useRef<AbortController | null>(null);
   const fetchClients = useCallback(async () => {
     if (isAllProjects && (!projects || projects.length === 0)) return;
+    // Con el ámbito aún sin cargar iría `projectIds=` vacío: 400 (CRM#859).
+    if (isAllProjects && idsDelAmbito.length === 0) return;
     if (!isAllProjects && !activeProject?.id) return;
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();

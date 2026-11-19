@@ -180,6 +180,9 @@ export default function LeadsPipelinePage() {
 
   const fetchAllLeads = useCallback(async () => {
     if (isAllProjects && (!projects || projects.length === 0)) return;
+    // Con el ámbito aún sin cargar iría `projectIds=` vacío, y el servidor lo
+    // rechaza con 400 (CRM#859).
+    if (isAllProjects && idsDelAmbito.length === 0) return;
     if (!isAllProjects && !pid) return;
     setLoading(true);
     try {
