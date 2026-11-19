@@ -85,7 +85,7 @@ export const RECORRIDOS_PRUEBA: Record<IdRecorridoPrueba, RecorridoPrueba> = {
     pasos: [
       {
         titulo: 'La factura que sale sola',
-        texto: 'Cuando entra un cobro, el CRM manda al alumno un enlace para que rellene sus datos fiscales. Con ellos, su factura sale sola y en orden, sin que nadie la genere. Pruébalo solo en /testeo: una factura emitida no se borra. Son {pasos} pasos.',
+        texto: 'Cuando entra un cobro, el CRM manda al alumno un enlace para que rellene sus datos fiscales. Con ellos, su factura sale sola y en orden, sin que nadie la genere. Pruébalo solo en el CRM de pruebas (staging): una factura emitida no se borra. Son {pasos} pasos.',
       },
       {
         donde: anclaje('cola-facturacion'),
@@ -108,7 +108,7 @@ export const RECORRIDOS_PRUEBA: Record<IdRecorridoPrueba, RecorridoPrueba> = {
       },
       {
         titulo: 'Dejarlo limpio',
-        texto: 'Anula la factura de prueba con el motivo «[PRUEBA]» (sale su abono) y borra el cobro y la venta de prueba. Un número emitido no se puede reutilizar: por eso, solo en /testeo.',
+        texto: 'Anula la factura de prueba con el motivo «[PRUEBA]» (sale su abono) y borra el cobro y la venta de prueba. Un número emitido no se puede reutilizar: por eso, solo en el CRM de pruebas.',
       },
       { titulo: 'Y listo', texto: FINAL },
     ],
@@ -146,7 +146,7 @@ export const RECORRIDOS_PRUEBA: Record<IdRecorridoPrueba, RecorridoPrueba> = {
       },
       {
         titulo: 'Para provocar una pausa',
-        texto: 'En /testeo, crea una venta «[PRUEBA]», regístrale un cobro y no generes su factura. En la siguiente auditoría sale como cobro sin factura.',
+        texto: 'En el CRM de pruebas, crea una venta «[PRUEBA]», regístrale un cobro y no generes su factura. En la siguiente auditoría sale como cobro sin factura.',
       },
       {
         titulo: 'Dejarlo limpio',
@@ -379,7 +379,7 @@ export const RECORRIDOS_PRUEBA: Record<IdRecorridoPrueba, RecorridoPrueba> = {
       },
       {
         titulo: 'Para probarlo',
-        texto: 'Crea un usuario «[PRUEBA]» con una dirección que no existe en un dominio real y mándale un correo (la bienvenida). Lo que debe fallar: el correo rebota y, en la siguiente revisión, sale la marca. Si lo desbloqueas, Brevo lo vuelve a bloquear.',
+        texto: 'Da de alta un usuario «[PRUEBA]» con una dirección que no existe en un dominio real: le sale el correo de bienvenida o de invitación. Lo que debe fallar: el correo rebota y, en la siguiente revisión, sale la marca. Si lo desbloqueas, Brevo lo vuelve a bloquear.',
       },
       {
         titulo: 'Dejarlo limpio',
