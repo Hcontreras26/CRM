@@ -6,6 +6,7 @@ import { decrypt } from '../../shared/utils/crypto.js';
 import { refreshGoogleAdsAccessToken } from '../../shared/services/googleAds.service.js';
 import { anotar, historial, ACCIONES } from './credentials.registro.js';
 import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
+import { claveDeIA, ORIGENES, DONDE_SE_CONFIGURA } from './clave-ia.js';
 
 /**
  * Lo que ve de las claves quien no ve todo el CRM (CRM#632).
@@ -24,6 +25,30 @@ async function recortar(req, filas, { generales = true } = {}) {
     .map((c) => (c.project_id == null && 'masked_value' in c
       ? { ...c, cola: null, masked_value: '••••••••' }
       : c));
+}
+
+/**
+ * GET /api/credentials/ia[?projectId=N] — qué clave de IA se usa DE VERDAD
+ * (CRM#893): la del campus, la global de la web o la del servidor. Nunca la
+ * clave: solo de dónde sale. Con un campus que no es suyo, la global.
+ */
+export async function iaEnUso(req, res, next) {
+  try {
+    let projectId = req.query.projectId ? Number(req.query.projectId) : null;
+    if (!Number.isInteger(projectId) || projectId <= 0) projectId = null;
+    if (projectId && !veTodoElCrm(req.user)) {
+      const mios = await campusDeLaPersona(req.user?.userId);
+      if (!mios.includes(projectId)) projectId = null;
+    }
+    const { origen } = await claveDeIA(projectId);
+    res.json({
+      success: true,
+      data: {
+        origen,
+        texto: origen ? `La IA usa ${ORIGENES[origen]}.` : `No hay ninguna clave de Claude: la IA no funciona. Se pone en ${DONDE_SE_CONFIGURA}.`,
+      },
+    });
+  } catch (err) { next(err); }
 }
 
 export async function list(req, res, next) {

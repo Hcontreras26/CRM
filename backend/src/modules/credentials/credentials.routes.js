@@ -17,6 +17,8 @@ router.get('/', puede('credentials.view'), ctrl.list);
 // Antes que `/:id/...` para que «paridad» y «registro» no se lean como un id.
 router.get('/paridad', puede('credentials.view'), ctrl.paridad);
 router.get('/registro', puede('credentials.view'), ctrl.registro);
+// Qué clave de IA se usa (campus, global o servidor), sin enseñarla (CRM#893).
+router.get('/ia', puede('credentials.view'), ctrl.iaEnUso);
 
 router.post('/', puede('credentials.edit'), ctrl.upsert);
 router.post('/:id/test', puede('credentials.edit'), ctrl.test);

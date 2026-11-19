@@ -2,23 +2,14 @@ import * as model from './report.model.js';
 import { listaDelAmbito, campusDeTodos, exigirCampusSuyo } from '../../shared/utils/ambito.js';
 import { query } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
-import { getDecryptedValue } from '../credentials/credentials.model.js';
+import { soloLaClave, DONDE_SE_CONFIGURA } from '../credentials/clave-ia.js';
 import { logger } from '../../shared/utils/logger.js';
 import * as gasto from '../../shared/services/gastoIA.service.js';
 
 const MODELO = () => process.env.CLAUDE_MODEL || 'claude-sonnet-4-5';
 
-async function getAnthropicKey(projectId = null) {
-  try {
-    if (projectId) {
-      const v = await getDecryptedValue('anthropic', projectId);
-      if (v) return v;
-    }
-    const g = await getDecryptedValue('anthropic', null);
-    if (g) return g;
-  } catch {}
-  return process.env.ANTHROPIC_API_KEY || null;
-}
+// La clave: la del campus, la global de la web o la del servidor (CRM#893).
+const getAnthropicKey = (projectId = null) => soloLaClave(projectId);
 
 async function callClaude(apiKey, prompt) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -98,7 +89,7 @@ Se concreto, usa numeros, propon acciones especificas. No mas de 800 palabras.`;
 function fallbackReport(data) {
   return `# Reporte Mensual ${data.periodo}
 
-> ⚠️ **Generado sin Claude API** — falta configurar \`ANTHROPIC_API_KEY\`. Este es un resumen basado solo en datos.
+> ⚠️ **Generado sin IA** — no hay ninguna clave de Claude (se pone en ${DONDE_SE_CONFIGURA}). Este es un resumen basado solo en datos.
 
 ## Resumen Ejecutivo
 Periodo ${data.periodo}, proyecto **${data.proyecto.nombre}**.
@@ -206,7 +197,7 @@ export async function generate(req, res, next) {
       warning = `${permiso.motivo} El reporte de abajo sale de los datos del CRM, sin IA.`;
     } else {
       content = fallbackReport(data);
-      warning = 'ANTHROPIC_API_KEY no configurada. Configura en Settings > APIs para reportes con IA.';
+      warning = `No hay ninguna clave de Claude: el reporte sale sin IA. Se pone en ${DONDE_SE_CONFIGURA}.`;
     }
     const saved = await model.upsert({
       project_id: projectId,
