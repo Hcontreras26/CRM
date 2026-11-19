@@ -2291,7 +2291,7 @@ const FACTURA_HUERFANA_LO_CUBRE = `AND NOT EXISTS (
 
   La misma condicion que alli, para que la cola y el boton digan lo mismo.
 */
-const VENTA_YA_FACTURADA_LO_CUBRE = `AND NOT (
+export const VENTA_YA_FACTURADA_LO_CUBRE = `AND NOT (
         EXISTS (SELECT 1 FROM invoices t
                  WHERE t.conversion_id = cp.conversion_id
                    AND t.tipo = 'normal' AND t.estado <> 'cancelada'

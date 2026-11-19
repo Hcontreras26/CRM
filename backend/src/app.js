@@ -26,6 +26,8 @@ import stripePaymentsModule from './modules/stripe-payments/index.js';
 import invoicesModule from './modules/invoices/index.js';
 // Auditoría de facturación cada 2 horas y pausa de la emisión (#765).
 import facturacionAuditoriaModule from './modules/facturacion-auditoria/index.js';
+// Finanzas › Conciliación: facturas sin cobro y cobros sin factura (CRM#905).
+import conciliacionModule from './modules/conciliacion/index.js';
 import widgetModule from './modules/widget/index.js';
 import fieldDefsModule from './modules/field-definitions/index.js';
 import credentialsModule from './modules/credentials/index.js';
@@ -327,6 +329,7 @@ const ALL_MODULES = [
   { name: 'stripe-payments', mod: stripePaymentsModule },
   { name: 'invoices', mod: invoicesModule },
   { name: 'facturacion-auditoria', mod: facturacionAuditoriaModule },
+  { name: 'conciliacion', mod: conciliacionModule },
   { name: 'widget', mod: widgetModule },
   { name: 'field-definitions', mod: fieldDefsModule },
   { name: 'credentials', mod: credentialsModule },
