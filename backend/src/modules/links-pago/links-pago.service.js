@@ -42,7 +42,7 @@ export async function claveDeEscritura(projectId) {
   }
 }
 
-async function claveObligatoria(projectId) {
+export async function claveObligatoria(projectId) {
   const clave = await claveDeEscritura(projectId);
   if (!clave) {
     throw new AppError('Este campus no tiene la clave de links de pago. La pone un admin en Integraciones › Links de pago.',
@@ -54,6 +54,22 @@ async function claveObligatoria(projectId) {
     throw new AppError('En pruebas solo se crean links con una clave de test (rk_test_…).', 409, 'CLAVE_LIVE_EN_PRUEBAS');
   }
   return clave;
+}
+
+/**
+ * Lo que diría «Crear link» por la clave, dicho ANTES (QA de /testeo del
+ * 18/11): sin clave, el diálogo dejaba rellenarlo todo y avisaba al final.
+ * `null` si con la clave del campus se pueden crear links aquí; si no, el mismo
+ * mensaje y código que daría el POST. La clave no sale de aquí.
+ */
+export async function avisoDeClave(projectId) {
+  try {
+    await claveObligatoria(projectId);
+    return null;
+  } catch (err) {
+    if (err instanceof AppError) return { code: err.code, error: err.message };
+    throw err;
+  }
 }
 
 function errorDeStripe(err, que) {
@@ -162,6 +178,55 @@ export function comprobarReglas({ cfg, prod, importe, moneda, caducidadDias, mod
   };
 }
 
+/*
+ * CRM#909 (testeo, 18/11): desde una venta se podía crear un link de 400 € con
+ * 370 € pendientes; pagado, la venta quedaba cobrada de más. Desde una venta, el
+ * link no pasa de lo pendiente, sea quien sea quien lo crea. Lo pendiente está en
+ * euros: en otra moneda no se puede comparar y manda `comprobarReglas` (solo el
+ * admin). Sin venta (`pendiente` undefined), nada que mirar.
+ */
+export function noPasaDelPendiente({ importe, moneda, pendiente }) {
+  if (pendiente === undefined || pendiente === null) return;
+  if (String(moneda || 'EUR').toUpperCase() !== 'EUR') return;
+  const p = Number(pendiente);
+  if (!(p > 0)) {
+    throw new AppError('Esta venta ya está cobrada entera: no queda nada pendiente para un link.', 400, 'LINK_SUPERA_PENDIENTE');
+  }
+  if (Math.round(Number(importe) * 100) > Math.round(p * 100)) {
+    throw new AppError(`El link no puede pasar de lo pendiente de la venta: ${p.toFixed(2)} EUR.`, 400, 'LINK_SUPERA_PENDIENTE');
+  }
+}
+
+/**
+ * Cuántos días dura el link de una cuota: hasta su vencimiento más la caducidad
+ * de serie del campus, sin bajar de esa caducidad ni pasar de la máxima. Una
+ * cuota que vence más allá de la máxima tiene un link que caduca antes: se
+ * vuelve a generar desde el plan cuando toque (la pantalla lo dice).
+ */
+export function diasDeLaCuota(vence, cfg, hoy = new Date()) {
+  const v = new Date(`${String(vence).slice(0, 10)}T00:00:00Z`);
+  const h = Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
+  const hasta = Math.max(0, Math.round((v.getTime() - h) / 86400000));
+  return Math.min(cfg.caducidad_max_dias, Math.max(cfg.caducidad_dias, hasta + cfg.caducidad_dias));
+}
+
+/**
+ * Las reglas de un link de CUOTA (plan de pago). El importe es el de la cuota,
+ * tal cual está en el plan de la venta: no es un descuento y no se mide contra
+ * el catálogo. En euros, que es como guarda el CRM las cuotas.
+ */
+export function reglasDeCuota({ cfg, prod, vence, hoy = new Date() }) {
+  if (!cfg.monedas.includes('EUR')) {
+    throw new AppError(`Este campus no cobra en EUR, y las cuotas de la venta están en euros. Monedas admitidas: ${cfg.monedas.join(', ')}.`, 400, 'MONEDA_NO_ADMITIDA');
+  }
+  const precio = prod.precio != null && Number(prod.precio) > 0
+    && (!prod.moneda || String(prod.moneda).toUpperCase() === 'EUR') ? Number(prod.precio) : null;
+  return {
+    moneda: 'EUR', caducidadDias: diasDeLaCuota(vence, cfg, hoy), precioCatalogo: precio,
+    descuentoPct: 0, referencia: 'cuota',
+  };
+}
+
 /** La marca del CRM que va en el link y en el cargo (la lee la fase 3). */
 export function marca({ linkId, projectId, leadId, conversionId, userId }) {
   return {
@@ -197,12 +262,19 @@ export function conMarcaDePlataforma(meta, filtro) {
  * Crear el link: se apunta, se crea en Stripe y se completa. Si Stripe falla,
  * la fila se borra: no queda un link sin URL que la gestora pueda mandar.
  */
-export async function crear({ projectId, leadId, conversionId, prod, reglas, importe, userId }) {
+/*
+  `guardaTarjeta` (cobro automático de las cuotas, 309): `{ consentimiento }`, el
+  texto que el alumno ve junto al botón de pagar. El link guarda su tarjeta para
+  cobrar solas las cuotas siguientes. Lo decide quien llama (el plan de pago o el
+  cobro automático), nunca el navegador.
+*/
+export async function crear({ projectId, leadId, conversionId, prod, reglas, importe, userId, cuota = null, guardaTarjeta = null }) {
   const clave = await claveObligatoria(projectId);
   const fila = await model.insertar({
     projectId, leadId, conversionId, productId: prod.id, createdBy: userId,
     precioCatalogo: reglas.precioCatalogo, importe, descuentoPct: reglas.descuentoPct,
-    moneda: reglas.moneda, caducidadDias: reglas.caducidadDias,
+    moneda: reglas.moneda, caducidadDias: reglas.caducidadDias, installmentId: cuota?.id ?? null,
+    guardaTarjeta: !!guardaTarjeta,
   });
   const meta = conMarcaDePlataforma(
     marca({ linkId: fila.id, projectId, leadId, conversionId, userId }),
@@ -213,11 +285,13 @@ export async function crear({ projectId, leadId, conversionId, prod, reglas, imp
   let precio; let link;
   try {
     precio = await stripe.crearPrecio(clave, {
-      importe, moneda: reglas.moneda, nombre: prod.nombre || `Curso ${prod.id}`, metadata: meta,
+      importe, moneda: reglas.moneda, metadata: meta,
+      // El alumno ve en Stripe qué cuota paga.
+      nombre: `${prod.nombre || `Curso ${prod.id}`}${cuota ? ` · cuota ${cuota.numero}` : ''}`,
       idempotencia: `${base}-precio`,
     });
     // La marca de plataforma de las cuentas compartidas ya va en `meta` (link y cargo).
-    link = await stripe.crearLink(clave, { priceId: precio.id, metadata: meta, idempotencia: `${base}-link` });
+    link = await stripe.crearLink(clave, { priceId: precio.id, metadata: meta, idempotencia: `${base}-link`, guardaTarjeta });
   } catch (err) {
     await model.borrar(fila.id).catch((e) => logger.error({ err: e.message, linkId: fila.id }, 'Links de pago: no se pudo borrar la fila de un link fallido'));
     logger.warn({ err: err.message, projectId, userId }, 'Links de pago: Stripe no creó el link');
@@ -237,7 +311,9 @@ export async function crear({ projectId, leadId, conversionId, prod, reglas, imp
     por: userId, importe, moneda: reglas.moneda, descuento_pct: reglas.descuentoPct,
     caduca_el: fila.caduca_el, stripe_payment_link_id: link.id,
     // Contra qué se midió el descuento (fase 3): el catálogo, o lo pendiente de la venta.
-    descuento_sobre: reglas.referencia || 'catalogo',
+    descuento_sobre: cuota ? 'cuota' : (reglas.referencia || 'catalogo'),
+    ...(cuota ? { cuota_id: cuota.id, cuota_numero: cuota.numero, cuota_vence: cuota.vence } : {}),
+    ...(guardaTarjeta ? { guarda_tarjeta: true } : {}),
     ...(reglas.pendiente !== undefined ? { pendiente: reglas.pendiente } : {}),
   });
   logger.info({ linkId: fila.id, projectId, userId, importe, moneda: reglas.moneda }, 'Links de pago: link creado');

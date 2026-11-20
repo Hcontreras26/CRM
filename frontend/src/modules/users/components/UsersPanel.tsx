@@ -1,3 +1,4 @@
+import { appPublicUrl } from '@/shared/lib/direccionesPublicas';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, WarningCircle, Lock } from '@phosphor-icons/react';
@@ -113,10 +114,9 @@ export default function UsersPanel() {
           ...(values.excepciones && Object.keys(values.excepciones).length ? { excepciones: values.excepciones } : {}),
         });
         if (setPasswordToken) {
-          const base = (import.meta.env.BASE_URL || '/crm/').replace(/\/$/, '');
           setInvitacion({
             email: values.email,
-            url: `${window.location.origin}${base}/set-password?token=${setPasswordToken}`,
+            url: appPublicUrl(`/set-password?token=${setPasswordToken}`),
           });
           toast({ title: 'Usuario creado', description: 'Comparte el link de invitación que aparece arriba.' });
         } else {

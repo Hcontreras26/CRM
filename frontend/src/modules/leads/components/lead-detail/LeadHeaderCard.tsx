@@ -12,6 +12,8 @@ const MergeLeadDialog = lazy(() => import('../MergeLeadDialog'));
 // Repartir la venta de este prospecto entre dos gestoras. Se carga aparte
 // porque solo lo ven admin y superadmin.
 const CompartirVentaBoton = lazy(() => import('@/modules/sales/components/CompartirVentaBoton'));
+// «Crear link de pago» arriba, no solo en la tarjeta de abajo (Diego, 19/11).
+const BotonCrearLink = lazy(() => import('@/modules/links-pago/components/BotonCrearLink'));
 
 interface LeadHeaderCardProps {
   lead: Lead;
@@ -81,7 +83,10 @@ export default function LeadHeaderCard({ lead, isAdmin, onReassign, onBack, onMe
               </p>
             </div>
           </div>
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex flex-wrap gap-2 flex-shrink-0">
+            <Suspense fallback={null}>
+              <BotonCrearLink leadId={lead.id} />
+            </Suspense>
             {/* «Compartir» va antes de «Reasignar» porque son la misma familia:
                 reasignar es pasarsela a otra, compartir es atenderla entre dos.
                 Diego: «no es nada intuitivo» — la funcion existia pero habia que

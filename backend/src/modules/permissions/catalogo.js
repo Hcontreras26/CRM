@@ -319,10 +319,10 @@ export const SECCIONES = [
           a('completar', 'Completar datos y marcar entregada', 'Rellenar los datos fiscales del cliente y marcarla entregada.', TODOS),
           a('enviar', 'Enviar facturas', 'Mandar la factura al cliente.', TODOS),
           a('cobrar', 'Marcar cobrada', 'Marcar una factura como cobrada.', TODOS),
-          a('anular', 'Anular facturas', 'Anular una factura sin emitir.', TODOS),
+          a('anular', 'Cancelar borradores y proformas', 'Cancelar, con su motivo, una factura sin emitir o una proforma.', TODOS),
           a('emitir_borrador', 'Emitir un borrador', 'Darle número a un borrador.', TODOS),
           a('emitir', 'Poner número al cobrar', 'Que el cobro salga facturado y la proforma sin esperar visto bueno.', ADMIN),
-          a('gestionar', 'Corregir y abonar', 'Corregir, abonar (rectificativa), asociar a una venta y borrar facturas (una gestora, las suyas).', ADMIN),
+          a('gestionar', 'Anular y abonar', 'Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, y corregir o borrar proformas y borradores (una gestora, las suyas).', ADMIN),
           a('cola', 'Emitir desde la cola', 'Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día».', NADIE),
           a('auditoria', 'Auditoría de facturación', 'Ver el aviso de facturación pausada, auditar y reanudarla con «Marcar como solucionado».', ADMIN),
           a('editar_fechas', 'Cambiar fechas', 'Cambiar la fecha de emisión y de pago, sin tocar importes.', ADMIN),
@@ -382,13 +382,17 @@ export const SECCIONES = [
           a('crear', 'Crear links de pago', 'Crear un link de pago de Stripe para un prospecto o una venta de sus campus, y ver los suyos.', COMERCIAL),
           a('ver_todos', 'Ver los links de todos', 'Los links de pago de todas las personas de sus campus (o de su equipo, si lleva uno).', ADMIN),
           a('configurar', 'Configurar los links de pago', 'Las reglas de los links de cada campus (descuento máximo, caducidad, cuotas y monedas) y el webhook de su cuenta de Stripe.', ADMIN),
+          a('cobro_automatico', 'Cobro automático de cuotas', 'Activar o quitar en una venta que Stripe cobre solas sus cuotas, en sus fechas, con la tarjeta que guarda el alumno al pagar la primera.', COMERCIAL),
         ],
       },
       {
         clave: 'facturas_colaborador', nombre: 'Facturas de colaboradores', acciones: [
-          a('subir', 'Subir su factura', '«Mi factura»: el colaborador sube la suya del mes.', ['colaborador', 'tutor_redactor'], { propia: true }),
+          // La vendedora de la lista (CRM#710) la tiene por excepción, con su ficha: nunca por su rol.
+          a('subir', 'Subir su factura', '«Mi factura»: el colaborador, o la vendedora de la lista, sube la suya del mes.', ['colaborador', 'tutor_redactor'], { propia: true }),
           a('ver_todas', 'Ver las facturas', 'Las facturas de los colaboradores de sus empresas.', yPM(ADMIN)),
           a('gestionar', 'Gestionar colaboradores', 'Dar de alta colaboradores y reenviarles el enlace.', ADMIN),
+          // CRM#710: «la gestora pone su monto y luego la empresa valida y hace el pago».
+          a('validar', 'Validar facturas de colaboradores', 'Revisar una factura recibida y darla por buena: solo entonces se puede pagar.', ADMIN, { requiere: ['facturas_colaborador.ver_todas'] }),
           a('anular', 'Anular facturas de colaboradores', 'Anular una factura recibida.', ADMIN, { requiere: ['facturas_colaborador.ver_todas'] }),
           a('pagar', 'Pagar facturas de colaboradores', 'Marcarlas pagadas con su justificante.', ADMIN, { requiere: ['facturas_colaborador.ver_todas'] }),
         ],

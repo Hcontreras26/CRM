@@ -107,7 +107,12 @@ async function crearVentaDelLink(projectId, payment, link) {
       fecha_pago: fecha,
       vendedora_id: link.created_by ? Number(link.created_by) : undefined,
       notas: `Pagada con el link de pago n.º ${link.id} (Stripe ${payment.stripe_id}). Venta creada por el CRM al llegar el cobro.`,
-    }, null);
+    }, null, {
+      // Sin nadie delante para decidir: no se para por «venta repetida» (CRM#898).
+      // La de este curso en la misma ficha ya se buscó arriba; si repite otra,
+      // sale en Ventas · «Posibles repetidas».
+      comprobarRepetida: false,
+    });
     logger.info({ projectId, linkId: link.id, conversionId: venta.conversion_id, vendedoraId: link.created_by, stripeId: payment.stripe_id },
       'links de pago: venta creada al pagarse el link');
     return venta.conversion_id;
@@ -148,6 +153,12 @@ export async function trasCobrar(link, { payment, conversionId, conversionPaymen
   const pagadoEl = new Date(Number(payment.stripe_created_at) * 1000).toISOString();
   const cambio = await model.marcarPagado(link.id, { pagadoEl, conversionId });
   if (!cambio) return;
+  // Cobro automático de las cuotas (309): si el link guardaba la tarjeta, se
+  // apunta en la venta y se programan en Stripe las cuotas siguientes.
+  if (link.guarda_tarjeta) {
+    const { trasPagarseUnLink } = await import('./links-pago.cobro-auto.js');
+    await trasPagarseUnLink(link, payment, conversionId);
+  }
   await model.anotarEventoDelCargo(link.id, 'pagado', {
     stripe_id: payment.stripe_id, importe: payment.amount, metodo: payment.payment_method || null,
     conversion_id: conversionId, conversion_payment_id: conversionPaymentId,

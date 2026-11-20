@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-912 rutas en 72 módulos, y 31 acciones con condición dentro de una ruta.
+925 rutas en 73 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -183,6 +183,14 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | pay | `PATCH /api/commissions/:id/pay` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `commissions.pagar` |
 | recalculate | `POST /api/commissions/recalculate/:conversionId` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `commissions.edit` |
 
+## conciliacion
+
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
+|---|---|---|---|---|
+| listar | `GET /api/conciliacion/facturas-cobros` | (no existía) | (ruta nueva) | `facturas.gestionar` |
+| enlazar | `POST /api/conciliacion/facturas-cobros/enlazar` | (no existía) | (ruta nueva) | `facturas.gestionar` |
+| enlazarSeguras | `POST /api/conciliacion/facturas-cobros/enlazar-seguras` | (no existía) | (ruta nueva) | `facturas.gestionar` |
+
 ## connectors
 
 | Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
@@ -245,6 +253,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | listProductos | `GET /api/conversions/productos` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.view` |
 | cuotas | `GET /api/conversions/cuotas` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.view` |
 | filas | `GET /api/conversions/filas` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.view` |
+| posiblesRepetidas | `GET /api/conversions/posibles-repetidas` | (no existía) | (ruta nueva) | `conversions.edit` |
 | listByLead | `GET /api/conversions/by-lead/:leadId` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.view` |
 | getById | `GET /api/conversions/:id` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.view` |
 | create | `POST /api/conversions/` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.create` |
@@ -446,6 +455,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | (anónima) | `GET /api/facturas-colaborador/facturas/:id/archivo` | sesión · checkPermission(facturas_colaborador.ver_todas) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.ver_todas` |
 | (anónima) | `GET /api/facturas-colaborador/facturas/:id/registro` | sesión · checkPermission(facturas_colaborador.ver_todas) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.ver_todas` |
 | (anónima) | `GET /api/facturas-colaborador/facturas/:id/desglose` | sesión · checkPermission(facturas_colaborador.ver_todas) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.ver_todas` |
+| (anónima) | `POST /api/facturas-colaborador/facturas/:id/validar` | (no existía) | (ruta nueva) | `facturas_colaborador.validar` |
 | (anónima) | `POST /api/facturas-colaborador/facturas/:id/anular` | sesión · checkPermission(facturas_colaborador.anular) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.anular` |
 | (anónima) | `POST /api/facturas-colaborador/facturas/:id/reenviar` | sesión · checkPermission(facturas_colaborador.gestionar) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.gestionar` |
 | (anónima) | `POST /api/facturas-colaborador/facturas/pagar` | sesión · checkPermission(facturas_colaborador.pagar) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.pagar` |
@@ -601,6 +611,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | markPaid | `POST /api/invoices/:id/mark-paid` | sesión | superadmin, admin, gestor, soporte, project_manager | `facturas.cobrar` |
 | cobrarProforma | `POST /api/invoices/:id/cobrar-proforma` | sesión · roleGuard(admin, superadmin, gestor) +superadmin +soporte por el atajo · a mano: invoices.controller.js · esFacturaManager | superadmin y admin/gestor/soporte con «factura_manager» | `facturas.cola` |
 | cancel | `POST /api/invoices/:id/cancel` | sesión | superadmin, admin, gestor, soporte, project_manager | `facturas.anular` |
+| anular | `POST /api/invoices/:id/anular` | (no existía) | (ruta nueva) | `facturas.gestionar` |
 | destroy | `DELETE /api/invoices/:id` | sesión · roleGuard(admin, superadmin, gestor) +superadmin +soporte por el atajo · a mano: invoices.model.js · puedeGestionarFactura | superadmin, admin y gestor con «factura_manager» | `facturas.gestionar` |
 | rectificar | `POST /api/invoices/:id/rectificar` | sesión · roleGuard(admin, superadmin, gestor) +superadmin +soporte por el atajo · a mano: invoices.model.js · puedeGestionarFactura | superadmin, admin y gestor con «factura_manager» | `facturas.gestionar` |
 | emitir | `POST /api/invoices/:id/emitir` | sesión | superadmin, admin, gestor, soporte, project_manager | `facturas.emitir_borrador` |
@@ -632,6 +643,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | updateLeadProduct | `PATCH /api/leads/:id/products/:lpId` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.edit` |
 | removeLeadProduct | `DELETE /api/leads/:id/products/:lpId` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.edit` |
 | getById | `GET /api/leads/:id` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.view` |
+| avanceEnMoodle | `GET /api/leads/:id/campus` | (no existía) | (ruta nueva) | `leads.view` |
 | mergeLeads | `POST /api/leads/:id/merge` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.edit` |
 | revisar | `POST /api/leads/:id/revisar` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.edit` |
 | createManual | `POST /api/leads/` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.create` |
@@ -662,6 +674,11 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | guardarConfig | `PUT /api/links-pago/config` | (no existía) | (ruta nueva) | `links_pago.configurar` |
 | verWebhook | `GET /api/links-pago/webhook` | (no existía) | (ruta nueva) | `links_pago.configurar` |
 | cambiarWebhook | `PUT /api/links-pago/webhook` | (no existía) | (ruta nueva) | `links_pago.configurar` |
+| ventasDelProspecto | `GET /api/links-pago/ventas-del-prospecto` | (no existía) | (ruta nueva) | `links_pago.crear` |
+| verPlan | `GET /api/links-pago/plan` | (no existía) | (ruta nueva) | `links_pago.crear` |
+| generarPlan | `POST /api/links-pago/plan` | (no existía) | (ruta nueva) | `links_pago.crear` |
+| verCobroAutomatico | `GET /api/links-pago/cobro-automatico` | (no existía) | (ruta nueva) | `links_pago.crear` o `links_pago.ver_todos` |
+| cambiarCobroAutomatico | `PUT /api/links-pago/cobro-automatico` | (no existía) | (ruta nueva) | `links_pago.cobro_automatico` |
 | listar | `GET /api/links-pago/` | (no existía) | (ruta nueva) | `links_pago.crear` o `links_pago.ver_todos` |
 | detalle | `GET /api/links-pago/:id` | (no existía) | (ruta nueva) | `links_pago.crear` o `links_pago.ver_todos` |
 | crear | `POST /api/links-pago/` | (no existía) | (ruta nueva) | `links_pago.crear` |
@@ -1058,6 +1075,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | corte | `GET /api/stripe-payments/corte` | (no existía) | (ruta nueva) | `stripe.view` |
 | listar | `GET /api/stripe-payments/disputas` | (no existía) | (ruta nueva) | `stripe.edit` |
 | sincronizar | `POST /api/stripe-payments/disputas/sincronizar` | (no existía) | (ruta nueva) | `stripe.edit` |
+| deLaVenta | `GET /api/stripe-payments/de-la-venta/:conversionId` | (no existía) | (ruta nueva) | `stripe.edit` |
 | getOne | `GET /api/stripe-payments/:id` | sesión | superadmin, admin, gestor, soporte, project_manager | `stripe.view` |
 | link | `POST /api/stripe-payments/:id/link` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `stripe.edit` |
 | unlink | `DELETE /api/stripe-payments/:id/link` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `stripe.edit` |
@@ -1555,10 +1573,10 @@ lo que pide para tener sentido (editar pide ver).
 | Completar datos y marcar entregada | `facturas.completar` | Rellenar los datos fiscales del cliente y marcarla entregada. | Admin, Gestora, Soporte, Project manager | `facturas.view` |
 | Enviar facturas | `facturas.enviar` | Mandar la factura al cliente. | Admin, Gestora, Soporte, Project manager | `facturas.view` |
 | Marcar cobrada | `facturas.cobrar` | Marcar una factura como cobrada. | Admin, Gestora, Soporte, Project manager | `facturas.view` |
-| Anular facturas | `facturas.anular` | Anular una factura sin emitir. | Admin, Gestora, Soporte, Project manager | `facturas.view` |
+| Cancelar borradores y proformas | `facturas.anular` | Cancelar, con su motivo, una factura sin emitir o una proforma. | Admin, Gestora, Soporte, Project manager | `facturas.view` |
 | Emitir un borrador | `facturas.emitir_borrador` | Darle número a un borrador. | Admin, Gestora, Soporte, Project manager | `facturas.view` |
 | Poner número al cobrar | `facturas.emitir` | Que el cobro salga facturado y la proforma sin esperar visto bueno. | Admin | `facturas.view` |
-| Corregir y abonar | `facturas.gestionar` | Corregir, abonar (rectificativa), asociar a una venta y borrar facturas (una gestora, las suyas). | Admin | `facturas.view` |
+| Anular y abonar | `facturas.gestionar` | Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, y corregir o borrar proformas y borradores (una gestora, las suyas). | Admin | `facturas.view` |
 | Emitir desde la cola | `facturas.cola` | Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día». | solo superadmin | `facturas.view` |
 | Auditoría de facturación | `facturas.auditoria` | Ver el aviso de facturación pausada, auditar y reanudarla con «Marcar como solucionado». | Admin | `facturas.view` |
 | Cambiar fechas | `facturas.editar_fechas` | Cambiar la fecha de emisión y de pago, sin tocar importes. | Admin | `facturas.view` |
@@ -1622,14 +1640,16 @@ lo que pide para tener sentido (editar pide ver).
 | Crear links de pago | `links_pago.crear` | Crear un link de pago de Stripe para un prospecto o una venta de sus campus, y ver los suyos. | Admin, Gestora, Soporte |  |
 | Ver los links de todos | `links_pago.ver_todos` | Los links de pago de todas las personas de sus campus (o de su equipo, si lleva uno). | Admin |  |
 | Configurar los links de pago | `links_pago.configurar` | Las reglas de los links de cada campus (descuento máximo, caducidad, cuotas y monedas) y el webhook de su cuenta de Stripe. | Admin |  |
+| Cobro automático de cuotas | `links_pago.cobro_automatico` | Activar o quitar en una venta que Stripe cobre solas sus cuotas, en sus fechas, con la tarjeta que guarda el alumno al pagar la primera. | Admin, Gestora, Soporte |  |
 
 ### Facturas de colaboradores
 
 | Permiso | Clave | Qué deja hacer | De serie | Necesita |
 |---|---|---|---|---|
-| Subir su factura | `facturas_colaborador.subir` | «Mi factura»: el colaborador sube la suya del mes. | Colaborador, Tutor redactor |  |
+| Subir su factura | `facturas_colaborador.subir` | «Mi factura»: el colaborador, o la vendedora de la lista, sube la suya del mes. | Colaborador, Tutor redactor |  |
 | Ver las facturas | `facturas_colaborador.ver_todas` | Las facturas de los colaboradores de sus empresas. | Admin, Project manager |  |
 | Gestionar colaboradores | `facturas_colaborador.gestionar` | Dar de alta colaboradores y reenviarles el enlace. | Admin |  |
+| Validar facturas de colaboradores | `facturas_colaborador.validar` | Revisar una factura recibida y darla por buena: solo entonces se puede pagar. | Admin | `facturas_colaborador.ver_todas` |
 | Anular facturas de colaboradores | `facturas_colaborador.anular` | Anular una factura recibida. | Admin | `facturas_colaborador.ver_todas` |
 | Pagar facturas de colaboradores | `facturas_colaborador.pagar` | Marcarlas pagadas con su justificante. | Admin | `facturas_colaborador.ver_todas` |
 

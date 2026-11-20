@@ -57,11 +57,12 @@ import {
   CopySimple,
   WhatsappLogo,
   ChatText,
-  UsersThree, QrCode, Warning, Key, ListChecks, Kanban, ClockCounterClockwise, SlidersHorizontal, Code, Certificate,
+  UsersThree, QrCode, Warning, Key, ListChecks, Kanban, ClockCounterClockwise, SlidersHorizontal, Code, Certificate, ArrowsLeftRight,
   // Los de los encabezados de seccion (#105). Ninguno repite el de una
   // entrada de su propia seccion: si el encabezado lleva el mismo dibujo
   // que una de sus filas, deja de ordenar y pasa a confundir.
-  Flask, House, Funnel, Books, ChalkboardTeacher, Bank, Shuffle, ChartPieSlice, EnvelopeSimple } from '@phosphor-icons/react';
+  Flask, House, Funnel, Books, ChalkboardTeacher, Bank, Shuffle, ChartPieSlice, EnvelopeSimple, LinkSimple } from '@phosphor-icons/react';
+import { linksPagoEncendidos } from '@/shared/lib/linksPago';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
 import { rolesDe, soloEsColaborador, soloEsTutor } from '@/shared/lib/roles';
@@ -84,6 +85,8 @@ import { PANTALLAS_IA } from '@/shared/lib/pantallasIA';
 import { tipoDelMenu } from '@/shared/lib/proyectosIA';
 import { abrirPedirAcceso } from '@/modules/soporte/lib/accesos';
 import { MARCA } from '@/shared/config/marca';
+
+import { reagruparMenu } from './bloquesDelMenu';
 
 const ProjectSettingsDialog = lazy(() => import('@/modules/settings/components/ProjectSettingsDialog'));
 const NotificationsBell = lazy(() => import('./NotificationsBell'));
@@ -111,17 +114,30 @@ const ROLES_TAREAS = ['superadmin', 'admin', 'colaborador', 'tutor_redactor'];
 // y el traslado de `trasladosDeMenu.js`.
 export const PERMISOS_WEBHOOKS = ['webhooks.view', 'make.view', 'webhooks_salientes.view'];
 
-export const NAV_SECTIONS = [
+// El apartado «Testeo» (solo existe en /testeo y en local) son herramientas de
+// diseño —la maqueta del rediseño, la referencia y el muestrario de
+// primitivas—, no pantallas de trabajo: las ve quien construye o decide el CRM.
+// A una gestora le salían en el menú (QA de /testeo del 18/11). Soporte y
+// superadmin las ven además por su regla de «ve todo».
+export const ROLES_DE_DISENO = ['superadmin', 'admin', 'soporte'];
+
+/*
+  LAS SECCIONES DE ANTES, tal cual: cada entrada con sus permisos, roles y
+  módulos. El menú que se pinta (`NAV_SECTIONS`, abajo) sale de repartirlas por
+  bloques de uso (#534, parte 3, `bloquesDelMenu.js`): ahí se dice adónde va cada
+  una, y aquí sigue todo lo que decide quién la ve.
+*/
+export const SECCIONES_DE_ANTES = [
   {
     label: 'Testeo',
     icon: Flask,
     items: [
-      { label: 'TESTEO2', to: '/testeo2', detail: 'Maqueta del rediseño', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true },
-      { label: 'SUITE DASH', to: '/suite-dash', detail: 'La referencia', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true },
+      { label: 'TESTEO2', to: '/testeo2', detail: 'Maqueta del rediseño', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true, roles: ROLES_DE_DISENO },
+      { label: 'SUITE DASH', to: '/suite-dash', detail: 'La referencia', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true, roles: ROLES_DE_DISENO },
       // El muestrario de primitivas. Sin esta entrada existe pero no lo
       // encuentra nadie: hay que escribir /dev/components a mano, que es
       // exactamente lo que hacía que «no existiera».
-      { label: 'Las 22 primitivas', to: '/dev/components', detail: 'Las piezas, juntas', icon: Sparkle, previewOnly: true },
+      { label: 'Las 22 primitivas', to: '/dev/components', detail: 'Las piezas, juntas', icon: Sparkle, previewOnly: true, roles: ROLES_DE_DISENO },
     ],
   },
   {
@@ -205,6 +221,10 @@ export const NAV_SECTIONS = [
       // Ventas vive en Principal (flujo diario) y también en Finanzas. Clientes
       // y Revisión duplicados pasan a la sección Clientes al final.
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions', permiso: 'ventas.view' },
+      // Links de pago de Stripe (#680; Diego, 19/11: «tampoco hay una opción en el
+      // menú»). Quien los crea o los ve todos, y solo con los links encendidos en
+      // el servidor (`funcion`, de /auth/me). Va a Comercial, detrás de Ventas.
+      { label: 'Links de pago', to: '/links-pago', detail: 'Crear y enviar links de Stripe', icon: LinkSimple, permiso: ['links_pago.crear', 'links_pago.ver_todos'], funcion: 'links_pago' },
     ],
   },
   // El tablero del equipo (#210 y mejoras del 07/10). Es lo único que ve quien
@@ -222,7 +242,10 @@ export const NAV_SECTIONS = [
       { label: 'Historial de tareas', to: '/tareas/historial', detail: 'Lo hecho: quién y cuándo', icon: ClockCounterClockwise, roles: [...ROLES_TAREAS, 'tutor'], permiso: 'tasks.view_own', oPermiso: 'tasks.view_own' },
       { label: 'Configurar tablero', to: '/tareas/configurar', detail: 'Columnas, áreas y proyectos', icon: SlidersHorizontal, roles: ROLES_TAREAS, permiso: 'tasks.manage', oPermiso: 'tasks.manage' },
       // «Mi factura» (#202): el colaborador con usuario sube aquí su factura del mes.
-      { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador', 'tutor_redactor'], permiso: 'facturas_colaborador.subir' },
+      // Y la vendedora de la lista (CRM#710): con su ficha se le da «Subir su factura» a ella
+      // (`oPermiso`), sin perder lo que ve como gestora. `conFicha`: solo quien tiene ficha viva;
+      // un super admin (que lo puede todo) no la ve si no factura.
+      { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador', 'tutor_redactor'], permiso: 'facturas_colaborador.subir', oPermiso: 'facturas_colaborador.subir', conFicha: true },
       // Monitask (#236): qué hace cada colaborador y el cotejo con sus facturas. Solo en
       // /testeo y local hasta que Diego lo apruebe; además, con MONITASK_ACTIVO en el servidor.
       ...(SOLO_EN_PRUEBAS
@@ -240,9 +263,8 @@ export const NAV_SECTIONS = [
       // Make y Webhooks estaban aquí: desde la #690, en Conexión › Webhooks. Lo
       // que Webhooks pedía además (`forms.view`, #842) va con su parte y su pestaña.
       { label: 'Widget web', to: '/captacion/whatsapp', detail: 'El botón de la web', icon: WhatsappLogo, roles: ['superadmin', 'admin', 'soporte'], permiso: 'widget.view' },
-      // Próximamente (#216): enseñaban datos de ejemplo. El gasto real de Meta, en Publicidad.
-      { label: 'Campañas', to: '/campanas', detail: 'Campañas y resultados', icon: Megaphone, roles: ['superadmin', 'admin'], comingSoon: true },
-      { label: 'Tráfico orgánico', to: '/campanas/seo', detail: 'Búsquedas en Google', icon: MagnifyingGlass, roles: ['superadmin', 'admin'], comingSoon: true },
+      // Campañas y Tráfico orgánico («Próximamente», #216) salen del menú hasta
+      // que tengan pantalla (#534, parte 3; `menu-sin-proximamente-534`).
     ],
   },
   {
@@ -253,10 +275,8 @@ export const NAV_SECTIONS = [
       // Meta Ads: administración por su rol; y en solo lectura a quien se le da
       // `meta_ads.view` (26/10/2026: el equipo de desarrollo), también si es solo colaborador.
       { label: 'Meta Ads', to: '/meta-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], permiso: 'meta_ads.view', oPermiso: 'meta_ads.view', colaboradorConPermiso: 'meta_ads.view' },
-      // `comingSoon` no hacía nada aquí: el menú solo miraba la lista de la beta,
-      // así que fuera de ella Google Ads era un enlace a /google-ads, que no
-      // tiene pantalla, y acababa en «Página no encontrada» (#226).
-      { label: 'Google Ads', to: '/google-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], comingSoon: true },
+      // Google Ads («Próximamente», #226) sale del menú hasta que tenga pantalla
+      // (#534, parte 3; `menu-sin-proximamente-534`).
     ],
   },
   {
@@ -346,6 +366,10 @@ export const NAV_SECTIONS = [
         : []),
       // Disputas de Stripe (#396): solo admin y super admin, cada uno las de sus campus.
       { label: 'Disputas de Stripe', to: '/finanzas/disputas', detail: 'Abiertas, por empresa y campus', icon: Warning, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'stripe.edit' },
+      // Conciliación (#905): facturas sin cobro y cobros sin factura, y enlazarlos.
+      // Es de administración: admin y super admin, cada uno en sus campus. Sus
+      // pestañas, cada una con su permiso en `SIN_ENTRADA`.
+      { label: 'Conciliación', to: '/finanzas/conciliacion', detail: 'Facturas y cobros sin enlazar', icon: ArrowsLeftRight, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'facturas.gestionar' },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
       { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'], permiso: 'facturas_colaborador.ver_todas' },
@@ -462,6 +486,16 @@ export const NAV_SECTIONS = [
     ],
   },
 ];
+
+// El menú por bloques de uso (#534, parte 3). Los iconos de los bloques nuevos;
+// los que conservan su nombre (Finanzas, Análisis...) conservan el suyo.
+export const NAV_SECTIONS = reagruparMenu(SECCIONES_DE_ANTES, {
+  Hoy: { icon: House },
+  Comercial: { icon: UsersThree },
+  'Captación y publicidad': { icon: Funnel },
+  Académico: { icon: ChalkboardTeacher },
+  Configuración: { icon: SlidersHorizontal },
+});
 
 /**
  * Cuál de las entradas está encendida. Gana la más concreta (#131).
@@ -598,6 +632,8 @@ const SIN_ENTRADA = {
   // (`/api/consultas/tutores-panel`). Escrita a mano por una tutora decía «No
   // hay tutores aquí» en vez de que no tiene acceso (#188).
   '/consultas/tutores': 'consultas.view',
+  // Las pestañas de Finanzas › Conciliación (#905): la de facturas y cobros.
+  '/finanzas/conciliacion/facturas': 'facturas.gestionar',
 };
 // Lo que esas rutas piden ADEMÁS (todos), como `tambienPermiso` en una entrada
 // del menú. La pestaña Prospectos es la pantalla de Captación › Webhooks, que
@@ -666,6 +702,8 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
     && [].concat(item.oPermiso).some((p) => can(p) === true));
   if (item.apagable && moduloApagado(item.apagable)) return false;
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
+  // Una función que enciende el servidor (`/auth/me` → `funciones`): apagada, no sale.
+  if (item.funcion === 'links_pago' && !linksPagoEncendidos(permisos)) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
   if (item.projectType && projectType !== item.projectType) return false;
   // El permiso de la pantalla (#423): sin él no sale, sea quien sea. Es el mismo
@@ -676,6 +714,10 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   const tienePermisoDeLaPantalla = !item.permiso || (typeof can === 'function' && [].concat(item.permiso).some((p) => can(p) === true));
   if (!tienePermisoDeLaPantalla) return false;
   if (!tieneLosDeMas(item, can)) return false;
+  // «Mi factura» (CRM#710): quien no es colaborador ni tutor redactor la ve solo si
+  // tiene ficha viva en Facturas de colaboradores (`factura_propia`, de /auth/me): la
+  // lista explícita de vendedoras, no el rol. Ni el super admin sin ficha.
+  if (item.conFicha && !es('colaborador', 'tutor_redactor') && permisos?.factura_propia !== true) return false;
   // Una entrada que junta varias (Conexión › Webhooks, #690): sale si alguna de
   // sus `partes` se puede abrir, cada una con su permiso (y lo que pide además,
   // `tambienPermiso`, #842), su módulo y el tipo de proyecto en que no salía
@@ -1155,7 +1197,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
           if (it.children?.some((c) => location.pathname === c.to || location.pathname.startsWith((c.to || '') + '/'))) return true;
           return it.to && it.to !== '/' && location.pathname.startsWith(it.to + '/');
         });
-        out[s.label] = s.label === 'Principal' || s.label === 'Testeo' || has;
+        // Abiertos de entrada, lo de cada día: Hoy y Comercial (#534, parte 3).
+        out[s.label] = s.label === 'Hoy' || s.label === 'Comercial' || s.label === 'Testeo' || has;
       }
       return out;
     }

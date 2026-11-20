@@ -113,6 +113,10 @@ const CobrosExternosPage = lazy(() => import('./modules/accounting/pages/CobrosE
 // Equipo › Actividad (#236): lo que registra Monitask y el cotejo con las facturas.
 const MonitaskActividadPage = lazy(() => import('./modules/monitask/pages/MonitaskActividadPage'));
 const DisputasStripePage = lazy(() => import('./modules/accounting/pages/DisputasStripePage'));
+// Finanzas › Conciliación (#905): el contenedor con sus pestañas y «Facturas y cobros».
+const ConciliacionLayout = lazy(() => import('./modules/accounting/pages/ConciliacionLayout'));
+const ConciliacionInicio = lazy(() => import('./modules/accounting/pages/ConciliacionLayout').then((m) => ({ default: m.ConciliacionInicio })));
+const ConciliacionFacturasPage = lazy(() => import('./modules/accounting/pages/ConciliacionFacturasPage'));
 const WhatsappWidgetPage = lazy(() => import('./modules/widget/pages/WhatsappWidgetPage'));
 // Todo WhatsApp pasa por aqui: el chat, con quien enlaza su numero y sus
 // plantillas. La pantalla del equipo y «Mi WhatsApp» eran del metodo viejo —el
@@ -154,6 +158,8 @@ const SalesAnalysisPage = lazy(() => import('./modules/sales/pages/SalesAnalysis
 const VentasSinFormacionPage = lazy(() => import('./modules/sales/pages/VentasSinFormacionPage'));
 const SaleDetailPage = lazy(() => import('./modules/sales/pages/SaleDetailPage'));
 const SalesPage = lazy(() => import('./modules/sales/pages/SalesPage'));
+// Comercial › Links de pago (#680; Diego, 19/11).
+const LinksDePagoPage = lazy(() => import('./modules/links-pago/pages/LinksDePagoPage'));
 const MetaAdsPage = lazy(() => import('./modules/meta-ads/pages/MetaAdsPage'));
 const ChangeRequestsPage = lazy(() => import('./modules/change-requests/pages/ChangeRequestsPage'));
 const ChangeRequestDetailPage = lazy(() => import('./modules/change-requests/pages/ChangeRequestDetailPage'));
@@ -273,6 +279,7 @@ function App() {
           <Route path="/prospectos/proceso" element={<ProcesoPage />} />
           <Route path="/prospectos/convocatorias" element={<ConvocatoriasPage />} />
           <Route path="/prospectos/:id" element={<LeadDetailPage />} />
+          <Route path="/links-pago" element={<LinksDePagoPage />} />
 
           {/* Clientes — tabs */}
           <Route path="/clientes" element={<ClientesLayout />}>
@@ -368,6 +375,13 @@ function App() {
             <Route path="cobros-externos" element={<CobrosExternosPage />} />
             {/* Disputas de Stripe (#396): solo lectura, por empresa y por campus. */}
             <Route path="disputas" element={<DisputasStripePage />} />
+            {/* Conciliación (#905): lo cobrado y facturado sin enlazar, una pestaña por
+                pantalla (Facturas y cobros; los cargos de Stripe, #906). Sus pestañas,
+                en modules/accounting/lib/pestanasConciliacion.ts. */}
+            <Route path="conciliacion" element={<ConciliacionLayout />}>
+              <Route index element={<ConciliacionInicio />} />
+              <Route path="facturas" element={<ConciliacionFacturasPage />} />
+            </Route>
             <Route path="facturas" element={<InvoicesPage />} />
             <Route path="facturas/nueva" element={<InvoiceCreatePage />} />
             <Route path="facturas/configuracion" element={<InvoicingConfigPage />} />

@@ -13,6 +13,8 @@ import {
   tutoresApi, type MiCampus, type MiCampusCurso, type MiCampusPendiente,
 } from '../api/tutores.api';
 import MisCursosPage from './MisCursosPage';
+// El % hecho con su barra: el mismo componente que la ficha del cliente (#532).
+import Progreso from '@/modules/moodle/components/ProgresoCurso';
 
 /*
   «Mi campus» (#681): lo que la tutora tiene que hacer hoy en Moodle.
@@ -62,21 +64,6 @@ function sinProgreso(curso: MiCampusCurso) {
   if (curso.avisoProgreso) return curso.avisoProgreso;
   if (curso.seguimiento === false) return 'Este curso no tiene activado el seguimiento de finalización en Moodle';
   return 'Moodle no da su avance: el curso no tiene actividades con finalización';
-}
-
-/** El % del curso hecho por un alumno (el avance de Moodle, #532), con su barra; «—» si no hay dato. */
-function Progreso({ valor, motivo }: { valor: number | null | undefined; motivo: string }) {
-  if (valor === null || valor === undefined) {
-    return <span className="text-muted-foreground" title={motivo}>—<span className="sr-only">: {motivo}</span></span>;
-  }
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span aria-hidden className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-muted sm:block">
-        <span className={cn('block h-full rounded-full', valor >= 100 ? 'bg-success' : 'bg-primary')} style={{ width: `${valor}%` }} />
-      </span>
-      <span className="tabular-nums text-foreground">{valor}%</span>
-    </span>
-  );
 }
 
 const porCorregirDe = (k: MiCampusCurso) => k.tareas.reduce((s, t) => s + t.sinCorregir.length, 0);

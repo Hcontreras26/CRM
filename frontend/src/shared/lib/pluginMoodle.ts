@@ -11,7 +11,7 @@ import { SOLO_EN_PRUEBAS } from './soloEnPruebas';
  *
  * Antes era una constante de compilación (SOLO_EN_PRUEBAS) y, para encenderlo en
  * /crm, había que cambiar el código y recompilar el frontal. Ahora lo dice el
- * servidor (#850): `/auth/me` manda `user.plugin_moodle`, que es lo mismo que
+ * servidor (#850): `/auth/me` manda `user.funciones.plugin_moodle`, que es lo mismo que
  * deciden sus rutas (`pluginMoodleActivo()`). Basta con PLUGIN_MOODLE_EN_PRODUCCION=1
  * en el `.env` de producción y reiniciar la API.
  *
@@ -26,11 +26,11 @@ export function pluginMoodleEncendido(delServidor?: boolean | null): boolean {
 }
 
 /**
- * El interruptor, para una pantalla: lee `user.plugin_moodle` de la sesión. Sin
+ * El interruptor, para una pantalla: lee `user.funciones.plugin_moodle` de la sesión. Sin
  * sesión todavía (o un servidor anterior a la #850, que no lo manda), lo que se sabe
  * al compilar, que es lo que valía antes.
  */
 export function usePluginMoodle(): boolean {
-  const { user } = useAuth() as { user?: { plugin_moodle?: boolean | null } | null };
-  return pluginMoodleEncendido(user?.plugin_moodle);
+  const { user } = useAuth() as { user?: { funciones?: { plugin_moodle?: boolean | null } | null } | null };
+  return pluginMoodleEncendido(user?.funciones?.plugin_moodle);
 }

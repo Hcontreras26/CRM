@@ -2189,6 +2189,72 @@
   "puertas": []
  },
  {
+  "id": "GET /api/conciliacion/facturas-cobros",
+  "tipo": "ruta",
+  "modulo": "conciliacion",
+  "metodo": "GET",
+  "ruta": "/api/conciliacion/facturas-cobros",
+  "relativa": "GET /facturas-cobros",
+  "controlador": "listar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/conciliacion/facturas-cobros/enlazar",
+  "tipo": "ruta",
+  "modulo": "conciliacion",
+  "metodo": "POST",
+  "ruta": "/api/conciliacion/facturas-cobros/enlazar",
+  "relativa": "POST /facturas-cobros/enlazar",
+  "controlador": "enlazar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/conciliacion/facturas-cobros/enlazar-seguras",
+  "tipo": "ruta",
+  "modulo": "conciliacion",
+  "metodo": "POST",
+  "ruta": "/api/conciliacion/facturas-cobros/enlazar-seguras",
+  "relativa": "POST /facturas-cobros/enlazar-seguras",
+  "controlador": "enlazarSeguras",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/connectors/",
   "tipo": "ruta",
   "modulo": "connectors",
@@ -3071,6 +3137,28 @@
     "tipo": "puede",
     "claves": [
      "conversions.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/conversions/posibles-repetidas",
+  "tipo": "ruta",
+  "modulo": "conversions",
+  "metodo": "GET",
+  "ruta": "/api/conversions/posibles-repetidas",
+  "relativa": "GET /posibles-repetidas",
+  "controlador": "posiblesRepetidas",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.edit"
     ]
    }
   ],
@@ -5829,6 +5917,28 @@
   "puertas": []
  },
  {
+  "id": "POST /api/facturas-colaborador/facturas/:id/validar",
+  "tipo": "ruta",
+  "modulo": "facturas-colaborador",
+  "metodo": "POST",
+  "ruta": "/api/facturas-colaborador/facturas/:id/validar",
+  "relativa": "POST /facturas/:id/validar",
+  "controlador": null,
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.validar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "POST /api/facturas-colaborador/facturas/:id/anular",
   "tipo": "ruta",
   "modulo": "facturas-colaborador",
@@ -7294,6 +7404,10 @@
     "claves": [
      "facturas.view"
     ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
    }
   ],
   "puertas": []
@@ -8103,6 +8217,28 @@
   "puertas": []
  },
  {
+  "id": "POST /api/invoices/:id/anular",
+  "tipo": "ruta",
+  "modulo": "invoices",
+  "metodo": "POST",
+  "ruta": "/api/invoices/:id/anular",
+  "relativa": "POST /:id/anular",
+  "controlador": "anular",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "DELETE /api/invoices/:id",
   "tipo": "ruta",
   "modulo": "invoices",
@@ -8614,6 +8750,28 @@
   "ruta": "/api/leads/:id",
   "relativa": "GET /:id",
   "controlador": "getById",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/leads/:id/campus",
+  "tipo": "ruta",
+  "modulo": "leads",
+  "metodo": "GET",
+  "ruta": "/api/leads/:id/campus",
+  "relativa": "GET /:id/campus",
+  "controlador": "avanceEnMoodle",
   "publica": false,
   "guardias": [
    {
@@ -9169,6 +9327,117 @@
    {
     "tipo": "alcance",
     "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/links-pago/ventas-del-prospecto",
+  "tipo": "ruta",
+  "modulo": "links-pago",
+  "metodo": "GET",
+  "ruta": "/api/links-pago/ventas-del-prospecto",
+  "relativa": "GET /ventas-del-prospecto",
+  "controlador": "ventasDelProspecto",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "links_pago.crear"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/links-pago/plan",
+  "tipo": "ruta",
+  "modulo": "links-pago",
+  "metodo": "GET",
+  "ruta": "/api/links-pago/plan",
+  "relativa": "GET /plan",
+  "controlador": "verPlan",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "links_pago.crear"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/links-pago/plan",
+  "tipo": "ruta",
+  "modulo": "links-pago",
+  "metodo": "POST",
+  "ruta": "/api/links-pago/plan",
+  "relativa": "POST /plan",
+  "controlador": "generarPlan",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "links_pago.crear"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/links-pago/cobro-automatico",
+  "tipo": "ruta",
+  "modulo": "links-pago",
+  "metodo": "GET",
+  "ruta": "/api/links-pago/cobro-automatico",
+  "relativa": "GET /cobro-automatico",
+  "controlador": "verCobroAutomatico",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "links_pago.crear",
+     "links_pago.ver_todos"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/links-pago/cobro-automatico",
+  "tipo": "ruta",
+  "modulo": "links-pago",
+  "metodo": "PUT",
+  "ruta": "/api/links-pago/cobro-automatico",
+  "relativa": "PUT /cobro-automatico",
+  "controlador": "cambiarCobroAutomatico",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "links_pago.cobro_automatico"
+    ]
    }
   ],
   "puertas": []
@@ -15069,6 +15338,28 @@
    {
     "tipo": "alcance",
     "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/stripe-payments/de-la-venta/:conversionId",
+  "tipo": "ruta",
+  "modulo": "stripe-payments",
+  "metodo": "GET",
+  "ruta": "/api/stripe-payments/de-la-venta/:conversionId",
+  "relativa": "GET /de-la-venta/:conversionId",
+  "controlador": "deLaVenta",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "stripe.edit"
+    ]
    }
   ],
   "puertas": []

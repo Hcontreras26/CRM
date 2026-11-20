@@ -93,7 +93,7 @@ export const listLeadsSchema = z.object({
   // Filtro rapido, el mismo que las pestañas del listado (#132). Se valida
   // como enum porque su valor elige un fragmento de SQL: cerrado por
   // construccion, no por confianza.
-  qf: z.enum(['overdue', 'today', 'tomorrow', 'week', 'no-reminder', 'no-contact', 'urgent', 'sin-revisar']).optional(),
+  qf: z.enum(['overdue', 'today', 'tomorrow', 'week', 'no-reminder', 'no-contact', 'urgent', 'sin-revisar', 'sin-gestora', 'sin-actividad']).optional(),
   // Orden: recent = cronológico puro (DEFAULT). dir invierte asc/desc.
   sort: z.enum(['value', 'recent', 'urgency', 'recent_value']).optional(),
   dir: z.enum(['asc', 'desc']).optional(),

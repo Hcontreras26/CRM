@@ -6,7 +6,7 @@ import { render, screen, waitFor } from '@testing-library/react';
  *
  * Antes lo decidía una constante de compilación (SOLO_EN_PRUEBAS): en /crm no salía
  * nunca sin cambiar el código y recompilar. Ahora lo dice el servidor con
- * `user.plugin_moodle` de `/auth/me` (PLUGIN_MOODLE_EN_PRODUCCION=1 en su `.env`).
+ * `user.funciones.plugin_moodle` de `/auth/me` (PLUGIN_MOODLE_EN_PRODUCCION=1 en su `.env`).
  *
  * Aquí se compila «como /crm» (SOLO_EN_PRUEBAS = false) y se cambia solo lo que dice
  * el servidor:
@@ -60,15 +60,15 @@ describe('el interruptor del plugin del CRM, leído del servidor (#850)', () => 
     expect(get).not.toHaveBeenCalledWith(RUTA_ESTADO);
   });
 
-  it('compilado como /crm y el servidor apagado (plugin_moodle: false): no sale el bloque', async () => {
-    sesion.user = { id: 1, role: 'superadmin', plugin_moodle: false };
+  it('compilado como /crm y el servidor apagado (funciones.plugin_moodle: false): no sale el bloque', async () => {
+    sesion.user = { id: 1, role: 'superadmin', funciones: { plugin_moodle: false } };
     await abrirIntegraciones();
     expect(screen.queryByTestId('plugin-del-crm')).toBeNull();
     expect(get).not.toHaveBeenCalledWith(RUTA_ESTADO);
   });
 
-  it('compilado como /crm y el servidor encendido (plugin_moodle: true): sale, con «Conectar campus»', async () => {
-    sesion.user = { id: 1, role: 'superadmin', plugin_moodle: true };
+  it('compilado como /crm y el servidor encendido (funciones.plugin_moodle: true): sale, con «Conectar campus»', async () => {
+    sesion.user = { id: 1, role: 'superadmin', funciones: { plugin_moodle: true } };
     await abrirIntegraciones();
     const bloque = await screen.findByTestId('plugin-del-crm');
     expect(bloque.textContent).toContain('Plugin del CRM');

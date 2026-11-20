@@ -119,7 +119,7 @@ export interface Contexto {
    */
   can?: (permiso: string) => boolean;
   /**
-   * El plugin del CRM aprobado en el servidor (`/auth/me` → `plugin_moodle`, #850).
+   * El plugin del CRM aprobado en el servidor (`/auth/me` → `funciones.plugin_moodle`, #850).
    * En /testeo y en local está encendido igualmente (`pluginMoodleEncendido`).
    */
   pluginMoodle?: boolean;

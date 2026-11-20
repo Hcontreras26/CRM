@@ -159,6 +159,8 @@ export async function me(req, res, next) {
           // Para que la pantalla no pregunte por WhatsApp a quien lo tiene
           // apagado (QA de Diego, 22/10, punto 8). null = sin la columna.
           usa_whatsapp: user.usa_whatsapp ?? null,
+          // «Mi factura» (CRM#710): con ficha viva en Facturas de colaboradores.
+          factura_propia: !!user.factura_propia,
           // El equipo comercial (QA del 09/11/2026), igual que en CRM-ISEIE.
           // La pantalla lo usa para no enseñar lo que el servidor le negaría
           // (corregir o abonar facturas, egresos y balance).
@@ -171,13 +173,10 @@ export async function me(req, res, next) {
           // pantalla enseña los links de pago (#680) solo si aquí dice que sí:
           // en /crm, con LINKS_PAGO_EN_PRODUCCION=1; en /testeo y en local, siempre.
           // Quién los usa lo dicen después los permisos `links_pago.*`.
-          funciones: { links_pago: linksPagoActivos() },
-          // El plugin del CRM en Moodle (#850): lo mismo que decide qué rutas se
-          // montan (PLUGIN_MOODLE_EN_PRODUCCION). El frontal lo lee de aquí y no
-          // de la compilación: para encenderlo en /crm basta con el `.env`.
-          // No es de la persona sino del servidor; va aquí, como lo anterior,
-          // porque es lo que el frontal ya guarda al entrar y al recargar.
-          plugin_moodle: pluginMoodleActivo(),
+          // El plugin del CRM en Moodle (#850), igual: lo mismo que decide qué
+          // rutas del plugin se montan (PLUGIN_MOODLE_EN_PRODUCCION). Para
+          // encenderlo en /crm basta con el `.env`, sin recompilar el frontal.
+          funciones: { links_pago: linksPagoActivos(), plugin_moodle: pluginMoodleActivo() },
         },
         permissions,
         // null = sin recorte por equipo; si lleva uno, [ella, ...sus gestoras].

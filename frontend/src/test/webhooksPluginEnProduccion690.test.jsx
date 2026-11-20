@@ -5,7 +5,7 @@
   Vitest corre con DEV (como /testeo), así que aquí se compila como /crm a mano
   (SOLO_EN_PRUEBAS = false).
 
-  #850 · Ahora lo dice el servidor (`plugin_moodle` de /auth/me), que llega a la
+  #850 · Ahora lo dice el servidor (`funciones.plugin_moodle` de /auth/me), que llega a la
   tarjeta en `ctx.pluginMoodle`: con PLUGIN_MOODLE_EN_PRODUCCION=1, en /crm se pide
   el estado del plugin sin recompilar.
 */
@@ -49,7 +49,7 @@ describe('Consultas en producción (sin el plugin de Moodle)', () => {
 });
 
 describe('Consultas en producción con el plugin aprobado en el servidor (#850)', () => {
-  it('con plugin_moodle del servidor, pide el estado del plugin y enseña su último aviso', async () => {
+  it('con funciones.plugin_moodle del servidor, pide el estado del plugin y enseña su último aviso', async () => {
     const pedir = conLectura();
     const filas = await consultas.cargar({
       campus: [{ id: 1, nombre: 'ISSLOGG' }],

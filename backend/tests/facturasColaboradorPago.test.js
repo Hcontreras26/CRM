@@ -87,8 +87,9 @@ async function factura(clave, empresa, { recibida = true, importe = 636 } = {}) 
   C.push(c.id);
   await q('INSERT INTO colaborador_empresas (colaborador_id, issuer_id) VALUES ($1, $2)', [c.id, empresa.id]);
   F[clave] = (await one(
-    `INSERT INTO facturas_colaborador (colaborador_id, issuer_id, periodo, subida_at, numero_recepcion, importe, numero_factura)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    // Recibida = recibida y validada por la empresa (CRM#710): aquí se prueba el pago.
+    `INSERT INTO facturas_colaborador (colaborador_id, issuer_id, periodo, subida_at, numero_recepcion, importe, numero_factura, validada_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $4) RETURNING id`,
     [c.id, empresa.id, PERIODO, recibida ? new Date() : null,
       recibida ? `REC-P${(Date.now() % 1e7)}-${C.length}` : null, recibida ? importe : null, recibida ? `F-${clave}` : null])).id;
 }
@@ -423,7 +424,7 @@ describe('facturas de colaboradores (#202) · el ZIP del mes', () => {
     await libro.xlsx.load(await zip.file('resumen.xlsx').async('nodebuffer'));
     const hoja = libro.getWorksheet('Resumen');
     expect(hoja.getRow(1).values.slice(1)).toEqual([
-      'Colaborador', 'Área', 'NIF', 'Número de factura', 'Importe', 'Acordado', 'Diferencia', 'Moneda', 'Fecha de subida', 'Número de recepción',
+      'Colaborador', 'Área', 'NIF', 'Número de factura', 'Importe', 'Acordado', 'Diferencia', 'Moneda', 'Fecha de subida', 'Número de recepción', 'Tipo',
     ]);
     const filas = [2, 3].map((n) => hoja.getRow(n).values.slice(1));
     const deLaura = filas.find((f) => f[0] === `${MARCA} laura`);

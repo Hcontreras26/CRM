@@ -11,8 +11,12 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import { SkeletonCard } from '@/shared/components/ui/SkeletonTable';
 import { toast } from '@/shared/hooks/useToast';
 import RepartoVentaCard from '../components/RepartoVentaCard';
+import EnlazarStripeCard from '../components/EnlazarStripeCard';
 // Links de pago (#680): solo en pruebas; la tarjeta se esconde sola en /crm.
 import LinksDePagoCard from '@/modules/links-pago/components/LinksDePagoCard';
+import BotonCrearLink from '@/modules/links-pago/components/BotonCrearLink';
+import AccionesCobroVenta from '@/modules/links-pago/components/AccionesCobroVenta';
+import CobroAutomaticoVenta from '@/modules/links-pago/components/CobroAutomaticoCuotas';
 import {
   CurrencyEur, CheckCircle, Wallet, Receipt, ArrowLeft, User, Calendar,
   WarningCircle, CreditCard, ClockCounterClockwise,
@@ -39,7 +43,7 @@ type Cuota = {
 };
 type Pago = {
   id: number; importe: string | number; fecha: string; notas: string | null; metodo: string | null;
-  cuota_numero: number | null; pagado_por_stripe?: boolean;
+  cuota_numero: number | string | null; pagado_por_stripe?: boolean;
   factura_id?: number | null; factura_codigo?: string | null; factura_estado?: string | null;
 };
 type Venta = {
@@ -69,6 +73,8 @@ export default function SaleDetailPage() {
   const navigate = useNavigate();
   const [venta, setVenta] = useState<Venta | null>(null);
   const [loading, setLoading] = useState(true);
+  // Se sube al enlazar un cargo de Stripe: la venta se vuelve a leer.
+  const [recarga, setRecarga] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -84,7 +90,7 @@ export default function SaleDetailPage() {
         });
       } finally { setLoading(false); }
     })();
-  }, [id]);
+  }, [id, recarga]);
 
   if (loading) {
     return (
@@ -122,13 +128,19 @@ export default function SaleDetailPage() {
         title={venta.lead_nombre || `Venta #${venta.id}`}
         subtitle={`${venta.producto_contratado || 'Sin programa'} · ${venta.proyecto_nombre || ''}`}
         actions={
-          <button
-            type="button"
-            onClick={() => navigate(`/prospectos/${venta.lead_id}`)}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm font-semibold hover:bg-muted"
-          >
-            <User size={14} weight="bold" /> Ficha del cliente
-          </button>
+          <span className="flex flex-wrap items-center gap-2">
+            {/* «Crear link de pago» arriba (Diego, 19/11), con esta venta ya elegida. */}
+            <BotonCrearLink leadId={venta.lead_id} conversionId={venta.id} />
+            {/* «Generar plan de pago» (19/11): un link por cuota pendiente. */}
+            <AccionesCobroVenta leadId={venta.lead_id} conversionId={venta.id} pendiente={pendiente} soloPlan />
+            <button
+              type="button"
+              onClick={() => navigate(`/prospectos/${venta.lead_id}`)}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm font-semibold hover:bg-muted"
+            >
+              <User size={14} weight="bold" /> Ficha del cliente
+            </button>
+          </span>
         }
       />
 
@@ -160,7 +172,7 @@ export default function SaleDetailPage() {
         </p>
       )}
       {cobradoDeMas > 0.005 && (
-        <p role="note" className="text-xs rounded-md border border-warning/40 bg-warning-soft text-warning-soft-foreground px-3 py-2">
+        <p role="note" data-recorrido="venta-cobrado-de-mas" className="text-xs rounded-md border border-warning/40 bg-warning-soft text-warning-soft-foreground px-3 py-2">
           Sus pagos suman {fmt(cobradoDeMas)} más que el importe de la venta. Suele ser un cobro repetido o un importe mal puesto.
         </p>
       )}
@@ -219,12 +231,11 @@ export default function SaleDetailPage() {
         {/* Quien vendio, y si la venta esta repartida entre dos gestoras. */}
         <RepartoVentaCard conversionId={venta.id} />
         {venta.project_id != null && (
-          <LinksDePagoCard projectId={venta.project_id} conversionId={venta.id} productoId={venta.producto_contratado_id}
-            pendiente={pendiente} />
+          <LinksDePagoCard projectId={venta.project_id} leadId={venta.lead_id} conversionId={venta.id} conRecorrido />
         )}
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4 lg:col-span-2">
+        <div className="bg-card border border-border rounded-lg p-4 lg:col-span-2" data-recorrido="venta-cuotas">
           <h3 className="font-semibold mb-3">Plan de cuotas</h3>
           {cuotas.length === 0 ? (
             <EmptyState icon={Calendar} title="Sin plan de cuotas" description="Esta venta no está fraccionada." />
@@ -275,6 +286,11 @@ export default function SaleDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Cobro automático de las cuotas con Stripe (309): tarjeta guardada y cuota a cuota. */}
+      <CobroAutomaticoVenta conversionId={venta.id} />
+
+      <EnlazarStripeCard conversionId={venta.id} onEnlazado={() => setRecarga((n) => n + 1)} />
 
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-3">Pagos registrados ({pagos.length})</h3>

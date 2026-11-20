@@ -9,6 +9,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/modules/products/hooks/useProducts';
+import { esCampusMio } from '@/shared/hooks/useCampusMio';
 import { X, Warning, Link as LinkIcon } from '@phosphor-icons/react';
 import Portal from '@/shared/components/ui/portal';
 import Select from '@/shared/components/ui/Select';
@@ -83,7 +84,9 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
 
   const { user } = useAuth() as any;
   const isGestor = user?.role === 'gestor';
-  const { products, refetch: refetchProducts } = useProducts(effectiveProjectId);
+  // El catálogo, solo de un campus suyo: editar un prospecto de un campus que
+  // no es de quien mira daba 403 PROJECT_FORBIDDEN (CRM#859).
+  const { products, refetch: refetchProducts } = useProducts(esCampusMio(projects, effectiveProjectId) ? effectiveProjectId : null);
   const productoLabel = (effectiveProject as any)?.producto_label || 'Producto';
 
   const [customFields, setCustomFields] = useState<CustomFieldDef[]>([]);

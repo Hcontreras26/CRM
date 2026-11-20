@@ -264,6 +264,19 @@ CAMBIOS_POR_DATOS.push({
  */
 export const CAMBIOS_DE_MENU = [
   {
+    id: 'menu-mi-factura-con-ficha',
+    // Solo se esconde del menú: la ruta sigue abierta y responde igual que antes (solo lo suyo).
+    soloMenu: true,
+    que: '«Mi factura» la ve quien tiene ficha viva en Facturas de colaboradores (colaborador, tutor redactor o vendedora de la lista, CRM#710); el super admin sin ficha deja de verla.',
+    motivo: 'Las vendedoras de la lista suben su factura del mes, y las cuatro excepciones de la issue no tienen sección de factura (criterio 4 de la issue). El super admin lo puede todo, así que el menú se la enseñaba aunque no factura a nadie. El acceso no cambia: la ruta sigue abierta y solo devuelve lo suyo.',
+    perfiles: {
+      superadmin: ['- Equipo de Desarrollo › Mi factura'],
+    },
+    rutas: { 'Equipo de Desarrollo › Mi factura': 'GET /api/facturas-colaborador/mias' },
+    // Diego lo aprobó el 19/11 en la sesión de trabajo: «sube todo y aprueba».
+    aprobadoPor: 'Diego, 19/11',
+  },
+  {
     id: 'menu-mi-campus',
     que: '«Tutores › Mi campus»: la tutora ve sus cursos de Moodle con lo que tiene por corregir y sus dudas, y corrige desde el CRM (CRM#681).',
     motivo: 'Pantalla nueva dentro de «Mis cursos»: entra por el mismo permiso (`tutores.mis_cursos`) y el servidor solo enseña los cursos donde la tutora es profesora en Moodle.',
@@ -276,7 +289,8 @@ export const CAMBIOS_DE_MENU = [
     // «Mis cursos» (sus cursos y su parte) sale del menú pero NO se pierde: se abre desde
     // «Mi campus» («Tu parte · comisiones») y sigue en /mis-cursos (los correos enlazan ahí).
     seMueve: { 'Tutores › Mis cursos': 'Tutores › Mi campus' },
-    aprobadoPor: 'Pendiente de Diego (PR de #679/#681)',
+    // Diego lo aprobó el 19/11 en la sesión de trabajo: «sube todo y aprueba».
+    aprobadoPor: 'Diego, 19/11',
   },
   {
     id: 'menu-claves-admin',
@@ -439,6 +453,18 @@ export const CAMBIOS_DE_MENU = [
     aprobadoPor: 'Diego, 10/11',
   },
   {
+    id: 'menu-sin-proximamente-534',
+    que: 'Las entradas de «Próximamente» salen del menú: «Captación › Campañas», «Captación › Tráfico orgánico» y «Publicidad › Google Ads» (CRM#534, parte 3).',
+    motivo: 'Manuel (29/10) y la maqueta de Diego (03/11): «fuera del menú hasta que funcionen». No llevan a ninguna pantalla —se pintan apagadas, sin enlace—, así que no cambia el acceso de nadie. Vuelven al menú cuando exista su pantalla.',
+    // Solo menú y sin ruta (`null`): no hay pantalla detrás.
+    soloMenu: true,
+    perfiles: Object.fromEntries(['superadmin', 'admin', 'soporte', 'gestora+admin'].map((p) => [p, [
+      '- Captación › Campañas', '- Captación › Tráfico orgánico', '- Publicidad › Google Ads',
+    ]])),
+    rutas: { 'Captación › Campañas': null, 'Captación › Tráfico orgánico': null, 'Publicidad › Google Ads': null },
+    aprobadoPor: 'Diego, 18/11',
+  },
+  {
     id: 'historial-de-tareas',
     que: '«Equipo de Desarrollo › Por revisar» desaparece y en su sitio sale «Historial de tareas» a quien tiene tablero (CRM#707).',
     motivo: 'Diego y Carlos (10/11): quien hace la tarea la pasa a «Hecha» él mismo; las de programación las cierra Diego. Ya no hay una bandeja de «por aprobar» ni su contador (tampoco para Carlos): la pantalla y su ruta (`/api/tasks/review`) se quitan enteras. El historial enseña lo hecho con el alcance del tablero: no abre nada que no se viera ya en «Mi tablero».',
@@ -496,6 +522,82 @@ export const CAMBIOS_DE_MENU = [
     },
     // Aprobado por Diego el 18/11, tras probarla en /testeo (permisos por rol, filtros, sin claves, solo lectura y móvil).
     aprobadoPor: 'Diego, 18/11',
+  },
+  {
+    id: 'menu-actividad-paypal-incidencias',
+    que: '«Equipo de Desarrollo › Actividad» (Monitask), «Finanzas › PayPal y banco» (cobros de PayPal y extractos del banco) y «Sistema › Incidencias» salen en el menú a quien tiene su permiso.',
+    motivo: 'Entraron con sus funciones y no se habían apuntado aquí: la foto del menú las daba como sobrantes (menuPorPerfil423 en rojo en los dos staging). Diego las aprobó las tres el 18/11. «Actividad» y «PayPal y banco» siguen detrás de su interruptor: en producción no se ven hasta que se encienda. «PayPal y banco» la ven también soporte y project manager, por su permiso.',
+    perfiles: {
+      superadmin: ['+ Equipo de Desarrollo › Actividad', '+ Finanzas › PayPal y banco', '+ Sistema › Incidencias'],
+      admin: ['+ Equipo de Desarrollo › Actividad', '+ Finanzas › PayPal y banco', '+ Sistema › Incidencias'],
+      'gestora+admin': ['+ Equipo de Desarrollo › Actividad', '+ Finanzas › PayPal y banco', '+ Sistema › Incidencias'],
+      soporte: ['+ Finanzas › PayPal y banco', '+ Sistema › Incidencias'],
+      project_manager: ['+ Finanzas › PayPal y banco'],
+      gestora: ['+ Sistema › Incidencias'],
+      'gestora+tutor': ['+ Sistema › Incidencias'],
+      'gestora con factura_manager': ['+ Sistema › Incidencias'],
+      'gestora con editar_fechas_factura': ['+ Sistema › Incidencias'],
+      'gestora con usa_mcp': ['+ Sistema › Incidencias'],
+      'gestora con diplomas.view': ['+ Sistema › Incidencias'],
+      'gestora con tasks.close': ['+ Sistema › Incidencias'],
+    },
+    rutas: {
+      'Equipo de Desarrollo › Actividad': 'GET /api/monitask/actividad',
+      'Finanzas › PayPal y banco': 'GET /api/cobros-externos/estado',
+      'Sistema › Incidencias': 'GET /api/incidencias/',
+    },
+    // Aprobado por Diego el 18/11 en la sesión de trabajo: «apruébalas las tres».
+    aprobadoPor: 'Diego, 18/11',
+  },
+  {
+    id: 'menu-links-de-pago-680',
+    que: '«Comercial › Links de pago»: la lista de links de Stripe (estado, alumno, programa, venta, importe, quién lo creó, caducidad y pago) con «Crear link de pago». La ve quien tiene `links_pago.crear` o `links_pago.ver_todos`, y solo con los links encendidos en el servidor.',
+    motivo: 'Diego (19/11): «no sé cómo hacer los enlaces de pago, tampoco hay una opción en el menú». No cambia el acceso: `GET /api/links-pago` ya respondía a esos permisos desde la tarjeta de la ficha (#680).',
+    perfiles: {
+      superadmin: ['+ Comercial › Links de pago'],
+      admin: ['+ Comercial › Links de pago'],
+      soporte: ['+ Comercial › Links de pago'],
+      gestora: ['+ Comercial › Links de pago'],
+      'gestora+admin': ['+ Comercial › Links de pago'],
+      'gestora+tutor': ['+ Comercial › Links de pago'],
+      'gestora con factura_manager': ['+ Comercial › Links de pago'],
+      'gestora con editar_fechas_factura': ['+ Comercial › Links de pago'],
+      'gestora con usa_mcp': ['+ Comercial › Links de pago'],
+      'gestora con diplomas.view': ['+ Comercial › Links de pago'],
+      'gestora con tasks.close': ['+ Comercial › Links de pago'],
+    },
+    rutas: {
+      'Comercial › Links de pago': 'GET /api/links-pago/',
+    },
+    // La escribe Claude principal con el sí de Diego.
+    aprobadoPor: 'Pendiente de Diego',
+  },
+  {
+    id: 'menu-testeo-solo-diseno',
+    que: 'El apartado «Testeo» del menú (TESTEO2, SUITE DASH y «Las 22 primitivas») sale solo a superadmin, admin y soporte. Solo existe en /testeo y en local; en producción no sale a nadie.',
+    motivo: 'QA de /testeo del 18/11: a una gestora le salían la maqueta del rediseño, la referencia y el muestrario de primitivas, que son herramientas de diseño y no pantallas de trabajo. Solo se esconden: no tienen ruta del servidor y sus páginas siguen abriendo igual.',
+    // Solo menú: no tienen ruta del servidor (`null`), el acceso no cambia.
+    soloMenu: true,
+    perfiles: Object.fromEntries([
+      'gestora', 'project_manager', 'gestora+tutor', 'gestora con factura_manager', 'gestora con editar_fechas_factura',
+      'gestora con usa_mcp', 'gestora con diplomas.view', 'gestora con tasks.close',
+    ].map((perfil) => [perfil, ['- Testeo › TESTEO2', '- Testeo › SUITE DASH', '- Testeo › Las 22 primitivas']])),
+    rutas: { 'Testeo › TESTEO2': null, 'Testeo › SUITE DASH': null, 'Testeo › Las 22 primitivas': null },
+    aprobadoPor: 'Pendiente de Diego (QA de /testeo del 18/11)',
+  },
+  {
+    id: 'menu-conciliacion-905',
+    que: '«Finanzas › Conciliación»: facturas emitidas sin cobro y cobros sin factura, por campus y por mes, con «Enlazar» y «Enlazar todas las seguras» (CRM#905). La ve quien tiene `facturas.gestionar` («asociar a una venta»), admin y super admin de serie, cada uno en sus campus. Una gestora con el permiso por excepción no la ve ni concilia: es de administración.',
+    motivo: 'Diego (18/11): enlazó a mano en producción 89 facturas sin cobro; quedan unas 56 y unos 400 cobros sin factura, y tiene que poder hacerlo administración desde el CRM. No cambia el acceso: `facturas.gestionar` ya asociaba una factura a una venta. La pestaña de los cargos de Stripe (CRM#906) irá dentro de esta misma entrada.',
+    perfiles: {
+      superadmin: ['+ Finanzas › Conciliación'],
+      admin: ['+ Finanzas › Conciliación'],
+      'gestora+admin': ['+ Finanzas › Conciliación'],
+    },
+    rutas: {
+      'Finanzas › Conciliación': 'GET /api/conciliacion/facturas-cobros',
+    },
+    aprobadoPor: 'Pendiente de Diego (CRM#905)',
   },
 ];
 

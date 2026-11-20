@@ -13,6 +13,7 @@ import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
 import { avisoDeLoQueFalta, numerosMalEscritos, type Falta } from '@/shared/lib/loQueFalta';
 import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
+import VentaYaExisteAviso, { ventaYaExistente, type VentaExistente } from './VentaYaExisteAviso';
 
 const FiscalDataDialog = lazy(() => import('@/modules/invoices/components/FiscalDataDialog'));
 const EmitirBorradorDialog = lazy(() => import('@/modules/invoices/components/EmitirBorradorDialog'));
@@ -129,6 +130,8 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
   const [saving, setSaving] = useState(false);
   // Paso post-venta: tras registrar la conversión, ofrecer generar Presupuesto/Factura + PDF.
   const [created, setCreated] = useState<Conversion | null>(null);
+  // El alumno ya tiene una venta de este programa (CRM#898): la que existe y lo que se iba a mandar.
+  const [ventaExistente, setVentaExistente] = useState<{ venta: VentaExistente; payload: any } | null>(null);
   const [docPhase, setDocPhase] = useState<'idle' | 'choose' | 'factura' | 'proforma'>('idle');
   // Factura ya emitida automáticamente por el pago → diálogo de completar datos.
   const [emitInv, setEmitInv] = useState<Invoice | null>(null);
@@ -204,7 +207,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
   }, []);
   // Al cerrar, resetea el paso de documento para que una próxima apertura arranque limpia.
   useEffect(() => {
-    if (!open) { setDocPhase('idle'); setCreated(null); setEmitInv(null); notifiedRef.current = false; }
+    if (!open) { setDocPhase('idle'); setCreated(null); setEmitInv(null); setVentaExistente(null); notifiedRef.current = false; }
   }, [open]);
   const [form, setForm] = useState<ConversionForm>({
     producto_contratado: '',
@@ -527,81 +530,48 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
       toast({ title: 'Falta decir si ha pagado', description: 'Elige «Sin pago», «Parcial» o «Pagó TODO». La forma de pago sola no registra el cobro.', variant: 'destructive' });
       return;
     }
+    const payload = {
+      lead_id: lead.id,
+      project_id: projectId,
+      // Con varias líneas, sus cursos sin cantidades ni repetidos (#223): la
+      // cantidad ya va en cada línea. El servidor aplica la misma regla.
+      producto_contratado: useMultiItem
+        ? [...new Set(items.map(it => it.descripcion.trim()).filter(Boolean))].join(' + ')
+        : form.producto_contratado,
+      // FK al programa del catálogo (bug: antes solo se guardaba el nombre en
+      // texto y el vínculo quedaba NULL → el reporting no cruzaba la venta).
+      producto_contratado_id: useMultiItem ? null : (selectedProduct?.id ?? null),
+      importe_total: calc.total,
+      importe_pagado: pagado,
+      metodo_pago: form.metodo_pago,
+      // método real del pago inicial (para la factura de ese pago)
+      metodo_pago_inicial: form.metodo_pago === 'fraccionado' ? metodoInicial : form.metodo_pago,
+      fecha_compromiso_pago: form.fecha_compromiso_pago || null,
+      fecha_conversion: form.fecha_conversion,
+      notas_pago: form.notas_pago || null,
+      items: useMultiItem ? items.map(it => ({
+        product_id: it.product_id,
+        descripcion: it.descripcion,
+        cantidad: it.cantidad,
+        precio_unitario: Number(it.precio_unitario || 0),
+      })) : undefined,
+      iva_pct: form.iva_exento ? 0 : Number(form.iva_pct || 21),
+      iva_incluido: form.iva_incluido && !form.iva_exento,
+      iva_exento: form.iva_exento,
+      descuento_tipo: form.descuento_tipo,
+      descuento_valor: form.descuento_tipo === 'none' ? 0 : Number(form.descuento_valor || 0),
+      subtotal_bruto: calc.bruto,
+    } as any;
     setSaving(true);
     try {
-      const res = await conversionsApi.create({
-        lead_id: lead.id,
-        project_id: projectId,
-        // Con varias líneas, sus cursos sin cantidades ni repetidos (#223): la
-        // cantidad ya va en cada línea. El servidor aplica la misma regla.
-        producto_contratado: useMultiItem
-          ? [...new Set(items.map(it => it.descripcion.trim()).filter(Boolean))].join(' + ')
-          : form.producto_contratado,
-        // FK al programa del catálogo (bug: antes solo se guardaba el nombre en
-        // texto y el vínculo quedaba NULL → el reporting no cruzaba la venta).
-        producto_contratado_id: useMultiItem ? null : (selectedProduct?.id ?? null),
-        importe_total: calc.total,
-        importe_pagado: pagado,
-        metodo_pago: form.metodo_pago,
-        // método real del pago inicial (para la factura de ese pago)
-        metodo_pago_inicial: form.metodo_pago === 'fraccionado' ? metodoInicial : form.metodo_pago,
-        fecha_compromiso_pago: form.fecha_compromiso_pago || null,
-        fecha_conversion: form.fecha_conversion,
-        notas_pago: form.notas_pago || null,
-        items: useMultiItem ? items.map(it => ({
-          product_id: it.product_id,
-          descripcion: it.descripcion,
-          cantidad: it.cantidad,
-          precio_unitario: Number(it.precio_unitario || 0),
-        })) : undefined,
-        iva_pct: form.iva_exento ? 0 : Number(form.iva_pct || 21),
-        iva_incluido: form.iva_incluido && !form.iva_exento,
-        iva_exento: form.iva_exento,
-        descuento_tipo: form.descuento_tipo,
-        descuento_valor: form.descuento_tipo === 'none' ? 0 : Number(form.descuento_valor || 0),
-        subtotal_bruto: calc.bruto,
-      } as any);
-      if (res.success && res.data) {
-        // Si es fraccionado, genera las cuotas custom
-        if (form.metodo_pago === 'fraccionado' && installments.length >= 1) {
-          try {
-            await conversionsApi.generateInstallments(res.data.id, {
-              installments: installments.map(c => ({
-                importe_previsto: Number(c.importe_previsto),
-                fecha_vencimiento: c.fecha_vencimiento,
-              })),
-            });
-          } catch (instErr: any) {
-            toast({ title: 'Conversión creada, pero falló generar cuotas', description: instErr?.data?.error || instErr?.message, variant: 'destructive' });
-          }
-        }
-        toast({ title: 'Conversion registrada', description: `${form.producto_contratado} - ${form.importe_total}EUR` });
-        /*
-          EL PASO DEL DOCUMENTO SALE SIEMPRE.
-
-          Estaba detras de `VITE_FACTURACION_V2`, que solo se enciende en
-          staging. O sea que en PRODUCCION esta ventana no se ha visto nunca:
-          se registraba la venta y se cerraba, con un aviso que se va solo.
-
-          Eso dejaba invisibles en produccion dos cosas que si se pidieron para
-          alli: el aviso grande de que la factura NO se emite sola y va a la
-          cola (Diego, 14/09: «le di a convertir y no me salio en grande»), y el
-          numero de factura al convertir (15/09). Diego, probando en produccion
-          con «Sin pago»: «no me salio nada, solo lo de abajo».
-
-          El interruptor se queda para lo otro que gatea --el borrador de
-          `InvoiceButton`--, que eso si sigue siendo distinto entre entornos.
-        */
-        toast({
-          title: '✓ Conversión creada',
-          description: hayPago
-            ? 'El cobro está en la cola de facturación. Entra en Facturación para emitir la factura y ponerle número.'
-            : 'Sin cobro registrado, así que no hay nada que facturar todavía.',
-        });
-        setCreated(res.data);
-        setDocPhase('choose');
-      }
+      await despuesDeCrear(await conversionsApi.create(payload));
     } catch (err: any) {
+      // El alumno ya tiene una venta de este programa (CRM#898): se pregunta.
+      const ya = ventaYaExistente(err);
+      if (ya) {
+        setVentaExistente({ venta: ya, payload });
+        return;
+      }
       toast({
         title: 'No se pudo registrar la venta',
         description: err?.data?.error || err?.message || 'Vuelve a intentarlo; si sigue fallando, avisa a soporte.',
@@ -612,6 +582,59 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
     }
   }
 
+  // «Crear otra venta igualmente»: lo mismo, con `forzar`. El servidor apunta quién.
+  async function crearIgualmente() {
+    if (!ventaExistente) return;
+    try {
+      await despuesDeCrear(await conversionsApi.create({ ...ventaExistente.payload, forzar: true } as any));
+      setVentaExistente(null);
+    } catch (err: any) {
+      toast({ title: 'No se pudo registrar la venta', description: err?.data?.error || err?.message, variant: 'destructive' });
+    }
+  }
+
+  async function despuesDeCrear(res: Awaited<ReturnType<typeof conversionsApi.create>>) {
+    if (res.success && res.data) {
+      // Si es fraccionado, genera las cuotas custom
+      if (form.metodo_pago === 'fraccionado' && installments.length >= 1) {
+        try {
+          await conversionsApi.generateInstallments(res.data.id, {
+            installments: installments.map(c => ({
+              importe_previsto: Number(c.importe_previsto),
+              fecha_vencimiento: c.fecha_vencimiento,
+            })),
+          });
+        } catch (instErr: any) {
+          toast({ title: 'Conversión creada, pero falló generar cuotas', description: instErr?.data?.error || instErr?.message, variant: 'destructive' });
+        }
+      }
+      toast({ title: 'Conversion registrada', description: `${form.producto_contratado} - ${form.importe_total}EUR` });
+      /*
+        EL PASO DEL DOCUMENTO SALE SIEMPRE.
+
+        Estaba detras de `VITE_FACTURACION_V2`, que solo se enciende en
+        staging. O sea que en PRODUCCION esta ventana no se ha visto nunca:
+        se registraba la venta y se cerraba, con un aviso que se va solo.
+
+        Eso dejaba invisibles en produccion dos cosas que si se pidieron para
+        alli: el aviso grande de que la factura NO se emite sola y va a la
+        cola (Diego, 14/09: «le di a convertir y no me salio en grande»), y el
+        numero de factura al convertir (15/09). Diego, probando en produccion
+        con «Sin pago»: «no me salio nada, solo lo de abajo».
+
+        El interruptor se queda para lo otro que gatea --el borrador de
+        `InvoiceButton`--, que eso si sigue siendo distinto entre entornos.
+      */
+      toast({
+        title: '✓ Conversión creada',
+        description: hayPago
+          ? 'El cobro está en la cola de facturación. Entra en Facturación para emitir la factura y ponerle número.'
+          : 'Sin cobro registrado, así que no hay nada que facturar todavía.',
+      });
+      setCreated(res.data);
+      setDocPhase('choose');
+    }
+  }
 
   return (
     <Portal>
@@ -1168,6 +1191,12 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
           )}
         </div>
       </div>
+      <VentaYaExisteAviso
+        venta={ventaExistente?.venta ?? null}
+        onCancelar={() => setVentaExistente(null)}
+        onCrearIgualmente={crearIgualmente}
+        onCobroApuntado={() => { setVentaExistente(null); onClose(); }}
+      />
     </Portal>
   );
 }

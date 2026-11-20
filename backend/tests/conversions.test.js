@@ -147,13 +147,17 @@ describe('GET /api/conversions/by-lead/:leadId - historial de compras', () => {
 
 describe('POST /api/conversions/:id/payments - abonos parciales', () => {
   let convId;
+  // Una venta nueva para cada prueba, cada una de un programa distinto: dos del
+  // mismo programa para el mismo alumno son una venta repetida (CRM#898, 409).
+  let vuelta = 0;
   beforeEach(async () => {
+    vuelta += 1;
     const res = await request.post('/api/conversions')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         lead_id: testLeadId,
         project_id: testProjectId,
-        producto_contratado: 'Para abonos',
+        producto_contratado: `Para abonos ${vuelta}`,
         importe_total: 1000,
         importe_pagado: 0,
         metodo_pago: 'fraccionado',

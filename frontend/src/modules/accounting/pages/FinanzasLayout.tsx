@@ -2,7 +2,7 @@ import { useProjectContext } from '@/contexts/ProjectContext';
 import { Outlet, useLocation } from 'react-router-dom';
 import {
   Calculator, ChartBar, TrendUp, Receipt, TrendDown, GraduationCap,
-  Wallet, HandCoins, CurrencyEur, PlugsConnected, WarningCircle, CreditCard, ShieldWarning,
+  Wallet, HandCoins, CurrencyEur, PlugsConnected, WarningCircle, CreditCard, ShieldWarning, ArrowsLeftRight,
 } from '@phosphor-icons/react';
 import SubNav from '@/shared/components/ui/SubNav';
 import BetaDisclaimer from '@/shared/components/ui/BetaDisclaimer';
@@ -26,6 +26,8 @@ export const TABS = [
   { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', icon: CreditCard },
   // Las disputas de Stripe (#396), al lado de los pagos de los que salen.
   { label: 'Disputas', to: '/finanzas/disputas', icon: ShieldWarning },
+  // Conciliación (#905): lo cobrado y facturado sin enlazar. `end: false`: sigue marcada en sus pestañas.
+  { label: 'Conciliación', to: '/finanzas/conciliacion', icon: ArrowsLeftRight, end: false },
   { label: 'Facturas', to: '/finanzas/facturas', icon: Receipt },
   // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
   { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', icon: Receipt },

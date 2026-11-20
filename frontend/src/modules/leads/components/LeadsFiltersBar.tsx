@@ -51,6 +51,9 @@ const QUICK_LABELS: Record<string, string> = {
   'no-reminder': 'Sin programar',
   'no-contact': 'Sin contacto',
   'sin-revisar': 'Por validar',
+  // Las dos alertas del Dashboard llevan aquí (#534, parte 5).
+  'sin-gestora': 'Sin gestora',
+  'sin-actividad': 'Sin actividad',
 };
 
 const SORT_LABELS: Record<string, string> = {

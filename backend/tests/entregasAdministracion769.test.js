@@ -303,6 +303,8 @@ describe('#769 · piezas', () => {
     const servicios = fs.readFileSync(new URL('../../tools/moodle-local-crm/crm/db/services.php', import.meta.url), 'utf8');
     expect(servicios).toMatch(/'core_course_get_courses_by_field'/);
     const version = fs.readFileSync(new URL('../../tools/moodle-local-crm/crm/version.php', import.meta.url), 'utf8');
-    expect(version).toMatch(/release\s*=\s*'1\.10\.8'/);
+    // De la 1.10.8 en adelante (la 1.10.9 añade las notas, #532): no se ata a una versión exacta.
+    const [, menor] = version.match(/release\s*=\s*'1\.10\.(\d+)'/) || [];
+    expect(Number(menor)).toBeGreaterThanOrEqual(8);
   });
 });
