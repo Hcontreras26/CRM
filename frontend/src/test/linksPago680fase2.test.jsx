@@ -10,6 +10,8 @@ import { MemoryRouter } from 'react-router-dom';
 const get = vi.hoisted(() => vi.fn());
 const post = vi.hoisted(() => vi.fn());
 const put = vi.hoisted(() => vi.fn());
+// El asistente mira el campus activo (link sencillo, 20/11): uno, el 1.
+vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ({ activeProject: { id: 1, nombre: 'Campus 1' }, projects: [{ id: 1, nombre: 'Campus 1' }] }) }));
 vi.mock('@/shared/api/client', () => ({ default: { get, post, put, delete: vi.fn() } }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 const permisos = vi.hoisted(() => ({ mapa: {} }));
@@ -72,15 +74,13 @@ describe('la tarjeta de la ficha', () => {
     expect(get).toHaveBeenCalledWith('/links-pago', { params: { conversionId: 8, limit: 50 } });
   });
 
-  it('crear sin ninguna venta: no deja; dice que se registre antes la venta (Diego, 19/11)', async () => {
+  it('sin ninguna venta, el link sencillo: curso, pago único y crear (Carlos, 20/11)', async () => {
     permisos.mapa = { 'links_pago.crear': true };
     render(<LinksDePagoCard projectId={1} leadId={3} productoId={5} />);
     fireEvent.click(await screen.findByRole('button', { name: /Crear link de pago/ }));
     const dialogo = await screen.findByRole('dialog');
-    expect(await within(dialogo).findByText('Este prospecto no tiene ninguna venta')).toBeTruthy();
-    expect(within(dialogo).queryByLabelText('Importe')).toBeNull();
-    expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(true);
-    expect(post).not.toHaveBeenCalled();
+    expect(within(dialogo).queryByText('Este prospecto no tiene ninguna venta')).toBeNull();
+    expect(await within(dialogo).findByRole('button', { name: 'Crear link' })).toBeTruthy();
   });
 });
 
@@ -106,10 +106,11 @@ describe('crear sin clave de links en el campus (QA de /testeo del 18/11)', () =
     const dialogo = await screen.findByRole('dialog');
     const alerta = await within(dialogo).findByRole('alert');
     expect(alerta.textContent).toContain('no tiene la clave de links de pago');
-    expect(within(dialogo).getByRole('radiogroup', { name: 'Venta del link' }).closest('fieldset').disabled).toBe(true);
-    for (const etiqueta of ['Curso', 'Importe', /Caduca a los/]) {
-      expect(within(dialogo).getByLabelText(etiqueta).closest('fieldset').disabled).toBe(true);
-    }
+    // Desde la v2.9.2 (link sencillo) el curso, el pago y «para un prospecto» van en
+    // un mismo bloque: con el campus sin clave, apagado entero.
+    const bloque = dialogo.querySelector('fieldset');
+    expect(bloque.disabled).toBe(true);
+    expect(bloque.contains(within(dialogo).getByLabelText('Importe'))).toBe(true);
     expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(true);
     // El aviso no se repite en la lista de «por qué no deja»: lo dice una vez, arriba.
     expect(within(dialogo).getAllByText(/no tiene la clave de links de pago/)).toHaveLength(1);
