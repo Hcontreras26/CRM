@@ -93,33 +93,35 @@ describe('Facturas: los botones que el servidor le niega a quien lleva equipo', 
     expect(screen.getByText('Cliente Uno')).toBeTruthy();
   };
 
-  // Desde la #793 (18/11) una factura EMITIDA no se edita ni se borra: «Editar» y la
-  // papelera salen apagados, con el porqué, y en su lugar está «Anular».
-  it('admin sin equipo: Abono, Venta y Anular; Editar y Eliminar, apagados por ser emitida; sin la nota', async () => {
+  // Lo que está en producción (v2.7.4, v2.7.5 y v2.7.7, 19/11): una emitida se vuelve
+  // a poder corregir («Editar») y borrar si se emitió por error; lo normal es
+  // «Anular» (sale su abono).
+  it('admin sin equipo: Editar, Abono, Venta, Anular y Eliminar, y sin la nota', async () => {
     await pintar();
+    expect(screen.getByTitle('Editar IVA, datos del cliente, concepto o fechas')).toBeTruthy();
     expect(screen.getByTitle('Crear factura rectificativa (de abono)')).toBeTruthy();
     expect(screen.getByTitle('Asociar esta factura a una venta del cliente')).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Anular/ })).toBeTruthy();
-    const editar = screen.getByRole('button', { name: /^Editar: Emitida/ }) as HTMLButtonElement;
-    const eliminar = screen.getByRole('button', { name: /^Eliminar: Emitida/ }) as HTMLButtonElement;
-    expect(editar.disabled).toBe(true);
-    expect(eliminar.disabled).toBe(true);
-    expect(screen.queryByTitle('Editar IVA, datos del cliente o concepto')).toBeNull();
+    expect(screen.getByTitle('Eliminar: solo si se emitió por error (si no, «Anular»)')).toBeTruthy();
     expect(screen.queryByText(/Llevas un equipo comercial/)).toBeNull();
   });
 
-  it('con equipo comercial: ninguno de los cuatro, y la nota que lo explica (solo en el 360)', async () => {
+  // Con «Poner número al cobrar» (facturas.emitir) se corrige aunque se lleve equipo
+  // (v2.7.5). Aquí la líder no lo tiene: ni un botón de corregir, y la nota.
+  it('con equipo comercial y sin acceso a Facturación: ninguno, y la nota que lo explica (solo en el 360)', async () => {
     sesion.user = LIDER;
-    await pintar();
-    expect(screen.queryByTitle('Editar IVA, datos del cliente o concepto')).toBeNull();
-    expect(screen.queryByTitle('Crear factura rectificativa (de abono)')).toBeNull();
-    expect(screen.queryByTitle('Asociar esta factura a una venta del cliente')).toBeNull();
-    expect(screen.queryByTitle('Eliminar la factura y liberar su número (se equivocaron al cargarla)')).toBeNull();
-    // Tampoco «Anular» ni los botones apagados de la emitida (#793): no son suyos.
-    expect(screen.queryByRole('button', { name: /^Anular/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Editar: Emitida/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Eliminar: Emitida/ })).toBeNull();
-    expect(screen.getByText(/Llevas un equipo comercial/)).toBeTruthy();
+    sesion.permissions = { 'facturas.view': true, 'facturas.gestionar': true };
+    try {
+      await pintar();
+      expect(screen.queryByTitle('Editar IVA, datos del cliente, concepto o fechas')).toBeNull();
+      expect(screen.queryByTitle('Crear factura rectificativa (de abono)')).toBeNull();
+      expect(screen.queryByTitle('Asociar esta factura a una venta del cliente')).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Anular/ })).toBeNull();
+      expect(screen.queryByTitle('Eliminar: solo si se emitió por error (si no, «Anular»)')).toBeNull();
+      expect(screen.getByText(/Llevas un equipo comercial/)).toBeTruthy();
+    } finally {
+      sesion.permissions = { '*': true };
+    }
   });
 });
 

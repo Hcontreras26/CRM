@@ -85,10 +85,13 @@ describe('la tarjeta de la ficha', () => {
 });
 
 describe('crear sin clave de links en el campus (QA de /testeo del 18/11)', () => {
+  // Desde la v2.8.3 (#947) todo link va con su venta: sin ninguna, el asistente no
+  // enseña el formulario. Aquí la prospecto tiene una, con 370 pendientes.
+  const VENTA = { id: 81, project_id: 1, producto_contratado_id: 5, producto_nombre: 'Máster en Psicología', importe_total: 1000, cobrado: 630, pendiente: 370, fecha_conversion: '2026-11-01' };
   const conAviso = (aviso_clave) => get.mockImplementation(async (url) => {
     if (url === '/links-pago') return { success: true, data: [] };
     if (url === '/links-pago/ventas-del-prospecto') {
-      return { success: true, data: { lead: { id: 3, nombre: 'Ana', email: null, telefono: null, project_id: 1, producto_interes_id: 5 }, ventas: [] } };
+      return { success: true, data: { lead: { id: 3, nombre: 'Ana', email: null, telefono: null, project_id: 1, producto_interes_id: 5 }, ventas: [VENTA] } };
     }
     if (url.startsWith('/links-pago/config')) return { success: true, data: { ...CONFIG, aviso_clave } };
     if (url === '/products') return { success: true, data: CURSOS };
