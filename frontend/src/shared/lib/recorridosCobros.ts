@@ -131,6 +131,7 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
     pantalla: [
       'modules/links-pago/components/LinksDePagoCard.tsx',
       'modules/sales/pages/SaleDetailPage.tsx',
+      'modules/links-pago/components/AccionesCobroVenta.tsx',
     ],
     pasos: [
       {
@@ -147,8 +148,14 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
       {
         donde: anclaje('links-crear'),
         permiso: 'links_pago.crear',
-        titulo: 'Pago único o por cuotas',
-        texto: 'Cada link es un pago. Si paga todo de una vez, un solo link con el total. Si paga en cuotas, crea un link por cuota con su importe: cada pago salda la siguiente cuota pendiente.',
+        titulo: 'Pago único',
+        texto: 'Cada link es un pago. Si paga todo de una vez, un solo link con lo que queda por cobrar.',
+      },
+      {
+        donde: anclaje('ventas-plan-pago'),
+        permiso: 'links_pago.crear',
+        titulo: 'Generar plan de pago',
+        texto: 'Si va a plazos, «Generar plan de pago» crea un link por cada cuota pendiente, con su importe y la fecha que pusiste. Cuando paga uno, se salda ESA cuota. «Copiar todos» te deja el mensaje para el alumno con todos los links.',
       },
       {
         donde: anclaje('links-lista'),
@@ -182,7 +189,11 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
         donde: anclaje('links-pantalla-crear'),
         permiso: 'links_pago.crear',
         titulo: 'Crear link de pago',
-        texto: 'Pulsa aquí. Buscas al prospecto, eliges a cuál de sus ventas va (o «sin venta todavía»), el curso y el importe. Si algo falta o no cuadra, el asistente te dice qué.',
+        texto: 'Pulsa aquí. Buscas al prospecto y eliges a cuál de sus ventas va: todo link va con su venta. Sale lo que le queda por pagar. Si no tiene ninguna venta, primero se registra la venta. Si algo falta o no cuadra, el asistente te dice qué.',
+      },
+      {
+        titulo: 'Al registrar la venta, sale solo',
+        texto: 'Lo más rápido: al registrar la venta («Convertir lead») deja marcado «Generar link de pago de Stripe». Si paga de una vez, un link por todo; si va a plazos, un link por cada cuota con su fecha, y si hay inicial, marca «La inicial se paga con link de pago» y lleva el suyo. Al terminar te los da todos para copiar.',
       },
       {
         donde: anclaje('links-pantalla-filtros'),
@@ -253,13 +264,18 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
     ],
     pasos: [
       {
-        titulo: 'Una factura emitida no se toca',
-        texto: 'Cuando una factura ya tiene número, no se borra ni se cambia: la serie tiene que quedar completa, sin saltos, como pide Hacienda. Si hay un error, se anula. Son {pasos} pasos.',
+        titulo: 'Corregir, anular o borrar una factura',
+        texto: 'Una factura con número se puede corregir (datos, concepto o fechas), anular o, si se emitió por error, borrar. Su número no cambia: la serie tiene que quedar completa, como pide Hacienda. Son {pasos} pasos.',
       },
       {
-        donde: anclaje('factura-bloqueada'),
-        titulo: 'Editar y borrar, apagados',
-        texto: 'Por eso en una factura emitida «Editar» y la papelera salen apagados. Pon el ratón encima y te dice por qué.',
+        donde: anclaje('factura-editar'),
+        titulo: 'Editar',
+        texto: '«Editar» abre la factura para corregir los datos del cliente, el concepto, el IVA o las fechas de emisión y de pago. El número se queda igual.',
+      },
+      {
+        donde: anclaje('factura-eliminar'),
+        titulo: 'Borrar, solo si se emitió por error',
+        texto: 'La papelera borra la factura. Úsala solo si se emitió por error (duplicada, a quien no era). Si la factura era buena y hay que deshacerla, anúlala: así queda su abono.',
       },
       {
         donde: anclaje('factura-anular'),

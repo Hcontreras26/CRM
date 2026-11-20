@@ -60,6 +60,8 @@ export default function PlanDePagoDialog({ conversionId, onClose }: { conversion
   const cuotas = plan?.cuotas || [];
   const auto = plan?.cobro_automatico;
   const autoActivo = !!auto?.activo;
+  // Lo que Stripe no puede cobrar de una cuota (fecha pasada, más de un año, menos de 0,50 €): se dice en la cuota.
+  const problemaDe = (id: number) => auto?.cuotas?.find((q) => Number(q.installment_id) === Number(id))?.problema || null;
   const puedeAuto = can('links_pago.cobro_automatico');
   // Con el cobro automático, solo la primera cuota lleva link (las demás las cobra Stripe).
   const sinLink = autoActivo ? [] : cuotas.filter((c) => !c.link_id);
@@ -174,7 +176,7 @@ export default function PlanDePagoDialog({ conversionId, onClose }: { conversion
                       <p className="text-xs text-muted-foreground">
                         Vence el {fecha(c.vence)}
                         {c.link_id ? ` · link n.º ${c.link_id} (${c.link_estado === 'abierto' ? 'abierto por el alumno' : 'sin pagar'})${c.link_guarda_tarjeta ? ' · guarda la tarjeta' : ''}`
-                          : autoActivo ? ' · la cobra Stripe sola' : ' · sin link todavía'}
+                          : autoActivo ? (problemaDe(c.id) ? ` · Stripe no la cobrará: ${problemaDe(c.id)}` : ' · la cobra Stripe sola') : ' · sin link todavía'}
                       </p>
                     </div>
                     {c.link_url ? (

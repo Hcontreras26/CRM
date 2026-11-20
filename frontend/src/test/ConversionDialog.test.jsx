@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // Mocks ANTES de import del componente
+// El diálogo pregunta si se pueden crear links de pago (19/11): aquí, no.
+vi.mock('@/shared/lib/linksPago', () => ({ useLinksPagoEncendidos: () => false, linksPagoEncendidos: () => false }));
+vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: () => false, llevaEquipo: false }) }));
 vi.mock('@/shared/components/ui/portal', () => ({
   default: ({ children }) => children,
 }));

@@ -7,9 +7,9 @@ import { decrypt } from '../../shared/utils/crypto.js';
 import { getLocal } from '../../shared/services/localStorage.service.js';
 import * as integrationsModel from '../integrations/integrations.model.js';
 import * as model from './invoices.model.js';
+import { alcanceDeFacturas } from './invoices.alcance.js';
 import { duplicadasDeLaCola, MOTIVO_EN_COLA } from './posible-duplicada.js';
 import { query } from '../../shared/config/db.js';
-import { alcanceComercial } from '../../shared/utils/roles.js';
 // La pausa de la auditoria de facturacion (#765). Apagada, no hace nada.
 import { exigirFacturacionActiva, pausaAbierta } from '../facturacion-auditoria/facturacion-auditoria.pausa.js';
 
@@ -942,7 +942,7 @@ export async function cobrarProforma(invoiceId, { importe, fecha, metodo, notas,
     throw new AppError('Solo quien gestiona la facturación puede pasar una proforma a factura.', 403, 'FORBIDDEN');
   }
   // Una gestora, las suyas; quien lleva un equipo comercial, las de su equipo.
-  const alcance = await alcanceComercial(user);
+  const alcance = await alcanceDeFacturas(user);
   if (alcance && !(await model.esProformaDe(alcance, invoiceId))) {
     throw new AppError('Solo puedes cobrar tus propias proformas.', 403, 'FORBIDDEN');
   }
