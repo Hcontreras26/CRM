@@ -21,6 +21,7 @@ const { errorHandler } = await import('../src/shared/middleware/errorHandler.js'
 const { gestorasACargo, alcanceComercial } = await import('../src/shared/utils/roles.js');
 const { construirAmbito } = await import('../src/modules/mcp/mcp.acceso.js');
 const { esFacturaQueGestiona } = await import('../src/modules/invoices/invoices.model.js');
+const { olvidarPermisos } = await import('../src/modules/permissions/permissions.service.js');
 const { HERRAMIENTAS } = await import('../src/modules/mcp/mcp.tools.js');
 const modulos = await Promise.all(['users', 'leads', 'conversions', 'sales', 'invoices']
   .map((m) => import(`../src/modules/${m}/index.js`).then((x) => x.default)));
@@ -278,14 +279,25 @@ describe('lo que ve cada una', () => {
     await expect(ver.ejecutar(ambito, { id: L2 })).rejects.toMatchObject({ code: 'MCP_NO_ENCONTRADO' });
   });
 
-  it('corregir y abonar facturas: la líder no, ni las de su equipo; una admin sin equipo, sí (Diego, 09/11)', async () => {
-    expect(await esFacturaQueGestiona(LIDER.id, 'admin', F1)).toBe(false);
+  it('corregir y abonar facturas: la líder sin acceso a facturación no, ni las de su equipo; una admin sin equipo, sí (Diego, 09/11)', async () => {
+    // Desde el 19/11/2026 quien tiene acceso a facturación («Poner número al
+    // cobrar», de serie en una admin) corrige cualquiera de sus campus: se le quita.
+    await q(`INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES ($1, 'facturas', 'emitir', false), ($1, 'facturas', 'gestionar', false)
+             ON CONFLICT (user_id, resource, action) DO UPDATE SET allowed = false`, [LIDER.id]);
+    olvidarPermisos();
+    try {
+      expect(await esFacturaQueGestiona(LIDER.id, 'admin', F1)).toBe(false);
+      const corregir = await request.patch(`/api/invoices/${F1}/corregir`).set(como(LIDER)).send({ cliente_nombre: 'Otro' });
+      expect(corregir.status).toBe(403);
+      const abonar = await request.post(`/api/invoices/${F1}/rectificar`).set(como(LIDER)).send({ motivo: 'prueba' });
+      expect(abonar.status).toBe(403);
+    } finally {
+      await q(`DELETE FROM user_permission_overrides WHERE user_id = $1 AND resource = 'facturas' AND action IN ('emitir', 'gestionar')`, [LIDER.id]);
+      olvidarPermisos();
+    }
+    expect(await esFacturaQueGestiona(LIDER.id, 'admin', F1)).toBe(true);
     expect(await esFacturaQueGestiona(ADMIN.id, 'admin', F1)).toBe(true);
     expect(await esFacturaQueGestiona(SUPER.id, 'superadmin', F1)).toBe(true);
-    const corregir = await request.patch(`/api/invoices/${F1}/corregir`).set(como(LIDER)).send({ cliente_nombre: 'Otro' });
-    expect(corregir.status).toBe(403);
-    const abonar = await request.post(`/api/invoices/${F1}/rectificar`).set(como(LIDER)).send({ motivo: 'prueba' });
-    expect(abonar.status).toBe(403);
     // La admin sin equipo pasa la puerta (lo que haga después ya no es cosa de esto).
     const admin = await request.patch(`/api/invoices/${F1}/corregir`).set(como(ADMIN)).send({ cliente_nombre: 'Cliente' });
     expect(admin.status).not.toBe(403);

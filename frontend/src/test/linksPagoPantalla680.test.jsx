@@ -142,11 +142,11 @@ describe('el asistente «Crear link de pago»', () => {
     fireEvent.change(within(dialogo).getByPlaceholderText(/Nombre, correo o teléfono/), { target: { value: 'ana' } });
     fireEvent.click(await within(dialogo).findByRole('button', { name: /Ana Pérez/ }));
 
-    // Sus dos ventas, con su programa, total y pendiente, y «sin venta todavía».
+    // Sus dos ventas, con su programa, total y pendiente. Sin «Sin venta todavía» (Diego, 19/11).
     const grupo = await within(dialogo).findByRole('radiogroup', { name: 'Venta del link' });
     expect(within(grupo).getByText(/Venta n.º 81/).textContent).toMatch(/pendiente\s*370,00/);
     expect(within(grupo).getByText(/Venta n.º 82/)).toBeTruthy();
-    expect(within(grupo).getByText('Sin venta todavía')).toBeTruthy();
+    expect(within(grupo).queryByText('Sin venta todavía')).toBeNull();
     expect(within(dialogo).getByText(/Elige a qué venta va el link/)).toBeTruthy();
     expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(true);
 
@@ -175,24 +175,23 @@ describe('el asistente «Crear link de pago»', () => {
     expect(within(dialogo).getByRole('button', { name: /Enviar por correo/ })).toBeTruthy();
   });
 
-  it('desde la ficha de un prospecto con UNA venta, sale ya elegida; «sin venta» manda el link sin venta', async () => {
+  it('desde la ficha de un prospecto con UNA venta, sale ya elegida; sin ventas, dice que se registre antes (Diego, 19/11)', async () => {
     ventas = [VENTA_B];
-    conRouter(<CrearLinkAsistente leadId={3} onClose={() => {}} />);
+    const { unmount } = conRouter(<CrearLinkAsistente leadId={3} onClose={() => {}} />);
     const dialogo = await screen.findByRole('dialog');
     const grupo = await within(dialogo).findByRole('radiogroup', { name: 'Venta del link' });
     await vi.waitFor(() => expect(within(grupo).getAllByRole('radio')[0].checked).toBe(true));
+    expect(within(grupo).getAllByRole('radio')).toHaveLength(1);
     await vi.waitFor(() => expect(within(dialogo).getByLabelText('Importe').value).toBe('600'));
+    unmount();
 
-    fireEvent.click(within(grupo).getAllByRole('radio')[1]); // Sin venta todavía
-    // Sin venta: el curso que le interesa y su precio de catálogo.
-    await vi.waitFor(() => expect(within(dialogo).getByLabelText('Curso').value).toBe('6'));
-    await vi.waitFor(() => expect(within(dialogo).getByLabelText('Importe').value).toBe('600'));
-    post.mockResolvedValue({ success: true, data: { ...LINK, conversion_id: null } });
-    await vi.waitFor(() => expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(false));
-    fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear link' }));
-    await vi.waitFor(() => expect(post).toHaveBeenCalledWith('/links-pago', {
-      leadId: 3, productId: 6, importe: 600, moneda: 'EUR', caducidad_dias: 7,
-    }));
+    ventas = [];
+    conRouter(<CrearLinkAsistente leadId={3} onClose={() => {}} />);
+    const otro = await screen.findByRole('dialog');
+    expect(await within(otro).findByText('Este prospecto no tiene ninguna venta')).toBeTruthy();
+    expect(within(otro).getByRole('button', { name: /Ir a su ficha para registrar la venta/ })).toBeTruthy();
+    expect(within(otro).queryByLabelText('Importe')).toBeNull();
+    expect(within(otro).getByRole('button', { name: 'Crear link' }).disabled).toBe(true);
   });
 
   it('desde la ficha de una venta, va a esa venta aunque el prospecto tenga más', async () => {
