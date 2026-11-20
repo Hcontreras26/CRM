@@ -108,7 +108,12 @@ export function crearPrecio(apiKey, { importe, moneda, nombre, metadata, idempot
  * (fase 3). `metadataDelCargo` (por defecto, la misma) es la del cargo: lleva
  * además la marca de plataforma si el campus comparte cuenta.
  */
-export function crearLink(apiKey, { priceId, metadata, metadataDelCargo = metadata, idempotencia, guardaTarjeta = null }) {
+/*
+ * `pedirTelefono` (link sin prospecto, 20/11): Checkout pide también el teléfono.
+ * Con el correo y el nombre, es lo que usa el CRM para encontrar o crear el
+ * prospecto al pagarse.
+ */
+export function crearLink(apiKey, { priceId, metadata, metadataDelCargo = metadata, idempotencia, guardaTarjeta = null, pedirTelefono = false }) {
   return llamar(apiKey, 'POST', '/v1/payment_links', {
     idempotencia,
     cuerpo: {
@@ -125,6 +130,7 @@ export function crearLink(apiKey, { priceId, metadata, metadataDelCargo = metada
         customer_creation: 'always',
         custom_text: { submit: { message: String(guardaTarjeta.consentimiento).slice(0, 1200) } },
       } : {}),
+      ...(pedirTelefono ? { phone_number_collection: { enabled: true } } : {}),
       restrictions: { completed_sessions: { limit: 1 } },
       inactive_message: MENSAJE_INACTIVO,
     },
