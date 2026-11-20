@@ -84,7 +84,8 @@ import BloquePlegable from '@/shared/components/ui/BloquePlegable';
 // y quien reparte es Make. Se cambio por el de abajo, que enseña lo que ha
 // pasado en vez de lo que va a pasar. El componente viejo sigue en el repo.
 import UltimoLeadAsignado from '../components/UltimoLeadAsignado';
-import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
+import LoQueTocaHoyYManana from '../components/LoQueTocaHoyYManana';
+import { useIdsDelAmbito, useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 
 
 function StatPill({ label, value, dot }: { label: string; value: number; dot?: string }) {
@@ -173,6 +174,18 @@ export default function LeadsPage() {
   } = useLeads();
 
   const { activeProject, projects, activeIssuerId } = useProjectContext();
+  /**
+   * El ámbito de «Lo que toca»: un campus, o los de la empresa.
+   *
+   * `-1` es «todos los proyectos», un valor interno del CRM: mandarlo pediría
+   * el proyecto número menos uno. Con una empresa puesta van sus campus, que
+   * es lo que el servidor sabe sumar.
+   */
+  const idsDelAmbito = useIdsDelAmbito();
+  const proyectoDeLaCola = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
+  const campusCsv = !proyectoDeLaCola && activeIssuerId && idsDelAmbito.length
+    ? idsDelAmbito.join(',')
+    : null;
   // Los campus que ofrece el filtro «Proyecto» y el export: los de la empresa
   // elegida arriba, o todos los suyos sin los de pruebas (#346). Antes era la
   // lista entera: con CEDIA salían ICTESS, Academia IA y Pruebas.
@@ -760,9 +773,8 @@ export default function LeadsPage() {
               conversión del mes. */}
           <ComoVoy compacto />
 
-          {/* «Lo que toca hoy y mañana» (la cola del día) ya no sale aquí: se
-              queda en el Dashboard, una sola vez en el CRM (#534). La cola, el
-              seguimiento y el proceso siguen en el menú de Prospectos. */}
+          {/* «Lo que toca hoy y mañana» no va aquí: se queda en la pestaña
+              «Lista», debajo de la tabla (Diego, 18/11, PR #883). */}
 
           {/* Las cifras: que pasa. Pulsar una filtra la lista y lleva a ella. */}
           <CifrasProspectos
@@ -1296,6 +1308,12 @@ export default function LeadsPage() {
           </div>
         )}
       </div>
+
+      {/* LO QUE TOCA, HOY Y MAÑANA. Diego, 18/11 (PR #883): se queda en
+          Prospectos, debajo de la lista, que ahora abre primero; y separado en
+          «Hoy» y «Mañana», cada uno con su número. Es la misma cola del
+          Dashboard: los números y las personas salen del servidor. */}
+      <LoQueTocaHoyYManana projectId={proyectoDeLaCola} projectIds={campusCsv} onAbrir={(id) => setDrawerLeadId(id)} />
 
       </div>
       {/* /LA LISTA */}

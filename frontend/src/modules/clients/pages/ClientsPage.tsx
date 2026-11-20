@@ -13,6 +13,7 @@ import useUrlFilters from '@/shared/hooks/useUrlFilters';
 // columnas DATE en crudo, así que le pasaba a toda la columna «Última compra».
 import { formatRelative, formatFecha as fmtFecha } from '@/shared/lib/fechas';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import ComoVoy from '@/modules/reports/components/ComoVoy';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import ClientsFiltersBar from '../components/ClientsFiltersBar';
@@ -365,8 +366,9 @@ export default function ClientsPage() {
         ) : null}
       />
 
-      {/* Aquí estaba el ranking (ComoVoy). Sale una sola vez en el CRM: en el
-          Dashboard y en la pestaña «Equipo» de Prospectos (#534, parte 4). */}
+      {/* La misma tarjeta que en Prospectos: aquí se mira lo que ya se cerró,
+          y el porcentaje de cierre es justo lo que explica esta lista. */}
+      <ComoVoy compacto />
 
       <Suspense fallback={null}>
         <RegisterSaleDialog

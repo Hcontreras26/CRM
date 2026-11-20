@@ -9,8 +9,9 @@ import path from 'node:path';
  * gestora, el ranking, «Lo que toca» y las cifras. Ahora:
  *   · pestañas «Lista» (la de entrada) y «Equipo»;
  *   · en «Equipo»: último lead, ranking, cifras y el resumen del día;
- *   · «Lo que toca hoy y mañana» se queda solo en el Dashboard;
- *   · el ranking (ComoVoy) sale de Clientes.
+ *   · Diego, 18/11 (PR #883): «Lo que toca hoy y mañana» SE QUEDA en
+ *     Prospectos, debajo de la lista, separado en «Hoy» y «Mañana» con su
+ *     número; y el ranking SE QUEDA en Clientes.
  *
  * Como las demás pruebas de estas pantallas (#346, equipo comercial), se mira la
  * fuente: montar LeadsPage entera pide medio CRM de dobles.
@@ -59,16 +60,26 @@ describe('Prospectos: la lista primero, los paneles en «Equipo»', () => {
   });
 });
 
-describe('«Lo que toca» y el ranking, una sola vez en el CRM', () => {
-  it('«Lo que toca hoy y mañana» ya no está en Prospectos, sí en el Dashboard', () => {
-    expect(prospectos).not.toMatch(/ParaHoyYManana/);
+describe('«Lo que toca» y el ranking se quedan (Diego, 18/11, PR #883)', () => {
+  it('«Lo que toca hoy y mañana» sigue en Prospectos, debajo de la lista y dentro de «Lista»', () => {
+    const lista = devuelve.indexOf("hidden={vista !== 'lista'}");
+    const tabla = devuelve.indexOf('id="lista-de-prospectos"');
+    const toca = devuelve.indexOf('<LoQueTocaHoyYManana');
+    const finLista = devuelve.indexOf('{/* /LA LISTA */}');
+    expect(toca, 'no está en Prospectos').toBeGreaterThan(0);
+    expect(toca).toBeGreaterThan(tabla);
+    expect(toca).toBeGreaterThan(lista);
+    expect(toca).toBeLessThan(finLista);
+    // Una sola vez, y con el ámbito de arriba (campus o empresa).
+    expect(devuelve.indexOf('<LoQueTocaHoyYManana', toca + 1)).toBe(-1);
+    expect(devuelve).toMatch(/<LoQueTocaHoyYManana projectId=\{proyectoDeLaCola\} projectIds=\{campusCsv\}/);
+    // El Dashboard conserva el suyo.
     expect(leer('shared/pages/DashboardPage.jsx')).toMatch(/<ParaHoyYManana/);
   });
 
-  it('el ranking sale de Clientes', () => {
+  it('el ranking se queda en Clientes', () => {
     const clientes = leer('modules/clients/pages/ClientsPage.tsx');
-    expect(clientes).not.toMatch(/<ComoVoy/);
-    expect(clientes).not.toMatch(/import ComoVoy/);
-    expect(leer('shared/pages/DashboardPage.jsx')).toMatch(/<ComoVoy/);
+    expect(clientes).toMatch(/import ComoVoy/);
+    expect(clientes).toMatch(/<ComoVoy compacto \/>/);
   });
 });
