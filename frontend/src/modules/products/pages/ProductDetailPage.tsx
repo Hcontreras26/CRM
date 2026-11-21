@@ -173,14 +173,18 @@ export default function ProductDetailPage() {
   const projectId = activeProject?.id;
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  // Solo un entero positivo es un producto (gemela de CRM-ISEIE#653): con otra
+  // palabra en la dirección se pedía `GET /api/products/NaN`.
+  const idValido = /^[1-9]\d*$/.test(String(id || ''));
 
   useEffect(() => {
     if (!projectId || !id) return;
+    if (!idValido) { setProduct(null); setLoading(false); return; }
     setLoading(true);
     getProduct(Number(id), projectId)
       .then((p: any) => setProduct(p))
       .finally(() => setLoading(false));
-  }, [id, projectId]);
+  }, [id, idValido, projectId]);
 
   if (!projectId) return <div className="p-8 text-center text-muted-foreground">Selecciona un proyecto.</div>;
   if (loading) return <div className="p-8 text-muted-foreground">Cargando producto...</div>;
