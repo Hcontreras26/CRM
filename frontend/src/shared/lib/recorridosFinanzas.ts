@@ -1,8 +1,8 @@
 import type { RecorridoCobros } from '@/shared/lib/recorridosCobros';
 
 /**
- * LOS RECORRIDOS DEL BLOQUE FINANZAS (#941, segunda tanda; Diego, 19/11: «las
- * que son así, dáselas a Ángel CEDIA»).
+ * LOS RECORRIDOS DEL BLOQUE FINANZAS (#941; Diego, 19/11: «las que son así,
+ * dáselas a Ángel CEDIA»).
  *
  * El mismo modelo que `recorridosCobros.ts` (de donde se registran: allí se
  * suman a `RECORRIDOS_COBROS`, y así `VerRecorrido` y las pruebas de siempre los
@@ -12,12 +12,20 @@ import type { RecorridoCobros } from '@/shared/lib/recorridosCobros';
  *  · Cada paso apunta a un `data-recorrido` de su pantalla; lo que no está en ese
  *    momento (una tarjeta sin datos, la vista de calendario estando en la lista,
  *    un aviso sin nada que avisar) se salta solo.
- *  · El permiso de cada recorrido es el de la pantalla en el menú lateral.
+ *  · El permiso de cada recorrido es el de la pantalla en el menú lateral. Sin
+ *    formación y Análisis de ventas no están en él (son pestañas de Finanzas):
+ *    llevan el permiso que pide el servidor para sus datos, `ventas.view_equipo`.
  *  · La primera tanda (#963) trajo Dashboard, Ingresos, Conversiones y Egresos;
- *    la segunda, Cuentas por cobrar, Cuentas por pagar, Comisiones y Comisiones
- *    de tutores. El resto de Finanzas va en otra PR.
- *  · Cuentas por cobrar es la misma pantalla que en CRM-ISEIE (#635): mismo id,
- *    mismos anclajes y mismos textos.
+ *    la segunda (#966), Cuentas por cobrar, Cuentas por pagar, Comisiones y
+ *    Comisiones de tutores; la tercera, la última, Nóminas, Pendientes de
+ *    facturar, Sin formación y Análisis de ventas.
+ *  · Cuentas por cobrar y Nóminas son la misma pantalla que en CRM-ISEIE (#635 y
+ *    #636): mismo id, mismos anclajes y mismos textos. Nóminas tiene aquí un
+ *    paso más, el aviso de «elige un campus», porque aquí hay empresas.
+ *  · Pendientes de facturar, Sin formación y Análisis de ventas, iguales que los
+ *    de CRM-ISEIE#619 (tercera tanda): mismos ids, anclajes y pasos. Análisis de
+ *    ventas dice aquí «el campus o la empresa» y nombra el filtro de ventas
+ *    compartidas, que ISEIE no tiene.
  *  · Fuera, a propósito: Facturación, Links de pago, Pagos Stripe, Disputas,
  *    Integraciones y Conciliación (los hacen Diego y Claude) y Ventas (#955).
  *
@@ -33,7 +41,11 @@ export type IdRecorridoFinanzas =
   | 'por-cobrar'
   | 'por-pagar'
   | 'comisiones'
-  | 'comisiones-tutores';
+  | 'comisiones-tutores'
+  | 'nominas'
+  | 'pendientes-facturar'
+  | 'ventas-sin-formacion'
+  | 'analisis-ventas';
 
 type RecorridoFinanzas = Omit<RecorridoCobros, 'id'> & { id: IdRecorridoFinanzas };
 
@@ -42,7 +54,8 @@ const anclaje = (nombre: string) => `[data-recorrido="${nombre}"]`;
 const FINAL = 'No volverá a salir solo. Para repasarlo, pulsa «Ver recorrido» en esta pantalla cuando quieras.';
 
 /** En el orden de la issue: Dashboard, Ingresos, Conversiones, Egresos, Cuentas
- *  por cobrar, Cuentas por pagar, Comisiones y Comisiones de tutores. */
+ *  por cobrar, Cuentas por pagar, Comisiones, Comisiones de tutores, Nóminas,
+ *  Pendientes de facturar, Sin formación y Análisis de ventas. */
 export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas> = {
   // ─── Finanzas › Dashboard ──────────────────────────────────────────────────
   'finanzas-dashboard': {
@@ -377,6 +390,156 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
         titulo: 'Pagar y avisar',
         texto: '«Marcar pagado» apunta como pagado lo de ese mes. «Avisar tutor» te enseña antes el correo con su cuenta, y puedes retocarlo antes de mandarlo.',
         permiso: ['tutores.liquidar', 'tutores.avisar'],
+      },
+      { titulo: 'Y listo', texto: FINAL },
+    ],
+  },
+  // ─── Finanzas › Nóminas (igual que CRM-ISEIE#636, más «elige un campus») ───
+  nominas: {
+    id: 'nominas',
+    titulo: 'Nóminas',
+    permiso: 'payroll.view',
+    pantalla: ['modules/payroll/pages/PayrollPage.tsx'],
+    pasos: [
+      {
+        titulo: 'Las nóminas',
+        texto: 'Lo que cobra cada persona del equipo: su plan (fijo, por horas o con comisiones), la nómina de cada mes y las horas. Son {pasos} pasos.',
+      },
+      {
+        donde: anclaje('nominas-pestanas'),
+        titulo: 'Las pestañas',
+        texto: '«Planes»: cuánto cobra cada uno. «Periodos»: la nómina de cada mes, que se genera, se cierra y se paga. «Horas»: las que se apuntan de quien cobra por horas.',
+      },
+      {
+        donde: anclaje('nominas-elige-campus'),
+        titulo: 'Con una empresa elegida',
+        texto: 'Ves los campus juntos, pero una nómina es de un campus: para crear algo, elige uno en el selector de arriba.',
+      },
+      {
+        donde: anclaje('nominas-planes'),
+        titulo: 'Los planes',
+        texto: 'Cada persona con su fijo al mes, su precio por hora y si cobra comisiones. «Editar» lo cambia; «Eliminar» quita el plan.',
+      },
+      {
+        donde: anclaje('nominas-anadir'),
+        titulo: 'Añadir un plan',
+        texto: 'Elige a alguien que todavía no tiene plan para ponerle el suyo.',
+        permiso: 'payroll.edit',
+      },
+      { titulo: 'Y listo', texto: FINAL },
+    ],
+  },
+
+  // ─── Finanzas › Pendientes de facturar ─────────────────────────────────────
+  'pendientes-facturar': {
+    id: 'pendientes-facturar',
+    titulo: 'Pendientes de facturar',
+    permiso: 'facturas.view',
+    pantalla: ['modules/accounting/pages/PendienteFacturarPage.tsx'],
+    pasos: [
+      {
+        titulo: 'Ventas sin importe',
+        texto: 'Ventas registradas sin precio. Mientras no lo tengan, no llegan a Facturación ni cuentan en las cifras. Son {pasos} pasos.',
+      },
+      {
+        donde: anclaje('pendientes-aviso'),
+        titulo: 'Por qué están aquí',
+        texto: 'El prospecto se marcó como convertido sin apuntar el importe de la venta. Hay que completarlo a mano.',
+      },
+      {
+        donde: anclaje('pendientes-cuantas'),
+        titulo: 'Cuántas son',
+        texto: 'Las ventas sin importe del campus o la empresa elegidos arriba. Cada una que completas sale de la lista.',
+      },
+      {
+        donde: anclaje('pendientes-lista'),
+        titulo: 'La lista',
+        texto: 'Cada venta con su cliente, programa, fecha e importe actual. «Completar» abre la venta para poner el importe, lo pagado y el método de pago; el nombre abre la ficha.',
+      },
+      {
+        donde: anclaje('pendientes-paginas'),
+        titulo: 'Más páginas',
+        texto: 'Si son muchas, van por páginas: «Anterior» y «Siguiente».',
+      },
+      { titulo: 'Y listo', texto: FINAL },
+    ],
+  },
+
+  // ─── Finanzas › Sin formación ──────────────────────────────────────────────
+  'ventas-sin-formacion': {
+    id: 'ventas-sin-formacion',
+    titulo: 'Ventas sin formación',
+    permiso: 'ventas.view_equipo',
+    pantalla: ['modules/sales/pages/VentasSinFormacionPage.tsx'],
+    pasos: [
+      {
+        titulo: 'Ventas sin formación',
+        texto: 'Ventas cobradas que no dicen de qué curso del catálogo son. Sin eso, su profesor no cobra comisión. Son {pasos} pasos.',
+      },
+      {
+        donde: anclaje('sinformacion-tarjetas'),
+        titulo: 'Las tarjetas',
+        texto: 'Cuántas son y lo cobrado de ellas, cuántas se pueden cruzar (su texto coincide con un curso) y cuántas hay que mirar a mano.',
+      },
+      {
+        donde: anclaje('sinformacion-aviso'),
+        titulo: 'Por qué importa',
+        texto: 'Mientras una venta no tenga formación, en los informes sale como «servicio académico» y nadie cobra comisión por ella.',
+      },
+      {
+        donde: anclaje('sinformacion-lista'),
+        titulo: 'La lista',
+        texto: 'Cada venta con lo que dice y la formación propuesta. «Atar» la une a esa formación, tras confirmarlo; «Abrir» lleva a la venta para elegirla a mano.',
+      },
+      {
+        donde: anclaje('sinformacion-a-mano'),
+        titulo: 'Sin candidato único',
+        texto: 'Las que no dicen nada o encajan con más de un curso: no se puede adivinar cuál es, hay que revisarlas una a una.',
+      },
+      { titulo: 'Y listo', texto: FINAL },
+    ],
+  },
+
+  // ─── Finanzas › Análisis de ventas ─────────────────────────────────────────
+  'analisis-ventas': {
+    id: 'analisis-ventas',
+    titulo: 'Análisis de ventas',
+    permiso: 'ventas.view_equipo',
+    pantalla: ['modules/sales/pages/SalesAnalysisPage.tsx'],
+    pasos: [
+      {
+        titulo: 'Análisis de ventas',
+        texto: 'Las ventas del campus o la empresa elegidos arriba, de tres maneras: un resumen, por asesora y por cliente. Son {pasos} pasos.',
+      },
+      {
+        donde: anclaje('analisis-filtros'),
+        titulo: 'Los filtros',
+        texto: 'Valen para las tres vistas: fechas (con atajos como «Este mes»), ventas compartidas o enteras, y una búsqueda por cliente, email o programa. «Quitar filtros» los quita todos.',
+      },
+      {
+        donde: anclaje('analisis-vistas'),
+        titulo: 'Tres vistas',
+        texto: '«Resumen», «Por asesora» y «Por cliente». Cambia aquí: los filtros se mantienen.',
+      },
+      {
+        donde: anclaje('analisis-tarjetas'),
+        titulo: 'El resumen',
+        texto: 'Ventas y clientes, importe vendido y ticket medio, lo cobrado (y cuántas están liquidadas) y lo que queda por cobrar.',
+      },
+      {
+        donde: anclaje('analisis-cobrado-de-mas'),
+        titulo: 'Cobrado de más',
+        texto: 'Ventas con más cobrado que su importe. Suele ser un cobro repetido o un importe mal puesto: hay que revisarlas una a una.',
+      },
+      {
+        donde: anclaje('analisis-fraccionado'),
+        titulo: 'Cobro fraccionado',
+        texto: 'Las ventas a plazos: cuotas cobradas y pendientes, lo que queda por cobrar y lo vencido.',
+      },
+      {
+        donde: anclaje('analisis-tabla'),
+        titulo: 'Por asesora o por cliente',
+        texto: 'Por asesora: lo vendido, cobrado y pendiente de cada una. Por cliente: lo de cada cliente, con sus cuotas; pulsa uno para abrir su ficha.',
       },
       { titulo: 'Y listo', texto: FINAL },
     ],

@@ -10,11 +10,12 @@ import path from 'path';
   #941, segunda tanda (Diego, 19/11): «Ver recorrido» en el bloque Finanzas, en
   el orden de la issue. La primera tanda trajo Dashboard, Ingresos, Conversiones
   y Egresos; la segunda, Cuentas por cobrar, Cuentas por pagar, Comisiones y
-  Comisiones de tutores. Cada pantalla tiene el suyo, con el permiso de la
-  pantalla, y sale solo la primera vez.
+  Comisiones de tutores; la tercera, la última, Nóminas, Pendientes de
+  facturar, Sin formación y Análisis de ventas. Cada pantalla tiene el suyo,
+  con el permiso de la pantalla, y sale solo la primera vez.
 
-  Se comprueba que están los ocho, que cada pantalla ofrece el suyo, y se
-  pintan las ocho de verdad con datos en los que sale todo para recorrerlas
+  Se comprueba que están los doce, que cada pantalla ofrece el suyo, y se
+  pintan las doce de verdad con datos en los que sale todo para recorrerlas
   enteras sin saltarse ningún paso. Que cada anclaje sigue en el código de su
   pantalla y que los permisos existen lo comprueba `recorridosCobros.test.jsx`
   (estos se suman a `RECORRIDOS_COBROS`); que el cartel cabe a 375 px, paso a
@@ -44,6 +45,10 @@ const { default: ReceivablePage } = await import('@/modules/accounting/pages/Rec
 const { default: AccountsPayablePage } = await import('@/modules/accounting/pages/AccountsPayablePage');
 const { default: CommissionsPage } = await import('@/modules/commissions/pages/CommissionsPage');
 const { default: ComisionesTutoresPage } = await import('@/modules/tutores/pages/ComisionesTutoresPage');
+const { default: PayrollPage } = await import('@/modules/payroll/pages/PayrollPage');
+const { default: PendienteFacturarPage } = await import('@/modules/accounting/pages/PendienteFacturarPage');
+const { default: VentasSinFormacionPage } = await import('@/modules/sales/pages/VentasSinFormacionPage');
+const { default: SalesAnalysisPage } = await import('@/modules/sales/pages/SalesAnalysisPage');
 
 const SRC = path.resolve(__dirname, '..');
 const n0 = { n: 0, importe: 0 };
@@ -119,7 +124,60 @@ const RESPUESTAS = {
   '/tutores/comisiones': { success: true, data: [] },
   '/tutores/ajustes': { success: true, data: { aplica_desde: '2026-01-01', pct_por_defecto: 10 } },
   '/tutores/pagos-sin-formacion': { success: true, data: [{ venta: 12, alumno: 'Pepe Alumno', importe: 100 }] },
+  // Tercera tanda.
+  '/payroll/plans': {
+    success: true,
+    data: [{ id: 1, user_id: 41, user_nombre: 'Marta', user_email: 'marta@example.com', modo_fijo: 1200, modo_horas: '', modo_comisiones: true, active: true }],
+  },
+  '/ventas/sin-formacion': {
+    success: true,
+    data: {
+      filas: [
+        { id: 12, fecha: HOY, alumno: 'Pepe Alumno', alumnoEmail: null, texto: 'Máster en Psicología', importe: 100, cobrado: 100, sugerencia: { id: 3, nombre: 'Máster en Psicología' } },
+        { id: 13, fecha: HOY, alumno: 'Eva Alumna', alumnoEmail: null, texto: null, importe: 80, cobrado: 80, sugerencia: null },
+      ],
+      total: 2, conSugerencia: 1, sinTexto: 1, importe: 180, cobrado: 180,
+    },
+  },
+  '/ventas/resumen': {
+    success: true,
+    data: {
+      ventas: 3, clientes: 2, asesoras: 1, importe: 3000, cobrado: 3100, pendiente: 400,
+      liquidadas: 1, con_saldo: 1, ticket_medio: 1000,
+      cobrado_de_mas: { ventas: 1, importe: 500 },
+      cuotas: { ventas_con_plan: 1, total: 4, cobradas: 2, pendientes: 2, vencidas: 1, importe_pendiente: 400, importe_vencido: 200 },
+    },
+  },
+  '/ventas/por-asesora': {
+    success: true,
+    data: [{ user_id: 41, nombre: 'Marta Asesora', email: null, role: 'gestor', ventas: 3, clientes: 2, importe: 3000, cobrado: 3100, pendiente: 400, ticket_medio: 1000, ultima_venta: HOY }],
+  },
+  '/ventas/por-cliente': {
+    success: true,
+    data: [{
+      lead_id: 7, cliente: 'Carla Cliente', email: null, telefono: null, ventas: 2, importe: 2000, cobrado: 1600, pendiente: 400,
+      primera_venta: HOY, ultima_venta: HOY, cuotas_pendientes: 2, cuotas_vencidas: 1, cuotas_importe_pendiente: 400, asesoras: 'Marta Asesora',
+    }],
+    pagination: { total: 1 },
+  },
 };
+
+/** Pendientes de facturar pide /conversions con `pendingBilling`: ventas sin
+ *  importe, y más de una página (50) para que salga «Más páginas». */
+const SIN_IMPORTE = {
+  success: true,
+  data: [{ id: 21, lead_id: 6, lead_nombre: 'Luis Sinprecio', producto_contratado: 'Experto', importe_total: 0, importe_pagado: 0, fecha_conversion: HOY }],
+  pagination: { total: 60 },
+};
+/** Nóminas pide /users?incluirTodos=true y espera la lista tal cual. */
+const USUARIOS_NOMINAS = { success: true, data: [{ id: 41, nombre: 'Marta' }, { id: 42, nombre: 'Rosa Sinplan' }] };
+
+function responder(url) {
+  const u = String(url);
+  if (ruta(u) === '/conversions' && u.includes('pendingBilling=true')) return SIN_IMPORTE;
+  if (ruta(u) === '/users' && u.includes('incluirTodos=true')) return USUARIOS_NOMINAS;
+  return RESPUESTAS[ruta(u)] ?? { success: true, data: null };
+}
 
 const ruta = (url) => String(url).split('?')[0];
 
@@ -152,15 +210,16 @@ beforeEach(() => {
     switchProject: vi.fn(), switchIssuer: vi.fn(),
   };
   api.get.mockReset();
-  api.get.mockImplementation(async (url) => RESPUESTAS[ruta(url)] ?? { success: true, data: null });
+  api.get.mockImplementation(async (url) => responder(url));
 });
 afterEach(() => cleanup());
 
 describe('los recorridos del bloque Finanzas (#941)', () => {
-  it('son los ocho de las dos tandas, en el orden de la issue, y están registrados con los demás', () => {
+  it('son los doce de las tres tandas, en el orden de la issue, y están registrados con los demás', () => {
     expect(Object.keys(RECORRIDOS_FINANZAS)).toEqual([
       'finanzas-dashboard', 'ingresos', 'conversiones', 'egresos',
       'por-cobrar', 'por-pagar', 'comisiones', 'comisiones-tutores',
+      'nominas', 'pendientes-facturar', 'ventas-sin-formacion', 'analisis-ventas',
     ]);
     for (const id of Object.keys(RECORRIDOS_FINANZAS)) expect(RECORRIDOS_COBROS[id]).toBe(RECORRIDOS_FINANZAS[id]);
     // Fuera, a propósito: lo de Diego y Claude, y Ventas, que ya estaba.
@@ -194,6 +253,12 @@ describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', ()
     ['por-pagar', AccountsPayablePage, {}, ['accounts_payable.view', 'accounts_payable.create'], 'Proveedor de prueba', []],
     ['comisiones', CommissionsPage, {}, ['commissions.view', 'commissions.reglas', 'commissions.pagar'], 'Ana Pérez', []],
     ['comisiones-tutores', ComisionesTutoresPage, {}, ['tutores.gestionar', 'tutores.liquidar', 'tutores.avisar'], 'Luis Tutor', []],
+    // Con una empresa elegida, para que salga también «elige un campus».
+    ['nominas', PayrollPage, {}, ['payroll.view', 'payroll.edit'], 'marta@example.com', []],
+    ['pendientes-facturar', PendienteFacturarPage, {}, ['facturas.view'], 'Luis Sinprecio', []],
+    ['ventas-sin-formacion', VentasSinFormacionPage, {}, ['ventas.view_equipo'], 'Eva Alumna', []],
+    // Abre en el resumen: la tabla de «Por asesora» y «Por cliente» no está y su paso se salta.
+    ['analisis-ventas', SalesAnalysisPage, {}, ['ventas.view_equipo'], 'Cobro fraccionado', ['Por asesora o por cliente']],
   ];
 
   it.each(CASOS)('%s: sale solo la primera vez y pasa por todos sus pasos', async (id, Pantalla, props, conPermisos, cargada, saltados) => {
@@ -202,6 +267,13 @@ describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', ()
     // Con una empresa elegida, Ingresos enseña además el reparto «Por proyecto».
     if (id === 'ingresos') {
       ambito.current = { ...ambito.current, activeIssuer: { id: 3, nombre: 'Empresa de prueba' }, activeIssuerId: 3 };
+    }
+    if (id === 'nominas') {
+      ambito.current = {
+        ...ambito.current,
+        activeProject: { id: -1, nombre: 'Empresa de prueba' },
+        activeIssuer: { id: 3, nombre: 'Empresa de prueba' }, activeIssuerId: 3,
+      };
     }
     pintar(Pantalla, props);
     await screen.findAllByText(cargada, {}, { timeout: 5000 });
@@ -259,6 +331,52 @@ describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', ()
     const vistos = recorrer(RECORRIDOS_FINANZAS['comisiones-tutores'].pasos.length);
     expect(vistos).not.toContain('Pagar y avisar');
     expect(vistos).toContain('Los tutores');
+  });
+
+  it('Nóminas con un campus: no hay aviso de «elige un campus» y ese paso se salta', async () => {
+    permisos.add('payroll.view');
+    pintar(PayrollPage);
+    await screen.findAllByText('marta@example.com', {}, { timeout: 5000 });
+    await screen.findByRole('dialog', { name: 'Las nóminas' }, { timeout: 3000 });
+    const vistos = recorrer(RECORRIDOS_FINANZAS.nominas.pasos.length);
+    expect(vistos).not.toContain('Con una empresa elegida');
+    // Sin `payroll.edit`, tampoco «Añadir un plan».
+    expect(vistos).not.toContain('Añadir un plan');
+    expect(vistos).toEqual(['Las nóminas', 'Las pestañas', 'Los planes', 'Y listo']);
+  });
+
+  it.each([
+    ['Por asesora', 'Marta Asesora'],
+    ['Por cliente', 'Carla Cliente'],
+  ])('Análisis de ventas en «%s»: señala la tabla y se salta lo que es del resumen', async (vista, nombre) => {
+    permisos.add('ventas.view_equipo');
+    localStorage.setItem(claveRecorrido('analisis-ventas', 41), '1');
+    pintar(SalesAnalysisPage);
+    await screen.findAllByText('Cobro fraccionado', {}, { timeout: 5000 });
+    // En el resumen no hay tabla: «Por asesora o por cliente» no tiene dónde ir.
+    expect(document.querySelector('[data-recorrido="analisis-tabla"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(vista) }));
+    await screen.findAllByText(nombre, {}, { timeout: 5000 });
+    expect(document.querySelectorAll('[data-recorrido="analisis-tabla"]')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Ver recorrido: Análisis de ventas' }));
+    const fuera = ['El resumen', 'Cobrado de más', 'Cobro fraccionado'];
+    const titulos = RECORRIDOS_FINANZAS['analisis-ventas'].pasos.map((p) => p.titulo).filter((t) => !fuera.includes(t));
+    expect(titulos).toContain('Por asesora o por cliente');
+    expect(recorrer(titulos.length)).toEqual(titulos);
+  });
+
+  it('Pendientes de facturar: «Cuántas son» va aparte y «La lista» envuelve la tabla y las tarjetas, no las páginas', async () => {
+    permisos.add('facturas.view');
+    localStorage.setItem(claveRecorrido('pendientes-facturar', 41), '1');
+    pintar(PendienteFacturarPage);
+    await screen.findAllByText('Luis Sinprecio', {}, { timeout: 5000 });
+    const lista = document.querySelector('[data-recorrido="pendientes-lista"]');
+    const cuantas = document.querySelector('[data-recorrido="pendientes-cuantas"]');
+    expect(cuantas.textContent).toContain('60');
+    expect(lista.contains(cuantas)).toBe(false);
+    expect(lista.contains(document.querySelector('[data-recorrido="pendientes-paginas"]'))).toBe(false);
+    expect(lista.querySelector('table')).not.toBeNull();
+    expect(within(lista).getAllByText('Luis Sinprecio')).toHaveLength(2); // tabla (PC) y tarjeta (móvil)
   });
 
   it('ya visto, no vuelve a salir solo', async () => {
