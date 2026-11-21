@@ -741,8 +741,8 @@ const SIN_TOCAR = `(${ULTIMO_CONTACTO} IS NULL AND l.status IN ('nuevo', 'por_co
   Asi que un «convertido» sin ninguna venta sigue siendo prospecto: sale en la
   lista, con su estado, para que alguien lo vea y lo arregle.
 */
-const NO_ES_CLIENTE = `(l.status <> 'convertido'
-     OR NOT EXISTS (SELECT 1 FROM conversions cx WHERE cx.lead_id = l.id))`;
+const NO_ES_CLIENTE = (a = 'l') => `(${a}.status <> 'convertido'
+     OR NOT EXISTS (SELECT 1 FROM conversions cx WHERE cx.lead_id = ${a}.id))`;
 
 /**
  * «Sin revisar este mes» (#132, el repaso de fin de mes).
@@ -875,7 +875,7 @@ export async function findAll({ projectId, projectIds, status, seguimiento, paso
     conditions.push(`l.status = $${paramIdx++}`);
     params.push(status);
   } else if (!includeConverted && !conConversion) {
-    conditions.push(NO_ES_CLIENTE);
+    conditions.push(NO_ES_CLIENTE());
   }
   // POR QUE SEGUIMIENTO VA (#100).
   //
@@ -1127,7 +1127,7 @@ export async function contarFiltrosRapidos({ projectId, projectIds, responsableI
     params.push(comoIds(responsableId));
   }
   // Igual que el listado: los convertidos no cuentan salvo que se pidan.
-  if (!includeConverted) cond.push(NO_ES_CLIENTE);
+ if (!includeConverted) cond.push(NO_ES_CLIENTE());
 
   const cuenta = (clave) => `COUNT(*) FILTER (WHERE ${FILTROS_RAPIDOS[clave]})::int`;
   const { rows } = await query(
@@ -1157,7 +1157,7 @@ export async function comoVaLaRevision({ projectId, responsableId }) {
   if (!(await sePuedeRevisar())) {
     return { disponible: false, total: 0, revisadas: 0, pendientes: 0 };
   }
-  const cond = ['l.deleted_at IS NULL', NO_ES_CLIENTE];
+  const cond = ['l.deleted_at IS NULL', NO_ES_CLIENTE()];
   const params = [];
   let i = 1;
   if (projectId) { cond.push(`l.project_id = $${i++}`); params.push(projectId); }
@@ -1631,7 +1631,7 @@ export async function getStats(projectId, { responsableId = null, dateFrom = nul
        COUNT(*) FILTER (WHERE status = 'proxima_convocatoria') as proxima_convocatoria,
        -- La misma condición que el filtro «Sin gestora» de Prospectos (#534).
        COUNT(*) FILTER (WHERE ${SIN_GESTORA('leads')}) as sin_asignar
-     FROM leads WHERE project_id = ANY($1::int[]) AND deleted_at IS NULL${where}`,
+     FROM leads WHERE project_id = ANY($1::int[]) AND deleted_at IS NULL AND ${NO_ES_CLIENTE('leads')}${where}`,
     params
   );
   return rows[0];
