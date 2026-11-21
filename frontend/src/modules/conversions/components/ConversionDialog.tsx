@@ -14,6 +14,11 @@ import { toast } from '@/shared/hooks/useToast';
 import { avisoDeLoQueFalta, numerosMalEscritos, type Falta } from '@/shared/lib/loQueFalta';
 import { useEscapeKey } from '@/shared/hooks/useDialogA11y';
 import VentaYaExisteAviso, { ventaYaExistente, type VentaExistente } from './VentaYaExisteAviso';
+import usePermission from '@/shared/hooks/usePermission';
+import { useLinksPagoEncendidos } from '@/shared/lib/linksPago';
+import { crearLink, generarPlan } from '@/modules/links-pago/api/linksPago.api';
+import { errorDe } from '@/modules/links-pago/components/CrearLinkAsistente';
+import LinksRecienCreados, { type ResultadoLinks } from '@/modules/links-pago/components/LinksRecienCreados';
 
 const FiscalDataDialog = lazy(() => import('@/modules/invoices/components/FiscalDataDialog'));
 const EmitirBorradorDialog = lazy(() => import('@/modules/invoices/components/EmitirBorradorDialog'));
@@ -158,6 +163,16 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
   const [selectedLinkIdx, setSelectedLinkIdx] = useState<string>('-1'); // '-1' = sin link, 'X' = índice, 'custom' = personalizado
   const [customLink, setCustomLink] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
+  // Link de pago de Stripe al registrar la venta (Diego, 19/11/2026): uno por lo
+  // pendiente o, si va fraccionada, uno por cuota. Marcado de serie.
+  const { can: puedePermiso } = usePermission();
+  const linksEncendidos = useLinksPagoEncendidos();
+  const puedeLinks = linksEncendidos && puedePermiso('links_pago.crear');
+  const [generarLinkStripe, setGenerarLinkStripe] = useState(true);
+  // Cobro automático (309): Stripe cobra cada cuota en su fecha con la tarjeta del primer pago.
+  const puedeCobroAuto = puedeLinks && puedePermiso('links_pago.cobro_automatico');
+  const [cobroAutoStripe, setCobroAutoStripe] = useState(false);
+  const [linksCreados, setLinksCreados] = useState<ResultadoLinks | null>(null);
   const [aplicaDescuento, setAplicaDescuento] = useState(false);
   // Estado del pago: 'total' SIEMPRE manda calc.total al registrar (no se queda
   // con un valor viejo si cambias el precio después), 'parcial' usa el input, 'none' = 0.
@@ -165,7 +180,10 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
   // —que venía marcado— y la venta salió sin cobro, sin factura y sin aviso a Make. Ya no
   // viene nada marcado (null): hay que decir si ha pagado antes de registrar.
   const [pagoMode, setPagoMode] = useState<'none' | 'parcial' | 'total' | null>(null);
-  const hayPago = pagoMode === 'parcial' || pagoMode === 'total';
+  // La inicial por link (19/11): con «Parcial», si se paga con link no está cobrada todavía.
+  const [inicialPorLink, setInicialPorLink] = useState(true);
+  const inicialConLink = pagoMode === 'parcial' && inicialPorLink && puedeLinks;
+  const hayPago = (pagoMode === 'parcial' && !inicialConLink) || pagoMode === 'total';
   // Método REAL del pago inicial cuando el plan es "Fraccionado" (fraccionado es
   // el plan, no un método de pago). Para pago único se usa el método simple.
   const [metodoInicial, setMetodoInicial] = useState<MetodoPago>('tarjeta');
@@ -299,16 +317,21 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
   // Pago recibido HOY (parcial o total). El plan de cuotas reparte el PENDIENTE
   // (total − pago inicial), NO el total: si pagas 500 de 1500, las cuotas suman
   // 1000, no 1500. Así el inicial + cuotas = total del programa.
-  const pagadoInicial = pagoMode === 'total' ? calc.total : pagoMode === 'parcial' ? Number(form.importe_pagado || 0) : 0;
+  const pagadoInicial = pagoMode === 'total' ? calc.total : (pagoMode === 'parcial' && !inicialConLink) ? Number(form.importe_pagado || 0) : 0;
   const pendienteFrac = Math.max(0, Number((calc.total - pagadoInicial).toFixed(2)));
+  // La inicial que se cobra con link: cuota 1, hoy; el resto, en las cuotas.
+  const inicialLink = inicialConLink ? Math.max(0, Number(Number(form.importe_pagado || 0).toFixed(2))) : 0;
 
   // Recalcular cuotas si: estoy en fraccionado, las cuotas NO han sido editadas a mano.
   // Se reparte el PENDIENTE neto (total − pago inicial). Las cuotas deben sumar el
   // pendiente, no el total del programa.
   useEffect(() => {
     if (form.metodo_pago !== 'fraccionado' || installmentsDirty) return;
-    setInstallments(distributeInstallments(pendienteFrac, numCuotas, fechaPrimeraCuota));
-  }, [form.metodo_pago, pendienteFrac, numCuotas, fechaPrimeraCuota, installmentsDirty]);
+    const resto = distributeInstallments(Math.max(0, Number((pendienteFrac - inicialLink).toFixed(2))), numCuotas, fechaPrimeraCuota);
+    setInstallments(inicialLink > 0
+      ? [{ importe_previsto: String(inicialLink), fecha_vencimiento: hoyEnMadrid() }, ...resto]
+      : resto);
+  }, [form.metodo_pago, pendienteFrac, inicialLink, numCuotas, fechaPrimeraCuota, installmentsDirty]);
 
   const activeLink = selectedLinkIdx === 'custom'
     ? customLink
@@ -470,7 +493,8 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
     }
     const importe = calc.total;  // total final con descuento + IVA
     // Pago según el modo elegido (evita el bug de "Pagó el total" con valor viejo).
-    const pagado = pagoMode === 'total' ? calc.total : pagoMode === 'parcial' ? Number(form.importe_pagado || 0) : 0;
+    // La inicial por link no está cobrada: va como cuota 1 del plan (19/11).
+    const pagado = pagoMode === 'total' ? calc.total : (pagoMode === 'parcial' && !inicialConLink) ? Number(form.importe_pagado || 0) : 0;
     const prodOk = useMultiItem ? items.some(it => it.descripcion?.trim()) : form.producto_contratado?.trim();
     // Cada aviso dice qué falta y dónde ponerlo, no solo «requerido»; y si
     // faltan varias cosas, todas de una vez (#106). Las casillas de número con
@@ -608,6 +632,33 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
           toast({ title: 'Conversión creada, pero falló generar cuotas', description: instErr?.data?.error || instErr?.message, variant: 'destructive' });
         }
       }
+      // El link (o los de cada cuota), con la venta ya creada: va a ESTA venta.
+      if (puedeLinks && generarLinkStripe && pendienteFrac > 0) {
+        try {
+          if (form.metodo_pago === 'fraccionado' && installments.length >= 1) {
+            if (puedeCobroAuto && cobroAutoStripe) {
+              try {
+                const r = await generarPlan(res.data.id, undefined, { cobroAutomatico: true });
+                setLinksCreados({ cuotas: r.data?.cuotas || [], cobroAuto: true });
+              } catch (autoErr) {
+                // Sin cobro automático (campus apagado, clave sin permisos…): los links de cada cuota, y se dice por qué.
+                const r = await generarPlan(res.data.id);
+                setLinksCreados({ cuotas: r.data?.cuotas || [], aviso: `No se ha activado el cobro automático: ${errorDe(autoErr)} Se ha creado un link por cuota.` });
+              }
+            } else {
+              const r = await generarPlan(res.data.id);
+              setLinksCreados({ cuotas: r.data?.cuotas || [] });
+            }
+          } else {
+            const productoId = Number((res.data as { producto_contratado_id?: number | null }).producto_contratado_id || 0);
+            if (!productoId) throw new Error('La venta no tiene un curso del catálogo: crea el link desde la ficha de la venta eligiendo el curso.');
+            const r = await crearLink({ conversionId: res.data.id, productId: productoId, importe: pendienteFrac, moneda: 'EUR' });
+            setLinksCreados({ link: r.data || null });
+          }
+        } catch (linkErr) {
+          setLinksCreados({ error: errorDe(linkErr) });
+        }
+      }
       toast({ title: 'Conversion registrada', description: `${form.producto_contratado} - ${form.importe_total}EUR` });
       /*
         EL PASO DEL DOCUMENTO SALE SIEMPRE.
@@ -678,6 +729,12 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                     </p>
                   </div>
                 )}
+                {linksCreados && (
+                  <div className="mt-3">
+                    <LinksRecienCreados resultado={linksCreados} alumno={lead?.nombre} curso={form.producto_contratado}
+                      onVerVenta={() => { window.location.assign(`${import.meta.env.BASE_URL.replace(/\/$/, '')}/finanzas/ventas/${created.id}`); }} />
+                  </div>
+                )}
                 <p className="text-sm text-muted-foreground mt-3">
                   {numeraAqui
                     ? '¿Le pones ya el número de factura, o la dejas en la cola de facturación?'
@@ -690,10 +747,10 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
               {numeraAqui ? (
                 <div className="text-left rounded-lg border border-border bg-muted/30 p-3">
                   <Field label={`Número de ${queSeEmite}`} htmlFor="conversion-numero"
-                    hint={sugerido ? `El siguiente libre es el ${sugerido}. Puedes poner ese u otro.` : undefined}>
-                    <input autoComplete="off" id="conversion-numero" type="number" min="1" value={numero}
-                      onChange={(e) => setNumero(e.target.value)}
-                      className={`${inputClass} tabular-nums`} />
+                    hint={sugerido ? `Sigue la numeración de las facturas: es el ${sugerido}.` : undefined}>
+                    <input autoComplete="off" id="conversion-numero" type="number" value={numero} readOnly
+                      aria-readonly="true" title="Sigue la numeración de las facturas"
+                      className={`${inputClass} tabular-nums bg-muted/40`} />
                   </Field>
                   <p className="mt-1.5 px-1 text-secundario text-warning-soft-foreground">
                     ⚠ Comprueba la numeración en el Excel de facturación primero. Si hay discrepancia,
@@ -952,7 +1009,13 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                 )}
                 {pagoMode === 'parcial' && (
                   <input autoComplete="off" type="number" step="0.01" min="0" value={form.importe_pagado} onChange={e => update('importe_pagado', e.target.value)}
-                    placeholder="¿Cuánto pagó?" aria-label="Cuánto pagó hoy" className={inputClass + ' mt-1.5'} autoFocus />
+                    placeholder={inicialConLink ? '¿De cuánto es la inicial?' : '¿Cuánto pagó?'} aria-label="Cuánto pagó hoy" className={inputClass + ' mt-1.5'} autoFocus />
+                )}
+                {pagoMode === 'parcial' && puedeLinks && (
+                  <label className="mt-1.5 flex items-start gap-2 text-[11px] leading-snug cursor-pointer" data-recorrido="venta-inicial-por-link">
+                    <input type="checkbox" checked={inicialPorLink} onChange={(e) => { setInicialPorLink(e.target.checked); setInstallmentsDirty(false); }} className="mt-0.5" />
+                    <span>La inicial se paga con <b>link de pago</b> (todavía no la ha pagado): va como cuota 1, hoy, con su link, y las demás cuotas con el suyo.</span>
+                  </label>
                 )}
               </Field>
             </FilaCampos>
@@ -1054,7 +1117,8 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                       className={inputClass}
                     />
                   </Field>
-                  <Field label="Fecha primera cuota" htmlFor="venta-primera-cuota">
+                  <Field label={inicialLink > 0 ? 'Fecha de la cuota 2' : 'Fecha primera cuota'} htmlFor="venta-primera-cuota"
+                    hint="Las siguientes, el mismo día de cada mes (p. ej. el 25). Cada fecha se puede cambiar abajo.">
                     <input
                       id="venta-primera-cuota"
                       type="date"
@@ -1125,8 +1189,35 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
               </div>
             )}
 
-            {/* Selector de enlace de pago Stripe (CRM-140) */}
-            {(productLinks.length > 0 || form.producto_contratado) && (
+            {/* Link de pago de Stripe al registrar (Diego, 19/11/2026). */}
+            {puedeLinks && pagoMode !== 'total' && (
+              <label className="flex items-start gap-2.5 p-3 rounded-lg bg-info-soft border border-info/30 cursor-pointer" data-recorrido="venta-generar-link">
+                <input type="checkbox" checked={generarLinkStripe} onChange={(e) => setGenerarLinkStripe(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-info-soft-foreground">
+                    <LinkIcon size={13} weight="bold" /> Generar link de pago de Stripe
+                  </span>
+                  <span className="block text-[12px] text-info-soft-foreground">
+                    {form.metodo_pago === 'fraccionado' && installments.length >= 1
+                      ? `Un link por cada cuota (${installments.length}), con su importe y su fecha. Al pagar uno, se salda esa cuota.`
+                      : `Un link por lo que queda por pagar${pendienteFrac > 0 ? ` (${pendienteFrac.toFixed(2)} €)` : ''}. Al pagarlo, el cobro entra en esta venta.`}
+                    {' '}Te los damos al registrar, listos para copiar, y quedan en la ficha de la venta.
+                  </span>
+                </span>
+              </label>
+            )}
+            {puedeCobroAuto && generarLinkStripe && pagoMode !== 'total' && form.metodo_pago === 'fraccionado' && installments.length >= 1 && (
+              <label className="flex items-start gap-2.5 -mt-1 p-3 rounded-lg bg-info-soft/60 border border-info/30 cursor-pointer" data-recorrido="venta-cobro-automatico">
+                <input type="checkbox" checked={cobroAutoStripe} onChange={(e) => setCobroAutoStripe(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                <span className="min-w-0 text-[12px] text-info-soft-foreground">
+                  <span className="block text-sm font-semibold">Cobrar automáticamente con Stripe en las fechas de las cuotas</span>
+                  Solo se manda el link de la primera cuota: al pagarlo, Stripe guarda la tarjeta y cobra las demás solas en sus fechas. Si una falla, te avisamos y al alumno le llega el link de esa cuota.
+                </span>
+              </label>
+            )}
+
+            {/* Selector de enlace de pago Stripe (CRM-140): los enlaces fijos del producto, si los links están apagados. */}
+            {!puedeLinks && (productLinks.length > 0 || form.producto_contratado) && (
               <div className="p-3 rounded-lg bg-info-soft border border-info/30 space-y-2">
                 <div className="flex items-center gap-2 text-secundario font-bold text-info-soft-foreground">
                   <LinkIcon size={12} weight="bold" /> Enlace de pago para compartir

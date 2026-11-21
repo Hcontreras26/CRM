@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Compass } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
@@ -100,8 +101,14 @@ export default function VerRecorrido({ id, listo = true, compacto = false }: {
       >
         <Compass size={compacto ? 13 : 14} weight="bold" aria-hidden="true" /> Ver recorrido
       </button>
-      {abierto && (
-        <RecorridoGuiado pasos={pasos} clave={clave} alCerrar={() => setAbierto(false)} />
+      {/* En el `body`, no aquí: el botón suele ir en la cabecera, que se pinta
+          dentro de la barra de arriba, y su `backdrop-blur` encierra lo `fixed`.
+          Dentro de ella, en el PC el recuadro salía corrido a la derecha el ancho
+          del menú lateral, el cartel se salía de la pantalla y la página
+          ensanchaba (Ventas a 1280 px, #941). */}
+      {abierto && createPortal(
+        <RecorridoGuiado pasos={pasos} clave={clave} alCerrar={() => setAbierto(false)} />,
+        document.body,
       )}
     </>
   );

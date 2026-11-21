@@ -7,7 +7,7 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
-import { CurrencyEur, ArrowRight, Receipt, CheckCircle, Plus, GraduationCap, CaretDown, User, Users, Robot } from '@phosphor-icons/react';
+import { CurrencyEur, ArrowRight, Receipt, CheckCircle, Plus, CaretDown, User, Users, Robot } from '@phosphor-icons/react';
 import usePermission from '@/shared/hooks/usePermission';
 import { formatDate } from '@/shared/lib/format';
 // Los nombres de curso guardados antes del #234 llevan «&amp;»: se enseñan con la letra.
@@ -17,10 +17,12 @@ import { decodificarEntidades } from '@/shared/lib/entidadesHtml';
 import { mesDe } from '@/modules/sales/components/FiltroPeriodo';
 import RangoRapido, { rangoDe } from '@/shared/components/ui/RangoRapido';
 import { esProyectoIA } from '@/shared/lib/proyectosIA';
+// El recorrido guiado de la pantalla (#941). Sustituye a «Tutoriales», que abría
+// una ventana con texto: ahora se señala, paso a paso, lo que se tiene delante.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 const RegisterSaleDialog = lazy(() => import('@/modules/sales/components/RegisterSaleDialog'));
 import AccionesCobroVenta from '@/modules/links-pago/components/AccionesCobroVenta';
-const TutorialesVentas = lazy(() => import('@/modules/sales/components/TutorialesVentas'));
 const TopProductsCard = lazy(() => import('@/modules/sales/components/TopProductsCard'));
 const MyGoalCard = lazy(() => import('@/modules/sales/components/MyGoalCard'));
 const GestoresStatsTable = lazy(() => import('@/modules/sales/components/GestoresStatsTable'));
@@ -160,7 +162,6 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
     setMenuVenta(false);
     setRegisterOpen(true);
   }
-  const [tutorialesOpen, setTutorialesOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [viewUserId, setViewUserId] = useState('all');
   const [gestores, setGestores] = useState([]);
@@ -328,7 +329,11 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   const totalPages = Math.max(1, Math.ceil(totalLista / PER_PAGE));
 
   return (
-    <div className="space-y-5 pb-8">
+    /* El margen de scroll de lo que señala el recorrido (#941): al ir a un paso
+       que queda más arriba («Atrás») o a uno más alto que la pantalla (la lista),
+       el recorrido lo sube hasta el borde y la barra fija de arriba le tapaba el
+       principio (97 px en el PC, 236 px a 375 con los botones debajo). */
+    <div className="space-y-5 pb-8 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title={title}
         /* Con una empresa elegida decia «en Todos los proyectos», que es
@@ -345,17 +350,10 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         actions={(
           <>
         {/* Como leer esta pantalla. Casi todas las dudas salen de comparar
-            cifras que cuentan cosas distintas, asi que se explica aqui mismo. */}
+            cifras que cuentan cosas distintas, asi que se explica aqui mismo,
+            señalando cada parte (#941). La primera vez sale solo. */}
         {!esIA && (<>
-        <button
-          type="button"
-          onClick={() => setTutorialesOpen(true)}
-          title="Cómo leer esta pantalla"
-          className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm font-semibold hover:bg-muted"
-        >
-          <GraduationCap size={16} weight="duotone" className="text-primary" />
-          Tutoriales
-        </button>
+        <VerRecorrido id="ventas" listo={!loading} />
         <button
           type="button"
           onClick={() => navigate('/finanzas/ventas-analisis')}
@@ -374,7 +372,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         </button>
         </>)}
         {activeProject?.id && !esIA && ((puedeSinGestora || puedeDeOtra) ? (
-          <div ref={menuVentaRef} className="relative self-start sm:self-auto">
+          <div ref={menuVentaRef} data-recorrido="ventas-nueva" className="relative self-start sm:self-auto">
             <button
               type="button"
               onClick={() => setMenuVenta((v) => !v)}
@@ -430,6 +428,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         ) : (
           <button
             type="button"
+            data-recorrido="ventas-nueva"
             onClick={() => abrirVenta('existing')}
             className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 self-start sm:self-auto"
           >
@@ -442,10 +441,6 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       />
 
       <Suspense fallback={null}>
-        {tutorialesOpen && <TutorialesVentas onCerrar={() => setTutorialesOpen(false)} />}
-      </Suspense>
-
-      <Suspense fallback={null}>
         <RegisterSaleDialog
           open={registerOpen}
           modoInicial={modoVenta}
@@ -456,7 +451,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       </Suspense>
 
       {(
-        <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-3 flex-wrap">
+        <div data-recorrido="ventas-filtros" className="bg-card border border-border rounded-lg p-3 flex items-center gap-3 flex-wrap">
           {/*
             Empresa y proyecto, aquí dentro.
 
@@ -602,7 +597,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div data-recorrido="ventas-tarjetas" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <KpiCard
           icon={Receipt}
           iconBg="bg-info-soft text-info-soft-foreground"
@@ -618,7 +613,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
             fechas» no significa nada. */}
         {/* En IA no se facturan cuotas: son suscripciones que cobra Stripe. */}
         {(rango.from && rango.to) && !esIA && (
-          <div title={`Facturas con etiqueta CUOTA emitidas en estas fechas: las mismas que se ven en Facturación con este filtro`}>
+          <div data-recorrido="ventas-cuotas-facturadas" title={`Facturas con etiqueta CUOTA emitidas en estas fechas: las mismas que se ven en Facturación con este filtro`}>
             <KpiCard
               icon={Receipt}
               iconBg="bg-info-soft text-info-soft-foreground"
@@ -636,7 +631,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
             El detalle va en el texto que sale al pasar el raton, que es donde
             lo pidio Diego — la tarjeta enseña la proporcion de un vistazo. */}
         {!esIA && (
-        <div title={`${totales.facturadas} ventas facturadas · ${totales.noRequiereFactura} no necesitan factura · ${totales.pendientesDeFacturar} pendientes de facturar`}>
+        <div data-recorrido="ventas-por-facturar" title={`${totales.facturadas} ventas facturadas · ${totales.noRequiereFactura} no necesitan factura · ${totales.pendientesDeFacturar} pendientes de facturar`}>
           <KpiCard
             icon={Receipt}
             iconBg="bg-success-soft text-success-soft-foreground"
@@ -702,7 +697,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       {/* Con una empresa elegida: en que campus hubo ventas y cuotas. La suma
           de cada columna es la tarjeta de arriba; si no, es un fallo. */}
       {activeIssuer && (totales.porProyecto || []).length > 0 && (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div data-recorrido="ventas-por-proyecto" className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
             <span className="text-sm font-semibold">Por proyecto · {activeIssuer.nombre}</span>
             <span className="text-[11px] text-muted-foreground">{totales.porProyecto.length} con movimiento</span>
@@ -747,7 +742,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       {/* Lo unico que hay que HACER: las ventas que esperan factura. Lleva a la
           pantalla donde se emiten, que cuenta exactamente lo mismo. */}
       {!esIA && totales.pendientesDeFacturar > 0 && (
-        <div className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div data-recorrido="ventas-esperan-factura" className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <p className="text-sm text-warning-soft-foreground">
             <strong>{totales.pendientesDeFacturar}</strong>{' '}
             {totales.pendientesDeFacturar === 1 ? 'venta de estas fechas espera factura' : 'ventas de estas fechas esperan factura'}.
@@ -774,7 +769,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         Solo sale cuando de verdad hay descuadre que explicar.
       */}
       {totales.facturasDeAntes?.n > 0 && (
-        <div className="rounded-lg border border-info/30 bg-info-soft px-3 py-2.5">
+        <div data-recorrido="ventas-facturas-de-antes" className="rounded-lg border border-info/30 bg-info-soft px-3 py-2.5">
           <p className="text-sm text-info-soft-foreground">
             <strong>{totales.facturasDeAntes.n}</strong>{' '}
             {totales.facturasDeAntes.n === 1 ? 'factura de este periodo no es de una venta de este periodo' : 'facturas de este periodo no son de ventas de este periodo'}
@@ -892,7 +887,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           <EmptyState icon={CurrencyEur} title={conFechas ? 'Sin ventas ni cuotas en estas fechas' : 'Sin ventas'} description={conFechas ? 'Ni se vendió ni se facturó ninguna cuota en el periodo elegido' : 'Las conversiones aparecerán aquí cuando un lead compre'} />
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div data-recorrido="ventas-lista" className="bg-card border border-border rounded-lg overflow-hidden">
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="tabla-cifras w-full text-sm">

@@ -29,7 +29,7 @@ const permisos = vi.hoisted(() => ({ mapa: {} }));
 vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: (k) => permisos.mapa[k] === true }) }));
 const sesion = vi.hoisted(() => ({ user: { id: 2, funciones: { links_pago: true } } }));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: sesion.user, permissions: null }) }));
-vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ({ activeProject: { id: -1 }, activeIssuerId: null }) }));
+vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ({ activeProject: { id: -1 }, activeIssuerId: null, projects: [{ id: 1, nombre: 'Campus Uno' }, { id: 2, nombre: 'Campus Dos' }] }) }));
 vi.mock('@/shared/components/layout/CabeceraContext', () => ({ useCabecera: () => null }));
 
 const { default: CrearLinkAsistente } = await import('@/modules/links-pago/components/CrearLinkAsistente');
@@ -66,6 +66,7 @@ beforeEach(() => {
     if (url === '/links-pago/ventas-del-prospecto') return { success: true, data: { lead: LEAD, ventas } };
     if (url.startsWith('/links-pago/config')) return { success: true, data: CONFIG };
     if (url === '/products') return { success: true, data: CURSOS };
+    if (url === '/links-pago/cuotas-disponibles') return { success: true, data: { disponible: true, motivo: null, cuotas_max: 12 } };
     if (url === '/leads') return { success: true, data: opts?.params?.search === 'ana' ? [{ id: 3, nombre: 'Ana Pérez', email: 'ana@correo.test' }] : [] };
     return { success: true, data: [] };
   });
@@ -114,7 +115,9 @@ describe('la pantalla «Links de pago»', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Crear link de pago/ }));
     const dialogo = await screen.findByRole('dialog');
-    expect(within(dialogo).getByPlaceholderText(/Nombre, correo o teléfono/)).toBeTruthy();
+    // Lo primero, el campus (tiene dos) y el curso: sin prospecto (Carlos, 20/11).
+    expect(within(dialogo).getByLabelText('Campus')).toBeTruthy();
+    expect(within(dialogo).queryByPlaceholderText(/Nombre, correo o teléfono/)).toBeNull();
   });
 
   it('quien solo ve los de todos no tiene el botón de crear', async () => {
@@ -134,26 +137,27 @@ describe('la pantalla «Links de pago»', () => {
   });
 });
 
-describe('el asistente «Crear link de pago»', () => {
-  it('busca el prospecto, enseña sus ventas y, con dos, hay que elegir; la elegida propone su pendiente', async () => {
+describe('el asistente «Crear link de pago»: para un prospecto o una venta (plegado)', () => {
+  it('busca el prospecto, enseña sus ventas (y «Venta nueva»); la elegida propone su pendiente', async () => {
     conRouter(<CrearLinkAsistente onClose={() => {}} />);
     const dialogo = await screen.findByRole('dialog');
-    expect(within(dialogo).getByText('Busca y elige el prospecto.')).toBeTruthy();
+    // Plegado: se abre a mano.
+    expect(within(dialogo).queryByPlaceholderText(/Nombre, correo o teléfono/)).toBeNull();
+    fireEvent.click(within(dialogo).getByRole('button', { name: /Para un prospecto o una venta concretos/ }));
     fireEvent.change(within(dialogo).getByPlaceholderText(/Nombre, correo o teléfono/), { target: { value: 'ana' } });
     fireEvent.click(await within(dialogo).findByRole('button', { name: /Ana Pérez/ }));
 
-    // Sus dos ventas, con su programa, total y pendiente, y «sin venta todavía».
+    // Sus dos ventas, con su programa, total y pendiente; con dos, sale «Venta nueva».
     const grupo = await within(dialogo).findByRole('radiogroup', { name: 'Venta del link' });
     expect(within(grupo).getByText(/Venta n.º 81/).textContent).toMatch(/pendiente\s*370,00/);
     expect(within(grupo).getByText(/Venta n.º 82/)).toBeTruthy();
-    expect(within(grupo).getByText('Sin venta todavía')).toBeTruthy();
-    expect(within(dialogo).getByText(/Elige a qué venta va el link/)).toBeTruthy();
-    expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(true);
+    await vi.waitFor(() => expect(within(grupo).getAllByRole('radio')[0].checked).toBe(true));
 
-    fireEvent.click(within(grupo).getAllByRole('radio')[0]);
+    fireEvent.click(within(grupo).getAllByRole('radio')[1]);
     const importe = await within(dialogo).findByLabelText('Importe');
     await vi.waitFor(() => expect(importe.value).toBe('370'));
-    await vi.waitFor(() => expect(within(dialogo).getByLabelText('Curso').value).toBe('5'));
+    // Desde una venta, pago único: no se ofrecen cuotas.
+    expect(within(dialogo).queryByRole('radiogroup', { name: 'Cómo paga' })).toBeNull();
 
     // Pasarse de lo pendiente (CRM#909): lo dice y no deja.
     fireEvent.change(importe, { target: { value: '400' } });
@@ -165,7 +169,7 @@ describe('el asistente «Crear link de pago»', () => {
     await vi.waitFor(() => expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(false));
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear link' }));
     await vi.waitFor(() => expect(post).toHaveBeenCalledWith('/links-pago', {
-      leadId: 3, conversionId: 81, productId: 5, importe: 370, moneda: 'EUR', caducidad_dias: 7,
+      leadId: 3, conversionId: 81, productId: 5, importe: 370, moneda: 'EUR',
     }));
     expect(await within(dialogo).findByText('Link creado')).toBeTruthy();
     expect(within(dialogo).getByLabelText('Link de pago').value).toBe('https://buy.stripe.com/test_40');
@@ -175,31 +179,33 @@ describe('el asistente «Crear link de pago»', () => {
     expect(within(dialogo).getByRole('button', { name: /Enviar por correo/ })).toBeTruthy();
   });
 
-  it('desde la ficha de un prospecto con UNA venta, sale ya elegida; «sin venta» manda el link sin venta', async () => {
+  it('desde la ficha de un prospecto con UNA venta, sale ya elegida; sin ventas, «Venta nueva» con su curso de interés', async () => {
     ventas = [VENTA_B];
-    conRouter(<CrearLinkAsistente leadId={3} onClose={() => {}} />);
+    const { unmount } = conRouter(<CrearLinkAsistente leadId={3} onClose={() => {}} />);
     const dialogo = await screen.findByRole('dialog');
     const grupo = await within(dialogo).findByRole('radiogroup', { name: 'Venta del link' });
-    await vi.waitFor(() => expect(within(grupo).getAllByRole('radio')[0].checked).toBe(true));
+    await vi.waitFor(() => expect(within(grupo).getAllByRole('radio')[1].checked).toBe(true));
     await vi.waitFor(() => expect(within(dialogo).getByLabelText('Importe').value).toBe('600'));
+    unmount();
 
-    fireEvent.click(within(grupo).getAllByRole('radio')[1]); // Sin venta todavía
-    // Sin venta: el curso que le interesa y su precio de catálogo.
-    await vi.waitFor(() => expect(within(dialogo).getByLabelText('Curso').value).toBe('6'));
-    await vi.waitFor(() => expect(within(dialogo).getByLabelText('Importe').value).toBe('600'));
+    // Sin ventas: el link va al prospecto y la venta se crea al pagar (vuelve, más sencillo).
+    ventas = [];
+    conRouter(<CrearLinkAsistente leadId={3} onClose={() => {}} />);
+    const otro = await screen.findByRole('dialog');
+    const g2 = await within(otro).findByRole('radiogroup', { name: 'Venta del link' });
+    expect(within(g2).getByText('Venta nueva')).toBeTruthy();
+    await vi.waitFor(() => expect(within(otro).getByLabelText('Importe').value).toBe('600'));
     post.mockResolvedValue({ success: true, data: { ...LINK, conversion_id: null } });
-    await vi.waitFor(() => expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(false));
-    fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear link' }));
-    await vi.waitFor(() => expect(post).toHaveBeenCalledWith('/links-pago', {
-      leadId: 3, productId: 6, importe: 600, moneda: 'EUR', caducidad_dias: 7,
-    }));
+    await vi.waitFor(() => expect(within(otro).getByRole('button', { name: 'Crear link' }).disabled).toBe(false));
+    fireEvent.click(within(otro).getByRole('button', { name: 'Crear link' }));
+    await vi.waitFor(() => expect(post).toHaveBeenCalledWith('/links-pago', { leadId: 3, productId: 6, importe: 600, moneda: 'EUR' }));
   });
 
   it('desde la ficha de una venta, va a esa venta aunque el prospecto tenga más', async () => {
     conRouter(<CrearLinkAsistente leadId={3} conversionId={82} onClose={() => {}} />);
     const dialogo = await screen.findByRole('dialog');
     const grupo = await within(dialogo).findByRole('radiogroup', { name: 'Venta del link' });
-    await vi.waitFor(() => expect(within(grupo).getAllByRole('radio')[1].checked).toBe(true));
+    await vi.waitFor(() => expect(within(grupo).getAllByRole('radio')[2].checked).toBe(true));
     await vi.waitFor(() => expect(within(dialogo).getByLabelText('Importe').value).toBe('600'));
   });
 
@@ -223,6 +229,7 @@ describe('el asistente «Crear link de pago»', () => {
     get.mockImplementation(async (url) => {
       if (url === '/links-pago/ventas-del-prospecto') return { success: true, data: { lead: LEAD, ventas } };
       if (url.startsWith('/links-pago/config')) return { success: true, data: CONFIG };
+      if (url === '/links-pago/cuotas-disponibles') return { success: true, data: { disponible: true, motivo: null, cuotas_max: 12 } };
       if (url === '/products') throw Object.assign(new Error('x'), { data: { error: 'No tienes permiso' } });
       return { success: true, data: [] };
     });
@@ -242,7 +249,8 @@ describe('«Crear link de pago» arriba, en las fichas', () => {
     expect(await within(dialogo).findByText('Ana Pérez')).toBeTruthy();
     expect(get).toHaveBeenCalledWith('/links-pago/ventas-del-prospecto', { params: { leadId: 3 } });
     const grupo = await within(dialogo).findByRole('radiogroup', { name: 'Venta del link' });
-    await vi.waitFor(() => expect(within(grupo).getAllByRole('radio')[0].checked).toBe(true));
+    // [Venta nueva, 81, 82]: la 81, que es la de la ficha.
+    await vi.waitFor(() => expect(within(grupo).getAllByRole('radio')[1].checked).toBe(true));
   });
 
   it('sin permiso de crear, o con los links apagados, no sale', () => {

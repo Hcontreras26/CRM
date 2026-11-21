@@ -2189,6 +2189,72 @@
   "puertas": []
  },
  {
+  "id": "GET /api/conciliacion/facturas-cobros",
+  "tipo": "ruta",
+  "modulo": "conciliacion",
+  "metodo": "GET",
+  "ruta": "/api/conciliacion/facturas-cobros",
+  "relativa": "GET /facturas-cobros",
+  "controlador": "listar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/conciliacion/facturas-cobros/enlazar",
+  "tipo": "ruta",
+  "modulo": "conciliacion",
+  "metodo": "POST",
+  "ruta": "/api/conciliacion/facturas-cobros/enlazar",
+  "relativa": "POST /facturas-cobros/enlazar",
+  "controlador": "enlazar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/conciliacion/facturas-cobros/enlazar-seguras",
+  "tipo": "ruta",
+  "modulo": "conciliacion",
+  "metodo": "POST",
+  "ruta": "/api/conciliacion/facturas-cobros/enlazar-seguras",
+  "relativa": "POST /facturas-cobros/enlazar-seguras",
+  "controlador": "enlazarSeguras",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/connectors/",
   "tipo": "ruta",
   "modulo": "connectors",
@@ -9288,6 +9354,32 @@
   "puertas": []
  },
  {
+  "id": "GET /api/links-pago/cuotas-disponibles",
+  "tipo": "ruta",
+  "modulo": "links-pago",
+  "metodo": "GET",
+  "ruta": "/api/links-pago/cuotas-disponibles",
+  "relativa": "GET /cuotas-disponibles",
+  "controlador": "cuotasDisponibles",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "links_pago.crear"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/links-pago/ventas-del-prospecto",
   "tipo": "ruta",
   "modulo": "links-pago",
@@ -9348,6 +9440,51 @@
     "tipo": "puede",
     "claves": [
      "links_pago.crear"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/links-pago/cobro-automatico",
+  "tipo": "ruta",
+  "modulo": "links-pago",
+  "metodo": "GET",
+  "ruta": "/api/links-pago/cobro-automatico",
+  "relativa": "GET /cobro-automatico",
+  "controlador": "verCobroAutomatico",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "links_pago.crear",
+     "links_pago.ver_todos"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/links-pago/cobro-automatico",
+  "tipo": "ruta",
+  "modulo": "links-pago",
+  "metodo": "PUT",
+  "ruta": "/api/links-pago/cobro-automatico",
+  "relativa": "PUT /cobro-automatico",
+  "controlador": "cambiarCobroAutomatico",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "links_pago.cobro_automatico"
     ]
    }
   ],

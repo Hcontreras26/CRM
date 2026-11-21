@@ -153,6 +153,19 @@ export const CAMBIOS = [
     sentido: 'gana',
     aprobadoPor: 'Diego, 04/11',
   },
+  {
+    id: 'gestoras-corrigen-facturas',
+    que: 'Las gestoras corrigen, cambian las fechas, asocian a una venta, abonan, anulan y borran (si se emitió por error) cualquier factura de su campus, y las ven todas.',
+    motivo: 'Diego (19/11): «las gestoras deben de PODER EDITAR, BORRAR Y ESO CADA FACTURA». Ganan «Anular y abonar», «Cambiar fechas» y «Editar facturas» de serie.',
+    filas: [
+      'PATCH /api/invoices/:id', 'PATCH /api/invoices/:id/corregir', 'PATCH /api/invoices/:id/fechas',
+      'PATCH /api/invoices/:id/asociar', 'DELETE /api/invoices/:id', 'POST /api/invoices/:id/rectificar',
+      'POST /api/invoices/ · invoices.rectificativa',
+    ],
+    roles: ['gestor'],
+    sentido: 'gana',
+    aprobadoPor: 'Diego, 19/11',
+  },
 ];
 
 // #211: decisión de Diego del 06/11 (en la #688): todos los roles.
@@ -571,6 +584,33 @@ export const CAMBIOS_DE_MENU = [
     },
     // La escribe Claude principal con el sí de Diego.
     aprobadoPor: 'Pendiente de Diego',
+  },
+  {
+    id: 'menu-testeo-solo-diseno',
+    que: 'El apartado «Testeo» del menú (TESTEO2, SUITE DASH y «Las 22 primitivas») sale solo a superadmin, admin y soporte. Solo existe en /testeo y en local; en producción no sale a nadie.',
+    motivo: 'QA de /testeo del 18/11: a una gestora le salían la maqueta del rediseño, la referencia y el muestrario de primitivas, que son herramientas de diseño y no pantallas de trabajo. Solo se esconden: no tienen ruta del servidor y sus páginas siguen abriendo igual.',
+    // Solo menú: no tienen ruta del servidor (`null`), el acceso no cambia.
+    soloMenu: true,
+    perfiles: Object.fromEntries([
+      'gestora', 'project_manager', 'gestora+tutor', 'gestora con factura_manager', 'gestora con editar_fechas_factura',
+      'gestora con usa_mcp', 'gestora con diplomas.view', 'gestora con tasks.close',
+    ].map((perfil) => [perfil, ['- Testeo › TESTEO2', '- Testeo › SUITE DASH', '- Testeo › Las 22 primitivas']])),
+    rutas: { 'Testeo › TESTEO2': null, 'Testeo › SUITE DASH': null, 'Testeo › Las 22 primitivas': null },
+    aprobadoPor: 'Pendiente de Diego (QA de /testeo del 18/11)',
+  },
+  {
+    id: 'menu-conciliacion-905',
+    que: '«Finanzas › Conciliación»: facturas emitidas sin cobro y cobros sin factura, por campus y por mes, con «Enlazar» y «Enlazar todas las seguras» (CRM#905). La ve quien tiene `facturas.gestionar` («asociar a una venta»), admin y super admin de serie, cada uno en sus campus. Una gestora con el permiso por excepción no la ve ni concilia: es de administración.',
+    motivo: 'Diego (18/11): enlazó a mano en producción 89 facturas sin cobro; quedan unas 56 y unos 400 cobros sin factura, y tiene que poder hacerlo administración desde el CRM. No cambia el acceso: `facturas.gestionar` ya asociaba una factura a una venta. La pestaña de los cargos de Stripe (CRM#906) irá dentro de esta misma entrada.',
+    perfiles: {
+      superadmin: ['+ Finanzas › Conciliación'],
+      admin: ['+ Finanzas › Conciliación'],
+      'gestora+admin': ['+ Finanzas › Conciliación'],
+    },
+    rutas: {
+      'Finanzas › Conciliación': 'GET /api/conciliacion/facturas-cobros',
+    },
+    aprobadoPor: 'Pendiente de Diego (CRM#905)',
   },
 ];
 

@@ -159,6 +159,8 @@ const ALL_PROJECTS_OK = [
   /^\/finanzas\/pagos-stripe$/,
   // Disputas de Stripe (#396): por empresa y por campus, en los de quien mira.
   /^\/finanzas\/disputas$/,
+  // Conciliación (#905) y sus pestañas: sin campus, los de quien mira (el servidor recorta).
+  /^\/finanzas\/conciliacion(?:\/[a-z-]+)?$/,
   /^\/finanzas\/nominas$/,
   // #218, tanda 3: pantallas de UN campus que, con una empresa o «Todos», ya no
   // se tapian: piden el campus DENTRO (Proceso comercial, Buscar duplicados,
@@ -397,6 +399,7 @@ const CON_SOCIEDAD_OK = [
   /^\/finanzas\/comisiones$/,
   /^\/finanzas\/pagos-stripe$/,
   /^\/finanzas\/disputas$/,
+  /^\/finanzas\/conciliacion(?:\/[a-z-]+)?$/,
   /^\/finanzas\/pendiente-facturar$/,
   // Nominas. Las paga la SOCIEDAD, asi que verlas campus a campus obligaba a
   // sumar siete pantallas a mano. Leer acepta varios; crear una nomina,

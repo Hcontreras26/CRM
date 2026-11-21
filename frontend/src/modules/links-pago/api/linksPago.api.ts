@@ -25,6 +25,10 @@ export interface LinkDePago {
   descuento_pct: string | number;
   moneda: string;
   modalidad: 'unico' | 'cuotas';
+  /** En cuotas (20/11): en cuántas, y la que cobra el link (la 1). `importe` es el total. */
+  num_cuotas?: number | null;
+  importe_cuota?: string | number | null;
+  guarda_tarjeta?: boolean;
   estado: EstadoLink;
   url: string | null;
   caduca_el: string | null;
@@ -44,6 +48,14 @@ export interface ConfigLinks {
   cuotas_max: number;
   monedas: string[];
   moneda_defecto: string;
+  /**
+   * Si por la clave no se pueden crear links en el campus (no la tiene, o es
+   * live en pruebas): lo que diría «Crear link». null si se puede. Solo lectura.
+   */
+  aviso_clave?: { code: string; error: string } | null;
+  /** Cobro automático de las cuotas (309): si el campus lo permite y a los cuántos días se reintenta. */
+  cobro_auto?: boolean;
+  cobro_auto_reintento_dias?: number;
 }
 
 export interface WebhookDeLaCuenta {
@@ -94,9 +106,20 @@ export function ventasDelProspecto(params: { leadId?: number; conversionId?: num
 }
 
 export function crearLink(cuerpo: {
-  leadId?: number; conversionId?: number; productId: number; importe: number; moneda: string; caducidad_dias: number;
+  // Sin caducidad, la de serie del campus; sin moneda, la del campus.
+  // Sin prospecto ni venta (20/11), el campus: el CRM crea la ficha y la venta al pagarse.
+  leadId?: number; conversionId?: number; projectId?: number; productId: number; importe: number; moneda?: string; caducidad_dias?: number;
+  // En cuotas: `importe` es el total; el link cobra la primera y Stripe las demás.
+  modalidad?: 'unico' | 'cuotas'; num_cuotas?: number;
 }) {
   return client.post<LinkDePago>('/links-pago', cuerpo);
+}
+
+/** Si «Cuotas» se puede en el campus y, si no, por qué (20/11). */
+export interface CuotasDisponibles { disponible: boolean; motivo: string | null; cuotas_max: number | null }
+
+export function cuotasDisponibles(projectId: number) {
+  return client.get<CuotasDisponibles>('/links-pago/cuotas-disponibles', { params: { projectId } });
 }
 
 export function anularLink(id: number, motivo: string) {
@@ -130,6 +153,42 @@ export interface CuotaDelPlan {
   link_estado: EstadoLink | null;
   link_url: string | null;
   link_caduca_el: string | null;
+  link_guarda_tarjeta?: boolean;
+}
+
+/** Cómo va el cobro automático de una cuota en Stripe (309). */
+export interface CuotaCobroAuto {
+  installment_id: number;
+  numero: number;
+  vence: string;
+  importe: number;
+  estado: 'programada' | 'cobrada' | 'fallida' | 'quitada' | null;
+  fecha_programada: string | null;
+  importe_programado: number | null;
+  desfasada: boolean;
+  intentos: number;
+  error_codigo: string | null;
+  reintento_el: string | null;
+  url_pago: string | null;
+  historial: Array<{ el: string; que: string; [k: string]: unknown }>;
+  guarda_tarjeta: boolean;
+  problema: string | null;
+}
+
+/** El cobro automático de las cuotas de una venta: lo cobra Stripe en las fechas del plan (309). */
+export interface CobroAutomatico {
+  disponible: boolean;
+  motivo_no_disponible: string | null;
+  reintento_dias: number | null;
+  activo: boolean;
+  activado_el: string | null;
+  tarjeta: { marca: string | null; ultimos4: string | null; caduca: string | null; guardada_el: string | null } | null;
+  stripe_schedule_id: string | null;
+  sincronizado_el: string | null;
+  sync_error: string | null;
+  hora_de_cobro: number;
+  cuotas: CuotaCobroAuto[];
+  link_primera?: { id: number; url: string | null } | null;
 }
 export interface PlanDePago {
   venta: {
@@ -140,6 +199,7 @@ export interface PlanDePago {
   cuotas: CuotaDelPlan[];
   creados?: number;
   ya_tenian?: number;
+  cobro_automatico?: CobroAutomatico;
 }
 
 export function verPlan(conversionId: number) {
@@ -147,6 +207,17 @@ export function verPlan(conversionId: number) {
 }
 
 /** Un link por cuota pendiente (las elegidas, o todas las que aún no tienen link). */
-export function generarPlan(conversionId: number, cuotaIds?: number[]) {
-  return client.post<PlanDePago>('/links-pago/plan', { conversionId, ...(cuotaIds?.length ? { cuotaIds } : {}) });
+export function generarPlan(conversionId: number, cuotaIds?: number[], opciones: { cobroAutomatico?: boolean } = {}) {
+  return client.post<PlanDePago>('/links-pago/plan', {
+    conversionId, ...(cuotaIds?.length ? { cuotaIds } : {}), ...(opciones.cobroAutomatico ? { cobroAutomatico: true } : {}),
+  });
+}
+
+/** El cobro automático de una venta: si se puede, si está activo y cuota a cuota (309). */
+export function verCobroAutomatico(conversionId: number) {
+  return client.get<CobroAutomatico>('/links-pago/cobro-automatico', { params: { conversionId } });
+}
+
+export function cambiarCobroAutomatico(conversionId: number, activo: boolean) {
+  return client.put<CobroAutomatico>('/links-pago/cobro-automatico', { conversionId, activo });
 }

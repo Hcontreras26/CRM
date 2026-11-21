@@ -151,8 +151,8 @@ export default function ReportsIAView({ project, showGenerateButton = true, ambi
         <div className="bg-card border border-border rounded-lg min-w-0">
           {reportsIA.error ? (
             <div className="p-6 text-center" role="alert">
-              <WarningCircle size={28} className="text-red-500 dark:text-red-400 mx-auto mb-2" weight="regular" />
-              <p className="text-red-600 dark:text-red-400 font-semibold">Error</p>
+              <WarningCircle size={28} className="text-destructive mx-auto mb-2" weight="regular" />
+              <p className="text-destructive font-semibold">Error</p>
               <p className="text-xs text-muted-foreground mt-1">{reportsIA.error}</p>
             </div>
           ) : !reportsIA.selected ? (

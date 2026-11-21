@@ -57,7 +57,7 @@ import {
   CopySimple,
   WhatsappLogo,
   ChatText,
-  UsersThree, QrCode, Warning, Key, ListChecks, Kanban, ClockCounterClockwise, SlidersHorizontal, Code, Certificate,
+  UsersThree, QrCode, Warning, Key, ListChecks, Kanban, ClockCounterClockwise, SlidersHorizontal, Code, Certificate, ArrowsLeftRight,
   // Los de los encabezados de seccion (#105). Ninguno repite el de una
   // entrada de su propia seccion: si el encabezado lleva el mismo dibujo
   // que una de sus filas, deja de ordenar y pasa a confundir.
@@ -114,6 +114,13 @@ const ROLES_TAREAS = ['superadmin', 'admin', 'colaborador', 'tutor_redactor'];
 // y el traslado de `trasladosDeMenu.js`.
 export const PERMISOS_WEBHOOKS = ['webhooks.view', 'make.view', 'webhooks_salientes.view'];
 
+// El apartado «Testeo» (solo existe en /testeo y en local) son herramientas de
+// diseño —la maqueta del rediseño, la referencia y el muestrario de
+// primitivas—, no pantallas de trabajo: las ve quien construye o decide el CRM.
+// A una gestora le salían en el menú (QA de /testeo del 18/11). Soporte y
+// superadmin las ven además por su regla de «ve todo».
+export const ROLES_DE_DISENO = ['superadmin', 'admin', 'soporte'];
+
 /*
   LAS SECCIONES DE ANTES, tal cual: cada entrada con sus permisos, roles y
   módulos. El menú que se pinta (`NAV_SECTIONS`, abajo) sale de repartirlas por
@@ -125,12 +132,12 @@ export const SECCIONES_DE_ANTES = [
     label: 'Testeo',
     icon: Flask,
     items: [
-      { label: 'TESTEO2', to: '/testeo2', detail: 'Maqueta del rediseño', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true },
-      { label: 'SUITE DASH', to: '/suite-dash', detail: 'La referencia', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true },
+      { label: 'TESTEO2', to: '/testeo2', detail: 'Maqueta del rediseño', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true, roles: ROLES_DE_DISENO },
+      { label: 'SUITE DASH', to: '/suite-dash', detail: 'La referencia', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true, roles: ROLES_DE_DISENO },
       // El muestrario de primitivas. Sin esta entrada existe pero no lo
       // encuentra nadie: hay que escribir /dev/components a mano, que es
       // exactamente lo que hacía que «no existiera».
-      { label: 'Las 22 primitivas', to: '/dev/components', detail: 'Las piezas, juntas', icon: Sparkle, previewOnly: true },
+      { label: 'Las 22 primitivas', to: '/dev/components', detail: 'Las piezas, juntas', icon: Sparkle, previewOnly: true, roles: ROLES_DE_DISENO },
     ],
   },
   {
@@ -359,6 +366,10 @@ export const SECCIONES_DE_ANTES = [
         : []),
       // Disputas de Stripe (#396): solo admin y super admin, cada uno las de sus campus.
       { label: 'Disputas de Stripe', to: '/finanzas/disputas', detail: 'Abiertas, por empresa y campus', icon: Warning, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'stripe.edit' },
+      // Conciliación (#905): facturas sin cobro y cobros sin factura, y enlazarlos.
+      // Es de administración: admin y super admin, cada uno en sus campus. Sus
+      // pestañas, cada una con su permiso en `SIN_ENTRADA`.
+      { label: 'Conciliación', to: '/finanzas/conciliacion', detail: 'Facturas y cobros sin enlazar', icon: ArrowsLeftRight, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'facturas.gestionar' },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
       { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'], permiso: 'facturas_colaborador.ver_todas' },
@@ -621,6 +632,8 @@ const SIN_ENTRADA = {
   // (`/api/consultas/tutores-panel`). Escrita a mano por una tutora decía «No
   // hay tutores aquí» en vez de que no tiene acceso (#188).
   '/consultas/tutores': 'consultas.view',
+  // Las pestañas de Finanzas › Conciliación (#905): la de facturas y cobros.
+  '/finanzas/conciliacion/facturas': 'facturas.gestionar',
 };
 // Lo que esas rutas piden ADEMÁS (todos), como `tambienPermiso` en una entrada
 // del menú. La pestaña Prospectos es la pantalla de Captación › Webhooks, que

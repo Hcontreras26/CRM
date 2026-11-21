@@ -10,6 +10,8 @@ import { MemoryRouter } from 'react-router-dom';
 const get = vi.hoisted(() => vi.fn());
 const post = vi.hoisted(() => vi.fn());
 const put = vi.hoisted(() => vi.fn());
+// El asistente mira el campus activo (link sencillo, 20/11): uno, el 1.
+vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ({ activeProject: { id: 1, nombre: 'Campus 1' }, projects: [{ id: 1, nombre: 'Campus 1' }] }) }));
 vi.mock('@/shared/api/client', () => ({ default: { get, post, put, delete: vi.fn() } }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 const permisos = vi.hoisted(() => ({ mapa: {} }));
@@ -72,27 +74,60 @@ describe('la tarjeta de la ficha', () => {
     expect(get).toHaveBeenCalledWith('/links-pago', { params: { conversionId: 8, limit: 50 } });
   });
 
-  it('crear: el precio del catálogo sale sugerido; pasarse del tope no deja enviar; dentro, manda lo que toca', async () => {
+  it('sin ninguna venta, el link sencillo: curso, pago único y crear (Carlos, 20/11)', async () => {
     permisos.mapa = { 'links_pago.crear': true };
-    post.mockResolvedValue({ success: true, data: { ...LINK, id: 10, importe: '950.00' } });
+    render(<LinksDePagoCard projectId={1} leadId={3} productoId={5} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Crear link de pago/ }));
+    const dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).queryByText('Este prospecto no tiene ninguna venta')).toBeNull();
+    expect(await within(dialogo).findByRole('button', { name: 'Crear link' })).toBeTruthy();
+  });
+});
+
+describe('crear sin clave de links en el campus (QA de /testeo del 18/11)', () => {
+  // Desde la v2.8.3 (#947) todo link va con su venta: sin ninguna, el asistente no
+  // enseña el formulario. Aquí la prospecto tiene una, con 370 pendientes.
+  const VENTA = { id: 81, project_id: 1, producto_contratado_id: 5, producto_nombre: 'Máster en Psicología', importe_total: 1000, cobrado: 630, pendiente: 370, fecha_conversion: '2026-11-01' };
+  const conAviso = (aviso_clave) => get.mockImplementation(async (url) => {
+    if (url === '/links-pago') return { success: true, data: [] };
+    if (url === '/links-pago/ventas-del-prospecto') {
+      return { success: true, data: { lead: { id: 3, nombre: 'Ana', email: null, telefono: null, project_id: 1, producto_interes_id: 5 }, ventas: [VENTA] } };
+    }
+    if (url.startsWith('/links-pago/config')) return { success: true, data: { ...CONFIG, aviso_clave } };
+    if (url === '/products') return { success: true, data: CURSOS };
+    return { success: true, data: [] };
+  });
+
+  it('el asistente lo dice en cuanto sabe el campus y no deja rellenar ni enviar', async () => {
+    permisos.mapa = { 'links_pago.crear': true };
+    conAviso({ code: 'SIN_CLAVE_DE_LINKS', error: 'Este campus no tiene la clave de links de pago. La pone un admin en Integraciones › Links de pago.' });
+    render(<LinksDePagoCard projectId={1} leadId={3} productoId={5} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Crear link de pago/ }));
+    const dialogo = await screen.findByRole('dialog');
+    const alerta = await within(dialogo).findByRole('alert');
+    expect(alerta.textContent).toContain('no tiene la clave de links de pago');
+    // Desde la v2.9.2 (link sencillo) el curso, el pago y «para un prospecto» van en
+    // un mismo bloque: con el campus sin clave, apagado entero.
+    const bloque = dialogo.querySelector('fieldset');
+    expect(bloque.disabled).toBe(true);
+    expect(bloque.contains(within(dialogo).getByLabelText('Importe'))).toBe(true);
+    expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(true);
+    // El aviso no se repite en la lista de «por qué no deja»: lo dice una vez, arriba.
+    expect(within(dialogo).getAllByText(/no tiene la clave de links de pago/)).toHaveLength(1);
+    expect(within(dialogo).getByRole('button', { name: 'Cerrar' })).toBeTruthy();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('con clave (aviso_clave null) se rellena como siempre', async () => {
+    permisos.mapa = { 'links_pago.crear': true };
+    conAviso(null);
     render(<LinksDePagoCard projectId={1} leadId={3} productoId={5} />);
     fireEvent.click(await screen.findByRole('button', { name: /Crear link de pago/ }));
     const dialogo = await screen.findByRole('dialog');
     const importe = within(dialogo).getByLabelText('Importe');
-    await vi.waitFor(() => expect(importe.value).toBe('1000'));
-    expect(within(dialogo).getByLabelText(/Caduca a los/).value).toBe('7');
-
-    fireEvent.change(importe, { target: { value: '850' } });
-    expect(within(dialogo).getByText(/máximo en este campus es un 10 %/)).toBeTruthy();
-    expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(true);
-
-    fireEvent.change(importe, { target: { value: '950' } });
-    fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear link' }));
-    await vi.waitFor(() => expect(post).toHaveBeenCalledWith('/links-pago', {
-      leadId: 3, productId: 5, importe: 950, moneda: 'EUR', caducidad_dias: 7,
-    }));
-    expect(await within(dialogo).findByText('Link creado')).toBeTruthy();
-    expect(within(dialogo).getByLabelText('Link de pago').value).toBe('https://buy.stripe.com/test_x');
+    await vi.waitFor(() => expect(importe.closest('fieldset').disabled).toBe(false));
+    expect(within(dialogo).queryByRole('alert')).toBeNull();
+    await vi.waitFor(() => expect(within(dialogo).getByRole('button', { name: 'Crear link' }).disabled).toBe(false));
   });
 });
 
