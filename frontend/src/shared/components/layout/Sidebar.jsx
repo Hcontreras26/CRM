@@ -371,8 +371,9 @@ export const SECCIONES_DE_ANTES = [
       { label: 'Disputas de Stripe', to: '/finanzas/disputas', detail: 'Abiertas, por empresa y campus', icon: Warning, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'stripe.edit' },
       // Conciliación (#905): facturas sin cobro y cobros sin factura, y enlazarlos.
       // Es de administración: admin y super admin, cada uno en sus campus. Sus
-      // pestañas, cada una con su permiso en `SIN_ENTRADA`.
-      { label: 'Conciliación', to: '/finanzas/conciliacion', detail: 'Facturas y cobros sin enlazar', icon: ArrowsLeftRight, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'facturas.gestionar' },
+      // pestañas, cada una con su permiso en `SIN_ENTRADA`; la entrada, con el de
+      // cualquiera de ellas (basta uno): los cargos de Stripe (#906) piden `stripe.edit`.
+      { label: 'Conciliación', to: '/finanzas/conciliacion', detail: 'Facturas, cobros y cargos sin enlazar', icon: ArrowsLeftRight, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: ['facturas.gestionar', 'stripe.edit'] },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
       { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'], permiso: 'facturas_colaborador.ver_todas' },
@@ -637,6 +638,8 @@ const SIN_ENTRADA = {
   '/consultas/tutores': 'consultas.view',
   // Las pestañas de Finanzas › Conciliación (#905): la de facturas y cobros.
   '/finanzas/conciliacion/facturas': 'facturas.gestionar',
+  // La de cargos de Stripe (#906): la clave de «Asociar» en Pagos Stripe.
+  '/finanzas/conciliacion/cargos-stripe': 'stripe.edit',
 };
 // Lo que esas rutas piden ADEMÁS (todos), como `tambienPermiso` en una entrada
 // del menú. La pestaña Prospectos es la pantalla de Captación › Webhooks, que

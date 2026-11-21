@@ -117,6 +117,8 @@ const DisputasStripePage = lazy(() => import('./modules/accounting/pages/Disputa
 const ConciliacionLayout = lazy(() => import('./modules/accounting/pages/ConciliacionLayout'));
 const ConciliacionInicio = lazy(() => import('./modules/accounting/pages/ConciliacionLayout').then((m) => ({ default: m.ConciliacionInicio })));
 const ConciliacionFacturasPage = lazy(() => import('./modules/accounting/pages/ConciliacionFacturasPage'));
+// Conciliación › Cargos de Stripe (#906): los cobrados en Stripe sin cobro en el CRM.
+const ConciliacionCargosStripePage = lazy(() => import('./modules/accounting/pages/conciliacion/CargosStripePestana'));
 const WhatsappWidgetPage = lazy(() => import('./modules/widget/pages/WhatsappWidgetPage'));
 // Todo WhatsApp pasa por aqui: el chat, con quien enlaza su numero y sus
 // plantillas. La pantalla del equipo y «Mi WhatsApp» eran del metodo viejo —el
@@ -384,6 +386,7 @@ function App() {
             <Route path="conciliacion" element={<ConciliacionLayout />}>
               <Route index element={<ConciliacionInicio />} />
               <Route path="facturas" element={<ConciliacionFacturasPage />} />
+              <Route path="cargos-stripe" element={<ConciliacionCargosStripePage />} />
             </Route>
             <Route path="facturas" element={<InvoicesPage />} />
             <Route path="facturas/nueva" element={<InvoiceCreatePage />} />

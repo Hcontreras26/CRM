@@ -613,6 +613,18 @@ export const CAMBIOS_DE_MENU = [
     aprobadoPor: 'Pendiente de Diego (CRM#905)',
   },
   {
+    id: 'menu-conciliacion-cargos-stripe-906',
+    que: '«Finanzas › Conciliación › Cargos de Stripe»: los cargos de Stripe cobrados que no están en ningún cobro del CRM, por campus y por mes, con su cobro candidato para enlazarlo, apuntarlo en la venta del alumno o crear la venta (CRM#906). La pestaña la ve quien tiene `stripe.edit`, cada uno en sus campus; por eso la entrada «Conciliación» le sale también a soporte, que tiene `stripe.edit` y no `facturas.gestionar` (solo verá esta pestaña).',
+    motivo: 'Diego (18/11): quedaban unos 246 cargos (unos 62.000 €) sin enlazar en el 360 y se enlazaban a mano en la base. No cambia el acceso: `stripe.edit` ya asociaba cargos en Pagos Stripe.',
+    perfiles: {
+      soporte: ['+ Finanzas › Conciliación'],
+    },
+    rutas: {
+      'Finanzas › Conciliación': 'GET /api/stripe-payments/conciliacion',
+    },
+    aprobadoPor: 'Pendiente de Diego (CRM#906)',
+  },
+  {
     id: 'menu-cursos-moodle-957',
     que: '«Académico › Cursos de Moodle» (y la pestaña del mismo nombre en Productos): cada producto del catálogo de un campus con su curso de Moodle, o «Sin curso», y elegirlo de la lista de cursos de su Moodle, cambiarlo o quitarlo (CRM#957). Avisa de los productos vendidos sin curso. La ve quien tiene `moodle.cursos_producto`, clave nueva: admin y soporte de serie, cada uno en sus campus.',
     motivo: 'Diego (19/11, CRM#957, a petición de CRM-ISEIE#355): sin esta unión la matrícula automática (#767) no sabe en qué curso matricular a quien compra. Hasta ahora solo se podía con SQL a mano en `moodle_cursos_producto`.',

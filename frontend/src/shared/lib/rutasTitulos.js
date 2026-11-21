@@ -53,6 +53,7 @@ export const ROUTE_TITLES = {
   '/finanzas/disputas': 'Disputas de Stripe',
   '/finanzas/conciliacion': 'Conciliación',
   '/finanzas/conciliacion/facturas': 'Conciliación · Facturas y cobros',
+  '/finanzas/conciliacion/cargos-stripe': 'Conciliación · Cargos de Stripe',
   '/finanzas/facturas': 'Facturas',
   '/finanzas/facturas/configuracion': 'Configuración de facturación',
   // Facturas de colaboradores (#202)
