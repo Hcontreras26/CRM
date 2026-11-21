@@ -184,6 +184,8 @@ const ClavesPage = lazy(() => import('./modules/settings/pages/ClavesPage'));
 const McpPage = lazy(() => import('./modules/mcp/pages/McpPage'));
 const MoodlePage = lazy(() => import('./modules/moodle/pages/MoodlePage'));
 const MoodleCampusPage = lazy(() => import('./modules/moodle/pages/MoodleCampusPage'));
+// CRM#957: qué curso de Moodle es cada producto (lo lee la matrícula automática).
+const CursosDeProductosPage = lazy(() => import('./modules/moodle/pages/CursosDeProductosPage'));
 const RolesPage = lazy(() => import('./modules/permissions/pages/RolesPage'));
 const CategoriesTreePage = lazy(() => import('./modules/product-categories/pages/CategoriesTreePage'));
 const ChannelsConfigPage = lazy(() => import('./modules/settings/pages/ChannelsConfigPage'));
@@ -352,6 +354,7 @@ function App() {
             <Route path="categorias" element={<CategoriesTreePage />} />
             <Route path="pendientes" element={<CoursesPendingPage />} />
             <Route path="woocommerce" element={<WooCommercePage />} />
+            <Route path="cursos-moodle" element={<CursosDeProductosPage />} />
           </Route>
           <Route path="/productos/:id" element={<ProductDetailPage />} />
 

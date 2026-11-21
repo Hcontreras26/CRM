@@ -47,6 +47,7 @@ export type IdRecorridoCobros =
   | 'anular-factura'
   | 'pagos-stripe'
   | 'disputas-stripe'
+  | 'cursos-producto'
   | 'ventas'
   | IdRecorridoFinanzas;
 
@@ -393,6 +394,44 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
     ],
   },
 
+  // ─── 6 · Académico › Cursos de Moodle (CRM#957, para admin y soporte) ───────────
+  'cursos-producto': {
+    id: 'cursos-producto',
+    titulo: 'Cursos de Moodle de cada producto',
+    permiso: 'moodle.cursos_producto',
+    pantalla: ['modules/moodle/pages/CursosDeProductosPage.tsx'],
+    pasos: [
+      {
+        titulo: 'Qué curso es cada producto',
+        texto: 'Cuando alguien paga un producto, la matrícula automática le matricula en su curso de Moodle. Para eso cada producto tiene que estar unido a su curso. Aquí se une, campus a campus. Son {pasos} pasos.',
+      },
+      {
+        donde: anclaje('cursos-producto-aviso'),
+        titulo: 'Los vendidos sin curso, primero',
+        texto: 'Productos que ya se han vendido y no tienen curso: a sus alumnos no se les puede matricular solos. Púlsalo para ver solo esos.',
+      },
+      {
+        donde: anclaje('cursos-producto-filtros'),
+        titulo: 'Buscar y filtrar',
+        texto: 'Escribe parte del nombre del producto o del curso, o mira solo los que no tienen curso.',
+      },
+      {
+        donde: anclaje('cursos-producto-lista'),
+        titulo: 'Elegir, cambiar o quitar',
+        texto: '«Elegir» abre la lista de cursos del Moodle del campus: escribe dos palabras del curso y púlsalo, y queda guardado. Con «Cambiar» pones otro, y con la X lo quitas.',
+      },
+      {
+        donde: anclaje('cursos-producto-actualizar'),
+        titulo: 'Un curso recién creado',
+        texto: 'Si acabas de crear el curso en Moodle y no sale, pulsa «Actualizar cursos».',
+      },
+      {
+        titulo: 'Y listo',
+        texto: FINAL,
+      },
+    ],
+  },
+
   // ─── 6 · Finanzas › Ventas (Diego, 19/11, #941: sustituye a «Tutoriales») ──────
   // Lo que no está en ese momento (el reparto por proyecto sin empresa elegida,
   // los avisos cuando no hay nada que avisar, la meta de quien no la tiene) se
@@ -476,3 +515,4 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
   // ─── 7 · El bloque Finanzas (#941, segunda tanda): `recorridosFinanzas.ts` ───
   ...RECORRIDOS_FINANZAS,
 };
+

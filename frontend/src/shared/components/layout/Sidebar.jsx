@@ -296,6 +296,9 @@ export const SECCIONES_DE_ANTES = [
       // árbol de verdad no tenía entrada en ningún sitio.
       { label: 'Productos por categoría', to: '/productos/arbol', detail: 'Productos agrupados', icon: ListBullets, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.view' },
       { label: 'Árbol de categorías', to: '/productos/categorias', detail: 'Jerarquía de categorías', icon: Tree, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.categorias' },
+      // CRM#957: qué curso de Moodle es cada producto; sin él, la matrícula automática (#767)
+      // no sabe dónde matricular. Admin y soporte de serie (`moodle.cursos_producto`).
+      { label: 'Cursos de Moodle', to: '/productos/cursos-moodle', detail: 'El curso de cada producto', icon: GraduationCap, roles: ['superadmin', 'admin'], module: 'products', permiso: 'moodle.cursos_producto' },
       // «Certificados» (/documentos) fuera del menú: estaba vacío, y los títulos
       // ahora los emite Certifex desde Matrículas → Certificaciones (Diego, 30/09).
     ],
