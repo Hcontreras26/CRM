@@ -1,5 +1,5 @@
 import * as model from './links-pago.model.js';
-import { entorno, planDeCuotas } from './links-pago.service.js';
+import { entorno, planDelLink } from './links-pago.service.js';
 import { normalizePhone } from '../../shared/utils/normalizePhone.js';
 import { linksPagoActivos } from '../../shared/config/soloEnPruebas.js';
 import { logger } from '../../shared/utils/logger.js';
@@ -95,15 +95,20 @@ export async function linkDelCargo(projectId, payment, dbRow, { env = process.en
  * EN CUOTAS (20/11): la venta es por el TOTAL (`link.importe`) con N cuotas
  * mensuales desde el día del pago, la primera ese día. El cobro de este cargo
  * salda la cuota 1; las demás las cobra Stripe solo (cobro automático, 309).
+ *
+ * CON INICIAL (CRM#982): la cuota 1 es la inicial (lo que cobró el link) y el
+ * resto va en N cuotas iguales, una al mes, la última con los céntimos. Stripe
+ * programa cada cuota como una fase con su importe, así que una inicial distinta
+ * de las cuotas no cambia nada del cobro automático. Con descuento, la venta
+ * lleva también el precio original y el descuento.
  */
 async function crearVentaDelLink(projectId, payment, link, leadId) {
   const fecha = new Date(Number(payment.stripe_created_at) * 1000).toISOString().slice(0, 10);
   // El importe del link es el precio pactado. En otra moneda, lo que entró en euros
   // (el CRM guarda euros). Las cuotas van siempre en euros.
   const importe = String(link.moneda).toUpperCase() === 'EUR' ? Number(link.importe) : Number(payment.amount);
-  const cuotas = link.modalidad === 'cuotas' && Number(link.num_cuotas) >= 2
-    ? planDeCuotas({ total: Number(link.importe), n: Number(link.num_cuotas), desde: fecha })
-    : null;
+  // Con inicial (CRM#982): la inicial es la cuota 1 y el resto, N cuotas iguales.
+  const cuotas = planDelLink(link, fecha);
   try {
     const { createSale } = await import('../sales/sales.service.js');
     const venta = await createSale({
@@ -123,6 +128,10 @@ async function crearVentaDelLink(projectId, payment, link, leadId) {
       // sale en Ventas · «Posibles repetidas».
       comprobarRepetida: false,
     });
+    // El precio original y el descuento del link (CRM#982), en la venta. Si no se
+    // pudiera apuntar, la venta sigue bien: su total es el del link.
+    await model.descuentoEnLaVenta(venta.conversion_id, link).catch((e) => logger.warn({ err: e.message, linkId: link.id },
+      'links de pago: no se pudo apuntar el descuento del link en la venta'));
     logger.info({ projectId, linkId: link.id, conversionId: venta.conversion_id, vendedoraId: link.created_by, stripeId: payment.stripe_id,
       cuotas: cuotas?.length || null }, 'links de pago: venta creada al pagarse el link');
     return venta.conversion_id;
