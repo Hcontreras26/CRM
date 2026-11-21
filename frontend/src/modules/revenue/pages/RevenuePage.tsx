@@ -9,6 +9,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { formatNumber, formatDate } from '@/shared/lib/format';
 import { soloFecha } from '@/shared/lib/fechas';
 import { ponerAmbito } from '@/shared/lib/ambitoInforme';
+// El recorrido guiado de la pantalla (#941): señala, paso a paso, cada parte.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 type TipoPago = 'pago_completo' | 'abono_parcial' | string;
 
@@ -111,13 +113,16 @@ export default function RevenuePage() {
   const recent = conversions.slice(0, 20);
 
   return (
-    <div className="space-y-6">
+    /* Margen de scroll en lo que señala el recorrido (#941): la barra fija de
+       arriba no tapa el principio al subir hasta ello. */
+    <div className="space-y-6 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title="Ingresos"
         subtitle={`Conversiones, pagos y evolución${activeProject?.nombre ? ' — ' + activeProject.nombre : ''}`}
+        actions={<VerRecorrido id="conversiones" listo={!loading} />}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div data-recorrido="conversiones-tarjetas" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card p-6 rounded-lg border border-border">
           <div className="flex items-center justify-between mb-4">
                         <div className="w-10 h-10 rounded-md bg-success-soft flex items-center justify-center text-success-soft-foreground"><CurrencyEur size={20} weight="regular" /></div>
@@ -142,7 +147,7 @@ export default function RevenuePage() {
         </div>
       </div>
 
-      <div className="bg-card p-6 rounded-lg border border-border">
+      <div data-recorrido="conversiones-evolucion" className="bg-card p-6 rounded-lg border border-border">
         <div className="mb-6">
           <h3 className="font-semibold">Evolucion de Ingresos</h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">Últimos 6 meses</p>
@@ -164,7 +169,7 @@ export default function RevenuePage() {
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-card rounded-lg border border-border overflow-x-auto">
+      <div data-recorrido="conversiones-lista" className="bg-card rounded-lg border border-border overflow-x-auto">
         <div className="p-5">
           <h3 className="font-semibold">Conversiones Recientes</h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">Últimos pagos registrados</p>

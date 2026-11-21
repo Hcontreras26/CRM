@@ -353,7 +353,11 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
             cifras que cuentan cosas distintas, asi que se explica aqui mismo,
             señalando cada parte (#941). La primera vez sale solo. */}
         {!esIA && (<>
-        <VerRecorrido id="ventas" listo={!loading} />
+        {/* Ingresos es esta misma pantalla con otro título: su recorrido es el
+            suyo, con su propia marca de «ya visto» (#941, Finanzas). */}
+        {title === 'Ingresos'
+          ? <VerRecorrido id="ingresos" listo={!loading} />
+          : <VerRecorrido id="ventas" listo={!loading} />}
         <button
           type="button"
           onClick={() => navigate('/finanzas/ventas-analisis')}
