@@ -51,7 +51,10 @@ export default function CargosStripePestana() {
   const pid = activeProject?.id;
   const unCampus = Boolean(pid && pid > 0);
 
-  const [mes, setMes] = useState('');
+  // QA del 21/11/2026 (gemela de CRM-ISEIE#655): se abre en el mes actual.
+  // «Todos los meses» cruza todos los cargos sin enlazar de una vez: en el 360
+  // tarda ~4 s y en ISEIE (925 cargos) 71 s, hasta el 504 de Cloudflare.
+  const [mes, setMes] = useState(() => new Date().toISOString().slice(0, 7));
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [datos, setDatos] = useState<Conciliacion | null>(null);
   const [cargando, setCargando] = useState(true);
