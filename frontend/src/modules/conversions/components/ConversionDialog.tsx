@@ -732,7 +732,7 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                 {linksCreados && (
                   <div className="mt-3">
                     <LinksRecienCreados resultado={linksCreados} alumno={lead?.nombre} curso={form.producto_contratado}
-                      onVerVenta={() => { window.location.assign(`${import.meta.env.BASE_URL.replace(/\/$/, '')}C:/Program Files/Git/finanzas/ventas/${created.id}`); }} />
+                      onVerVenta={() => { window.location.assign(`${import.meta.env.BASE_URL.replace(/\/$/, '')}/finanzas/ventas/${created.id}`); }} />
                   </div>
                 )}
                 <p className="text-sm text-muted-foreground mt-3">
