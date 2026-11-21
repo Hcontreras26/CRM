@@ -8,26 +8,29 @@ import path from 'path';
 
 /*
   #941, segunda tanda (Diego, 19/11): «Ver recorrido» en el bloque Finanzas, en
-  el orden de la issue. Esta PR trae cuatro: Dashboard, Ingresos, Conversiones
-  y Egresos. Cada pantalla tiene el suyo, con el permiso de la pantalla, y sale
-  solo la primera vez.
+  el orden de la issue. La primera tanda trajo Dashboard, Ingresos, Conversiones
+  y Egresos; la segunda, Cuentas por cobrar, Cuentas por pagar, Comisiones y
+  Comisiones de tutores. Cada pantalla tiene el suyo, con el permiso de la
+  pantalla, y sale solo la primera vez.
 
-  Se comprueba que están los cuatro, que cada pantalla ofrece el suyo, y se
-  pintan las cuatro de verdad con datos en los que sale todo para recorrerlas
+  Se comprueba que están los ocho, que cada pantalla ofrece el suyo, y se
+  pintan las ocho de verdad con datos en los que sale todo para recorrerlas
   enteras sin saltarse ningún paso. Que cada anclaje sigue en el código de su
   pantalla y que los permisos existen lo comprueba `recorridosCobros.test.jsx`
   (estos se suman a `RECORRIDOS_COBROS`); que el cartel cabe a 375 px, paso a
   paso, `recorridoEnMovil.test.jsx`.
 */
 
-const { permisos, api, ambito } = vi.hoisted(() => ({
+const { permisos, api, ambito, rol } = vi.hoisted(() => ({
   permisos: new Set(),
   api: { get: vi.fn() },
   ambito: { current: null },
+  // Comisiones enseña «Reglas» solo al superadmin.
+  rol: { current: 'admin' },
 }));
 
 vi.mock('@/shared/api/client', () => ({ default: { get: (...a) => api.get(...a), post: vi.fn(), patch: vi.fn() } }));
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 41, role: 'admin' } }) }));
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 41, role: rol.current } }) }));
 vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ambito.current }));
 vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: (k) => permisos.has(k) }) }));
 
@@ -37,9 +40,14 @@ const { default: RevenuePage } = await import('@/modules/revenue/pages/RevenuePa
 const { default: ExpensesPage } = await import('@/modules/expenses/pages/ExpensesPage');
 const { default: AccountingDashboardPage } = await import('@/modules/accounting/pages/AccountingDashboardPage');
 const { default: IncomePage } = await import('@/modules/accounting/pages/IncomePage');
+const { default: ReceivablePage } = await import('@/modules/accounting/pages/ReceivablePage');
+const { default: AccountsPayablePage } = await import('@/modules/accounting/pages/AccountsPayablePage');
+const { default: CommissionsPage } = await import('@/modules/commissions/pages/CommissionsPage');
+const { default: ComisionesTutoresPage } = await import('@/modules/tutores/pages/ComisionesTutoresPage');
 
 const SRC = path.resolve(__dirname, '..');
 const n0 = { n: 0, importe: 0 };
+const HOY = new Date().toISOString().slice(0, 10);
 
 /** Lo que contesta el servidor, por ruta (sin la consulta). */
 const RESPUESTAS = {
@@ -87,6 +95,30 @@ const RESPUESTAS = {
     },
   },
   '/informes/ventas-vendedora': { success: true, data: [{ gestor_id: 41, gestor_nombre: 'Marta', ventas: 1, clientes: 1, importe: 1000, cobrado: 500, pendiente: 500 }] },
+  // Segunda tanda.
+  '/accounting/receivable': {
+    success: true,
+    data: {
+      items: [{ tipo: 'cuota', ref_id: 3, conversion_id: 10, lead_id: 5, cliente: 'Ana Pérez', cliente_email: null, producto: 'Máster', project_id: 1, proyecto_nombre: 'Campus de prueba', responsable_id: 41, gestora_nombre: 'Marta', cuota_numero: 2, importe: 500, vence: HOY, vencido: false }],
+      gestoras: [{ id: 41, nombre: 'Marta' }],
+      resumen: { total_pendiente: 500, total_vencido: 0, count: 1, count_vencidas: 0 },
+    },
+  },
+  '/accounts-payable': {
+    success: true,
+    data: [{ id: 4, proveedor: 'Proveedor de prueba', concepto: 'Alojamiento web', importe_total: 200, importe_pagado: 50, fecha_compromiso_pago: '2026-12-01', status: 'partial' }],
+  },
+  '/accounts-payable/stats': { success: true, data: { total_facturado: 200, total_pagado: 50, total_pendiente: 150, vencidas: 0 } },
+  '/commissions': {
+    success: true,
+    data: [{ id: 8, created_at: HOY, user_id: 41, user_nombre: 'Marta', lead_nombre: 'Ana Pérez', producto_contratado: 'Máster', importe_base: 500, pct: 10, importe_comision: 50, estado: 'pendiente' }],
+  },
+  '/commissions/stats': { success: true, data: { total: 50, pagado: 0, pendiente: 50, cantidad: 1 } },
+  '/users': { success: true, data: { users: [{ id: 41, nombre: 'Marta', role: 'gestor' }] } },
+  '/tutores/comisiones/resumen': { success: true, data: [{ periodo: HOY.slice(0, 7), tutor_id: 9, tutor: 'Luis Tutor', tutor_email: 'luis@example.com', pendiente: 30, pagada: 0, base: 300 }] },
+  '/tutores/comisiones': { success: true, data: [] },
+  '/tutores/ajustes': { success: true, data: { aplica_desde: '2026-01-01', pct_por_defecto: 10 } },
+  '/tutores/pagos-sin-formacion': { success: true, data: [{ venta: 12, alumno: 'Pepe Alumno', importe: 100 }] },
 };
 
 const ruta = (url) => String(url).split('?')[0];
@@ -112,6 +144,7 @@ function recorrer(n) {
 beforeEach(() => {
   localStorage.clear();
   permisos.clear();
+  rol.current = 'admin';
   ambito.current = {
     activeProject: { id: 1, nombre: 'Campus de prueba' },
     activeIssuer: null, activeIssuerId: null,
@@ -124,8 +157,11 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe('los recorridos del bloque Finanzas (#941)', () => {
-  it('son los cuatro de esta tanda, en el orden de la issue, y están registrados con los demás', () => {
-    expect(Object.keys(RECORRIDOS_FINANZAS)).toEqual(['finanzas-dashboard', 'ingresos', 'conversiones', 'egresos']);
+  it('son los ocho de las dos tandas, en el orden de la issue, y están registrados con los demás', () => {
+    expect(Object.keys(RECORRIDOS_FINANZAS)).toEqual([
+      'finanzas-dashboard', 'ingresos', 'conversiones', 'egresos',
+      'por-cobrar', 'por-pagar', 'comisiones', 'comisiones-tutores',
+    ]);
     for (const id of Object.keys(RECORRIDOS_FINANZAS)) expect(RECORRIDOS_COBROS[id]).toBe(RECORRIDOS_FINANZAS[id]);
     // Fuera, a propósito: lo de Diego y Claude, y Ventas, que ya estaba.
     for (const fuera of ['facturas', 'links-pago', 'pagos-stripe', 'disputas-stripe', 'integraciones-stripe', 'conciliacion', 'ventas']) {
@@ -147,23 +183,29 @@ describe('los recorridos del bloque Finanzas (#941)', () => {
 });
 
 describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', () => {
+  // [id, pantalla, props, permisos, lo que se ve al cargar, pasos que se saltan]
   const CASOS = [
-    ['conversiones', RevenuePage, {}, 'conversions.view', 'Conversiones Recientes'],
-    ['egresos', ExpensesPage, {}, 'expenses.view', 'Licencia de software'],
-    ['finanzas-dashboard', AccountingDashboardPage, {}, 'accounting.view', 'Ventas por vendedora'],
-    ['ingresos', IncomePage, { title: 'Ingresos' }, 'conversions.view', 'Mi meta del mes'],
+    ['conversiones', RevenuePage, {}, ['conversions.view'], 'Conversiones Recientes', []],
+    ['egresos', ExpensesPage, {}, ['expenses.view', 'expenses.create'], 'Licencia de software', []],
+    ['finanzas-dashboard', AccountingDashboardPage, {}, ['accounting.view'], 'Ventas por vendedora', []],
+    ['ingresos', IncomePage, { title: 'Ingresos' }, ['conversions.view'], 'Mi meta del mes', []],
+    // Abre en la lista: el paso del calendario no tiene dónde ir y se salta.
+    ['por-cobrar', ReceivablePage, {}, ['accounting.por_cobrar'], 'Ana Pérez', ['El calendario']],
+    ['por-pagar', AccountsPayablePage, {}, ['accounts_payable.view', 'accounts_payable.create'], 'Proveedor de prueba', []],
+    ['comisiones', CommissionsPage, {}, ['commissions.view', 'commissions.reglas', 'commissions.pagar'], 'Ana Pérez', []],
+    ['comisiones-tutores', ComisionesTutoresPage, {}, ['tutores.gestionar', 'tutores.liquidar', 'tutores.avisar'], 'Luis Tutor', []],
   ];
 
-  it.each(CASOS)('%s: sale solo la primera vez y pasa por todos sus pasos', async (id, Pantalla, props, permiso, cargada) => {
-    permisos.add(permiso);
-    if (id === 'egresos') permisos.add('expenses.create');
+  it.each(CASOS)('%s: sale solo la primera vez y pasa por todos sus pasos', async (id, Pantalla, props, conPermisos, cargada, saltados) => {
+    for (const p of conPermisos) permisos.add(p);
+    if (id === 'comisiones') rol.current = 'superadmin';
     // Con una empresa elegida, Ingresos enseña además el reparto «Por proyecto».
     if (id === 'ingresos') {
       ambito.current = { ...ambito.current, activeIssuer: { id: 3, nombre: 'Empresa de prueba' }, activeIssuerId: 3 };
     }
     pintar(Pantalla, props);
     await screen.findAllByText(cargada, {}, { timeout: 5000 });
-    const titulos = RECORRIDOS_FINANZAS[id].pasos.map((p) => p.titulo);
+    const titulos = RECORRIDOS_FINANZAS[id].pasos.map((p) => p.titulo).filter((t) => !saltados.includes(t));
     await screen.findByRole('dialog', { name: titulos[0] }, { timeout: 3000 });
     expect(localStorage.getItem(claveRecorrido(id, 41))).toBe('1');
     expect(recorrer(titulos.length)).toEqual(titulos);
@@ -195,6 +237,28 @@ describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', ()
     expect(screen.getByRole('dialog', { name: 'Las conversiones' })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Las conversiones' })).toBeNull();
+  });
+
+  it('Cuentas por cobrar en el calendario: señala el calendario y se salta la lista', async () => {
+    permisos.add('accounting.por_cobrar');
+    localStorage.setItem(claveRecorrido('por-cobrar', 41), '1');
+    pintar(ReceivablePage);
+    await screen.findAllByText('Ana Pérez', {}, { timeout: 5000 });
+    fireEvent.click(screen.getByRole('button', { name: /Calendario/ }));
+    await waitFor(() => expect(document.querySelector('[data-recorrido="cobrar-calendario"]')).not.toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'Ver recorrido: Cuentas por cobrar' }));
+    const titulos = RECORRIDOS_FINANZAS['por-cobrar'].pasos.map((p) => p.titulo).filter((t) => t !== 'La lista');
+    expect(recorrer(titulos.length)).toEqual(titulos);
+  });
+
+  it('Comisiones de tutores: sin liquidar ni avisar, el paso «Pagar y avisar» no sale', async () => {
+    permisos.add('tutores.gestionar');
+    pintar(ComisionesTutoresPage);
+    await screen.findAllByText('Luis Tutor', {}, { timeout: 5000 });
+    await screen.findByRole('dialog', { name: 'Lo que se debe a los tutores' }, { timeout: 3000 });
+    const vistos = recorrer(RECORRIDOS_FINANZAS['comisiones-tutores'].pasos.length);
+    expect(vistos).not.toContain('Pagar y avisar');
+    expect(vistos).toContain('Los tutores');
   });
 
   it('ya visto, no vuelve a salir solo', async () => {

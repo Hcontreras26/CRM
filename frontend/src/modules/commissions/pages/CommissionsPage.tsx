@@ -20,6 +20,8 @@ import { formatCurrencyShort as fmt, formatDate } from '@/shared/lib/format';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 import usePermission from '@/shared/hooks/usePermission';
+// El recorrido guiado de la pantalla (#941): señala, paso a paso, cada parte.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 const RulesDialog = lazy(() => import('../components/RulesDialog'));
 const ExportDialog = lazy(() => import('@/shared/components/export/ExportDialog'));
@@ -176,12 +178,15 @@ export default function CommissionsPage() {
   }
 
   return (
-    <div className="space-y-5 pb-8">
+    /* Margen de scroll en lo que señala el recorrido (#941): la barra fija de
+       arriba no tapa el principio al subir hasta ello. */
+    <div className="space-y-5 pb-8 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title={isAdmin ? 'Comisiones' : 'Mis comisiones'}
         subtitle={isAdmin ? 'Comisiones generadas a partir de las ventas (round-robin -> regla -> conversion)' : 'Tu acumulado por ventas'}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
+            <VerRecorrido id="comisiones" listo={!loading} />
             <button
               onClick={handleExport}
               aria-label="Exportar"
@@ -192,6 +197,7 @@ export default function CommissionsPage() {
             </button>
             {isAdmin && periodMode === 'month' && (
               <button
+                data-recorrido="comisiones-cerrar-mes"
                 onClick={() => setClosingMonth(true)}
                 aria-label="Cerrar mes"
                 title={`Cierra ${monthLabel(year, month)} para snapshot inmutable`}
@@ -201,7 +207,7 @@ export default function CommissionsPage() {
               </button>
             )}
             {isAdmin && user?.role === 'superadmin' && can('commissions.reglas') && (
-              <button onClick={() => setRulesOpen(true)} className="inline-flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
+              <button data-recorrido="comisiones-reglas" onClick={() => setRulesOpen(true)} className="inline-flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
                 <Gear size={14} weight="bold" /> <span className="hidden sm:inline">Reglas (% por gestor)</span><span className="sm:hidden">Reglas</span>
               </button>
             )}
@@ -210,7 +216,7 @@ export default function CommissionsPage() {
       />
 
       {/* Filtro de periodo (CRM-137 + CRM-138) */}
-      <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-2 flex-wrap">
+      <div data-recorrido="comisiones-periodo" className="bg-card border border-border rounded-lg p-3 flex items-center gap-2 flex-wrap">
         <CalendarBlank size={16} className="text-muted-foreground flex-shrink-0" weight="regular" />
         <button
           onClick={() => setPeriodMode('month')}
@@ -265,7 +271,7 @@ export default function CommissionsPage() {
       </div>
 
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div data-recorrido="comisiones-tarjetas" className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard icon={ChartBar} label="Total generado" value={fmt(stats.total)} />
           <KpiCard icon={CheckCircle} label="Pagado" value={fmt(stats.pagado)} iconBg="bg-success-soft text-success-soft-foreground" />
           <KpiCard icon={Clock} label="Pendiente" value={fmt(stats.pendiente)} iconBg="bg-warning-soft text-warning-soft-foreground" />
@@ -274,7 +280,7 @@ export default function CommissionsPage() {
       )}
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="p-4 border-b border-border flex items-center gap-2 flex-wrap">
+        <div data-recorrido="comisiones-estado" className="p-4 border-b border-border flex items-center gap-2 flex-wrap">
           {ESTADOS.map(e => (
             <button key={e.v} onClick={() => setFilterEstado(e.v)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterEstado === e.v ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}>
               {e.label}
@@ -330,7 +336,8 @@ export default function CommissionsPage() {
             }
           />
         ) : (
-          <>
+          /* La tabla (PC) y las tarjetas (móvil) juntas: lo que señala el recorrido. */
+          <div data-recorrido="comisiones-lista">
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="tabla-cifras w-full text-sm">
@@ -450,7 +457,7 @@ export default function CommissionsPage() {
                 </div>
               ))}
             </div>
-          </>
+          </div>
         )}
       </div>
 
