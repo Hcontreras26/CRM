@@ -39,10 +39,14 @@ const TAB_CONTENT = {
 // pintaban igual, y una gestora veía «sin configurar» con un «Configurar» que
 // acababa en 403, o tres peticiones fallidas detrás del aviso de Usuarios.
 // Las que no salen aquí no piden permiso para leerse.
+// Diego, 21/11/2026: una gestora tampoco ve «Roles y Permisos» ni «Webhooks»
+// (las dos piden su permiso en el servidor y la gestora no lo trae).
 export const PERMISO_DE_PESTANA: Record<string, string> = {
   users: 'users.view',
   availability: 'users.view',
   apis: 'credentials.view',
+  roles: 'roles.view',
+  webhooks: 'webhooks.view',
 };
 
 export default function SettingsPage() {

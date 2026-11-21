@@ -54,6 +54,20 @@ describe('Configuración · pestañas según los permisos', () => {
     expect(screen.getByText('contenido-apis')).toBeTruthy();
   });
 
+  // Diego, 21/11/2026: la gestora tampoco ve «Roles y Permisos» ni «Webhooks».
+  it('sin roles.view ni webhooks.view no salen Roles y Permisos ni Webhooks', () => {
+    abrir();
+    expect(screen.queryByRole('link', { name: /Roles y Permisos/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Webhooks/ })).toBeNull();
+  });
+
+  it('con roles.view y webhooks.view salen las dos', () => {
+    permisos.mapa = { 'roles.view': true, 'webhooks.view': true };
+    abrir();
+    expect(screen.getByRole('link', { name: /Roles y Permisos/ })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Webhooks/ })).toBeTruthy();
+  });
+
   it('con users.view pero sin credentials.view, Usuarios sí y APIs globales no', () => {
     permisos.mapa = { 'users.view': true };
     abrir();
