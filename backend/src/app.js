@@ -119,6 +119,7 @@ import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startSuscripcionesPlazosScheduler } from './jobs/suscripcionesPlazosScheduler.js';
 import { startLinksPagoCaducidadScheduler } from './jobs/linksPagoCaducidadScheduler.js';
 import { startCobroAutomaticoScheduler } from './jobs/cobroAutomaticoScheduler.js';
+import { startLinksPagoSeguimientoScheduler } from './jobs/linksPagoSeguimientoScheduler.js';
 import { startCursosPendientesScheduler } from './jobs/cursosPendientesScheduler.js';
 import { startEntregasSinCorregirScheduler } from './jobs/entregasSinCorregirScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
@@ -143,7 +144,7 @@ import { startCopiaDiariaScheduler } from './jobs/copiaDiariaJob.js';
 import { startFacturacionAuditoriaScheduler } from './jobs/facturacionAuditoriaJob.js';
 import { startInformeMensualScheduler } from './jobs/informeMensualJob.js';
 import { startBrevoBloqueadosScheduler } from './jobs/brevoBloqueadosScheduler.js';
-import { tareasActivas, facturasColaboradorActivas, linksPagoActivos, proyectosIAActivos, pluginMoodleActivo, cobroAutomaticoActivo } from './shared/config/soloEnPruebas.js';
+import { tareasActivas, facturasColaboradorActivas, linksPagoActivos, proyectosIAActivos, pluginMoodleActivo, cobroAutomaticoActivo, seguimientoLinksActivo } from './shared/config/soloEnPruebas.js';
 import { porteroDelWebhook, topeDelEnvio, traducirTope } from './modules/webhook-tokens/portero.js';
 import { MAX_ENVIO_BYTES } from './modules/matriculas/admision.archivos.js';
 
@@ -585,6 +586,8 @@ if (process.env.NODE_ENV !== 'test') {
     if (linksPagoActivos()) startLinksPagoCaducidadScheduler();
     // Cobro automático de las cuotas (309): el reintento y el repaso del plan en Stripe.
     if (cobroAutomaticoActivo()) startCobroAutomaticoScheduler();
+    // Seguimiento de los links sin pagar (CRM#984): aperturas, aviso a la gestora y recordatorios.
+    if (seguimientoLinksActivo()) startLinksPagoSeguimientoScheduler();
     // La copia diaria de la base, cifrada y por correo (11/11). Apagada de serie: COPIA_DIARIA_ACTIVA.
     startCopiaDiariaScheduler();
     // La auditoría de facturación cada 2 horas (#765). Apagada de serie: FACTURACION_AUDITORIA_ACTIVA.

@@ -300,6 +300,13 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Webhook de Make sin mapeo', agrupa: true,
     descripcion: 'Un webhook de Make está en activo sin mapeo: los prospectos entran por el nombre habitual de cada campo',
   },
+  // CRM#984 (Diego, 21/11): el alumno abrió el link de pago y no pagó en las horas
+  // que diga el campus. Es para llamarle: pide acción. Uno por link
+  // (links-pago.seguimiento.js).
+  link_pago_abierto: {
+    clase: ACCION, etiqueta: 'Link de pago abierto sin pagar', agrupa: false,
+    descripcion: 'Tu alumno abrió el link de pago y no lo ha pagado',
+  },
   task_aprobada: {
     clase: AVISO, etiqueta: 'Tarea aprobada', agrupa: false,
     descripcion: 'Cuando aprueban una tarea tuya y pasa a «Hecha»',
