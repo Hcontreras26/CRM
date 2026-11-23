@@ -3,11 +3,11 @@ import { Ticket } from '@phosphor-icons/react';
 import { NOVEDADES, NOVEDAD_TYPE } from '../lib/novedades';
 
 const TONE_BG = {
-  amber:   'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  blue:    'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-  emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-  red:     'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-  violet:  'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+  amber:   'bg-warning-soft text-warning-soft-foreground',
+  blue:    'bg-info-soft text-info-soft-foreground',
+  emerald: 'bg-success-soft text-success-soft-foreground',
+  red:     'bg-destructive-soft text-destructive-soft-foreground',
+  violet:  'bg-primary/10 text-primary',
 };
 
 export default function SoportePage() {

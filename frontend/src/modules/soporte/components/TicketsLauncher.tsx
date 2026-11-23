@@ -17,12 +17,12 @@ import {
 } from '../lib/tickets';
 
 const TONE_BG = {
-  amber:   'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  blue:    'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-  emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-  zinc:    'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
-  red:     'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-  violet:  'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+  amber:   'bg-warning-soft text-warning-soft-foreground',
+  blue:    'bg-info-soft text-info-soft-foreground',
+  emerald: 'bg-success-soft text-success-soft-foreground',
+  zinc:    'bg-muted text-muted-foreground',
+  red:     'bg-destructive-soft text-destructive-soft-foreground',
+  violet:  'bg-primary/10 text-primary',
 };
 
 const KIND_ICON = { bug: Bug, feature: Lightning, question: Question, access: Key };
@@ -82,8 +82,7 @@ export default function TicketsLauncher() {
       >
         {open ? <X size={18} weight="bold" /> : <Ticket size={20} weight="regular" />}
         {!open && unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-card">
-            {unread > 9 ? '9+' : unread}
+         <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-warning text-warning-foreground text-[9px] font-bold flex items-center justify-center border-2 border-card">
           </span>
         )}
       </button>
@@ -223,7 +222,7 @@ function TicketCard({ ticket }) {
             <button onClick={cycleStatus} title="Avanzar estado" aria-label="Cambiar estado" className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted">
               <ClockCounterClockwise size={12} />
             </button>
-            <button onClick={handleDelete} title="Eliminar" aria-label="Eliminar ticket" className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30">
+            <button onClick={handleDelete} title="Eliminar" aria-label="Eliminar ticket" className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive-soft">
               <Trash size={12} />
             </button>
           </div>

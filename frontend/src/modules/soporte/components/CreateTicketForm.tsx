@@ -254,7 +254,7 @@ export default function CreateTicketForm({ onSubmitted }: { onSubmitted?: () => 
                   type="button"
                   onClick={() => removeAttachment(i)}
                   aria-label={`Quitar ${a.name}`}
-                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 hover:bg-red-500 transition flex items-center justify-center"
+                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 hover:bg-destructive transition flex items-center justify-center"  
                 >
                   <X size={10} weight="bold" />
                 </button>
@@ -275,9 +275,9 @@ export default function CreateTicketForm({ onSubmitted }: { onSubmitted?: () => 
 
 function KindSelector({ value, onChange }: { value: TicketKind; onChange: (k: TicketKind) => void }) {
   const KINDS: Array<{ k: TicketKind; label: string; Icon: any; color: string }> = [
-    { k: 'bug', label: 'Bug', Icon: Bug, color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30' },
-    { k: 'feature', label: 'Mejora', Icon: Lightning, color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30' },
-    { k: 'question', label: 'Pregunta', Icon: Question, color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30' },
+    { k: 'bug', label: 'Bug', Icon: Bug, color: 'text-destructive-soft-foreground bg-destructive-soft' },
+    { k: 'feature', label: 'Mejora', Icon: Lightning, color: 'text-warning-soft-foreground bg-warning-soft' },
+    { k: 'question', label: 'Pregunta', Icon: Question, color: 'text-info-soft-foreground bg-info-soft' },   
   ];
   return (
     <div>
