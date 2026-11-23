@@ -99,8 +99,8 @@ export default function MakeWebhooksPage() {
                 </div>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                   w.mode === 'active'
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                    ? 'bg-success-soft text-success-soft-foreground'
+                    : 'bg-warning-soft text-warning-soft-foreground'
                 }`}>
                   {w.mode === 'active' ? 'ACTIVO' : 'TEST'}
                 </span>
@@ -112,11 +112,11 @@ export default function MakeWebhooksPage() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Leads creados</p>
-                  <p className="font-semibold tabular-nums text-emerald-600">{w.total_created}</p>
+                  <p className="font-semibold tabular-nums text-success">{w.total_created}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Errores</p>
-                  <p className={`font-semibold tabular-nums ${w.total_errors > 0 ? 'text-red-600' : ''}`}>{w.total_errors}</p>
+                  <p className={`font-semibold tabular-nums ${w.total_errors > 0 ? 'text-destructive' : ''}`}>{w.total_errors}</p>
                 </div>
               </div>
               {w.last_received_at && (

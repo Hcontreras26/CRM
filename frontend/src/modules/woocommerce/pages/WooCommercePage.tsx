@@ -384,7 +384,7 @@ export default function WooCommercePage() {
               Requiere wp_user + wp_app_password.
             </p>
             {discoverResult && (
-              <div className={`mt-2 p-2.5 rounded-md text-xs ${discoverResult.applied ? 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800' : 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800'}`}>
+              <div className={`mt-2 p-2.5 rounded-md text-xs ${discoverResult.applied ? 'bg-success-soft border border-success/30' : 'bg-info-soft border border-info/30'}`}>
                 <p className="font-semibold mb-1">
                   {discoverResult.applied ? '✓ Aplicado' : 'Detectados'}: {discoverResult.recommended_slugs.length} CPT(s)
                 </p>
@@ -465,8 +465,8 @@ export default function WooCommercePage() {
               </details>
 
               {/* Test URL */}
-              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200">
-                <p className="text-[11px] font-bold text-amber-900 dark:text-amber-300 uppercase mb-1">Probar scraper en una URL</p>
+                <div className="p-3 rounded-lg bg-warning-soft border border-warning/30">
+                 <p className="text-[11px] font-bold text-warning-soft-foreground uppercase mb-1">Probar scraper en una URL</p>
                 <div className="flex gap-2">
                   <input
                     value={testUrl}
@@ -488,7 +488,7 @@ export default function WooCommercePage() {
                       } finally { setScrapingPreview(false); }
                     }}
                     disabled={scrapingPreview}
-                    className="h-9 px-3 rounded bg-amber-600 text-white text-xs font-bold disabled:opacity-50"
+                    className="h-9 px-3 rounded bg-warning text-warning-foreground text-xs font-bold disabled:opacity-50"                    
                   >
                     {scrapingPreview ? '…' : 'Probar'}
                   </button>
@@ -519,7 +519,7 @@ export default function WooCommercePage() {
                         </ul>
                       </div>
                     )}
-                    {scrapePreview.error && <div className="text-red-600">Error: {scrapePreview.error}</div>}
+                    {scrapePreview.error && <div className="text-destructive">Error: {scrapePreview.error}</div>}
                   </div>
                 )}
               </div>
@@ -556,7 +556,7 @@ export default function WooCommercePage() {
             <button
               onClick={() => preview(previewUrl)}
               disabled={!previewUrl}
-              className="h-9 px-4 rounded-md bg-amber-600 text-white text-xs font-bold disabled:opacity-50"
+              className="h-9 px-4 rounded-md bg-warning text-warning-foreground text-xs font-bold disabled:opacity-50"
             >
               Previsualizar esa URL
             </button>
@@ -584,12 +584,12 @@ export default function WooCommercePage() {
           </div>
 
           {previewData.scraped && previewData.scraped.url_used && (
-            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 text-xs">
-              <div className="font-bold text-blue-900 dark:text-blue-300 uppercase mb-1">SEO page detectada (recomendada para url_info)</div>
-              <code className="text-blue-700 dark:text-blue-300 break-all">{previewData.scraped.url_used}</code>
-              <p className="mt-1 text-blue-700/80 dark:text-blue-300/80">
+            <div className="p-3 rounded-lg bg-info-soft border border-info/30 text-xs">
+              <div className="font-bold text-info-soft-foreground uppercase mb-1">SEO page detectada (recomendada para url_info)</div>
+              <code className="text-info break-all">{previewData.scraped.url_used}</code>          
+              <p className="mt-1 text-info/80">
                 Para que el CRM use ESTE link en vez del de WC (que tiene sufijo numérico tipo <code>-2105-2</code>),
-                mapea <strong>URL de la landing</strong> → <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">scraper.url_used</code>.
+                mapea <strong>URL de la landing</strong> → <code className="bg-info-soft px-1 rounded">scraper.url_used</code>.
               </p>
             </div>
           )}
@@ -609,7 +609,7 @@ export default function WooCommercePage() {
                       <div key={target.key} className="grid grid-cols-1 md:grid-cols-[180px_1fr_200px] gap-2 items-start text-xs">
                         <label className="font-medium flex items-center gap-1 pt-2">
                           {target.label}
-                          {target.required && <span className="text-red-500">*</span>}
+                          {target.required && <span className="text-destructive">*</span>}
                           <span className="text-muted-foreground font-mono ml-1">({target.key})</span>
                         </label>
                         <div className="space-y-1.5">
@@ -760,13 +760,13 @@ export default function WooCommercePage() {
                     <tr key={r.id} className="border-b last:border-0">
                       <td className="px-4 py-3 text-xs">{new Date(r.started_at).toLocaleString('es-ES')}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'success' ? 'bg-emerald-100 text-emerald-700' : r.status === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{r.status}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'success' ? 'bg-success-soft text-success-soft-foreground' : r.status === 'error' ? 'bg-destructive-soft text-destructive-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'}`}>{r.status}</span>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">{r.total_fetched}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-emerald-600">{r.total_created}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-blue-600">{r.total_updated}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-success">{r.total_created}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-info">{r.total_updated}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">{r.total_skipped}</td>
-                      <td className="px-4 py-3 text-xs text-red-500 truncate max-w-[200px]">{r.error_message || ''}</td>
+                      <td className="px-4 py-3 text-xs text-destructive truncate max-w-[200px]">{r.error_message || ''}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -779,15 +779,15 @@ export default function WooCommercePage() {
                 <div key={r.id} className="p-3 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground">{new Date(r.started_at).toLocaleString('es-ES')}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${r.status === 'success' ? 'bg-emerald-100 text-emerald-700' : r.status === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{r.status}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${r.status === 'success' ? 'bg-success-soft text-success-soft-foreground' : r.status === 'error' ? 'bg-destructive-soft text-destructive-soft-foreground' : 'bg-warning-soft text-warning-soft-foreground'}`}>{r.status}</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <div><div className="text-muted-foreground">Fetched</div><div className="tabular-nums">{r.total_fetched}</div></div>
-                    <div><div className="text-muted-foreground">Created</div><div className="tabular-nums text-emerald-600">{r.total_created}</div></div>
-                    <div><div className="text-muted-foreground">Updated</div><div className="tabular-nums text-blue-600">{r.total_updated}</div></div>
-                    <div><div className="text-muted-foreground">Skipped</div><div className="tabular-nums text-muted-foreground">{r.total_skipped}</div></div>
+                    <div><div className="text-muted-foreground">Created</div><div className="tabular-nums text-success">{r.total_created}</div></div> 
+                     <div><div className="text-muted-foreground">Updated</div><div className="tabular-nums text-info">{r.total_updated}</div></div>
+                     <div><div className="text-muted-foreground">Skipped</div><div className="tabular-nums text-muted-foreground">{r.total_skipped}</div></div>                  
                   </div>
-                  {r.error_message && <p className="text-[11px] text-red-500 break-words">{r.error_message}</p>}
+                  {r.error_message && <p className="text-[11px] text-destructive break-words">{r.error_message}</p>}
                 </div>
               ))}
             </div>
