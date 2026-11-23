@@ -412,7 +412,9 @@ export const SECCIONES_DE_ANTES = [
       { label: 'Clientes', to: '/clientes', detail: 'Quién ya compró', icon: UserCheck, module: 'clients', permiso: 'clients.view' },
       { label: 'Revisión duplicados', to: '/prospectos/revision-duplicados', detail: 'Repetidos por webhook', icon: GitMerge, roles: ['superadmin', 'admin'], module: 'leads', permiso: 'leads.duplicados' },
       { label: 'Buscar duplicados', to: '/prospectos/duplicados', detail: 'Buscarlos a mano', icon: CopySimple, roles: ['superadmin', 'admin'], module: 'leads', permiso: 'leads.duplicados' },
-      { label: 'Solicitud de admisión', to: '/clientes/matriculas', detail: 'Las que llegan del formulario', icon: GraduationCap, module: 'matriculas', permiso: 'matriculas.view' },
+      { label: 'Solicitud de admisión', to: '/clientes/matriculas', detail: 'Las que llegan del formulario', icon: GraduationCap, module: 'matriculas', permiso: 'matriculas.view',
+        // Se llamó «Matrículas» hasta la #831: el buscador la sigue encontrando así.
+        keywords: 'matrículas matricula admisión inscripción' },
       // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
       // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin),
       // y además, para VERLO en solo lectura, quien tenga `diplomas.view` (#384,
