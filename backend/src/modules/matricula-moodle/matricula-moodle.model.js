@@ -95,6 +95,9 @@ export async function pendientes(limite = 200) {
     `SELECT m.*, c.id AS venta_id, c.fecha_inicio, c.producto_contratado_id,
             CASE WHEN c.id IS NULL THEN 0 ELSE ${COBRADO_DE('c')} END AS cobrado,
             l.nombre AS alumno_nombre, l.email AS alumno_email,
+            -- En el 360 los prospectos se borran «suave» (058): la fila sigue, y sin
+            -- esto se matricularía y se escribiría a un prospecto borrado.
+            (l.deleted_at IS NOT NULL) AS alumno_borrado,
             p.nombre AS campus_nombre
        FROM matriculas_moodle m
        JOIN projects p ON p.id = m.project_id
@@ -152,15 +155,18 @@ export async function marcarLista(id, cursos) {
   return rows[0] || null;
 }
 
-/** Fase 2: hecha en Moodle. */
-export async function marcarHecha(id, { cursos, moodleUserId = null }) {
+/**
+ * Fase 2: hecha en Moodle. `cursos` lleva el resultado de cada uno; `motivo`, si
+ * alguno no se pudo (hecha parcial), cuál y por qué.
+ */
+export async function marcarHecha(id, { cursos, moodleUserId = null, motivo = null }) {
   const { rows } = await query(
     `UPDATE matriculas_moodle
         SET estado = 'hecha', hecha_at = NOW(), cursos = $2::jsonb, moodle_user_id = $3,
-            motivo = NULL, intentos = intentos + 1, proximo_intento_at = NULL, updated_at = NOW()
+            motivo = $4, intentos = intentos + 1, proximo_intento_at = NULL, updated_at = NOW()
       WHERE id = $1 AND estado = 'programada'
       RETURNING *`,
-    [id, JSON.stringify(cursos), moodleUserId]
+    [id, JSON.stringify(cursos), moodleUserId, motivo]
   );
   return rows[0] || null;
 }
@@ -206,4 +212,11 @@ export async function adminsDelCampus(projectId) {
     [projectId]
   );
   return rows.map((r) => r.id);
+}
+
+/** El campus, para la marca del correo al alumno (#767). */
+export async function campus(projectId) {
+  const { rows } = await query(
+    'SELECT id, nombre, slug, logo_url, emoji FROM projects WHERE id = $1', [projectId]);
+  return rows[0] || null;
 }

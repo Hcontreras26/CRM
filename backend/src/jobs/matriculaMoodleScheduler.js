@@ -8,7 +8,8 @@ import { vigilar } from './latido.js';
  *
  * Coge las matrículas cuyo momento ya llegó (el día anterior al inicio, o al
  * pagar si no hay fecha) y las deja «listas» avisando a administración, o las
- * reintenta si falta algo. En la fase 1 no llama a Moodle.
+ * reintenta si falta algo. Desde la fase 2, si el campus tiene el plugin
+ * conectado, la hace en Moodle y le manda al alumno su correo de bienvenida.
  *
  * No arranca si MATRICULA_MOODLE_ACTIVA está apagado.
  */
