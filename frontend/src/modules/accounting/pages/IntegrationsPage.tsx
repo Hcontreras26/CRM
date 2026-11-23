@@ -15,6 +15,7 @@ import usePermission from '@/shared/hooks/usePermission';
 import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 import { useLinksPagoEncendidos } from '@/shared/lib/linksPago';
 import { ReglasDeLosLinks, WebhookDeLaCuentaBloque } from '@/modules/links-pago/components/ConfigLinksPago';
+import CodigosPromocionales from '@/modules/links-pago/components/CodigosPromocionales';
 import { esProyectoIA, PROYECTOS_IA } from '@/shared/lib/proyectosIA';
 import { usePluginMoodle } from '@/shared/lib/pluginMoodle';
 import { EtiquetaEnPruebas } from '@/shared/components/ui/EnPruebas';
@@ -696,6 +697,8 @@ function StripeLinksCard({ projectId }: { projectId: number }) {
         {/* Las reglas del campus y el webhook de la cuenta (#680, fase 2): solo quien configura. */}
         {puedeConfigurar && <ReglasDeLosLinks key={`reglas-${projectId}`} projectId={projectId} />}
         {puedeConfigurar && data?.has_secret && <WebhookDeLaCuentaBloque key={`webhook-${projectId}`} projectId={projectId} />}
+        {/* Códigos promocionales de campaña (CRM#986): se crean en Stripe con la clave de arriba. */}
+        {puedeConfigurar && data?.has_secret && <CodigosPromocionales key={`codigos-${projectId}`} projectId={projectId} />}
 
         <TestStatus data={data} />
 
