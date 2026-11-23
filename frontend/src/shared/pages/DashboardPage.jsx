@@ -10,6 +10,7 @@ import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 import ParaHoyYManana from '@/shared/components/dashboard/ParaHoyYManana';
 import CifrasDeHoy from '@/shared/components/dashboard/CifrasDeHoy';
 import BloquePlegable from '@/shared/components/ui/BloquePlegable';
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import { useStripeMonitor } from '@/modules/ia-dashboard/hooks/useStripeMonitor';
 
 const LeadDrawer = lazy(() => import('@/modules/leads/components/LeadDrawer'));
@@ -223,13 +224,17 @@ export default function DashboardPage() {
   const todayDate = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div className="space-y-6">
+    // El margen de scroll, como en Ventas (#941, #928): al subir o bajar hasta lo que
+    // señala el recorrido, la barra fija de arriba no le tapa el principio.
+    <div className="space-y-6 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         // «Hoy» (#534, parte 5): lo primero es el día, no el nombre de la pantalla.
         title={`Hoy, ${todayDate}`}
         subtitle={`${activeIssuer
           ? `${activeIssuer.nombre} · ${activeIssuer.campus.length} campus`
           : (activeProject?.nombre || 'Sin proyecto')}`}
+        // El recorrido guiado de «Hoy» (#928): sale solo la primera vez.
+        actions={<VerRecorrido id="hoy-dashboard" />}
       />
 
       {/* Si falta algun numero en la serie de facturas, se avisa arriba del
@@ -247,18 +252,21 @@ export default function DashboardPage() {
 
       {/* TODO LO DEMÁS, PLEGADO (#534, parte 5). Arriba queda lo que se mira
           cada mañana; esto se abre cuando hace falta y cada bloque recuerda
-          cómo lo dejaste. No se ha quitado nada. */}
-      <BloquePlegable clave="dashboard-equipo" titulo="El equipo este mes" abiertoPorDefecto={false} resumen="Ranking por lo cobrado">
-        <div className="space-y-6">
-          {/* Como voy este mes: el puesto en ventas y la tasa de conversion.
-              Diego, 22/09: «eres la gestora numero X de ventas».
-              12/11/2026, Diego: «los montos de los rankings de todas las vistas
-              son del monto cobrado». El ranking de aquí vuelve a lo cobrado,
-              como en Prospectos, Clientes, Ventas y Reportes (iba por lo
-              facturado desde el #224). */}
-          <ComoVoy />
-        </div>
-      </BloquePlegable>
+          cómo lo dejaste. No se ha quitado nada.
+          El recorrido (#928) señala el primero y cuenta los demás. */}
+      <div data-recorrido="hoy-plegados">
+        <BloquePlegable clave="dashboard-equipo" titulo="El equipo este mes" abiertoPorDefecto={false} resumen="Ranking por lo cobrado">
+          <div className="space-y-6">
+            {/* Como voy este mes: el puesto en ventas y la tasa de conversion.
+                Diego, 22/09: «eres la gestora numero X de ventas».
+                12/11/2026, Diego: «los montos de los rankings de todas las vistas
+                son del monto cobrado». El ranking de aquí vuelve a lo cobrado,
+                como en Prospectos, Clientes, Ventas y Reportes (iba por lo
+                facturado desde el #224). */}
+            <ComoVoy />
+          </div>
+        </BloquePlegable>
+      </div>
 
       <BloquePlegable clave="dashboard-productos" titulo="Productos vendidos" abiertoPorDefecto={false} resumen="Top 10 del mes">
         <div className="space-y-6">

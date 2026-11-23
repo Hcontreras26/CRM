@@ -1,6 +1,8 @@
 import type { PasoRecorrido } from '@/shared/components/ui/RecorridoGuiado';
 // Los del bloque Finanzas (#941, segunda tanda), en su propio fichero.
 import { RECORRIDOS_FINANZAS, type IdRecorridoFinanzas } from '@/shared/lib/recorridosFinanzas';
+// Los de las novedades del 18/11 (#928, tanda A), en su propio fichero.
+import { RECORRIDOS_NOVEDADES, type IdRecorridoNovedades } from '@/shared/lib/recorridosNovedades';
 
 /**
  * LOS RECORRIDOS DE STRIPE Y DE LOS COBROS (Diego, 18/11: «deben haber tutorial
@@ -49,7 +51,8 @@ export type IdRecorridoCobros =
   | 'disputas-stripe'
   | 'cursos-producto'
   | 'ventas'
-  | IdRecorridoFinanzas;
+  | IdRecorridoFinanzas
+  | IdRecorridoNovedades;
 
 export interface RecorridoCobros {
   id: IdRecorridoCobros;
@@ -527,5 +530,8 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
 
   // ─── 7 · El bloque Finanzas (#941, segunda tanda): `recorridosFinanzas.ts` ───
   ...RECORRIDOS_FINANZAS,
+
+  // ─── 8 · Las novedades del 18/11 (#928, tanda A): `recorridosNovedades.ts` ───
+  ...RECORRIDOS_NOVEDADES,
 };
 

@@ -85,6 +85,7 @@ import { PANTALLAS_IA } from '@/shared/lib/pantallasIA';
 import { tipoDelMenu } from '@/shared/lib/proyectosIA';
 import { abrirPedirAcceso } from '@/modules/soporte/lib/accesos';
 import { MARCA } from '@/shared/config/marca';
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 import { reagruparMenu } from './bloquesDelMenu';
 
@@ -1165,6 +1166,20 @@ export function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverr
   );
 }
 
+/** ¿Se ve el menú fijo del PC (`lg`, 1024 px)? El mismo corte que AppLayout. */
+const PC = '(min-width: 1024px)';
+function useEsPC() {
+  const mq = () => (typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia(PC) : null);
+  const [esPC, setEsPC] = useState(() => !!mq()?.matches);
+  useEffect(() => {
+    const m = mq();
+    if (!m?.addEventListener) return undefined;
+    const alCambiar = () => setEsPC(m.matches);
+    m.addEventListener('change', alCambiar);
+    return () => m.removeEventListener('change', alCambiar);
+  }, []);
+  return esPC;
+}
 
 export default function Sidebar({ onNavigate, collapsed = false, onToggleCollapsed }) {
   const navigate = useNavigate();
@@ -1172,6 +1187,11 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const { activeProject, switchProject, projects, activeIssuer, switchIssuer } = useProjectContext();
   const { theme, toggleTheme } = useTheme();
   const [configOpen, setConfigOpen] = useState(false);
+  // El recorrido del menú (#928), solo en el menú que se ve: en el PC, el fijo;
+  // en el móvil, el del cajón (`onNavigate`). El fijo sigue montado (oculto)
+  // en el móvil, y su recorrido se abriría sobre nada.
+  const esPC = useEsPC();
+  const conRecorrido = !collapsed && (onNavigate ? !esPC : esPC);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userMenuPos, setUserMenuPos] = useState(null);
   const [userMenuView, setUserMenuView] = useState('main'); // 'main' | 'hide-dock'
@@ -1482,9 +1502,10 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
 
       {/* Buscador (oculto en collapsed; sigue accesible via Ctrl+K) */}
       {!collapsed && (
-        <div className="mb-4">
+        <div className="mb-4 space-y-2">
           <button
             type="button"
+            data-recorrido="menu-buscar"
             onClick={() => window.dispatchEvent(new Event('crm:open-palette'))}
             className="w-full h-9 px-3 rounded-lg border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors group flex items-center gap-2"
             aria-label="Abrir buscador (Cmd+K)"
@@ -1495,6 +1516,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
               {typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? '⌘' : 'Ctrl'} K
             </kbd>
           </button>
+          {/* El recorrido del menú por bloques (#928): sale solo la primera vez. */}
+          {conRecorrido && <VerRecorrido id="menu-bloques" compacto />}
         </div>
       )}
 
@@ -1584,7 +1607,17 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
             );
           }
           return (
-            <div key={section.label} className="space-y-0.5">
+            <div
+              key={section.label}
+              className="space-y-0.5"
+              // Los bloques que señala el recorrido del menú (#928). Un bloque
+              // que esa persona no tiene no se pinta, y su paso se salta.
+              data-recorrido={section.label === 'Hoy' ? 'menu-hoy'
+                : section.label === 'Comercial' ? 'menu-comercial'
+                  : section.label === 'Académico' ? 'menu-academico'
+                    : section.label === 'Finanzas' ? 'menu-finanzas'
+                      : section.label === 'Configuración' ? 'menu-configuracion' : undefined}
+            >
               <button
                 type="button"
                 onClick={() => toggleSection(section.label)}

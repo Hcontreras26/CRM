@@ -6,6 +6,7 @@ import usePermission from '@/shared/hooks/usePermission';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import client from '@/shared/api/client';
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 const RegisterSaleDialog = lazy(() => import('../components/RegisterSaleDialog'));
 const CursosVendidosCard = lazy(() => import('../components/CursosVendidosCard'));
@@ -106,7 +107,9 @@ export default function SalesPage() {
   );
 
   return (
-    <div className="space-y-6">
+    // El margen de scroll, como en Ventas (#941): la barra fija de arriba no
+    // tapa lo que señala el recorrido (#928).
+    <div className="space-y-6 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         // Con una empresa arriba, id también es -1: el título decía «Todos los
         // proyectos» aunque las cifras eran solo de esa empresa (#218).
@@ -119,6 +122,8 @@ export default function SalesPage() {
             : 'Vista agregada de todos los proyectos. Para registrar una venta entra en un proyecto concreto.'}
         actions={(
           <>
+          {/* El recorrido de las ventas repetidas (#928): sale solo la primera vez. */}
+          <VerRecorrido id="ventas-repetidas" />
           {isAdmin && !allProjects && !esIA && (
             <div className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-border bg-card text-sm">
               <UsersThree size={14} className="text-muted-foreground" />
@@ -155,6 +160,7 @@ export default function SalesPage() {
             <div className="relative">
               <button
                 type="button"
+                data-recorrido="ventas-repetidas-nueva"
                 onClick={() => setMenuAbierto((v) => !v)}
                 disabled={!puedeRegistrar}
                 aria-haspopup="menu"
@@ -213,6 +219,7 @@ export default function SalesPage() {
           ) : (
             <button
               type="button"
+              data-recorrido="ventas-repetidas-nueva"
               onClick={() => abrirVenta('existing')}
               disabled={!puedeRegistrar}
               title={!puedeRegistrar ? 'Elige un proyecto o una empresa para registrar una venta' : ''}
