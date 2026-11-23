@@ -5,7 +5,7 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import SubirFactura from '../components/SubirFactura';
-// El recorrido guiado de la pantalla (#928): la primera vez sale solo.
+// El recorrido guiado de la pantalla (#928): solo con el botón (CRM#1012).
 import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import {
   ESTADO, FORMA_PAGO_ES, avisoDelPdf, diaDelPago, euros, facturasColaboradorApi, primeraMayuscula, type FacturaDelColaborador, urlDelArchivo,

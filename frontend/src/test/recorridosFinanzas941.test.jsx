@@ -241,6 +241,11 @@ describe('los recorridos del bloque Finanzas (#941)', () => {
   });
 });
 
+/** Desde la #1012 ninguno sale solo: se abre con su botón. */
+const abrir = async (id) => {
+  fireEvent.click(await screen.findByRole('button', { name: `Ver recorrido: ${RECORRIDOS_FINANZAS[id].titulo}` }, { timeout: 3000 }));
+};
+
 describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', () => {
   // [id, pantalla, props, permisos, lo que se ve al cargar, pasos que se saltan]
   const CASOS = [
@@ -261,7 +266,7 @@ describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', ()
     ['analisis-ventas', SalesAnalysisPage, {}, ['ventas.view_equipo'], 'Cobro fraccionado', ['Por asesora o por cliente']],
   ];
 
-  it.each(CASOS)('%s: sale solo la primera vez y pasa por todos sus pasos', async (id, Pantalla, props, conPermisos, cargada, saltados) => {
+  it.each(CASOS)('%s: no sale solo (#1012); con «Ver recorrido» pasa por todos sus pasos', async (id, Pantalla, props, conPermisos, cargada, saltados) => {
     for (const p of conPermisos) permisos.add(p);
     if (id === 'comisiones') rol.current = 'superadmin';
     // Con una empresa elegida, Ingresos enseña además el reparto «Por proyecto».
@@ -278,6 +283,9 @@ describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', ()
     pintar(Pantalla, props);
     await screen.findAllByText(cargada, {}, { timeout: 5000 });
     const titulos = RECORRIDOS_FINANZAS[id].pasos.map((p) => p.titulo).filter((t) => !saltados.includes(t));
+    await new Promise((r) => setTimeout(r, 900));
+    expect(screen.queryByRole('dialog', { name: titulos[0] })).toBeNull();
+    await abrir(id);
     await screen.findByRole('dialog', { name: titulos[0] }, { timeout: 3000 });
     expect(localStorage.getItem(claveRecorrido(id, 41))).toBe('1');
     expect(recorrer(titulos.length)).toEqual(titulos);
@@ -327,6 +335,7 @@ describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', ()
     permisos.add('tutores.gestionar');
     pintar(ComisionesTutoresPage);
     await screen.findAllByText('Luis Tutor', {}, { timeout: 5000 });
+    await abrir('comisiones-tutores');
     await screen.findByRole('dialog', { name: 'Lo que se debe a los tutores' }, { timeout: 3000 });
     const vistos = recorrer(RECORRIDOS_FINANZAS['comisiones-tutores'].pasos.length);
     expect(vistos).not.toContain('Pagar y avisar');
@@ -337,6 +346,7 @@ describe('pintadas de verdad, se recorren enteras sin saltarse ningún paso', ()
     permisos.add('payroll.view');
     pintar(PayrollPage);
     await screen.findAllByText('marta@example.com', {}, { timeout: 5000 });
+    await abrir('nominas');
     await screen.findByRole('dialog', { name: 'Las nóminas' }, { timeout: 3000 });
     const vistos = recorrer(RECORRIDOS_FINANZAS.nominas.pasos.length);
     expect(vistos).not.toContain('Con una empresa elegida');

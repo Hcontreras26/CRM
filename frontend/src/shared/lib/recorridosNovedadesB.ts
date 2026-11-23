@@ -1,4 +1,5 @@
 import type { RecorridoCobros } from '@/shared/lib/recorridosCobros';
+import { FINAL_RECORRIDO as FINAL } from '@/shared/lib/recorridosComun';
 
 /**
  * LOS RECORRIDOS DE LAS NOVEDADES DEL 18/11, SEGUNDA TANDA (#928; gemela
@@ -39,13 +40,13 @@ type RecorridoNovedadesB = Omit<RecorridoCobros, 'id'> & { id: IdRecorridoNoveda
 
 const anclaje = (nombre: string) => `[data-recorrido="${nombre}"]`;
 
-const FINAL = 'No volverá a salir solo. Para repasarlo, pulsa «Ver recorrido» en esta pantalla cuando quieras.';
 
 /** En el orden de la issue: factura del mes (las dos caras), Mi campus, Incidencias y Prospectos. */
 export const RECORRIDOS_NOVEDADES_B: Record<IdRecorridoNovedadesB, RecorridoNovedadesB> = {
   // ─── Mi factura (colaboradores y vendedoras) ───────────────────────────────
   'mi-factura': {
     id: 'mi-factura',
+    rutas: ['/mi-factura'],
     titulo: 'Mi factura',
     permiso: 'facturas_colaborador.subir',
     pantalla: ['modules/facturas-colaborador/pages/MiFacturaPage.tsx'],
@@ -79,6 +80,7 @@ export const RECORRIDOS_NOVEDADES_B: Record<IdRecorridoNovedadesB, RecorridoNove
   // ─── Finanzas › Facturas de colaboradores (validar antes de pagar) ─────────
   'facturas-colaboradores': {
     id: 'facturas-colaboradores',
+    rutas: ['/finanzas/facturas-colaboradores'],
     titulo: 'Facturas de colaboradores',
     permiso: 'facturas_colaborador.ver_todas',
     pantalla: [
@@ -126,6 +128,7 @@ export const RECORRIDOS_NOVEDADES_B: Record<IdRecorridoNovedadesB, RecorridoNove
   // ─── Mi campus (tutores) ───────────────────────────────────────────────────
   'mi-campus': {
     id: 'mi-campus',
+    rutas: ['/mis-cursos/campus'],
     titulo: 'Mi campus',
     permiso: 'tutores.mis_cursos',
     pantalla: ['modules/tutores/pages/MiCampusPage.tsx'],
@@ -174,6 +177,7 @@ export const RECORRIDOS_NOVEDADES_B: Record<IdRecorridoNovedadesB, RecorridoNove
   // ─── Incidencias ───────────────────────────────────────────────────────────
   incidencias: {
     id: 'incidencias',
+    rutas: ['/incidencias'],
     titulo: 'Incidencias',
     permiso: 'incidencias.view',
     pantalla: ['modules/incidencias/pages/IncidenciasPage.tsx', 'modules/incidencias/components/CifrasIncidencias.tsx'],
@@ -218,6 +222,7 @@ export const RECORRIDOS_NOVEDADES_B: Record<IdRecorridoNovedadesB, RecorridoNove
   // ─── Prospectos › Lista, con sus filtros ───────────────────────────────────
   prospectos: {
     id: 'prospectos',
+    rutas: ['/prospectos'],
     titulo: 'Prospectos',
     permiso: 'leads.view',
     pantalla: [

@@ -351,7 +351,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           <>
         {/* Como leer esta pantalla. Casi todas las dudas salen de comparar
             cifras que cuentan cosas distintas, asi que se explica aqui mismo,
-            señalando cada parte (#941). La primera vez sale solo. */}
+            señalando cada parte (#941). Solo con el botón (CRM#1012). */}
         {!esIA && (<>
         {/* Ingresos es esta misma pantalla con otro título: su recorrido es el
             suyo, con su propia marca de «ya visto» (#941, Finanzas). */}

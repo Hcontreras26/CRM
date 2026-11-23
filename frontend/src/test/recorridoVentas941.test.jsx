@@ -57,7 +57,8 @@ const RESPUESTAS = {
 };
 
 const pintar = () => render(<MemoryRouter><IncomePage title="Ventas" /></MemoryRouter>);
-const titulos = RECORRIDOS_COBROS.ventas.pasos.map((p) => p.titulo);
+// Sin links de pago en esta prueba, «Link y Plan en cada venta» no tiene dónde señalar (#1012).
+const titulos = RECORRIDOS_COBROS.ventas.pasos.map((p) => p.titulo).filter((t) => t !== 'Link y Plan en cada venta');
 
 beforeEach(() => {
   localStorage.clear();
@@ -76,9 +77,12 @@ describe('Ventas: «Ver recorrido» en vez de «Tutoriales» (#941)', () => {
     expect(screen.queryByRole('button', { name: /Tutoriales/ })).toBeNull();
   });
 
-  it('la primera vez sale solo, cuando la pantalla ha cargado, y se recorre entero sin saltarse nada', async () => {
+  it('no sale solo (#1012); con «Ver recorrido» se recorre entero sin saltarse nada', async () => {
     pintar();
     await screen.findByText('Mi meta del mes', {}, { timeout: 5000 });
+    await new Promise((r) => setTimeout(r, 900));
+    expect(screen.queryByRole('dialog', { name: 'Las ventas del periodo' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver recorrido: Ventas' }));
     await screen.findByRole('dialog', { name: 'Las ventas del periodo' }, { timeout: 3000 });
     expect(localStorage.getItem(claveRecorrido('ventas', 41))).toBe('1');
 

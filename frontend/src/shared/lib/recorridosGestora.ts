@@ -1,4 +1,5 @@
 import type { RecorridoCobros } from '@/shared/lib/recorridosCobros';
+import { FINAL_RECORRIDO as FINAL } from '@/shared/lib/recorridosComun';
 
 /**
  * LOS RECORRIDOS DEL DÍA A DÍA DE UNA GESTORA (#941, tanda C; gemela
@@ -46,13 +47,13 @@ type RecorridoGestora = Omit<RecorridoCobros, 'id'> & { id: IdRecorridoGestora }
 
 const anclaje = (nombre: string) => `[data-recorrido="${nombre}"]`;
 
-const FINAL = 'No volverá a salir solo. Para repasarlo, pulsa «Ver recorrido» en esta pantalla cuando quieras.';
 
 /** Por uso: Clientes, la ficha del prospecto y La cola del día. */
 export const RECORRIDOS_GESTORA: Record<IdRecorridoGestora, RecorridoGestora> = {
   // ─── Clientes › Listado ────────────────────────────────────────────────────
   clientes: {
     id: 'clientes',
+    rutas: ['/clientes'],
     titulo: 'Clientes',
     permiso: 'clients.view',
     pantalla: [
@@ -106,6 +107,7 @@ export const RECORRIDOS_GESTORA: Record<IdRecorridoGestora, RecorridoGestora> = 
   // ─── Prospectos › Ficha ────────────────────────────────────────────────────
   'prospecto-ficha': {
     id: 'prospecto-ficha',
+    rutas: ['/prospectos/:id'],
     titulo: 'La ficha del prospecto',
     permiso: 'leads.view',
     pantalla: [
@@ -161,6 +163,7 @@ export const RECORRIDOS_GESTORA: Record<IdRecorridoGestora, RecorridoGestora> = 
   // ─── Hoy › La cola del día ─────────────────────────────────────────────────
   'cola-del-dia': {
     id: 'cola-del-dia',
+    rutas: ['/prospectos/cola'],
     titulo: 'La cola del día',
     permiso: 'proceso.view',
     pantalla: ['modules/proceso/pages/ColaDelDiaPage.tsx'],

@@ -15,7 +15,7 @@ import {
 import MisCursosPage from './MisCursosPage';
 // El % hecho con su barra: el mismo componente que la ficha del cliente (#532).
 import Progreso from '@/modules/moodle/components/ProgresoCurso';
-// El recorrido guiado de la pantalla (#928): la primera vez sale solo.
+// El recorrido guiado de la pantalla (#928): solo con el botón (CRM#1012).
 import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 /*
@@ -400,7 +400,7 @@ export default function MiCampusPage() {
         subtitle={vista === 'cursos' ? 'Tus cursos y lo que te corresponde' : (leido ? `Tus cursos en Moodle · leído a las ${leido}` : 'Tus cursos en Moodle')}
         actions={(
           <>
-          {/* La primera vez sale solo, con el campus ya leído (#928). */}
+          {/* El recorrido (#928): solo con el botón (CRM#1012). */}
           <VerRecorrido id="mi-campus" listo={vista === 'cursos' || !cargando} compacto />
           {vista === 'campus' && (
           <Button data-recorrido="mi-campus-actualizar" variant="outline" size="sm" disabled={cargando} onClick={() => cargar(true)} className="h-8 text-secundario">

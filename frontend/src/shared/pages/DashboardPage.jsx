@@ -233,7 +233,7 @@ export default function DashboardPage() {
         subtitle={`${activeIssuer
           ? `${activeIssuer.nombre} · ${activeIssuer.campus.length} campus`
           : (activeProject?.nombre || 'Sin proyecto')}`}
-        // El recorrido guiado de «Hoy» (#928): sale solo la primera vez.
+        // El recorrido guiado de «Hoy» (#928): solo con el botón (CRM#1012).
         actions={<VerRecorrido id="hoy-dashboard" />}
       />
 

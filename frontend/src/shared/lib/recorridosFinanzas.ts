@@ -1,4 +1,5 @@
 import type { RecorridoCobros } from '@/shared/lib/recorridosCobros';
+import { FINAL_RECORRIDO as FINAL } from '@/shared/lib/recorridosComun';
 
 /**
  * LOS RECORRIDOS DEL BLOQUE FINANZAS (#941; Diego, 19/11: «las que son así,
@@ -51,7 +52,6 @@ type RecorridoFinanzas = Omit<RecorridoCobros, 'id'> & { id: IdRecorridoFinanzas
 
 const anclaje = (nombre: string) => `[data-recorrido="${nombre}"]`;
 
-const FINAL = 'No volverá a salir solo. Para repasarlo, pulsa «Ver recorrido» en esta pantalla cuando quieras.';
 
 /** En el orden de la issue: Dashboard, Ingresos, Conversiones, Egresos, Cuentas
  *  por cobrar, Cuentas por pagar, Comisiones, Comisiones de tutores, Nóminas,
@@ -60,6 +60,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Dashboard ──────────────────────────────────────────────────
   'finanzas-dashboard': {
     id: 'finanzas-dashboard',
+    rutas: ['/finanzas'],
     titulo: 'Dashboard de Finanzas',
     permiso: 'accounting.view',
     pantalla: ['modules/accounting/pages/AccountingDashboardPage.tsx'],
@@ -105,6 +106,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Ingresos (la misma pantalla que Ventas, con otro título) ───
   ingresos: {
     id: 'ingresos',
+    rutas: ['/finanzas/ingresos'],
     titulo: 'Ingresos',
     permiso: 'conversions.view',
     pantalla: [
@@ -154,6 +156,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Conversiones ───────────────────────────────────────────────
   conversiones: {
     id: 'conversiones',
+    rutas: ['/finanzas/conversiones'],
     titulo: 'Conversiones',
     permiso: 'conversions.view',
     pantalla: ['modules/revenue/pages/RevenuePage.tsx'],
@@ -184,6 +187,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Egresos ────────────────────────────────────────────────────
   egresos: {
     id: 'egresos',
+    rutas: ['/finanzas/egresos'],
     titulo: 'Egresos',
     permiso: 'expenses.view',
     pantalla: ['modules/expenses/pages/ExpensesPage.tsx'],
@@ -230,6 +234,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Cuentas por cobrar (igual que CRM-ISEIE#635) ───────────────
   'por-cobrar': {
     id: 'por-cobrar',
+    rutas: ['/finanzas/por-cobrar'],
     titulo: 'Cuentas por cobrar',
     permiso: 'accounting.por_cobrar',
     pantalla: ['modules/accounting/pages/ReceivablePage.tsx'],
@@ -270,6 +275,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Cuentas por pagar ──────────────────────────────────────────
   'por-pagar': {
     id: 'por-pagar',
+    rutas: ['/finanzas/por-pagar'],
     titulo: 'Cuentas por pagar',
     permiso: 'accounts_payable.view',
     pantalla: ['modules/accounting/pages/AccountsPayablePage.tsx'],
@@ -306,6 +312,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Comisiones (del equipo comercial) ──────────────────────────
   comisiones: {
     id: 'comisiones',
+    rutas: ['/finanzas/comisiones'],
     titulo: 'Comisiones',
     permiso: 'commissions.view',
     pantalla: ['modules/commissions/pages/CommissionsPage.tsx'],
@@ -352,6 +359,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Tutores › Comisiones de tutores ───────────────────────────────────────
   'comisiones-tutores': {
     id: 'comisiones-tutores',
+    rutas: ['/tutores/comisiones'],
     titulo: 'Comisiones de tutores',
     permiso: 'tutores.gestionar',
     pantalla: ['modules/tutores/pages/ComisionesTutoresPage.tsx'],
@@ -397,6 +405,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Nóminas (igual que CRM-ISEIE#636, más «elige un campus») ───
   nominas: {
     id: 'nominas',
+    rutas: ['/finanzas/nominas'],
     titulo: 'Nóminas',
     permiso: 'payroll.view',
     pantalla: ['modules/payroll/pages/PayrollPage.tsx'],
@@ -433,6 +442,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Pendientes de facturar ─────────────────────────────────────
   'pendientes-facturar': {
     id: 'pendientes-facturar',
+    rutas: ['/finanzas/pendiente-facturar'],
     titulo: 'Pendientes de facturar',
     permiso: 'facturas.view',
     pantalla: ['modules/accounting/pages/PendienteFacturarPage.tsx'],
@@ -468,6 +478,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Sin formación ──────────────────────────────────────────────
   'ventas-sin-formacion': {
     id: 'ventas-sin-formacion',
+    rutas: ['/finanzas/ventas-sin-formacion'],
     titulo: 'Ventas sin formación',
     permiso: 'ventas.view_equipo',
     pantalla: ['modules/sales/pages/VentasSinFormacionPage.tsx'],
@@ -503,6 +514,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
   // ─── Finanzas › Análisis de ventas ─────────────────────────────────────────
   'analisis-ventas': {
     id: 'analisis-ventas',
+    rutas: ['/finanzas/ventas-analisis'],
     titulo: 'Análisis de ventas',
     permiso: 'ventas.view_equipo',
     pantalla: ['modules/sales/pages/SalesAnalysisPage.tsx'],

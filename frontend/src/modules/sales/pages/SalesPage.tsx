@@ -122,7 +122,7 @@ export default function SalesPage() {
             : 'Vista agregada de todos los proyectos. Para registrar una venta entra en un proyecto concreto.'}
         actions={(
           <>
-          {/* El recorrido de las ventas repetidas (#928): sale solo la primera vez. */}
+          {/* El recorrido de las ventas repetidas (#928): solo con el botón (CRM#1012). */}
           <VerRecorrido id="ventas-repetidas" />
           {isAdmin && !allProjects && !esIA && (
             <div className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-border bg-card text-sm">
