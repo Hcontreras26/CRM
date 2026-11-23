@@ -12,6 +12,9 @@ export const TEMPLATE_VARIABLES = [
   { token: '{{lead.producto}}',  desc: 'Producto de interés del lead' },
   { token: '{{project.nombre}}', desc: 'Nombre del proyecto' },
   { token: '{{user.nombre}}',    desc: 'Nombre del usuario que envía' },
+  // CRM#983: el bloque «link de pago». No es texto: es un botón, y se monta
+  // aparte (links-pago.secuencia.js). Si no hay link posible, el correo no sale.
+  { token: '{{link_pago}}',      desc: 'Botón «Pagar ahora» con el link de Stripe del curso de interés del prospecto (el que tenga vivo, o uno nuevo al precio del catálogo)' },
 
   // Del aviso mensual al tutor. Se declaran aunque solo las use ese correo:
   // quien entre a editarlo tiene que VER que huecos puede poner. Una variable

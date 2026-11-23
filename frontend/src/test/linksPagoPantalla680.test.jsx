@@ -67,6 +67,8 @@ beforeEach(() => {
     if (url.startsWith('/links-pago/config')) return { success: true, data: CONFIG };
     if (url === '/products') return { success: true, data: CURSOS };
     if (url === '/links-pago/cuotas-disponibles') return { success: true, data: { disponible: true, motivo: null, cuotas_max: 12 } };
+    // CRM#983: «Enviar por WhatsApp» solo con WhatsApp conectado en el CRM.
+    if (String(url).startsWith('/whatsapp/conexion')) return { success: true, data: { configurado: true, conectado: true } };
     if (url === '/leads') return { success: true, data: opts?.params?.search === 'ana' ? [{ id: 3, nombre: 'Ana Pérez', email: 'ana@correo.test' }] : [] };
     return { success: true, data: [] };
   });
@@ -110,7 +112,7 @@ describe('la pantalla «Links de pago»', () => {
     expect(within(li).getByRole('link', { name: 'Venta n.º 81' }).getAttribute('href')).toBe('/finanzas/ventas/81');
     expect(within(li).getByRole('link', { name: /Abrir/ }).getAttribute('href')).toBe('https://buy.stripe.com/test_40');
     expect(within(li).getByText(/Gestora Uno/)).toBeTruthy();
-    expect(within(li).getByRole('button', { name: /Copiar/ })).toBeTruthy();
+    expect(within(li).getByRole('button', { name: /^\s*Copiar\s*$/ })).toBeTruthy();
     expect(within(li).getByRole('button', { name: /Anular/ })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /Crear link de pago/ }));
@@ -173,7 +175,7 @@ describe('el asistente «Crear link de pago»: para un prospecto o una venta (pl
     }));
     expect(await within(dialogo).findByText('Link creado')).toBeTruthy();
     expect(within(dialogo).getByLabelText('Link de pago').value).toBe('https://buy.stripe.com/test_40');
-    expect(within(dialogo).getByRole('button', { name: /Copiar/ })).toBeTruthy();
+    expect(within(dialogo).getByRole('button', { name: /^\s*Copiar\s*$/ })).toBeTruthy();
     expect(within(dialogo).getByRole('link', { name: /Abrir/ })).toBeTruthy();
     expect(within(dialogo).getByRole('button', { name: /Enviar por WhatsApp/ })).toBeTruthy();
     expect(within(dialogo).getByRole('button', { name: /Enviar por correo/ })).toBeTruthy();
