@@ -39,6 +39,8 @@ export default function CifrasClientes({
   const pctCobrado = facturado > 0 ? Math.round((cobrado / facturado) * 100) : 0;
 
   return (
+    // `data-recorrido`: el paso «Las cifras» del recorrido de Clientes (#941).
+    <div data-recorrido="clientes-cifras">
     <FilaDeCifras>
       <Cifra
         icon={UserCheck}
@@ -67,5 +69,6 @@ export default function CifrasClientes({
         tono={pendiente > 0 ? 'aviso' : 'bien'}
       />
     </FilaDeCifras>
+    </div>
   );
 }

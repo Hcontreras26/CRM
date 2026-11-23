@@ -5,6 +5,8 @@ import { RECORRIDOS_FINANZAS, type IdRecorridoFinanzas } from '@/shared/lib/reco
 import { RECORRIDOS_NOVEDADES, type IdRecorridoNovedades } from '@/shared/lib/recorridosNovedades';
 // Los de las novedades del 18/11, segunda tanda (#928), en su propio fichero.
 import { RECORRIDOS_NOVEDADES_B, type IdRecorridoNovedadesB } from '@/shared/lib/recorridosNovedadesB';
+// Los del día a día de una gestora (#941, tanda C: Clientes, ficha y cola), en su propio fichero.
+import { RECORRIDOS_GESTORA, type IdRecorridoGestora } from '@/shared/lib/recorridosGestora';
 
 /**
  * LOS RECORRIDOS DE STRIPE Y DE LOS COBROS (Diego, 18/11: «deben haber tutorial
@@ -55,7 +57,8 @@ export type IdRecorridoCobros =
   | 'ventas'
   | IdRecorridoFinanzas
   | IdRecorridoNovedades
-  | IdRecorridoNovedadesB;
+  | IdRecorridoNovedadesB
+  | IdRecorridoGestora;
 
 export interface RecorridoCobros {
   id: IdRecorridoCobros;
@@ -544,5 +547,8 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
   ...RECORRIDOS_NOVEDADES,
   // ─── 8 · Novedades del 18/11, segunda tanda (#928): `recorridosNovedadesB.ts` ───
   ...RECORRIDOS_NOVEDADES_B,
+
+  // ─── 9 · El día a día de una gestora (#941, tanda C): `recorridosGestora.ts` ───
+  ...RECORRIDOS_GESTORA,
 };
 
