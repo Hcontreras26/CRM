@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import client from '@/shared/api/client';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
@@ -93,15 +93,42 @@ function fmt(d: string | null): string {
 }
 
 export default function IntegrationsPage() {
-  const { activeProject, isAllProjects, activeIssuerId } = useProjectContext() as {
+  const { activeProject, isAllProjects, activeIssuerId, projects, switchProject } = useProjectContext() as {
     activeProject: { id?: number | null; nombre?: string; type?: string };
     isAllProjects?: boolean;
     activeIssuerId?: number | null;
+    projects?: Array<{ id: number }>;
+    switchProject?: (id: number) => void;
   };
   // Con «Todos» o una empresa arriba no hay UN campus que configurar: la
   // pantalla enseña el estado de cada uno, solo para ver (#218, Diego 04/11).
   const vistaGeneral = !!isAllProjects || !!activeIssuerId || activeProject?.id === TODOS_LOS_PROYECTOS;
   const pid = vistaGeneral ? null : activeProject?.id;
+
+  /*
+    ABRIR EN UN CAMPUS Y EN SU CLAVE DE LINKS (CRM#992): el aviso «Conectar Stripe
+    para cobros automáticos» trae aquí con `?campus=N&seccion=links-pago`. Se
+    elige ese campus (si es de los de la persona; si no, se queda el que había)
+    y se baja hasta la tarjeta de links de pago, marcada.
+  */
+  // De la dirección al abrir (sin el router: la página también se pinta suelta).
+  const [params] = useState(() => new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search));
+  const campusPedido = Number(params.get('campus')) || null;
+  const irALinks = params.get('seccion') === 'links-pago' && !!pid && pid === campusPedido;
+  const campusElegido = useRef(false);
+  useEffect(() => {
+    if (!campusPedido || campusElegido.current) return;
+    if (!vistaGeneral && activeProject?.id === campusPedido) { campusElegido.current = true; return; }
+    if ((projects || []).some((p) => Number(p.id) === campusPedido) && switchProject) {
+      campusElegido.current = true;
+      switchProject(campusPedido);
+    }
+  }, [campusPedido, projects, activeProject?.id, vistaGeneral, switchProject]);
+  useEffect(() => {
+    if (!irALinks) return undefined;
+    const t = setTimeout(() => document.getElementById('integracion-links-pago')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 80);
+    return () => clearTimeout(t);
+  }, [irALinks]);
   // Lo del #44, solo en pruebas (`shared/lib/proyectosIA`).
   const esIA = esProyectoIA(activeProject);
   // La salud de las conexiones (CRM#533): superadmin y admin, de «Todos», de una
@@ -178,7 +205,12 @@ export default function IntegrationsPage() {
               producción, con LINKS_PAGO_EN_PRODUCCION=1. */}
           {/* `key`: al cambiar de campus la tarjeta empieza de cero; si no,
               enseñaba un momento el descuento del campus anterior. */}
-          {linksPago && <StripeLinksCard key={pid} projectId={pid} />}
+          {linksPago && (
+            <div id="integracion-links-pago" data-testid="integracion-links-pago"
+              className={`scroll-mt-4 rounded-lg ${irALinks ? 'ring-2 ring-primary' : ''}`}>
+              <StripeLinksCard key={pid} projectId={pid} />
+            </div>
+          )}
           {/* Supabase solo en los proyectos IA: es donde vive su app. En un
               proyecto CRM la tarjeta no diría nada. */}
           {esIA && <SupabaseCard projectId={pid} />}
