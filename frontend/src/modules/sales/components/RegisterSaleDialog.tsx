@@ -4,6 +4,7 @@ import { Receipt, X, MagnifyingGlass, UserCheck, UserPlus, UserMinus } from '@ph
 import usePermission from '@/shared/hooks/usePermission';
 import { lazy, Suspense, useRef } from 'react';
 import { invoicesApi } from '@/modules/invoices/api/invoices.api';
+import EmitirFacturaCobro, { QueEsCadaUna } from '@/modules/invoices/components/EmitirFacturaCobro';
 const FiscalDataDialog = lazy(() => import('@/modules/invoices/components/FiscalDataDialog'));
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import client from '@/shared/api/client';
@@ -109,6 +110,9 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
   // La venta recien creada, mientras se decide si se le pone documento.
   const [creada, setCreada] = useState<{ sale_id: number; lead_id: number } | null>(null);
   const [emitir, setEmitir] = useState<'factura' | 'proforma' | null>(null);
+  // Venta registrada con algo cobrado y sin número puesto: se dice qué pasa con
+  // la factura de ese cobro y, con «Emitir desde la cola», se emite ya (CRM#1043).
+  const [ventaConCobro, setVentaConCobro] = useState<number | null>(null);
 
   const [mode, setMode] = useState<Mode>(modoInicial || 'existing');
 
@@ -149,7 +153,7 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
   // El alumno ya tiene una venta de este programa (CRM#898): la que existe y
   // lo que se iba a mandar, por si se crea igualmente.
   const [ventaExistente, setVentaExistente] = useState<{ venta: VentaExistente; body: Record<string, unknown> } | null>(null);
-  useEffect(() => { if (!open) setVentaExistente(null); }, [open]);
+  useEffect(() => { if (!open) { setVentaExistente(null); setVentaConCobro(null); } }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -422,6 +426,8 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
       const sinCobro = Number(body.importe_pagado) <= 0;
       setCreada({ sale_id: data.sale_id, lead_id: data.lead_id });
       setEmitir(sinCobro ? 'proforma' : 'factura');
+    } else if (Number(body.importe_pagado) > 0 && data?.sale_id) {
+      setVentaConCobro(data.sale_id);
     } else {
       onClose();
     }
@@ -462,6 +468,27 @@ export default function RegisterSaleDialog({ open, onClose, project, onSaved, mo
           }}
         />
       </Suspense>
+    );
+  }
+
+  if (ventaConCobro) {
+    return (
+      <Portal>
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+          <div role="dialog" aria-modal="true" className="relative bg-card rounded-lg border border-border w-full max-w-md p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-base">Venta registrada</h3>
+              <button onClick={onClose} aria-label="Cerrar" className="p-1 rounded hover:bg-muted text-muted-foreground"><X size={18} /></button>
+            </div>
+            <EmitirFacturaCobro conversionId={ventaConCobro} />
+            <QueEsCadaUna />
+            <div className="flex justify-end">
+              <button type="button" onClick={onClose} className="h-9 px-4 rounded-md border border-border bg-card text-sm font-semibold hover:bg-muted">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      </Portal>
     );
   }
 

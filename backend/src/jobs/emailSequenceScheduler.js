@@ -4,10 +4,22 @@ import { query } from '../shared/config/db.js';
 import * as model from '../modules/email-sequences/sequence.model.js';
 import { renderTemplate, comoHtml } from '../modules/email-templates/email-templates.service.js';
 import { vigilar } from './latido.js';
+import { tieneHueco, conMarca, ponerBloque, bloque, linkDelProspecto, SinLinkDePago, MARCA } from '../modules/links-pago/links-pago.secuencia.js';
 
 const TICK_MS = parseInt(process.env.EMAIL_SEQ_TICK_MS || String(2 * 60 * 1000)); // 2 min default
 
 let running = false;
+
+/*
+  El bloque «link de pago» (CRM#983): `{{link_pago}}` en la plantilla o en el
+  cuerpo del paso es un botón con el link de Stripe del curso del prospecto.
+  Sin link posible, el correo no sale (`SinLinkDePago`) y queda apuntado.
+*/
+async function conLinkDePago(html, run) {
+  if (!String(html).includes(MARCA)) return html;
+  const { link } = await linkDelProspecto(run.lead_id);
+  return ponerBloque(html, bloque(link));
+}
 
 // CRM-185 fase 3: si el step trae template_id, cargamos la plantilla y la
 // renderizamos con datos reales del lead+proyecto. Si no, fallback al
@@ -41,13 +53,13 @@ async function resolveStepContent(step, run) {
         subject: renderTemplate(tpl.subject, ctx, { escapar: false }),
         // Las plantillas se escriben como correos, no como HTML: los saltos
         // de linea hay que convertirlos o todo llega en un parrafo corrido.
-        htmlContent: comoHtml(renderTemplate(tpl.body_html, ctx)),
+        htmlContent: await conLinkDePago(comoHtml(renderTemplate(conMarca(tpl.body_html), ctx)), run),
       };
     }
   }
   return {
     subject: step.subject || `Seguimiento (${run.current_step + 1})`,
-    htmlContent: step.body || '<p>Hola</p>',
+    htmlContent: tieneHueco(step.body) ? await conLinkDePago(conMarca(step.body), run) : (step.body || '<p>Hola</p>'),
   };
 }
 
@@ -74,6 +86,12 @@ async function processOne(run) {
     await model.advanceRun(run.id, result.sent === false ? (result.reason || 'no-send') : null);
     logger.info({ runId: run.id, to, step: run.current_step }, 'Email seguimiento procesado');
   } catch (err) {
+    if (err instanceof SinLinkDePago) {
+      // No se manda un correo con «aquí tienes el link» y sin link: se apunta y se sigue.
+      await model.advanceRun(run.id, `sin link de pago: ${err.motivo}`.slice(0, 500));
+      logger.warn({ runId: run.id, leadId: run.lead_id, motivo: err.motivo }, 'Secuencia: el paso lleva link de pago y no se pudo poner; no se envía');
+      return;
+    }
     await model.advanceRun(run.id, err.message?.slice(0, 500));
     logger.error({ err, runId: run.id }, 'Error enviando email seguimiento');
   }
@@ -91,6 +109,9 @@ async function tick() {
     running = false;
   }
 }
+
+/** Para las pruebas (CRM#983). */
+export const _internos = { resolveStepContent, processOne };
 
 export function startEmailSequenceScheduler() {
   if (process.env.EMAIL_SEQ_DISABLED === '1') {

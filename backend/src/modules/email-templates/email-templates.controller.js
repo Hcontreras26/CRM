@@ -2,6 +2,7 @@ import { z } from 'zod';
 import * as Service from './email-templates.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { query } from '../../shared/config/db.js';
+import { conMarca, ponerBloque, bloqueDeMuestra } from '../links-pago/links-pago.secuencia.js';
 
 const createSchema = z.object({
   name:        z.string().min(1).max(120),
@@ -106,7 +107,8 @@ export async function preview(req, res, next) {
         // El asunto va sin escapar: es texto plano, no HTML.
         subject:   Service.renderTemplate(tpl.subject, ctx, { escapar: false }),
         // Se previsualiza lo MISMO que se manda, saltos convertidos incluidos.
-        body_html: Service.comoHtml(Service.renderTemplate(tpl.body_html, ctx)),
+        // `{{link_pago}}` (CRM#983) sale como un botón de muestra: la vista previa no crea links.
+        body_html: ponerBloque(Service.comoHtml(Service.renderTemplate(conMarca(tpl.body_html), ctx)), bloqueDeMuestra(ctx?.lead?.producto || null)),
       },
     });
   } catch (err) { next(err); }

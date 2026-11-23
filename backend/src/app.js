@@ -26,6 +26,8 @@ import stripePaymentsModule from './modules/stripe-payments/index.js';
 import invoicesModule from './modules/invoices/index.js';
 // Auditoría de facturación cada 2 horas y pausa de la emisión (#765).
 import facturacionAuditoriaModule from './modules/facturacion-auditoria/index.js';
+// Finanzas › Conciliación: facturas sin cobro y cobros sin factura (CRM#905).
+import conciliacionModule from './modules/conciliacion/index.js';
 import widgetModule from './modules/widget/index.js';
 import fieldDefsModule from './modules/field-definitions/index.js';
 import credentialsModule from './modules/credentials/index.js';
@@ -116,7 +118,9 @@ import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoSchedul
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startSuscripcionesPlazosScheduler } from './jobs/suscripcionesPlazosScheduler.js';
 import { startLinksPagoCaducidadScheduler } from './jobs/linksPagoCaducidadScheduler.js';
+import { startLinksPagoExternosScheduler } from './jobs/linksPagoExternosScheduler.js';
 import { startCobroAutomaticoScheduler } from './jobs/cobroAutomaticoScheduler.js';
+import { startLinksPagoSeguimientoScheduler } from './jobs/linksPagoSeguimientoScheduler.js';
 import { startCursosPendientesScheduler } from './jobs/cursosPendientesScheduler.js';
 import { startEntregasSinCorregirScheduler } from './jobs/entregasSinCorregirScheduler.js';
 import { startResumenDiarioScheduler } from './jobs/resumenDiarioScheduler.js';
@@ -140,7 +144,7 @@ import { startCopiaDiariaScheduler } from './jobs/copiaDiariaJob.js';
 import { startFacturacionAuditoriaScheduler } from './jobs/facturacionAuditoriaJob.js';
 import { startInformeMensualScheduler } from './jobs/informeMensualJob.js';
 import { startBrevoBloqueadosScheduler } from './jobs/brevoBloqueadosScheduler.js';
-import { tareasActivas, facturasColaboradorActivas, linksPagoActivos, proyectosIAActivos, pluginMoodleActivo, cobroAutomaticoActivo } from './shared/config/soloEnPruebas.js';
+import { tareasActivas, facturasColaboradorActivas, linksPagoActivos, proyectosIAActivos, pluginMoodleActivo, cobroAutomaticoActivo, seguimientoLinksActivo } from './shared/config/soloEnPruebas.js';
 import { porteroDelWebhook, topeDelEnvio, traducirTope } from './modules/webhook-tokens/portero.js';
 import { MAX_ENVIO_BYTES } from './modules/matriculas/admision.archivos.js';
 
@@ -327,6 +331,7 @@ const ALL_MODULES = [
   { name: 'stripe-payments', mod: stripePaymentsModule },
   { name: 'invoices', mod: invoicesModule },
   { name: 'facturacion-auditoria', mod: facturacionAuditoriaModule },
+  { name: 'conciliacion', mod: conciliacionModule },
   { name: 'widget', mod: widgetModule },
   { name: 'field-definitions', mod: fieldDefsModule },
   { name: 'credentials', mod: credentialsModule },
@@ -578,8 +583,12 @@ if (process.env.NODE_ENV !== 'test') {
     if (facturasColaboradorActivas()) startFacturasColaboradorAvisosScheduler();
     // Links de pago (#680, fase 2): desactivar en Stripe los que caducan sin pagar.
     if (linksPagoActivos()) startLinksPagoCaducidadScheduler();
+    // Los links creados directamente en Stripe (CRM#1019): recogerlos y, si su aviso no llegó, su cobro.
+    if (linksPagoActivos()) startLinksPagoExternosScheduler();
     // Cobro automático de las cuotas (309): el reintento y el repaso del plan en Stripe.
     if (cobroAutomaticoActivo()) startCobroAutomaticoScheduler();
+    // Seguimiento de los links sin pagar (CRM#984): aperturas, aviso a la gestora y recordatorios.
+    if (seguimientoLinksActivo()) startLinksPagoSeguimientoScheduler();
     // La copia diaria de la base, cifrada y por correo (11/11). Apagada de serie: COPIA_DIARIA_ACTIVA.
     startCopiaDiariaScheduler();
     // La auditoría de facturación cada 2 horas (#765). Apagada de serie: FACTURACION_AUDITORIA_ACTIVA.

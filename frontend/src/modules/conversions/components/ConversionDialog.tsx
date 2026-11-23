@@ -19,6 +19,7 @@ import { useLinksPagoEncendidos } from '@/shared/lib/linksPago';
 import { crearLink, generarPlan } from '@/modules/links-pago/api/linksPago.api';
 import { errorDe } from '@/modules/links-pago/components/CrearLinkAsistente';
 import LinksRecienCreados, { type ResultadoLinks } from '@/modules/links-pago/components/LinksRecienCreados';
+import EmitirFacturaCobro, { AvisoCobroEnCola, QueEsCadaUna } from '@/modules/invoices/components/EmitirFacturaCobro';
 
 const FiscalDataDialog = lazy(() => import('@/modules/invoices/components/FiscalDataDialog'));
 const EmitirBorradorDialog = lazy(() => import('@/modules/invoices/components/EmitirBorradorDialog'));
@@ -218,6 +219,19 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
     : pagoCompleto
       ? 'la factura del pago completo'
       : (nCuotas > 0 ? `la factura del pago 1 (de ${nCuotas + 1})` : 'la factura del pago 1');
+  /*
+    CON COBRO, LA FACTURA DE ESE COBRO (CRM#1043).
+
+    Ticket de soporte del 23/11: con la primera cuota cobrada, la gestora solo
+    vio «¿proforma?»; dijo que no y la venta se quedó sin la factura de su cobro.
+    Quien emite desde la cola («Emitir desde la cola») la emite aquí mismo, con
+    la misma llamada que el botón de la cola; quien no, ve que el cobro queda en
+    la cola y que la factura la emite administración.
+  */
+  const puedeCola = puedePermiso('facturas.cola');
+  // Sin cobro todavía, pero con link de Stripe: el pago entra luego por el link
+  // y su factura saldrá de la cola. La proforma queda para lo pendiente.
+  const cobroPorLink = sinPagoVenta && !!linksCreados && !linksCreados.error;
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
@@ -679,7 +693,9 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
       toast({
         title: '✓ Conversión creada',
         description: hayPago
-          ? 'El cobro está en la cola de facturación. Entra en Facturación para emitir la factura y ponerle número.'
+          ? (puedeCola
+            ? 'El cobro está en la cola de facturación: puedes emitir ya su factura aquí mismo.'
+            : 'El cobro queda en la cola de facturación: su factura la emite administración.')
           : 'Sin cobro registrado, así que no hay nada que facturar todavía.',
       });
       setCreated(res.data);
@@ -709,42 +725,31 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
               </div>
               <div>
                 <h3 className="font-semibold text-base">Venta registrada</h3>
-                {/* EL AVISO DE LA COLA, AQUI Y EN GRANDE.
+                {/* EL AVISO DE LA COLA, AQUI Y EN GRANDE (14/09).
 
-                    Iba en un toast que se va solo y Diego no lo vio: «le di a
-                    convertir y no me salio en grande». Con el freno del 14/09 la
-                    factura ya NO sale sola, asi que si esto no se lee, la gestora
-                    se queda esperando una factura que nadie va a emitir.
-
-                    No sale para quien numera aqui mismo --CEDIA e ICTESS--:
-                    esos no dependen de la cola, le ponen el numero y emiten. */}
-                {hayPago && !numeraAqui && (
-                  <div className="mt-3 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 text-left">
-                    <p className="text-sm font-semibold text-warning-soft-foreground">
-                      La factura no se emite sola
-                    </p>
-                    <p className="mt-0.5 text-[13px] leading-snug text-warning-soft-foreground">
-                      El cobro está en la <b>cola de facturación</b>. Para emitir la factura y
-                      {' '}ponerle número, entra en <b>Finanzas → Facturación</b>.
-                    </p>
-                  </div>
-                )}
+                    Iba en un toast que se va solo y Diego no lo vio. Desde CRM#1043
+                    lo dice el bloque de la factura del cobro, más abajo: con
+                    «Emitir desde la cola», el botón para emitirla ya; sin él, que el
+                    cobro queda en la cola y la emite administración. */}
                 {linksCreados && (
                   <div className="mt-3">
                     <LinksRecienCreados resultado={linksCreados} alumno={lead?.nombre} curso={form.producto_contratado}
                       onVerVenta={() => { window.location.assign(`${import.meta.env.BASE_URL.replace(/\/$/, '')}/finanzas/ventas/${created.id}`); }} />
                   </div>
                 )}
-                <p className="text-sm text-muted-foreground mt-3">
-                  {numeraAqui
-                    ? '¿Le pones ya el número de factura, o la dejas en la cola de facturación?'
-                    : '¿Generar un documento para el cliente y descargar el PDF?'}
-                </p>
+                {(sinPagoVenta || (!puedeCola && numeraAqui)) && (
+                  <p className="text-sm text-muted-foreground mt-3">
+                    {numeraAqui
+                      ? '¿Le pones ya el número de factura, o la dejas en la cola de facturación?'
+                      : '¿Generar un documento para el cliente y descargar el PDF?'}
+                  </p>
+                )}
               </div>
 
-              {/* El numero, aqui mismo, para quien lo lleva asi. El resto ve el
-                  aviso de la cola y nada mas: ese es el freno del 14/09. */}
-              {numeraAqui ? (
+              {/* El numero, aqui mismo, para quien lo lleva asi (CEDIA, ICTESS).
+                  Con cobro y «Emitir desde la cola», el número lo pide el bloque
+                  de la factura del cobro. */}
+              {numeraAqui && (sinPagoVenta || !puedeCola) ? (
                 <div className="text-left rounded-lg border border-border bg-muted/30 p-3">
                   <Field label={`Número de ${queSeEmite}`} htmlFor="conversion-numero"
                     hint={sugerido ? `Sigue la numeración de las facturas: es el ${sugerido}.` : undefined}>
@@ -764,44 +769,67 @@ function FormularioConversion({ open, onClose, lead, projectId, onCreated, produ
                   Diego, 15/09: «que al dar conversion aparezca el cuadro de
                   dialogo, si es proforma o factura SEGUN COMO FUE REGISTRADO».
 
-                  La regla es la misma que usa el boton de Facturacion: sin ningun
-                  cobro no hay factura fiscal que emitir --se emite PROFORMA, que
-                  reserva el numero y se convierte en factura cuando entre el
-                  pago--; con cobro, factura. Antes salian los dos botones iguales
-                  y elegir mal era facil. */}
-              <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-left">
-                <p className="text-xs text-muted-foreground">
-                  {sinPagoVenta
-                    ? <>Esta venta se registró <b>sin ningún cobro</b>, así que lo que toca es una <b>proforma</b>: reserva el número y se convierte en factura cuando entre el pago.</>
-                    : pagoCompleto
-                      ? <>Esta venta se registró <b>pagada entera</b> ({totalVenta.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €), así que lo que toca es la <b>factura del pago completo</b>.</>
-                      : <>Esta venta se registró con un <b>pago parcial</b> de {pagadoVenta.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € de {totalVenta.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €, así que este número es el de <b>la factura del pago 1</b>{nCuotas > 0 ? ` de ${nCuotas + 1}` : ''}. Cada cuota llevará la suya cuando se cobre.</>}
-                </p>
-                <button type="button"
-                  onClick={() => (sinPagoVenta ? setDocPhase('proforma') : handleFacturaChoice())}
-                  className="mt-2.5 w-full h-10 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 inline-flex items-center justify-center gap-2">
-                  {sinPagoVenta ? <FileText size={16} weight="duotone" /> : <Receipt size={16} weight="duotone" />}
-                  {sinPagoVenta ? 'Emitir proforma' : 'Emitir factura'}
-                  {numeraAqui && numero ? ` nº ${numero}` : ''}
-                </button>
-              </div>
+                  Sin ningun cobro no hay factura fiscal que emitir: se emite
+                  PROFORMA, que reserva el numero y se convierte en factura cuando
+                  entre el pago. Con cobro, la FACTURA DE ESE COBRO, que sale de la
+                  cola (CRM#1043): ya no se ofrece la proforma, que el servidor
+                  rechaza despues del primer cobro (PROFORMA_WITH_PAYMENT). */}
+              {sinPagoVenta ? (
+                <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-left">
+                  <p className="text-xs text-muted-foreground">
+                    {cobroPorLink
+                      ? <>El pago va por el <b>link de Stripe</b>: cuando el alumno pague, el cobro entra en la <b>cola de facturación</b> y de ahí sale su factura{puedeCola ? ' (la emites desde Finanzas → Facturación)' : ', que emite administración'}. Si quieres un documento ya por lo pendiente, emite una proforma.</>
+                      : <>Esta venta se registró <b>sin ningún cobro</b>, así que lo que toca es una <b>proforma</b>: reserva el número y se convierte en factura cuando entre el pago.</>}
+                  </p>
+                  <button type="button" onClick={() => setDocPhase('proforma')}
+                    className={cobroPorLink
+                      ? 'mt-2.5 w-full h-10 rounded-md border border-border bg-card text-sm font-semibold hover:border-primary hover:bg-muted/50 inline-flex items-center justify-center gap-2'
+                      : 'mt-2.5 w-full h-10 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 inline-flex items-center justify-center gap-2'}>
+                    <FileText size={16} weight="duotone" />
+                    {cobroPorLink ? 'Emitir proforma de lo pendiente' : 'Emitir proforma'}
+                    {numeraAqui && numero ? ` nº ${numero}` : ''}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 text-left">
+                  <p className="text-xs text-muted-foreground">
+                    {pagoCompleto
+                      ? <>Esta venta se registró <b>pagada entera</b> ({totalVenta.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €): lo que toca es la <b>factura del pago completo</b>.</>
+                      : <>Esta venta se registró con un <b>pago parcial</b> de {pagadoVenta.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € de {totalVenta.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €: lo que toca es <b>la factura del pago 1</b>{nCuotas > 0 ? ` de ${nCuotas + 1}` : ''}. Cada cuota llevará la suya cuando se cobre.</>}
+                  </p>
+                  {puedeCola ? (
+                    <EmitirFacturaCobro conversionId={created.id} />
+                  ) : numeraAqui ? (
+                    // Quien numera al convertir sin llevar la cola: como hasta ahora.
+                    <button type="button" onClick={handleFacturaChoice}
+                      className="w-full h-10 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 inline-flex items-center justify-center gap-2">
+                      <Receipt size={16} weight="duotone" />
+                      Emitir factura{numero ? ` nº ${numero}` : ''}
+                    </button>
+                  ) : (
+                    <AvisoCobroEnCola />
+                  )}
+                </div>
+              )}
+
+              <QueEsCadaUna />
 
               {/* En columna y con hueco: son dos botones en linea y sin esto
                   salian pegados, leyendose como una sola frase. */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* El otro tipo sigue estando: hay casos sueltos y no es cuestion
-                    de tapiarlos. Con borde y fondo, que como texto subrayado no
-                    se leian como botones. */}
-                <button type="button"
-                  onClick={() => (sinPagoVenta ? handleFacturaChoice() : setDocPhase('proforma'))}
-                  className="h-10 px-3 rounded-md border border-border bg-card text-xs font-semibold
-                             hover:border-primary hover:bg-muted/50 transition-colors">
-                  {sinPagoVenta ? 'Emitir factura igualmente' : 'Prefiero un presupuesto'}
-                </button>
+              <div className={`grid grid-cols-1 gap-2 ${sinPagoVenta && !cobroPorLink ? 'sm:grid-cols-2' : ''}`}>
+                {/* Sin cobro, la factura sigue estando: hay casos sueltos y no es
+                    cuestion de tapiarlos. */}
+                {sinPagoVenta && !cobroPorLink && (
+                  <button type="button" onClick={handleFacturaChoice}
+                    className="h-10 px-3 rounded-md border border-border bg-card text-xs font-semibold
+                               hover:border-primary hover:bg-muted/50 transition-colors">
+                    Emitir factura igualmente
+                  </button>
+                )}
                 <button type="button" onClick={finishAndClose}
                   className="h-10 px-3 rounded-md border border-border bg-card text-xs font-semibold
                              hover:border-primary hover:bg-muted/50 transition-colors">
-                  {numeraAqui ? 'Ahora no: dejar en la cola' : 'Cerrar'}
+                  {numeraAqui && (sinPagoVenta || !puedeCola) ? 'Ahora no: dejar en la cola' : 'Cerrar'}
                 </button>
               </div>
             </div>

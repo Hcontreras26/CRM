@@ -26,7 +26,7 @@ export const BUNDLES = {
   accounting: {
     label: 'Contabilidad',
     description: 'Ingresos + egresos + cuentas por cobrar/pagar + integraciones (Stripe/Brevo)',
-    modules: ['accounting', 'expenses', 'accounts-payable', 'integrations', 'stripe-payments', 'invoices', 'facturacion-auditoria', 'facturas-colaborador', 'links-pago', 'cobros-externos', 'factura-automatica', 'monitask'],
+    modules: ['accounting', 'expenses', 'accounts-payable', 'integrations', 'stripe-payments', 'invoices', 'facturacion-auditoria', 'conciliacion', 'facturas-colaborador', 'links-pago', 'cobros-externos', 'factura-automatica', 'monitask'],
     requires: ['core'],
   },
   payroll: {

@@ -2125,7 +2125,13 @@ export async function listVentasSinFactura({ projectId = null, projectIds = null
   const { rows } = await query(
     `SELECT c.id AS conversion_id, c.lead_id, l.nombre AS cliente_nombre,
             c.producto_contratado, c.importe_total, c.importe_pagado, c.fecha_conversion, c.metodo_pago,
-            c.project_id, pr.nombre AS proyecto_nombre
+            c.project_id, pr.nombre AS proyecto_nombre,
+            -- Su primer cobro: el que espera en la cola. «Factúrala desde la cola»
+            -- lleva a esa fila (CRM#1043). La venta no tiene ninguna factura, así
+            -- que ninguno de sus cobros la tiene.
+            (SELECT cp.id FROM conversion_payments cp
+              WHERE cp.conversion_id = c.id
+              ORDER BY cp.fecha ASC, cp.id ASC LIMIT 1) AS primer_cobro_id
        FROM conversions c
        JOIN leads l ON l.id = c.lead_id
        LEFT JOIN projects pr ON pr.id = c.project_id
@@ -2342,7 +2348,7 @@ const FACTURA_HUERFANA_LO_CUBRE = `AND NOT EXISTS (
 */
 // Salvo que la venta ya se facture cobro a cobro (20/11/2026): la misma excepción
 // que en `emitirFacturaDePago`, para que la cola y el botón digan lo mismo.
-const VENTA_YA_FACTURADA_LO_CUBRE = `AND NOT (
+export const VENTA_YA_FACTURADA_LO_CUBRE = `AND NOT (
         NOT EXISTS (SELECT 1 FROM invoices pc
                      WHERE pc.conversion_id = cp.conversion_id
                        AND pc.tipo = 'normal' AND pc.estado <> 'cancelada'
