@@ -106,8 +106,15 @@ function dejarCopiaEnEnviados({ de, deNombre, para, asunto, html, messageId }) {
  *   · cuenta — 'crm' obliga a salir por la cuenta del CRM aunque la marca
  *              tenga la suya. Sin nada: la de la marca si la tiene
  *              (`cuentaDeLaMarca`), la del CRM si no.
+ *
+ *   · cuerpoGuardado — el HTML que se guarda (en `email_envios.cuerpo_html` y en
+ *              la copia de Enviados) en lugar del que sale. Para el correo que
+ *              lleva una credencial —el enlace de un solo uso para poner la
+ *              contraseña del campus (#767)—, que no debe quedarse en la base.
+ *              Sin nada, se guarda el que sale, como siempre.
  */
-async function sendEmail({ to, subject, htmlContent, textContent, tags = [], projectId = null, fromEmail, fromName, replyTo, attachment, clave = null, cuenta = null }) {
+async function sendEmail({ to, subject, htmlContent, textContent, tags = [], projectId = null, fromEmail, fromName, replyTo, attachment, clave = null, cuenta = null, cuerpoGuardado = null }) {
+  const guardado = cuerpoGuardado ?? htmlContent;
   // `to` llega de cuatro formas: cadena, objeto, lista de objetos, y una cadena
   // con varios correos separados por comas (los avisos a administradores).
   const destinatarios = Array.isArray(to)
@@ -133,7 +140,7 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
       estado: 'bloqueado', intentos: 0, error: porque,
       // Tambien el bloqueado: saber QUE se iba a mandar es justo lo que hace
       // falta cuando el freno para algo y no se entiende por que.
-      cuerpoHtml: htmlContent, remitente,
+      cuerpoHtml: guardado, remitente,
     });
     return { sent: false, reason: 'FRENO_DE_PRUEBAS', motivo: freno.motivo, detalle: porque };
   }
@@ -169,10 +176,10 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
     if (r.sent) {
       logger.info({ messageId: r.messageId, to: destinatarios, subject }, 'Correo enviado por el buzon');
       await registrar({ clave, destinatarios, asunto: subject, etiquetas: tags, projectId,
-        cuerpoHtml: htmlContent, remitente, estado: 'enviado', intentos: 1, brevoMsgId: r.messageId });
+        cuerpoHtml: guardado, remitente, estado: 'enviado', intentos: 1, brevoMsgId: r.messageId });
       dejarCopiaEnEnviados({
         de: remitente, deNombre: fromName || FROM_NAME,
-        para: destinatarios, asunto: subject, html: htmlContent,
+        para: destinatarios, asunto: subject, html: guardado,
         messageId: r.messageId,
       });
       return { sent: true, messageId: r.messageId, intentos: 1, via: 'buzon' };
@@ -186,7 +193,7 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
   if (!apiKey) {
     logger.warn({ to, subject }, 'Brevo: sin API key configurada, email no enviado');
     await registrar({ clave, destinatarios, asunto: subject, etiquetas: tags, projectId,
-      cuerpoHtml: htmlContent, remitente,
+      cuerpoHtml: guardado, remitente,
       estado: 'fallido', intentos: 0, error: 'NO_API_KEY' });
     return { sent: false, reason: 'NO_API_KEY' };
   }
@@ -240,12 +247,12 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
         const data = await res.json();
         logger.info({ messageId: data.messageId, to, subject, intento }, 'Brevo email enviado');
         await registrar({ clave, destinatarios, asunto: subject, etiquetas: tags, projectId,
-      cuerpoHtml: htmlContent, remitente,
+      cuerpoHtml: guardado, remitente,
           estado: 'enviado', intentos: intento, brevoMsgId: data.messageId });
 
         dejarCopiaEnEnviados({
           de: remitente, deNombre: fromName || FROM_NAME,
-          para: destinatarios, asunto: subject, html: htmlContent,
+          para: destinatarios, asunto: subject, html: guardado,
           messageId: data.messageId,
         });
 
@@ -267,7 +274,7 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
 
   // Que no salio ya no se queda solo en el log: queda escrito.
   await registrar({ clave, destinatarios, asunto: subject, etiquetas: tags, projectId,
-      cuerpoHtml: htmlContent, remitente,
+      cuerpoHtml: guardado, remitente,
     estado: 'fallido', intentos: hechos, error: `${ultimoFallo.reason} · ${ultimoFallo.details ?? ''}` });
   // Con un remitente que no es el del CRM —el de la marca—, una vez mas por la
   // cuenta del CRM y con su remitente: que llegue desde 360crm.tech es mejor
@@ -276,7 +283,7 @@ async function sendEmail({ to, subject, htmlContent, textContent, tags = [], pro
     logger.warn({ remitente, to: destinatarios, subject, fallo: ultimoFallo.reason },
       'Brevo: no salio con el remitente de la marca; se intenta por la cuenta del CRM');
     const otra = await sendEmail({ to, subject, htmlContent, textContent, tags, projectId,
-      fromEmail: undefined, fromName, replyTo, attachment, clave, cuenta: 'crm' });
+      fromEmail: undefined, fromName, replyTo, attachment, clave, cuenta: 'crm', cuerpoGuardado });
     return { ...otra, primerFallo: ultimoFallo.reason };
   }
   return { sent: false, ...ultimoFallo, intentos: hechos };

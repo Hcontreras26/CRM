@@ -36,7 +36,15 @@ interface Previo {
   desde: string | null;
   hasta: string | null;
   conReferenciaStripe: number;
+  /** Desde cuándo cuenta el proyecto (el mismo corte que el sondeo de Stripe). */
+  corte?: string | null;
+  /** Lo que hay en la app de antes del corte y no entrará al traer. */
+  anterioresAlCorte?: { n: number; importe: number };
 }
+
+const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+/** «2026-09-10» → «10/09/2026», sin pasar por Date: una fecha sin hora no tiene zona. */
+const fechaCorta = (iso: string) => String(iso).slice(0, 10).split('-').reverse().join('/');
 
 export default function SupabaseCard({ projectId }: { projectId: number }) {
   const [data, setData] = useState<EstadoSupabase | null>(null);
@@ -132,13 +140,20 @@ Cada una se marca con su id, así que volver a pulsar no duplica nada.
     if (!confirm(aviso)) return;
     setTrayendo(true);
     try {
-      const r = await client.post<{ ventasNuevas: number; clientesNuevos: number; yaEstaban: number }>(
-        `/ia/supabase/importar/${projectId}`, {});
+      const r = await client.post<{
+        ventasNuevas: number; clientesNuevos: number; yaEstaban: number;
+        corte?: string | null; anterioresAlCorte?: number;
+      }>(`/ia/supabase/importar/${projectId}`, {});
       if (r.success) {
         const d = r.data;
+        // Lo de antes del corte se dice: sin el número, «0 ventas nuevas» se
+        // lee igual que «no llega nada».
+        const fuera = d.anterioresAlCorte && d.corte
+          ? ` · ${d.anterioresAlCorte} anteriores al ${fechaCorta(d.corte)}, que no entran`
+          : '';
         toast({
           title: 'Traído de Supabase',
-          description: `${d.ventasNuevas} ventas nuevas · ${d.clientesNuevos} clientes nuevos · ${d.yaEstaban} ya estaban`,
+          description: `${d.ventasNuevas} ventas nuevas · ${d.clientesNuevos} clientes nuevos · ${d.yaEstaban} ya estaban${fuera}`,
         });
       }
     } catch (e: unknown) {
@@ -216,9 +231,22 @@ Cada una se marca con su id, así que volver a pulsar no duplica nada.
             <p className="font-semibold">Al otro lado hay:</p>
             <p>
               <strong>{previo.suscripciones}</strong> suscripciones por{' '}
-              <strong>{previo.importe.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>
+              <strong>{eur(previo.importe)}</strong>
               {previo.desde && <> · de {String(previo.desde).slice(0, 10)} a {String(previo.hasta).slice(0, 10)}</>}
             </p>
+            {/* El corte, antes de pulsar «Traer»: lo de antes ya se cobró y se
+                llevó fuera del CRM, y traerlo lo contaría dos veces (#44). */}
+            {previo.corte ? (
+              <p>
+                El proyecto cuenta desde el <strong>{fechaCorta(previo.corte)}</strong>
+                {previo.anterioresAlCorte && previo.anterioresAlCorte.n > 0 ? (
+                  <>: <span className="text-warning">{previo.anterioresAlCorte.n} de antes
+                    ({eur(previo.anterioresAlCorte.importe)}) no entran</span></>
+                ) : <>: no hay nada anterior</>}
+              </p>
+            ) : (
+              <p className="text-warning">Este proyecto no tiene fecha de corte: entraría todo lo que hay.</p>
+            )}
             <p className="text-muted-foreground">
               {previo.conEmail} con correo, que son las que se pueden traer
               {previo.sinEmail > 0 && <> · {previo.sinEmail} sin correo, que se quedan fuera</>}

@@ -25,9 +25,12 @@ export const FUNCIONES_NECESARIAS = ['core_webservice_get_site_info', 'core_user
 
 /** Error con un mensaje para enseñar tal cual y un código para decidir. */
 export class MoodleError extends Error {
-  constructor(mensaje, codigo) {
+  constructor(mensaje, codigo, errorcode = null) {
     super(mensaje);
     this.codigo = codigo;
+    // El `errorcode` tal cual lo dijo Moodle («matricular_correo_repetido»…), para
+    // quien tenga que distinguir un rechazo de otro (la matrícula automática, #767).
+    this.errorcode = errorcode;
   }
 }
 
@@ -90,18 +93,19 @@ export async function llamar({ url, token }, funcion, parametros = {}, { fetchIm
 /** Lo que dice Moodle, en palabras de quien tiene que arreglarlo. */
 function traducir(datos, funcion) {
   const codigo = datos.errorcode || '';
-  if (codigo === 'invalidtoken') return new MoodleError('El token del campus no vale (caducado o mal copiado).', 'TOKEN');
+  const error = (mensaje, propio) => new MoodleError(mensaje, propio, codigo || null);
+  if (codigo === 'invalidtoken') return error('El token del campus no vale (caducado o mal copiado).', 'TOKEN');
   if (codigo === 'accessexception' || codigo === 'servicerequireslogin') {
-    return new MoodleError(`El token no tiene permiso para «${funcion}»: añádela al servicio del token en el campus.`, 'PERMISO');
+    return error(`El token no tiene permiso para «${funcion}»: añádela al servicio del token en el campus.`, 'PERMISO');
   }
   if (codigo === 'webservicesnotenabled' || codigo === 'enablewsdescription') {
-    return new MoodleError('El campus tiene los servicios web apagados.', 'WS_APAGADOS');
+    return error('El campus tiene los servicios web apagados.', 'WS_APAGADOS');
   }
   if (/invalidrecord|function.*not.*found|codingerror/i.test(`${codigo} ${datos.message || ''}`)) {
-    return new MoodleError(`El servicio del token no tiene la función «${funcion}».`, 'SIN_FUNCION');
+    return error(`El servicio del token no tiene la función «${funcion}».`, 'SIN_FUNCION');
   }
   const motivo = motivoDelError(datos) || codigo || 'error sin detalle';
-  return new MoodleError(`El campus ha dicho: ${motivo.replace(/[.\s]+$/, '')}.`, 'MOODLE');
+  return error(`El campus ha dicho: ${motivo.replace(/[.\s]+$/, '')}.`, 'MOODLE');
 }
 
 /**
@@ -130,7 +134,50 @@ export async function infoDelCampus(conexion, opciones) {
     // Las de leer la mensajería (#188): solo cuentan si el campus lee consultas.
     // y las de los matriculados (#189), que también usa leer consultas.
     faltanConsultas: info?.functions ? [...FUNCIONES_CONSULTAS, ...FUNCIONES_ALUMNOS].filter((f) => !tiene.has(f)) : [],
+    // Las 12 que usa el CRM, por grupo (CRM#925). Sin la lista, null: no se sabe.
+    grupos: info?.functions
+      ? GRUPOS_DE_FUNCIONES.map((g) => ({ clave: g.clave, titulo: g.titulo, total: g.funciones.length, faltan: g.funciones.filter((f) => !tiene.has(f)) }))
+      : null,
+    // «Puede descargar archivos» del servicio: sin él no se abren las entregas de
+    // «Mi campus». Moodle lo dice en `downloadfiles` (0/1); si no viene, null.
+    descargas: info?.downloadfiles === undefined || info?.downloadfiles === null ? null : Number(info.downloadfiles) === 1,
   };
+}
+
+/**
+ * Lo que le falta al servicio del token, por grupo (CRM#925), a partir de lo que
+ * devuelve `infoDelCampus` (o de lo guardado tras «Probar conexión»). Las de
+ * «Consultas» solo cuentan con «Leer las consultas» encendido. Lista vacía: no
+ * falta nada (o no se sabe).
+ */
+export function faltasDeFunciones(funciones, { consultas = false } = {}) {
+  const grupos = Array.isArray(funciones?.grupos) ? funciones.grupos : [];
+  const faltas = grupos
+    .filter((g) => Array.isArray(g.faltan) && g.faltan.length > 0 && (g.clave !== 'consultas' || consultas))
+    .map((g) => ({ clave: g.clave, titulo: g.titulo, faltan: g.faltan }));
+  if (funciones?.descargas === false) faltas.push({ clave: 'descargas', titulo: 'Puede descargar archivos', faltan: [] });
+  return faltas;
+}
+
+/**
+ * Las faltas en una frase que quepa en un motivo (`limpiarMotivo` corta a 300): con
+ * los nombres de cada función y, si no cabe, el grupo más largo pasa a «N funciones».
+ * Con `tope: Infinity`, todas con su nombre (el mensaje de «Probar conexión»).
+ */
+export function textoDeFaltas(faltas, { tope = 290 } = {}) {
+  if (!faltas?.length) return '';
+  const partes = faltas.map((f) => (f.clave === 'descargas'
+    ? { larga: '«Puede descargar archivos» sin marcar', corta: '«Puede descargar archivos» sin marcar' }
+    : { larga: `${f.titulo}: ${f.faltan.join(', ')}`, corta: `${f.titulo}: ${f.faltan.length} ${f.faltan.length === 1 ? 'función' : 'funciones'}` }));
+  const usadas = partes.map((p) => p.larga);
+  const frase = () => `Faltan en el servicio — ${usadas.join(' · ')}.`;
+  // De la más larga a la más corta, hasta que quepa.
+  const orden = partes.map((p, i) => i).sort((a, b) => partes[b].larga.length - partes[a].larga.length);
+  for (const i of orden) {
+    if (frase().length <= tope) break;
+    usadas[i] = partes[i].corta;
+  }
+  return frase();
 }
 
 /**
@@ -168,6 +215,30 @@ export async function usuarioPor(conexion, campo, valor, opciones) {
   const lista = await llamar(conexion, 'core_user_get_users_by_field', { field: campo, 'values[0]': v }, opciones);
   const u = Array.isArray(lista) ? lista[0] : null;
   return u ? { id: Number(u.id), suspendido: Boolean(u.suspended), nombre: u.fullname || null, email: u.email || null } : null;
+}
+
+/**
+ * El alumno en el campus, por su id de Moodle si ya se sabe o, si no, por su correo (como
+ * `usuarioPorCorreo`), con la última vez que entró al campus (#532). Es la misma función
+ * de Moodle; va aparte para no cambiar lo que `usuarioPor` da a quien ya la usa.
+ */
+export async function alumnoDelCampus(conexion, { moodleId = null, correo = null } = {}, opciones) {
+  const email = String(correo || '').trim();
+  const pruebas = Number(moodleId) > 0
+    ? [['id', Number(moodleId)]]
+    : [...new Set([email.toLowerCase(), email])].filter(Boolean).map((v) => ['email', v]);
+  for (const [campo, valor] of pruebas) {
+    const lista = await llamar(conexion, 'core_user_get_users_by_field', { field: campo, 'values[0]': valor }, opciones);
+    const u = Array.isArray(lista) ? lista[0] : null;
+    if (u) {
+      return {
+        id: Number(u.id), nombre: u.fullname || null, suspendido: Boolean(u.suspended),
+        // 0 = nunca ha entrado.
+        ultimoAcceso: Number(u.lastaccess) > 0 ? new Date(Number(u.lastaccess) * 1000) : null,
+      };
+    }
+  }
+  return null;
 }
 
 /**
@@ -345,7 +416,69 @@ export async function cursosDe(conexion, moodleUserId, opciones) {
     ultimoAcceso: Number(c.lastaccess) > 0 ? new Date(Number(c.lastaccess) * 1000) : null,
     seguimiento: c.enablecompletion === true || Number(c.enablecompletion) === 1,
     progreso: progresoDeMoodle(c),
+    // Si ese usuario ha terminado el curso según la finalización de Moodle (#532).
+    terminado: c.completed === true || Number(c.completed) === 1,
   }));
+}
+
+/** Lo que necesita el servicio del token para las notas de la ficha del alumno (#532, plugin 1.10.9). */
+export const FUNCIONES_NOTAS = ['gradereport_user_get_grade_items'];
+
+/** Lo que usa «Tutores › Mi campus» (#681): cursos, alumnos, tareas, entregas, sus notas y el temario. */
+export const FUNCIONES_MI_CAMPUS = [
+  ...FUNCIONES_ALUMNOS,
+  'mod_assign_get_assignments', 'mod_assign_get_submissions', 'mod_assign_get_grades', 'core_course_get_contents',
+];
+
+/** El aviso de entregas sin corregir de los cursos sin tutora (#769): todos los cursos del campus. */
+export const FUNCIONES_AVISOS = ['core_course_get_courses_by_field'];
+
+/**
+ * LAS 12 FUNCIONES que el CRM pide al Moodle de un campus, por grupo (CRM#925).
+ * «Probar conexión» y «Comprobar ahora» dicen cuáles faltan de cada grupo: antes
+ * solo miraban las dos primeras y un campus salía en verde con «Mi campus» vacío.
+ * El tutorial de Integraciones › Campus (Moodle) repite la lista: si cambia
+ * aquí, cambia allí (`frontend/src/modules/accounting/lib/funcionesMoodle.ts`).
+ */
+export const GRUPOS_DE_FUNCIONES = [
+  { clave: 'base', titulo: 'Conexión', funciones: FUNCIONES_NECESARIAS },
+  { clave: 'mi_campus', titulo: 'Mi campus', funciones: FUNCIONES_MI_CAMPUS },
+  { clave: 'consultas', titulo: 'Consultas', funciones: FUNCIONES_CONSULTAS },
+  { clave: 'notas', titulo: 'Notas y avisos', funciones: [...FUNCIONES_NOTAS, ...FUNCIONES_AVISOS] },
+];
+
+/** Una nota de Moodle: la cifra (null si no hay) y el texto tal como lo enseña el campus. */
+function notaDeMoodle(g) {
+  const raw = g?.graderaw === null || g?.graderaw === undefined || g?.graderaw === '' ? null : Number(g.graderaw);
+  const texto = String(g?.gradeformatted ?? '').trim();
+  return {
+    nota: Number.isFinite(raw) ? raw : null,
+    // «-» es como Moodle dice «sin nota»: no se repite.
+    texto: texto && texto !== '-' ? texto : null,
+    maxima: Number.isFinite(Number(g?.grademax)) ? Number(g.grademax) : null,
+    porcentaje: String(g?.percentageformatted ?? '').trim().replace(/^-$/, '') || null,
+  };
+}
+
+/**
+ * Las notas de UN alumno en UN curso, como las ve en su informe de calificaciones (#532):
+ * la de cada actividad calificada y la final del curso. Solo lee
+ * (`gradereport_user_get_grade_items`). Las ocultas al alumno no salen, y las actividades
+ * sin nota todavía tampoco: aquí se enseña lo que tiene, no la lista de lo que falta.
+ */
+export async function notasDelAlumno(conexion, cursoId, moodleUserId, opciones) {
+  const r = await llamar(conexion, 'gradereport_user_get_grade_items', { courseid: cursoId, userid: moodleUserId }, opciones);
+  const suyas = (r?.usergrades || []).find((u) => Number(u.userid) === Number(moodleUserId));
+  const items = (suyas?.gradeitems || []).filter((g) => !(g.gradeishidden === true || Number(g.gradeishidden) === 1));
+  const total = items.find((g) => g.itemtype === 'course');
+  const finalDelCurso = total ? notaDeMoodle(total) : null;
+  return {
+    final: finalDelCurso && (finalDelCurso.nota !== null || finalDelCurso.texto) ? finalDelCurso : null,
+    actividades: items
+      .filter((g) => g.itemtype === 'mod' || g.itemtype === 'manual')
+      .map((g) => ({ id: Number(g.id), nombre: g.itemname || null, tipo: g.itemmodule || g.itemtype, ...notaDeMoodle(g) }))
+      .filter((g) => g.nota !== null || g.texto),
+  };
 }
 
 /** El % hecho que da Moodle, redondeado y entre 0 y 100; null si no lo da (sin seguimiento). */

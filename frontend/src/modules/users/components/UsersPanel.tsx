@@ -13,6 +13,7 @@ import {
   setUserPassword, updateUser, type BrevoBloqueo, type CrmUser, type Empresa,
 } from '../api/users.api';
 import { porPersona } from '../lib/brevoBloqueo';
+import VerComoFunciona from '@/shared/components/ui/VerComoFunciona';
 import useUsers from '../hooks/useUsers';
 import useAvailabilityMap from '../hooks/useAvailabilityMap';
 import UsersToolbar from './UsersToolbar';
@@ -76,10 +77,13 @@ export default function UsersPanel() {
   // Correos que Brevo no entrega (migración 290). Si falla o está apagado, sin marcas:
   // la lista sigue funcionando igual.
   const [bloqueosBrevo, setBloqueosBrevo] = useState<Map<number, BrevoBloqueo>>(new Map());
+  // Si la revisión de Brevo está encendida en este servidor («Ver cómo funciona», CRM#856).
+  // null mientras no se sabe; si no contesta, apagada.
+  const [brevoActivo, setBrevoActivo] = useState<boolean | null>(null);
   const cargarBloqueosBrevo = useCallback(() => {
     listBrevoBloqueos()
-      .then((r) => setBloqueosBrevo(porPersona(r.bloqueos)))
-      .catch(() => setBloqueosBrevo(new Map()));
+      .then((r) => { setBloqueosBrevo(porPersona(r.bloqueos)); setBrevoActivo(r.activo); })
+      .catch(() => { setBloqueosBrevo(new Map()); setBrevoActivo(false); });
   }, []);
   useEffect(() => { cargarBloqueosBrevo(); }, [cargarBloqueosBrevo]);
 
@@ -151,7 +155,7 @@ export default function UsersPanel() {
             description: `${values.nombre} ya no tiene ningún proyecto asignado: al entrar no verá nada.`,
           }
           : cambiaCorreo
-            ? { title: 'Usuario actualizado', description: `${values.nombre} entra ahora con ${correoNuevo}. Sus sesiones se han cerrado.` }
+            ? { title: 'Usuario actualizado', description: `${values.nombre} entra ahora con ${correoNuevo}. Una sesión que ya tuviera abierta puede seguir hasta 8 horas.` }
             : { title: 'Usuario actualizado', description: values.nombre });
       }
       setDialogo(null);
@@ -173,7 +177,7 @@ export default function UsersPanel() {
       await setUserPassword(dialogo.user.id, password, repetida);
       toast({
         title: 'Contraseña actualizada',
-        description: `${dialogo.user.nombre} deberá entrar con la nueva. Sus sesiones se han cerrado.`,
+        description: `${dialogo.user.nombre} deberá entrar con la nueva. Una sesión que ya tuviera abierta puede seguir hasta 8 horas.`,
       });
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message, variant: 'destructive' });
@@ -273,13 +277,17 @@ export default function UsersPanel() {
           <h2 className="text-seccion">Gestión de usuarios</h2>
           <p className="text-normal text-muted-foreground mt-0.5">Quién entra al CRM, con qué rol y en qué proyectos</p>
         </div>
-        <button
-          onClick={() => setDialogo({ modo: 'crear' })}
-          aria-label="Crear usuario"
-          className="flex-shrink-0 flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
-        >
-          <Plus size={14} weight="bold" /> <span className="hidden sm:inline">Crear usuario</span>
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* Probar los correos bloqueados en Brevo (CRM#856): solo al pulsarlo. */}
+          {brevoActivo !== null && <VerComoFunciona id="brevo-bloqueados" apagada={!brevoActivo} />}
+          <button
+            onClick={() => setDialogo({ modo: 'crear' })}
+            aria-label="Crear usuario"
+            className="flex-shrink-0 flex items-center gap-2 h-9 px-3 sm:px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <Plus size={14} weight="bold" /> <span className="hidden sm:inline">Crear usuario</span>
+          </button>
+        </div>
       </div>
 
       {invitacion && (

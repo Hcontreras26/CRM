@@ -172,6 +172,8 @@ export async function createSale(data, requestUser, { comprobarRepetida: mirarRe
       fecha_conversion: data.fecha_pago,
       fecha_compromiso_pago: importePagado < data.importe_total ? data.fecha_pago : null,
       notas_pago: data.notas || null,
+      // Inicio del curso (#767): con ella se programa la matrícula en Moodle.
+      ...(data.fecha_inicio ? { fecha_inicio: data.fecha_inicio } : {}),
       ...(forzar ? { forzar: true } : {}),
     },
     requestUser?.userId || null,
@@ -586,7 +588,7 @@ const SIN_TILDES = (expr) =>
 // `sinCobro = true` da lo contrario de la segunda regla: las ventas del mismo
 // filtro que aún NO tienen ningún cobro. Es la cifra que va al lado de las
 // tarjetas como «sin cobro (en proformas)» (#225).
-function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, search, compartidas = null, paisEntrada = null }, startIdx = 1, { sinCobro = false } = {}) {
+function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, search, compartidas = null, paisEntrada = null }, startIdx = 1, { sinCobro = false, todas = false } = {}) {
   const cond = [];
   const params = [];
   let idx = startIdx;
@@ -620,7 +622,11 @@ function filtrosVentas({ projectId, projectIds = null, from, to, responsableId, 
   // una ficha marcada como mensualidad no es una venta nueva, y una venta sin
   // ningun cobro es una proforma que el cliente no llego a pagar.
   cond.push('NOT cv.es_mensualidad');
-  cond.push(`${sinCobro ? 'NOT ' : ''}EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = cv.id)`);
+        // #901: el resumen de Ventas quiere las mismas cifras que Reportes, que no
+      // filtra por si hay cobro o no. `todas` deja pasar cualquier venta, tenga o
+      // no algún pago; solo lo usa getResumenVentas.
+
+   if (!todas) cond.push(`${sinCobro ? 'NOT ' : ''}EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = cv.id)`);
   return { where: 'WHERE ' + cond.join(' AND '), params, idx };
 }
 
@@ -711,7 +717,7 @@ async function ventasSinCobro(filtros = {}) {
 
 // Resumen consolidado que acompana a la vista general de Ventas.
 export async function getResumenVentas(filtros = {}) {
-  const { where, params, idx } = filtrosVentas(filtros);
+  const { where, params, idx } = filtrosVentas(filtros, 1, { todas: true });
   const { PESO, params: conPeso } = pesoDe(filtros.responsableId, params, idx);
   const { rows } = await query(
     `SELECT COUNT(*)::int AS ventas,
@@ -764,9 +770,12 @@ export async function getResumenVentas(filtros = {}) {
     asesoras: r.asesoras,
     importe: Number(r.importe),
     cobrado: Number(r.cobrado),
-    // Las que aún no tienen ningún cobro, aparte (#225). NO entran en las
-    // cifras de arriba: cuando se cobran, pasan a contar como venta.
+           //#901: ya están sumadas en las cifras de arriba, igual que en Reportes.
+    // Esto es solo el desglose: cuántas de esas ventas (y cuánto) siguen sin
+    // ningún cobro todavía (proformas).
     sin_cobro: sinCobro,
+
+
     // De lo cobrado, cuanto abrio la venta y cuanto son cuotas del plan (#100).
     cobrado_matricula: Number(r.cobrado_matricula),
     cobrado_cuotas: Number(r.cobrado_cuotas),
@@ -888,7 +897,7 @@ export async function ventasSinFormacion({ projectId, projectIds = null, from = 
 
 // Ventas agrupadas por asesora.
 export async function getVentasPorAsesora(filtros = {}) {
-  const { where, params } = filtrosVentas(filtros);
+  const { where, params } = filtrosVentas(filtros, 1, { todas: true });
   const { rows } = await query(
     `SELECT ${VENDEDORA} AS user_id,
             COALESCE(u.nombre, '— sin asignar —') AS nombre,
@@ -922,7 +931,7 @@ export async function getVentasPorAsesora(filtros = {}) {
 export async function getVentasPorCliente(filtros = {}) {
   const page = Math.max(1, parseInt(filtros.page) || 1);
   const limit = Math.min(200, Math.max(1, parseInt(filtros.limit) || 50));
-  const { where, params: delFiltro, idx: idx0 } = filtrosVentas(filtros);
+  const { where, params: delFiltro, idx: idx0 } = filtrosVentas(filtros, 1, { todas: true });
   const { PESO, params, idx } = pesoDe(filtros.responsableId, delFiltro, idx0);
 
   // Las ventas del filtro se aislan en una CTE para poder contar sus cuotas
@@ -1030,10 +1039,9 @@ export async function getDesglose({ projectId = null, projectIds = null, from = 
   if (responsableId) { pv.push(comoIds(responsableId)); wv.push(`${VENDEDORA_C} = ANY($${pv.length}::int[])`); }
   if (from) { pv.push(from); wv.push(`c.fecha_conversion >= $${pv.length}::date`); }
   if (to) { pv.push(to); wv.push(`c.fecha_conversion <= $${pv.length}::date`); }
-  wv.push('NOT c.es_mensualidad');
-  // Una venta sin ningun cobro es una proforma que no se pago: no cuenta.
-  wv.push('EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = c.id)');
-
+   wv.push('NOT c.es_mensualidad');
+  // #901: cuenta igual que el resumen y que Reportes, ventas sin ningun
+  // cobro todavia incluidas (revision de Diego, 21/11).
   const { rows: porFormacion } = await query(
     `SELECT ${TIPO_FORMACION} AS tipo,
             COUNT(*)::int AS ventas,
@@ -1106,9 +1114,9 @@ async function tramo({ projectId, projectIds = null, from, to, responsableId, po
     : "to_char(%s, 'YYYY-MM-DD')";
 
   const pv = [];
-  const wv = ['NOT c.es_mensualidad',
-    // Una venta sin ningun cobro es una proforma que no se pago.
-    'EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = c.id)'];
+  // #901: cuenta igual que el resumen y que Reportes, ventas sin ningun
+  // cobro todavia incluidas (revision de Diego, 21/11).
+  const wv = ['NOT c.es_mensualidad'];
   const listaV = comoLista(projectId, projectIds);
   if (listaV) { pv.push(listaV); wv.push(`c.project_id = ANY($${pv.length}::int[])`); }
   else wv.push(SIN_PRUEBAS('c.project_id'));

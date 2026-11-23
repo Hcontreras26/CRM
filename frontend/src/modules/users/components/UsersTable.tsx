@@ -55,9 +55,11 @@ function AusenciaBadge({ estado }: { estado?: AvailabilityUser }) {
 function BrevoBadge({ bloqueo }: { bloqueo?: BrevoBloqueo }) {
   if (!bloqueo) return null;
   return (
-    <StatusDot tono="danger" title={textoDelBloqueo(bloqueo)}>
-      Correo bloqueado en Brevo
-    </StatusDot>
+    <span className="inline-flex" data-recorrido="brevo-marca">
+      <StatusDot tono="danger" title={textoDelBloqueo(bloqueo)}>
+        Correo bloqueado en Brevo
+      </StatusDot>
+    </span>
   );
 }
 

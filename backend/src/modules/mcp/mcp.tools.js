@@ -377,7 +377,9 @@ export const HERRAMIENTAS = [
     // En esta lista, «nombre» es el de un cliente: sale abreviado (#196).
     listasDeClientes: ['prospectos'],
     titulo: 'Buscar prospectos',
-    descripcion: 'Busca prospectos (leads) por estado, canal, texto (nombre, email o teléfono), gestora, programa de interés y fechas de solicitud. Cada fila trae el último contacto, el próximo (según el proceso comercial), el paso en el que va y lo vendido. Devuelve una página de resultados y el total.',
+    descripcion: 'Busca prospectos (leads) por estado, canal, texto (nombre, email o teléfono), gestora, programa de interés, fechas de solicitud '
+      + 'y la publicidad de Meta de la que vinieron (conjunto o anuncio). Cada fila trae el último contacto, el próximo (según el proceso comercial), '
+      + 'el paso en el que va, lo vendido y, si vino de Meta, su campaña, conjunto y anuncio (id y nombre). Devuelve una página de resultados y el total.',
     entrada: { ...DATOS_COMPLETOS,
       ...AMBITO,
       estado: z.string().max(40).optional().describe('nuevo, por_contactar, contactado, en_seguimiento, convertido, no_interesado…'),
@@ -385,21 +387,28 @@ export const HERRAMIENTAS = [
       texto: z.string().max(100).optional().describe('Busca en nombre, email o teléfono'),
       gestora_id: z.number().int().positive().optional().describe('Solo los de una gestora (id de «ventas_por_asesora»). Quien ve solo lo suyo no puede pedir los de otra.'),
       programa: z.string().max(100).optional().describe('Parte del nombre del programa de interés, sin tildes ni mayúsculas (por ejemplo «coaching»)'),
+      // Puerta 8 (CRM#806): por la publicidad de Meta.
+      conjunto_id: z.string().regex(/^\d{1,30}$/, 'Solo dígitos').optional()
+        .describe('Solo los que vinieron de este conjunto de anuncios de Meta (id de «meta_conjuntos»)'),
+      conjunto: z.string().max(100).optional()
+        .describe('Parte del nombre del conjunto de anuncios de Meta, sin tildes ni mayúsculas'),
+      anuncio_id: z.string().regex(/^\d{1,30}$/, 'Solo dígitos').optional()
+        .describe('Solo los que vinieron de este anuncio de Meta (id de «meta_anuncios»)'),
       ...PERIODO,
       ...PAGINA,
     },
     ejecutar: async (ambito, a) => {
-      const { gestora_id: gestoraId, ...resto } = a;
+      const { gestora_id: gestoraId, conjunto_id: conjuntoId, anuncio_id: anuncioId, ...resto } = a;
       if (fueraDelAlcance(ambito, gestoraId)) {
         throw new AppError('Solo ves tus propios prospectos (y los de tu equipo, si llevas uno): no puedes pedir los de otra gestora.', 403, 'MCP_FUERA_DE_AMBITO');
       }
-      return model.buscarProspectos({ ...resto, gestoraId, ...acotar(ambito, a) });
+      return model.buscarProspectos({ ...resto, gestoraId, conjuntoId, anuncioId, ...acotar(ambito, a) });
     },
   },
   {
     nombre: 'ver_prospecto',
     titulo: 'Ver un prospecto',
-    descripcion: 'Ficha de un prospecto: datos de contacto, origen, últimas interacciones y sus ventas.',
+    descripcion: 'Ficha de un prospecto: datos de contacto, origen (con la campaña, el conjunto y el anuncio de Meta si vino de ahí, y la URL del anuncio), últimas interacciones y sus ventas.',
     entrada: { ...DATOS_COMPLETOS, id: z.number().int().positive().describe('Id del prospecto') },
     ejecutar: async (ambito, a) => {
       const r = await model.verProspecto({ id: a.id, ...acotar(ambito, {}) });

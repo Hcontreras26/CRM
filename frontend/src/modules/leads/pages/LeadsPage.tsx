@@ -6,7 +6,7 @@ import BarraFiltros from '@/shared/components/ui/BarraFiltros';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import ComoVoy from '@/modules/reports/components/ComoVoy';
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLeads } from '../hooks/useLeads';
 import { useWhatsappTemplates } from '../hooks/useWhatsappTemplates';
 import LeadFormDialog from '../components/LeadFormDialog';
@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useProducts } from '@/modules/products/hooks/useProducts';
 import client from '@/shared/api/client';
-import { Gear, ArrowCounterClockwise, ListChecks,
+import {
   MagnifyingGlass,
   Plus,
 
@@ -84,7 +84,9 @@ import BloquePlegable from '@/shared/components/ui/BloquePlegable';
 // y quien reparte es Make. Se cambio por el de abajo, que enseña lo que ha
 // pasado en vez de lo que va a pasar. El componente viejo sigue en el repo.
 import UltimoLeadAsignado from '../components/UltimoLeadAsignado';
-import ParaHoyYManana from '@/shared/components/dashboard/ParaHoyYManana';
+import LoQueTocaHoyYManana from '../components/LoQueTocaHoyYManana';
+// El recorrido guiado de la pantalla (#928): señala, paso a paso, cada parte.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import { useIdsDelAmbito, useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 
 
@@ -175,21 +177,21 @@ export default function LeadsPage() {
 
   const { activeProject, projects, activeIssuerId } = useProjectContext();
   /**
-   * El ámbito para la cola: un campus, o los de la empresa.
+   * El ámbito de «Lo que toca»: un campus, o los de la empresa.
    *
    * `-1` es «todos los proyectos», un valor interno del CRM: mandarlo pediría
    * el proyecto número menos uno. Con una empresa puesta van sus campus, que
    * es lo que el servidor sabe sumar.
    */
   const idsDelAmbito = useIdsDelAmbito();
-  // Los campus que ofrece el filtro «Proyecto» y el export: los de la empresa
-  // elegida arriba, o todos los suyos sin los de pruebas (#346). Antes era la
-  // lista entera: con CEDIA salían ICTESS, Academia IA y Pruebas.
-  const campusDelAmbito = useProyectosDelAmbito<{ id: number; nombre?: string; sociedad_emisora_id?: number | null; es_prueba?: boolean }>();
   const proyectoDeLaCola = activeProject?.id && activeProject.id !== -1 ? activeProject.id : null;
   const campusCsv = !proyectoDeLaCola && activeIssuerId && idsDelAmbito.length
     ? idsDelAmbito.join(',')
     : null;
+  // Los campus que ofrece el filtro «Proyecto» y el export: los de la empresa
+  // elegida arriba, o todos los suyos sin los de pruebas (#346). Antes era la
+  // lista entera: con CEDIA salían ICTESS, Academia IA y Pruebas.
+  const campusDelAmbito = useProyectosDelAmbito<{ id: number; nombre?: string; sociedad_emisora_id?: number | null; es_prueba?: boolean }>();
 
   // Columna "Proyecto" visible siempre que el usuario tenga >1 proyecto asignado
   // (no solo en modo multi). Util para saber a qué proyecto pertenece cada lead.
@@ -334,6 +336,33 @@ export default function LeadsPage() {
       toast({ title: `Filtro rápido "${label}" desactivado`, description: 'No puede estar activo junto al filtro "Estado".' });
     }
     setFilterEstado(v);
+  }
+
+  // PROSPECTOS ABRE CON LA LISTA (#534, parte 4). Manuel, 29/10: antes de llegar
+  // a la lista salían el último lead de cada gestora, el ranking, «Lo que toca»
+  // y las cifras. Esos paneles van a la pestaña «Equipo». Se recuerda en la URL
+  // (?vista=equipo) para poder enlazarla; la lista no lleva nada.
+  //
+  // Los filtros rápidos también escriben en la URL, a veces en el mismo clic
+  // (una cifra de «Equipo» filtra Y cambia de pestaña). Por eso la vista se
+  // escribe partiendo de la dirección real (`window.location`), que ya lleva
+  // lo que acaba de escribir el filtro, y no del `prev` del router, que aún no.
+  const [vista, setVistaState] = useState<'lista' | 'equipo'>(
+    searchParams.get('vista') === 'equipo' ? 'equipo' : 'lista',
+  );
+  function setVista(v: 'lista' | 'equipo') {
+    setVistaState(v);
+    setSearchParams(() => {
+      const n = new URLSearchParams(window.location.search);
+      if (v === 'equipo') n.set('vista', 'equipo'); else n.delete('vista');
+      return n;
+    }, { replace: true, preventScrollReset: true });
+  }
+  // Desde «Equipo», una cifra o un estado pulsado lleva a la lista ya filtrada.
+  function irALaLista() {
+    setVista('lista');
+    requestAnimationFrame(() => document.getElementById('lista-de-prospectos')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   // CRM-147: quick-add via ?new=1 (lo dispara el FAB de atajos).
@@ -692,7 +721,9 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    /* El margen de scroll de lo que señala el recorrido: la barra fija de
+       arriba no le tapa el principio. */
+    <div className="space-y-6 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <LeadFormDialog open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleCreateLead} lead={null} />
       {configTab && activeProject && (
         <Suspense fallback={null}>
@@ -705,23 +736,17 @@ export default function LeadsPage() {
         </Suspense>
       )}
 
-      {/* A quién le toca el siguiente (#11). Va arriba porque es lo que se mira
-          de pasada, no algo que se busca: enterarse de que te toca a ti es
-          justo lo que hoy no pasa hasta que el lead ya está asignado. */}
-      {/* Lo que ha recibido cada gestora de verdad (#11).
-          Solo para quien manda: es una vista de como esta repartiendo Make
-          entre todo el equipo, no algo que una gestora necesite de sus
-          compañeras. */}
-      {(user?.role === 'admin' || user?.role === 'superadmin') && (
-        <UltimoLeadAsignado projectId={activeProject?.id} issuerId={activeIssuerId} />
-      )}
-
       {/* Header compacto: titulo + acciones en la misma fila, todo h-9 */}
       <PageHeader
         title="Prospectos"
         subtitle="Explora y gestiona tus clientes potenciales"
-        actions={can('leads.create') ? (
+        actions={(
+          <>
+          {/* Es el recorrido de la lista: en «Equipo» sus partes están escondidas. */}
+          {vista === 'lista' && <VerRecorrido id="prospectos" listo={!loading} />}
+          {can('leads.create') && (
           <button
+            data-recorrido="prospectos-nuevo"
             onClick={() => setFormOpen(true)}
             className="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-primary text-primary-foreground text-xs sm:text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
           >
@@ -729,51 +754,103 @@ export default function LeadsPage() {
             <span className="hidden sm:inline">Nuevo prospecto</span>
             <span className="sm:hidden">Nuevo</span>
           </button>
-        ) : null}
+          )}
+          </>
+        )}
       />
 
-      {/* Cómo va quien está mirando: su puesto en ventas y su tasa de
-          conversión del mes. Va aquí y no escondido en Informes porque es la
-          pantalla donde pasa el día. */}
-      <ComoVoy compacto />
-
-      {/* LA COLA DEL DÍA, AQUÍ TAMBIÉN. Diego, 23/09: «la cola del día debe
-          de estar en prospectos también con atajos y todo».
-
-          Es el mismo bloque del dashboard, no una copia: los cuatro números
-          salen de `GET /proceso/cola/resumen`, que ya recorta por rol. Contar
-          aquí por mi cuenta sería una segunda contabilidad de la misma cola, y
-          el día que discrepen nadie sabría cuál creer.
-
-          Cada número abre la cola con ese tramo ya puesto, y debajo van los
-          atajos a las tres pantallas del proceso. */}
-      <div className="space-y-2">
-        <ParaHoyYManana projectId={proyectoDeLaCola} projectIds={campusCsv} />
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to="/prospectos/cola"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-normal font-semibold hover:bg-muted"
-          >
-            <ListChecks size={14} weight="bold" className="text-primary" />
-            La cola del día
-          </Link>
-          <Link
-            to="/prospectos/seguimiento"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-normal font-semibold hover:bg-muted"
-          >
-            <ArrowCounterClockwise size={14} weight="bold" className="text-primary" />
-            Seguimiento de fin de mes
-          </Link>
-          <Link
-            to="/prospectos/proceso"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-normal font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <Gear size={14} weight="bold" />
-            Proceso comercial
-          </Link>
-        </div>
+      {/* Lista / Equipo (#534, parte 4). La lista, primero y sin nada delante. */}
+      <div className="inline-flex rounded-md border border-border overflow-hidden" role="tablist" aria-label="Vista de prospectos" data-recorrido="prospectos-vistas">
+        {([['lista', 'Lista'], ['equipo', 'Equipo']] as const).map(([v, texto]) => (
+          <button key={v} type="button" role="tab" aria-selected={vista === v} onClick={() => setVista(v)}
+            className={'px-4 py-1.5 text-sm font-medium transition-colors '
+              + (vista === v ? 'bg-primary text-primary-foreground' : 'hover:bg-muted')}>
+            {texto}
+          </button>
+        ))}
       </div>
 
+      {vista === 'equipo' && (
+        <div className="space-y-6" role="tabpanel" aria-label="Equipo">
+          {/* Lo que ha recibido cada gestora de verdad (#11).
+              Solo para quien manda: es una vista de como esta repartiendo Make
+              entre todo el equipo, no algo que una gestora necesite de sus
+              compañeras. */}
+          {(user?.role === 'admin' || user?.role === 'superadmin') && (
+            <UltimoLeadAsignado projectId={activeProject?.id} issuerId={activeIssuerId} />
+          )}
+
+          {/* Cómo va quien está mirando: su puesto en ventas y su tasa de
+              conversión del mes. */}
+          <ComoVoy compacto />
+
+          {/* «Lo que toca hoy y mañana» no va aquí: se queda en la pestaña
+              «Lista», debajo de la tabla (Diego, 18/11, PR #883). */}
+
+          {/* Las cifras: que pasa. Pulsar una filtra la lista y lleva a ella. */}
+          <CifrasProspectos
+            stats={stats}
+            urgencias={quickCounts}
+            filtroRapido={quickFilter}
+            onFiltroRapido={(clave) => { setQuickFilter(clave || ''); irALaLista(); }}
+          />
+
+          {/* Plegable y con memoria (#125): «esta super bien, pero que se pueda
+              desplegar». */}
+          <BloquePlegable
+            clave="prospectos-resumen"
+            // Diego, repaso del 15/09: «tiene que nacer cerrado, no desplegado»
+            // (rescatado de la PR #153). Quien ya lo dejó abierto lo sigue viendo
+            // abierto: lo guardado manda sobre el arranque.
+            abiertoPorDefecto={false}
+            titulo="Resumen del día"
+            resumen={
+              quickCounts.urgent > 0
+                ? `${quickCounts.urgent} piden atención`
+                : 'Nada urgente'
+            }
+          >
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)_minmax(260px,0.7fr)]">
+            <SaludComercial
+              stats={stats}
+              onFiltroEstado={(v) => { setFilterEstadoSafe(v); irALaLista(); }}
+              onVerPipeline={() => navigate('/prospectos/pipeline')}
+            />
+            <SiguientesAcciones
+              leads={leads}
+              // El PANEL, no la ficha entera. Diego, 24/09: «y abra el panel, no la
+              // ficha completa».
+              onAbrir={(id) => setDrawerLeadId(id)}
+              // «Esto debe funcionar directamente, tuve que tocarlo para verlo.»
+              // Quita el filtro --se ven todos, los vencidos arriba-- y lleva a
+              // la lista, que ya lleva los tramos a la vista.
+              onVerTodos={() => { setQuickFilter(''); irALaLista(); }}
+            />
+            <AccesosClave
+              // Cada acceso, solo a quien puede entrar: la gestora veía Duplicados,
+              // Reportes y Audiencias y al pulsarlos acababa en «sin permiso». Los
+              // mismos roles que el menú y el servidor (y que ISEIE, 02/10).
+              accesos={[
+                { label: 'Pipeline', detail: 'Arrastrar por estados', icon: Kanban, to: '/prospectos/pipeline' },
+                ...(['admin', 'superadmin', 'soporte'].includes(user?.role || '')
+                  ? [{ label: 'Audiencias', detail: 'Exportar a Meta y Google', icon: Export, to: '/prospectos/audiencias' }]
+                  : []),
+                ...(['admin', 'superadmin'].includes(user?.role || '')
+                  ? [
+                    { label: 'Duplicados', detail: 'Repetidos por webhook', icon: GitMerge, to: '/prospectos/revision-duplicados' },
+                    { label: 'Reportes', detail: 'Números descargables', icon: ChartLineUp, to: '/informes' },
+                  ]
+                  : []),
+              ]}
+            />
+          </section>
+          </BloquePlegable>
+        </div>
+      )}
+
+      {/* LA LISTA. Se esconde (no se desmonta) en «Equipo», para no perder la
+          página, la selección ni los filtros al volver. */}
+      <div hidden={vista !== 'lista'} className="space-y-6" role="tabpanel" aria-label="Lista">
 
       {/* Barra de herramientas de la pantalla. El titulo ya no vive aqui: esta
           arriba, en la cabecera del marco, igual que en todas las demas. */}
@@ -854,85 +931,12 @@ export default function LeadsPage() {
           )}
       </div>
 
-      {/* Los tres bloques de arriba, como la maqueta: que pasa, que toca hacer,
-          y a donde se va desde aqui. Los numeros ya venian del servidor; solo
-          se usaban para unas pildoras dentro del desplegable de filtros, donde
-          no los ve nadie.
-
-          Las proporciones son las de la maqueta: la salud manda porque es lo
-          que mas se mira, y los accesos son la columna estrecha. */}
-      <CifrasProspectos
-        stats={stats}
-        urgencias={quickCounts}
-        filtroRapido={quickFilter}
-        onFiltroRapido={(clave) => setQuickFilter(clave || '')}
-      />
-
-      {/* Plegable y con memoria (#125): «esta super bien, pero que se pueda
-          desplegar». Ocupa la primera pantalla entera y empuja la tabla abajo
-          del todo — a quien viene a mirar la tabla le sobra, y a quien viene a
-          organizarse el dia le hace falta. */}
-      <BloquePlegable
-        clave="prospectos-resumen"
-        // Diego, repaso del 15/09: «tiene que nacer cerrado, no desplegado»
-        // (rescatado de la PR #153). Quien ya lo dejó abierto lo sigue viendo
-        // abierto: lo guardado manda sobre el arranque.
-        abiertoPorDefecto={false}
-        titulo="Resumen del dia"
-        resumen={
-          quickCounts.urgent > 0
-            ? `${quickCounts.urgent} piden atención`
-            : 'Nada urgente'
-        }
-      >
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)_minmax(260px,0.7fr)]">
-        <SaludComercial
-          stats={stats}
-          onFiltroEstado={setFilterEstadoSafe}
-          onVerPipeline={() => navigate('/prospectos/pipeline')}
-        />
-        <SiguientesAcciones
-          leads={leads}
-          // El PANEL, no la ficha entera. Diego, 24/09: «y abra el panel, no la
-          // ficha completa». Desde aquí se entra a ver qué toca con alguien y
-          // se vuelve a la lista; irse a otra pantalla obliga a volver atrás
-          // por cada persona.
-          onAbrir={(id) => setDrawerLeadId(id)}
-          // «Esto debe funcionar directamente, tuve que tocarlo para verlo.»
-          // Llevaba a «Necesitan acción hoy», que es UN tramo, y los demás
-          // estaban escondidos dentro del panel de Filtros. Ahora quita el
-          // filtro --se ven todos, los vencidos arriba-- y baja a la lista,
-          // que ya lleva los tramos a la vista.
-          onVerTodos={() => {
-            setQuickFilter('');
-            document.getElementById('lista-de-prospectos')
-              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }}
-        />
-        <AccesosClave
-          // Cada acceso, solo a quien puede entrar: la gestora veía Duplicados,
-          // Reportes y Audiencias y al pulsarlos acababa en «sin permiso». Los
-          // mismos roles que el menú y el servidor (y que ISEIE, 02/10).
-          accesos={[
-            { label: 'Pipeline', detail: 'Arrastrar por estados', icon: Kanban, to: '/prospectos/pipeline' },
-            ...(['admin', 'superadmin', 'soporte'].includes(user?.role || '')
-              ? [{ label: 'Audiencias', detail: 'Exportar a Meta y Google', icon: Export, to: '/prospectos/audiencias' }]
-              : []),
-            ...(['admin', 'superadmin'].includes(user?.role || '')
-              ? [
-                { label: 'Duplicados', detail: 'Repetidos por webhook', icon: GitMerge, to: '/prospectos/revision-duplicados' },
-                { label: 'Reportes', detail: 'Números descargables', icon: ChartLineUp, to: '/informes' },
-              ]
-              : []),
-          ]}
-        />
-      </section>
-      </BloquePlegable>
-
       {/* Arriba solo el buscador. Estado, canal y orden se han ido DENTRO del
           desplegable «Filtros» —Diego, 23/09: «mete esos filtros allí»—, con
           los otros siete. Un solo sitio donde mirar; lo que haya puesto lo
           canta el número del botón y las píldoras de al lado. */}
+      {/* El buscador y el resto de filtros, juntos: son un solo paso del recorrido (#928). */}
+      <div data-recorrido="prospectos-filtros" className="space-y-6">
       <BarraFiltros
         busqueda={search}
         onBusqueda={setSearch}
@@ -1003,6 +1007,7 @@ export default function LeadsPage() {
           }
         }}
       />
+      </div>
 
       {/* Error state */}
       {error && (
@@ -1051,7 +1056,7 @@ export default function LeadsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-card rounded-lg border border-border">
+      <div data-recorrido="prospectos-lista" className="bg-card rounded-lg border border-border">
         {/* Desktop table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-[13px]">
@@ -1281,7 +1286,9 @@ export default function LeadsPage() {
 
         {/* Pagination */}
         {total > 0 && (
-          <div className="px-5 py-3 border-t flex items-center justify-between text-[13px] text-muted-foreground">
+          // En el móvil la fila no cabe (con muchas páginas se salía 22 px a 375): salta de
+          // línea y «Anterior»/«Siguiente» se quedan en la flecha. Gemela de CRM-ISEIE#678.
+          <div className="px-5 py-3 border-t flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
             <span>
               Mostrando <strong className="text-foreground">{Math.min((page - 1) * 20 + 1, total)}&ndash;{Math.min(page * 20, total)}</strong> de {total}
             </span>
@@ -1289,9 +1296,10 @@ export default function LeadsPage() {
               <button
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
+                aria-label="Página anterior"
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-medium hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
               >
-                <CaretLeft size={12} weight="bold" /> Anterior
+                <CaretLeft size={12} weight="bold" /> <span className="hidden sm:inline">Anterior</span>
               </button>
               {getVisiblePages().map((p) => (
                 <button
@@ -1309,14 +1317,24 @@ export default function LeadsPage() {
               <button
                 onClick={() => setPage(Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
+                aria-label="Página siguiente"
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-medium hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
               >
-                Siguiente <CaretRight size={12} weight="bold" />
+                <span className="hidden sm:inline">Siguiente</span> <CaretRight size={12} weight="bold" />
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* LO QUE TOCA, HOY Y MAÑANA. Diego, 18/11 (PR #883): se queda en
+          Prospectos, debajo de la lista, que ahora abre primero; y separado en
+          «Hoy» y «Mañana», cada uno con su número. Es la misma cola del
+          Dashboard: los números y las personas salen del servidor. */}
+      <LoQueTocaHoyYManana projectId={proyectoDeLaCola} projectIds={campusCsv} onAbrir={(id) => setDrawerLeadId(id)} />
+
+      </div>
+      {/* /LA LISTA */}
 
       {/* Convertir prospecto — dialog inline.
           Importante: en modo "Todos los proyectos" activeProject.id es -1 (sentinel),

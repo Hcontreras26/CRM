@@ -390,7 +390,19 @@ export async function equipoDeLosCampus({ projectIds, incluirInactivos = false }
 
 // ─── Prospectos ───────────────────────────────────────────────────────────
 
-function filtrosProspectos({ projectIds, responsableId, gestoraId, programa, estado, texto, desde, hasta, canal }) {
+/**
+ * La publicidad de Meta de la que vino el prospecto (puerta 8, CRM#806): ids y
+ * nombres de campaña, conjunto y anuncio. Los nombres salen de las tablas de Meta
+ * del MISMO campus; si aún no se han sincronizado, sale el id solo.
+ */
+const ORIGEN_META = `lu.meta_campaign_id AS meta_campana_id, mca.nombre AS meta_campana,
+            lu.meta_adset_id AS meta_conjunto_id, mas.nombre AS meta_conjunto,
+            lu.meta_ad_id AS meta_anuncio_id, mad.nombre AS meta_anuncio`;
+const JOINS_ORIGEN_META = `LEFT JOIN meta_campaigns mca ON mca.campaign_id = lu.meta_campaign_id AND mca.project_id = l.project_id
+       LEFT JOIN meta_adsets mas ON mas.adset_id = lu.meta_adset_id AND mas.project_id = l.project_id
+       LEFT JOIN meta_ads mad ON mad.ad_id = lu.meta_ad_id AND mad.project_id = l.project_id`;
+
+function filtrosProspectos({ projectIds, responsableId, gestoraId, programa, estado, texto, desde, hasta, canal, conjuntoId, conjunto, anuncioId }) {
   const f = condiciones('l.project_id', projectIds);
   f.cond.push('l.deleted_at IS NULL');
   if (responsableId) f.add('l.responsable_id = ANY(?::int[])', comoIds(responsableId));
@@ -405,6 +417,14 @@ function filtrosProspectos({ projectIds, responsableId, gestoraId, programa, est
   }
   if (estado) f.add('l.status::text = ?', estado);
   if (canal) f.add('EXISTS (SELECT 1 FROM lead_utms cu WHERE cu.lead_id = l.id AND cu.canal_detectado::text = ?)', canal);
+  // Por la publicidad de Meta de la que vino (puerta 8, CRM#806): el conjunto por
+  // su id o por parte de su nombre, y el anuncio por su id.
+  if (conjuntoId) f.add('EXISTS (SELECT 1 FROM lead_utms mu WHERE mu.lead_id = l.id AND mu.meta_adset_id = ?)', String(conjuntoId));
+  if (conjunto) {
+    f.add(`EXISTS (SELECT 1 FROM lead_utms mu JOIN meta_adsets ms ON ms.adset_id = mu.meta_adset_id AND ms.project_id = l.project_id
+                    WHERE mu.lead_id = l.id AND ${SIN_TILDES('ms.nombre')} LIKE ?)`, `%${comoTexto(conjunto)}%`);
+  }
+  if (anuncioId) f.add('EXISTS (SELECT 1 FROM lead_utms mu WHERE mu.lead_id = l.id AND mu.meta_ad_id = ?)', String(anuncioId));
   if (texto) f.add(`(l.nombre ILIKE ? OR l.email ILIKE ? OR l.telefono ILIKE ?)`, `%${texto}%`, `%${texto}%`, `%${texto}%`);
   if (desde) f.add(`${fechaLocal('COALESCE(l.fecha_solicitud, l.created_at)')} >= ?::date`, desde);
   if (hasta) f.add(`${fechaLocal('COALESCE(l.fecha_solicitud, l.created_at)')} <= ?::date`, hasta);
@@ -419,6 +439,7 @@ export async function buscarProspectos(filtros) {
             l.fecha_solicitud, l.project_id AS proyecto_id, p.nombre AS proyecto,
             pr.nombre AS producto_interes, u.nombre AS responsable,
             lu.canal_detectado AS canal,
+            ${ORIGEN_META},
             EXISTS (SELECT 1 FROM conversions c WHERE c.lead_id = l.id) AS es_cliente,
             -- Lo que hace falta para decidir a quién llamar (#325): cuándo se le tocó por última vez,
             -- cuándo toca la próxima, en qué paso del proceso va y cuánto ha comprado.
@@ -431,6 +452,7 @@ export async function buscarProspectos(filtros) {
        LEFT JOIN products pr ON pr.id = l.producto_interes_id
        LEFT JOIN users u ON u.id = l.responsable_id
        LEFT JOIN lead_utms lu ON lu.lead_id = l.id
+       ${JOINS_ORIGEN_META}
       ${f.where()}
       ORDER BY COALESCE(l.fecha_solicitud, l.created_at) DESC, l.id DESC
       LIMIT ${limit} OFFSET ${offset}`,
@@ -451,12 +473,14 @@ export async function verProspecto({ id, projectIds, responsableId }) {
             l.fecha_solicitud, l.created_at, l.project_id AS proyecto_id, p.nombre AS proyecto,
             pr.nombre AS producto_interes, u.nombre AS responsable,
             l.reincidente, l.lead_duplicado_de AS duplicado_de,
-            lu.canal_detectado AS canal, lu.utm_source, lu.utm_medium, lu.utm_campaign
+            lu.canal_detectado AS canal, lu.utm_source, lu.utm_medium, lu.utm_campaign, lu.utm_content, lu.utm_term,
+            ${ORIGEN_META}, lu.meta_origen_por, mad.url_destino AS meta_anuncio_url
        FROM leads l
        JOIN projects p ON p.id = l.project_id
        LEFT JOIN products pr ON pr.id = l.producto_interes_id
        LEFT JOIN users u ON u.id = l.responsable_id
        LEFT JOIN lead_utms lu ON lu.lead_id = l.id
+       ${JOINS_ORIGEN_META}
       ${f.where()}`,
     f.params
   );

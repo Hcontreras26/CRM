@@ -152,10 +152,14 @@ describe('vender un curso sin desarrollar', () => {
     expect(h[0].detalle).toMatchObject({ origen: 'venta', conversion_id: venta.id, plazo_dias: 20 });
   });
 
-  it('avisa al redactor con la fecha límite', async () => {
+  // Con el formato de fechas del CRM («28 nov 2026»), no en ISO (QA de /testeo del 18/11).
+  it('avisa al redactor con la fecha límite, en el formato del CRM', async () => {
     const [n] = await avisos('curso_pendiente_asignado', REDACTOR.id);
     expect(n.title).toBe(`Te han asignado un curso: ${nombre('Curso de Apego')}`);
-    expect(n.message).toContain(`Fecha límite: ${dia(20)}`);
+    const [a, m, d] = dia(20).split('-').map(Number);
+    const legible = `${d} ${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'][m - 1]} ${a}`;
+    expect(n.message).toContain(`Fecha límite: ${legible}.`);
+    expect(n.message).not.toContain(dia(20));
   });
 
   it('venderlo otra vez suma la alumna al mismo pendiente, sin duplicarlo, y el redactor se entera', async () => {
@@ -289,7 +293,11 @@ describe('una fecha límite vencida', () => {
     await vender(await alumna('Fani'), { producto_contratado_id: prod });
     const [c] = await pendientesDe(prod);
     await q(`UPDATE cursos_pendientes SET fecha_comprometida = $2 WHERE id = $1`, [c.id, dia(-1)]);
-    await avisarVencimientos();
+    // Solo sobre el campus de esta prueba. Recorriendo la base entera, la vuelta de
+    // cursosPendientes.test.js (que corre a la vez) se quedaba a veces con este
+    // curso: apuntaba el «una vez» y esta no encontraba su aviso (CI del 23/11,
+    // «expected [] to include 'Retrasado: …'»).
+    await avisarVencimientos({ projectIds: [P] });
     const titulo = `Retrasado: ${nombre('Curso que se pasa de fecha')}`;
     for (const u of [TUTORA, ADMIN]) expect((await avisos('curso_pendiente_retrasado', u.id)).map((n) => n.title)).toContain(titulo);
   });

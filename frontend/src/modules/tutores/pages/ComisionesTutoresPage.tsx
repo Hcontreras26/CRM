@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { toast } from '@/shared/hooks/useToast';
 import PageHeader from '@/shared/components/ui/PageHeader';
+// El recorrido guiado de la pantalla (#941): señala, paso a paso, cada parte.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
@@ -255,7 +257,10 @@ export default function ComisionesTutoresPage() {
   }
 
   return (
-    <div className="space-y-3">
+    /* Margen de scroll en lo que señala el recorrido (#941): la barra fija de
+       arriba no tapa el principio al subir hasta ello. En el móvil la cabecera
+       de esta pantalla ocupa cuatro filas (la barra mide más de 300 px). */
+    <div className="space-y-3 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-96">
       <PageHeader
         title="Comisiones de tutores"
         subtitle={projectId
@@ -265,21 +270,25 @@ export default function ComisionesTutoresPage() {
           : `${mesLegible(periodo)} · todos los proyectos`}
         actions={(
           <>
-            {/* El campus, dentro de la empresa. Sin esto habia que cambiar el
-                selector de arriba para mirar uno solo. */}
-            {activeIssuer && !elegido && campus.length > 1 && (
-              <select
-                value={soloCampus ?? ''}
-                onChange={(e) => setSoloCampus(e.target.value ? Number(e.target.value) : null)}
-                aria-label="Filtrar por campus"
-                className="h-9 px-2 rounded-md border border-border bg-card text-sm">
-                <option value="">Todos los campus</option>
-                {campus.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
-            )}
-            <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)}
-              className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
-            <Button variant="outline" size="sm" onClick={calcular} disabled={trabajando}>
+            <VerRecorrido id="comisiones-tutores" listo={!cargando} />
+            <div data-recorrido="comtutores-periodo" className="flex flex-wrap items-center gap-2">
+              {/* El campus, dentro de la empresa. Sin esto habia que cambiar el
+                  selector de arriba para mirar uno solo. */}
+              {activeIssuer && !elegido && campus.length > 1 && (
+                <select
+                  value={soloCampus ?? ''}
+                  onChange={(e) => setSoloCampus(e.target.value ? Number(e.target.value) : null)}
+                  aria-label="Filtrar por campus"
+                  className="h-9 px-2 rounded-md border border-border bg-card text-sm">
+                  <option value="">Todos los campus</option>
+                  {campus.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+              )}
+              <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)}
+                aria-label="Mes"
+                className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
+            </div>
+            <Button data-recorrido="comtutores-calcular" variant="outline" size="sm" onClick={calcular} disabled={trabajando}>
               <ArrowsClockwise size={14} weight="bold" className="mr-1.5" />
               {trabajando ? 'Calculando…' : 'Calcular'}
             </Button>
@@ -287,7 +296,7 @@ export default function ComisionesTutoresPage() {
         )}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div data-recorrido="comtutores-tarjetas" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <KpiCard icon={Coins} iconBg="bg-warning-soft text-warning-soft-foreground"
           label="Por pagar" value={euros(total.pendiente)} />
         <KpiCard icon={CheckCircle} iconBg="bg-success-soft text-success-soft-foreground"
@@ -311,7 +320,7 @@ export default function ComisionesTutoresPage() {
       {/* El dinero que no se puede atribuir. Se enseña a proposito: esconderlo
           haria parecer cuadrado un mes que no lo esta. */}
       {sinFormacion.length > 0 && (
-        <div className="bg-warning-soft border border-warning/30 rounded-lg p-3">
+        <div data-recorrido="comtutores-sin-formacion" className="bg-warning-soft border border-warning/30 rounded-lg p-3">
           <p className="font-semibold text-warning-soft-foreground flex items-center gap-1.5 text-sm">
             <Warning size={16} weight="fill" />
             {euros(total.sinAtribuir)} cobrados sin saber de qué formación son
@@ -325,7 +334,7 @@ export default function ComisionesTutoresPage() {
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div data-recorrido="comtutores-lista" className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
           <span className="text-sm font-semibold">
             {cargando ? 'cargando…' : `${resumen.length} ${resumen.length === 1 ? 'tutor' : 'tutores'} en ${mesLegible(periodo)}`}
@@ -338,12 +347,13 @@ export default function ComisionesTutoresPage() {
             description="Pulsa Calcular para crearlas a partir de los cobros. Si sigue vacío: o no hay tutores con formaciones, o sus fechas de inicio son posteriores, o los cobros no están atados al catálogo." />
         ) : (
           <div className="divide-y divide-border">
-            {resumen.map((r) => {
+            {resumen.map((r, i) => {
               const suyas = lineas.filter((l) => l.tutor_id === r.tutor_id);
               const desplegado = abierto === r.tutor_id;
               return (
                 <div key={`${r.periodo}-${r.tutor_id}`}>
-                  <div className="px-4 py-3 flex flex-wrap items-center gap-3">
+                  {/* La primera fila: el paso «Pagar y avisar» del recorrido. */}
+                  <div data-recorrido={i === 0 ? 'comtutores-fila' : undefined} className="px-4 py-3 flex flex-wrap items-center gap-3">
                     {/* El ancho minimo importa: con `min-w-0` este hueco se
                         encogia hasta nada en cuanto la fila llevaba una cosa
                         mas —el «avisado el ...» de quien ya tiene aviso— y el

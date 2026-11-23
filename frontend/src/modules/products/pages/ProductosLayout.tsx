@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { Package, ListBullets, Tree, Clock, ShoppingBag } from '@phosphor-icons/react';
+import { Package, ListBullets, Tree, Clock, ShoppingBag, GraduationCap } from '@phosphor-icons/react';
 import SubNav from '@/shared/components/ui/SubNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { soloEsTutor, soloEsTutorRedactor } from '@/shared/lib/roles';
@@ -16,6 +16,8 @@ const TABS = [
   { label: 'Árbol de categorías', to: '/productos/categorias', icon: Tree },
   { label: 'Cursos pendientes', to: '/productos/pendientes', icon: Clock },
   { label: 'WooCommerce', to: '/productos/woocommerce', icon: ShoppingBag },
+  // CRM#957: el curso de Moodle de cada producto. La pestaña sale con su permiso (rutaPermitida).
+  { label: 'Cursos de Moodle', to: '/productos/cursos-moodle', icon: GraduationCap },
 ];
 
 export default function ProductosLayout() {

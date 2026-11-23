@@ -31,22 +31,22 @@ interface WooCredential {
 }
 
 const INTEGRATIONS: ReadonlyArray<Integration> = [
-  { service: 'brevo', name: 'Brevo', desc: 'Email transaccional y notificaciones', icon: EnvelopeSimple, color: 'text-blue-500' },
-  { service: 'meta', name: 'Meta Marketing', desc: 'Meta Ads API — campañas y estadísticas', icon: ChartBar, color: 'text-blue-600' },
+  { service: 'brevo', name: 'Brevo', desc: 'Email transaccional y notificaciones', icon: EnvelopeSimple, color: 'text-info' },
+  { service: 'meta', name: 'Meta Marketing', desc: 'Meta Ads API — campañas y estadísticas', icon: ChartBar, color: 'text-info' },
   { service: 'google_ads', name: 'Google Ads', desc: 'Google Ads API — campañas y métricas', icon: ChartBar, color: 'text-amber-500' },
-  { service: 'gsc', name: 'Google Search Console', desc: 'Datos de tráfico orgánico y SEO', icon: MagnifyingGlass, color: 'text-green-600' },
-  { service: 'stripe', name: 'Stripe', desc: 'Pagos, suscripciones y métricas SaaS', icon: CreditCard, color: 'text-violet-600' },
-  { service: 'woocommerce', name: 'WooCommerce', desc: 'Sincronización de productos e importación', icon: ShoppingBag, color: 'text-orange-500' },
+    { service: 'gsc', name: 'Google Search Console', desc: 'Datos de tráfico orgánico y SEO', icon: MagnifyingGlass, color: 'text-success' },
+  { service: 'stripe', name: 'Stripe', desc: 'Pagos, suscripciones y métricas SaaS', icon: CreditCard, color: 'text-primary' }, 
+   { service: 'woocommerce', name: 'WooCommerce', desc: 'Sincronización de productos e importación', icon: ShoppingBag, color: 'text-orange-500' },
 ];
 
 function StatusBadge({ status }: { status: Status }) {
   if (status === 'ok') return (
-    <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 px-2.5 py-1 rounded-full">
+       <span className="flex items-center gap-1.5 text-xs font-semibold text-success-soft-foreground bg-success-soft border border-success/30 px-2.5 py-1 rounded-full">
       <CheckCircle size={13} weight="fill" /> Configurado
     </span>
   );
   if (status === 'missing') return (
-    <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 px-2.5 py-1 rounded-full">
+    <span className="flex items-center gap-1.5 text-xs font-semibold text-warning-soft-foreground bg-warning-soft border border-warning/30 px-2.5 py-1 rounded-full">
       <WarningCircle size={13} weight="fill" /> Sin credenciales
     </span>
   );
@@ -126,7 +126,7 @@ export default function StatusPage() {
         {integraciones.map(({ service, name, desc, icon: Icon, color }) => {
           const status = loading ? 'loading' : getStatus(service);
           return (
-            <div key={service} className={`bg-card border rounded-xl p-5 flex items-start gap-4 transition-colors ${status === 'ok' ? 'border-emerald-200/60 dark:border-emerald-800/30' : status === 'missing' ? 'border-amber-200/60 dark:border-amber-800/30' : 'border-border'}`}>
+            <div key={service} className={`bg-card border rounded-xl p-5 flex items-start gap-4 transition-colors ${status === 'ok' ? 'border-success/30' : status === 'missing' ? 'border-warning/30' : 'border-border'}`}>
               <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 ${color}`}>
                 <Icon size={20} weight="duotone" />
               </div>

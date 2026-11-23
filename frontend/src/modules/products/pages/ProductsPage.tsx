@@ -258,8 +258,8 @@ export default function ProductsPage() {
 
       {/* Banner de progreso del sync WC */}
       {syncStatus?.status === 'running' && (
-        <div className="p-3 rounded-lg border bg-blue-500/10 border-blue-500/30 text-sm flex items-center gap-3">
-          <ArrowsClockwise size={18} className="animate-spin text-blue-500" />
+         <div className="p-3 rounded-lg border bg-info/10 border-info/30 text-sm flex items-center gap-3">
+          <ArrowsClockwise size={18} className="animate-spin text-info" />
           <span>
             Sincronizando WooCommerce · <strong>{syncStatus.elapsed_seconds}s</strong> transcurridos
             {syncStatus.total_fetched ? ` · ${syncStatus.total_fetched} productos descargados` : ''}
@@ -267,7 +267,7 @@ export default function ProductsPage() {
         </div>
       )}
       {syncStatus?.status === 'success' && syncStatus.finished_at && Date.now() - new Date(syncStatus.finished_at).getTime() < 60000 && (
-        <div className="p-3 rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-sm">
+        <div className="p-3 rounded-lg border bg-success/10 border-success/30 text-sm">
           ✅ Sync OK · <strong>{syncStatus.total_fetched}</strong> productos
           ({syncStatus.total_created} nuevos, {syncStatus.total_updated} actualizados)
           en {syncStatus.elapsed_seconds}s
@@ -275,7 +275,7 @@ export default function ProductsPage() {
       )}
 
       {error && (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-md px-3 py-2 font-medium">
+       <p role="alert" className="text-sm text-destructive-soft-foreground bg-destructive-soft border border-destructive/30 rounded-md px-3 py-2 font-medium">
           {error}
         </p>
       )}
@@ -427,7 +427,7 @@ export default function ProductsPage() {
                         <Package size={20} weight="regular" />
                       </div>
                     )}
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium ${product.active ? 'bg-emerald-50 text-emerald-600' : 'bg-muted text-muted-foreground'}`}>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium ${product.active ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground'}`}>
                       {product.active ? 'Activo' : 'Inactivo'}
                     </span>
                   </div>
@@ -468,7 +468,7 @@ export default function ProductsPage() {
                     </button>
                     )}
                     {can('products.delete') && (
-                    <button onClick={() => setDeleteTarget(product)} title="Desactivar" className="flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border text-[13px] font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40">
+                    <button onClick={() => setDeleteTarget(product)} title="Desactivar" className="flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border text-[13px] font-medium text-destructive hover:bg-destructive-soft">
                       <Trash size={14} />
                     </button>
                     )}

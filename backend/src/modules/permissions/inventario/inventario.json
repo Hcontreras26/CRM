@@ -3165,6 +3165,50 @@
   "puertas": []
  },
  {
+  "id": "GET /api/conversions/productos-con-curso",
+  "tipo": "ruta",
+  "modulo": "conversions",
+  "metodo": "GET",
+  "ruta": "/api/conversions/productos-con-curso",
+  "relativa": "GET /productos-con-curso",
+  "controlador": "productosConCursoMoodle",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/conversions/sin-fecha-inicio",
+  "tipo": "ruta",
+  "modulo": "conversions",
+  "metodo": "GET",
+  "ruta": "/api/conversions/sin-fecha-inicio",
+  "relativa": "GET /sin-fecha-inicio",
+  "controlador": "sinFechaInicio",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "conversions.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/conversions/by-lead/:leadId",
   "tipo": "ruta",
   "modulo": "conversions",
@@ -3966,6 +4010,28 @@
   "ruta": "/api/credentials/registro",
   "relativa": "GET /registro",
   "controlador": "registro",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "credentials.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/credentials/ia",
+  "tipo": "ruta",
+  "modulo": "credentials",
+  "metodo": "GET",
+  "ruta": "/api/credentials/ia",
+  "relativa": "GET /ia",
+  "controlador": "iaEnUso",
   "publica": false,
   "guardias": [
    {
@@ -5244,6 +5310,28 @@
   "puertas": []
  },
  {
+  "id": "GET /api/factura-automatica/interruptor",
+  "tipo": "ruta",
+  "modulo": "factura-automatica",
+  "metodo": "GET",
+  "ruta": "/api/factura-automatica/interruptor",
+  "relativa": "GET /interruptor",
+  "controlador": "interruptor",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/factura-automatica/venta/:conversionId",
   "tipo": "ruta",
   "modulo": "factura-automatica",
@@ -5637,6 +5725,28 @@
   "metodo": "POST",
   "ruta": "/api/facturas-colaborador/colaboradores",
   "relativa": "POST /colaboradores",
+  "controlador": null,
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas_colaborador.gestionar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/facturas-colaborador/colaboradores/redactoras-sin-ficha",
+  "tipo": "ruta",
+  "modulo": "facturas-colaborador",
+  "metodo": "GET",
+  "ruta": "/api/facturas-colaborador/colaboradores/redactoras-sin-ficha",
+  "relativa": "GET /colaboradores/redactoras-sin-ficha",
   "controlador": null,
   "publica": false,
   "guardias": [
@@ -8787,6 +8897,28 @@
   "puertas": []
  },
  {
+  "id": "GET /api/leads/:id/campus",
+  "tipo": "ruta",
+  "modulo": "leads",
+  "metodo": "GET",
+  "ruta": "/api/leads/:id/campus",
+  "relativa": "GET /:id/campus",
+  "controlador": "avanceEnMoodle",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "POST /api/leads/:id/merge",
   "tipo": "ruta",
   "modulo": "leads",
@@ -11600,6 +11732,94 @@
     "tipo": "puede",
     "claves": [
      "moodle.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/moodle/campus/:id/productos-cursos",
+  "tipo": "ruta",
+  "modulo": "moodle",
+  "metodo": "GET",
+  "ruta": "/api/moodle/campus/:id/productos-cursos",
+  "relativa": "GET /campus/:id/productos-cursos",
+  "controlador": "productos",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "moodle.cursos_producto"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/moodle/campus/:id/cursos-moodle",
+  "tipo": "ruta",
+  "modulo": "moodle",
+  "metodo": "GET",
+  "ruta": "/api/moodle/campus/:id/cursos-moodle",
+  "relativa": "GET /campus/:id/cursos-moodle",
+  "controlador": "cursosMoodle",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "moodle.cursos_producto"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/moodle/campus/:id/productos/:productId/curso",
+  "tipo": "ruta",
+  "modulo": "moodle",
+  "metodo": "PUT",
+  "ruta": "/api/moodle/campus/:id/productos/:productId/curso",
+  "relativa": "PUT /campus/:id/productos/:productId/curso",
+  "controlador": "unir",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "moodle.cursos_producto"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "DELETE /api/moodle/campus/:id/productos/:productId/curso",
+  "tipo": "ruta",
+  "modulo": "moodle",
+  "metodo": "DELETE",
+  "ruta": "/api/moodle/campus/:id/productos/:productId/curso",
+  "relativa": "DELETE /campus/:id/productos/:productId/curso",
+  "controlador": "quitar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "moodle.cursos_producto"
     ]
    }
   ],

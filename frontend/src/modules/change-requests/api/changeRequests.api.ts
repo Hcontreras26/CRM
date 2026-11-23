@@ -118,12 +118,12 @@ export const ESTADO_LABELS: Record<string, string> = {
 };
 
 export const ESTADO_COLORS: Record<string, string> = {
-  propuesto: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  en_analisis: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  enviado_ceo: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-  aprobado: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-  aprobado_inmediato: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200 ring-1 ring-emerald-500',
+  propuesto: 'bg-muted text-muted-foreground',
+  en_analisis: 'bg-warning-soft text-warning-soft-foreground',
+  enviado_ceo: 'bg-info-soft text-info-soft-foreground',
+  aprobado: 'bg-success-soft text-success-soft-foreground',
+  aprobado_inmediato: 'bg-success-soft text-success-soft-foreground ring-1 ring-success',
   aprobado_futuro: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300',
-  rechazado: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-  diferido: 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300',
+  rechazado: 'bg-destructive-soft text-destructive-soft-foreground',
+  diferido: 'bg-primary/10 text-primary',
 };

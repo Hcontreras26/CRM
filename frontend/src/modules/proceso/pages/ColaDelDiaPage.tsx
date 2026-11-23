@@ -17,6 +17,8 @@ import {
   CalendarCheck, Warning, ArrowRight, CaretRight, User, ClockCounterClockwise, Buildings,
 } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
+// El recorrido guiado de la pantalla (#941).
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
@@ -323,7 +325,9 @@ export default function ColaDelDiaPage() {
   const filtroCampus = Boolean(activeIssuer) && !elegido && campus.length > 1;
 
   return (
-    <div className="space-y-5 pb-8">
+    // El margen de scroll de lo que señala el recorrido (#941): al ir hasta lo
+    // señalado, la barra fija de arriba no le tapa el principio.
+    <div className="space-y-5 pb-8 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-72">
       <PageHeader
         title={titulo}
         subtitle={
@@ -332,33 +336,38 @@ export default function ColaDelDiaPage() {
             : 'A quién le toca hoy, y quién viene arrastrado. Una fila por persona.'
         }
         // Solo los dos desplegables que dependen del ambito y del rol: el resto
-        // de filtros va debajo, pegado a la lista.
-        actions={filtroCampus || (esAdmin && gestoras.length > 0) ? (
+        // de filtros va debajo, pegado a la lista. Y «Ver recorrido» (#941).
+        actions={(
           <div className="flex flex-wrap items-center gap-2">
-            {filtroCampus && (
-              <select
-                value={soloCampus ?? ''}
-                onChange={(e) => setSoloCampus(e.target.value ? Number(e.target.value) : null)}
-                className="h-9 px-3 rounded-md border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                aria-label="Filtrar por campus"
-              >
-                <option value="">Todos los campus</option>
-                {campus.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
+            {(filtroCampus || (esAdmin && gestoras.length > 0)) && (
+              <div data-recorrido="cola-equipo" className="flex flex-wrap items-center gap-2">
+                {filtroCampus && (
+                  <select
+                    value={soloCampus ?? ''}
+                    onChange={(e) => setSoloCampus(e.target.value ? Number(e.target.value) : null)}
+                    className="h-9 px-3 rounded-md border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    aria-label="Filtrar por campus"
+                  >
+                    <option value="">Todos los campus</option>
+                    {campus.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                )}
+                {esAdmin && gestoras.length > 0 && (
+                  <select
+                    value={gestoraId ?? ''}
+                    onChange={(e) => setGestoraId(e.target.value ? Number(e.target.value) : null)}
+                    className="h-9 px-3 rounded-md border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    aria-label="Filtrar por gestora"
+                  >
+                    <option value="">Todo el equipo</option>
+                    {gestoras.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+                  </select>
+                )}
+              </div>
             )}
-            {esAdmin && gestoras.length > 0 && (
-              <select
-                value={gestoraId ?? ''}
-                onChange={(e) => setGestoraId(e.target.value ? Number(e.target.value) : null)}
-                className="h-9 px-3 rounded-md border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                aria-label="Filtrar por gestora"
-              >
-                <option value="">Todo el equipo</option>
-                {gestoras.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-              </select>
-            )}
+            <VerRecorrido id="cola-del-dia" listo={!cargando} />
           </div>
-        ) : null}
+        )}
       />
 
       {/* CÓMO VA EL DÍA. Diego, 15/09: «no hay gráficas de cómo va, ni la
@@ -366,7 +375,7 @@ export default function ColaDelDiaPage() {
           barra dice en medio segundo si el día está bajo control. No inventa
           ninguna cifra: son los mismos cuatro del resumen, puestos juntos. */}
       {resumen && totalDeLaCola(resumen) > 0 && (
-        <section aria-label="Cómo va la cola" className="rounded-lg border border-border bg-card p-3">
+        <section aria-label="Cómo va la cola" data-recorrido="cola-salud" className="rounded-lg border border-border bg-card p-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className={`text-normal font-semibold ${fraseDeSalud(resumen).alerta ? 'text-destructive' : 'text-success'}`}>
               {fraseDeSalud(resumen).texto}
@@ -410,7 +419,7 @@ export default function ColaDelDiaPage() {
       )}
 
       {resumen && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div data-recorrido="cola-tramos" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Contador icon={Warning} etiqueta="Atrasados" valor={resumen.atrasados}
             tono="text-destructive"
             activo={tramo === 'atrasados'}
@@ -444,7 +453,7 @@ export default function ColaDelDiaPage() {
 
           Todos los hace el SERVIDOR. Filtrar las 100 filas que se ven diría
           «no hay nadie» teniendo a la persona en la página cuatro. */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-recorrido="cola-filtros" className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
           <MagnifyingGlass size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -530,7 +539,7 @@ export default function ColaDelDiaPage() {
       )}
 
       {!cargando && grupos.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div data-recorrido="cola-por-paso" className="flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60">
             Por paso
           </span>
@@ -590,7 +599,7 @@ export default function ColaDelDiaPage() {
           }
         />
       ) : (
-        <div className="space-y-2">
+        <div data-recorrido="cola-lista" className="space-y-2">
           {visibles.map((p, i) => {
             const c = cuando(p.fecha_prevista, p.dias_de_retraso);
             return (

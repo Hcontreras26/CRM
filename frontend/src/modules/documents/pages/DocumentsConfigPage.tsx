@@ -199,8 +199,8 @@ export default function DocumentsConfigPage() {
       <div className="space-y-6 pb-8">
         <PageHeader title="Configuración de documentos" backTo="/configuracion" backLabel="Configuración" subtitle="Numeración de facturas y certificados" />
         <div className="bg-card border border-border rounded-xl p-8 flex items-start gap-4">
-          <ShieldWarning size={28} className="text-amber-500 shrink-0" />
-          <div>
+          <ShieldWarning size={28} className="text-warning shrink-0" />
+          <div>   
             <h2 className="font-semibold">Acceso restringido</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Solo Administradores y Superadmin pueden gestionar la configuración de documentos.
@@ -266,7 +266,7 @@ export default function DocumentsConfigPage() {
                     );
                   })}
                   <div className="px-4 py-3 flex items-center gap-3 bg-muted/20">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-success/10 text-success flex items-center justify-center shrink-0">
                       <EnvelopeSimple size={16} weight="duotone" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -286,7 +286,7 @@ export default function DocumentsConfigPage() {
                         onChange={(e) => toggleAutoEmail(p.id, e.target.checked)}
                         aria-label={`Email automático para ${p.nombre}`}
                       />
-                      <div className="w-10 h-5 bg-muted rounded-full peer peer-checked:bg-emerald-500 peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
+                      <div className="w-10 h-5 bg-muted rounded-full peer peer-checked:bg-success peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
                     </label>
                   </div>
                 </div>
@@ -397,7 +397,7 @@ function EditCounterDialog({ row, value, onChange, saving, onCancel, onSave }: E
             Resultado: <span className="font-semibold tabular-nums">{preview}</span>
           </div>
           {goingDown && (
-            <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-md p-3 flex items-start gap-2">
+            <div className="text-xs text-warning-soft-foreground bg-warning-soft border border-warning/30 rounded-md p-3 flex items-start gap-2">
               <ShieldWarning size={14} className="shrink-0 mt-0.5" />
               <span>
                 Vas a retroceder el contador. Si ya existe un documento con número <strong>{preview}</strong>,

@@ -39,6 +39,7 @@ describe('POST /api/conversions - crear conversion', () => {
       .send({
         lead_id: testLeadId,
         project_id: testProjectId,
+        fecha_inicio: '2026-12-01',
         producto_contratado: 'Curso Test',
         importe_total: 1000,
         importe_pagado: 0,
@@ -57,6 +58,7 @@ describe('POST /api/conversions - crear conversion', () => {
       .send({
         lead_id: testLeadId,
         project_id: testProjectId,
+        fecha_inicio: '2026-12-01',
         producto_contratado: 'Curso Cash',
         importe_total: 500,
         importe_pagado: 500,
@@ -85,6 +87,7 @@ describe('POST /api/conversions - crear conversion', () => {
       .send({
         lead_id: testLeadId,
         project_id: testProjectId,
+        fecha_inicio: '2026-12-01',
         producto_contratado: 'Fail',
         importe_total: 100,
         importe_pagado: 200,
@@ -98,6 +101,7 @@ describe('POST /api/conversions - crear conversion', () => {
       .send({
         lead_id: testLeadId,
         project_id: 999,
+        fecha_inicio: '2026-12-01',
         producto_contratado: 'Fail',
         importe_total: 100,
       });
@@ -157,6 +161,7 @@ describe('POST /api/conversions/:id/payments - abonos parciales', () => {
       .send({
         lead_id: testLeadId,
         project_id: testProjectId,
+        fecha_inicio: '2026-12-01',
         producto_contratado: `Para abonos ${vuelta}`,
         importe_total: 1000,
         importe_pagado: 0,
@@ -217,6 +222,7 @@ describe('PATCH /api/conversions/:id - editar', () => {
       .send({
         lead_id: testLeadId,
         project_id: testProjectId,
+        fecha_inicio: '2026-12-01',
         producto_contratado: 'Para editar',
         importe_total: 1500,
         importe_pagado: 500,

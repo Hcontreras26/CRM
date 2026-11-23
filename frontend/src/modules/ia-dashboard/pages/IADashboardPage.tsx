@@ -71,8 +71,8 @@ export default function IADashboardPage() {
         </div>
       ) : error ? (
         <div className="p-8 text-center text-sm bg-card border border-border rounded-lg">
-          <WarningCircle size={28} className="text-red-500 mx-auto mb-2" weight="regular" />
-          <p className="text-red-600 font-semibold mb-1">No se pudieron cargar las metricas</p>
+          <WarningCircle size={28} className="text-destructive mx-auto mb-2" weight="regular" />
+          <p className="text-destructive font-semibold mb-1">No se pudieron cargar las metricas</p>
           <p className="text-xs text-muted-foreground">{error}</p>
         </div>
       ) : loading ? (
@@ -115,7 +115,7 @@ export default function IADashboardPage() {
                 primero, esto se llena solo.
               </p>
               {metrics?.warning && (
-                <p className="mx-auto mt-3 max-w-md rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
+                <p className="mx-auto mt-3 max-w-md rounded-md border border-warning/30 bg-warning-soft p-2 text-[11px] text-warning-soft-foreground">
                   {metrics.warning}
                 </p>
               )}
@@ -165,23 +165,23 @@ export default function IADashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4">
             <div className="bg-card p-5 rounded-lg border border-border">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-md bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-md bg-success-soft text-success-soft-foreground flex items-center justify-center">
                   <ArrowUp size={18} weight="bold" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Nuevas suscripciones (mes)</p>
-                  <p className="text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">+{metrics.newSubs}</p>
+                  <p className="text-2xl font-semibold tabular-nums text-success">+{metrics.newSubs}</p>
                 </div>
               </div>
             </div>
             <div className="bg-card p-5 rounded-lg border border-border">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-md bg-destructive-soft text-destructive-soft-foreground flex items-center justify-center">
                   <ArrowDown size={18} weight="bold" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Cancelaciones (mes)</p>
-                  <p className="text-2xl font-semibold tabular-nums text-red-700 dark:text-red-400">−{metrics.cancelledSubs}</p>
+                  <p className="text-2xl font-semibold tabular-nums text-destructive">−{metrics.cancelledSubs}</p>
                 </div>
               </div>
             </div>
@@ -194,7 +194,7 @@ export default function IADashboardPage() {
               <div className="flex items-baseline justify-between mb-1 gap-3">
                 <h3 className="font-semibold">Evolucion MRR</h3>
                 {mrrDelta && (
-                  <span className={`text-xs font-semibold ${mrrDelta.growing ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <span className={`text-xs font-semibold ${mrrDelta.growing ? 'text-success' : 'text-destructive'}`}>
                     {mrrDelta.growing ? '↑' : '↓'} {Math.abs(mrrDelta.pct)}% vs mes anterior
                   </span>
                 )}
@@ -220,7 +220,7 @@ export default function IADashboardPage() {
               <div className="flex items-baseline justify-between mb-1 gap-3">
                 <h3 className="font-semibold"><MetricLabel term="Churn">Churn rate mensual</MetricLabel></h3>
                 {churnTrend && (
-                  <span className={`text-xs font-semibold ${churnTrend.improving ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <span className={`text-xs font-semibold ${churnTrend.improving ? 'text-success' : 'text-destructive'}`}>
                     {churnTrend.improving ? '↓' : '↑'} {Math.abs(churnTrend.delta)} pp vs mes ant.
                   </span>
                 )}
@@ -291,9 +291,9 @@ interface KpiHeroProps {
 function KpiHero({ icon: Icon, label, term, value, numericValue, format, delta, tone = 'default' }: KpiHeroProps) {
   const iconBg = {
     primary: 'bg-primary/10 text-primary',
-    success: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-    warning: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
-    destructive: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400',
+    success: 'bg-success-soft text-success-soft-foreground',
+    warning: 'bg-warning-soft text-warning-soft-foreground',
+    destructive: 'bg-destructive-soft text-destructive-soft-foreground',
     default: 'bg-muted text-muted-foreground',
   }[tone] || 'bg-muted text-muted-foreground';
 
@@ -310,7 +310,7 @@ function KpiHero({ icon: Icon, label, term, value, numericValue, format, delta, 
           <Icon size={18} weight="regular" />
         </div>
         {delta && (
-          <span className={`text-xs font-semibold inline-flex items-center gap-0.5 ${delta.growing ? 'text-emerald-600' : 'text-red-600'}`}>
+          <span className={`text-xs font-semibold inline-flex items-center gap-0.5 ${delta.growing ? 'text-success' : 'text-destructive'}`}> 
             {delta.growing ? <ArrowUp size={11} weight="bold" /> : <ArrowDown size={11} weight="bold" />}
             {Math.abs(delta.pct)}{delta.suffix || '%'}
           </span>

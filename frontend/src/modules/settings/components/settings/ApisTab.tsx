@@ -16,12 +16,17 @@ export default function ApisTab() {
   const [dialogService, setDialogService] = useState(null);
   const [dialogProjectId, setDialogProjectId] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
+  // Qué clave usa la IA de verdad: campus, global o servidor (CRM#893).
+  const [iaEnUso, setIaEnUso] = useState<{ origen: string | null; texto: string } | null>(null);
 
   async function load() {
     setLoading(true);
     try {
       const res = await client.get('/credentials');
       if (res.success) setCredentials(lista(res.data));
+      client.get('/credentials/ia')
+        .then((r) => { if (r?.success) setIaEnUso(r.data); })
+        .catch(() => setIaEnUso(null));
     } catch (err) {
       if (err.status !== 403) toast({ title: 'Error', description: err?.data?.error || err.message, variant: 'destructive' });
     } finally {
@@ -38,7 +43,9 @@ export default function ApisTab() {
   async function handleTest(id) {
     try {
       const res = await client.post(`/credentials/${id}/test`);
-      toast({ title: 'Test', description: res.data?.message || 'OK' });
+      // «failed» o «expired» vienen con 200: también son un fallo (CRM#893).
+      const bien = !res.data?.result || res.data.result === 'ok';
+      toast({ title: bien ? 'Prueba correcta' : 'La prueba falló', description: res.data?.message || (bien ? 'OK' : ''), ...(bien ? {} : { variant: 'destructive' }) });
       await load();
     } catch (err) {
       toast({ title: 'Test fallo', description: err?.data?.error || err.message, variant: 'destructive' });
@@ -70,15 +77,22 @@ export default function ApisTab() {
           {SERVICES_CATALOG.filter(s => s.global).map((svc) => {
             const cred = getCredFor(svc.service, null);
             return (
-              <CredentialCard
-                key={svc.service}
-                service={svc}
-                projectName="Global (todos los proyectos)"
-                credential={cred}
-                onConfigure={() => { setDialogService(svc); setDialogProjectId(null); }}
-                onTest={() => cred && handleTest(cred.id)}
-                onDelete={() => cred && handleDelete(cred.id)}
-              />
+              <div key={svc.service} className="space-y-1.5">
+                <CredentialCard
+                  service={svc}
+                  projectName="Global (todos los proyectos)"
+                  credential={cred}
+                  onConfigure={() => { setDialogService(svc); setDialogProjectId(null); }}
+                  onTest={() => cred && handleTest(cred.id)}
+                  onDelete={() => cred && handleDelete(cred.id)}
+                />
+                {svc.service === 'claude' && iaEnUso && (
+                  <p role="status" data-ia-en-uso={iaEnUso.origen || 'ninguna'}
+                    className={`text-xs px-1 ${iaEnUso.origen ? 'text-muted-foreground' : 'text-warning-soft-foreground'}`}>
+                    {iaEnUso.texto}
+                  </p>
+                )}
+              </div>
             );
           })}
         </div>

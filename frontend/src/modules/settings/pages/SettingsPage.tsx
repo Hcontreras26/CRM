@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, useSearchParams } from 'react-router-dom';
 import { ArrowSquareOut } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
+import usePermission from '@/shared/hooks/usePermission';
 import { TABS } from '../components/settings/shared';
 import UsersTab from '../components/settings/UsersTab';
 import ProjectsTab from '../components/settings/ProjectsTab';
@@ -32,12 +33,33 @@ const TAB_CONTENT = {
   security: SecurityTab,
 };
 
+// Pestañas que piden un permiso para leerse (QA de /testeo del 18/11/2026). Sin
+// él, el servidor contesta 403: Usuarios y Disponibilidad leen `/users*`
+// (users.view) y APIs globales lee `/credentials` (credentials.view). Antes se
+// pintaban igual, y una gestora veía «sin configurar» con un «Configurar» que
+// acababa en 403, o tres peticiones fallidas detrás del aviso de Usuarios.
+// Las que no salen aquí no piden permiso para leerse.
+// Diego, 21/11/2026: una gestora tampoco ve «Roles y Permisos» ni «Webhooks»
+// (las dos piden su permiso en el servidor y la gestora no lo trae).
+export const PERMISO_DE_PESTANA: Record<string, string> = {
+  users: 'users.view',
+  availability: 'users.view',
+  apis: 'credentials.view',
+  roles: 'roles.view',
+  webhooks: 'webhooks.view',
+};
+
 export default function SettingsPage() {
   // `?pestana=users` abre directamente esa pestaña (el buscador, Ctrl K, #591).
   // Sin el parámetro, como siempre: Proyectos.
   const [params] = useSearchParams();
+  const { can } = usePermission();
+  const permitida = (id: string) => !PERMISO_DE_PESTANA[id] || can(PERMISO_DE_PESTANA[id]);
+  const pestanas = TABS.filter((tab) => permitida(tab.id));
   const pedida = params.get('pestana');
-  const [activeTab, setActiveTab] = useState(pedida && pedida in TAB_CONTENT ? pedida : 'projects');
+  const [elegida, setActiveTab] = useState(pedida && pedida in TAB_CONTENT ? pedida : 'projects');
+  // Con la dirección a mano (`?pestana=users`) y sin el permiso: Proyectos.
+  const activeTab = permitida(elegida) ? elegida : 'projects';
   const TabContent = TAB_CONTENT[activeTab];
 
   return (
@@ -46,7 +68,7 @@ export default function SettingsPage() {
 
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-52 flex lg:flex-col gap-1 overflow-x-auto flex-shrink-0">
-          {TABS.map((tab) => {
+          {pestanas.map((tab) => {
             if (tab.to) {
               return (
                 <NavLink

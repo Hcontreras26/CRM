@@ -10,6 +10,8 @@ import { veTodoElCrm, campusDeLaPersona, listaDelAmbito, exigirCampusSuyo } from
 import { leadsToWasapiCsv, leadsToWasapiXlsx, detectCountry } from '../../shared/utils/wasapiCsv.js';
 import { tienePermiso } from '../../shared/middleware/permissions.js';
 import { soloLoSuyo, alcanceComercial, acotarAlAlcance, enElAlcance } from '../../shared/utils/roles.js';
+import { pluginMoodleActivo } from '../../shared/config/soloEnPruebas.js';
+import { avanceDelAlumno } from './avance-moodle.js';
 
 // ============================================================
 // WEBHOOK (publico, autenticado por API key en header)
@@ -332,6 +334,30 @@ export async function getById(req, res, next) {
   } catch (err) { next(err); }
 }
 
+/**
+ * El avance del alumno en Moodle (#532): sus cursos de cada campus con su último acceso,
+ * el % hecho, las notas y el estado. Los mismos permisos que su ficha (una gestora, solo
+ * los suyos; quien lleva un equipo, los de su equipo) y, además, solo los campus de quien
+ * mira. Con el plugin del CRM sin aprobar en este servidor (PLUGIN_MOODLE_EN_PRODUCCION)
+ * contesta `disponible: false` y no llama a ningún campus: el frontal no enseña el bloque.
+ */
+export async function avanceEnMoodle(req, res, next) {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
+    await exigirQueSeaSuyo(req, id);
+    if (!pluginMoodleActivo()) return res.json({ success: true, data: { disponible: false, campus: [] } });
+    const { rows } = await query(
+      'SELECT id, project_id, email FROM leads WHERE id = $1 AND deleted_at IS NULL', [id]);
+    if (!rows[0]) throw new AppError('Contacto no encontrado', 404, 'NOT_FOUND');
+    await exigirCampusSuyo(req, rows[0].project_id, 'Contacto no encontrado');
+    const campusPermitidos = veTodoElCrm(req.user) ? null : await campusDeLaPersona(req.user.userId);
+    const refrescar = ['1', 'true'].includes(String(req.query.refrescar || ''));
+    const data = await avanceDelAlumno(rows[0], { campusPermitidos, refrescar });
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 /*
   «Todos» o una EMPRESA en el Dashboard: la lista de campus en UNA peticion
   (#224). Antes el navegador pedia stats y today por cada campus —con CEDIA,
@@ -381,6 +407,11 @@ export async function stats(req, res, next) {
       // País de entrada (#221). Lo que no sea un código ni `sin_pais` se ignora.
       paisEntrada: leerFiltroPais(req.query.paisEntrada),
       search: req.query.search || null,
+      // Mismo criterio que la lista: si piden un status, la tarjeta cuenta lo
+      // mismo que la tabla (revisión de Diego al #868).
+      status: req.query.status || null,
+      includeConverted: req.query.includeConverted === 'true',
+      conConversion: req.query.conConversion === 'true',
     };
     // SEGURIDAD: gestor solo ve sus propios stats, ignoramos responsableId del query.
     const alcance = await alcanceComercial(req.user);
@@ -478,7 +509,7 @@ export async function completeReminder(req, res, next) {
   try {
     const reminderId = parseInt(req.params.reminderId);
     if (isNaN(reminderId)) throw new AppError('ID invalido', 400, 'INVALID_ID');
-    const result = await leadService.markReminderComplete(reminderId);
+    const result = await leadService.markReminderComplete(reminderId, req.user?.id ?? null);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 }

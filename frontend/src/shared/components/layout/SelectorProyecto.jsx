@@ -122,7 +122,7 @@ export default function SelectorProyecto({ compacto = false, className }) {
   let ultimaSociedad;
 
   return (
-    <div className={cn('relative min-w-0', className)}>
+    <div className={cn('relative min-w-0', className)} data-recorrido="cabecera-proyecto">
       <button
         type="button"
         ref={botonRef}

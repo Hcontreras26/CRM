@@ -59,9 +59,9 @@ interface Comprobacion {
 }
 
 const PINTA: Record<Estado, { texto: string; icono: typeof CheckCircle; clase: string; borde: string }> = {
-  bien:           { texto: 'Funciona',         icono: CheckCircle,   clase: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200/60 dark:border-emerald-800/40', borde: 'border-emerald-200/60 dark:border-emerald-800/30' },
-  atencion:       { texto: 'Atención',         icono: WarningCircle, clase: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200/60 dark:border-amber-800/40',           borde: 'border-amber-200/60 dark:border-amber-800/30' },
-  caida:          { texto: 'Caída',            icono: XCircle,       clase: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border-red-200/60 dark:border-red-800/40',                       borde: 'border-red-300/70 dark:border-red-800/40' },
+  bien:           { texto: 'Funciona',         icono: CheckCircle,   clase: 'text-success bg-success-soft border-success/30', borde: 'border-success/30' },
+  atencion:       { texto: 'Atención',         icono: WarningCircle, clase: 'text-warning bg-warning-soft border-warning/30',           borde: 'border-warning/30' },
+  caida:          { texto: 'Caída',            icono: XCircle,       clase: 'text-destructive bg-destructive-soft border-destructive/30',                       borde: 'border-destructive/30' },
   sin_datos:      { texto: 'Sin datos',        icono: Question,      clase: 'text-muted-foreground bg-muted border-border',                                                                                borde: 'border-border' },
   sin_configurar: { texto: 'Sin configurar',   icono: Question,      clase: 'text-muted-foreground bg-muted border-border',                                                                                borde: 'border-border' },
 };
@@ -115,11 +115,11 @@ function Tareas({ tareas }: { tareas: Tarea[] }) {
             return (
               <li key={t.nombre} className="flex items-start justify-between gap-3 text-xs">
                 <span className="min-w-0 flex-1">
-                  <span className={`block truncate ${mal ? 'text-red-600 dark:text-red-400 font-medium' : 'text-foreground'}`}>
+                  <span className={`block truncate ${mal ? 'text-destructive font-medium' : 'text-foreground'}`}>
                     {t.titulo}
                   </span>
                   {t.detalle && mal && (
-                    <span className="block text-red-600/80 dark:text-red-400/80 break-words">{t.detalle}</span>
+                    <span className="block text-destructive/80 break-words">{t.detalle}</span>
                   )}
                 </span>
                 <span className="text-muted-foreground shrink-0 tabular-nums">
@@ -185,7 +185,7 @@ export default function PiezasDelSistema() {
 
       {error && (
         <div className="flex items-center gap-2 text-sm bg-card border border-border rounded-xl p-4">
-          <WarningCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0" aria-hidden="true" />
+          <WarningCircle size={16} className="text-warning shrink-0" aria-hidden="true" />
           <span className="text-foreground">{error}</span>
           <button type="button" onClick={cargar} className="underline text-muted-foreground">Reintentar</button>
         </div>
@@ -225,7 +225,7 @@ export default function PiezasDelSistema() {
                   {/* El motivo, entero y sin recortar: si algo está roto, lo que
                       hace falta es saber qué, no un «error» a secas. */}
                   {p.detalle && (
-                    <p className="text-xs text-red-600 dark:text-red-400 break-words bg-red-50 dark:bg-red-950/30 rounded-md px-2 py-1.5">
+                    <p className="text-xs text-destructive-soft-foreground break-words bg-destructive-soft rounded-md px-2 py-1.5">
                       {p.detalle}
                     </p>
                   )}
@@ -236,7 +236,7 @@ export default function PiezasDelSistema() {
                   {p.datos?.webhook && (
                     <p className={`text-xs ${p.datos.webhook.resultado === 'aceptado'
                       ? 'text-muted-foreground'
-                      : 'text-amber-600 dark:text-amber-400'}`}>
+                      : 'text-warning'}`}>
                       Último webhook {hace(p.datos.webhook.cuando)}: {p.datos.webhook.resultado}
                       {p.datos.webhook.rechazados > 0 && ` · ${p.datos.webhook.rechazados} rechazados`}
                     </p>

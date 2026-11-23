@@ -201,7 +201,8 @@ export async function reactivateUser(id: number): Promise<void> {
 }
 
 /**
- * Reset de contraseña por un superadmin. Cierra las sesiones activas del usuario.
+ * Reset de contraseña por un superadmin. Revoca sus refresh tokens: con la anterior
+ * ya no entra, pero el JWT de acceso dura hasta 8 h y sus URL del MCP siguen vivas (#262).
  * Repetida, con las reglas de «Establece tu contraseña» (#248).
  */
 export async function setUserPassword(id: number, password: string, confirmPassword: string): Promise<void> {

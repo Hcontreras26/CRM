@@ -12,9 +12,9 @@ const RfcPrintTemplate = lazy(() => import('../components/RfcPrintTemplate'));
 const ROL_LABELS: Record<string, string> = { ceo: 'CEO / Sponsor', pm: 'Project Manager', dev: 'Desarrollador' };
 const DECISION_LABELS: Record<string, string> = { a_favor: 'A favor', en_contra: 'En contra', diferir: 'Diferir' };
 const DECISION_COLORS: Record<string, string> = {
-  a_favor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-  en_contra: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-  diferir: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  a_favor: 'bg-success-soft text-success-soft-foreground',
+  en_contra: 'bg-destructive-soft text-destructive-soft-foreground',
+  diferir: 'bg-warning-soft text-warning-soft-foreground',
 };
 
 export default function ChangeRequestDetailPage() {
@@ -202,19 +202,19 @@ export default function ChangeRequestDetailPage() {
           )}
           {isPm && !['aprobado','aprobado_inmediato','aprobado_futuro','rechazado','diferido','enviado_ceo'].includes(rfc.estado) && (
             <button onClick={sendToCeo} disabled={saving}
-              className="h-9 px-3 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 inline-flex items-center gap-1.5">
+              className="h-9 px-3 rounded-md bg-info text-info-foreground text-sm font-semibold hover:bg-info/90 disabled:opacity-50 inline-flex items-center gap-1.5">
               <PaperPlaneTilt size={14} weight="bold" /> Enviar al CEO
             </button>
           )}
           {isPm && rfc.estado === 'enviado_ceo' && (
-            <span className="h-9 px-3 rounded-md bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-sm font-semibold inline-flex items-center gap-1.5 border border-blue-200 dark:border-blue-800">
+            <span className="h-9 px-3 rounded-md bg-info-soft text-info-soft-foreground text-sm font-semibold inline-flex items-center gap-1.5 border border-info/30">
               <PaperPlaneTilt size={14} weight="bold" /> Enviado al CEO — esperando firma
             </span>
           )}
           {isPm && ['rechazado','diferido','aprobado','aprobado_inmediato','aprobado_futuro'].includes(rfc.estado) && (
             <button onClick={handleReopen} disabled={saving}
               title="Volver a abrir esta RFC para ajustar y reenviar al CEO"
-              className="h-9 px-3 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 text-sm font-semibold hover:bg-amber-100 dark:hover:bg-amber-950/50 disabled:opacity-50 inline-flex items-center gap-1.5">
+              className="h-9 px-3 rounded-md border border-warning/30 bg-warning-soft text-warning-soft-foreground text-sm font-semibold hover:bg-warning-soft/70 disabled:opacity-50 inline-flex items-center gap-1.5">
               <ArrowCounterClockwise size={14} weight="bold" /> Reabrir
             </button>
           )}
@@ -228,27 +228,27 @@ export default function ChangeRequestDetailPage() {
       {/* BANNER CEO — visible solo si soy CEO y el RFC está pendiente de mi firma.
           Muestra botones grandes de decisión que hacen scroll a la sección de firma. */}
       {ceoMustSign && (
-        <div className="print:hidden border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4">
+        <div className="print:hidden border-2 border-info/40 bg-info-soft rounded-lg p-4">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-              <h2 className="text-base font-bold text-blue-900 dark:text-blue-200 mb-1">
+              <h2 className="text-base font-bold text-info-soft-foreground mb-1">
                 🖋️ Esta RFC espera tu firma como CEO
               </h2>
-              <p className="text-sm text-blue-900/80 dark:text-blue-200/80">
+              <p className="text-sm text-info-soft-foreground/80">
                 Revisa el análisis del PM y la propuesta. Cuando firmes, el RFC queda <strong>Aprobado / Rechazado / Diferido</strong> según tu decisión.
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => ceoQuickDecide('a_favor')}
-                className="h-10 px-4 rounded-md bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 inline-flex items-center gap-1.5">
+                className="h-10 px-4 rounded-md bg-success text-success-foreground text-sm font-semibold hover:bg-success/90 inline-flex items-center gap-1.5">
                 <CheckCircle size={16} weight="bold" /> A favor
               </button>
               <button onClick={() => ceoQuickDecide('en_contra')}
-                className="h-10 px-4 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700 inline-flex items-center gap-1.5">
+                className="h-10 px-4 rounded-md bg-destructive text-white text-sm font-semibold hover:bg-destructive/90 inline-flex items-center gap-1.5">
                 <XCircle size={16} weight="bold" /> Rechazar
               </button>
               <button onClick={() => ceoQuickDecide('diferir')}
-                className="h-10 px-4 rounded-md bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 inline-flex items-center gap-1.5">
+                className="h-10 px-4 rounded-md bg-warning text-warning-foreground text-sm font-semibold hover:bg-warning/90 inline-flex items-center gap-1.5">
                 <ClockClockwise size={16} weight="bold" /> Diferir
               </button>
             </div>
@@ -422,7 +422,7 @@ export default function ChangeRequestDetailPage() {
                   <DownloadSimple size={12} /> Descargar
                 </a>
                 <button onClick={() => deleteAttachment(att.id)}
-                  className="text-xs text-red-600 hover:underline inline-flex items-center gap-1">
+                  className="text-xs text-destructive hover:underline inline-flex items-center gap-1">
                   <Trash size={12} /> Eliminar
                 </button>
               </li>
@@ -489,7 +489,7 @@ function OpcionesConsideradasEditor({ value, onChange, disabled }: { value: any[
               value={op.descripcion || ''} onChange={(e) => update(i, { descripcion: e.target.value })}
               className="flex-1 h-9 px-2 rounded border border-border bg-card text-sm" />
             {!disabled && (
-              <button onClick={() => remove(i)} className="text-red-600 px-2"><Trash size={14} /></button>
+              <button onClick={() => remove(i)} className="text-destructive px-2"><Trash size={14} /></button>
             )}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -604,7 +604,7 @@ function ApprovalRow({ approval, rfcId, canSignAs, onSigned }: {
               <button
                 onClick={() => { onSigned(decision, firma || undefined, comentarios || undefined); setShowForm(false); }}
                 disabled={!firma}
-                className="h-9 px-4 rounded-md bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">
+                className="h-9 px-4 rounded-md bg-success text-success-foreground text-sm font-semibold hover:bg-success/90 disabled:opacity-50">
                 Registrar firma
               </button>
               {!firma && <p className="text-[11px] text-muted-foreground">Dibuja tu firma para activar el botón.</p>}

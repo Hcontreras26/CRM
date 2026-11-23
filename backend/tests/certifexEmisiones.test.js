@@ -20,6 +20,7 @@ const { default: pool } = await import('../src/shared/config/db.js');
 
 const request = supertest(app);
 let saToken;
+let proyectoBase;
 let pedidas = [];
 let respuesta = () => ({ status: 200, body: {} });
 
@@ -27,6 +28,12 @@ const fetchReal = globalThis.fetch;
 beforeAll(async () => {
   const sa = await request.post('/api/auth/login').send({ email: 'manuel@empresa.com', password: 'CrmTemp2026!' });
   saToken = sa.body.data.accessToken;
+  // Su propio campus: las fichas de prueba cuelgan de uno. Antes iban al campus 1
+  // de la base (en ISEIE, «el primero»), y si otra prueba que corre a la vez lo
+  // borraba, el INSERT de la ficha chocaba con la clave foránea (CI del 23/11).
+  const marca = `prueba-certifex-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  proyectoBase = (await pool.query(`INSERT INTO projects (nombre, slug, webhook_api_key) VALUES ('Prueba Certifex', $1, $1) RETURNING id`,
+    [marca])).rows[0].id;
   // Solo se intercepta lo que va a Certifex; supertest no usa fetch.
   globalThis.fetch = vi.fn(async (url, opts = {}) => {
     if (!String(url).startsWith('https://certifex.test/')) return fetchReal(url, opts);
@@ -37,6 +44,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   globalThis.fetch = fetchReal;
+  if (proyectoBase) await pool.query('DELETE FROM projects WHERE id = $1', [proyectoBase]);
   await pool.end();
 });
 beforeEach(() => {
@@ -125,10 +133,10 @@ describe('listar', () => {
   it('cada alumno trae lo que sabe el CRM: si compró, lo cobrado y lo que debe', async () => {
     const correo = `certifex.cruce.${Date.now()}@prueba.test`;
     const { rows: [lead] } = await pool.query(
-      `INSERT INTO leads (project_id, nombre, email) VALUES (1, 'Alumna Certifex', $1) RETURNING id`, [correo.toUpperCase()]);
+      `INSERT INTO leads (project_id, nombre, email) VALUES ($2, 'Alumna Certifex', $1) RETURNING id`, [correo.toUpperCase(), proyectoBase]);
     await pool.query(
       `INSERT INTO conversions (lead_id, project_id, producto_contratado, importe_total, importe_pagado)
-       VALUES ($1, 1, 'Máster de prueba', 1200, 900)`, [lead.id]);
+       VALUES ($1, $2, 'Máster de prueba', 1200, 900)`, [lead.id, proyectoBase]);
     try {
       respuesta = () => ({ status: 200, body: { total: 2, pagina: 1, tam: 50, filas: [
         { matriculaId: 1, titular: { nombre: 'Alumna Certifex', email: correo, dni: null } },

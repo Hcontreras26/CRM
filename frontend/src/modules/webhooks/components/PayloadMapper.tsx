@@ -60,7 +60,7 @@ function PayloadTree({ obj, path = '', onSelect, mapping, depth = 0 }: PayloadTr
       <button
         type="button"
         onClick={() => onSelect(path)}
-        className={`text-left px-1.5 py-0.5 rounded text-[11px] font-mono hover:bg-primary/10 ${usedAs ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : ''}`}
+        className={`text-left px-1.5 py-0.5 rounded text-[11px] font-mono hover:bg-primary/10 ${usedAs ? 'bg-success-soft text-success-soft-foreground' : ''}`}
         title={usedAs ? `Mapeado a: ${usedAs}` : 'Click para mapear'}
       >
         {String(obj).slice(0, 80)}{usedAs && ` ← ${usedAs}`}
@@ -177,7 +177,7 @@ export default function PayloadMapper({ payload, mapping, destination = 'lead', 
             return (
               <div key={t.key} className="flex items-start gap-2 text-xs py-1">
                 <span className="w-32 font-bold pt-1 flex-shrink-0">
-                  {t.label}{t.required && <span className="text-red-500"> *</span>}
+                   {t.label}{t.required && <span className="text-destructive"> *</span>}
                 </span>
                 <div className="flex-1 flex flex-wrap gap-1 items-center">
                   {paths.length === 0 && (
@@ -188,7 +188,7 @@ export default function PayloadMapper({ payload, mapping, destination = 'lead', 
                       {p}
                       <button
                         onClick={() => removePath(t.key, p)}
-                        className="hover:text-red-500"
+                        className="hover:text-destructive"
                         aria-label={`Quitar ${p}`}
                         title="Quitar este path"
                       >
@@ -197,13 +197,13 @@ export default function PayloadMapper({ payload, mapping, destination = 'lead', 
                     </span>
                   ))}
                   {paths.length > 1 && (
-                    <span className="text-[10px] text-emerald-600 ml-1" title="Los valores se concatenarán con un espacio">
+                    <span className="text-[10px] text-success ml-1" title="Los valores se concatenarán con un espacio">
                       → concatenado
                     </span>
                   )}
                 </div>
                 {paths.length > 0 && (
-                  <button onClick={() => clearTarget(t.key)} className="text-red-500 mt-1" aria-label={`Limpiar ${t.label}`} title="Limpiar todo este campo">
+                  <button onClick={() => clearTarget(t.key)} className="text-destructive mt-1" aria-label={`Limpiar ${t.label}`} title="Limpiar todo este campo">
                     <X size={12} weight="bold" />
                   </button>
                 )}

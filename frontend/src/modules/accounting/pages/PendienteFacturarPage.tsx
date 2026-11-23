@@ -7,6 +7,8 @@ import client from '@/shared/api/client';
 import { formatDate } from '@/shared/lib/format';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
+// El recorrido guiado de la pantalla (#941): señala, paso a paso, cada parte.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
 import Portal from '@/shared/components/ui/portal';
@@ -96,13 +98,16 @@ export default function PendienteFacturarPage() {
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
-    <div className="space-y-5 pb-8">
+    /* Margen de scroll en lo que señala el recorrido (#941): la barra fija de
+       arriba no tapa el principio al subir hasta ello. */
+    <div className="space-y-5 pb-8 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title="Pendientes de facturar"
         subtitle={`Ventas registradas sin importe — completar para que aparezcan en facturación${activeProject?.nombre ? ` (${activeProject.nombre})` : ''}`}
+        actions={<VerRecorrido id="pendientes-facturar" listo={!loading} />}
       />
 
-      <div className="bg-warning-soft border border-warning/30 rounded-lg p-3 text-sm">
+      <div data-recorrido="pendientes-aviso" className="bg-warning-soft border border-warning/30 rounded-lg p-3 text-sm">
         <p className="text-warning-soft-foreground">
           <strong>¿Por qué aparecen aquí?</strong> Estas ventas existen porque el lead se marcó como "convertido" sin
           que se registrara el importe. Edita cada una para añadir el precio real y se reflejará en el dashboard
@@ -122,10 +127,12 @@ export default function PendienteFacturarPage() {
         </div>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">
+          <p data-recorrido="pendientes-cuantas" className="text-sm text-muted-foreground">
             <strong className="text-foreground">{total}</strong> ventas sin importe en este proyecto.
           </p>
 
+          {/* La tabla (PC) y las tarjetas (móvil) juntas: lo que señala el recorrido (#941, como CRM-ISEIE#619). */}
+          <div data-recorrido="pendientes-lista">
           {/* Tabla escritorio */}
           <div className="hidden lg:block bg-card border border-border rounded-lg overflow-hidden">
             <table className="tabla-cifras w-full text-sm">
@@ -187,8 +194,10 @@ export default function PendienteFacturarPage() {
             ))}
           </div>
 
+          </div>
+
           {totalPages > 1 && (
-            <div className="flex items-center justify-between gap-3 pt-1 text-sm">
+            <div data-recorrido="pendientes-paginas" className="flex items-center justify-between gap-3 pt-1 text-sm">
               <span className="text-muted-foreground">
                 {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, total)} de {total}
               </span>

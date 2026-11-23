@@ -6,6 +6,7 @@ import { tituloDeRuta } from '@/shared/lib/rutasTitulos';
 import { cn } from '@/shared/lib/utils';
 import { useCabecera } from './CabeceraContext';
 import SelectorProyecto from './SelectorProyecto';
+import BotonRecorrido from './BotonRecorrido';
 
 const NotificationsBell = lazy(() => import('./NotificationsBell'));
 
@@ -86,7 +87,10 @@ export default function Topbar({ onAbrirMenu, className }) {
 
         {/* La campana estaba al fondo del menu lateral, junto al usuario. Aqui
             arriba es donde se busca, y se ve sin desplegar nada. */}
-        <div className="flex flex-shrink-0 items-center">
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          {/* «Recorrido» (CRM#1012): el de esta pantalla y el general según el
+              rol. Siempre aquí, en todas las pantallas; ninguno se abre solo. */}
+          <BotonRecorrido />
           <Suspense fallback={null}>
             <NotificationsBell />
           </Suspense>

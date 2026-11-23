@@ -192,8 +192,8 @@ export default function MakeWebhookDetailPage() {
             Conector Make · {hook.total_received} recibidos · {hook.total_created} leads creados · {hook.total_errors} errores
           </p>
         </div>
-        <button onClick={deleteHook} className="h-9 px-3 rounded-lg border border-red-200 dark:border-red-800 text-red-600 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-950/30 inline-flex items-center gap-1 flex-shrink-0">
-          <Trash size={14} /> Eliminar
+        <button onClick={deleteHook} className="h-9 px-3 rounded-lg border border-destructive/30 text-destructive text-xs font-semibold hover:bg-destructive-soft inline-flex items-center gap-1 flex-shrink-0">
+        <Trash size={14} /> Eliminar
         </button>
       </div>
 
@@ -203,22 +203,22 @@ export default function MakeWebhookDetailPage() {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => changeMode('test')}
-            className={`p-3 rounded-lg border text-left ${hook.mode === 'test' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-border hover:bg-muted'}`}
-          >
+            className={`p-3 rounded-lg border text-left ${hook.mode === 'test' ? 'border-warning bg-warning-soft' : 'border-border hover:bg-muted'}`}
+            >
             <p className="font-semibold text-sm">TEST</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Solo guarda el payload para inspección. NO crea leads.</p>
           </button>
           <button
             onClick={() => changeMode('active')}
-            className={`p-3 rounded-lg border text-left ${hook.mode === 'active' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30' : 'border-border hover:bg-muted'}`}
-          >
+            className={`p-3 rounded-lg border text-left ${hook.mode === 'active' ? 'border-success bg-success-soft' : 'border-border hover:bg-muted'}`}
+            >
             <p className="font-semibold text-sm">ACTIVO</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Aplica el mapeo y crea leads en el CRM.</p>
           </button>
         </div>
         {hook.mode === 'active' && Object.keys(hook.field_mapping || {}).length === 0 && (
-          <p className="mt-2 text-[11px] rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 text-amber-800 dark:text-amber-300 p-2">
-            Activo sin mapeo guardado: los prospectos entran con los campos reconocidos por su nombre habitual
+          <p className="mt-2 text-[11px] rounded-md border border-warning/30 bg-warning-soft text-warning-soft-foreground p-2"> 
+           Activo sin mapeo guardado: los prospectos entran con los campos reconocidos por su nombre habitual
             (<code>email</code>, <code>full_name</code>, <code>phone_complete</code>, <code>course</code>…). Guarda el mapeo para no depender de eso.
           </p>
         )}
@@ -244,8 +244,8 @@ export default function MakeWebhookDetailPage() {
             <button onClick={rotateSecret} title="Rotar secret" className="px-3 rounded-md border border-border hover:bg-muted"><ArrowsClockwise size={14} /></button>
           </div>
         </div>
-        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md p-3 text-[11px] text-blue-800 dark:text-blue-300">
-          <p className="font-semibold mb-1">Configuración en Make:</p>
+        <div className="bg-info-soft border border-info/30 rounded-md p-3 text-[11px] text-info-soft-foreground">
+         <p className="font-semibold mb-1">Configuración en Make:</p>
           <ol className="list-decimal list-inside space-y-0.5">
             <li>Módulo "HTTP → Make a request"</li>
             <li>Method: <code>POST</code> · URL: la de arriba</li>
@@ -284,7 +284,7 @@ export default function MakeWebhookDetailPage() {
                 <div key={crmField} className="flex gap-1 items-center text-xs">
                   <div className="w-44 truncate" title={crmField}>
                     <span className="font-semibold">{known?.label || crmField}</span>
-                    {!known && <span className="text-[10px] text-violet-600 ml-1">(custom)</span>}
+                    {!known && <span className="text-[10px] text-primary ml-1">(custom)</span>}
                   </div>
                   <span className="text-muted-foreground">←</span>
                   <select
@@ -295,8 +295,8 @@ export default function MakeWebhookDetailPage() {
                     <option value="">— elegir —</option>
                     {detectedKeys.map(k => <option key={k} value={k}>{k}</option>)}
                   </select>
-                  <button onClick={() => { const m = { ...mapping }; delete m[crmField]; setMapping(m); }} className="p-1 text-muted-foreground hover:text-red-600"><X size={12} /></button>
-                </div>
+                  <button onClick={() => { const m = { ...mapping }; delete m[crmField]; setMapping(m); }} className="p-1 text-muted-foreground hover:text-destructive"><X size={12} /></button>            
+                   </div>
               );
             })}
           </div>
@@ -347,15 +347,15 @@ export default function MakeWebhookDetailPage() {
             {deliveries.map(d => (
               <div key={d.id} className="flex items-center gap-2 text-[11px] py-1 border-b border-border/60 last:border-0">
                 <span className={`px-2 py-0.5 rounded font-bold w-20 text-center ${
-                  d.result === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
-                  d.result === 'rejected' ? 'bg-red-100 text-red-700' :
-                  'bg-amber-100 text-amber-700'
+                  d.result === 'accepted' ? 'bg-success-soft text-success-soft-foreground' :
+                  d.result === 'rejected' ? 'bg-destructive-soft text-destructive-soft-foreground' :
+                  'bg-warning-soft text-warning-soft-foreground'
                 }`}>{d.result}</span>
                 <span className="text-muted-foreground tabular-nums">{new Date(d.received_at).toLocaleString('es-ES')}</span>
                 {d.lead_id && <a href={rutaApp(`/prospectos/${d.lead_id}`)} className="text-primary underline">lead #{d.lead_id}</a>}
                 {/* #627: un envío aceptado con nota es uno que entró sin mapeo: aviso, no error. */}
-                {d.error_message && <span className={`${d.result === 'accepted' ? 'text-amber-700 dark:text-amber-400' : 'text-red-600'} truncate`} title={d.error_message}>· {d.error_message}</span>}
-              </div>
+                {d.error_message && <span className={`${d.result === 'accepted' ? 'text-warning' : 'text-destructive'} truncate`} title={d.error_message}>· {d.error_message}</span>}
+                </div>
             ))}
           </div>
         )}

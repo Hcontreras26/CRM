@@ -7,14 +7,14 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
  * va detrás del plugin del CRM (revisión de Diego de la #689, punto 1). Apagado (/crm),
  * se ven las entregas pero no hay nota que poner: queda «Corregir en Moodle».
  *
- * Desde la #850 lo decide el servidor (`user.plugin_moodle` de /auth/me): aquí se
+ * Desde la #850 lo decide el servidor (`user.funciones.plugin_moodle` de /auth/me): aquí se
  * compila como /crm (SOLO_EN_PRUEBAS = false) y se cambia lo que dice el servidor.
  *
  *   npx vitest run src/test/corregirTareaPluginMoodle681.test.jsx
  */
 const bandera = vi.hoisted(() => ({ encendida: false }));
 vi.mock('@/shared/lib/soloEnPruebas', () => ({ SOLO_EN_PRUEBAS: false }));
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 3, role: 'tutor', plugin_moodle: bandera.encendida } }) }));
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 3, role: 'tutor', funciones: { plugin_moodle: bandera.encendida } } }) }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 vi.mock('@/shared/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() }, API_BASE_URL: '/api', getAccessToken: () => null, setAccessToken: () => {} }));
 

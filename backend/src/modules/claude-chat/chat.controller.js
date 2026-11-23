@@ -1,24 +1,15 @@
 import * as model from './chat.model.js';
 import { query } from '../../shared/config/db.js';
 import { AppError } from '../../shared/utils/AppError.js';
-import { getDecryptedValue } from '../credentials/credentials.model.js';
+import { claveDeIA, soloLaClave, DONDE_SE_CONFIGURA } from '../credentials/clave-ia.js';
 import { logger } from '../../shared/utils/logger.js';
 import * as gasto from '../../shared/services/gastoIA.service.js';
 
 const RATE_LIMIT = parseInt(process.env.CHAT_MAX_MESSAGES_PER_HOUR || '20');
 const MODELO = () => process.env.CLAUDE_MODEL || 'claude-sonnet-4-5';
 
-async function getAnthropicKey(projectId = null) {
-  try {
-    if (projectId) {
-      const v = await getDecryptedValue('anthropic', projectId);
-      if (v) return v;
-    }
-    const g = await getDecryptedValue('anthropic', null);
-    if (g) return g;
-  } catch {}
-  return process.env.ANTHROPIC_API_KEY || null;
-}
+// La clave: la del campus, la global de la web o la del servidor (CRM#893).
+const getAnthropicKey = (projectId = null) => soloLaClave(projectId);
 
 async function buildSystemContext(projectId) {
   if (!projectId) return 'Eres un asistente CRM. Responde de forma concisa.';
@@ -86,7 +77,7 @@ export async function chat(req, res, next) {
 
     const apiKey = await getAnthropicKey(projectId);
     if (!apiKey) {
-      const fallback = '⚠️ El chat IA no esta disponible aun. Falta configurar `ANTHROPIC_API_KEY` en Settings > APIs (proyecto) o en variables de entorno del servidor.';
+      const fallback = `⚠️ El chat IA no está disponible: no hay ninguna clave de Claude. Se pone en ${DONDE_SE_CONFIGURA}.`;
       sseSend(res, 'delta', { content: fallback });
       await model.addMessage({ conversation_id: conv.id, role: 'assistant', content: fallback });
       sseSend(res, 'done', { messageId: conv.id, warning: 'NO_API_KEY' });
@@ -247,7 +238,8 @@ export async function getMessages(req, res, next) {
 export async function status(req, res, next) {
   try {
     const projectId = req.query.projectId ? parseInt(req.query.projectId) : null;
-    const apiKey = await getAnthropicKey(projectId);
+    // De dónde sale la clave (campus, global o servidor), sin enseñarla (CRM#893).
+    const { clave: apiKey, origen } = await claveDeIA(projectId, { soloMirar: true });
     // El gasto va aqui y no en otra llamada: la pantalla pregunta «¿puedo
     // escribir ahora?», y la clave sin el tope no contesta esa pregunta —
     // se puede tener clave y estar agotado, y son avisos distintos.
@@ -256,10 +248,11 @@ export async function status(req, res, next) {
       success: true,
       data: {
         api_configured: !!apiKey,
+        origen_clave: origen,
         rate_limit_per_hour: RATE_LIMIT,
         used_last_hour: await model.countUserMessagesLastHour(req.user.userId),
         gasto: gastoAhora,
-        warning: apiKey ? null : 'ANTHROPIC_API_KEY no configurada. Configura en Settings > APIs.',
+        warning: apiKey ? null : `No hay ninguna clave de Claude. Se pone en ${DONDE_SE_CONFIGURA}.`,
       },
     });
   } catch (err) { next(err); }

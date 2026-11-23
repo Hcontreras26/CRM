@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-941 rutas en 73 módulos, y 31 acciones con condición dentro de una ruta.
+951 rutas en 73 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -254,6 +254,8 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | cuotas | `GET /api/conversions/cuotas` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.view` |
 | filas | `GET /api/conversions/filas` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.view` |
 | posiblesRepetidas | `GET /api/conversions/posibles-repetidas` | (no existía) | (ruta nueva) | `conversions.edit` |
+| productosConCursoMoodle | `GET /api/conversions/productos-con-curso` | (no existía) | (ruta nueva) | `conversions.view` |
+| sinFechaInicio | `GET /api/conversions/sin-fecha-inicio` | (no existía) | (ruta nueva) | `conversions.edit` |
 | listByLead | `GET /api/conversions/by-lead/:leadId` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.view` |
 | getById | `GET /api/conversions/:id` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.view` |
 | create | `POST /api/conversions/` | sesión | superadmin, admin, gestor, soporte, project_manager | `conversions.create` |
@@ -312,6 +314,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | list | `GET /api/credentials/` | sesión · soloRoles(soporte, superadmin) | superadmin, soporte | `credentials.view` |
 | paridad | `GET /api/credentials/paridad` | sesión · soloRoles(soporte, superadmin) | superadmin, soporte | `credentials.view` |
 | registro | `GET /api/credentials/registro` | sesión · soloRoles(soporte, superadmin) | superadmin, soporte | `credentials.view` |
+| iaEnUso | `GET /api/credentials/ia` | (no existía) | (ruta nueva) | `credentials.view` |
 | upsert | `POST /api/credentials/` | sesión · soloRoles(soporte, superadmin) | superadmin, soporte | `credentials.edit` |
 | test | `POST /api/credentials/:id/test` | sesión · soloRoles(soporte, superadmin) | superadmin, soporte | `credentials.edit` |
 | revelar | `GET /api/credentials/:id/revelar` | sesión · soloRoles(soporte, superadmin) | superadmin, soporte | `credentials.revelar` |
@@ -409,6 +412,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 | Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
+| interruptor | `GET /api/factura-automatica/interruptor` | (no existía) | (ruta nueva) | `facturas.view` |
 | estado | `GET /api/factura-automatica/venta/:conversionId` | (no existía) | (ruta nueva) | `facturas.view` |
 | reenviar | `POST /api/factura-automatica/venta/:conversionId/reenviar` | (no existía) | (ruta nueva) | `facturas.cola` |
 | formulario | `GET /api/fd/:token` | (no existía) | (ruta nueva) | — |
@@ -443,6 +447,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | (anónima) | `GET /api/facturas-colaborador/empresas` | sesión · permiso facturas_colaborador.ver_todas o facturas_colaborador.gestionar | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.ver_todas` o `facturas_colaborador.gestionar` |
 | (anónima) | `GET /api/facturas-colaborador/colaboradores` | sesión · checkPermission(facturas_colaborador.gestionar) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.gestionar` |
 | (anónima) | `POST /api/facturas-colaborador/colaboradores` | sesión · checkPermission(facturas_colaborador.gestionar) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.gestionar` |
+| (anónima) | `GET /api/facturas-colaborador/colaboradores/redactoras-sin-ficha` | (no existía) | (ruta nueva) | `facturas_colaborador.gestionar` |
 | (anónima) | `GET /api/facturas-colaborador/colaboradores/:id` | sesión · checkPermission(facturas_colaborador.gestionar) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.gestionar` |
 | (anónima) | `PATCH /api/facturas-colaborador/colaboradores/:id` | sesión · checkPermission(facturas_colaborador.gestionar) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.gestionar` |
 | (anónima) | `POST /api/facturas-colaborador/colaboradores/:id/baja` | sesión · checkPermission(facturas_colaborador.gestionar) sin roles de más | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `facturas_colaborador.gestionar` |
@@ -644,6 +649,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | updateLeadProduct | `PATCH /api/leads/:id/products/:lpId` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.edit` |
 | removeLeadProduct | `DELETE /api/leads/:id/products/:lpId` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.edit` |
 | getById | `GET /api/leads/:id` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.view` |
+| avanceEnMoodle | `GET /api/leads/:id/campus` | (no existía) | (ruta nueva) | `leads.view` |
 | mergeLeads | `POST /api/leads/:id/merge` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.edit` |
 | revisar | `POST /api/leads/:id/revisar` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.edit` |
 | createManual | `POST /api/leads/` | sesión | superadmin, admin, gestor, soporte, project_manager | `leads.create` |
@@ -817,6 +823,10 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | alumnos | `GET /api/moodle/cursos/:id/alumnos` | (no existía) | (ruta nueva) | `moodle.view` |
 | estructura | `GET /api/moodle/cursos/:id/estructura` | (no existía) | (ruta nueva) | `moodle.view` |
 | recursos | `GET /api/moodle/cursos/:id/recursos` | (no existía) | (ruta nueva) | `moodle.view` |
+| productos | `GET /api/moodle/campus/:id/productos-cursos` | (no existía) | (ruta nueva) | `moodle.cursos_producto` |
+| cursosMoodle | `GET /api/moodle/campus/:id/cursos-moodle` | (no existía) | (ruta nueva) | `moodle.cursos_producto` |
+| unir | `PUT /api/moodle/campus/:id/productos/:productId/curso` | (no existía) | (ruta nueva) | `moodle.cursos_producto` |
+| quitar | `DELETE /api/moodle/campus/:id/productos/:productId/curso` | (no existía) | (ruta nueva) | `moodle.cursos_producto` |
 | conectar | `POST /api/moodle/campus/:id/conexion` | (no existía) | (ruta nueva) | `moodle.conectar` |
 | desconectar | `DELETE /api/moodle/campus/:id/conexion` | (no existía) | (ruta nueva) | `moodle.conectar` |
 
@@ -1793,6 +1803,7 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver el Moodle de los campus | `moodle.view` | Los cursos, alumnos y recursos del Moodle de cada campus. Solo lectura. | Admin, Project manager |  |
 | Conectar un Moodle | `moodle.conectar` | Guardar o quitar el token de un campus. | solo superadmin | `moodle.view` |
+| Unir productos con cursos de Moodle | `moodle.cursos_producto` | Elegir, cambiar o quitar el curso de Moodle de cada producto de sus campus. | Admin, Soporte |  |
 
 ### Webhooks de salida
 

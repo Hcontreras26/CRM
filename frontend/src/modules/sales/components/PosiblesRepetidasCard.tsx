@@ -55,14 +55,15 @@ export default function PosiblesRepetidasCard({ projectId }: { projectId: number
   }, [abierta, projectId]);
 
   return (
-    <section className="bg-card border border-border rounded-lg">
+    // `data-recorrido`: la señala el recorrido de las ventas repetidas (#928).
+    <section data-recorrido="ventas-repetidas-lista" className="bg-card border border-border rounded-lg">
       <button
         type="button"
         onClick={() => setAbierta((v) => !v)}
         aria-expanded={abierta}
         className="w-full flex items-center gap-2 px-4 py-3 text-left"
       >
-        <CopySimple size={16} className="text-amber-600 dark:text-amber-400" />
+        <CopySimple size={16} className="text-warning" />
         <span className="font-semibold text-sm flex-1">
           Posibles repetidas
           {grupos && <span className="ml-1.5 text-muted-foreground font-normal">· {grupos.length} {grupos.length === 1 ? 'alumno' : 'alumnos'}</span>}
@@ -94,11 +95,11 @@ export default function PosiblesRepetidasCard({ projectId }: { projectId: number
               <ul className="divide-y divide-border">
                 {g.ventas.map((v) => (
                   <li key={v.id} className="px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <Link to={`/ventas/${v.id}`} className="text-primary hover:underline font-medium">Venta {v.id}</Link>
+                    <Link to={`/finanzas/ventas/${v.id}`} className="text-primary hover:underline font-medium">Venta {v.id}</Link>
                     <span className="text-muted-foreground">{v.fecha || ''}</span>
                     <span className="truncate max-w-[14rem]" title={v.email || undefined}>{v.alumno}</span>
                     <span className="tabular-nums">{formatCurrency(v.cobrado)} de {formatCurrency(v.total)}</span>
-                    {v.pendiente > 0.005 && <span className="text-xs text-amber-700 dark:text-amber-400 tabular-nums">pendiente {formatCurrency(v.pendiente)}</span>}
+                    {v.pendiente > 0.005 && <span className="text-xs text-warning tabular-nums">pendiente {formatCurrency(v.pendiente)}</span>}
                     {v.gestora && <span className="text-xs text-muted-foreground">{v.gestora}</span>}
                     {v.forzada_por && <span className="text-xs text-muted-foreground">creada igualmente por {v.forzada_por}</span>}
                   </li>

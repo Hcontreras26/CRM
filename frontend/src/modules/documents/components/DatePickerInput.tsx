@@ -84,9 +84,7 @@ export default function DatePickerInput({ value, onChange, className = '', requi
   const today = new Date();
   const todayIso = toIso(today);
   const selIso = selected ? toIso(selected) : '';
-
-  const borderClass = invalid ? 'border-red-400 ring-2 ring-red-400/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/10';
-
+  const borderClass = invalid ? 'border-destructive ring-2 ring-destructive/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/10';
   return (
     <div ref={wrapRef} className={`relative ${className}`}>
       <button

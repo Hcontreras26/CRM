@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 /*
   El tutorial de Plantillas de WhatsApp (#576): son cuatro pasos y se veían
-  tres. «Los datos los pone el CRM» señala los datos que se insertan, que solo
+  tres. Desde la #1012 no se abre nunca solo: solo con «Tutorial». «Los datos los pone el CRM» señala los datos que se insertan, que solo
   están en «Editar», y la pantalla abre en «Consultar»: el paso no encontraba
   su objetivo y se saltaba. Además, una vez visto no había forma de repetirlo.
 */
@@ -31,6 +31,10 @@ beforeEach(() => { localStorage.clear(); });
 describe('El tutorial de Plantillas (#576)', () => {
   it('enseña los cuatro pasos, también el de los datos que se insertan', async () => {
     render(<MemoryRouter><PlantillasPage /></MemoryRouter>);
+    // Nunca se abre solo (CRM#1012): solo con «Tutorial» (o «Recorrido» arriba).
+    await screen.findByText('Día 1 · Saludo', undefined, ESPERA);
+    expect(screen.queryByText('Tus plantillas, guardadas aquí')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver el tutorial' }));
     expect(await screen.findByText('Tus plantillas, guardadas aquí')).toBeInTheDocument();
     siguiente();
     expect(await screen.findByText('Consultar o editar')).toBeInTheDocument();

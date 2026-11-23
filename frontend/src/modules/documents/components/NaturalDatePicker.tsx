@@ -83,7 +83,7 @@ export default function NaturalDatePicker({
   const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
   const selKey = parsed ? `${parsed.getFullYear()}-${parsed.getMonth()}-${parsed.getDate()}` : '';
 
-  const inputBorder = invalid ? 'border-red-400 ring-2 ring-red-400/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/10';
+  const inputBorder = invalid ? 'border-destructive ring-2 ring-destructive/20' : 'border-border focus:border-primary focus:ring-2 focus:ring-primary/10';
 
   return (
     <div ref={wrapRef} className={`relative ${className}`}>

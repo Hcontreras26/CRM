@@ -26,6 +26,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 import { formatDate } from '@/shared/lib/format';
 import { ponerAmbito, ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 import { esProyectoIA } from '@/shared/lib/proyectosIA';
+// El recorrido guiado de la pantalla (#941): señala, paso a paso, cada parte.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 function fmt(n) {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n || 0));
@@ -141,12 +143,19 @@ export default function AccountingDashboardPage() {
   }));
 
   return (
-    <div className="space-y-5 pb-8">
+    /* Margen de scroll en lo que señala el recorrido (#941): la barra fija de
+       arriba no tapa el principio al subir hasta ello. En el móvil, más que en
+       otras pantallas: aquí las fechas y los botones de la cabecera ocupan tres
+       filas y la barra fija mide unos 280 px. */
+    <div className="space-y-5 pb-8 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-80">
       <PageHeader
         title="Contabilidad"
         subtitle={activeProject ? `${activeProject.nombre}` : 'Todos los proyectos'}
         actions={
           <>
+            {/* En IA el panel es otro (MRR, altas y bajas): el recorrido es de Finanzas. */}
+            {!esIA && <VerRecorrido id="finanzas-dashboard" />}
+            <div data-recorrido="dashboard-fechas" className="flex items-center gap-2">
             <input
               type="date"
               value={range.from}
@@ -162,6 +171,7 @@ export default function AccountingDashboardPage() {
               aria-label="Fecha hasta"
               className="h-9 px-3 rounded-md border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
+            </div>
             {!sinEgresos && <button
               onClick={() => navigate('/finanzas/egresos')}
               aria-label="Nuevo egreso"
@@ -180,7 +190,7 @@ export default function AccountingDashboardPage() {
       )}
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div data-recorrido="dashboard-tarjetas" className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard
           icon={CurrencyEur}
           iconBg="bg-success-soft text-success-soft-foreground"
@@ -258,7 +268,7 @@ export default function AccountingDashboardPage() {
 
       {/* Graficas */}
       <div className={`grid grid-cols-1 ${sinEgresos ? '' : 'lg:grid-cols-2'} gap-4`}>
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div data-recorrido="dashboard-evolucion" className="bg-card border border-border rounded-lg p-4">
           <h3 className="font-semibold mb-3">Evolución mensual (12 meses)</h3>
           <ResponsiveContainer width="100%" height={220} minHeight={200}>
             <LineChart data={trendData} margin={{ top: 5, right: 12, left: 0, bottom: 5 }}>
@@ -273,7 +283,7 @@ export default function AccountingDashboardPage() {
           </ResponsiveContainer>
         </div>
 
-        {!sinEgresos && <div className="bg-card border border-border rounded-lg p-4">
+        {!sinEgresos && <div data-recorrido="dashboard-egresos-categoria" className="bg-card border border-border rounded-lg p-4">
           <h3 className="font-semibold mb-3">Egresos por categoría</h3>
           {egresos.por_categoria.length === 0 ? (
             <EmptyState icon={Receipt} title="Sin egresos" description="No hay gastos registrados en este período" />
@@ -293,7 +303,7 @@ export default function AccountingDashboardPage() {
 
       {/* Ventas por vendedora. En IA no hay: la gente se suscribe sola. */}
       {!esIA && (
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div data-recorrido="dashboard-vendedoras" className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-3">Ventas por vendedora</h3>
         {vend.length === 0 ? (
           <EmptyState icon={CurrencyEur} title="Sin ventas" description="No hay ventas en este período" />
@@ -329,7 +339,7 @@ export default function AccountingDashboardPage() {
       {/* Cuentas por cobrar. Tampoco en IA: Stripe cobra o no cobra, no deja
           una deuda pendiente que perseguir. */}
       {!esIA && (
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div data-recorrido="dashboard-por-cobrar" className="bg-card border border-border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold">Cuentas por cobrar ({cxc.num})</h3>
           {cxc.num > 0 && (

@@ -8,6 +8,7 @@ import {
   UsersThree,
   Globe,
   WhatsappLogo,
+  InstagramLogo,
   DotsThree,
 } from '@phosphor-icons/react';
 import { cn } from '@/shared/lib/utils';
@@ -34,6 +35,8 @@ export const CHANNEL_LABELS = {
   referido: 'Referido',
   web: 'Web',
   whatsapp: 'WhatsApp',
+  // Canal propio desde la migración 284 (atribución de Meta).
+  instagram: 'Instagram',
   otro: 'Otro',
 };
 
@@ -47,6 +50,7 @@ const CHANNEL_ICONS = {
   referido: UsersThree,
   web: Globe,
   whatsapp: WhatsappLogo,
+  instagram: InstagramLogo,
   otro: DotsThree,
 };
 

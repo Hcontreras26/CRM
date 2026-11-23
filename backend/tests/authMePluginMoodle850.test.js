@@ -7,7 +7,7 @@ import {
  *
  * Antes el bloque «Plugin del CRM» de Integraciones dependía de una constante de
  * compilación del frontal (SOLO_EN_PRUEBAS): para verlo en /crm había que tocar el
- * código y recompilar. Ahora `/auth/me` manda `user.plugin_moodle`, que es lo mismo
+ * código y recompilar. Ahora `/auth/me` manda `user.funciones.plugin_moodle`, que es lo mismo
  * que decide qué rutas del plugin se montan (`pluginMoodleActivo()`):
  *   · producción sin la variable → false (el /crm de hoy, sin el bloque);
  *   · producción con PLUGIN_MOODLE_EN_PRODUCCION=1 → true;
@@ -62,20 +62,23 @@ describe('/auth/me dice si el plugin del CRM está encendido (#850)', () => {
   it('en producción, sin PLUGIN_MOODLE_EN_PRODUCCION: false (/crm como hoy)', async () => {
     const r = await pedirMe(PRODUCCION);
     expect(r.success).toBe(true);
-    expect(r.data.user.plugin_moodle).toBe(false);
+    expect(r.data.user.funciones.plugin_moodle).toBe(false);
+    // Junto a los links de pago (#680), en el mismo sitio; ya no suelto en `user`.
+    expect(r.data.user.funciones).toHaveProperty('links_pago');
+    expect(r.data.user).not.toHaveProperty('plugin_moodle');
   });
 
   it('en producción con PLUGIN_MOODLE_EN_PRODUCCION=1: true, sin recompilar el frontal', async () => {
-    expect((await pedirMe({ ...PRODUCCION, PLUGIN_MOODLE_EN_PRODUCCION: '1' })).data.user.plugin_moodle).toBe(true);
+    expect((await pedirMe({ ...PRODUCCION, PLUGIN_MOODLE_EN_PRODUCCION: '1' })).data.user.funciones.plugin_moodle).toBe(true);
   });
 
   it('otro valor u otro interruptor no lo encienden', async () => {
-    expect((await pedirMe({ ...PRODUCCION, PLUGIN_MOODLE_EN_PRODUCCION: 'true' })).data.user.plugin_moodle).toBe(false);
-    expect((await pedirMe({ ...PRODUCCION, PROYECTOS_IA_EN_PRODUCCION: '1' })).data.user.plugin_moodle).toBe(false);
+    expect((await pedirMe({ ...PRODUCCION, PLUGIN_MOODLE_EN_PRODUCCION: 'true' })).data.user.funciones.plugin_moodle).toBe(false);
+    expect((await pedirMe({ ...PRODUCCION, PROYECTOS_IA_EN_PRODUCCION: '1' })).data.user.funciones.plugin_moodle).toBe(false);
   });
 
   it('en /testeo y en local: true', async () => {
-    expect((await pedirMe(TESTEO)).data.user.plugin_moodle).toBe(true);
-    expect((await pedirMe({ NODE_ENV: 'development' })).data.user.plugin_moodle).toBe(true);
+    expect((await pedirMe(TESTEO)).data.user.funciones.plugin_moodle).toBe(true);
+    expect((await pedirMe({ NODE_ENV: 'development' })).data.user.funciones.plugin_moodle).toBe(true);
   });
 });

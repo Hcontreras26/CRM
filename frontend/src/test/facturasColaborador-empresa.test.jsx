@@ -19,6 +19,8 @@ const { cabecera, api } = vi.hoisted(() => ({
     vista: vi.fn(),
     costePorCampus: vi.fn(),
     bajarZip: vi.fn(),
+    // La página pide las redactoras sin ficha (#1015).
+    redactorasSinFicha: vi.fn(),
   },
 }));
 
@@ -56,6 +58,7 @@ describe('Facturas de colaboradores sigue a la empresa de la cabecera', () => {
     api.vista.mockResolvedValue({ data: { vista: 'por_pagar', resumen: { total: 0, importe: 0, pendiente: 0 }, facturas: [] } });
     api.costePorCampus.mockResolvedValue({ data: { campus: [] } });
     api.bajarZip.mockResolvedValue(undefined);
+    api.redactorasSinFicha.mockResolvedValue({ data: [] });
   });
 
   it('con una empresa elegida: «Del mes» pide solo la suya, sin desplegable que le lleve la contraria', async () => {
@@ -99,6 +102,7 @@ describe('Enviadas, Por pagar, Pagadas, Historial, el coste por campus y el ZIP,
     api.vista.mockResolvedValue({ data: { vista: 'por_pagar', resumen: { total: 0, importe: 0, pendiente: 0 }, facturas: [] } });
     api.costePorCampus.mockResolvedValue({ data: { campus: [] } });
     api.bajarZip.mockResolvedValue(undefined);
+    api.redactorasSinFicha.mockResolvedValue({ data: [] });
   });
 
   it.each(['enviadas', 'por_pagar', 'pagadas', 'historial'])('%s, con CEDIA en la cabecera: solo CEDIA y sin desplegable', async (vista) => {

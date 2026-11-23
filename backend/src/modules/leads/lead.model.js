@@ -6,6 +6,7 @@ import { logger } from '../../shared/utils/logger.js';
 import { gestoresDelReparto } from './reparto.js';
 import { comoIds } from '../../shared/utils/roles.js';
 import { paisDeEntrada, sqlPaisDelLead } from './pais.js';
+import { telefonoParaGuardar } from '../../shared/utils/normalizePhone.js';
 
 // ============================================================
 // WEBHOOK + ROUND-ROBIN
@@ -557,12 +558,14 @@ export async function createLeadWithRoundRobin({ projectId, nombre, email, telef
       );
     }
 
-    // Crear lead
+    // Crear lead. EL TELÉFONO, CON SU PREFIJO (17/11/2026): por aquí pasan todas las
+    // altas, y el webhook de formularios, el de tokens y la admisión lo traían tal
+    // cual («56 912345678», sin «+»). Normalizado aquí, ninguna vía se lo salta.
     const { rows: leadRows } = await client.query(
       `INSERT INTO leads (project_id, nombre, email, telefono, whatsapp_usuario, producto_interes_id, responsable_id, notas, landing_url, lead_duplicado_de, reincidente, es_propuesto, propuesto_de, custom_fields, idempotency_key)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING id, project_id, nombre, email, telefono, whatsapp_usuario, status, responsable_id, lead_duplicado_de, reincidente, es_propuesto, propuesto_de, fecha_solicitud, created_at`,
-      [projectId, nombre, email, telefono, whatsappUsuario || null, productoInteresId, responsableId, notas, landingUrl, duplicadoDe, reincidente, esPropuesto, propuestoDe,
+      [projectId, nombre, email, telefonoParaGuardar(telefono), whatsappUsuario || null, productoInteresId, responsableId, notas, landingUrl, duplicadoDe, reincidente, esPropuesto, propuestoDe,
        customFields ? JSON.stringify(customFields) : '{}', idempotencyKey]
     );
     const lead = leadRows[0];
@@ -738,8 +741,8 @@ const SIN_TOCAR = `(${ULTIMO_CONTACTO} IS NULL AND l.status IN ('nuevo', 'por_co
   Asi que un «convertido» sin ninguna venta sigue siendo prospecto: sale en la
   lista, con su estado, para que alguien lo vea y lo arregle.
 */
-const NO_ES_CLIENTE = `(l.status <> 'convertido'
-     OR NOT EXISTS (SELECT 1 FROM conversions cx WHERE cx.lead_id = l.id))`;
+const NO_ES_CLIENTE = (a = 'l') => `(${a}.status <> 'convertido'
+     OR NOT EXISTS (SELECT 1 FROM conversions cx WHERE cx.lead_id = ${a}.id))`;
 
 /**
  * «Sin revisar este mes» (#132, el repaso de fin de mes).
@@ -785,6 +788,29 @@ export async function sePuedeRevisar() {
 // lee en cada consulta, como en el resto del proceso.
 const desdeElInicio = (cond) => `(${EN_EL_PROCESO('l')} AND ${cond})`;
 
+/*
+  LAS DOS ALERTAS DEL DASHBOARD (#534, parte 5): «Sin gestora» y «Sin
+  actividad». Son botones que llevan a Prospectos ya filtrado, así que la cifra
+  y la lista tienen que salir de la MISMA condición: si no, la tarjeta dice 566
+  y la lista enseña otra cosa. Las usan la cifra (`getStats`, `getTodaySummary`)
+  y el filtro rápido de la lista (`FILTROS_RAPIDOS`).
+
+  No van con `desdeElInicio`: no son tramos de la cola, son el stock entero.
+*/
+/** Sin gestora: nadie lo lleva y sigue abierto. `a`: alias de `leads`. */
+export const SIN_GESTORA = (a = 'l') =>
+  `(${a}.responsable_id IS NULL AND ${a}.status NOT IN ('convertido', 'no_interesado'))`;
+/**
+ * Sin actividad: abierto y sin moverse más días que la alerta de su campus
+ * (`projects.dias_alerta_inactividad`), contando desde lo último de la ficha:
+ * su última interacción o su último cambio.
+ */
+export const SIN_ACTIVIDAD = (a = 'l') =>
+  `(${a}.status NOT IN ('convertido', 'no_interesado')
+    AND EXTRACT(DAY FROM NOW() - GREATEST(${a}.updated_at,
+          COALESCE((SELECT MAX(li.fecha) FROM lead_interactions li WHERE li.lead_id = ${a}.id), ${a}.created_at)))
+        > (SELECT pa.dias_alerta_inactividad FROM projects pa WHERE pa.id = ${a}.project_id))`;
+
 export const FILTROS_RAPIDOS = {
   // Ojo: `NULL < CURRENT_DATE` es NULL, o sea que no pasa el filtro. Es lo que
   // se quiere —«sin recordatorio» no es «atrasado»— y coincide con el `next &&`
@@ -796,6 +822,9 @@ export const FILTROS_RAPIDOS = {
   get 'no-reminder'() { return desdeElInicio(`${PROXIMO} IS NULL`); },
   get 'no-contact'() { return desdeElInicio(SIN_TOCAR); },
   get urgent() { return desdeElInicio(`(${PROXIMO} <= CURRENT_DATE OR ${SIN_TOCAR})`); },
+  // Las alertas del Dashboard (#534): la misma condición que su cifra.
+  get 'sin-gestora'() { return SIN_GESTORA('l'); },
+  get 'sin-actividad'() { return SIN_ACTIVIDAD('l'); },
 };
 
 export async function findAll({ projectId, projectIds, status, seguimiento, pasoProceso, responsableId, unassigned, canal, paisEntrada = null, productId, search, page, limit, includeConverted, dateFrom, dateTo, sort, dir, duplicated, reincidente, conConversion, qf }) {
@@ -846,7 +875,7 @@ export async function findAll({ projectId, projectIds, status, seguimiento, paso
     conditions.push(`l.status = $${paramIdx++}`);
     params.push(status);
   } else if (!includeConverted && !conConversion) {
-    conditions.push(NO_ES_CLIENTE);
+    conditions.push(NO_ES_CLIENTE());
   }
   // POR QUE SEGUIMIENTO VA (#100).
   //
@@ -1098,7 +1127,7 @@ export async function contarFiltrosRapidos({ projectId, projectIds, responsableI
     params.push(comoIds(responsableId));
   }
   // Igual que el listado: los convertidos no cuentan salvo que se pidan.
-  if (!includeConverted) cond.push(NO_ES_CLIENTE);
+  if (!includeConverted) cond.push(NO_ES_CLIENTE());
 
   const cuenta = (clave) => `COUNT(*) FILTER (WHERE ${FILTROS_RAPIDOS[clave]})::int`;
   const { rows } = await query(
@@ -1128,7 +1157,7 @@ export async function comoVaLaRevision({ projectId, responsableId }) {
   if (!(await sePuedeRevisar())) {
     return { disponible: false, total: 0, revisadas: 0, pendientes: 0 };
   }
-  const cond = ['l.deleted_at IS NULL', NO_ES_CLIENTE];
+  const cond = ['l.deleted_at IS NULL', NO_ES_CLIENTE()];
   const params = [];
   let i = 1;
   if (projectId) { cond.push(`l.project_id = $${i++}`); params.push(projectId); }
@@ -1332,8 +1361,19 @@ export async function createReminder(leadId, fechaRecordatorio, nota, createdBy)
   return rows[0];
 }
 
-export async function completeReminder(reminderId) {
-  await query(`UPDATE lead_reminders SET completado = true WHERE id = $1`, [reminderId]);
+/**
+ * Marca el recordatorio como hecho y apunta cuándo y quién (#13, migración 319): así sale
+ * en «Qué ha pasado hoy». Si ya estaba completado, se queda con la primera fecha.
+ */
+export async function completeReminder(reminderId, userId = null) {
+  await query(
+    `UPDATE lead_reminders
+        SET completado = true,
+            completado_at = COALESCE(completado_at, NOW()),
+            completado_por = COALESCE(completado_por, $2)
+      WHERE id = $1`,
+    [reminderId, userId]
+  );
 }
 
 export async function reassignLead(leadId, newResponsableId) {
@@ -1501,12 +1541,24 @@ export async function getTodaySummary({ userId, role, soloSuyo, alcanceIds, proj
     [userIdParam, pidParam]
   );
 
+  // Los nuevos del mes (#534, parte 5: la tarjeta «Prospectos» del Dashboard).
+  const { rows: nuevosMes } = await query(
+    `SELECT COUNT(*) FROM leads l
+     WHERE l.deleted_at IS NULL
+       AND COALESCE(l.fecha_solicitud, l.created_at) >= date_trunc('month', CURRENT_DATE)
+       AND ($1::int[] IS NULL OR l.responsable_id = ANY($1::int[]))
+       AND ($2::int[] IS NULL OR l.project_id = ANY($2::int[]))`,
+    [userIdParam, pidParam]
+  );
+
+  // La misma condición que el filtro «Sin actividad» de Prospectos (#534): la
+  // alerta del Dashboard lleva a esa lista y tienen que dar lo mismo. Antes
+  // contaba también los borrados.
   const { rows: inactivos } = await query(
     `SELECT COUNT(*)
      FROM leads l
-     LEFT JOIN projects p ON p.id = l.project_id
-     WHERE l.status NOT IN ('convertido', 'no_interesado')
-       AND EXTRACT(DAY FROM NOW() - GREATEST(l.updated_at, COALESCE((SELECT MAX(fecha) FROM lead_interactions WHERE lead_id = l.id), l.created_at))) > p.dias_alerta_inactividad
+     WHERE l.deleted_at IS NULL
+       AND ${SIN_ACTIVIDAD('l')}
        AND ($1::int[] IS NULL OR l.responsable_id = ANY($1::int[]))
        AND ($2::int[] IS NULL OR l.project_id = ANY($2::int[]))`,
     [userIdParam, pidParam]
@@ -1539,13 +1591,14 @@ export async function getTodaySummary({ userId, role, soloSuyo, alcanceIds, proj
     reminders_pendientes: remRows,
     nuevos_hoy: parseInt(nuevosHoy[0].count),
     nuevos_semana: parseInt(nuevosSemana[0].count),
+    nuevos_mes: parseInt(nuevosMes[0].count),
     inactivos: parseInt(inactivos[0].count),
     cobros_vencidos: parseInt(cobrosVencidos[0].count),
     ingresos_hoy: Number(ingresosHoy[0].total),
   };
 }
 
-export async function getStats(projectId, { responsableId = null, dateFrom = null, dateTo = null, productId = null, canal = null, paisEntrada = null, search = null } = {}) {
+export async function getStats(projectId, { responsableId = null, dateFrom = null, dateTo = null, productId = null, canal = null, paisEntrada = null, search = null, status = null, includeConverted = false, conConversion = false } = {}) {
   // Los chips de stats deben reflejar los mismos filtros que el listado, no el
   // total global del proyecto. WHERE incremental igual que findAll.
   // `projectId` puede ser una LISTA de campus (#224): el Dashboard con una
@@ -1570,11 +1623,24 @@ export async function getStats(projectId, { responsableId = null, dateFrom = nul
   }
   if (paisEntrada) { extra.push(`${sqlPaisDelLead('')} = $${idx++}`); params.push(paisEntrada); }
   // La misma búsqueda que la lista (#591): sin acentos y el teléfono por cifras.
-  const busqueda = condicionDeBusqueda(search, { idx });
+   const busqueda = condicionDeBusqueda(search, { idx }); 
   if (busqueda) {
     extra.push(busqueda.sql);
     params.push(...busqueda.params);
     idx = busqueda.siguiente;
+  }
+  // Mismo criterio que findAll (revisión de Diego al #868): si piden un status
+  // concreto, la tarjeta cuenta exactamente lo mismo que la tabla — incluye a
+  // los convertidos con venta real. Si no, se excluyen como siempre, salvo que
+  // pidan lo contrario explícitamente (el Dashboard, que nunca filtra por status).
+  if (conConversion) {
+    extra.push(`EXISTS (SELECT 1 FROM conversions c WHERE c.lead_id = leads.id)`);
+  }
+  if (status) {
+    extra.push(`status = $${idx++}`);
+    params.push(status);
+  } else if (!includeConverted && !conConversion) {
+    extra.push(NO_ES_CLIENTE('leads'));
   }
   const where = extra.length ? ` AND ${extra.join(' AND ')}` : '';
   const { rows } = await query(
@@ -1587,9 +1653,10 @@ export async function getStats(projectId, { responsableId = null, dateFrom = nul
        COUNT(*) FILTER (WHERE status = 'convertido') as convertidos,
        COUNT(*) FILTER (WHERE status = 'no_interesado') as no_interesados,
        COUNT(*) FILTER (WHERE status = 'proxima_convocatoria') as proxima_convocatoria,
-       COUNT(*) FILTER (WHERE responsable_id IS NULL AND status NOT IN ('convertido','no_interesado')) as sin_asignar
+       -- La misma condición que el filtro «Sin gestora» de Prospectos (#534).
+       COUNT(*) FILTER (WHERE ${SIN_GESTORA('leads')}) as sin_asignar
      FROM leads WHERE project_id = ANY($1::int[]) AND deleted_at IS NULL${where}`,
     params
   );
-  return rows[0];
+   return rows[0]; 
 }

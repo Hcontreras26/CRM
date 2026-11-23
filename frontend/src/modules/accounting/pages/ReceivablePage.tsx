@@ -5,6 +5,8 @@ import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
+// El recorrido guiado de la pantalla (#941): señala, paso a paso, cada parte.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
@@ -118,12 +120,15 @@ export default function ReceivablePage() {
   const totalPend = resumen?.total_pendiente ?? visibles.reduce((s, r) => s + r.importe, 0);
 
   return (
-    <div className="space-y-5 pb-8">
+    /* Margen de scroll en lo que señala el recorrido (#941): la barra fija de
+       arriba no tapa el principio al subir hasta ello. */
+    <div className="space-y-5 pb-8 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title="Cuentas por cobrar"
         subtitle={isGestor ? 'Tus cobros pendientes y sus vencimientos' : 'Cobros pendientes por gestora, proyecto y periodo'}
-        actions={
-          <div className="inline-flex rounded-md border border-border overflow-hidden">
+        actions={<>
+          <VerRecorrido id="por-cobrar" listo={!loading} />
+          <div data-recorrido="cobrar-vista" className="inline-flex rounded-md border border-border overflow-hidden">
             <button onClick={() => setView('lista')} className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm font-medium ${view === 'lista' ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted'}`}>
               <ListBullets size={14} weight="bold" /> Lista
             </button>
@@ -131,11 +136,11 @@ export default function ReceivablePage() {
               <CalendarBlank size={14} weight="bold" /> Calendario
             </button>
           </div>
-        }
+        </>}
       />
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div data-recorrido="cobrar-tarjetas" className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard icon={Receipt} iconBg="bg-info-soft text-info-soft-foreground" label="Cobros pendientes" numericValue={resumen?.count ?? visibles.length} />
         <KpiCard icon={Wallet} iconBg="bg-warning-soft text-warning-soft-foreground" label="Total pendiente" numericValue={totalPend} format={fmt} />
         <KpiCard icon={WarningCircle} iconBg={(resumen?.count_vencidas || 0) > 0 ? 'bg-destructive-soft text-destructive-soft-foreground' : 'bg-muted text-muted-foreground'} label="Vencidas" numericValue={resumen?.count_vencidas ?? 0} />
@@ -143,7 +148,7 @@ export default function ReceivablePage() {
       </div>
 
       {/* Filtros */}
-      <div className="bg-card border border-border rounded-lg p-3 flex flex-wrap items-end gap-3">
+      <div data-recorrido="cobrar-filtros" className="bg-card border border-border rounded-lg p-3 flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-medium text-muted-foreground">Proyecto</label>
           <select value={projectId} onChange={e => setProjectId(e.target.value)} className="h-9 px-2 rounded-md border border-border bg-card text-sm min-w-[160px]">
@@ -192,7 +197,7 @@ export default function ReceivablePage() {
       {loading ? (
         <SkeletonTable rows={5} columns={6} />
       ) : view === 'calendario' ? (
-        <div className="bg-card border border-border rounded-lg p-3">
+        <div data-recorrido="cobrar-calendario" className="bg-card border border-border rounded-lg p-3">
           {/* Nav mes */}
           <div className="flex items-center justify-between mb-3">
             <button onClick={() => irMes(-1)} className="p-1.5 rounded-md hover:bg-muted"><CaretLeft size={16} weight="bold" /></button>
@@ -249,7 +254,7 @@ export default function ReceivablePage() {
           <EmptyState icon={CurrencyEur} title="Nada por cobrar" description="No hay cobros pendientes con estos filtros." />
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div data-recorrido="cobrar-lista" className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
             <table className="tabla-cifras w-full text-sm">
               <thead className="bg-muted/50 text-[11px] text-muted-foreground">

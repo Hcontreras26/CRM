@@ -217,6 +217,8 @@ describe('/auth/me: los links de pago, según el interruptor del servidor', () =
     try {
       const r = await api.get('/api/auth/me').set(como(gestora));
       expect(r.status).toBe(200);
+      // `funciones` lleva más interruptores (el plugin de Moodle, #850): aquí
+      // solo se afirma el de los links.
       return r.body.data.user.funciones;
     } finally {
       for (const k of ENV) { if (antes[k] === undefined) delete process.env[k]; else process.env[k] = antes[k]; }
@@ -225,17 +227,17 @@ describe('/auth/me: los links de pago, según el interruptor del servidor', () =
 
   it('producción sin el interruptor: apagados', async () => {
     expect(await conEntorno({ NODE_ENV: 'production', CRM_BASE_URL: 'https://crm.test/crm' }))
-      .toEqual({ links_pago: false });
+      .toMatchObject({ links_pago: false });
   });
 
   it('producción con LINKS_PAGO_EN_PRODUCCION=1: encendidos', async () => {
     expect(await conEntorno({ NODE_ENV: 'production', CRM_BASE_URL: 'https://crm.test/crm', LINKS_PAGO_EN_PRODUCCION: '1' }))
-      .toEqual({ links_pago: true });
+      .toMatchObject({ links_pago: true });
   });
 
   it('/testeo y local: encendidos sin tocar nada', async () => {
-    expect(await conEntorno({ NODE_ENV: 'production', CRM_BASE_URL: 'https://crm.test/testeo' })).toEqual({ links_pago: true });
-    expect(await conEntorno({ NODE_ENV: 'test' })).toEqual({ links_pago: true });
+    expect(await conEntorno({ NODE_ENV: 'production', CRM_BASE_URL: 'https://crm.test/testeo' })).toMatchObject({ links_pago: true });
+    expect(await conEntorno({ NODE_ENV: 'test' })).toMatchObject({ links_pago: true });
   });
 });
 

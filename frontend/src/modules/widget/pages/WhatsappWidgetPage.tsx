@@ -80,7 +80,7 @@ export default function WhatsappWidgetPage() {
     return (
       <div className="space-y-5 pb-8 max-w-4xl">
         <PageHeader
-          title={(<span className="flex items-center gap-2"><WhatsappLogo size={22} weight="fill" className="text-green-600" /> Widget WhatsApp</span>) as unknown as string}
+          title={(<span className="flex items-center gap-2"><WhatsappLogo size={22} weight="fill" className="text-success" /> Widget WhatsApp</span>) as unknown as string}
           subtitle={activeIssuerId ? `Los campus de ${activeIssuer?.nombre || 'la empresa'}, sumados.` : 'Todos los campus, sumados.'}
         />
         <PulsacionesDelBoton
@@ -109,15 +109,15 @@ export default function WhatsappWidgetPage() {
   return (
     <div className="space-y-5 pb-8 max-w-4xl">
       <PageHeader
-        title={(<span className="flex items-center gap-2"><WhatsappLogo size={22} weight="fill" className="text-green-600" /> Widget WhatsApp</span>) as unknown as string}
+        title={(<span className="flex items-center gap-2"><WhatsappLogo size={22} weight="fill" className="text-success" /> Widget WhatsApp</span>) as unknown as string}
         subtitle={`Botón flotante rotativo para ${activeProject?.nombre}. Pegá el snippet en tu sitio web.`}
       />
 
-      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-md p-3 flex items-start gap-2 text-xs">
-        <span className="text-amber-600 dark:text-amber-400 text-base leading-none mt-0.5">⏱</span>
+      <div className="bg-warning-soft border border-warning/30 rounded-md p-3 flex items-start gap-2 text-xs">
+        <span className="text-warning text-base leading-none mt-0.5">⏱</span>
         <div>
-          <strong className="text-amber-900 dark:text-amber-300">Los cambios se reflejan en ~1 minuto</strong>
-          <p className="text-amber-800 dark:text-amber-400 mt-0.5">
+          <strong className="text-warning-soft-foreground">Los cambios se reflejan en ~1 minuto</strong>
+          <p className="text-warning-soft-foreground mt-0.5">
             Si activas/desactivas una gestora o cambias el mensaje, los visitantes verán el cambio en menos de 1 minuto. El widget carga de forma asíncrona (impacto SEO cero).
           </p>
         </div>
@@ -130,7 +130,7 @@ export default function WhatsappWidgetPage() {
       <div className="bg-card border border-border rounded-lg p-5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm">Código para tu sitio web</h3>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-success-soft text-success-soft-foreground">
             {activeInWidget.length} gestoras activas
           </span>
         </div>
@@ -154,7 +154,7 @@ export default function WhatsappWidgetPage() {
             className="flex-1 h-32 px-3 py-2 rounded-md bg-muted text-[10px] font-mono resize-none" />
           <button onClick={copyEmbed}
             className="px-3 rounded-md border border-border hover:bg-muted inline-flex items-center gap-1.5 text-xs self-start">
-            {copied ? <><CheckCircle size={14} weight="bold" className="text-emerald-600" /> Copiado</> : <><Copy size={14} weight="bold" /> Copiar</>}
+            {copied ? <><CheckCircle size={14} weight="bold" className="text-success" /> Copiado</> : <><Copy size={14} weight="bold" /> Copiar</>}
           </button>
         </div>
         <p className="text-[10px] text-muted-foreground">
@@ -229,18 +229,18 @@ export default function WhatsappWidgetPage() {
 
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">Plantilla del mensaje</label>
-                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-md p-2 mt-1 mb-2 text-[10px]">
-                  <strong className="text-blue-900 dark:text-blue-300">Variables disponibles:</strong>
+                <div className="bg-info-soft border border-info/30 rounded-md p-2 mt-1 mb-2 text-[10px]">
+                  <strong className="text-info-soft-foreground">Variables disponibles:</strong>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    <code className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded">{'{{nombre}}'}</code>
+                    <code className="bg-muted px-1.5 py-0.5 rounded">{'{{nombre}}'}</code>
                     <span className="text-muted-foreground">→ nombre de la gestora que sale en la rotación</span>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    <code className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded">{'{{project}}'}</code>
+                    <code className="bg-muted px-1.5 py-0.5 rounded">{'{{project}}'}</code>
                     <span className="text-muted-foreground">→ nombre del proyecto ({config.project_nombre})</span>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    <code className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded">{'{{url}}'}</code>
+                    <code className="bg-muted px-1.5 py-0.5 rounded">{'{{url}}'}</code>
                     <span className="text-muted-foreground">→ URL de la página donde está embebido el widget</span>
                   </div>
                 </div>
@@ -249,8 +249,8 @@ export default function WhatsappWidgetPage() {
                   className="w-full h-9 px-3 rounded-md border border-border bg-background text-sm font-mono" />
                 <div className="mt-2 rounded-md border border-border bg-muted/30 p-2 text-[11px]">
                   <div className="text-muted-foreground">Vista previa · {IDIOMAS_WIDGET.find((i) => i.codigo === idiomaTab)?.nombre}</div>
-                  <div className="mt-1"><b className="text-emerald-700 dark:text-emerald-400">{nombreG}</b> {welcome || defecto?.welcome}</div>
-                  <div className="mt-0.5 italic text-emerald-700 dark:text-emerald-400">«{preview}»</div>
+                  <div className="mt-1"><b className="text-success">{nombreG}</b> {welcome || defecto?.welcome}</div>
+                  <div className="mt-0.5 italic text-success">«{preview}»</div>
                 </div>
               </div>
             </>
@@ -304,11 +304,11 @@ export default function WhatsappWidgetPage() {
                 const excluded = config.excluded_user_ids.includes(u.id);
                 const inRotation = u.whatsapp_widget_active && !excluded && !!u.whatsapp_phone;
                 return (
-                  <tr key={u.id} className={`border-b last:border-0 hover:bg-muted/30 ${inRotation ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : ''}`}>
+                <tr key={u.id} className={`border-b last:border-0 hover:bg-muted/30 ${inRotation ? 'bg-success-soft/50' : ''}`}>
                     <td className="px-3 py-2">
                       <div className="font-medium flex items-center gap-1.5">
                         {u.nombre}
-                        {inRotation && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">EN WIDGET</span>}
+                        {inRotation && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-success-soft text-success-soft-foreground">EN WIDGET</span>}
                       </div>
                       <div className="text-[11px] text-muted-foreground">{u.role}</div>
                     </td>
@@ -324,7 +324,7 @@ export default function WhatsappWidgetPage() {
                         onChange={e => setUsers(users.map(x => x.id === u.id ? { ...x, whatsapp_display_name: e.target.value } : x))}
                         onBlur={e => updateUser(u, { whatsapp_display_name: e.target.value || null })}
                         placeholder="Ej: Diana"
-                        className="h-8 px-2 rounded border border-amber-300 bg-amber-50/50 dark:bg-amber-950/10 text-xs w-32 font-medium" />
+                        className="h-8 px-2 rounded border border-warning/30 bg-warning-soft/50 text-xs w-32 font-medium" />
                     </td>
                     <td className="px-3 py-2 text-center">
                       <input type="checkbox" checked={u.whatsapp_widget_active}
@@ -347,7 +347,7 @@ export default function WhatsappWidgetPage() {
         )}
       </div>
 
-      <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-md p-3">
+      <div className="text-xs text-muted-foreground bg-info-soft border border-info/30 rounded-md p-3">
         <strong>Cómo funciona:</strong>
         <ul className="list-disc list-inside mt-1 space-y-0.5">
           <li>Solo aparecen los usuarios asignados a <strong>{config.project_nombre}</strong>. Si falta alguien, asignalo desde Configuración del proyecto.</li>

@@ -69,7 +69,7 @@ function Fila({ n, alAbrir }: { n: Aviso; alAbrir: (n: Aviso) => void }) {
 
         {n.link_path
           ? <ArrowRight size={13} weight="bold" className="text-muted-foreground mt-1 flex-shrink-0" />
-          : !sinLeer && <CheckCircle size={13} weight="fill" className="text-emerald-500 mt-1 flex-shrink-0" />}
+          : !sinLeer && <CheckCircle size={13} weight="fill" className="text-success mt-1 flex-shrink-0" />}
       </button>
     </li>
   );

@@ -4,6 +4,9 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => ({ activeProject: { id: 1, nombre: 'Fono Aprende' } }) }));
 vi.mock('@/shared/components/layout/SelectorProyecto', () => ({ default: ({ className }) => <button type="button" className={className}>Fono Aprende</button> }));
 vi.mock('@/shared/components/layout/NotificationsBell', () => ({ default: () => null }));
+// El botón «Recorrido» de la barra (#1012) pide la sesión, los permisos y el campus;
+// aquí solo se mira cómo se colocan el título y los botones.
+vi.mock('@/shared/components/layout/BotonRecorrido', () => ({ default: () => null }));
 import { render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';

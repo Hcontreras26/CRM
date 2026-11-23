@@ -85,6 +85,7 @@ import { PANTALLAS_IA } from '@/shared/lib/pantallasIA';
 import { tipoDelMenu } from '@/shared/lib/proyectosIA';
 import { abrirPedirAcceso } from '@/modules/soporte/lib/accesos';
 import { MARCA } from '@/shared/config/marca';
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 import { reagruparMenu } from './bloquesDelMenu';
 
@@ -114,6 +115,13 @@ const ROLES_TAREAS = ['superadmin', 'admin', 'colaborador', 'tutor_redactor'];
 // y el traslado de `trasladosDeMenu.js`.
 export const PERMISOS_WEBHOOKS = ['webhooks.view', 'make.view', 'webhooks_salientes.view'];
 
+// El apartado «Testeo» (solo existe en /testeo y en local) son herramientas de
+// diseño —la maqueta del rediseño, la referencia y el muestrario de
+// primitivas—, no pantallas de trabajo: las ve quien construye o decide el CRM.
+// A una gestora le salían en el menú (QA de /testeo del 18/11). Soporte y
+// superadmin las ven además por su regla de «ve todo».
+export const ROLES_DE_DISENO = ['superadmin', 'admin', 'soporte'];
+
 /*
   LAS SECCIONES DE ANTES, tal cual: cada entrada con sus permisos, roles y
   módulos. El menú que se pinta (`NAV_SECTIONS`, abajo) sale de repartirlas por
@@ -125,12 +133,12 @@ export const SECCIONES_DE_ANTES = [
     label: 'Testeo',
     icon: Flask,
     items: [
-      { label: 'TESTEO2', to: '/testeo2', detail: 'Maqueta del rediseño', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true },
-      { label: 'SUITE DASH', to: '/suite-dash', detail: 'La referencia', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true },
+      { label: 'TESTEO2', to: '/testeo2', detail: 'Maqueta del rediseño', href: '/testeo2/prospectos', icon: ChartBar, previewOnly: true, featured: true, roles: ROLES_DE_DISENO },
+      { label: 'SUITE DASH', to: '/suite-dash', detail: 'La referencia', href: '/testeo2/suite-dash', icon: Sparkle, previewOnly: true, featured: true, roles: ROLES_DE_DISENO },
       // El muestrario de primitivas. Sin esta entrada existe pero no lo
       // encuentra nadie: hay que escribir /dev/components a mano, que es
       // exactamente lo que hacía que «no existiera».
-      { label: 'Las 22 primitivas', to: '/dev/components', detail: 'Las piezas, juntas', icon: Sparkle, previewOnly: true },
+      { label: 'Las 22 primitivas', to: '/dev/components', detail: 'Las piezas, juntas', icon: Sparkle, previewOnly: true, roles: ROLES_DE_DISENO },
     ],
   },
   {
@@ -289,6 +297,9 @@ export const SECCIONES_DE_ANTES = [
       // árbol de verdad no tenía entrada en ningún sitio.
       { label: 'Productos por categoría', to: '/productos/arbol', detail: 'Productos agrupados', icon: ListBullets, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.view' },
       { label: 'Árbol de categorías', to: '/productos/categorias', detail: 'Jerarquía de categorías', icon: Tree, roles: ['superadmin', 'admin'], module: 'products', permiso: 'products.categorias' },
+      // CRM#957: qué curso de Moodle es cada producto; sin él, la matrícula automática (#767)
+      // no sabe dónde matricular. Admin y soporte de serie (`moodle.cursos_producto`).
+      { label: 'Cursos de Moodle', to: '/productos/cursos-moodle', detail: 'El curso de cada producto', icon: GraduationCap, roles: ['superadmin', 'admin'], module: 'products', permiso: 'moodle.cursos_producto' },
       // «Certificados» (/documentos) fuera del menú: estaba vacío, y los títulos
       // ahora los emite Certifex desde Matrículas → Certificaciones (Diego, 30/09).
     ],
@@ -363,7 +374,7 @@ export const SECCIONES_DE_ANTES = [
       // Es de administración: admin y super admin, cada uno en sus campus. Sus
       // pestañas, cada una con su permiso en `SIN_ENTRADA`; la entrada, con el de
       // cualquiera de ellas (basta uno): los cargos de Stripe (#906) piden `stripe.edit`.
-      { label: 'Conciliación', to: '/finanzas/conciliacion', detail: 'Facturas, cobros y cargos sin enlazar', icon: ArrowsLeftRight, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: ['facturas.gestionar', 'stripe.edit'] },
+      { label: 'Conciliación', seguirPorRol: true, to: '/finanzas/conciliacion', detail: 'Facturas, cobros y cargos sin enlazar', icon: ArrowsLeftRight, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: ['facturas.gestionar', 'stripe.edit'] },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
       { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'], permiso: 'facturas_colaborador.ver_todas' },
@@ -401,7 +412,9 @@ export const SECCIONES_DE_ANTES = [
       { label: 'Clientes', to: '/clientes', detail: 'Quién ya compró', icon: UserCheck, module: 'clients', permiso: 'clients.view' },
       { label: 'Revisión duplicados', to: '/prospectos/revision-duplicados', detail: 'Repetidos por webhook', icon: GitMerge, roles: ['superadmin', 'admin'], module: 'leads', permiso: 'leads.duplicados' },
       { label: 'Buscar duplicados', to: '/prospectos/duplicados', detail: 'Buscarlos a mano', icon: CopySimple, roles: ['superadmin', 'admin'], module: 'leads', permiso: 'leads.duplicados' },
-      { label: 'Solicitud de admisión', to: '/clientes/matriculas', detail: 'Las que llegan del formulario', icon: GraduationCap, module: 'matriculas', permiso: 'matriculas.view' },
+      { label: 'Solicitud de admisión', to: '/clientes/matriculas', detail: 'Las que llegan del formulario', icon: GraduationCap, module: 'matriculas', permiso: 'matriculas.view',
+        // Se llamó «Matrículas» hasta la #831: el buscador la sigue encontrando así.
+        keywords: 'matrículas matricula admisión inscripción' },
       // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
       // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin),
       // y además, para VERLO en solo lectura, quien tenga `diplomas.view` (#384,
@@ -483,6 +496,15 @@ export const SECCIONES_DE_ANTES = [
 
 // El menú por bloques de uso (#534, parte 3). Los iconos de los bloques nuevos;
 // los que conservan su nombre (Finanzas, Análisis...) conservan el suyo.
+/**
+ * El `data-recorrido` de cada bloque del menú: «menu-» y su nombre sin tildes
+ * («Captación y publicidad» → `menu-captacion-y-publicidad`). Lo señalan el
+ * recorrido del menú (#928) y el recorrido general según el rol (CRM#1012).
+ */
+export function anclaDelBloque(label) {
+  return `menu-${String(label).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+}
+
 export const NAV_SECTIONS = reagruparMenu(SECCIONES_DE_ANTES, {
   Hoy: { icon: House },
   Comercial: { icon: UsersThree },
@@ -1163,6 +1185,20 @@ export function NavItem({ to, href, icon: Icon, label, detail, badge, labelOverr
   );
 }
 
+/** ¿Se ve el menú fijo del PC (`lg`, 1024 px)? El mismo corte que AppLayout. */
+const PC = '(min-width: 1024px)';
+function useEsPC() {
+  const mq = () => (typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia(PC) : null);
+  const [esPC, setEsPC] = useState(() => !!mq()?.matches);
+  useEffect(() => {
+    const m = mq();
+    if (!m?.addEventListener) return undefined;
+    const alCambiar = () => setEsPC(m.matches);
+    m.addEventListener('change', alCambiar);
+    return () => m.removeEventListener('change', alCambiar);
+  }, []);
+  return esPC;
+}
 
 export default function Sidebar({ onNavigate, collapsed = false, onToggleCollapsed }) {
   const navigate = useNavigate();
@@ -1170,6 +1206,11 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const { activeProject, switchProject, projects, activeIssuer, switchIssuer } = useProjectContext();
   const { theme, toggleTheme } = useTheme();
   const [configOpen, setConfigOpen] = useState(false);
+  // El recorrido del menú (#928), solo en el menú que se ve: en el PC, el fijo;
+  // en el móvil, el del cajón (`onNavigate`). El fijo sigue montado (oculto)
+  // en el móvil, y su recorrido se abriría sobre nada.
+  const esPC = useEsPC();
+  const conRecorrido = !collapsed && (onNavigate ? !esPC : esPC);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userMenuPos, setUserMenuPos] = useState(null);
   const [userMenuView, setUserMenuView] = useState('main'); // 'main' | 'hide-dock'
@@ -1480,9 +1521,10 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
 
       {/* Buscador (oculto en collapsed; sigue accesible via Ctrl+K) */}
       {!collapsed && (
-        <div className="mb-4">
+        <div className="mb-4 space-y-2">
           <button
             type="button"
+            data-recorrido="menu-buscar"
             onClick={() => window.dispatchEvent(new Event('crm:open-palette'))}
             className="w-full h-9 px-3 rounded-lg border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors group flex items-center gap-2"
             aria-label="Abrir buscador (Cmd+K)"
@@ -1493,6 +1535,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
               {typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? '⌘' : 'Ctrl'} K
             </kbd>
           </button>
+          {/* El recorrido del menú por bloques (#928): solo con el botón (CRM#1012). */}
+          {conRecorrido && <VerRecorrido id="menu-bloques" compacto />}
         </div>
       )}
 
@@ -1563,7 +1607,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
           // iconos verticales separados por divisores.
           if (collapsed) {
             return (
-              <div key={section.label} className="space-y-1">
+              // Plegado también lleva su anclaje: el recorrido general (CRM#1012) lo señala.
+              <div key={section.label} className="space-y-1" data-recorrido={anclaDelBloque(section.label)}>
                 {sIdx > 0 && <div className="mx-2 mt-2 border-t border-border" aria-hidden="true" />}
                 {/* Plegado solo habia una raya: se veia que empezaba otra cosa,
                     pero no cual. El icono lo dice, y al pasar por encima da el
@@ -1582,7 +1627,17 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
             );
           }
           return (
-            <div key={section.label} className="space-y-0.5">
+            <div
+              key={section.label}
+              className="space-y-0.5"
+              // Los bloques que señala el recorrido del menú (#928). Un bloque
+              // que esa persona no tiene no se pinta, y su paso se salta.
+              data-recorrido={section.label === 'Hoy' ? 'menu-hoy'
+                : section.label === 'Comercial' ? 'menu-comercial'
+                  : section.label === 'Académico' ? 'menu-academico'
+                    : section.label === 'Finanzas' ? 'menu-finanzas'
+                      : section.label === 'Configuración' ? 'menu-configuracion' : anclaDelBloque(section.label)}
+            >
               <button
                 type="button"
                 onClick={() => toggleSection(section.label)}

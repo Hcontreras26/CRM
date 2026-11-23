@@ -13,6 +13,8 @@ import useUrlFilters from '@/shared/hooks/useUrlFilters';
 // columnas DATE en crudo, así que le pasaba a toda la columna «Última compra».
 import { formatRelative, formatFecha as fmtFecha } from '@/shared/lib/fechas';
 import PageHeader from '@/shared/components/ui/PageHeader';
+// El recorrido guiado de la pantalla (#941).
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import ComoVoy from '@/modules/reports/components/ComoVoy';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
@@ -345,7 +347,9 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="space-y-5 pb-8">
+    /* El margen de scroll de lo que señala el recorrido (#941): que la barra
+       fija de arriba no tape el principio de lo señalado. */
+    <div className="space-y-5 pb-8 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       {/* La accion principal va DENTRO de la cabecera, como «Nuevo prospecto» en
           Prospectos. Estaba al lado y por fuera: desde el marco del #33 la
           cabecera sube a la barra de arriba y el boton se quedaba solo en medio
@@ -353,17 +357,23 @@ export default function ClientsPage() {
       <PageHeader
         title="Clientes"
         subtitle={`Prospectos convertidos en ${activeIssuer ? `${activeIssuer.nombre} (${activeIssuer.campus.length} campus)` : (activeProject?.nombre || 'todos los proyectos')} — ${hasActiveFilters ? `${filtered.length} de ${totalBackend} (filtrados)` : `${totalBackend} ${totalBackend === 1 ? 'cliente' : 'clientes'}`}`}
-        actions={activeProject?.id && !isAllProjects && can('clients.create') ? (
-          <button
-            type="button"
-            onClick={() => setSaleOpen(true)}
-            className="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-primary text-primary-foreground text-xs sm:text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
-          >
-            <Plus size={14} weight="bold" />
-            <span className="hidden sm:inline">Registrar venta</span>
-            <span className="sm:hidden">Vender</span>
-          </button>
-        ) : null}
+        actions={(
+          <>
+            <VerRecorrido id="clientes" listo={!loading} />
+            {activeProject?.id && !isAllProjects && can('clients.create') && (
+              <button
+                type="button"
+                data-recorrido="clientes-nueva"
+                onClick={() => setSaleOpen(true)}
+                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-primary text-primary-foreground text-xs sm:text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
+              >
+                <Plus size={14} weight="bold" />
+                <span className="hidden sm:inline">Registrar venta</span>
+                <span className="sm:hidden">Vender</span>
+              </button>
+            )}
+          </>
+        )}
       />
 
       {/* La misma tarjeta que en Prospectos: aquí se mira lo que ya se cerró,
@@ -392,7 +402,7 @@ export default function ClientsPage() {
           cobro manda porque es lo que más se mira, y los accesos son la columna
           estrecha. Antes aquí se pasaba de las cifras a la tabla directamente:
           no había forma de saber qué tocaba cobrar sin irse a Contabilidad. */}
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)_minmax(260px,0.7fr)]">
+      <section data-recorrido="clientes-cobros" className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)_minmax(260px,0.7fr)]">
         {veCobros && (
           <>
             <SaludDeCobro
@@ -430,6 +440,8 @@ export default function ClientsPage() {
           dentro de «Filtros»: dos sitios donde mirar qué había puesto (repaso del
           15/09, rescatado de la PR #153 de Fabián). Ahora van solo dentro, y lo que
           esté puesto lo cantan el número del botón y las píldoras de al lado. */}
+      {/* El buscador, los filtros y el CSV: un solo paso del recorrido (#941). */}
+      <div data-recorrido="clientes-filtros" className="space-y-5">
       <BarraFiltros
         busqueda={search}
         onBusqueda={setSearch}
@@ -466,8 +478,9 @@ export default function ClientsPage() {
           </button>
         )}
       </div>
+      </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div data-recorrido="clientes-lista" className="bg-card border border-border rounded-lg overflow-hidden">
         {loading ? (
           <SkeletonTable rows={5} columns={6} className="border-0 rounded-none" />
         ) : filtered.length === 0 ? (

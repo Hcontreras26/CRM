@@ -323,8 +323,8 @@ export default function DocumentsPage() {
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                             doc.type === 'invoice'
-                              ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
-                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
+                              ? 'bg-info-soft text-info-soft-foreground'
+                              : 'bg-warning-soft text-warning-soft-foreground'
                           }`}>
                             {doc.type === 'invoice' ? <Receipt size={11} /> : <Certificate size={11} />}
                             {TYPE_LABEL[doc.type]}
@@ -371,7 +371,7 @@ export default function DocumentsPage() {
                               onClick={() => handleRegenerate(doc)}
                               disabled={regenerating === doc.id}
                               aria-label={`Regenerar PDF ${doc.number}`}
-                              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-amber-500 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-warning transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-warning/40"
                               title="Regenerar PDF desde datos guardados"
                             >
                               <ArrowsClockwise size={14} className={regenerating === doc.id ? 'animate-spin' : ''} />
@@ -381,7 +381,7 @@ export default function DocumentsPage() {
                               onClick={() => handleResendEmail(doc)}
                               disabled={resending === doc.id}
                               aria-label={`Reenviar por email ${doc.number}`}
-                              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-cyan-500 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-info transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-info/40"
                               title="Reenviar por email al cliente/alumno"
                             >
                               <EnvelopeSimple size={14} className={resending === doc.id ? 'animate-pulse' : ''} />
@@ -391,7 +391,7 @@ export default function DocumentsPage() {
                                 type="button"
                                 onClick={() => setAuditing(doc)}
                                 aria-label={`Ver auditoría de ${doc.number}`}
-                                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-info transition-colors focus:outline-none focus:ring-2 focus:ring-info/40"
                                 title="Ver historial de auditoría"
                               >
                                 <ListMagnifyingGlass size={14} />
@@ -401,7 +401,7 @@ export default function DocumentsPage() {
                               type="button"
                               onClick={() => setPendingDelete(doc)}
                               aria-label={`Eliminar ${doc.number}`}
-                              className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                              className="p-1.5 rounded-md hover:bg-destructive-soft text-muted-foreground hover:text-destructive transition-colors focus:outline-none focus:ring-2 focus:ring-destructive/40"
                               title="Eliminar"
                             >
                               <Trash size={14} />
@@ -422,8 +422,8 @@ export default function DocumentsPage() {
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                           doc.type === 'invoice'
-                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
-                            : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
+                            ? 'bg-info-soft text-info-soft-foreground'
+                          : 'bg-warning-soft text-warning-soft-foreground'
                         }`}>
                           {doc.type === 'invoice' ? <Receipt size={10} /> : <Certificate size={10} />}
                           {TYPE_LABEL[doc.type]}
@@ -467,7 +467,7 @@ export default function DocumentsPage() {
                         type="button"
                         onClick={() => setPendingDelete(doc)}
                         aria-label={`Eliminar ${doc.number}`}
-                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-destructive-soft text-muted-foreground hover:text-destructive"
                       >
                         <Trash size={13} />
                       </button>

@@ -134,7 +134,7 @@ export default function QueAvisosQuiero() {
         // Se dice y se deshabilita. Dejar los interruptores vivos sabiendo que
         // no se van a guardar es exactamente el fallo que tenia la version
         // anterior.
-        <p className="flex items-start gap-2 px-4 py-3 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
+        <p className="flex items-start gap-2 px-4 py-3 bg-warning-soft border-b border-warning/20 text-xs text-warning-soft-foreground">
           <Warning size={14} weight="fill" className="flex-shrink-0 mt-0.5" />
           <span>{prefs.aviso}</span>
         </p>

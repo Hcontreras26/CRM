@@ -8,6 +8,9 @@ import {
   listConversionsSchema,
   payInstallmentSchema,
   editPaidInstallmentSchema,
+  cuotasAMedidaSchema,
+  cuotasIgualesSchema,
+  mensajeDeCuotas,
 } from './conversion.validation.js';
 import { METODOS_QUE_DISPARAN } from '../webhooks-salientes/webhooks-salientes.validation.js';
 import { AppError } from '../../shared/utils/AppError.js';
@@ -16,13 +19,46 @@ import { opcionDeCompartidas } from './compartidas.js';
 import { alcanceComercial, acotarAlAlcance, enElAlcance } from '../../shared/utils/roles.js';
 import { campusParaRecortar } from '../../shared/utils/ambito.js';
 import { posiblesRepetidas as gruposRepetidos } from './venta-repetida.js';
+import { exigirFechaSiTieneCurso, exigirAlQuitarla, productosConCurso, ventasSinFecha } from './fecha-inicio.js';
 
 export async function create(req, res, next) {
   try {
     const parsed = createConversionSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    // Con curso de Moodle, sin fecha de inicio no se cierra la venta (#767, #1036).
+    await exigirFechaSiTieneCurso(parsed.data);
     const conversion = await conversionService.create(parsed.data, req.user.userId);
     res.status(201).json({ success: true, data: conversion });
+  } catch (err) { next(err); }
+}
+
+// GET /api/conversions/productos-con-curso?projectId=
+//
+// Los productos del campus unidos a un curso de Moodle (ids). Los formularios
+// de venta lo piden para saber si la fecha de inicio es obligatoria (#1036).
+// Fuera de los campus de quien pide, lista vacía.
+export async function productosConCursoMoodle(req, res, next) {
+  try {
+    const pid = /^[1-9]\d{0,9}$/.test(String(req.query.projectId ?? '')) ? Number(req.query.projectId) : null;
+    if (!pid) throw new AppError('projectId requerido', 400, 'VALIDATION_ERROR');
+    const suyos = await campusParaRecortar(req);
+    const data = suyos && !suyos.includes(pid) ? [] : await productosConCurso(pid);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// GET /api/conversions/sin-fecha-inicio?projectId=|issuerId=
+//
+// Las ventas ya hechas sin fecha de inicio cuyo producto tiene curso de Moodle,
+// para completarlas (#1036). Por campus o empresa, solo en los de quien pide;
+// una gestora (o quien lleva un equipo), solo las suyas.
+export async function sinFechaInicio(req, res, next) {
+  try {
+    const { projectId, projectIds } = await proyectosDelAmbito(req);
+    const campus = projectId ? [projectId] : projectIds;
+    const personas = await alcanceComercial(req.user);
+    const data = await ventasSinFecha({ projectIds: campus, personas });
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 }
 
@@ -141,6 +177,8 @@ export async function update(req, res, next) {
     if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
     const parsed = updateConversionSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    // Quitar la fecha de inicio de una venta con curso de Moodle, no (#1036).
+    if (parsed.data.fecha_inicio === null) await exigirAlQuitarla(id);
     const updated = await conversionService.update(id, parsed.data);
     res.json({ success: true, data: updated });
   } catch (err) { next(err); }
@@ -221,17 +259,23 @@ export async function listInstallments(req, res, next) {
 export async function generateInstallments(req, res, next) {
   try {
     const id = parseInt(req.params.id);
-    const { num_cuotas, importe_total, fecha_inicio, installments, concepto } = req.body;
-    // Modo "cuotas custom": cliente manda array completo con importe + fecha por cuota
-    if (Array.isArray(installments) && installments.length > 0) {
+    const body = req.body || {};
+    // Se valida TODO antes de tocar la base (CRM#923): el modelo borra las cuotas
+    // no cobradas antes de crear las nuevas, y un cuerpo mal escrito daba 500 o,
+    // con `num_cuotas: "abc"`, dejaba la venta sin plan.
+    // Modo "cuotas a medida": el cliente manda cada cuota con su importe y su fecha.
+    if (Array.isArray(body.installments) && body.installments.length > 0) {
+      const parsed = cuotasAMedidaSchema.safeParse(body);
+      if (!parsed.success) throw new AppError(mensajeDeCuotas(parsed.error), 400, 'VALIDATION_ERROR');
+      const { installments, concepto } = parsed.data;
       const rows = await installmentsModel.generateInstallments(id, null, null, null, installments, concepto);
       return res.json({ success: true, data: rows });
     }
     // Modo "auto": N cuotas iguales mensuales desde fecha_inicio
-    if (!num_cuotas || num_cuotas < 1) throw new AppError('num_cuotas debe ser >= 1', 400, 'INVALID');
-    if (!importe_total) throw new AppError('importe_total requerido', 400, 'INVALID');
-    if (!fecha_inicio) throw new AppError('fecha_inicio requerida', 400, 'INVALID');
-    const rows = await installmentsModel.generateInstallments(id, Number(num_cuotas), Number(importe_total), fecha_inicio, null, concepto);
+    const parsed = cuotasIgualesSchema.safeParse(body);
+    if (!parsed.success) throw new AppError(mensajeDeCuotas(parsed.error), 400, 'VALIDATION_ERROR');
+    const { num_cuotas, importe_total, fecha_inicio, concepto } = parsed.data;
+    const rows = await installmentsModel.generateInstallments(id, num_cuotas, importe_total, fecha_inicio, null, concepto);
     res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 }

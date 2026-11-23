@@ -67,6 +67,9 @@ function calcular(clave: string): Rango {
     return { from: iso(lunesPasado), to: iso(domingoPasado) };
   }
 
+  // Del 1 de enero a hoy. Solo sale donde se pide con `esteAno` (Reportes).
+  if (clave === 'ano') return { from: iso(new Date(hoy.getFullYear(), 0, 1)), to: iso(hoy) };
+
   if (clave === 'mes') {
     return { from: iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), to: iso(hoy) };
   }
@@ -87,11 +90,14 @@ const ATAJOS: { clave: string; texto: string }[] = [
   { clave: 'pasado', texto: 'Mes pasado' },
 ];
 
+const ESTE_ANO = { clave: 'ano', texto: 'Este año' };
+
 export default function RangoRapido({
   valor,
   alElegir,
   className = '',
   desdeSiempre = false,
+  esteAno = false,
 }: {
   valor: Rango;
   alElegir: (r: Rango) => void;
@@ -102,18 +108,25 @@ export default function RangoRapido({
    * panel de Feedback, #242: «predefinida la opción de desde siempre»—.
    */
   desdeSiempre?: boolean;
+  /**
+   * Un último atajo «Este año», del 1 de enero a hoy. Reportes lo tenía en su
+   * propia fila de atajos, que salía además de esta; al quedarse con una sola
+   * barra de fechas no podía perderlo.
+   */
+  esteAno?: boolean;
 }) {
+  const atajos = useMemo(() => (esteAno ? [...ATAJOS, ESTE_ANO] : ATAJOS), [esteAno]);
   // Cual esta puesto. Se compara con lo que habria calculado cada atajo, asi
   // que tambien se enciende si las fechas se escribieron a mano y coinciden
   // --que es lo correcto: lo que importa es el rango, no como se puso--.
   const activo = useMemo(() => {
     if (!valor?.from || !valor?.to) return null;
-    const hit = ATAJOS.find((a) => {
+    const hit = atajos.find((a) => {
       const r = calcular(a.clave);
       return r.from === valor.from && r.to === valor.to;
     });
     return hit ? hit.clave : null;
-  }, [valor?.from, valor?.to]);
+  }, [valor?.from, valor?.to, atajos]);
 
   const sinFechas = !valor?.from && !valor?.to;
   const clase = (puesto: boolean) => 'h-7 px-2.5 rounded-md border text-xs font-medium transition-colors '
@@ -129,7 +142,7 @@ export default function RangoRapido({
           Desde siempre
         </button>
       )}
-      {ATAJOS.map((a) => {
+      {atajos.map((a) => {
         const puesto = activo === a.clave;
         // Se dice el periodo exacto que coge. Viene del de Ingresos, y es buena
         // idea: «Semana pasada» no significa lo mismo para todo el mundo, y con

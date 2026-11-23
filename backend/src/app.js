@@ -133,6 +133,7 @@ import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
 import { startFacturaAutomaticaScheduler } from './jobs/facturaAutomaticaScheduler.js';
 import { startDiplomaConfirmacionScheduler } from './jobs/diplomaConfirmacionScheduler.js';
+import { startMatriculaMoodleScheduler } from './jobs/matriculaMoodleScheduler.js';
 import { startWebhooksSalientesScheduler } from './jobs/webhooksSalientesScheduler.js';
 import { startAsignacionScheduler } from './jobs/asignacionScheduler.js';
 import { startNovedadesScheduler } from './jobs/novedadesScheduler.js';
@@ -566,6 +567,7 @@ if (process.env.NODE_ENV !== 'test') {
     startFeedbackDia7Scheduler();
     startFacturaAutomaticaScheduler();
     startDiplomaConfirmacionScheduler();
+    startMatriculaMoodleScheduler();
     startNovedadesScheduler();
     startResumenDiarioScheduler();
     startReporteSemanalScheduler();

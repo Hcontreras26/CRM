@@ -10,6 +10,13 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 
 const avisos = vi.hoisted(() => ({ toast: vi.fn() }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: avisos.toast }));
+// Los productos del campus con curso de Moodle (#1036): solo con ellos la
+// fecha de inicio es obligatoria. De serie, ninguno.
+const conCurso = vi.hoisted(() => ({ ids: null }));
+vi.mock('@/modules/conversions/hooks/useProductosConCurso', async (original) => ({
+  ...(await original()),
+  useProductosConCurso: () => conCurso.ids,
+}));
 vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: () => true }) }));
 vi.mock('@/shared/hooks/useAmbito', () => ({
   useProyectosDelAmbito: () => [{ id: 1, nombre: 'Psiko' }, { id: 2, nombre: 'ISEIH' }],
@@ -26,6 +33,7 @@ vi.mock('@/shared/api/client', () => ({
 vi.mock('@/shared/components/ui/portal', () => ({ default: ({ children }) => children }));
 
 import RegisterSaleDialog from '@/modules/sales/components/RegisterSaleDialog';
+import client from '@/shared/api/client';
 
 // Las etiquetas de Field (#106) que no apuntan a ningún campo. Las de grupo
 // (varios controles juntos, como «IVA» o «Pago recibido hoy») no tienen a
@@ -42,7 +50,11 @@ const abrir = async (props = {}) => {
 };
 
 describe('Registrar venta (#106, #134)', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    client.get.mockImplementation(() => Promise.resolve({ success: true, data: [] }));
+    conCurso.ids = null;
+  });
 
   it('no queda ningún desplegable del navegador: campus, producto y método son los del CRM', async () => {
     const { container } = await abrir({ project: null });
@@ -73,12 +85,33 @@ describe('Registrar venta (#106, #134)', () => {
     for (const que of ['el nombre en «Nombre del cliente»', 'el email o el teléfono', 'la formación en «Producto»', 'el importe en «Importe total»']) {
       expect(description).toContain(que);
     }
+    // Sin producto elegido no se sabe si hará falta la fecha de inicio (#1036): no se pide.
+    expect(description).not.toContain('Fecha de inicio del curso');
     // Si solo falta una cosa, su aviso de siempre.
     fireEvent.change(screen.getByLabelText(/^Nombre del cliente/), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@prueba.local' } });
     fireEvent.change(screen.getByLabelText(/^Importe total/), { target: { value: '500' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar venta' }));
     expect(avisos.toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Falta la formación', description: expect.stringMatching(/Producto/) }));
+  });
+
+  it('la fecha de inicio del curso (#767, #1036): obligatoria con un producto con curso, y si falta lo dice su campo', async () => {
+    client.get.mockImplementation((url) => Promise.resolve(url === '/products'
+      ? { success: true, data: [{ id: 77, nombre: 'Master IA', precio: 500 }] }
+      : { success: true, data: [] }));
+    conCurso.ids = new Set([77]);
+    await abrir({ modoInicial: 'new' });
+    fireEvent.change(screen.getByLabelText('Buscar producto'), { target: { value: 'Master IA' } });
+    await act(async () => { await Promise.resolve(); });
+    const campo = screen.getByLabelText(/^Fecha de inicio del curso/);
+    expect(campo).toHaveAttribute('type', 'date');
+    expect(campo).toHaveAttribute('aria-required', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar venta' }));
+    expect(campo).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/fecha de inicio pactada con el alumno/)).toBeInTheDocument();
+    // Una fecha pasada vale, con su aviso.
+    fireEvent.change(campo, { target: { value: '2020-03-02' } });
+    expect(screen.getByText(/Esa fecha ya pasó/)).toBeInTheDocument();
   });
 
   it('cada etiqueta enlazada a su campo, con cliente existente y con cliente nuevo (#106)', async () => {

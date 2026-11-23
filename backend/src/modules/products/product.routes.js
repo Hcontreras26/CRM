@@ -12,6 +12,21 @@ const router = Router();
 router.use(verifyToken);
 
 /**
+ * Un id de producto (o de módulo) que no es un entero positivo: 400 INVALID_ID,
+ * sin ir a la base, como en formularios (#857). Gemela de CRM-ISEIE#653: el QA
+ * del 21/11 vio `GET /api/products/NaN` → 500 (Postgres 22P02). Se comprueba
+ * aquí, una vez, para todas las rutas con `:id` y `:moduleId`.
+ */
+function idPositivo(req, _res, next, valor) {
+  if (!/^[1-9]\d{0,9}$/.test(String(valor)) || Number(valor) > 2147483647) {
+    return next(new AppError('ID inválido', 400, 'INVALID_ID'));
+  }
+  return next();
+}
+router.param('id', idPositivo);
+router.param('moduleId', idPositivo);
+
+/**
  * Leer el catálogo: de cualquier campus (Diego, 23/11/2026: «los productos los
  * ven todos, de todos»). Quien tiene `products.view` ve los productos de todos
  * los campus, sean suyos o no: una gestora que registra una venta o un link de

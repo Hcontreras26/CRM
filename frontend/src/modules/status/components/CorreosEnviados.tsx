@@ -32,20 +32,20 @@ type Resumen = { enviado: number; fallido: number; bloqueado: number };
 const ESTADOS = {
   enviado: {
     icono: CheckCircle,
-    color: 'text-emerald-600 dark:text-emerald-400',
-    fondo: 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300',
+    color: 'text-success',
+    fondo: 'bg-success-soft text-success-soft-foreground',
     texto: 'Salió',
   },
   fallido: {
     icono: XCircle,
-    color: 'text-rose-600 dark:text-rose-400',
-    fondo: 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300',
+    color: 'text-destructive',
+    fondo: 'bg-destructive-soft text-destructive-soft-foreground',
     texto: 'No salió',
   },
   bloqueado: {
     icono: ShieldWarning,
-    color: 'text-amber-600 dark:text-amber-400',
-    fondo: 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300',
+    color: 'text-warning',
+    fondo: 'bg-warning-soft text-warning-soft-foreground',
     texto: 'Frenado',
   },
 } as const;
@@ -186,7 +186,7 @@ export default function CorreosEnviados() {
                 <p className="text-xs text-muted-foreground break-all mt-0.5">{e.destinatarios}</p>
                 {/* El motivo, entero: es lo único que dice qué hacer. */}
                 {e.error && (
-                  <p className="text-xs mt-1 text-amber-700 dark:text-amber-400 break-words">{e.error}</p>
+                <p className="text-xs mt-1 text-warning break-words">{e.error}</p>
                 )}
               </div>
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums">

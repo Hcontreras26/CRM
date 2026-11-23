@@ -513,6 +513,7 @@ function AllProjectsGuard({ pathname, children }) {
 }
 
 import Topbar from './Topbar';
+import PresentadorRecorrido from './PresentadorRecorrido';
 import { CabeceraProvider } from './CabeceraContext';
 
 const FloatingDock = lazy(() => import('./FloatingDock'));
@@ -560,11 +561,12 @@ const G_TARGETS = {
 };
 
 export default function AppLayout() {
-  const { permissions } = useAuth();
+  const { permissions, user } = useAuth();
   // Quien no tiene WhatsApp —el colaborador (QA del 07/10), el tutor (QA del
   // 22/10)…— recibe un 403 del servidor, y estos avisos preguntaban cada pocos
   // segundos. Se decide con el mismo criterio que el servidor: su permiso (#423).
-  const sinWhatsapp = !tieneWhatsapp(permissions);
+  // Y la casilla «usa WhatsApp» de su ficha (23/11): apagada, tampoco.
+  const sinWhatsapp = !tieneWhatsapp(permissions, user);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === '1'; } catch { return false; }
@@ -653,12 +655,16 @@ export default function AppLayout() {
     }
 
     function onOpenShortcuts() { setShortcutsOpen(true); }
+    // El recorrido general en el móvil abre antes el menú (CRM#1012).
+    function onAbrirMenu() { setMobileOpen(true); }
 
     window.addEventListener('keydown', onKey);
     window.addEventListener('crm:open-shortcuts', onOpenShortcuts);
+    window.addEventListener('crm:abrir-menu', onAbrirMenu);
     return () => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('crm:open-shortcuts', onOpenShortcuts);
+      window.removeEventListener('crm:abrir-menu', onAbrirMenu);
       clearGPending();
     };
   }, [navigate, pathname]);
@@ -711,6 +717,8 @@ export default function AppLayout() {
       */}
       <div className={cn('transition-[margin] duration-200', collapsed ? 'lg:ml-16' : 'lg:ml-64')}>
         <Topbar onAbrirMenu={() => setMobileOpen(true)} />
+        {/* El recorrido que se pide con «Recorrido» en la cabecera (CRM#1012). */}
+        <PresentadorRecorrido />
         {/* El `p-4` del movil lo anulan a mano dos pantallas que van de borde a borde:
             el chat de WhatsApp (chat.css, `margin: -16px`) y Mensajes (`-m-4`).
             Si cambia este relleno, hay que cambiarlas tambien. */}

@@ -13,12 +13,12 @@ interface AuditDrawerProps {
 }
 
 const ACTION_META: Record<AuditEntry['action'], { label: string; Icon: Icon; color: string }> = {
-  generated:         { label: 'Generado',         Icon: FilePlus,         color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' },
-  downloaded:        { label: 'Descargado',       Icon: FileArrowDown,    color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/30' },
-  regenerated:       { label: 'Regenerado',       Icon: ArrowsClockwise,  color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/30' },
-  deleted:           { label: 'Eliminado',        Icon: Trash,            color: 'text-red-600 bg-red-50 dark:bg-red-950/30' },
-  number_overridden: { label: 'Número editado',   Icon: Hash,             color: 'text-violet-600 bg-violet-50 dark:bg-violet-950/30' },
-  emailed:           { label: 'Email enviado',    Icon: EnvelopeSimple,   color: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-950/30' },
+  generated:         { label: 'Generado',         Icon: FilePlus,         color: 'text-success bg-success-soft' }, 
+  downloaded:        { label: 'Descargado',       Icon: FileArrowDown,    color: 'text-info bg-info-soft' },
+  regenerated:       { label: 'Regenerado',       Icon: ArrowsClockwise,  color: 'text-warning bg-warning-soft' },
+  deleted:           { label: 'Eliminado',        Icon: Trash,            color: 'text-destructive bg-destructive-soft' },
+   number_overridden: { label: 'Número editado',   Icon: Hash,             color: 'text-primary bg-primary/10' },
+   emailed:           { label: 'Email enviado',    Icon: EnvelopeSimple,   color: 'text-info bg-info-soft' },
 };
 
 function formatDateTime(iso: string): string {
@@ -85,8 +85,8 @@ export default function AuditDrawer({ doc, projectId, onClose }: AuditDrawerProp
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {error && (
-            <div className="text-xs text-red-600 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-md p-3">
-              {error}
+            <div className="text-xs text-destructive-soft-foreground bg-destructive-soft border border-destructive/30 rounded-md p-3">      
+             {error}
             </div>
           )}
           {!entries && !error && (

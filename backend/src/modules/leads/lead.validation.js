@@ -27,6 +27,14 @@ export const webhookLeadSchema = z.object({
   // De dónde venía la persona (document.referrer). Va junto a las UTM porque
   // ChatGPT a veces no manda utm_source y a veces no manda referrer (#48).
   referrer: z.string().max(2000).optional(),
+  // La campaña, el conjunto y el anuncio de Meta (puerta 8, CRM#806): los manda
+  // Make con los formularios instantáneos. Con nombre propio o como los llama Meta.
+  meta_campaign_id: z.coerce.string().max(50).optional(),
+  meta_adset_id: z.coerce.string().max(50).optional(),
+  meta_ad_id: z.coerce.string().max(50).optional(),
+  campaign_id: z.coerce.string().max(50).optional(),
+  adset_id: z.coerce.string().max(50).optional(),
+  ad_id: z.coerce.string().max(50).optional(),
   // Make puede decidir el canal directamente (override de la deteccion automatica)
   canal: z.enum(['meta_ads', 'google_ads', 'tiktok_ads', 'organico', 'chatgpt_ia', 'directo', 'referido', 'whatsapp']).optional(),
   // Asignacion explicita desde Make (saltea round-robin si vienen).
@@ -85,7 +93,7 @@ export const listLeadsSchema = z.object({
   // Filtro rapido, el mismo que las pestañas del listado (#132). Se valida
   // como enum porque su valor elige un fragmento de SQL: cerrado por
   // construccion, no por confianza.
-  qf: z.enum(['overdue', 'today', 'tomorrow', 'week', 'no-reminder', 'no-contact', 'urgent', 'sin-revisar']).optional(),
+  qf: z.enum(['overdue', 'today', 'tomorrow', 'week', 'no-reminder', 'no-contact', 'urgent', 'sin-revisar', 'sin-gestora', 'sin-actividad']).optional(),
   // Orden: recent = cronológico puro (DEFAULT). dir invierte asc/desc.
   sort: z.enum(['value', 'recent', 'urgency', 'recent_value']).optional(),
   dir: z.enum(['asc', 'desc']).optional(),

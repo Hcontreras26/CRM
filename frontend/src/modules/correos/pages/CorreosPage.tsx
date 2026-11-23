@@ -44,10 +44,10 @@ const PESTANAS = [
 ] as const;
 
 const COLOR: Record<string, string> = {
-  enviado: 'text-emerald-600 dark:text-emerald-400',
-  recibido: 'text-sky-600 dark:text-sky-400',
-  bloqueado: 'text-amber-600 dark:text-amber-400',
-  fallido: 'text-red-600 dark:text-red-400',
+  enviado: 'text-success',
+  recibido: 'text-info',
+  bloqueado: 'text-warning',
+  fallido: 'text-destructive',
 };
 
 const ROTULO: Record<string, string> = {
@@ -267,7 +267,7 @@ export default function CorreosPage() {
 
             <div className="p-4 space-y-3">
               {abierto.error && (
-                <p className="text-xs text-red-600 dark:text-red-400">{abierto.error}</p>
+                <p className="text-xs text-destructive">{abierto.error}</p>
               )}
 
               {abierto.cuerpo_html ? (
