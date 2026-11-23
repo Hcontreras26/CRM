@@ -39,11 +39,11 @@ function cuandoBonito(iso: string): string {
 /** El color de cada fuente, para reconocerla sin leer. */
 const COLOR: Record<string, string> = {
   ficha: 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
-  documento: 'bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300',
-  usuario: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
-  tarea: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
+  documento: 'bg-primary/10 text-primary',
+  usuario: 'bg-success-soft text-success-soft-foreground',
+  tarea: 'bg-warning-soft text-warning-soft-foreground',
   webhook: 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300',
-  error: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
+  error: 'bg-destructive-soft text-destructive-soft-foreground',
 };
 
 export default function RegistroPage() {
@@ -241,8 +241,8 @@ export default function RegistroPage() {
       {/* Una fuente que no se puede leer se DICE. Sin esto, «no pasó nada» y
           «falta una migración» se leen igual. */}
       {sinTabla.length > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm">
-          <WarningCircle size={16} weight="fill" className="text-amber-600 mt-0.5 shrink-0" />
+         <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-sm"> 
+          <WarningCircle size={16} weight="fill" className="text-warning mt-0.5 shrink-0" />    
           <span>
             No se está mirando{' '}
             <strong>{sinTabla.map((n) => fuentes.find((f) => f.nombre === n)?.titulo || n).join(', ')}</strong>:
@@ -257,8 +257,8 @@ export default function RegistroPage() {
           Cero filas es justo lo que se espera ver a veces, por eso no lo vio
           nadie. Ahora se dice. */}
       {fallaron.length > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-red-200/60 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm">
-          <XCircle size={16} weight="fill" className="text-red-600 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive-soft px-3 py-2 text-sm">
+          <XCircle size={16} weight="fill" className="text-destructive mt-0.5 shrink-0" />
           <span>
             No se ha podido leer{' '}
             <strong>{fallaron.map((n) => fuentes.find((f) => f.nombre === n)?.titulo || n).join(', ')}</strong>.
@@ -268,8 +268,8 @@ export default function RegistroPage() {
       )}
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200/60 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm">
-          <XCircle size={16} weight="fill" className="text-red-600 shrink-0" /> {error}
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive-soft px-3 py-2 text-sm">
+         <XCircle size={16} weight="fill" className="text-destructive shrink-0" /> {error}
         </div>
       )}
 
@@ -301,8 +301,8 @@ export default function RegistroPage() {
               <tbody>
                 {filas.map((f) => (
                   <tr key={f.id}
-                    className={`border-t border-border align-top ${f.ok ? '' : 'bg-red-50/50 dark:bg-red-950/10'}`}>
-                    <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap"
+                    className={`border-t border-border align-top ${f.ok ? '' : 'bg-destructive-soft/50'}`}>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap"
                       title={new Date(f.cuando).toLocaleString('es-ES')}>
                       {cuandoBonito(f.cuando)}
                     </td>
@@ -321,8 +321,8 @@ export default function RegistroPage() {
                     </td>
                     <td className="px-3 py-2">
                       <span className="flex items-start gap-1.5">
-                        {!f.ok && <XCircle size={14} weight="fill" className="text-red-600 mt-0.5 shrink-0" />}
-                        <span>{f.resumen}</span>
+                        {!f.ok && <XCircle size={14} weight="fill" className="text-destructive mt-0.5 shrink-0" />}
+                      <span>{f.resumen}</span>
                       </span>
                       {abierta === f.id && f.detalle && (
                         <pre className="mt-1.5 text-[11px] bg-muted rounded-md p-2 overflow-x-auto">

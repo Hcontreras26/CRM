@@ -95,7 +95,7 @@ function ConvocatoriaCard({ product }: { product: Product }) {
   const tono = alerta
     ? 'bg-destructive/10 border-destructive/40'
     : aviso
-      ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-900'
+    ? 'bg-warning-soft border-warning/30'
       : 'bg-card border-border';
 
   return (
@@ -105,7 +105,7 @@ function ConvocatoriaCard({ product }: { product: Product }) {
         <span className="font-semibold uppercase tracking-wide text-[11px] text-muted-foreground">
           Convocatoria
         </span>
-        {(alerta || aviso) && <Warning size={14} weight="fill" className={alerta ? 'text-destructive' : 'text-amber-600'} />}
+        {(alerta || aviso) && <Warning size={14} weight="fill" className={alerta ? 'text-destructive' : 'text-warning'} />}  
       </div>
 
       {llevaPlazas && (
@@ -206,7 +206,7 @@ export default function ProductDetailPage() {
           <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground mb-1">
             {product.categoria_nombre && <span className="px-2 py-0.5 bg-muted rounded">{product.categoria_nombre}</span>}
             {product.subcategoria_nombre && <span className="px-2 py-0.5 bg-muted rounded">{product.subcategoria_nombre}</span>}
-            {product.source_type && <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded">{product.source_type}</span>}
+            {product.source_type && <span className="px-2 py-0.5 bg-info-soft text-info-soft-foreground rounded">{product.source_type}</span>}    
             {product.sku && <span className="font-mono">SKU: {product.sku}</span>}
           </div>
           <h2 className="text-xl sm:text-2xl font-semibold">{product.nombre}</h2>
@@ -256,11 +256,11 @@ export default function ProductDetailPage() {
 
       {/* SECCIONES extraídas por scraper / ACF */}
       {sectionsWithContent.length === 0 && otrasSecciones.length === 0 ? (
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-4 text-sm">
-          <p className="text-amber-800 dark:text-amber-300">
+        <div className="bg-warning-soft border border-warning/30 rounded-lg p-4 text-sm">
+          <p className="text-warning-soft-foreground">
             Este producto no tiene secciones extraídas (Módulos, FAQs, Profesores, etc.).
           </p>
-          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+          <p className="text-xs text-warning-soft-foreground mt-1">
             Configura el scraper y el mapeo en <Link to="/productos/woocommerce" className="underline font-semibold">WooCommerce → Mapeo</Link> y vuelve a importar.
           </p>
         </div>
