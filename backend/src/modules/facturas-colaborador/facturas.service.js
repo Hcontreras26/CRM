@@ -581,7 +581,8 @@ function horaDeMadrid(fecha) {
 }
 
 const AREA_ES = {
-  soporte: 'Soporte', desarrollo: 'Desarrollo', wordpress: 'WordPress', seo: 'SEO', contenido: 'Contenido', otra: 'Otra',
+  soporte: 'Soporte', desarrollo: 'Desarrollo', wordpress: 'WordPress', seo: 'SEO', contenido: 'Contenido',
+  redaccion: 'Redacción de cursos', otra: 'Otra',
 };
 
 /**
