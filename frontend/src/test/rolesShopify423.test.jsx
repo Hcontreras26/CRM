@@ -93,8 +93,10 @@ describe('<PermisosDePersona>', () => {
       excepciones: { 'diplomas.view': true },
       rolAMedida: null,
       rolesAMedida: [],
-      registro: [{ id: 1, cuando: '2026-10-21T10:00:00Z', quien_nombre: 'Diego', clave: 'diplomas.view', antes: 'como su rol (no)', despues: 'sí', origen: 'ficha_usuario' }],
+      registro: [{ id: 1, cuando: '2026-10-21T10:00:00Z', quien_nombre: 'Diego', clave: 'diplomas.view', nombre: 'Diplomas · Ver diplomas', antes: 'como su rol (no)', despues: 'sí', origen: 'ficha_usuario' }],
       puedeEditar: true,
+      // #937: quien edita no tiene «Guardar claves» ni «Ver claves».
+      misPermisos: ['leads.view', 'diplomas.view', 'users.excepciones'],
     });
     api.guardarExcepciones.mockResolvedValue({});
   });
@@ -106,7 +108,33 @@ describe('<PermisosDePersona>', () => {
     expect(screen.getByText('Excepción suya: dado a mano')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Buscar un permiso'), { target: { value: 'ver prospectos' } });
     expect(screen.getByText('Su rol: Gestora')).toBeTruthy();
-    expect(screen.getByText(/Diego · diplomas.view: como su rol \(no\) → sí/)).toBeTruthy();
+    // #937: el registro, con el nombre del permiso y no su clave.
+    const apunte = document.querySelector('[data-registro] li');
+    expect(apunte.textContent).toMatch(/Diego · Diplomas · Ver diplomas: como su rol \(no\) → sí/);
+  });
+
+  it('#937 · «Sí» sale apagado, con el porqué, en lo que quien edita no tiene', async () => {
+    render(<PermisosDePersona userId={7} onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Permisos de Laura')).toBeTruthy());
+    fireEvent.change(screen.getByLabelText('Buscar un permiso'), { target: { value: 'ver claves' } });
+    const si = within(screen.getByRole('radiogroup', { name: 'Excepción para Ver claves' })).getByRole('radio', { name: 'Sí' });
+    expect(si.disabled).toBe(true);
+    expect(si.title).toBe('No lo puedes dar: tú no lo tienes');
+    // Y a la vista, no solo en el `title` (que un botón apagado no enseña).
+    expect(si.closest('li').querySelector('[data-motivo-si]').textContent).toMatch(/No lo puedes dar: tú no lo tienes/);
+    fireEvent.change(screen.getByLabelText('Buscar un permiso'), { target: { value: 'ver diplomas' } });
+    // Lo que sí tiene se puede dar (aquí ya está dado: «Sí» marcado y activo).
+    expect(within(screen.getByRole('radiogroup', { name: 'Excepción para Ver diplomas' })).getByRole('radio', { name: 'Sí' }).disabled).toBe(false);
+  });
+
+  it('#937 · en solo lectura dice por qué', async () => {
+    api.getFicha.mockResolvedValueOnce({
+      ...(await api.getFicha()), puedeEditar: false, misPermisos: null,
+      motivo: 'Los permisos de un admin los cambia el superadmin.',
+    });
+    render(<PermisosDePersona userId={7} onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Los permisos de un admin los cambia el superadmin.')).toBeTruthy());
+    expect(screen.queryByRole('radiogroup')).toBeNull();
   });
 
   it('volver a «Como su rol» quita la excepción', async () => {
