@@ -275,6 +275,8 @@ CAMBIOS_POR_DATOS.push({
  * antes y las de ahora, y la foto del menú (`menuPorPerfil423.test.jsx`) solo
  * deja pasar estas diferencias. `+` aparece, `-` desaparece.
  */
+const PRODUCTOS_PARA_TODOS = ['+ Académico › Productos', '+ Académico › Productos por categoría'];
+
 export const CAMBIOS_DE_MENU = [
   {
     id: 'menu-mi-factura-con-ficha',
@@ -638,6 +640,25 @@ export const CAMBIOS_DE_MENU = [
       'Académico › Cursos de Moodle': 'GET /api/moodle/campus/:id/productos-cursos',
     },
     aprobadoPor: 'Pendiente de Diego (CRM#957)',
+  },
+  {
+    id: 'menu-por-permiso-productos',
+    que: 'El menú decide por PERMISO, no por rol (#423: «el rol solo vale para el ALCANCE»): una entrada que pide `permiso` sale a quien lo tiene, sea cual sea su rol. Una gestora con permisos de admin dados como excepción ve sus pantallas. A una gestora normal solo le aparecen «Productos» y «Productos por categoría» (su rol trae `products.view` de serie); las demás entradas cuyo permiso trae de serie su rol siguen por rol (`seguirPorRol`) hasta que Diego decida.',
+    motivo: 'Diego (23/11): «los productos los ven todos, de todos». Una gestora con permisos de admin como excepción perdía «Productos» aunque tuviera `products.view`. No cambia el acceso: `GET /api/products` ya respondía a la gestora (ahora, además, de cualquier campus).',
+    perfiles: {
+      'gestora': PRODUCTOS_PARA_TODOS,
+      'gestora+tutor': PRODUCTOS_PARA_TODOS,
+      'gestora con factura_manager': PRODUCTOS_PARA_TODOS,
+      'gestora con editar_fechas_factura': PRODUCTOS_PARA_TODOS,
+      'gestora con usa_mcp': PRODUCTOS_PARA_TODOS,
+      'gestora con diplomas.view': PRODUCTOS_PARA_TODOS,
+      'gestora con tasks.close': PRODUCTOS_PARA_TODOS,
+    },
+    rutas: {
+      'Académico › Productos': 'GET /api/products/',
+      'Académico › Productos por categoría': 'GET /api/products/',
+    },
+    aprobadoPor: 'Pendiente de Diego (menú por permiso)',
   },
 ];
 

@@ -259,11 +259,11 @@ export const SECCIONES_DE_ANTES = [
     salvoTipo: ['ia'],
     icon: Funnel,
     items: [
-      { label: 'Email', to: '/secuencias-email', detail: 'Correos automáticos', icon: Envelope, roles: ['superadmin', 'admin'], module: 'email_sequences', permiso: 'email_sequences.view' },
-      { label: 'Formularios', to: '/captacion', detail: 'Formularios de la web', icon: Globe, roles: ['superadmin', 'admin'], module: 'forms', permiso: 'forms.view' },
+      { label: 'Email', seguirPorRol: true, to: '/secuencias-email', detail: 'Correos automáticos', icon: Envelope, roles: ['superadmin', 'admin'], module: 'email_sequences', permiso: 'email_sequences.view' },
+      { label: 'Formularios', seguirPorRol: true, to: '/captacion', detail: 'Formularios de la web', icon: Globe, roles: ['superadmin', 'admin'], module: 'forms', permiso: 'forms.view' },
       // Make y Webhooks estaban aquí: desde la #690, en Conexión › Webhooks. Lo
       // que Webhooks pedía además (`forms.view`, #842) va con su parte y su pestaña.
-      { label: 'Widget web', to: '/captacion/whatsapp', detail: 'El botón de la web', icon: WhatsappLogo, roles: ['superadmin', 'admin', 'soporte'], permiso: 'widget.view' },
+      { label: 'Widget web', seguirPorRol: true, to: '/captacion/whatsapp', detail: 'El botón de la web', icon: WhatsappLogo, roles: ['superadmin', 'admin', 'soporte'], permiso: 'widget.view' },
       // Campañas y Tráfico orgánico («Próximamente», #216) salen del menú hasta
       // que tengan pantalla (#534, parte 3; `menu-sin-proximamente-534`).
     ],
@@ -338,7 +338,7 @@ export const SECCIONES_DE_ANTES = [
       // balance. Antes eran dos pantallas de resumen del mismo proyecto, que
       // es como se llega a que digan cifras distintas.
       { label: 'Resumen', to: '/finanzas', detail: 'Lo que entra y lo que se va', icon: ChartBar, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'accounting.view' },
-      { label: 'Cobros', to: '/finanzas/pagos-stripe', detail: 'Lo que ha entrado', icon: CreditCard, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'stripe.view' },
+      { label: 'Cobros', seguirPorRol: true, to: '/finanzas/pagos-stripe', detail: 'Lo que ha entrado', icon: CreditCard, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'stripe.view' },
       { label: 'Suscriptores', to: '/clientes', detail: 'Quien paga', icon: UserCheck, projectType: 'ia', permiso: 'clients.view' },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       { label: 'Conexión', to: '/finanzas/integraciones', detail: 'Stripe y Supabase', icon: PlugsConnected, roles: ['superadmin', 'admin'], projectType: 'ia', permiso: 'integrations.view' },
@@ -354,15 +354,15 @@ export const SECCIONES_DE_ANTES = [
     items: [
       { label: 'Dashboard', to: '/finanzas', detail: 'Caja del mes', icon: ChartBar, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'accounting.view' },
       { label: 'Ventas', to: '/finanzas/ventas', detail: 'Registrar y consultar', icon: Receipt, module: 'conversions', statusTag: 'Pruebas', permiso: 'ventas.view' },
-      { label: 'Ingresos', to: '/finanzas/ingresos', detail: 'Entradas de dinero', icon: TrendUp, roles: ['superadmin', 'admin'], module: 'accounting_income', statusTag: 'Pruebas', permiso: 'conversions.view' },
-      { label: 'Conversiones', to: '/finanzas/conversiones', detail: 'Los que compraron', icon: CurrencyEur, roles: ['superadmin', 'admin'], module: 'conversions', statusTag: 'Pruebas', permiso: 'conversions.view' },
+      { label: 'Ingresos', seguirPorRol: true, to: '/finanzas/ingresos', detail: 'Entradas de dinero', icon: TrendUp, roles: ['superadmin', 'admin'], module: 'accounting_income', statusTag: 'Pruebas', permiso: 'conversions.view' },
+      { label: 'Conversiones', seguirPorRol: true, to: '/finanzas/conversiones', detail: 'Los que compraron', icon: CurrencyEur, roles: ['superadmin', 'admin'], module: 'conversions', statusTag: 'Pruebas', permiso: 'conversions.view' },
       { label: 'Egresos', to: '/finanzas/egresos', detail: 'Gastos y salidas', icon: TrendDown, roles: ['superadmin', 'admin'], module: 'accounting_expenses', statusTag: 'Pruebas', permiso: 'expenses.view' },
       { label: 'Cuentas por cobrar', to: '/finanzas/por-cobrar', detail: 'Pendiente de cobro', icon: Wallet, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'accounting.por_cobrar' },
       { label: 'Cuentas por pagar', to: '/finanzas/por-pagar', detail: 'Pendiente de pago', icon: Receipt, roles: ['superadmin', 'admin'], module: 'accounting_payable', statusTag: 'Pruebas', permiso: 'accounts_payable.view' },
       { label: 'Comisiones', salvoTipo: ['ia'], to: '/finanzas/comisiones', detail: 'Del equipo comercial', icon: HandCoins, roles: ['superadmin', 'admin'], module: 'commissions', statusTag: 'Pruebas', permiso: 'commissions.view' },
       { label: 'Nóminas', salvoTipo: ['ia'], to: '/finanzas/nominas', detail: 'Pagos al equipo', icon: Calculator, roles: ['superadmin', 'admin'], module: 'payroll', statusTag: 'Pruebas', permiso: 'payroll.view' },
-      { label: 'Pendientes de facturar', to: '/finanzas/pendiente-facturar', detail: 'Ventas sin factura', icon: WarningCircle, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'facturas.view' },
-      { label: 'Pagos Stripe', to: '/finanzas/pagos-stripe', detail: 'Cobros por Stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'stripe.view' },
+      { label: 'Pendientes de facturar', seguirPorRol: true, to: '/finanzas/pendiente-facturar', detail: 'Ventas sin factura', icon: WarningCircle, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'facturas.view' },
+      { label: 'Pagos Stripe', seguirPorRol: true, to: '/finanzas/pagos-stripe', detail: 'Cobros por Stripe', icon: CreditCard, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'stripe.view' },
       // Registro automático de cobros (#766): solo en /testeo y en local hasta que
       // Diego lo apruebe. Además, cada parte va con su interruptor del servidor.
       ...(SOLO_EN_PRUEBAS
@@ -374,7 +374,7 @@ export const SECCIONES_DE_ANTES = [
       // Es de administración: admin y super admin, cada uno en sus campus. Sus
       // pestañas, cada una con su permiso en `SIN_ENTRADA`; la entrada, con el de
       // cualquiera de ellas (basta uno): los cargos de Stripe (#906) piden `stripe.edit`.
-      { label: 'Conciliación', to: '/finanzas/conciliacion', detail: 'Facturas, cobros y cargos sin enlazar', icon: ArrowsLeftRight, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: ['facturas.gestionar', 'stripe.edit'] },
+      { label: 'Conciliación', seguirPorRol: true, to: '/finanzas/conciliacion', detail: 'Facturas, cobros y cargos sin enlazar', icon: ArrowsLeftRight, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: ['facturas.gestionar', 'stripe.edit'] },
       { label: 'Facturación', to: '/finanzas/facturas', detail: 'Facturas y series', icon: Receipt, roles: ['superadmin', 'admin', 'soporte', 'gestor'], permiso: 'facturas.emitir', oPermiso: 'facturas.emitir' },
       // Facturas de colaboradores (#202): en evaluación, solo en /testeo y en local.
       { label: 'Facturas de colaboradores', to: '/finanzas/facturas-colaboradores', detail: 'Las que suben cada mes', icon: Receipt, roles: ['superadmin', 'admin'], permiso: 'facturas_colaborador.ver_todas' },
@@ -387,7 +387,7 @@ export const SECCIONES_DE_ANTES = [
     items: [
       { label: 'Reportes', to: '/informes', detail: 'Números descargables', icon: ChartLineUp, roles: ['superadmin', 'admin'], module: 'reports', permiso: 'reports.view' },
       // Por que no compran: enviados, respondidos y motivos (#170).
-      { label: 'Feedback', to: '/informes/feedback', detail: 'Por qué no compran', icon: ChatCircleText, roles: ['superadmin', 'admin'], module: 'reports', permiso: 'feedback.view' },
+      { label: 'Feedback', seguirPorRol: true, to: '/informes/feedback', detail: 'Por qué no compran', icon: ChatCircleText, roles: ['superadmin', 'admin'], module: 'reports', permiso: 'feedback.view' },
       // Las pantallas de IA del CRM (#30) —Análisis IA, Pregunta a tus datos y
       // Chat IA— están APAGADAS (Diego, 10/11/2026: se usa Claude por el MCP).
       // Se encienden las tres juntas con `PANTALLAS_IA` (`shared/lib/pantallasIA.js`).
@@ -791,11 +791,19 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
     if (item.module && modules && modules[item.module] === false) return false;
     return true;
   }
-  // El project manager ve todo (Diego, 04/11): cada pantalla cuyo permiso tiene,
-  // aunque su rol no esté en `roles` (que dicen a quién se le enseña de serie).
-  // Lo que no pide permiso sigue la regla de siempre. Lo que ve dentro, de sus
-  // campus: lo recorta el servidor.
-  if (es('project_manager') && item.permiso && !item.comingSoon) {
+  // El menú, por permiso y no por rol (#423: «el rol solo vale para el ALCANCE»).
+  // Una entrada que pide `permiso` sale a quien lo TIENE —ya comprobado arriba—,
+  // sea cual sea su rol: una gestora con permisos de admin dados como excepción
+  // ve sus pantallas (Productos con `products.view`, por ejemplo). Los `roles`
+  // de la entrada solo deciden a quién se le enseña de serie cuando la entrada
+  // NO pide permiso. Antes esto era solo del project manager (Diego, 04/11).
+  // Lo que ve dentro, de sus campus o solo lo suyo: lo recorta el servidor.
+  //
+  // `seguirPorRol` (pendiente de Diego): entradas cuyo permiso trae DE SERIE el
+  // rol de gestora. Con la regla de arriba le saldrían a todas las gestoras;
+  // hasta que Diego decida, siguen saliendo solo a sus `roles` (o con `oPermiso`).
+  // El project manager las ve como antes, por su permiso.
+  if (item.permiso && !item.comingSoon && (!item.seguirPorRol || es('project_manager'))) {
     if (item.module && modules && modules[item.module] === false) return false;
     return true;
   }
