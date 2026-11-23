@@ -12841,7 +12841,7 @@
    },
    {
     "tipo": "alcance",
-    "nombre": "projectAccess"
+    "nombre": "campusDelCatalogo"
    }
   ],
   "puertas": []
@@ -12941,7 +12941,7 @@
    },
    {
     "tipo": "alcance",
-    "nombre": "projectAccess"
+    "nombre": "campusDelCatalogo"
    }
   ],
   "puertas": []
@@ -12967,7 +12967,7 @@
    },
    {
     "tipo": "alcance",
-    "nombre": "projectAccess"
+    "nombre": "campusDelCatalogo"
    }
   ],
   "puertas": []
@@ -13123,7 +13123,7 @@
    },
    {
     "tipo": "alcance",
-    "nombre": "projectAccess"
+    "nombre": "campusDelCatalogo"
    }
   ],
   "puertas": []
