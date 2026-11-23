@@ -22,7 +22,13 @@ const en = (nombre) => { const u = new URL(process.env.DATABASE_URL); u.pathname
 // «borrar» mira cada matrícula en la base donde se metió: aquí, una base aparte con
 // solo la tabla de avisos, que hace de «la otra base».
 const DESTINO = `crm_630_destino_${base}`;
-let poolDestino;
+// Una conexión suelta (pg.Client) y no un pg.Pool: `pool.end()` da por cerrado el
+// pool antes de que su conexión se cierre de verdad, y el DROP DATABASE … WITH
+// (FORCE) del final la mataba aún abierta. Postgres le mandaba un 57P01
+// («terminating connection due to administrator command») que nadie escuchaba y
+// vitest lo contaba como error sin capturar: la tanda entera en rojo con todas las
+// pruebas en verde. `client.end()` sí espera a que la conexión se cierre.
+let baseDestino;
 
 // El script corre como lo correría Diego: un node limpio, sin lo que vitest deja en el
 // entorno (NODE_OPTIONS, VITEST_*).
@@ -51,8 +57,11 @@ let leadSinCorreo;
 let adminDelCampus;
 beforeAll(async () => {
   await pool.query(`CREATE DATABASE ${DESTINO}`);
-  poolDestino = new pg.Pool({ connectionString: en(DESTINO), max: 1 });
-  await poolDestino.query('CREATE TABLE certifex_solicitudes (matricula_id BIGINT PRIMARY KEY, centro TEXT)');
+  baseDestino = new pg.Client({ connectionString: en(DESTINO) });
+  // Si aun así la base se va con la conexión abierta, el aviso se escucha aquí.
+  baseDestino.on('error', (e) => { if (e.code !== '57P01') console.error('[630] base de destino:', e.message); });
+  await baseDestino.connect();
+  await baseDestino.query('CREATE TABLE certifex_solicitudes (matricula_id BIGINT PRIMARY KEY, centro TEXT)');
   proyecto = (await pool.query(
     `INSERT INTO projects (nombre, slug, webhook_api_key) VALUES ('Zpropia630', $1, 'whk_test') RETURNING id`, [`zpropia630-${base}`])).rows[0].id;
   // Un admin activo con este campus: la campana de un aviso movido tiene que llegarle.
@@ -72,7 +81,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await pool.query('DELETE FROM certifex_solicitudes WHERE matricula_id >= $1 AND matricula_id < $2', [base, base + 20]);
   await pool.query('DELETE FROM leads WHERE id = ANY($1::int[])', [[lead, leadSinCorreo]]);
-  await poolDestino?.end();
+  // Primero se cierra la conexión (y se espera), luego se borra la base.
+  await baseDestino?.end().catch(() => {});
   await pool.query(`DROP DATABASE IF EXISTS ${DESTINO} WITH (FORCE)`);
   await pool.query('DELETE FROM user_projects WHERE project_id = $1', [proyecto]);
   await pool.query('DELETE FROM projects WHERE id = $1', [proyecto]);
@@ -225,6 +235,11 @@ describe('avisos-de-otro-crm-630 (#630)', () => {
       expect(await campanas()).toHaveLength(0);
 
       // Con el enlace de ISEIE (allí Diplomas no cuelga de «/clientes»).
+      // Los super admin activos, ANTES de que suene: otra prueba que corre a la vez
+      // puede crear (o quitar) uno mientras tanto (CI del 23/11: «expected [2, 1]
+      // to include 196»). Se comprueban los que estaban antes y siguen después.
+      const superadmins = async () => (await pool.query(`SELECT id FROM users WHERE active AND role = 'superadmin'`)).rows.map((u) => u.id);
+      const saAntes = await superadmins();
       const antes = Date.now();
       const r = correr(['meter', '--desde-fichero', desde, '--aplicar', '--a-fichero', join(dir, 'm-campana.json'), '--con-campana',
         '--enlace-diplomas', '/matriculas/diplomas']);
@@ -241,8 +256,8 @@ describe('avisos-de-otro-crm-630 (#630)', () => {
       expect(cinco.created_at.getTime()).toBeGreaterThanOrEqual(antes - 5000);
       expect(cinco.metadata).toMatchObject({ matriculaId: base + 5, centro: 'ZPROPIA630', leadId: lead, movidoDeOtroCrm: true, llegoAlOtroCrm: '2026-10-20T08:01:00.000Z' });
       // A quien le habría sonado: los super admin activos y el admin de este campus.
-      const { rows: sas } = await pool.query(`SELECT id FROM users WHERE active AND role = 'superadmin'`);
-      for (const u of sas) expect(cinco.target_user_ids).toContain(u.id);
+      const saDespues = new Set(await superadmins());
+      for (const id of saAntes.filter((x) => saDespues.has(x))) expect(cinco.target_user_ids).toContain(id);
       expect(cinco.target_user_ids).toContain(adminDelCampus);
       expect(seisPide).toMatchObject({ title: 'Diploma: Alumna Seis lo pide', link_path: '/matriculas/diplomas' });
       expect(seisPide.message).toMatch(/Nombre para el diploma: «Alumna Seis»\./);
@@ -268,7 +283,7 @@ describe('avisos-de-otro-crm-630 (#630)', () => {
     // base + 14: en la otra base está, pero con otro campus.
     await insertar(base + 13, 'ZAJENA630');
     await insertar(base + 14, 'ZAJENA630');
-    await poolDestino.query(
+    await baseDestino.query(
       `INSERT INTO certifex_solicitudes (matricula_id, centro) VALUES ($1, 'ZAJENA630'), ($2, 'zajena630'), ($3, 'ZAJENA630'), ($4, 'OTRO630')`,
       [base, base + 8, base + 9, base + 14]);
     const lista = escribir('metidos-aqui.json', { paso: 'meter', origen: BASE_AQUI, destino: DESTINO, avisos: [
@@ -355,7 +370,7 @@ describe('avisos-de-otro-crm-630 (#630)', () => {
       expect(await fila(base + 8)).toBeUndefined();
       expect(await quedan()).toEqual([c.deOtroTipo, c.sinMeter, c.propia, c.noEstaAlli, c.otroCampus].sort());
       // La otra base, intacta (se abre en solo lectura).
-      expect((await poolDestino.query('SELECT COUNT(*)::int AS n FROM certifex_solicitudes')).rows[0].n).toBe(4);
+      expect((await baseDestino.query('SELECT COUNT(*)::int AS n FROM certifex_solicitudes')).rows[0].n).toBe(4);
     } finally {
       await pool.query('DELETE FROM admin_notifications WHERE id = ANY($1::int[])', [Object.values(c)]);
     }

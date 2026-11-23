@@ -560,11 +560,12 @@ const G_TARGETS = {
 };
 
 export default function AppLayout() {
-  const { permissions } = useAuth();
+  const { permissions, user } = useAuth();
   // Quien no tiene WhatsApp —el colaborador (QA del 07/10), el tutor (QA del
   // 22/10)…— recibe un 403 del servidor, y estos avisos preguntaban cada pocos
   // segundos. Se decide con el mismo criterio que el servidor: su permiso (#423).
-  const sinWhatsapp = !tieneWhatsapp(permissions);
+  // Y la casilla «usa WhatsApp» de su ficha (23/11): apagada, tampoco.
+  const sinWhatsapp = !tieneWhatsapp(permissions, user);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === '1'; } catch { return false; }

@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import RedirigirAWebhooks from './modules/webhooks/components/RedirigirAWebhooks';
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
+// `lazy` que recarga UNA vez si la pieza ya no existe tras un despliegue (23/11).
+import { lazyConRecarga as lazy } from '@/shared/lib/piezaNueva';
 import { useProjectContext } from './contexts/ProjectContext';
 import { tituloDeRuta } from './shared/lib/rutasTitulos';
 
