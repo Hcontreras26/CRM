@@ -118,6 +118,7 @@ import { startVigilanteCatalogoScheduler } from './jobs/vigilanteCatalogoSchedul
 import { startLeadSinTocarScheduler } from './jobs/leadSinTocarScheduler.js';
 import { startSuscripcionesPlazosScheduler } from './jobs/suscripcionesPlazosScheduler.js';
 import { startLinksPagoCaducidadScheduler } from './jobs/linksPagoCaducidadScheduler.js';
+import { startLinksPagoExternosScheduler } from './jobs/linksPagoExternosScheduler.js';
 import { startCobroAutomaticoScheduler } from './jobs/cobroAutomaticoScheduler.js';
 import { startLinksPagoSeguimientoScheduler } from './jobs/linksPagoSeguimientoScheduler.js';
 import { startCursosPendientesScheduler } from './jobs/cursosPendientesScheduler.js';
@@ -584,6 +585,8 @@ if (process.env.NODE_ENV !== 'test') {
     if (facturasColaboradorActivas()) startFacturasColaboradorAvisosScheduler();
     // Links de pago (#680, fase 2): desactivar en Stripe los que caducan sin pagar.
     if (linksPagoActivos()) startLinksPagoCaducidadScheduler();
+    // Los links creados directamente en Stripe (CRM#1019): recogerlos y, si su aviso no llegó, su cobro.
+    if (linksPagoActivos()) startLinksPagoExternosScheduler();
     // Cobro automático de las cuotas (309): el reintento y el repaso del plan en Stripe.
     if (cobroAutomaticoActivo()) startCobroAutomaticoScheduler();
     // Seguimiento de los links sin pagar (CRM#984): aperturas, aviso a la gestora y recordatorios.
