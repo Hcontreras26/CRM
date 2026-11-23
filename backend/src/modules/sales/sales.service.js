@@ -172,6 +172,8 @@ export async function createSale(data, requestUser, { comprobarRepetida: mirarRe
       fecha_conversion: data.fecha_pago,
       fecha_compromiso_pago: importePagado < data.importe_total ? data.fecha_pago : null,
       notas_pago: data.notas || null,
+      // Inicio del curso (#767): con ella se programa la matrícula en Moodle.
+      ...(data.fecha_inicio ? { fecha_inicio: data.fecha_inicio } : {}),
       ...(forzar ? { forzar: true } : {}),
     },
     requestUser?.userId || null,
