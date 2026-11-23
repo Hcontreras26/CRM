@@ -407,6 +407,11 @@ export async function stats(req, res, next) {
       // País de entrada (#221). Lo que no sea un código ni `sin_pais` se ignora.
       paisEntrada: leerFiltroPais(req.query.paisEntrada),
       search: req.query.search || null,
+      // Mismo criterio que la lista: si piden un status, la tarjeta cuenta lo
+      // mismo que la tabla (revisión de Diego al #868).
+      status: req.query.status || null,
+      includeConverted: req.query.includeConverted === 'true',
+      conConversion: req.query.conConversion === 'true',
     };
     // SEGURIDAD: gestor solo ve sus propios stats, ignoramos responsableId del query.
     const alcance = await alcanceComercial(req.user);

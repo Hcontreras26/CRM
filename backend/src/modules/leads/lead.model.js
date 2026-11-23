@@ -1127,7 +1127,7 @@ export async function contarFiltrosRapidos({ projectId, projectIds, responsableI
     params.push(comoIds(responsableId));
   }
   // Igual que el listado: los convertidos no cuentan salvo que se pidan.
- if (!includeConverted) cond.push(NO_ES_CLIENTE());
+  if (!includeConverted) cond.push(NO_ES_CLIENTE());
 
   const cuenta = (clave) => `COUNT(*) FILTER (WHERE ${FILTROS_RAPIDOS[clave]})::int`;
   const { rows } = await query(
@@ -1587,7 +1587,7 @@ export async function getTodaySummary({ userId, role, soloSuyo, alcanceIds, proj
   };
 }
 
-export async function getStats(projectId, { responsableId = null, dateFrom = null, dateTo = null, productId = null, canal = null, paisEntrada = null, search = null } = {}) {
+export async function getStats(projectId, { responsableId = null, dateFrom = null, dateTo = null, productId = null, canal = null, paisEntrada = null, search = null, status = null, includeConverted = false, conConversion = false } = {}) {
   // Los chips de stats deben reflejar los mismos filtros que el listado, no el
   // total global del proyecto. WHERE incremental igual que findAll.
   // `projectId` puede ser una LISTA de campus (#224): el Dashboard con una
@@ -1612,11 +1612,24 @@ export async function getStats(projectId, { responsableId = null, dateFrom = nul
   }
   if (paisEntrada) { extra.push(`${sqlPaisDelLead('')} = $${idx++}`); params.push(paisEntrada); }
   // La misma búsqueda que la lista (#591): sin acentos y el teléfono por cifras.
-  const busqueda = condicionDeBusqueda(search, { idx });
+   const busqueda = condicionDeBusqueda(search, { idx }); 
   if (busqueda) {
     extra.push(busqueda.sql);
     params.push(...busqueda.params);
     idx = busqueda.siguiente;
+  }
+  // Mismo criterio que findAll (revisión de Diego al #868): si piden un status
+  // concreto, la tarjeta cuenta exactamente lo mismo que la tabla — incluye a
+  // los convertidos con venta real. Si no, se excluyen como siempre, salvo que
+  // pidan lo contrario explícitamente (el Dashboard, que nunca filtra por status).
+  if (conConversion) {
+    extra.push(`EXISTS (SELECT 1 FROM conversions c WHERE c.lead_id = leads.id)`);
+  }
+  if (status) {
+    extra.push(`status = $${idx++}`);
+    params.push(status);
+  } else if (!includeConverted && !conConversion) {
+    extra.push(NO_ES_CLIENTE('leads'));
   }
   const where = extra.length ? ` AND ${extra.join(' AND ')}` : '';
   const { rows } = await query(
@@ -1631,8 +1644,8 @@ export async function getStats(projectId, { responsableId = null, dateFrom = nul
        COUNT(*) FILTER (WHERE status = 'proxima_convocatoria') as proxima_convocatoria,
        -- La misma condición que el filtro «Sin gestora» de Prospectos (#534).
        COUNT(*) FILTER (WHERE ${SIN_GESTORA('leads')}) as sin_asignar
-     FROM leads WHERE project_id = ANY($1::int[]) AND deleted_at IS NULL AND ${NO_ES_CLIENTE('leads')}${where}`,
+     FROM leads WHERE project_id = ANY($1::int[]) AND deleted_at IS NULL${where}`,
     params
   );
-  return rows[0];
+   return rows[0]; 
 }

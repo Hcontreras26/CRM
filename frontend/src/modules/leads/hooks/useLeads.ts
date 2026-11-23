@@ -302,7 +302,8 @@ export function useLeads(): UseLeadsResult {
         if (filterResponsable && filterResponsable !== 'unassigned') p.set('responsableId', filterResponsable);
         if (filterProducto) p.set('productId', filterProducto);
         if (dateFrom) p.set('dateFrom', dateFrom);
-        if (dateTo) p.set('dateTo', dateTo);
+        if (dateTo) p.set('dateTo', dateTo);        
+        if (filterEstado) p.set('status', filterEstado);
         const qs = p.toString();
         return qs ? `&${qs}` : '';
       };
