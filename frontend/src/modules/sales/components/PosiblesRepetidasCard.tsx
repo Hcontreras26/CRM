@@ -95,7 +95,7 @@ export default function PosiblesRepetidasCard({ projectId }: { projectId: number
               <ul className="divide-y divide-border">
                 {g.ventas.map((v) => (
                   <li key={v.id} className="px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <Link to={`/ventas/${v.id}`} className="text-primary hover:underline font-medium">Venta {v.id}</Link>
+                    <Link to={`/finanzas/ventas/${v.id}`} className="text-primary hover:underline font-medium">Venta {v.id}</Link>
                     <span className="text-muted-foreground">{v.fecha || ''}</span>
                     <span className="truncate max-w-[14rem]" title={v.email || undefined}>{v.alumno}</span>
                     <span className="tabular-nums">{formatCurrency(v.cobrado)} de {formatCurrency(v.total)}</span>

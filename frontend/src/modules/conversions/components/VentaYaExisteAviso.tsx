@@ -141,7 +141,7 @@ export default function VentaYaExisteAviso({ venta, onCancelar, onCrearIgualment
             {!!venta.otras && venta.otras > 0 && (
               <div className="text-xs text-warning">Y {venta.otras} venta{venta.otras === 1 ? '' : 's'} más del mismo programa.</div>
             )}
-            <Link to={`/ventas/${venta.id}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+            <Link to={`/finanzas/ventas/${venta.id}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
               Ver esa venta
             </Link>
           </div>

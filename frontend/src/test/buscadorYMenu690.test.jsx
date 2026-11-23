@@ -25,9 +25,12 @@ describe('la entrada del menú, con el permiso y el módulo de cada parte', () =
     expect(ve({ make: false }, 'make.view')).toBe(false);
   });
 
-  it('solo con «webhooks.view»: sigue al módulo de webhooks', () => {
-    expect(ve({ webhooks: true }, 'webhooks.view')).toBe(true);
-    expect(ve({ webhooks: false }, 'webhooks.view')).toBe(false);
+  // Desde #842 la parte de Webhooks pide también `forms.view` (la pantalla lee
+  // `/api/forms`), como el servidor.
+  it('solo con «webhooks.view» (y «forms.view»): sigue al módulo de webhooks', () => {
+    expect(ve({ webhooks: true }, 'webhooks.view', 'forms.view')).toBe(true);
+    expect(ve({ webhooks: false }, 'webhooks.view', 'forms.view')).toBe(false);
+    expect(ve({ webhooks: true }, 'webhooks.view')).toBe(false);
   });
 
   it('con Make y Webhooks apagados, quien ve transferencias la sigue viendo (no tenía módulo)', () => {
@@ -98,7 +101,7 @@ describe('los recientes de las direcciones de antes', () => {
   });
 
   it('con «Todos» (sin módulos) valen; con lo de detrás (`?new=1`) también', () => {
-    const can = conPermisos('webhooks.view');
+    const can = conPermisos('webhooks.view', 'forms.view');
     expect(recienteSigueValiendo('/conexion/webhooks/prospectos', { pages, busca, can, modules: undefined })).toBe(true);
     expect(recienteSigueValiendo('/conexion/webhooks/prospectos?new=1', { pages, busca, can, modules: undefined })).toBe(true);
   });

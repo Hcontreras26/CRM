@@ -11,6 +11,9 @@ vi.mock('@/shared/api/client', () => ({
 }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 vi.mock('@/modules/sales/components/RepartoVentaCard', () => ({ default: () => null }));
+// El botón «Crear link de pago» mira si los links están encendidos, que sale de
+// la sesión (useAuth); aquí no se mira. Igual que en CRM-ISEIE.
+vi.mock('@/shared/lib/linksPago', async (original) => ({ ...(await original()), useLinksPagoEncendidos: () => false }));
 // La ficha pide permisos (cargos de Stripe sin enlazar, #892; links de pago). Aquí no
 // se miran: sin ninguno, esas tarjetas no salen y la prueba no necesita sesión.
 vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: () => false, llevaEquipo: false }) }));

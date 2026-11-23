@@ -37,7 +37,7 @@ describe('aviso de venta ya existente', () => {
     expect(screen.getByText(/total 900,00\s€, pendiente 600,00\s€/)).toBeInTheDocument();
     const botones = screen.getAllByRole('button').map((b) => b.textContent);
     expect(botones.indexOf('Apuntar el cobro en esa venta')).toBeLessThan(botones.indexOf('Crear otra venta igualmente'));
-    expect(screen.getByText('Ver esa venta').getAttribute('href')).toBe('/ventas/41');
+    expect(screen.getByText('Ver esa venta').getAttribute('href')).toBe('/finanzas/ventas/41'); // /ventas/:id no existe en el 360
   });
 
   it('«Crear otra venta igualmente» llama a reenviar', async () => {
