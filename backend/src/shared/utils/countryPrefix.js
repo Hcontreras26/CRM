@@ -67,6 +67,10 @@ const PREFIX_TO_COUNTRY_NAME = {
   '594': 'Guyana Francesa', '595': 'Paraguay', '598': 'Uruguay',
   '502': 'Guatemala', '503': 'El Salvador', '504': 'Honduras',
   '505': 'Nicaragua', '506': 'Costa Rica', '507': 'Panamá',
+  // Dentro del +1, los que se distinguen por el codigo de area (23/11/2026:
+  // facturas de la Rep. Dominicana salian como «Estados Unidos / Canadá»).
+  '1809': 'República Dominicana', '1829': 'República Dominicana', '1849': 'República Dominicana',
+  '1787': 'Puerto Rico', '1939': 'Puerto Rico',
   '1': 'Estados Unidos / Canadá',
 };
 

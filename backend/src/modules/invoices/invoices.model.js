@@ -15,6 +15,7 @@ import { datosParaFacturar } from '../factura-automatica/factura-automatica.mode
 import { exigirFacturacionActiva } from '../facturacion-auditoria/facturacion-auditoria.pausa.js';
 // Lo emitido no se borra ni se cambia (CRM#793): se anula con su motivo.
 import { esFacturaEmitida, exigirNoEmitida } from './invoices.inmutable.js';
+import { phoneToCountryName } from '../../shared/utils/countryPrefix.js';
 
 /**
  * ¿El CIF del emisor es el marcador que sembro la migracion 102?
@@ -1107,7 +1108,7 @@ function clienteDeLaFactura(conv, df = null) {
       clienteDireccion: df.direccion || undefined,
       clienteCiudad: df.ciudad || undefined,
       clienteCp: df.codigo_postal || undefined,
-      clientePais: df.pais || 'España',
+      clientePais: paisClienteFactura(df.pais, conv),
       clienteEmail: df.email || conv.lead_email || null,
     };
   }
@@ -1118,7 +1119,7 @@ function clienteDeLaFactura(conv, df = null) {
     clienteDireccion: conv.direccion_fiscal || undefined,
     clienteCiudad: conv.ciudad_fiscal || undefined,
     clienteCp: conv.codigo_postal_fiscal || undefined,
-    clientePais: conv.pais_fiscal || 'España',
+    clientePais: paisClienteFactura(conv.pais_fiscal, conv),
     clienteEmail: conv.lead_email || null,
   };
 }
@@ -1134,6 +1135,19 @@ async function datosDelAlumno(conversionId) {
     logger.warn({ err: err.message, conversionId }, 'factura: no se pudieron leer los datos fiscales del alumno');
     return null;
   }
+}
+
+/*
+  EL PAIS DEL CLIENTE, sin inventarlo. Diego, 23/11/2026: la 2026/1008 de
+  ISEIE (Mariano, Buenos Aires) decia «..., España» al final de la direccion,
+  y en el 360 habia 66 asi: si la ficha no traia pais se ponia 'España'. Ahora,
+  el de la ficha; si no hay, el del prefijo del telefono (solo con «+» o «00»);
+  si tampoco, nada, y la factura no dice pais.
+*/
+function paisClienteFactura(pais, conv) {
+  const p = String(pais || '').trim();
+  if (p) return p;
+  return phoneToCountryName(telefonoClienteFactura(conv)) || undefined;
 }
 
 function telefonoClienteFactura(conv) {
@@ -1512,7 +1526,7 @@ export async function autoEmitirPorPago(conversionId, userId = null) {
     clienteDireccion: conv.direccion_fiscal || undefined,
     clienteCiudad: conv.ciudad_fiscal || undefined,
     clienteCp: conv.codigo_postal_fiscal || undefined,
-    clientePais: conv.pais_fiscal || 'España',
+    clientePais: paisClienteFactura(conv.pais_fiscal, conv),
     clienteEmail: conv.lead_email || null,
     clienteTelefono: telefonoClienteFactura(conv),
     items,
