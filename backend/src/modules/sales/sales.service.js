@@ -895,7 +895,7 @@ export async function ventasSinFormacion({ projectId, projectIds = null, from = 
 
 // Ventas agrupadas por asesora.
 export async function getVentasPorAsesora(filtros = {}) {
-  const { where, params } = filtrosVentas(filtros);
+  const { where, params } = filtrosVentas(filtros, 1, { todas: true });
   const { rows } = await query(
     `SELECT ${VENDEDORA} AS user_id,
             COALESCE(u.nombre, '— sin asignar —') AS nombre,
@@ -929,7 +929,7 @@ export async function getVentasPorAsesora(filtros = {}) {
 export async function getVentasPorCliente(filtros = {}) {
   const page = Math.max(1, parseInt(filtros.page) || 1);
   const limit = Math.min(200, Math.max(1, parseInt(filtros.limit) || 50));
-  const { where, params: delFiltro, idx: idx0 } = filtrosVentas(filtros);
+  const { where, params: delFiltro, idx: idx0 } = filtrosVentas(filtros, 1, { todas: true });
   const { PESO, params, idx } = pesoDe(filtros.responsableId, delFiltro, idx0);
 
   // Las ventas del filtro se aislan en una CTE para poder contar sus cuotas
@@ -1037,10 +1037,9 @@ export async function getDesglose({ projectId = null, projectIds = null, from = 
   if (responsableId) { pv.push(comoIds(responsableId)); wv.push(`${VENDEDORA_C} = ANY($${pv.length}::int[])`); }
   if (from) { pv.push(from); wv.push(`c.fecha_conversion >= $${pv.length}::date`); }
   if (to) { pv.push(to); wv.push(`c.fecha_conversion <= $${pv.length}::date`); }
-  wv.push('NOT c.es_mensualidad');
-  // Una venta sin ningun cobro es una proforma que no se pago: no cuenta.
-  wv.push('EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = c.id)');
-
+   wv.push('NOT c.es_mensualidad');
+  // #901: cuenta igual que el resumen y que Reportes, ventas sin ningun
+  // cobro todavia incluidas (revision de Diego, 21/11).
   const { rows: porFormacion } = await query(
     `SELECT ${TIPO_FORMACION} AS tipo,
             COUNT(*)::int AS ventas,
@@ -1113,9 +1112,9 @@ async function tramo({ projectId, projectIds = null, from, to, responsableId, po
     : "to_char(%s, 'YYYY-MM-DD')";
 
   const pv = [];
-  const wv = ['NOT c.es_mensualidad',
-    // Una venta sin ningun cobro es una proforma que no se pago.
-    'EXISTS (SELECT 1 FROM conversion_payments cpx WHERE cpx.conversion_id = c.id)'];
+  // #901: cuenta igual que el resumen y que Reportes, ventas sin ningun
+  // cobro todavia incluidas (revision de Diego, 21/11).
+  const wv = ['NOT c.es_mensualidad'];
   const listaV = comoLista(projectId, projectIds);
   if (listaV) { pv.push(listaV); wv.push(`c.project_id = ANY($${pv.length}::int[])`); }
   else wv.push(SIN_PRUEBAS('c.project_id'));
