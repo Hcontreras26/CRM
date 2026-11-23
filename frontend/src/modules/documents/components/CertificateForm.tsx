@@ -145,18 +145,18 @@ export default function CertificateForm({ onGenerated }: CertificateFormProps) {
         <h3 className="font-semibold text-sm mb-4">Datos del alumno</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="text-xs text-muted-foreground mb-1 block">Nombre completo <span className="text-red-500">*</span></label>
+            <label className="text-xs text-muted-foreground mb-1 block">Nombre completo <span className="text-destructive">*</span></label>
             <input
               {...register('alumno_nombre', { required: true })}
-              className={inp + (invalidFields.has('Nombre del alumno') ? ' border-red-400 ring-2 ring-red-400/20' : '')}
+              className={inp + (invalidFields.has('Nombre del alumno') ? ' border-destructive ring-2 ring-destructive/20' : '')}
               placeholder="Nombre Apellido Apellido"
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">DNI/NIE <span className="text-red-500">*</span></label>
+            <label className="text-xs text-muted-foreground mb-1 block">DNI/NIE <span className="text-destructive">*</span></label>
             <input
               {...register('alumno_dni', { required: true })}
-              className={inp + (invalidFields.has('DNI/NIE') ? ' border-red-400 ring-2 ring-red-400/20' : '')}
+              className={inp + (invalidFields.has('DNI/NIE') ? ' border-destructive ring-2 ring-destructive/20' : '')}
               placeholder="12345678A"
             />
           </div>
@@ -177,10 +177,10 @@ export default function CertificateForm({ onGenerated }: CertificateFormProps) {
         <h3 className="font-semibold text-sm mb-4">Datos del curso</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="text-xs text-muted-foreground mb-1 block">Nombre del diplomado/curso <span className="text-red-500">*</span></label>
+            <label className="text-xs text-muted-foreground mb-1 block">Nombre del diplomado/curso <span className="text-destructive">*</span></label>
             <input
               {...register('curso_nombre', { required: true })}
-              className={inp + (invalidFields.has('Nombre del curso') ? ' border-red-400 ring-2 ring-red-400/20' : '')}
+              className={inp + (invalidFields.has('Nombre del curso') ? ' border-destructive ring-2 ring-destructive/20' : '')}
               placeholder="Diplomado en Psicoterapia Integrativa"
             />
           </div>
@@ -189,7 +189,7 @@ export default function CertificateForm({ onGenerated }: CertificateFormProps) {
             <input {...register('horas_total')} className={inp} placeholder="750"/>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Fecha expedición <span className="text-red-500">*</span></label>
+            <label className="text-xs text-muted-foreground mb-1 block">Fecha expedición <span className="text-destructive">*</span></label>
             <NaturalDatePicker
               value={watch('fecha_expedicion')}
               onChange={(text) => setValue('fecha_expedicion', text, { shouldDirty: true })}
@@ -228,7 +228,7 @@ export default function CertificateForm({ onGenerated }: CertificateFormProps) {
             <div key={f.id} className="flex gap-2 items-center">
               <span className="text-xs text-muted-foreground w-16 shrink-0">Módulo {i + 1}</span>
               <input {...register(`modulos.${i}.nombre`)} className={inp} placeholder={`Nombre del módulo ${i + 1}`}/>
-              <button type="button" onClick={() => remove(i)} aria-label={`Eliminar módulo ${i + 1}`} title={`Eliminar módulo ${i + 1}`} className="text-muted-foreground hover:text-red-500 transition-colors shrink-0">
+              <button type="button" onClick={() => remove(i)} aria-label={`Eliminar módulo ${i + 1}`} title={`Eliminar módulo ${i + 1}`} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
                 <Trash size={14}/>
               </button>
             </div>

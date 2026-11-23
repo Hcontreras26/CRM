@@ -311,7 +311,7 @@ export default function InvoiceForm({ onGenerated, initialValues }: InvoiceFormP
             <p className="text-[11px] text-muted-foreground">Busca por nombre/email para autocompletar desde tu base de prospectos</p>
           </div>
           <div className="shrink-0">
-            <label className="text-xs text-muted-foreground mb-1 block">Fecha <span className="text-red-500">*</span></label>
+            <label className="text-xs text-muted-foreground mb-1 block">Fecha <span className="text-destructive">*</span></label>
             <DatePickerInput
               value={fecha}
               onChange={(iso) => setValue('fecha', iso, { shouldDirty: true })}
@@ -325,9 +325,9 @@ export default function InvoiceForm({ onGenerated, initialValues }: InvoiceFormP
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
             <label className="text-xs text-muted-foreground mb-1 block">
-              Nombre o Razón Social <span className="text-red-500">*</span>
+              Nombre o Razón Social <span className="text-destructive">*</span>
             </label>
-            <div className={invalidFields.has('Nombre del cliente') ? 'ring-2 ring-red-400/20 rounded-md' : ''}>
+            <div className={invalidFields.has('Nombre del cliente') ? 'ring-2 ring-destructive/20 rounded-md' : ''}>
               <ClientCombobox
                 projectId={activeProject?.id}
                 value={cliente_nombre}
@@ -338,11 +338,11 @@ export default function InvoiceForm({ onGenerated, initialValues }: InvoiceFormP
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">
-              DNI / NIF <span className="text-red-500">*</span>
+              DNI / NIF <span className="text-destructive">*</span>
             </label>
             <input
               {...register('cliente_dni')}
-              className={inp + (invalidFields.has('DNI / NIF del cliente') ? ' border-red-400 ring-2 ring-red-400/20' : '')}
+              className={inp + (invalidFields.has('DNI / NIF del cliente') ? ' border-destructive ring-2 ring-destructive/20' : '')}
             />
           </div>
           <div>
@@ -427,7 +427,7 @@ export default function InvoiceForm({ onGenerated, initialValues }: InvoiceFormP
                 onClick={() => remove(i)}
                 disabled={fields.length === 1}
                 aria-label={`Eliminar línea ${i + 1}`}
-                className="col-span-1 flex justify-center text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed pt-2 sm:pt-0"
+                className="col-span-1 flex justify-center text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30 disabled:cursor-not-allowed pt-2 sm:pt-0"
               >
                 <Trash size={14} />
               </button>

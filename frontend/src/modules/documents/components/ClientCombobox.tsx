@@ -145,7 +145,7 @@ export default function ClientCombobox({ projectId, value, onChange, onSelect, p
                 </p>
               </div>
               {(c.status === 'convertido' || c.estado === 'convertido') && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 font-semibold flex-shrink-0">
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-success-soft text-success-soft-foreground font-semibold flex-shrink-0">
                   cliente
                 </span>
               )}
