@@ -35,7 +35,7 @@ export default function WebhookCard({ webhook, onToggleActive, onToggleListen, o
         !webhook.active
           ? 'opacity-60 border-border'
           : webhook.awaiting_sample
-          ? 'border-amber-400 ring-2 ring-amber-200 dark:ring-amber-900/40'
+          ? 'border-warning ring-2 ring-warning/30'
           : 'border-border'
       }`}
     >
@@ -46,7 +46,7 @@ export default function WebhookCard({ webhook, onToggleActive, onToggleListen, o
             <DestIcon size={10} weight="bold" /> {dest.label}
           </span>
           {webhook.awaiting_sample && (
-            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 font-bold animate-pulse">
+            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-warning-soft text-warning-soft-foreground font-bold animate-pulse">
               ● ESCUCHANDO
             </span>
           )}
@@ -62,7 +62,7 @@ export default function WebhookCard({ webhook, onToggleActive, onToggleListen, o
         onClick={() => onToggleActive(webhook)}
         className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold ${
           webhook.active
-            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+            ? 'bg-success-soft text-success-soft-foreground'
             : 'bg-muted text-muted-foreground'
         }`}
         title={webhook.active ? 'Apagar webhook (no recibe más)' : 'Encender webhook'}
@@ -74,7 +74,7 @@ export default function WebhookCard({ webhook, onToggleActive, onToggleListen, o
         <button
           onClick={() => onToggleListen(webhook)}
           className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold ${
-            webhook.awaiting_sample ? 'bg-amber-500 text-white' : 'bg-muted'
+            webhook.awaiting_sample ? 'bg-warning text-warning-foreground' : 'bg-muted'
           }`}
           title={webhook.awaiting_sample ? 'Apagar escucha' : 'Esperar payload de prueba'}
         >
@@ -95,7 +95,7 @@ export default function WebhookCard({ webhook, onToggleActive, onToggleListen, o
 
       {puedeBorrar && <button
         onClick={() => onDelete(webhook)}
-        className="p-2 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500"
+        className="p-2 rounded hover:bg-destructive-soft text-destructive"
         title="Eliminar webhook"
         aria-label={`Eliminar ${webhook.nombre}`}
       >

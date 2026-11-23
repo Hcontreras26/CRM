@@ -199,7 +199,7 @@ export default function WebhookDetailPage() {
               aria-label={webhook.active ? 'Apagar' : 'Encender'}
               className={`flex items-center gap-1 h-9 px-3 rounded-lg text-sm font-bold ${
                 webhook.active
-                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                  ? 'bg-success-soft text-success-soft-foreground'
                   : 'bg-muted text-muted-foreground'
               }`}
             >
@@ -360,7 +360,7 @@ export default function WebhookDetailPage() {
       <section className="flex justify-end pt-2">
         <button
           onClick={remove}
-          className="flex items-center gap-1 h-9 px-3 rounded-lg border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
+          className="flex items-center gap-1 h-9 px-3 rounded-lg border border-destructive/30 bg-destructive-soft text-destructive-soft-foreground text-xs font-bold hover:bg-destructive/20 transition-colors"
         >
           <Trash size={12} weight="bold" /> Eliminar webhook
         </button>

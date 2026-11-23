@@ -76,7 +76,7 @@ export default function PorQueSeVan({
       </div>
 
       {callaronCasiTodos && (
-        <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
+        <p className="mb-3 rounded-md border border-warning/30 bg-warning-soft p-2 text-[11px] text-warning-soft-foreground">
           La mayoría se fue sin decir por qué. Lo de abajo describe a los pocos que
           contestaron, no a todos los que se han ido.
         </p>

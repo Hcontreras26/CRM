@@ -16,10 +16,10 @@ interface WebhookEvent {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  success:          'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-  error:            'bg-red-500/15 text-red-700 dark:text-red-400',
-  duplicate:        'bg-amber-500/15 text-amber-700 dark:text-amber-400',
-  sample_captured:  'bg-blue-500/15 text-blue-700 dark:text-blue-400',
+  success:          'bg-success-soft text-success-soft-foreground',
+  error:            'bg-destructive-soft text-destructive-soft-foreground',
+  duplicate:        'bg-warning-soft text-warning-soft-foreground',
+  sample_captured:  'bg-info-soft text-info-soft-foreground',
 };
 
 export default function EventsHistory({ webhookId }: { webhookId: number }) {
@@ -98,7 +98,7 @@ export default function EventsHistory({ webhookId }: { webhookId: number }) {
                           {e.result_type} #{e.result_id}
                         </Link>
                       ) : e.error_message ? (
-                        <span className="text-red-500 text-[11px] truncate max-w-xs inline-block" title={e.error_message}>
+                        <span className="text-destructive text-[11px] truncate max-w-xs inline-block" title={e.error_message}>
                           {e.error_message.slice(0, 50)}
                         </span>
                       ) : <span className="text-muted-foreground">—</span>}

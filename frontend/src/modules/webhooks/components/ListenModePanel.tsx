@@ -77,14 +77,14 @@ export default function ListenModePanel({
         ) : (
           <button
             onClick={stopListening}
-            className="flex items-center gap-1 px-3 py-2 rounded-lg bg-amber-500 text-white text-xs font-bold whitespace-nowrap animate-pulse"
+            className="flex items-center gap-1 px-3 py-2 rounded-lg bg-warning text-warning-foreground text-xs font-bold whitespace-nowrap animate-pulse"
           >
             <EarSlash size={12} weight="bold" /> Escuchando... (cancelar)
           </button>
         )}
       </div>
       {isListening && (
-        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+        <p className="text-xs text-warning mt-2">
           → Manda ahora un POST de prueba a la URL desde tu sistema externo.
         </p>
       )}
