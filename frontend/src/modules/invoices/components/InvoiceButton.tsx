@@ -5,6 +5,7 @@ import type { Invoice, InvoiceItem } from '../api/invoices.api';
 import { emitirPreguntandoSiPasa } from '../lib/masQueLoCobrado';
 import { toast } from '@/shared/hooks/useToast';
 import client from '@/shared/api/client';
+import { paisDelCliente } from '../lib/paisDelCliente';
 
 const EmitirBorradorDialog = lazy(() => import('./EmitirBorradorDialog'));
 const FiscalDataDialog = lazy(() => import('./FiscalDataDialog'));
@@ -113,7 +114,7 @@ export default function InvoiceButton({ projectId, leadId, conversionId, items, 
           clienteDireccion: d.direccion_fiscal || undefined,
           clienteCiudad: d.ciudad_fiscal || undefined,
           clienteCp: d.codigo_postal_fiscal || undefined,
-          clientePais: d.pais_fiscal || 'España',
+          clientePais: paisDelCliente(d.pais_fiscal, d.telefono) || undefined,
           clienteEmail: d.email, clienteTelefono: d.telefono,
           items, metodoPago: metodoDefault as 'transferencia', piePago: pieDefault,
           ...(numero ? { numero: Number(numero) } : {}),
@@ -147,7 +148,7 @@ export default function InvoiceButton({ projectId, leadId, conversionId, items, 
         clienteDireccion: d.direccion_fiscal || undefined,
         clienteCiudad: d.ciudad_fiscal || undefined,
         clienteCp: d.codigo_postal_fiscal || undefined,
-        clientePais: d.pais_fiscal || 'España',
+        clientePais: paisDelCliente(d.pais_fiscal, d.telefono) || undefined,
         clienteEmail: d.email,
         clienteTelefono: d.telefono,
         items,
