@@ -13,6 +13,14 @@ export const CRM = { nombre: 'MultiCRM', color: '#1f3a5f' };
 
 const LISTA = [
   {
+    "version": "2.9.6",
+    "fecha": "2026-11-23",
+    "titulo": "Versión 2.9.6",
+    "intro": "Versión de paridad con ISEIE.",
+    "grupos": [],
+    "arreglos": ["Misma versión que el CRM de ISEIE, que arregla allí el menú de «Links de pago». Aquí no cambia nada."]
+  },
+  {
     "version": "2.9.5",
     "fecha": "2026-11-23",
     "titulo": "Versión 2.9.5",
