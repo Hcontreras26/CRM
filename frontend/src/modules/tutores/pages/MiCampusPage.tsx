@@ -15,6 +15,8 @@ import {
 import MisCursosPage from './MisCursosPage';
 // El % hecho con su barra: el mismo componente que la ficha del cliente (#532).
 import Progreso from '@/modules/moodle/components/ProgresoCurso';
+// El recorrido guiado de la pantalla (#928): la primera vez sale solo.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 /*
   «Mi campus» (#681): lo que la tutora tiene que hacer hoy en Moodle.
@@ -99,7 +101,7 @@ function Curso({ projectId, curso, abierto, alternar }: { projectId: number; cur
   const panel = `curso-${curso.id}`;
   return (
     <li data-testid="curso-campus">
-      <button type="button" onClick={alternar} aria-expanded={abierto} aria-controls={panel}
+      <button type="button" onClick={alternar} data-recorrido="mi-campus-curso" aria-expanded={abierto} aria-controls={panel}
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
         <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
           <GraduationCap size={16} />
@@ -242,7 +244,7 @@ function Curso({ projectId, curso, abierto, alternar }: { projectId: number; cur
 
 function PorDesarrollar({ lista }: { lista: MiCampusPendiente[] }) {
   return (
-    <section aria-labelledby="mi-campus-pendientes" className="rounded-lg border border-border bg-card">
+    <section aria-labelledby="mi-campus-pendientes" data-recorrido="mi-campus-por-desarrollar" className="rounded-lg border border-border bg-card">
       <div className="flex h-14 items-center justify-between gap-2 border-b border-border px-4">
         <h2 id="mi-campus-pendientes" className="text-normal font-semibold text-foreground">Por desarrollar en Moodle</h2>
         <span className="rounded-full bg-muted px-2 py-0.5 text-secundario font-medium tabular-nums text-muted-foreground">{lista.length}</span>
@@ -315,7 +317,7 @@ function Resumen({ porCorregir, dudas, porDesarrollar, conCampus }: { porCorregi
   if (!conCampus || (porCorregir === 0 && dudas === 0)) {
     if (!conCampus && !desarrollar) return null;
     return (
-      <p className="flex flex-wrap items-center gap-x-2 text-normal text-foreground" data-testid="resumen-mi-campus">
+      <p className="flex flex-wrap items-center gap-x-2 text-normal text-foreground" data-testid="resumen-mi-campus" data-recorrido="mi-campus-resumen">
         {conCampus && (
           <>
             <CheckCircle size={18} weight="fill" className="text-success" aria-hidden />
@@ -332,7 +334,7 @@ function Resumen({ porCorregir, dudas, porDesarrollar, conCampus }: { porCorregi
     desarrollar,
   ].filter(Boolean) as React.ReactNode[];
   return (
-    <p className="text-seccion font-normal text-foreground" data-testid="resumen-mi-campus">
+    <p className="text-seccion font-normal text-foreground" data-testid="resumen-mi-campus" data-recorrido="mi-campus-resumen">
       Hoy tienes {enFrase(partes)}.
     </p>
   );
@@ -391,14 +393,17 @@ export default function MiCampusPage() {
   const leido = datos ? new Date(datos.leidoAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : null;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    // El margen de scroll de lo que señala el recorrido: que la barra fija no lo tape.
+    <div className="mx-auto max-w-6xl space-y-5 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title={<span className="inline-flex flex-wrap items-center gap-2">Mi campus <EtiquetaEnPruebas /></span>}
         subtitle={vista === 'cursos' ? 'Tus cursos y lo que te corresponde' : (leido ? `Tus cursos en Moodle · leído a las ${leido}` : 'Tus cursos en Moodle')}
         actions={(
           <>
+          {/* La primera vez sale solo, con el campus ya leído (#928). */}
+          <VerRecorrido id="mi-campus" listo={vista === 'cursos' || !cargando} compacto />
           {vista === 'campus' && (
-          <Button variant="outline" size="sm" disabled={cargando} onClick={() => cargar(true)} className="h-8 text-secundario">
+          <Button data-recorrido="mi-campus-actualizar" variant="outline" size="sm" disabled={cargando} onClick={() => cargar(true)} className="h-8 text-secundario">
             <ArrowsClockwise size={14} className={cn('mr-1.5', cargando && 'animate-spin')} aria-hidden />
             {cargando ? 'Leyendo…' : 'Actualizar'}
           </Button>
@@ -407,7 +412,7 @@ export default function MiCampusPage() {
         )}
       />
 
-      <div role="tablist" aria-label="Mi campus" className="inline-flex rounded-md bg-muted p-0.5">
+      <div role="tablist" aria-label="Mi campus" data-recorrido="mi-campus-pestanas" className="inline-flex rounded-md bg-muted p-0.5">
         {PESTANAS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={vista === t.id} onClick={() => irA(t.id)}
             className={cn('inline-flex h-8 items-center gap-1.5 rounded px-3 text-secundario font-medium transition-colors',
@@ -442,7 +447,7 @@ export default function MiCampusPage() {
           <Resumen porCorregir={totales.porCorregir} dudas={totales.dudas} porDesarrollar={datos.pendientes.length} conCampus={datos.campus.length > 0} />
 
           {(datos.sinConectar?.length ?? 0) > 0 && (
-            <section aria-labelledby="sin-conectar" className="rounded-lg border border-warning/40 bg-warning-soft dark:bg-transparent px-4 py-3">
+            <section aria-labelledby="sin-conectar" data-recorrido="mi-campus-sin-conectar" className="rounded-lg border border-warning/40 bg-warning-soft dark:bg-transparent px-4 py-3">
               <h2 id="sin-conectar" className="flex items-center gap-2 text-normal font-semibold text-warning-soft-foreground">
                 <Warning size={15} weight="bold" aria-hidden /> Campus en los que tu cuenta de Moodle no está conectada
               </h2>

@@ -232,6 +232,8 @@ export default function LeadsFiltersBar(props: Props) {
         <button
           onClick={() => setOpen(!open)}
           aria-expanded={open}
+          // El paso «El filtro de campus» del recorrido (#928): solo si dentro está «Proyecto».
+          data-recorrido={projects && projects.length > 1 ? 'prospectos-campus' : undefined}
           className={`h-9 inline-flex items-center gap-1.5 px-3 rounded-md border text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 ${
             activePills.length > 0
               ? 'border-primary/40 bg-primary/10 text-primary'

@@ -85,6 +85,8 @@ import BloquePlegable from '@/shared/components/ui/BloquePlegable';
 // pasado en vez de lo que va a pasar. El componente viejo sigue en el repo.
 import UltimoLeadAsignado from '../components/UltimoLeadAsignado';
 import LoQueTocaHoyYManana from '../components/LoQueTocaHoyYManana';
+// El recorrido guiado de la pantalla (#928): señala, paso a paso, cada parte.
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import { useIdsDelAmbito, useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 
 
@@ -719,7 +721,9 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    /* El margen de scroll de lo que señala el recorrido: la barra fija de
+       arriba no le tapa el principio. */
+    <div className="space-y-6 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <LeadFormDialog open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleCreateLead} lead={null} />
       {configTab && activeProject && (
         <Suspense fallback={null}>
@@ -736,8 +740,13 @@ export default function LeadsPage() {
       <PageHeader
         title="Prospectos"
         subtitle="Explora y gestiona tus clientes potenciales"
-        actions={can('leads.create') ? (
+        actions={(
+          <>
+          {/* Es el recorrido de la lista: en «Equipo» sus partes están escondidas. */}
+          {vista === 'lista' && <VerRecorrido id="prospectos" listo={!loading} />}
+          {can('leads.create') && (
           <button
+            data-recorrido="prospectos-nuevo"
             onClick={() => setFormOpen(true)}
             className="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-primary text-primary-foreground text-xs sm:text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
           >
@@ -745,11 +754,13 @@ export default function LeadsPage() {
             <span className="hidden sm:inline">Nuevo prospecto</span>
             <span className="sm:hidden">Nuevo</span>
           </button>
-        ) : null}
+          )}
+          </>
+        )}
       />
 
       {/* Lista / Equipo (#534, parte 4). La lista, primero y sin nada delante. */}
-      <div className="inline-flex rounded-md border border-border overflow-hidden" role="tablist" aria-label="Vista de prospectos">
+      <div className="inline-flex rounded-md border border-border overflow-hidden" role="tablist" aria-label="Vista de prospectos" data-recorrido="prospectos-vistas">
         {([['lista', 'Lista'], ['equipo', 'Equipo']] as const).map(([v, texto]) => (
           <button key={v} type="button" role="tab" aria-selected={vista === v} onClick={() => setVista(v)}
             className={'px-4 py-1.5 text-sm font-medium transition-colors '
@@ -924,6 +935,8 @@ export default function LeadsPage() {
           desplegable «Filtros» —Diego, 23/09: «mete esos filtros allí»—, con
           los otros siete. Un solo sitio donde mirar; lo que haya puesto lo
           canta el número del botón y las píldoras de al lado. */}
+      {/* El buscador y el resto de filtros, juntos: son un solo paso del recorrido (#928). */}
+      <div data-recorrido="prospectos-filtros" className="space-y-6">
       <BarraFiltros
         busqueda={search}
         onBusqueda={setSearch}
@@ -994,6 +1007,7 @@ export default function LeadsPage() {
           }
         }}
       />
+      </div>
 
       {/* Error state */}
       {error && (
@@ -1042,7 +1056,7 @@ export default function LeadsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-card rounded-lg border border-border">
+      <div data-recorrido="prospectos-lista" className="bg-card rounded-lg border border-border">
         {/* Desktop table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-[13px]">

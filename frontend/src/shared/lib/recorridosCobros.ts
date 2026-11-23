@@ -3,6 +3,8 @@ import type { PasoRecorrido } from '@/shared/components/ui/RecorridoGuiado';
 import { RECORRIDOS_FINANZAS, type IdRecorridoFinanzas } from '@/shared/lib/recorridosFinanzas';
 // Los de las novedades del 18/11 (#928, tanda A), en su propio fichero.
 import { RECORRIDOS_NOVEDADES, type IdRecorridoNovedades } from '@/shared/lib/recorridosNovedades';
+// Los de las novedades del 18/11, segunda tanda (#928), en su propio fichero.
+import { RECORRIDOS_NOVEDADES_B, type IdRecorridoNovedadesB } from '@/shared/lib/recorridosNovedadesB';
 
 /**
  * LOS RECORRIDOS DE STRIPE Y DE LOS COBROS (Diego, 18/11: «deben haber tutorial
@@ -52,7 +54,8 @@ export type IdRecorridoCobros =
   | 'cursos-producto'
   | 'ventas'
   | IdRecorridoFinanzas
-  | IdRecorridoNovedades;
+  | IdRecorridoNovedades
+  | IdRecorridoNovedadesB;
 
 export interface RecorridoCobros {
   id: IdRecorridoCobros;
@@ -539,5 +542,7 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
 
   // ─── 8 · Las novedades del 18/11 (#928, tanda A): `recorridosNovedades.ts` ───
   ...RECORRIDOS_NOVEDADES,
+  // ─── 8 · Novedades del 18/11, segunda tanda (#928): `recorridosNovedadesB.ts` ───
+  ...RECORRIDOS_NOVEDADES_B,
 };
 
