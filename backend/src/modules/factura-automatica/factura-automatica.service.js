@@ -143,6 +143,10 @@ async function mandarPeticion(fila, v, token, { reenvio = false } = {}) {
       tags: ['factura-automatica', 'datos-fiscales'],
       projectId: v.project_id,
       clave: `datos-fiscales-${fila.id}-${reenvio ? Date.now() : 'primero'}`,
+      // El enlace es la llave del formulario: en el registro de correos
+      // (`email_envios`) y en Enviados queda el correo SIN él, como el de la
+      // contraseña del campus (#767). Lo veía cualquiera con acceso al registro.
+      cuerpoGuardado: c.htmlGuardado,
     });
     if (r?.sent || r?.reason === 'YA_ENVIADO') await model.marcarEnvio(fila.id, { para: email });
     else await model.marcarEnvio(fila.id, { para: email, error: r?.reason || r?.error || 'no enviado' });
@@ -291,7 +295,9 @@ async function emitirDeLaFila(filaId) {
   let codigo = null;
   for (const cp of await model.cobrosSinFactura(f.conversion_id)) {
     // El orden de la cola: si hay cobros anteriores sin facturar, este espera.
-    if (!(await invService.puedeFacturarAhora(v.project_id, cp.fecha, cp.id))) {
+    // Salvo los que esperan los datos de SU alumno o a una persona: esos no
+    // paran a los demás (CRM#764, 24/11; ver `hayPendientesAnteriores`).
+    if (!(await invService.puedeFacturarAhora(v.project_id, cp.fecha, cp.id, { saltarEsperandoDatos: true }))) {
       error = 'Espera su turno en la cola: hay cobros anteriores sin facturar';
       codigo = 'HAY_ANTERIORES';
       break;
