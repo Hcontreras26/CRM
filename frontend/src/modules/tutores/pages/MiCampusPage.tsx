@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowSquareOut, ArrowsClockwise, CaretRight, ChatCircleText, CheckCircle, ClipboardText, Coins, GraduationCap, ListBullets, Warning,
@@ -13,6 +13,13 @@ import {
   tutoresApi, type MiCampus, type MiCampusCurso, type MiCampusPendiente,
 } from '../api/tutores.api';
 import MisCursosPage from './MisCursosPage';
+import { useAuth } from '@/contexts/AuthContext';
+import { soloEsTutorRedactor } from '@/shared/lib/roles';
+// Lo que hay que hacer en un solo sitio y el selector de campus (Diego, 24/11).
+import {
+  SelectorCampus, PorResponder, PorCorregir, entregasPorCorregir, leerCampusElegidos, guardarCampusElegidos,
+} from '../components/BandejaMiCampus';
+import { consultasApi, type ConsultaFila } from '@/modules/consultas/api/consultas.api';
 // El % hecho con su barra: el mismo componente que la ficha del cliente (#532).
 import Progreso from '@/modules/moodle/components/ProgresoCurso';
 // El recorrido guiado de la pantalla (#928): solo con el botón (CRM#1012).
@@ -21,10 +28,12 @@ import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 /*
   «Mi campus» (#681): lo que la tutora tiene que hacer hoy en Moodle.
 
-  Jerarquía: primero lo que pide acción (entregas por corregir y dudas sin
-  contestar), curso a curso y con su botón; después, como consulta, sus alumnos;
-  y al lado, lo que tiene pendiente por desarrollar. Las cifras se leen de Moodle
-  en el momento (copia de dos minutos en el servidor).
+  Jerarquía: primero lo que pide acción, todo junto (Diego, 24/11: un solo sitio para
+  la tutora redactora): las consultas por responder, que se contestan aquí mismo, y
+  las entregas por corregir, cada una con su «Corregir». Después, curso a curso, sus
+  tareas y sus alumnos; y al lado, lo que tiene pendiente por desarrollar. Arriba, el
+  selector de campus: todos juntos o uno o varios, y se recuerda. Las cifras se leen
+  de Moodle en el momento (copia de dos minutos por campus en el servidor).
 
   Sistema: la escala de texto del CRM, filas con separadores finos (no tarjetas
   dentro de tarjetas), controles de 32 px y color solo para el estado y la acción.
@@ -348,23 +357,52 @@ const PESTANAS = [
 
 export default function MiCampusPage() {
   const [params, setParams] = useSearchParams();
-  const vista: 'campus' | 'cursos' = params.get('vista') === 'cursos' ? 'cursos' : 'campus';
+  const { user } = useAuth() as { user: { role?: string; roles_extra?: string[] } | null };
+  const soloRedactora = soloEsTutorRedactor(user);
+  const pestanas = soloRedactora ? PESTANAS.filter((t) => t.id !== 'cursos') : PESTANAS;
+  const vista: 'campus' | 'cursos' = !soloRedactora && params.get('vista') === 'cursos' ? 'cursos' : 'campus';
   const irA = (v: 'campus' | 'cursos') => setParams(v === 'cursos' ? { vista: 'cursos' } : {}, { replace: true });
   const [datos, setDatos] = useState<MiCampus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
+  // Los cursos con algo que hacer empiezan abiertos, como antes (Diego, 24/11: «todo abierto
+  // como antes, no minimizado»), aunque lo pendiente también esté arriba, todo junto.
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  // Los campus que ve: [] = todos. Se recuerda en este navegador.
+  const [elegidos, setElegidos] = useState<number[]>(leerCampusElegidos);
+  const elegidosRef = useRef(elegidos);
+  elegidosRef.current = elegidos;
+  // Sus consultas abiertas, las de Consultas (no la copia de Moodle): se contestan aquí.
+  const [consultas, setConsultas] = useState<ConsultaFila[] | null>(null);
+  const [plazoHoras, setPlazoHoras] = useState(24);
+  const [errorConsultas, setErrorConsultas] = useState<string | null>(null);
+
+  const cargarConsultas = useCallback(async () => {
+    try {
+      const r = await consultasApi.mias({ estado: 'pendientes' });
+      if (!Array.isArray(r?.data?.consultas)) throw new Error('Respuesta sin consultas');
+      setConsultas(r.data.consultas.filter((c) => c.estado === 'abierta'));
+      if (r?.data?.plazoHoras) setPlazoHoras(r.data.plazoHoras);
+      setErrorConsultas(null);
+    } catch {
+      setErrorConsultas('No se han podido leer tus consultas.');
+    }
+  }, []);
 
   const cargar = useCallback(async (refrescar = false) => {
     setCargando(true);
     try {
-      const r = await tutoresApi.miCampus(refrescar);
+      const r = await tutoresApi.miCampus(refrescar, elegidosRef.current);
       if (r.success && r.data) {
         setDatos(r.data); setError(null);
         // De entrada, abiertos los cursos con algo que hacer.
         if (!refrescar) {
           setAbiertos(new Set(r.data.campus.flatMap((c) => c.cursos
             .filter((k) => k.tareas.length || k.dudas.length).map((k) => `${c.projectId}-${k.id}`))));
+        }
+        // Lo guardado ya no es suyo (otro campus, otra persona en este navegador): todos.
+        if (elegidosRef.current.length && r.data.elegidos === null) {
+          setElegidos([]); guardarCampusElegidos([]);
         }
       }
     } catch (e) {
@@ -373,16 +411,44 @@ export default function MiCampusPage() {
       if (refrescar) toast({ title: 'No se ha podido actualizar', variant: 'destructive' });
     } finally { setCargando(false); }
   }, []);
-  // Moodle se lee solo en su pestaña: «Mis cursos» no lo necesita.
-  useEffect(() => { if (vista === 'campus') cargar(); }, [cargar, vista]);
+  // Moodle se lee solo en su pestaña: «Mis cursos» no lo necesita. Y al cambiar de campus.
+  const claveCampus = elegidos.join(',');
+  useEffect(() => { if (vista === 'campus') cargar(); }, [cargar, vista, claveCampus]);
+  useEffect(() => { if (vista === 'campus') cargarConsultas(); }, [cargarConsultas, vista]);
+
+  const elegirCampus = (ids: number[]) => { setElegidos(ids); guardarCampusElegidos(ids); };
+  const actualizar = () => { cargar(true); cargarConsultas(); };
+
+  // Lo que se ve: los campus elegidos (el servidor dice cuáles ha leído).
+  const porResponder = useMemo(() => {
+    if (consultas === null) return null;
+    const filtro = datos?.elegidos?.length ? new Set(datos.elegidos) : null;
+    return consultas.filter((c) => !filtro || filtro.has(Number(c.project_id)));
+  }, [consultas, datos]);
+  const porCorregir = useMemo(() => entregasPorCorregir(datos), [datos]);
+  const respondida = (id: number) => {
+    setConsultas((l) => (l || []).filter((c) => c.id !== id));
+    // Y fuera también de su curso, sin esperar a la copia de Moodle.
+    setDatos((d) => (d ? {
+      ...d,
+      campus: d.campus.map((c) => ({
+        ...c,
+        dudasSinCurso: c.dudasSinCurso.filter((x) => x.consultaId !== id),
+        cursos: c.cursos.map((k) => ({ ...k, dudas: k.dudas.filter((x) => x.consultaId !== id) })),
+      })),
+    } : d));
+  };
 
   const totales = useMemo(() => {
     const cursos = datos?.campus.flatMap((c) => c.cursos) || [];
     return {
       porCorregir: cursos.reduce((s, k) => s + porCorregirDe(k), 0),
-      dudas: cursos.reduce((s, k) => s + k.dudas.length, 0) + (datos?.campus.reduce((s, c) => s + c.dudasSinCurso.length, 0) || 0),
+      // Las dudas, las de Consultas en cuanto se han leído (las mismas que la lista de abajo).
+      dudas: porResponder !== null ? porResponder.length
+        : cursos.reduce((s, k) => s + k.dudas.length, 0) + (datos?.campus.reduce((s, c) => s + c.dudasSinCurso.length, 0) || 0),
     };
-  }, [datos]);
+  }, [datos, porResponder]);
+  const todosLosCampus = datos?.todosLosCampus || datos?.campus.map((c) => ({ projectId: c.projectId, campus: c.campus })) || [];
 
   const alternar = (clave: string) => setAbiertos((s) => {
     const n = new Set(s);
@@ -403,7 +469,7 @@ export default function MiCampusPage() {
           {/* El recorrido (#928): solo con el botón (CRM#1012). */}
           <VerRecorrido id="mi-campus" listo={vista === 'cursos' || !cargando} compacto />
           {vista === 'campus' && (
-          <Button data-recorrido="mi-campus-actualizar" variant="outline" size="sm" disabled={cargando} onClick={() => cargar(true)} className="h-8 text-secundario">
+          <Button data-recorrido="mi-campus-actualizar" variant="outline" size="sm" disabled={cargando} onClick={actualizar} className="h-8 text-secundario">
             <ArrowsClockwise size={14} className={cn('mr-1.5', cargando && 'animate-spin')} aria-hidden />
             {cargando ? 'Leyendo…' : 'Actualizar'}
           </Button>
@@ -412,8 +478,9 @@ export default function MiCampusPage() {
         )}
       />
 
+      {pestanas.length > 1 && (
       <div role="tablist" aria-label="Mi campus" data-recorrido="mi-campus-pestanas" className="inline-flex rounded-md bg-muted p-0.5">
-        {PESTANAS.map((t) => (
+        {pestanas.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={vista === t.id} onClick={() => irA(t.id)}
             className={cn('inline-flex h-8 items-center gap-1.5 rounded px-3 text-secundario font-medium transition-colors',
               vista === t.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
@@ -421,6 +488,7 @@ export default function MiCampusPage() {
           </button>
         ))}
       </div>
+      )}
 
       {vista === 'cursos' ? <MisCursosPage incrustada /> : (<>
       {error && !datos && (
@@ -443,6 +511,11 @@ export default function MiCampusPage() {
 
       {datos && (
         <>
+          {/* Uno o varios campus (Diego, 24/11): solo con más de uno. */}
+          {todosLosCampus.length > 1 && (
+            <SelectorCampus todos={todosLosCampus} elegidos={elegidos} cambiar={elegirCampus} cargando={cargando} />
+          )}
+
           {/* Sin ningún campus conectado no se dice «estás al día»: no se sabe. */}
           <Resumen porCorregir={totales.porCorregir} dudas={totales.dudas} porDesarrollar={datos.pendientes.length} conCampus={datos.campus.length > 0} />
 
@@ -474,6 +547,15 @@ export default function MiCampusPage() {
                     Cuando administración te dé de alta en el Moodle de un campus, aquí verás tus cursos, lo que tienes por corregir y tus alumnos.
                   </p>
                 </div>
+              )}
+
+              {/* Lo que hay que hacer, todo junto: responder y corregir sin ir curso a curso. */}
+              {(datos.campus.length > 0 || (porResponder?.length ?? 0) > 0) && (
+                <section aria-label="Por hacer" data-testid="bandeja-mi-campus" className="rounded-lg border border-border bg-card px-4 py-2">
+                  <PorResponder consultas={porResponder} plazoHoras={plazoHoras} error={errorConsultas} respondida={respondida} />
+                  <div className="my-1 border-t border-border" />
+                  <PorCorregir entregas={porCorregir} />
+                </section>
               )}
 
               {datos.campus.map((c) => (

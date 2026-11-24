@@ -4,6 +4,9 @@ import client from '@/shared/api/client';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 import { esProyectoIA } from '@/shared/lib/proyectosIA';
+import {
+  agruparPorEmpresa, stripePrestadoDe, textoStripePrestado, type ProyectoConEmpresa, type StripePrestado,
+} from '@/shared/lib/campusPorEmpresa';
 
 /**
  * Integraciones con «Todos» o una empresa arriba (#218, Diego 04/11/2026): el
@@ -15,7 +18,7 @@ import { esProyectoIA } from '@/shared/lib/proyectosIA';
  * cada uno, si hay clave guardada y cómo fue la última prueba. Nunca la clave.
  */
 
-type Proveedor = 'stripe' | 'brevo' | 'moodle' | 'supabase';
+type Proveedor = 'stripe' | 'stripe_links' | 'brevo' | 'moodle' | 'supabase';
 
 interface Conexion {
   provider: Proveedor;
@@ -29,9 +32,11 @@ interface Campus {
   nombre: string;
   type: string;
   integraciones: Conexion[];
+  /** Usa la cuenta de Stripe de otro campus (`feat/stripe-prestado`): conectado. */
+  stripe_prestado_de?: StripePrestado | null;
 }
 
-const NOMBRE: Record<Proveedor, string> = { stripe: 'Stripe', brevo: 'Brevo', moodle: 'Campus (Moodle)', supabase: 'Supabase' };
+const NOMBRE: Record<Proveedor, string> = { stripe: 'Stripe', stripe_links: 'Links de pago (Stripe)', brevo: 'Brevo', moodle: 'Campus (Moodle)', supabase: 'Supabase' };
 
 function fecha(d: string | null) {
   if (!d) return null;
@@ -67,10 +72,11 @@ function Estado({ conexion }: { conexion: Conexion | undefined }) {
 }
 
 export default function EstadoDeLasIntegraciones() {
-  const { activeIssuerId, activeProject, switchProject } = useProjectContext() as {
+  const { activeIssuerId, activeProject, switchProject, projects } = useProjectContext() as {
     activeIssuerId?: number | null;
     activeProject?: { id?: number | null } | null;
     switchProject?: (id: number) => void;
+    projects?: ProyectoConEmpresa[];
   };
   const [campus, setCampus] = useState<Campus[] | null>(null);
   const [error, setError] = useState(false);
@@ -97,8 +103,48 @@ export default function EstadoDeLasIntegraciones() {
 
   // Supabase solo es de los proyectos IA: la columna sale si hay alguno, y solo
   // en pruebas (#44, `shared/lib/proyectosIA`).
-  const columnas: Proveedor[] = ['stripe', 'brevo', 'moodle'];
+  // Links de pago (24/11): la clave de escritura de Stripe, si algún campus la tiene.
+  const columnas: Proveedor[] = ['stripe'];
+  if (campus.some((c) => c.integraciones.some((i) => i.provider === 'stripe_links'))) columnas.push('stripe_links');
+  columnas.push('brevo', 'moodle');
   if (campus.some((c) => esProyectoIA(c))) columnas.push('supabase');
+  /*
+    POR EMPRESA (Diego, 24/11): cada empresa con sus campus debajo. Sin empresas
+    entre los proyectos de quien mira, la lista de siempre.
+  */
+  const grupos = agruparPorEmpresa(campus, projects, (c) => c.id);
+  const conEmpresas = grupos.some((g) => g.id !== null);
+  const fila = (c: Campus) => {
+    const prestado = stripePrestadoDe(c);
+    return (
+      <tr key={c.id} className="border-b border-border last:border-0">
+        <td className={`${conEmpresas ? 'pl-8' : 'pl-5'} pr-5 py-2.5 font-medium`}>{c.nombre}</td>
+        {columnas.map((p) => (
+          <td key={p} className="px-3 py-2.5">
+            {p === 'supabase' && c.type !== 'ia'
+              ? <span className="text-muted-foreground">—</span>
+              : (p === 'stripe' || p === 'stripe_links') && prestado && estadoDe(c.integraciones.find((i) => i.provider === p)) === 'sin'
+                ? <span data-testid="stripe-prestado" className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-success-soft text-success-soft-foreground">
+                    <CheckCircle size={10} weight="fill" /> {textoStripePrestado(prestado)}
+                  </span>
+                : <Estado conexion={c.integraciones.find((i) => i.provider === p)} />}
+          </td>
+        ))}
+        <td className="px-5 py-2.5 text-right">
+          {switchProject && (
+            <button
+              type="button"
+              onClick={() => switchProject(c.id)}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              aria-label={`Entrar en ${c.nombre} para configurar sus integraciones`}
+            >
+              Entrar <ArrowRight size={12} weight="bold" />
+            </button>
+          )}
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -117,32 +163,18 @@ export default function EstadoDeLasIntegraciones() {
               <th className="px-5 py-2" />
             </tr>
           </thead>
-          <tbody>
-            {campus.map((c) => (
-              <tr key={c.id} className="border-b border-border last:border-0">
-                <td className="px-5 py-2.5 font-medium">{c.nombre}</td>
-                {columnas.map((p) => (
-                  <td key={p} className="px-3 py-2.5">
-                    {p === 'supabase' && c.type !== 'ia'
-                      ? <span className="text-muted-foreground">—</span>
-                      : <Estado conexion={c.integraciones.find((i) => i.provider === p)} />}
-                  </td>
-                ))}
-                <td className="px-5 py-2.5 text-right">
-                  {switchProject && (
-                    <button
-                      type="button"
-                      onClick={() => switchProject(c.id)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                      aria-label={`Entrar en ${c.nombre} para configurar sus integraciones`}
-                    >
-                      Entrar <ArrowRight size={12} weight="bold" />
-                    </button>
-                  )}
-                </td>
+          {conEmpresas ? grupos.map((g) => (
+            <tbody key={g.id ?? 'sin'} data-testid="grupo-empresa">
+              <tr className="bg-muted/40 border-b border-border">
+                <th scope="colgroup" colSpan={columnas.length + 2} className="px-5 py-1.5 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  {g.nombre}
+                </th>
               </tr>
-            ))}
-          </tbody>
+              {g.campus.map(fila)}
+            </tbody>
+          )) : (
+            <tbody>{campus.map(fila)}</tbody>
+          )}
         </table>
       </div>
     </div>

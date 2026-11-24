@@ -242,6 +242,13 @@ export default function DashboardPage() {
           del formulario de crear una factura. */}
       <AvisoHuecosFacturas projectId={proyectoReal} />
 
+      {/* CÓMO VOY, ARRIBA Y A LA VISTA (Diego, 24/11/2026: «no pueden ver su posición de
+          ranking como estaba en la versión anterior; eso no se tocaba»). Hasta la 2.9.8
+          iba aquí, justo bajo la cabecera; la 3.0.0 lo había metido en el plegable
+          «El equipo este mes». Su puesto (y, a quien dirige, el podio y el ranking de
+          gestoras), por lo cobrado (Diego, 12/11). */}
+      <ComoVoy />
+
       {/* LAS CIFRAS DE HOY (#534, parte 5): cuatro cifras con su nombre y su
           recuento, y las dos alertas, que llevan a Prospectos ya filtrado. */}
       <CifrasDeHoy stats={stats} today={today} />
@@ -254,38 +261,27 @@ export default function DashboardPage() {
           cada mañana; esto se abre cuando hace falta y cada bloque recuerda
           cómo lo dejaste. No se ha quitado nada.
           El recorrido (#928) señala el primero y cuenta los demás. */}
+
       <div data-recorrido="hoy-plegados">
-        <BloquePlegable clave="dashboard-equipo" titulo="El equipo este mes" abiertoPorDefecto={false} resumen="Ranking por lo cobrado">
+        <BloquePlegable clave="dashboard-productos" titulo="Productos vendidos" resumen="Top 10 del mes">
           <div className="space-y-6">
-            {/* Como voy este mes: el puesto en ventas y la tasa de conversion.
-                Diego, 22/09: «eres la gestora numero X de ventas».
-                12/11/2026, Diego: «los montos de los rankings de todas las vistas
-                son del monto cobrado». El ranking de aquí vuelve a lo cobrado,
-                como en Prospectos, Clientes, Ventas y Reportes (iba por lo
-                facturado desde el #224). */}
-            <ComoVoy />
+            {/* Cursos vendidos (hoy / semana / mes / personalizado) + Programas más vendidos.
+                Las dos tarjetas de productos cuentan lo FACTURADO (#224, Diego
+                10/10) y salen de `/ventas/facturado`. El ranking de gestoras de
+                arriba, no: desde el 12/11/2026 va por lo cobrado. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Suspense fallback={null}>
+                <CursosVendidosCard projectId={proyectoReal} issuerId={activeIssuerId} medida="facturado" />
+              </Suspense>
+              <Suspense fallback={null}>
+                <TopProductsCard projectId={proyectoReal} issuerId={activeIssuerId} days={null} limit={5} medida="facturado" />
+              </Suspense>
+            </div>
           </div>
         </BloquePlegable>
       </div>
 
-      <BloquePlegable clave="dashboard-productos" titulo="Productos vendidos" abiertoPorDefecto={false} resumen="Top 10 del mes">
-        <div className="space-y-6">
-          {/* Cursos vendidos (hoy / semana / mes / personalizado) + Programas más vendidos.
-              Las dos tarjetas de productos cuentan lo FACTURADO (#224, Diego
-              10/10) y salen de `/ventas/facturado`. El ranking de gestoras de
-              arriba, no: desde el 12/11/2026 va por lo cobrado. */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Suspense fallback={null}>
-              <CursosVendidosCard projectId={proyectoReal} issuerId={activeIssuerId} medida="facturado" />
-            </Suspense>
-            <Suspense fallback={null}>
-              <TopProductsCard projectId={proyectoReal} issuerId={activeIssuerId} days={null} limit={5} medida="facturado" />
-            </Suspense>
-          </div>
-        </div>
-      </BloquePlegable>
-
-      <BloquePlegable clave="dashboard-embudo" titulo="Embudo y orígenes" abiertoPorDefecto={false} resumen="Prospectos por estado y por canal">
+      <BloquePlegable clave="dashboard-embudo" titulo="Embudo y orígenes" resumen="Prospectos por estado y por canal">
         <div className="space-y-6">
           {/* Top KPI row */}
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -386,7 +382,7 @@ export default function DashboardPage() {
         </div>
       </BloquePlegable>
 
-      <BloquePlegable clave="dashboard-ayer-hoy" titulo="Ayer y hoy" abiertoPorDefecto={false} resumen="Resumen, actividad y seguimientos">
+      <BloquePlegable clave="dashboard-ayer-hoy" titulo="Ayer y hoy" resumen="Resumen, actividad y seguimientos">
         <div className="space-y-6">
           {/* Ayer y hoy, con datos (#130). El recorte por rol lo hace el servidor. */}
           <ResumenDeAyerYHoy projectIds={idsDelAmbito} />
@@ -485,7 +481,7 @@ export default function DashboardPage() {
       {/* Monitor SaaS — solo proyectos IA */}
       {activeProject?.type === 'ia' && <SaasMonitor projectId={activeProject.id} />}
 
-      <BloquePlegable clave="dashboard-recientes" titulo="Prospectos recientes" abiertoPorDefecto={false} resumen="Los últimos registrados">
+      <BloquePlegable clave="dashboard-recientes" titulo="Prospectos recientes" resumen="Los últimos registrados">
         <div className="space-y-6">
           {/* Recent Leads */}
           <div className="bg-card rounded-lg border border-border overflow-x-auto">

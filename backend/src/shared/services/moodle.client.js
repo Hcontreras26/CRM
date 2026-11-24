@@ -489,6 +489,29 @@ export function progresoDeMoodle(c) {
   return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null;
 }
 
+/**
+ * Con qué roles del curso da clase una tutora: «Profesor» y «Profesor sin permiso de
+ * edición», y los que añada `MOODLE_ROLES_TUTORA` (nombres cortos separados por comas).
+ * En ISEIE las tutoras redactoras están como «Gestor» (`manager`) en sus cursos, y Diego
+ * pidió que cuente (24/11/2026): allí `MOODLE_ROLES_TUTORA=manager`. Se lee en cada
+ * llamada, para que el .env mande sin reiniciar nada más.
+ */
+export function esRolDeTutora(rol, env = process.env) {
+  if (rol === 'editingteacher' || rol === 'teacher') return true;
+  return esRolExtraDeTutora(rol, env);
+}
+
+/**
+ * ¿Es uno de los roles que AÑADE `MOODLE_ROLES_TUTORA` (no «Profesor» ni «Profesor sin
+ * edición»)? Uno de estos nunca cuenta como alumno (`esAlumno`) ni como rol que ve todos
+ * los grupos en «Mi campus»: el CRM no sabe qué capacidades le dio ese campus.
+ */
+export function esRolExtraDeTutora(rol, env = process.env) {
+  if (rol === 'editingteacher' || rol === 'teacher') return false;
+  const extra = String(env.MOODLE_ROLES_TUTORA || '').split(',').map((x) => x.trim()).filter(Boolean);
+  return extra.includes(rol);
+}
+
 /** Roles (nombre corto) del equipo del curso: quien tiene uno de estos no es alumno. */
 export const ROLES_DE_EQUIPO = new Set(['editingteacher', 'teacher', 'manager', 'coursecreator']);
 
@@ -501,8 +524,10 @@ export const ROLES_DE_EQUIPO = new Set(['editingteacher', 'teacher', 'manager', 
  * `mod/assign:submit` (#1062): la API de matriculados da los roles, no las capacidades, y
  * de serie esa capacidad la tienen los roles de alumno y ninguno del equipo. Los permisos
  * se suman: quien es alumno y además profesora de otro grupo puede entregar, y cuenta.
+ * Un rol de `MOODLE_ROLES_TUTORA` es del equipo aunque no esté en `ROLES_DE_EQUIPO`.
+ * (Un solo argumento: se usa en `.filter(esAlumno)`.)
  */
-export const esAlumno = (g) => (g.roles || []).some((r) => !ROLES_DE_EQUIPO.has(r));
+export const esAlumno = (g) => (g.roles || []).some((r) => !ROLES_DE_EQUIPO.has(r) && !esRolDeTutora(r));
 
 /** Modos de grupo de Moodle (NOGROUPS, SEPARATEGROUPS, VISIBLEGROUPS). */
 export const SIN_GRUPOS = 0;
