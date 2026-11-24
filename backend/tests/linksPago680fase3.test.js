@@ -476,7 +476,9 @@ describe('crear un link desde una venta: el tope se mide contra lo pendiente', {
   it('cuenta propia (sin filtro): ninguna marca de más', async () => {
     const lead = await nuevoLead(A, p.gestora);
     stripeCreaBien();
-    expect((await crear(p.gestora, { leadId: lead, productId: prod.A, importe: 1000 })).status).toBe(201);
+    // `forzar` (CRM#1107): todos los prospectos de la prueba se llaman igual y ya hay
+    // ventas de este curso, así que sin él sería «venta repetida» (CRM#898).
+    expect((await crear(p.gestora, { leadId: lead, productId: prod.A, importe: 1000, forzar: true })).status).toBe(201);
     const link = llamadas.find((c) => c.ruta === '/v1/payment_links').cuerpo;
     expect(Object.keys(link).filter((k) => k.startsWith('payment_intent_data[metadata]')).every((k) => /\[crm_/.test(k))).toBe(true);
   });
