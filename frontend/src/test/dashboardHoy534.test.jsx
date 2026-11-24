@@ -112,8 +112,15 @@ describe('el Dashboard: cifras, cola y lo demás en plegables abiertos', () => {
     expect(primerPlegable).toBeGreaterThan(cola);
   });
 
-  it('el ranking, los productos y el embudo, plegables y ABIERTOS de entrada (Diego, 24/11)', () => {
-    for (const [clave, dentro] of [['dashboard-equipo', '<ComoVoy'], ['dashboard-productos', '<CursosVendidosCard'], ['dashboard-embudo', '<ConversionFunnel']]) {
+  it('el ranking («Cómo voy») arriba y a la vista, fuera de los plegables, como en la 2.9.8 (Diego, 24/11)', () => {
+    const comoVoy = devuelve.indexOf('<ComoVoy');
+    expect(comoVoy).toBeGreaterThan(0);
+    expect(comoVoy).toBeLessThan(devuelve.indexOf('<BloquePlegable'));
+    expect(devuelve).not.toContain('clave="dashboard-equipo"');
+  });
+
+  it('los productos y el embudo, plegables y ABIERTOS de entrada (Diego, 24/11)', () => {
+    for (const [clave, dentro] of [['dashboard-productos', '<CursosVendidosCard'], ['dashboard-embudo', '<ConversionFunnel']]) {
       const a = devuelve.indexOf(`clave="${clave}"`);
       const b = devuelve.indexOf('</BloquePlegable>', a);
       expect(a, clave).toBeGreaterThan(0);
