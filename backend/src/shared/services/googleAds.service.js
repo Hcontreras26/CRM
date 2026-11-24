@@ -9,6 +9,33 @@
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
 /**
+ * CRM#54: la credencial «google_ads» de un campus. Antes era solo el refresh
+ * token; para traer campañas hace falta además la cuenta. Se aceptan las dos:
+ *
+ *   · `1//0g…`                                  (solo el token, lo de siempre)
+ *   · `{"refresh_token":"1//0g…","customer_id":"123-456-7890",
+ *      "login_customer_id":"111-222-3333"}`      (token + cuenta [+ MCC])
+ *
+ * Los ids de cliente se guardan sin guiones. No lanza: quien lo usa decide si
+ * le basta con el token (el cron de validez) o necesita la cuenta (la sincronización).
+ */
+export function leerCredencialGoogleAds(valor) {
+  const limpio = (v) => (v == null || v === '' ? null : String(v).replace(/[^0-9]/g, '') || null);
+  const texto = String(valor ?? '').trim();
+  if (texto.startsWith('{')) {
+    let o = {};
+    try { o = JSON.parse(texto); } catch { return { refreshToken: null, customerId: null, loginCustomerId: null, error: 'La credencial de Google Ads no es un JSON válido' }; }
+    return {
+      refreshToken: o.refresh_token || null,
+      customerId: limpio(o.customer_id),
+      loginCustomerId: limpio(o.login_customer_id),
+      error: null,
+    };
+  }
+  return { refreshToken: texto || null, customerId: null, loginCustomerId: null, error: null };
+}
+
+/**
  * @param {object} args
  * @param {string} args.clientId      - Google OAuth client_id (env)
  * @param {string} args.clientSecret  - Google OAuth client_secret (env)

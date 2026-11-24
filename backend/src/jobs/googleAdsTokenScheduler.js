@@ -8,7 +8,7 @@ import { query } from '../shared/config/db.js';
 import { decrypt } from '../shared/utils/crypto.js';
 import { sendEmail } from '../shared/services/brevo.service.js';
 import * as P from '../shared/services/email-plantilla.service.js';
-import { refreshGoogleAdsAccessToken } from '../shared/services/googleAds.service.js';
+import { refreshGoogleAdsAccessToken, leerCredencialGoogleAds } from '../shared/services/googleAds.service.js';
 import { vigilar } from './latido.js';
 
 const TICK_MS = parseInt(process.env.GOOGLE_TOKEN_TICK_MS || String(24 * 60 * 60 * 1000));
@@ -113,7 +113,8 @@ async function processOne(cred, adminEmails) {
 
   let refreshToken;
   try {
-    refreshToken = decrypt(cred.encrypted_value, cred.iv, cred.auth_tag);
+    // CRM#54: el valor puede ser el token solo o el JSON con la cuenta.
+    refreshToken = leerCredencialGoogleAds(decrypt(cred.encrypted_value, cred.iv, cred.auth_tag)).refreshToken;
   } catch (err) {
     logger.warn({ err: err.message, credId: cred.id }, 'google ads token: decrypt fallo');
     await recordResult(cred.id, 'failed');

@@ -201,7 +201,7 @@ export const AVAILABLE_EXTRA_COLUMNS = [
 export const PROJECT_SERVICES = [
   { service: 'brevo', name: 'Brevo (Email)', description: 'La cuenta de Brevo de esta marca, donde está autenticado su dominio. Con ella y su remitente «no contestar» (pestaña General), sus correos salen desde su dominio. Sin ella, desde el del CRM.', placeholder: 'xkeysib-...' },
   { service: 'meta', name: 'Meta Marketing', description: 'Token + account_id del pixel/cuenta publicitaria', placeholder: 'EAAD...' },
-  { service: 'google_ads', name: 'Google Ads', description: 'Developer token + OAuth refresh token', placeholder: 'dev-token' },
+  { service: 'google_ads', name: 'Google Ads', description: 'Refresh token de OAuth y la cuenta (customer_id); login_customer_id si se entra por una MCC. El developer token va en el servidor.', placeholder: '{"refresh_token":"1//…","customer_id":"123-456-7890"}' },
   { service: 'gsc', name: 'Google Search Console', description: 'OAuth + property URL', placeholder: 'refresh_token' },
   { service: 'stripe', name: 'Stripe', description: 'Restricted key (solo lectura)', placeholder: 'rk_live_...' },
 ];

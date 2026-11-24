@@ -165,6 +165,8 @@ const SalesPage = lazy(() => import('./modules/sales/pages/SalesPage'));
 // Comercial › Links de pago (#680; Diego, 19/11).
 const LinksDePagoPage = lazy(() => import('./modules/links-pago/pages/LinksDePagoPage'));
 const MetaAdsPage = lazy(() => import('./modules/meta-ads/pages/MetaAdsPage'));
+// Google Ads (CRM#54): campañas y gasto, con el coste por venta.
+const GoogleAdsPage = lazy(() => import('./modules/google-ads/pages/GoogleAdsPage'));
 const ChangeRequestsPage = lazy(() => import('./modules/change-requests/pages/ChangeRequestsPage'));
 const ChangeRequestDetailPage = lazy(() => import('./modules/change-requests/pages/ChangeRequestDetailPage'));
 const DupReviewQueuePage = lazy(() => import('./modules/leads/pages/DupReviewQueuePage'));
@@ -298,6 +300,7 @@ function App() {
           </Route>
           <Route path="/ventas" element={<SalesPage />} />
           <Route path="/meta-ads" element={<MetaAdsPage />} />
+          <Route path="/google-ads" element={<GoogleAdsPage />} />
           <Route path="/prospectos/revision-duplicados" element={<DupReviewQueuePage />} />
           <Route path="/prospectos/duplicados" element={<DuplicatesPage />} />
           <Route path="/clientes/:id" element={<ClientDetailPage />} />
@@ -342,7 +345,7 @@ function App() {
           <Route path="/campanas" element={<CampanasLayout />}>
             <Route index element={<AunNoConectadoPage titulo="Campañas" />} />
             <Route path="meta" element={<Navigate to="/meta-ads" replace />} />
-            <Route path="google" element={<AunNoConectadoPage titulo="Google Ads" />} />
+            <Route path="google" element={<Navigate to="/google-ads" replace />} />
             <Route path="seo" element={<AunNoConectadoPage titulo="Tráfico orgánico" />} />
           </Route>
 

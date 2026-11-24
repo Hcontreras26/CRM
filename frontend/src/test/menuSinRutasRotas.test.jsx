@@ -88,11 +88,12 @@ describe('el menú de MultiCRM no lleva a «Página no encontrada»', () => {
     expect(conPantalla).toEqual([]);
   });
 
-  it('Google Ads, Campañas y Tráfico orgánico ya no están en el menú (#534, parte 3)', () => {
+  it('Campañas y Tráfico orgánico ya no están en el menú (#534, parte 3)', () => {
     // «Fuera del menú hasta que funcionen» (`menu-sin-proximamente-534`). Si una
-    // vuelve, que sea con su pantalla, no como «Próximamente».
+    // vuelve, que sea con su pantalla, no como «Próximamente». Google Ads volvió
+    // así (CRM#54): '/google-ads' es su pantalla.
     const rutas = entradasDelMenu.map((e) => e.to);
-    for (const r of [...PROXIMAMENTE_CON_PANTALLA, '/google-ads']) expect(rutas).not.toContain(r);
+    for (const r of PROXIMAMENTE_CON_PANTALLA) expect(rutas).not.toContain(r);
     expect(entradasDelMenu.filter((e) => e.comingSoon)).toEqual([]);
   });
 

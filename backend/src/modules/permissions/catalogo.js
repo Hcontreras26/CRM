@@ -236,6 +236,13 @@ export const SECCIONES = [
           a('edit', 'Conectar y sincronizar Meta Ads', 'Conectar cuentas, sincronizarlas y asociar campañas a productos.', ADMIN_SOPORTE),
         ],
       },
+      {
+        // CRM#54: campañas, grupos y anuncios de Google con su gasto y su coste por venta.
+        clave: 'google_ads', nombre: 'Google Ads', acciones: [
+          a('view', 'Ver Google Ads', 'Campañas, grupos y anuncios de Google con su gasto, y lo que han traído al CRM.', yPM(ADMIN_SOPORTE)),
+          a('edit', 'Sincronizar Google Ads', 'Traer ya los datos de Google Ads de un campus y asociar campañas a otro campus.', ADMIN_SOPORTE),
+        ],
+      },
     ],
   },
   {

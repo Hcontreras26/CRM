@@ -28,6 +28,7 @@ export const ROUTE_TITLES = {
   '/campanas': 'Campañas',
   '/campanas/meta': 'Meta Ads',
   '/campanas/google': 'Google Ads',
+  '/google-ads': 'Google Ads',
   '/campanas/seo': 'Tráfico orgánico',
   '/productos': 'Productos',
   // Cada pantalla se llama igual en el menú, en la ruta, en la pestaña del

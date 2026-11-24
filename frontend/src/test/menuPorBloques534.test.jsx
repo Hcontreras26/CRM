@@ -52,7 +52,8 @@ const MODULOS = [
 ];
 const TIPOS = ['educacion', 'ia'];
 // Lo que sale del menú a propósito (`menu-sin-proximamente-534`).
-const QUITADAS = new Set(['Captación › Campañas', 'Captación › Tráfico orgánico', 'Publicidad › Google Ads']);
+// «Publicidad › Google Ads» volvió con su pantalla (CRM#54): ya no es una «Próximamente».
+const QUITADAS = new Set(['Captación › Campañas', 'Captación › Tráfico orgánico']);
 
 function visibles(secciones, p, projectType, modules) {
   const user = { id: p.id, role: p.role, roles_extra: p.roles_extra, factura_manager: p.factura_manager, gestor_colaboraciones: p.gestor_colaboraciones, usa_mcp: p.usa_mcp };
@@ -114,7 +115,8 @@ describe('los bloques', () => {
 
   it('las «Próximamente» ya no están', () => {
     const rutas = NAV_SECTIONS.flatMap((s) => s.items.flatMap((i) => [i.to, ...(i.children || []).map((c) => c.to)]));
-    for (const r of ['/campanas', '/campanas/seo', '/google-ads']) expect(rutas).not.toContain(r);
+    // '/google-ads' volvió con pantalla de verdad (CRM#54).
+    for (const r of ['/campanas', '/campanas/seo']) expect(rutas).not.toContain(r);
   });
 
   it('el reparto y la salida de las «Próximamente», aprobados por Diego (18/11)', () => {

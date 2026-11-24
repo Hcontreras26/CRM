@@ -1,6 +1,7 @@
 import { query } from '../../shared/config/db.js';
 import { comoLista, SIN_PRUEBAS } from '../../shared/utils/ambito.js';
 import { CANAL_DE_ORIGEN } from './report.model.js';
+import { gastoPorCampana as gastoGoogleAds } from '../google-ads/google-ads.service.js';
 
 /**
  * «¿Dónde ponemos el dinero el mes que viene?» (#56).
@@ -22,17 +23,36 @@ import { CANAL_DE_ORIGEN } from './report.model.js';
  * se compró hace seis semanas). Como contrapartida, el periodo anterior ha tenido
  * MÁS tiempo para cobrar, y la pantalla lo avisa.
  *
- * EL GASTO. Hoy solo hay gasto de Meta (`meta_campaigns_daily`). Google Ads, GA4
- * y Search Console (#54, #55, #36) no están conectados: sus canales salen con
- * `gasto: null` —«sin dato»— y NO con cero, que diría que no cuestan nada. Cuando
- * lleguen, se añaden en `GASTO_POR_CANAL`.
+ * EL GASTO. Hay gasto de Meta (`meta_campaigns_daily`) y, desde la #54, de
+ * Google Ads (`google_ads_diario`), pero Google solo cuenta como «con gasto»
+ * cuando alguno de los campus mirados tiene la cuenta sincronizada: sin eso sale
+ * con `gasto: null` —«sin dato»— y NO con cero, que diría que no cuesta nada.
+ * Igual TikTok, que no está conectado.
  */
 
 const TZ = process.env.APP_TIMEZONE || 'Europe/Madrid';
 const ENTRADA = `(COALESCE(l.fecha_solicitud, l.created_at) AT TIME ZONE '${TZ}')::date`;
 
-/** Canales de los que hay gasto en el CRM. El resto no tiene dato (no es cero). */
+/** Canales de los que SIEMPRE hay gasto en el CRM. El resto no tiene dato (no es cero). */
 export const CANALES_CON_GASTO = ['meta_ads'];
+
+/**
+ * Los canales con gasto para los campus mirados: Meta siempre; Google Ads si
+ * alguno tiene la cuenta de Google Ads sincronizada al menos una vez (#54).
+ */
+async function canalesConGasto(lista) {
+  const params = [];
+  let proyecto;
+  if (lista) { params.push(lista); proyecto = `g.project_id = ANY($1::int[])`; } else proyecto = SIN_PRUEBAS('g.project_id');
+  try {
+    const { rows } = await query(`SELECT EXISTS (SELECT 1 FROM google_ads_cuentas g WHERE g.backfill_done AND ${proyecto}) AS hay`, params);
+    return rows[0]?.hay ? [...CANALES_CON_GASTO, 'google_ads'] : CANALES_CON_GASTO;
+  } catch (err) {
+    // Sin la migración 321 la tabla no existe: el panel sigue como antes.
+    if (err.code === '42P01') return CANALES_CON_GASTO;
+    throw err;
+  }
+}
 /** Canales que cuestan dinero (aunque el CRM aún no tenga su gasto): no son «sin gasto», son «sin conectar». */
 export const CANALES_DE_PAGO = ['meta_ads', 'google_ads', 'tiktok_ads'];
 
@@ -99,6 +119,14 @@ async function gastoMeta(lista, desde, hasta) {
   return rows;
 }
 
+/** Gasto de Google Ads del periodo, por campaña (del campus al que se apunta cada una). */
+function gastoGoogle(lista, desde, hasta) {
+  return gastoGoogleAds(
+    (campus) => (lista ? `${campus} = ANY($3::int[])` : SIN_PRUEBAS(campus)),
+    lista ? [lista] : [], desde, hasta
+  );
+}
+
 async function nombresDeCampana(ids) {
   if (!ids.length) return new Map();
   const { rows } = await query(`SELECT campaign_id, nombre FROM meta_campaigns WHERE campaign_id = ANY($1::text[])`, [ids]);
@@ -109,8 +137,12 @@ async function nombresDeCampana(ids) {
  * Las filas de un periodo ya ordenadas: { canales: Map(canal → fila), campanas:
  * Map(canal → Map(campaña → fila)) }, con el gasto puesto donde lo hay.
  */
-async function resumenDelPeriodo(lista, desde, hasta) {
-  const [filas, gasto] = await Promise.all([dePeriodo(lista, desde, hasta), gastoMeta(lista, desde, hasta)]);
+async function resumenDelPeriodo(lista, desde, hasta, conGasto) {
+  const conGoogle = conGasto.includes('google_ads');
+  const [filas, gasto, google] = await Promise.all([
+    dePeriodo(lista, desde, hasta), gastoMeta(lista, desde, hasta),
+    conGoogle ? gastoGoogle(lista, desde, hasta) : [],
+  ]);
   const canales = new Map();
   const campanas = new Map();
   for (const r of filas) {
@@ -132,7 +164,34 @@ async function resumenDelPeriodo(lista, desde, hasta) {
     if (!m.has(g.campaign_id)) m.set(g.campaign_id, { leads: 0, ventas: 0, vendido: 0, cobrado: 0, gasto: null, nombre: null });
     Object.assign(m.get(g.campaign_id), { gasto: dinero(g.gasto), nombre: g.nombre });
   }
+  if (conGoogle) ponerGastoGoogle(canales, campanas, google);
   return { canales, campanas };
+}
+
+/**
+ * El gasto de Google Ads, igual que el de Meta. La `utm_campaign` de un prospecto
+ * de Google puede ser el id de la campaña ({campaignid}) o su nombre: los que
+ * vienen con el nombre se juntan con su id para que gasto y ventas caigan en la
+ * misma fila.
+ */
+function ponerGastoGoogle(canales, campanas, google) {
+  const nueva = () => ({ leads: 0, ventas: 0, vendido: 0, cobrado: 0, gasto: null, nombre: null });
+  if (!canales.has('google_ads')) canales.set('google_ads', nueva());
+  canales.get('google_ads').gasto = dinero(google.reduce((s, g) => s + Number(g.gasto), 0));
+  const previas = campanas.get('google_ads') || new Map();
+  const porNombre = new Map(google.map((g) => [String(g.nombre || '').toLowerCase(), g.campaign_id]));
+  const m = new Map();
+  for (const [clave, f] of previas) {
+    const id = google.some((g) => g.campaign_id === clave) ? clave : (porNombre.get(String(clave || '').toLowerCase()) || clave);
+    const a = m.get(id);
+    if (!a) m.set(id, { ...f });
+    else Object.assign(a, { leads: a.leads + f.leads, ventas: a.ventas + f.ventas, vendido: dinero(a.vendido + f.vendido), cobrado: dinero(a.cobrado + f.cobrado) });
+  }
+  for (const g of google) {
+    if (!m.has(g.campaign_id)) m.set(g.campaign_id, nueva());
+    Object.assign(m.get(g.campaign_id), { gasto: dinero(g.gasto), nombre: g.nombre });
+  }
+  campanas.set('google_ads', m);
 }
 
 const conRatios = (f) => ({
@@ -148,9 +207,10 @@ const conRatios = (f) => ({
 export async function dineroPorCanal({ projectId = null, projectIds = null, from, to }) {
   const lista = comoLista(projectId, projectIds);
   const anterior = periodoAnterior(from, to);
+  const conGasto = await canalesConGasto(lista);
   const [ahora, antes] = await Promise.all([
-    resumenDelPeriodo(lista, from, to),
-    resumenDelPeriodo(lista, anterior.from, anterior.to),
+    resumenDelPeriodo(lista, from, to, conGasto),
+    resumenDelPeriodo(lista, anterior.from, anterior.to, conGasto),
   ]);
 
   // Los nombres de las campañas que no son de Meta (o que vienen sin gasto) salen
@@ -161,8 +221,8 @@ export async function dineroPorCanal({ projectId = null, projectIds = null, from
   const todos = new Set([...ahora.canales.keys(), ...antes.canales.keys()]);
   const vacio = { leads: 0, ventas: 0, vendido: 0, cobrado: 0, gasto: null };
   const canales = [...todos].map((canal) => {
-    const a = ahora.canales.get(canal) || { ...vacio, gasto: CANALES_CON_GASTO.includes(canal) ? 0 : null };
-    const p = antes.canales.get(canal) || { ...vacio, gasto: CANALES_CON_GASTO.includes(canal) ? 0 : null };
+    const a = ahora.canales.get(canal) || { ...vacio, gasto: conGasto.includes(canal) ? 0 : null };
+    const p = antes.canales.get(canal) || { ...vacio, gasto: conGasto.includes(canal) ? 0 : null };
     const nombresCamp = ahora.campanas.get(canal) || new Map();
     const campanas = [...nombresCamp.entries()].map(([id, f]) => ({
       ...conRatios(f),
@@ -171,7 +231,7 @@ export async function dineroPorCanal({ projectId = null, projectIds = null, from
     })).sort((x, y) => (y.cobrado - x.cobrado) || ((y.gasto || 0) - (x.gasto || 0)) || (y.leads - x.leads)).slice(0, 15);
     return {
       canal,
-      tiene_gasto: CANALES_CON_GASTO.includes(canal),
+      tiene_gasto: conGasto.includes(canal),
       es_de_pago: CANALES_DE_PAGO.includes(canal),
       ...conRatios(a),
       anterior: conRatios(p),
@@ -201,9 +261,9 @@ export async function dineroPorCanal({ projectId = null, projectIds = null, from
   return {
     periodo: { from, to },
     anterior,
-    canales_con_gasto: CANALES_CON_GASTO,
+    canales_con_gasto: conGasto,
     // Hay canales de pago de los que no se conoce el gasto (Google Ads, TikTok…).
-    gasto_completo: !canales.some((c) => ['google_ads', 'tiktok_ads'].includes(c.canal) && c.leads > 0),
+    gasto_completo: !canales.some((c) => CANALES_DE_PAGO.includes(c.canal) && !c.tiene_gasto && c.leads > 0),
     total: { ...total, coste_por_venta: razon(total.gasto, ventasConGasto(canales)), coste_mezclado: razon(total.gasto, total.ventas) },
     total_anterior: {
       ...totalAnterior,

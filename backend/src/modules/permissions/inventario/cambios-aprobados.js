@@ -660,6 +660,22 @@ export const CAMBIOS_DE_MENU = [
     },
     aprobadoPor: 'Pendiente de Diego (menú por permiso)',
   },
+  {
+    id: 'menu-google-ads-54',
+    que: '«Publicidad › Google Ads»: campañas, grupos y anuncios de Google con su gasto, y los prospectos, ventas y coste por venta que han traído al CRM (CRM#54). La ve quien tiene `google_ads.view`, clave nueva: admin, soporte y project manager de serie, cada uno en sus campus. Sincronizar a mano y asociar una campaña a otro campus, `google_ads.edit` (admin y soporte).',
+    motivo: 'CRM#54: el CRM no sabía nada de Google Ads; ni gasto, ni campañas. Sustituye a «Campañas › Google Ads», que enseñaba «Aún no conectado» (#216).',
+    perfiles: {
+      superadmin: ['+ Publicidad › Google Ads'],
+      admin: ['+ Publicidad › Google Ads'],
+      soporte: ['+ Publicidad › Google Ads'],
+      project_manager: ['+ Publicidad › Google Ads'],
+      'gestora+admin': ['+ Publicidad › Google Ads'],
+    },
+    rutas: {
+      'Publicidad › Google Ads': 'GET /api/google-ads/estado',
+    },
+    aprobadoPor: 'Pendiente de Diego (CRM#54)',
+  },
 ];
 
 /**

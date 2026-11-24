@@ -22,7 +22,8 @@ const SERVICIOS = [
   { id: 'brevo', nombre: 'Brevo', pista: 'xkeysib-…' },
   { id: 'stripe', nombre: 'Stripe', pista: 'sk_live_… o sk_test_…' },
   { id: 'meta', nombre: 'Meta Ads', pista: 'EAA…' },
-  { id: 'google_ads', nombre: 'Google Ads', pista: 'refresh token' },
+  // CRM#54: el token solo vale para «Probar»; para traer campañas hace falta la cuenta.
+  { id: 'google_ads', nombre: 'Google Ads', pista: '{"refresh_token":"1//…","customer_id":"123-456-7890","login_customer_id":"(MCC, opcional)"}' },
   { id: 'gsc', nombre: 'Search Console', pista: '' },
   { id: 'woocommerce', nombre: 'WooCommerce', pista: 'ck_… / cs_…' },
   { id: 'evolution', nombre: 'Evolution (WhatsApp)', pista: '' },

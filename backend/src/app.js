@@ -19,6 +19,7 @@ import tutoresModule from './modules/tutores/index.js';
 import consultasModule from './modules/consultas/index.js';
 import notificationsModule from './modules/notifications/index.js';
 import metaAdsModule from './modules/meta-ads/index.js';
+import googleAdsModule from './modules/google-ads/index.js';
 import accountingModule from './modules/accounting/index.js';
 import expensesModule from './modules/expenses/index.js';
 import integrationsModule from './modules/integrations/index.js';
@@ -104,6 +105,7 @@ import { startStripeDisputasScheduler } from './jobs/stripeDisputasScheduler.js'
 import { startDocumentOrphanScheduler } from './jobs/documentOrphanScheduler.js';
 import { startGoogleAdsTokenScheduler } from './jobs/googleAdsTokenScheduler.js';
 import { startMetaAdsSyncScheduler } from './jobs/metaAdsSyncScheduler.js';
+import { startGoogleAdsSyncScheduler } from './jobs/googleAdsSyncScheduler.js';
 import { startMetaTokensScheduler } from './jobs/metaTokensScheduler.js';
 import { startTutorCommissionsScheduler } from './jobs/tutorCommissionsScheduler.js';
 import { startTutoresCampusScheduler } from './jobs/tutoresCampusScheduler.js';
@@ -324,6 +326,8 @@ const ALL_MODULES = [
   { name: 'consultas', mod: consultasModule },
   { name: 'notifications', mod: notificationsModule },
   { name: 'meta-ads', mod: metaAdsModule },
+  // Google Ads (CRM#54): campañas y gasto, con el coste por venta.
+  { name: 'google-ads', mod: googleAdsModule },
   { name: 'accounting', mod: accountingModule },
   // Egresos, su propio modulo e igual que en CRM-ISEIE (#227). Va DESPUES de
   // `accounting`: su alias /api/accounting/expenses cuelga de ese prefijo.
@@ -543,6 +547,8 @@ if (process.env.NODE_ENV !== 'test') {
     startDocumentOrphanScheduler();
     startGoogleAdsTokenScheduler();
     startMetaAdsSyncScheduler();
+    // Sincronización de Google Ads (CRM#54). Apagada sin GOOGLE_ADS_SYNC_ACTIVO=1.
+    startGoogleAdsSyncScheduler();
     // Renovación diaria de tokens de Meta e Instagram (#471). Apagada sin META_TOKENS_RENOVACION_ACTIVA=1.
     startMetaTokensScheduler();
     startTutorCommissionsScheduler();

@@ -6689,6 +6689,158 @@
   "puertas": []
  },
  {
+  "id": "GET /api/google-ads/estado",
+  "tipo": "ruta",
+  "modulo": "google-ads",
+  "metodo": "GET",
+  "ruta": "/api/google-ads/estado",
+  "relativa": "GET /estado",
+  "controlador": "estado",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_ads.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/google-ads/campanas",
+  "tipo": "ruta",
+  "modulo": "google-ads",
+  "metodo": "GET",
+  "ruta": "/api/google-ads/campanas",
+  "relativa": "GET /campanas",
+  "controlador": "campanas",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_ads.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/google-ads/diario",
+  "tipo": "ruta",
+  "modulo": "google-ads",
+  "metodo": "GET",
+  "ruta": "/api/google-ads/diario",
+  "relativa": "GET /diario",
+  "controlador": "diario",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_ads.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/google-ads/campanas/:campaignId/grupos",
+  "tipo": "ruta",
+  "modulo": "google-ads",
+  "metodo": "GET",
+  "ruta": "/api/google-ads/campanas/:campaignId/grupos",
+  "relativa": "GET /campanas/:campaignId/grupos",
+  "controlador": "grupos",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_ads.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PATCH /api/google-ads/campanas/:campaignId/campus",
+  "tipo": "ruta",
+  "modulo": "google-ads",
+  "metodo": "PATCH",
+  "ruta": "/api/google-ads/campanas/:campaignId/campus",
+  "relativa": "PATCH /campanas/:campaignId/campus",
+  "controlador": "asignarCampus",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_ads.edit"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/google-ads/sincronizar",
+  "tipo": "ruta",
+  "modulo": "google-ads",
+  "metodo": "POST",
+  "ruta": "/api/google-ads/sincronizar",
+  "relativa": "POST /sincronizar",
+  "controlador": "sincronizar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_ads.edit"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "POST /api/ia-analisis/preguntar",
   "tipo": "ruta",
   "modulo": "ia-analisis",
