@@ -128,7 +128,7 @@ export default function AvailabilityDialog({ user, estadoInicial, onClose, onCha
   }
 
   // El reparto solo mira a gestores y a admins con el flag puesto.
-  const entraEnReparto = user.role === 'gestor' || user.role === 'admin' || user.role === 'superadmin';
+  const entraEnReparto = ['gestor', 'lider_equipo', 'admin', 'superadmin'].includes(user.role);
 
   return (
     <>

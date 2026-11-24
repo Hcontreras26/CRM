@@ -18421,7 +18421,8 @@
    {
     "tipo": "puede",
     "claves": [
-     "users.view"
+     "users.view",
+     "equipos.su_equipo"
     ]
    }
   ],

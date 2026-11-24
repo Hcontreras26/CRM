@@ -30,7 +30,8 @@ router.patch('/mis-avisos', userController.cambiarMiAviso);
 
 // Resto admin/superadmin
 
-router.get('/', puede('users.view'), userController.list);
+// Con «Ver a su equipo» (la líder de equipo, CRM#1105) y sin «Ver usuarios»: solo su equipo.
+router.get('/', puede('users.view', 'equipos.su_equipo'), userController.list);
 // El buscador (Ctrl K, #591). Antes que `/:id`, o «buscar» se leería como un id.
 router.get('/buscar', puede('users.view'), userController.buscar);
 // Qué roles puede dar quien da de alta (Tony, 03/11). El mismo permiso que el alta, y antes que `/:id`.

@@ -6,7 +6,7 @@ import { logger } from '../../shared/utils/logger.js';
 import { query, getClient } from '../../shared/config/db.js';
 import { comoLista, SIN_PRUEBAS } from '../../shared/utils/ambito.js';
 // `responsableId` puede ser una gestora o varias: las de un equipo comercial (09/11/2026).
-import { comoIds } from '../../shared/utils/roles.js';
+import { comoIds, esRolDeGestora } from '../../shared/utils/roles.js';
 // El país de entrada del prospecto de cada venta (#221).
 import { sqlPaisDeLaVenta, sqlPaisDelLead } from '../leads/pais.js';
 // Lo facturado tiene UNA definición y vive en los informes (#224).
@@ -66,14 +66,14 @@ export async function createSale(data, requestUser, { comprobarRepetida: mirarRe
     // Modo "cliente nuevo": crear lead manual con canal=directo.
     // createManualLead detecta duplicados: si existe lead con mismo email/tel, lo reusa.
     // Si quien registra es admin/superadmin → dejamos round-robin (no se auto-asignan ventas).
-    // Si es gestor → se le asigna a sí mismo (es su venta).
+    // Si es gestor → se le asigna a sí mismo (es su venta). La líder de equipo, igual (CRM#1105).
     // Con «sin gestora» no se pasa creador NI se reparte: la venta no es de
     // nadie a proposito. Sin esto, un gestor se la queda (el creador se queda
     // el lead) y un admin se la encaja al round-robin, que se la da a alguien
     // que no ha vendido nada. Las dos cosas acaban en el mismo sitio: un
     // informe que atribuye una venta a quien solo la apunto.
     const sinGestora = Boolean(data.sin_gestora);
-    const passCreator = !sinGestora && requestUser && requestUser.role === 'gestor' ? requestUser : null;
+    const passCreator = !sinGestora && requestUser && esRolDeGestora(requestUser.role) ? requestUser : null;
     try {
       leadResult = await leadService.createManualLead(
         {

@@ -23,6 +23,8 @@ const COMPARA_ROL = /role\b\s*(===|!==)|\.includes\([a-zA-Z_.?]*\.role\)|tieneRo
 
 /** Lo que queda, y por qué no es un permiso. */
 const DECLARADAS = {
+  // CRM#1105: el resumen del día de la gestora (lead.model.js) y a quién se asigna la venta
+  // (sales.service.js) ya no comparan el rol: preguntan `esRolDeGestora` (cuenta a la líder de equipo).
   'auth/auth.model.js': [1, 'alcance: los campus que ve el superadmin'],
   'auth/auth.service.js': [1, 'comportamiento: la clave de webhook solo se enseña a admin'],
   'claude-chat/chat.controller.js': [1, 'no es un rol de persona: el de cada mensaje del chat'],
@@ -40,7 +42,6 @@ const DECLARADAS = {
   'invoices/invoices.controller.js': [1, 'alcance: la gestora, sus facturas; filtrar por empresa'],
   'invoices/invoices.model.js': [1, 'alcance: admin y superadmin, todas las facturas'],
   'leads/lead.controller.js': [1, 'alcance: la gestora, sus prospectos'],
-  'leads/lead.model.js': [1, 'alcance: el resumen del día de la gestora'],
   'leads/lead.service.js': [2, 'alcance y comportamiento: interacciones propias; el reparto no da a tutores'],
   'mcp/mcp.acceso.js': [2, 'alcance: soloLoSuyo, lo que ve por el MCP quien no es admin; el equipo comercial no recorta a un super admin'],
   'mcp/mcp.actividad.js': [1, 'alcance: el superadmin ve la actividad de todos'],
@@ -49,7 +50,6 @@ const DECLARADAS = {
   'notifications/notifications.service.js': [1, 'alcance: qué avisos ve cada uno'],
   'proceso/proceso.ambito.js': [1, 'alcance: qué campus entran en la cola'],
   'sales/sales.goals.js': [1, 'alcance: la gestora, su meta; el superadmin, la de cualquier campus'],
-  'sales/sales.service.js': [1, 'comportamiento: a quién se asigna la venta'],
   'soporte/soporte.controller.js': [1, 'alcance: quien administra (admin, soporte, superadmin) responde y ve los tickets de su alcance; el resto, los suyos'],
   // Diego, 26/10/2026: sobre CADA tarea, mover, comentar, aprobar y devolver son del superadmin, del supervisor y de
   // quien la lleva; el superadmin edita y borra comentarios de cualquiera. Es quién actúa sobre una tarea concreta,
