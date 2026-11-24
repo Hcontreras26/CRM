@@ -9,6 +9,7 @@ import { urlDeStripe } from '../../shared/config/stripeApi.js';
 import { linksPagoActivos, proyectosIAActivos } from '../../shared/config/soloEnPruebas.js';
 import { paypalActivo } from '../cobros-externos/interruptores.js';
 import { probarCredenciales as probarPaypal } from '../cobros-externos/paypal.service.js';
+import { prestadoDe, prestadosDe } from '../stripe-payments/stripe-prestado.js';
 
 /*
   SUPABASE, EL TERCERO (#44).
@@ -149,17 +150,69 @@ export async function estado(req, res, next) {
   try {
     const lista = (await listaDelAmbito(req)) || await campusDeTodos(req);
     const campus = await model.estadoDeLosCampus(lista);
-    res.json({ success: true, data: campus });
+    res.json({ success: true, data: await conStripePrestado(campus) });
   } catch (err) { next(err); }
 }
 
+/** Los proveedores de la cuenta de Stripe: los que un campus puede usar prestados (322). */
+const DE_LA_CUENTA_DE_STRIPE = ['stripe', 'stripe_links'];
+
+/**
+ * STRIPE PRESTADO (322) en el estado de cada campus: `stripe_prestado_de` en
+ * todos (null si no) y, en el que usa la cuenta de otro, su Stripe sale como
+ * conectado con lo de la cuenta del dueño (si tiene clave y cómo fue su última
+ * prueba), marcado con `prestado_de`. Nunca la clave.
+ */
+export async function conStripePrestado(campus) {
+  const prestados = await prestadosDe((campus || []).map((c) => c.id));
+  if (!prestados.size) return (campus || []).map((c) => ({ ...c, stripe_prestado_de: null }));
+  const duenos = new Map();
+  for (const d of new Set([...prestados.values()].map((x) => x.id))) {
+    duenos.set(d, await model.get(d, 'stripe'));
+  }
+  return campus.map((c) => {
+    const prestado = prestados.get(Number(c.id)) || null;
+    if (!prestado) return { ...c, stripe_prestado_de: null };
+    const fila = duenos.get(prestado.id);
+    const integraciones = (c.integraciones || []).filter((i) => i.provider !== 'stripe');
+    integraciones.push({
+      provider: 'stripe',
+      has_secret: !!fila?.encrypted_value,
+      last_test_status: fila?.last_test_status ?? null,
+      last_test_at: fila?.last_test_at ?? null,
+      prestado_de: prestado,
+    });
+    integraciones.sort((a, b) => String(a.provider).localeCompare(String(b.provider)));
+    return { ...c, integraciones, stripe_prestado_de: prestado };
+  });
+}
+
 // GET /api/integrations/:provider?projectId=N
+//
+// STRIPE PRESTADO (322): en «stripe» y «stripe_links», `stripe_prestado_de`
+// ({ id, nombre } del campus cuya cuenta usa este, o null). Un campus que la
+// toma prestada no tiene fila propia: sale una sin clave, con ese campo, para
+// que la tarjeta diga «Usa el Stripe de …» y no «falta conectar». Las claves
+// del dueño no salen nunca aquí.
 export async function getOne(req, res, next) {
   try {
     const provider = String(req.params.provider || '').toLowerCase();
     if (!proveedorSoportado(provider)) throw new AppError('Provider no soportado', 400, 'BAD_PROVIDER');
-    const row = await model.get(projectId(req), provider);
-    res.json({ success: true, data: sanitize(row) });
+    const pid = projectId(req);
+    const row = await model.get(pid, provider);
+    let data = sanitize(row);
+    if (DE_LA_CUENTA_DE_STRIPE.includes(provider)) {
+      const prestado = await prestadoDe(pid);
+      if (data) data = { ...data, stripe_prestado_de: prestado };
+      else if (prestado) {
+        data = {
+          id: null, project_id: pid, provider, active: false, has_secret: false, secret_preview: null,
+          config_public: {}, last_test_status: null, last_test_message: null, last_test_at: null,
+          created_at: null, updated_at: null, stripe_prestado_de: prestado,
+        };
+      }
+    }
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 }
 
@@ -171,6 +224,15 @@ export async function upsert(req, res, next) {
     const { provider, active, api_key, webhook_secret, config_public } = parsed.data;
     if (!proveedorSoportado(provider)) throw new AppError('Provider no soportado', 400, 'BAD_PROVIDER');
     const pid = projectId(req);
+    // Un campus que usa la cuenta de otro (Stripe prestado, 322) no guarda claves
+    // de Stripe propias: se usarían las del dueño igual y la suya quedaría muerta.
+    if (DE_LA_CUENTA_DE_STRIPE.includes(provider) && (api_key || webhook_secret)) {
+      const prestado = await prestadoDe(pid);
+      if (prestado) {
+        throw new AppError(`Este campus usa el Stripe de ${prestado.nombre}. Para ponerle una cuenta propia, antes hay que quitarle el préstamo.`,
+          409, 'STRIPE_PRESTADO');
+      }
+    }
     if (provider === 'stripe_links') {
       // Solo la clave. El webhook es uno por cuenta y va en la tarjeta de Stripe.
       if (webhook_secret) {
