@@ -19,7 +19,7 @@ const SERVICES = [
   // Migracion 299 (CRM#737): el tablero ↔ GitHub. JSON {"webhook_secret":"…","token":"…"};
   // se pone desde Configurar tablero › GitHub.
   'github',
-  // Migracion 320 (CRM#55): Google Analytics 4 de cada campus. El JSON de la
+  // Migracion 323 (CRM#55): Google Analytics 4 de cada campus. El JSON de la
   // cuenta de servicio de Google con `property_id` añadido.
   'google_analytics',
 ];

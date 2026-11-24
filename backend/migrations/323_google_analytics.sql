@@ -1,4 +1,4 @@
--- 320 · Google Analytics: lo que pasa antes del lead (CRM#55)
+-- 323 · Google Analytics: lo que pasa antes del lead (CRM#55)
 --
 -- Las webs tienen GA4 pero el CRM no veía nada de lo que pasa antes de que
 -- alguien deje su teléfono. Con esto se guarda, por campus y por día:
