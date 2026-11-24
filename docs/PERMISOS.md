@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-951 rutas en 73 módulos, y 31 acciones con condición dentro de una ruta.
+955 rutas en 74 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -509,6 +509,15 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | remove | `DELETE /api/forms/:id` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `forms.delete` |
 | startListening | `POST /api/forms/:id/listen` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `forms.edit` |
 | stopListening | `POST /api/forms/:id/listen/stop` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `forms.edit` |
+
+## google-analytics
+
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
+|---|---|---|---|---|
+| estado | `GET /api/google-analytics/estado` | (no existía) | (ruta nueva) | `google_analytics.view` |
+| embudo | `GET /api/google-analytics/embudo` | (no existía) | (ruta nueva) | `google_analytics.view` |
+| paginas | `GET /api/google-analytics/paginas` | (no existía) | (ruta nueva) | `google_analytics.view` |
+| sincronizar | `POST /api/google-analytics/sincronizar` | (no existía) | (ruta nueva) | `google_analytics.edit` |
 
 ## ia-analisis
 
@@ -1516,6 +1525,13 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver Meta Ads | `meta_ads.view` | Cuentas, campañas, anuncios y su rendimiento. | Admin, Soporte, Project manager |  |
 | Conectar y sincronizar Meta Ads | `meta_ads.edit` | Conectar cuentas, sincronizarlas y asociar campañas a productos. | Admin, Soporte | `meta_ads.view` |
+
+### Google Analytics
+
+| Permiso | Clave | Qué deja hacer | De serie | Necesita |
+|---|---|---|---|---|
+| Ver Google Analytics | `google_analytics.view` | Visitas por canal y por página de curso, y cuántas acaban en prospecto y en venta. | Admin, Soporte, Project manager |  |
+| Sincronizar Google Analytics | `google_analytics.edit` | Traer ya los datos de GA4 de un campus. | Admin, Soporte | `google_analytics.view` |
 
 ## Catálogo
 
