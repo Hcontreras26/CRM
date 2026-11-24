@@ -99,7 +99,7 @@ describe('Productos vendidos: top 10 y «Ver todos»', () => {
   });
 });
 
-describe('el Dashboard: cifras, cola y lo demás plegado', () => {
+describe('el Dashboard: cifras, cola y lo demás en plegables abiertos', () => {
   const src = fs.readFileSync(path.resolve(__dirname, '..', 'shared/pages/DashboardPage.jsx'), 'utf8');
   const devuelve = src.slice(src.indexOf('<AvisoHuecosFacturas'));
 
@@ -112,13 +112,13 @@ describe('el Dashboard: cifras, cola y lo demás plegado', () => {
     expect(primerPlegable).toBeGreaterThan(cola);
   });
 
-  it('el ranking, los productos y el embudo, plegados y cerrados de entrada', () => {
+  it('el ranking, los productos y el embudo, plegables y ABIERTOS de entrada (Diego, 24/11)', () => {
     for (const [clave, dentro] of [['dashboard-equipo', '<ComoVoy'], ['dashboard-productos', '<CursosVendidosCard'], ['dashboard-embudo', '<ConversionFunnel']]) {
       const a = devuelve.indexOf(`clave="${clave}"`);
       const b = devuelve.indexOf('</BloquePlegable>', a);
       expect(a, clave).toBeGreaterThan(0);
       expect(devuelve.slice(a, b), clave).toContain(dentro);
-      expect(devuelve.slice(a, devuelve.indexOf('>', a)), clave).toContain('abiertoPorDefecto={false}');
+      expect(devuelve.slice(a, devuelve.indexOf('>', a)), clave).not.toContain('abiertoPorDefecto={false}');
     }
   });
 
