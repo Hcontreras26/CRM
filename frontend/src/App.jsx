@@ -98,6 +98,8 @@ const PreguntarPage = lazy(() => import('./modules/ia-analisis/pages/PreguntarPa
 const FeedbackEncuestaPage = lazy(() => import('./modules/feedback/pages/FeedbackEncuestaPage'));
 // El formulario de datos fiscales de la factura automática (#764): sin sesión, desde el correo.
 const DatosFiscalesPage = lazy(() => import('./modules/factura-automatica/pages/DatosFiscalesPage'));
+// Facturas › Facturación automática (#764, 24/11): formularios, facturas solas y la auditoría.
+const FacturacionAutomaticaPage = lazy(() => import('./modules/factura-automatica/pages/FacturacionAutomaticaPage'));
 // La confirmación de los datos del diploma (#768): sin sesión, desde el correo.
 const ConfirmarDiplomaPage = lazy(() => import('./modules/diploma-confirmacion/pages/ConfirmarDiplomaPage'));
 const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPanelPage'));
@@ -397,6 +399,7 @@ function App() {
             </Route>
             <Route path="facturas" element={<InvoicesPage />} />
             <Route path="facturas/nueva" element={<InvoiceCreatePage />} />
+            <Route path="facturas/automatica" element={<FacturacionAutomaticaPage />} />
             <Route path="facturas/configuracion" element={<InvoicingConfigPage />} />
             <Route path="facturas/plantillas" element={<InvoiceTemplateEditorPage />} />
             {/* #202: en evaluación, solo en /testeo y en local, como el tablero (#210). */}

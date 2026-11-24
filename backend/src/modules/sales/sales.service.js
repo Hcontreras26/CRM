@@ -175,6 +175,8 @@ export async function createSale(data, requestUser, { comprobarRepetida: mirarRe
       // Inicio del curso (#767): con ella se programa la matrícula en Moodle.
       ...(data.fecha_inicio ? { fecha_inicio: data.fecha_inicio } : {}),
       ...(forzar ? { forzar: true } : {}),
+      // «Enviar factura automáticamente» y su correo (#764, 24/11): lo guarda la venta.
+      ...(data.envio_factura ? { envio_factura: data.envio_factura } : {}),
     },
     requestUser?.userId || null,
     // Ya mirado arriba, con el alumno tal como llegó (correo y nombre del
