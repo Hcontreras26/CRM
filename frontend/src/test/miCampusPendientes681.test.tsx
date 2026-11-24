@@ -14,6 +14,7 @@ vi.mock('@/shared/api/client', () => ({
 }));
 vi.mock('@/shared/hooks/useToast', () => ({ toast: vi.fn() }));
 
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 7, role: 'tutor' } }) }));
 const { default: MiCampusPage } = await import('@/modules/tutores/pages/MiCampusPage');
 
 const pendiente = (id: number) => ({

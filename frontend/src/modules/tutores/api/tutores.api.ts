@@ -247,6 +247,7 @@ export interface MiCampusCampus {
 }
 export interface MiCampusPendiente {
   id: number; nombre: string; tipo: string; estado: string; campus: string; fechaComprometida: string | null;
+  projectId?: number | null;
   avance: { foto: boolean; video: boolean; modulos: number };
 }
 // Corregir desde el CRM (#681).
@@ -281,7 +282,13 @@ export interface CursoCompleto { curso: { id: number; nombre: string | null; url
 
 /** Un campus que tiene asignado y en el que su cuenta de Moodle no está conectada. */
 export interface MiCampusSinConectar { projectId: number; campus: string; estado: string | null; motivo: string }
-export interface MiCampus { leidoAt: string; campus: MiCampusCampus[]; pendientes: MiCampusPendiente[]; sinConectar?: MiCampusSinConectar[] }
+export interface MiCampus {
+  leidoAt: string; campus: MiCampusCampus[]; pendientes: MiCampusPendiente[]; sinConectar?: MiCampusSinConectar[];
+  /** Todos sus campus conectados, también los que no se han elegido (el selector de Mi campus). */
+  todosLosCampus?: Array<{ projectId: number; campus: string }>;
+  /** Los campus que se han leído si se pidieron unos en concreto; null = todos. */
+  elegidos?: number[] | null;
+}
 
 export const tutoresApi = {
   verCurso: (projectId: number, cursoId: number) =>
@@ -325,8 +332,14 @@ export const tutoresApi = {
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err) { ventana?.close(); throw err; }
   },
-  miCampus: (refrescar = false) =>
-    client.get(`/tutores/mi-campus${refrescar ? '?refrescar=1' : ''}`) as Promise<ApiResponse<MiCampus>>,
+  /** Con `campus`, solo esos campus suyos (el servidor no lee de Moodle los demás). Vacío = todos. */
+  miCampus: (refrescar = false, campus: number[] = []) => {
+    const q = new URLSearchParams();
+    if (refrescar) q.set('refrescar', '1');
+    if (campus.length) q.set('campus', campus.join(','));
+    const s = q.toString();
+    return client.get(`/tutores/mi-campus${s ? `?${s}` : ''}`) as Promise<ApiResponse<MiCampus>>;
+  },
   /** Por defecto solo los que dan clase hoy. Con `incluirRetirados` salen
    *  tambien los que se dieron de baja — es la unica forma de volver a
    *  activar a alguien, porque retirado desaparece de la lista. */

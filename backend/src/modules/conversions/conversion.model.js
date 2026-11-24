@@ -41,6 +41,7 @@ export async function create(data) {
       importe_pagado,
       metodo_pago,
       metodo_pago_inicial,   // método REAL del pago inicial (tarjeta, transferencia…)
+      referencia_pago_inicial, // su referencia: nº de operación o el link/cobro de Stripe (24/11)
       fecha_compromiso_pago,
       fecha_conversion,
       notas_pago,
@@ -201,9 +202,9 @@ export async function create(data) {
       const metodoInicial = metodo_pago_inicial
         || (metodo_pago && metodo_pago !== 'fraccionado' ? metodo_pago : 'tarjeta');
       const { rows: firstPay } = await client.query(
-        `INSERT INTO conversion_payments (conversion_id, importe, fecha, notas, metodo)
-         VALUES ($1, $2, COALESCE($3::date, ${HOY_EN_LA_OFICINA}), $4, $5) RETURNING id, importe, metodo`,
-        [conversion.id, importe_pagado, fecha_conversion, 'Pago inicial', metodoInicial]
+        `INSERT INTO conversion_payments (conversion_id, importe, fecha, notas, metodo, referencia)
+         VALUES ($1, $2, COALESCE($3::date, ${HOY_EN_LA_OFICINA}), $4, $5, $6) RETURNING id, importe, metodo`,
+        [conversion.id, importe_pagado, fecha_conversion, 'Pago inicial', metodoInicial, referencia_pago_inicial || null]
       );
       conversion._initial_payment_id = firstPay[0].id;
       conversion._initial_payment_importe = Number(firstPay[0].importe);
