@@ -94,7 +94,10 @@ export async function buscar(req, res, next) {
 export async function miCampus(req, res, next) {
   try {
     const refrescar = req.query.refrescar === '1';
-    res.json({ success: true, data: await campusDeLaTutora.miCampus(req.user.userId, { refrescar }) });
+    // ?campus=3,7: solo esos campus suyos (el selector de Mi campus). Lo que no es un id, fuera.
+    const campus = String(req.query.campus || '').split(',').map((x) => parseInt(x, 10))
+      .filter((n) => Number.isInteger(n) && n > 0).slice(0, 50);
+    res.json({ success: true, data: await campusDeLaTutora.miCampus(req.user.userId, { refrescar, campus }) });
   } catch (err) { next(err); }
 }
 
