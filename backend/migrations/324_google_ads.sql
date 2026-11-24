@@ -1,4 +1,4 @@
--- 321 · Google Ads: campañas y gasto en el CRM (CRM#54)
+-- 324 · Google Ads: campañas y gasto en el CRM (CRM#54)
 --
 -- Hasta ahora el CRM no sabía nada de Google Ads: ni gasto, ni campañas. Con
 -- esto, por campus (la credencial «google_ads» de cada uno, que ya existía):
