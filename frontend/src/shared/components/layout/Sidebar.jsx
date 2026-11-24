@@ -65,7 +65,7 @@ import {
 import { linksPagoEncendidos } from '@/shared/lib/linksPago';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
-import { rolesDe, soloEsColaborador, soloEsTutor } from '@/shared/lib/roles';
+import { rolesDe, soloEsColaborador, soloEsTutor, soloEsTutorRedactor } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -236,6 +236,8 @@ export const SECCIONES_DE_ANTES = [
   // Aprobada para producción en la 2.2.0 (Diego, 16/10).
   {
     label: 'Equipo de Desarrollo',
+    // Para quien es solo tutora redactora, «Mis tareas»: funciona igual (Diego, 24/11/2026).
+    labelRedactora: 'Mis tareas',
     icon: Code,
     items: [
       // El tutor, su tablero de tutores (Diego, 04/11): con «Ver su tablero».
@@ -833,6 +835,11 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
 }
 
 /** Vanessa y quien lleve las colaboraciones: solo tutores. Un admin con la casilla NO se recorta. */
+/** El nombre de una sección del menú: la tutora redactora ve el suyo si lo tiene (Diego, 24/11/2026). */
+export function nombreDeSeccion(section, user) {
+  return section.labelRedactora && soloEsTutorRedactor(user) ? section.labelRedactora : section.label;
+}
+
 export function esSoloColaboraciones(user) {
   return user?.gestor_colaboraciones === true
     && !['superadmin', 'admin', 'soporte'].includes(user?.role);
@@ -1602,7 +1609,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
             ? entradasDeSeccion(section, { user, can, modules: activeProject?.modules, projectType: tipoDelMenu(activeProject?.type), soloColab })
             : [];
           if (visibleItems.length === 0) return null;
-          const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
+          const sectionLabel = applyLabel(nombreDeSeccion(section, user), activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
           // El icono del encabezado (#105). Mismo tamano y peso que los de las
           // entradas —18 y `regular`—: la idea es que ordenen, no que compitan.

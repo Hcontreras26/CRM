@@ -13,6 +13,8 @@ import {
   tutoresApi, type MiCampus, type MiCampusCurso, type MiCampusPendiente,
 } from '../api/tutores.api';
 import MisCursosPage from './MisCursosPage';
+import { useAuth } from '@/contexts/AuthContext';
+import { soloEsTutorRedactor } from '@/shared/lib/roles';
 // Lo que hay que hacer en un solo sitio y el selector de campus (Diego, 24/11).
 import {
   SelectorCampus, PorResponder, PorCorregir, entregasPorCorregir, leerCampusElegidos, guardarCampusElegidos,
@@ -355,7 +357,10 @@ const PESTANAS = [
 
 export default function MiCampusPage() {
   const [params, setParams] = useSearchParams();
-  const vista: 'campus' | 'cursos' = params.get('vista') === 'cursos' ? 'cursos' : 'campus';
+  const { user } = useAuth() as { user: { role?: string; roles_extra?: string[] } | null };
+  const soloRedactora = soloEsTutorRedactor(user);
+  const pestanas = soloRedactora ? PESTANAS.filter((t) => t.id !== 'cursos') : PESTANAS;
+  const vista: 'campus' | 'cursos' = !soloRedactora && params.get('vista') === 'cursos' ? 'cursos' : 'campus';
   const irA = (v: 'campus' | 'cursos') => setParams(v === 'cursos' ? { vista: 'cursos' } : {}, { replace: true });
   const [datos, setDatos] = useState<MiCampus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -473,8 +478,9 @@ export default function MiCampusPage() {
         )}
       />
 
+      {pestanas.length > 1 && (
       <div role="tablist" aria-label="Mi campus" data-recorrido="mi-campus-pestanas" className="inline-flex rounded-md bg-muted p-0.5">
-        {PESTANAS.map((t) => (
+        {pestanas.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={vista === t.id} onClick={() => irA(t.id)}
             className={cn('inline-flex h-8 items-center gap-1.5 rounded px-3 text-secundario font-medium transition-colors',
               vista === t.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
@@ -482,6 +488,7 @@ export default function MiCampusPage() {
           </button>
         ))}
       </div>
+      )}
 
       {vista === 'cursos' ? <MisCursosPage incrustada /> : (<>
       {error && !datos && (
