@@ -63,6 +63,7 @@ import {
   // que una de sus filas, deja de ordenar y pasa a confundir.
   Flask, House, Funnel, Books, ChalkboardTeacher, Bank, Shuffle, ChartPieSlice, EnvelopeSimple, LinkSimple } from '@phosphor-icons/react';
 import { linksPagoEncendidos } from '@/shared/lib/linksPago';
+import { funcionEncendida } from '@/shared/lib/funcionesDelServidor';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
 import { rolesDe, soloEsColaborador, soloEsTutor, soloEsTutorRedactor } from '@/shared/lib/roles';
@@ -249,11 +250,11 @@ export const SECCIONES_DE_ANTES = [
       // (`oPermiso`), sin perder lo que ve como gestora. `conFicha`: solo quien tiene ficha viva;
       // un super admin (que lo puede todo) no la ve si no factura.
       { label: 'Mi factura', to: '/mi-factura', detail: 'Sube tu factura del mes', icon: Receipt, roles: ['colaborador', 'tutor_redactor'], permiso: 'facturas_colaborador.subir', oPermiso: 'facturas_colaborador.subir', conFicha: true },
-      // Monitask (#236): qué hace cada colaborador y el cotejo con sus facturas. Solo en
-      // /testeo y local hasta que Diego lo apruebe; además, con MONITASK_ACTIVO en el servidor.
-      ...(SOLO_EN_PRUEBAS
-        ? [{ label: 'Actividad', to: '/equipo/actividad', detail: 'Horas de Monitask y cotejo', icon: ChartBar, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'monitask.view' }]
-        : []),
+      // Monitask (#236): qué hace cada colaborador y el cotejo con sus facturas. Sale
+      // cuando el SERVIDOR lo tiene encendido (MONITASK_ACTIVO → `/auth/me` →
+      // `funciones.monitask`), también en /crm. Antes iba detrás de SOLO_EN_PRUEBAS
+      // y en producción no salía nunca, aunque se encendiera.
+      { label: 'Actividad', to: '/equipo/actividad', detail: 'Horas de Monitask y cotejo', icon: ChartBar, roles: ['superadmin', 'admin'], statusTag: 'Pruebas', permiso: 'monitask.view', funcion: 'monitask' },
     ],
   },
   {
@@ -724,6 +725,7 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
   if (item.previewOnly && !IS_REDESIGN_NAV_ENABLED) return false;
   // Una función que enciende el servidor (`/auth/me` → `funciones`): apagada, no sale.
   if (item.funcion === 'links_pago' && !linksPagoEncendidos(permisos)) return false;
+  if (item.funcion && item.funcion !== 'links_pago' && !funcionEncendida(permisos, item.funcion)) return false;
   // projectType filter (e.g. solo proyectos IA): aplica a todos los roles
   if (item.projectType && projectType !== item.projectType) return false;
   // El permiso de la pantalla (#423): sin él no sale, sea quien sea. Es el mismo
