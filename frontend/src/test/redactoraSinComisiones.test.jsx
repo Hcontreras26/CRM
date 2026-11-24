@@ -21,7 +21,7 @@ vi.mock('@/modules/tutores/pages/MisCursosPage', () => ({ default: () => <p>LIST
 
 const { default: MiCampusPage } = await import('@/modules/tutores/pages/MiCampusPage');
 const { soloEsTutorRedactor } = await import('@/shared/lib/roles');
-const { nombreDeSeccion } = await import('@/shared/components/layout/Sidebar');
+const { nombreDeSeccion, NAV_SECTIONS } = await import('@/shared/components/layout/Sidebar');
 
 afterEach(() => cleanup());
 
@@ -51,5 +51,12 @@ describe('Mi campus sin comisiones para la redactora', () => {
     expect(nombreDeSeccion(seccion, { role: 'tutor_redactor' })).toBe('Mis tareas');
     expect(nombreDeSeccion(seccion, { role: 'admin' })).toBe('Equipo de Desarrollo');
     expect(nombreDeSeccion({ label: 'Comercial' }, { role: 'tutor_redactor' })).toBe('Comercial');
+  });
+
+  it('y en el menú de verdad (ya reagrupado en bloques) sigue siendo «Mis tareas»', () => {
+    const equipo = NAV_SECTIONS.find((x) => x.label === 'Equipo de Desarrollo');
+    expect(equipo).toBeTruthy();
+    expect(nombreDeSeccion(equipo, { role: 'tutor_redactor' })).toBe('Mis tareas');
+    expect(nombreDeSeccion(equipo, { role: 'admin' })).toBe('Equipo de Desarrollo');
   });
 });
