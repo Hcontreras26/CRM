@@ -1227,6 +1227,12 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const veProspectosNuevos = can('leads.view');
   const veReportesDeSpam = can('leads.spam');
   const usaMensajes = can('mensajes.usar');
+  // Consultas de alumnos por contestar (Diego, 24/11: «si alguien escribe, que salga
+  // el aviso donde dice Consultas, no solo en la campana»). La tutora, las suyas;
+  // administración, las de sus campus.
+  const atiendeConsultas = can('consultas.atender');
+  const veConsultas = can('consultas.view');
+  const [consultasBadge, setConsultasBadge] = useState(0);
 
   // Estado de secciones colapsadas (Captación, Catálogo, Finanzas, etc.).
   // Persistido en localStorage. Por defecto, abierto: Principal + la sección
@@ -1389,6 +1395,38 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       }
     };
   }, [activeProject?.id, user, veProspectosNuevos, idsDelAmbitoCsv]);
+
+  // Contador de Consultas: las pendientes (esperan respuesta). Cada 2 minutos y al
+  // volver a la pestaña, como el de prospectos nuevos.
+  useEffect(() => {
+    if (!user || (!atiendeConsultas && !veConsultas)) { setConsultasBadge(0); return undefined; }
+    let cancelled = false;
+    let interval = null;
+    async function contar() {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      try {
+        let url = '/consultas/mias?estado=pendientes';
+        if (!atiendeConsultas) {
+          const p = new URLSearchParams({ estado: 'pendientes' });
+          if (activeProject?.id > 0) p.set('projectId', String(activeProject.id));
+          url = `/consultas?${p.toString()}`;
+        }
+        const res = await client.get(url);
+        const d = res?.data;
+        if (!cancelled && res?.success) setConsultasBadge(Number(d?.total ?? d?.consultas?.length ?? 0) || 0);
+      } catch { /* sin contador, el menú sigue */ }
+    }
+    function start() { stop(); contar(); interval = setInterval(contar, 2 * 60 * 1000); }
+    function stop() { if (interval) { clearInterval(interval); interval = null; } }
+    function alVolver() { if (document.hidden) stop(); else start(); }
+    if (typeof document === 'undefined' || !document.hidden) start();
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', alVolver);
+    return () => {
+      cancelled = true;
+      stop();
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', alVolver);
+    };
+  }, [user, atiendeConsultas, veConsultas, activeProject?.id]);
 
   // Badge de reportes de spam pendientes: quien puede verlos (`leads.spam`), por
   // permiso y no por rol (#423, #631).
@@ -1595,6 +1633,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                   item.to === '/prospectos' && newLeadsBadge > 0 ? newLeadsBadge
                   : item.to === '/notificaciones' && spamReportsBadge > 0 ? spamReportsBadge
                   : item.to === '/mensajes' && msgUnreadBadge > 0 ? msgUnreadBadge
+                  : item.to === '/consultas' && consultasBadge > 0 ? consultasBadge
                   : undefined
                 }
                 labelOverrides={activeProject?.sidebar_labels}
