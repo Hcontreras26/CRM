@@ -173,7 +173,7 @@ export default function AvailabilityDialog({ user, estadoInicial, onClose, onCha
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">Estado ahora mismo</p>
                   {!disponible && motivoActual && (
-                    <p className="text-secundario text-amber-700 dark:text-amber-400 mt-0.5">Motivo: {motivoActual}</p>
+                    <p className="text-secundario text-warning mt-0.5">Motivo: {motivoActual}</p>
                   )}
                 </div>
                 <button
@@ -182,8 +182,8 @@ export default function AvailabilityDialog({ user, estadoInicial, onClose, onCha
                   disabled={guardandoEstado || pidiendoMotivo}
                   className={`h-9 px-3 inline-flex items-center gap-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 ${
                     disponible
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800'
-                      : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800'
+                      ? 'bg-success-soft text-success-soft-foreground border-success/30 hover:bg-success-soft/80'
+                      : 'bg-destructive-soft text-destructive-soft-foreground border-destructive/30 hover:bg-destructive-soft/80'
                   }`}
                 >
                   {disponible
@@ -215,7 +215,7 @@ export default function AvailabilityDialog({ user, estadoInicial, onClose, onCha
                       type="button"
                       onClick={() => aplicarEstado(false, motivo.trim() || null)}
                       disabled={guardandoEstado}
-                      className="h-9 px-3 rounded-md bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-50 whitespace-nowrap"
+                      className="h-9 px-3 rounded-md bg-destructive text-destructive-foreground text-xs font-semibold hover:bg-destructive/90 disabled:opacity-50 whitespace-nowrap"
                     >
                       {guardandoEstado ? '…' : 'Marcar ausente'}
                     </button>
@@ -303,7 +303,7 @@ export default function AvailabilityDialog({ user, estadoInicial, onClose, onCha
                       key={b.id}
                       className={`flex items-center gap-3 p-2 rounded-md text-xs ${
                         b.activo
-                          ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800'
+                          ? 'bg-warning-soft border border-warning/30'
                           : 'bg-card border border-border'
                       }`}
                     >
@@ -312,7 +312,7 @@ export default function AvailabilityDialog({ user, estadoInicial, onClose, onCha
                         {formatFecha(b.fecha_inicio)} → {formatFecha(b.fecha_fin)}
                       </span>
                       {b.activo && (
-                        <span className="text-secundario px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-200 font-bold whitespace-nowrap">
+                        <span className="text-secundario px-1.5 py-0.5 rounded bg-warning-soft text-warning-soft-foreground font-bold whitespace-nowrap">
                           ACTIVO HOY
                         </span>
                       )}
@@ -320,7 +320,7 @@ export default function AvailabilityDialog({ user, estadoInicial, onClose, onCha
                       <button
                         onClick={() => setPorBorrar(b)}
                         aria-label="Eliminar ausencia"
-                        className="text-muted-foreground hover:text-red-600 p-1 flex-shrink-0"
+                        className="text-muted-foreground hover:text-destructive p-1 flex-shrink-0"
                       >
                         <Trash size={13} />
                       </button>

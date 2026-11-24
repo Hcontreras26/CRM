@@ -21,16 +21,16 @@ export default function InviteLinkBanner({ email, url, onClose }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 space-y-2">
+    <div className="rounded-lg border border-warning/30 bg-warning-soft p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="text-xs">
-          <p className="font-semibold text-amber-900 dark:text-amber-200">Invitación pendiente para {email}</p>
-          <p className="text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+          <p className="font-semibold text-warning-soft-foreground">Invitación pendiente para {email}</p>
+          <p className="text-warning-soft-foreground/80 mt-0.5">
             Si el envío por email no está activo, copia este link y pásaselo. Caduca en 24h.
             Al abrirlo el usuario define su propia contraseña.
           </p>
         </div>
-        <button onClick={onClose} aria-label="Cerrar" className="text-amber-900/60 hover:text-amber-900 dark:text-amber-300/60">
+        <button onClick={onClose} aria-label="Cerrar" className="text-warning-soft-foreground/60 hover:text-warning-soft-foreground">
           <X size={14} weight="bold" />
         </button>
       </div>
@@ -39,9 +39,9 @@ export default function InviteLinkBanner({ email, url, onClose }: Props) {
           readOnly
           value={url}
           onFocus={(e) => e.currentTarget.select()}
-          className="flex-1 h-8 px-2 rounded-md border border-amber-300 dark:border-amber-700 bg-white/80 dark:bg-black/30 text-secundario font-mono"
+          className="flex-1 h-8 px-2 rounded-md border border-warning/30 bg-white/80 dark:bg-black/30 text-secundario font-mono"
         />
-        <button onClick={copiar} className="h-8 px-3 rounded-md bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700">
+        <button onClick={copiar} className="h-8 px-3 rounded-md bg-warning text-warning-foreground text-xs font-semibold hover:bg-warning/90">
           Copiar
         </button>
       </div>
