@@ -6689,6 +6689,106 @@
   "puertas": []
  },
  {
+  "id": "GET /api/google-analytics/estado",
+  "tipo": "ruta",
+  "modulo": "google-analytics",
+  "metodo": "GET",
+  "ruta": "/api/google-analytics/estado",
+  "relativa": "GET /estado",
+  "controlador": "estado",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_analytics.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/google-analytics/embudo",
+  "tipo": "ruta",
+  "modulo": "google-analytics",
+  "metodo": "GET",
+  "ruta": "/api/google-analytics/embudo",
+  "relativa": "GET /embudo",
+  "controlador": "embudo",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_analytics.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/google-analytics/paginas",
+  "tipo": "ruta",
+  "modulo": "google-analytics",
+  "metodo": "GET",
+  "ruta": "/api/google-analytics/paginas",
+  "relativa": "GET /paginas",
+  "controlador": "paginas",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_analytics.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/google-analytics/sincronizar",
+  "tipo": "ruta",
+  "modulo": "google-analytics",
+  "metodo": "POST",
+  "ruta": "/api/google-analytics/sincronizar",
+  "relativa": "POST /sincronizar",
+  "controlador": "sincronizar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "google_analytics.edit"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "POST /api/ia-analisis/preguntar",
   "tipo": "ruta",
   "modulo": "ia-analisis",

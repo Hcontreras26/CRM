@@ -32,6 +32,7 @@ export const BETA_ROUTES: readonly string[] = [
   '/ventas',                  // Ventas (ruta alternativa)
   '/links-pago',             // Links de pago de Stripe (v2.8.0; Diego, 19/11: «actívalo»)
   '/meta-ads',               // Meta Ads (metricas + ROI manual)
+  '/google-analytics',       // Google Analytics 4: visitas → prospectos → ventas (CRM#55)
   '/informes',                // Análisis › Reportes (overview + descargables prospectos/ventas)
   '/productos',              // Productos (catálogo, árbol, pendientes, woocommerce)
   '/captacion',              // Captación: Formularios, Webhooks, Make

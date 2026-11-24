@@ -7,6 +7,7 @@ import { refreshGoogleAdsAccessToken } from '../../shared/services/googleAds.ser
 import { anotar, historial, ACCIONES } from './credentials.registro.js';
 import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import { claveDeIA, ORIGENES, DONDE_SE_CONFIGURA, probarClaveDeIA } from './clave-ia.js';
+import { probarCredencial as probarCredencialGA4 } from '../google-analytics/google-analytics.client.js';
 
 /**
  * Lo que ve de las claves quien no ve todo el CRM (CRM#632).
@@ -187,6 +188,20 @@ export async function test(req, res, next) {
         return res.json({ success: true, data: { result: 'failed', message: `Decrypt fallo: ${err.message}` } });
       }
       const r = await probarClaveDeIA(clave);
+      await model.recordTestResult(id, r.result);
+      return res.json({ success: true, data: r });
+    }
+
+    if (row.service === 'google_analytics') {
+      // CRM#55: la cuenta de servicio contra la propiedad de GA4 (un informe de ayer).
+      let valor;
+      try {
+        valor = decrypt(row.encrypted_value, row.iv, row.auth_tag);
+      } catch (err) {
+        await model.recordTestResult(id, 'failed');
+        return res.json({ success: true, data: { result: 'failed', message: `Decrypt fallo: ${err.message}` } });
+      }
+      const r = await probarCredencialGA4(valor);
       await model.recordTestResult(id, r.result);
       return res.json({ success: true, data: r });
     }

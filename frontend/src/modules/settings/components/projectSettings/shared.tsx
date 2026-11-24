@@ -203,5 +203,6 @@ export const PROJECT_SERVICES = [
   { service: 'meta', name: 'Meta Marketing', description: 'Token + account_id del pixel/cuenta publicitaria', placeholder: 'EAAD...' },
   { service: 'google_ads', name: 'Google Ads', description: 'Developer token + OAuth refresh token', placeholder: 'dev-token' },
   { service: 'gsc', name: 'Google Search Console', description: 'OAuth + property URL', placeholder: 'refresh_token' },
+  { service: 'google_analytics', name: 'Google Analytics 4', description: 'JSON de la cuenta de servicio de Google con "property_id" añadido. La cuenta tiene que ser «Lector» de la propiedad.', placeholder: '{"property_id":"…","client_email":"…","private_key":"…"}' },
   { service: 'stripe', name: 'Stripe', description: 'Restricted key (solo lectura)', placeholder: 'rk_live_...' },
 ];

@@ -51,6 +51,7 @@ describe('#218 tanda 2: se abren con «Todos los proyectos»', () => {
 const TANDA_3 = [
   '/prospectos/proceso', '/prospectos/duplicados', '/prospectos/revision-duplicados',
   '/meta-ads', '/chat-ia', '/conexion/moodle', '/conexion/moodle/1753',
+  '/google-analytics', // CRM#55
 ];
 
 describe('#218 tanda 3: se abren con «Todos» y con una empresa', () => {
