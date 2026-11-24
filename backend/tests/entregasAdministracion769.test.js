@@ -299,12 +299,9 @@ describe('#769 · piezas', () => {
     expect(usuarios).toContain(`aviso: '${AVISO_ENTREGAS_FUERA_DE_PLAZO}'`);
   });
 
-  it('el plugin 1.10.8 deja al CRM leer la lista de cursos', () => {
-    const servicios = fs.readFileSync(new URL('../../tools/moodle-local-crm/crm/db/services.php', import.meta.url), 'utf8');
-    expect(servicios).toMatch(/'core_course_get_courses_by_field'/);
-    const version = fs.readFileSync(new URL('../../tools/moodle-local-crm/crm/version.php', import.meta.url), 'utf8');
-    // De la 1.10.8 en adelante (la 1.10.9 añade las notas, #532): no se ata a una versión exacta.
-    const [, menor] = version.match(/release\s*=\s*'1\.10\.(\d+)'/) || [];
-    expect(Number(menor)).toBeGreaterThanOrEqual(8);
-  });
+  // Que el plugin (1.10.8 o posterior) deje leer la lista de cursos
+  // (`core_course_get_courses_by_field` en crm/db/services.php) se comprobaba aquí leyendo la
+  // copia de `tools/moodle-local-crm`. El plugin vive ahora en molinangel/Campus-Moodle
+  // (#1037) y eso es de su repo. Lo del CRM (un campus con un plugin anterior se salta) lo
+  // cubre «con un plugin anterior a la 1.10.8…», arriba.
 });
