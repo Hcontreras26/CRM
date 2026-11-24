@@ -9,6 +9,7 @@ import SaludDeLasConexiones from '../components/SaludDeLasConexiones';
 import { TODOS_LOS_PROYECTOS } from '@/shared/lib/ambitoInforme';
 import EstadoDeLaSincronizacion from '../components/EstadoDeLaSincronizacion';
 import SupabaseCard from '../components/SupabaseCard';
+import CategoriasFormacionesMoodle from '../components/CategoriasFormacionesMoodle';
 import MonitaskCard from '@/modules/monitask/components/MonitaskCard';
 import { toast } from '@/shared/hooks/useToast';
 import usePermission from '@/shared/hooks/usePermission';
@@ -1291,6 +1292,9 @@ function MoodleCard({ projectId }: { projectId: number }) {
             <p className="text-xs text-muted-foreground">Leyendo desde el {fmt(String(data.config_public.consultas_desde))}.</p>
           )}
         </div>
+
+        {/* CRM#1113, fase 2: la categoría de cada tipo para «Crear en Moodle» en Formaciones. */}
+        {data?.has_secret && <CategoriasFormacionesMoodle projectId={projectId} />}
 
         <TestStatus data={data} aviso={faltas.length > 0} />
         {funcionesProbadas?.grupos && (
