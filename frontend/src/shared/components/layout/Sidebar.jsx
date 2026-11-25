@@ -49,6 +49,7 @@ import {
   Tree,
   ListBullets,
   GraduationCap,
+  Student,
   CurrencyEur,
   TrendUp,
   TrendDown,
@@ -448,7 +449,8 @@ export const SECCIONES_DE_ANTES = [
     icon: PlugsConnected,
     items: [
       { label: 'MCP', to: '/conexion/mcp', detail: 'Consultar desde Claude', icon: Robot, accesoMcp: true },
-      // #335: los cursos, alumnos y recursos de los Moodle de cada campus.
+      // #335: los cursos, alumnos y recursos de los Moodle de cada campus. En el menú,
+      // «Moodle › Cursos y alumnos» (apartado Moodle, Diego 25/11: `bloquesDelMenu.js`).
       { label: 'Moodle', to: '/conexion/moodle', detail: 'Cursos y alumnos de cada campus', icon: GraduationCap, roles: ['superadmin', 'admin'], permiso: 'moodle.view' },
       { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors', permiso: 'connectors.view' },
       // Todos los webhooks en un sitio, señalados por su función (#690, Diego 05/11:
@@ -468,6 +470,20 @@ export const SECCIONES_DE_ANTES = [
         // lista las pestañas: lleva aquí, y desde aquí a cada una.
         keywords: 'webhook de transferencias · webhooks de captación · webhooks de prospectos · escenarios de make · make zapier n8n transferencias depósitos stripe woocommerce admisión matrícula formularios entradas avisos' },
       { label: 'Asignación de leads', to: '/conexion/asignacion-leads', detail: 'A quién va cada formulario', icon: Shuffle, roles: ['superadmin', 'admin'], permiso: 'webhooks_salientes.view' },
+    ],
+  },
+  // El apartado Moodle (Diego, 25/11/2026: «que en el menú salga un apartado de
+  // Moodle […] y poder meter todo lo de Moodle ahí»). Sus entradas se declaran
+  // donde estaban, con sus permisos y roles, y `bloquesDelMenu.js` las trae aquí
+  // (Mi campus, Consultas, Cursos y alumnos, Cursos de Moodle, Cursos pendientes,
+  // Diplomas). La única propia es la conexión del campus: la tarjeta Moodle de
+  // Integraciones, con el mismo permiso que «Integraciones» (`integrations.view`).
+  {
+    label: 'Moodle',
+    // Su propio icono: GraduationCap ya es el de «Cursos y alumnos» y «Cursos de Moodle» (#105).
+    icon: Student,
+    items: [
+      { label: 'Conexión del campus', to: '/moodle/conexion', detail: 'Integraciones › Moodle', icon: PlugsConnected, roles: ['superadmin', 'admin'], salvoTipo: ['ia'], permiso: 'integrations.view' },
     ],
   },
   {
@@ -1698,7 +1714,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                 : section.label === 'Comercial' ? 'menu-comercial'
                   : section.label === 'Académico' ? 'menu-academico'
                     : section.label === 'Finanzas' ? 'menu-finanzas'
-                      : section.label === 'Configuración' ? 'menu-configuracion' : anclaDelBloque(section.label)}
+                      : section.label === 'Configuración' ? 'menu-configuracion'
+                        : section.label === 'Moodle' ? 'menu-moodle' : anclaDelBloque(section.label)}
             >
               <button
                 type="button"

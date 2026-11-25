@@ -139,6 +139,14 @@ export default function IntegrationsPage() {
     const t = setTimeout(() => document.getElementById('integracion-links-pago')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 80);
     return () => clearTimeout(t);
   }, [irALinks]);
+  // «Moodle › Conexión del campus» (apartado Moodle, Diego 25/11) trae aquí con
+  // `?seccion=moodle`: con un campus elegido, baja hasta su tarjeta Moodle, marcada.
+  const irAMoodle = params.get('seccion') === 'moodle' && !!pid && (!campusPedido || pid === campusPedido);
+  useEffect(() => {
+    if (!irAMoodle) return undefined;
+    const t = setTimeout(() => document.getElementById('integracion-moodle')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 80);
+    return () => clearTimeout(t);
+  }, [irAMoodle]);
   // Lo del #44, solo en pruebas (`shared/lib/proyectosIA`).
   const esIA = esProyectoIA(activeProject);
   // La salud de las conexiones (CRM#533): superadmin y admin, de «Todos», de una
@@ -177,7 +185,7 @@ export default function IntegrationsPage() {
           <p><strong>3) Uso real:</strong></p>
           <ul className="list-disc list-inside pl-2 space-y-0.5">
             <li><strong>Stripe:</strong> con el access token guardado, el CRM sondea los cobros cada cinco minutos y los deja en <em>Pagos Stripe</em> para asociarlos a una venta. En proyectos IA, además, el dashboard lee MRR, suscripciones y cobros fallidos en vivo. El webhook es <em>opcional</em>: sirve para no esperar esos cinco minutos, y sin su secreto de firma se rechaza.</li>
-            <li><strong>Campus (Moodle):</strong> las consultas de alumnos, «Tutores › Mi campus» y las notas. Con el token del campus, el CRM comprueba que cada tutor es usuario del campus de su proyecto. Su servicio necesita {TOTAL_FUNCIONES_MOODLE} funciones y «Puede descargar archivos»: «Probar conexión» dice cuáles faltan.</li>
+            <li><strong>Campus (Moodle):</strong> las consultas de alumnos, «Moodle › Mi campus» y las notas. Con el token del campus, el CRM comprueba que cada tutor es usuario del campus de su proyecto. Su servicio necesita {TOTAL_FUNCIONES_MOODLE} funciones y «Puede descargar archivos»: «Probar conexión» dice cuáles faltan.</li>
             <li><strong>Brevo:</strong> envía emails transaccionales (lead asignado, recordatorios, confirmación de pago) usando el From email validado. La automatización de resúmenes diarios / SLA 30min está en desarrollo.</li>
             {esIA && (
               <li><strong>Supabase:</strong> la base de la propia app IA. De ahí salen sus usuarios y
@@ -227,7 +235,9 @@ export default function IntegrationsPage() {
           {/* PayPal (#766): solo si el servidor tiene encendido PAYPAL_COBROS_ACTIVO. */}
           <PaypalSiEstaEncendido key={`paypal-${pid}`} projectId={pid} />
           <BrevoCard projectId={pid} />
-          <MoodleCard projectId={pid} />
+          <div id="integracion-moodle" data-testid="integracion-moodle" className={`scroll-mt-4 rounded-lg ${irAMoodle ? 'ring-2 ring-primary' : ''}`}>
+            <MoodleCard projectId={pid} />
+          </div>
         </div>
       )}
     </div>

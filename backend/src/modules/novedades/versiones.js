@@ -22,6 +22,14 @@ const LISTA = [
         "titulo": "Moodle",
         "items": [
           {
+            "titulo": "Todo lo de Moodle, en un solo sitio del menú",
+            "texto": "Un apartado «Moodle» en el menú con Mi campus, Consultas, los cursos y alumnos de cada campus, el curso de Moodle de cada producto, los cursos pendientes, los diplomas y la conexión del campus. Cada uno ve lo mismo que antes: solo cambia de sitio. «Cursos y alumnos» enseña los cursos del campus elegido arriba (con «Todos», la lista de campus) y ya cuenta los campus conectados en Integraciones.",
+            "roles": ["admin", "superadmin"],
+            "ruta": "/conexion/moodle",
+            "boton": "Ir a Cursos y alumnos",
+            "recorrido": "menu-bloques"
+          },
+          {
             "titulo": "«Mi campus» para las tutoras",
             "texto": "Tus alumnos con su % hecho, las dudas por contestar, las entregas por corregir y los cursos por desarrollar, en una sola pantalla.",
             "roles": ["tutor", "tutor_redactor", "admin", "superadmin"],

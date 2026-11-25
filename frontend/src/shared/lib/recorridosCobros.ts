@@ -350,7 +350,7 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
     ],
   },
 
-  // ─── 6 · Académico › Cursos de Moodle (CRM#957, para admin y soporte) ───────────
+  // ─── 6 · Moodle › Cursos de Moodle (CRM#957, para admin y soporte) ──────────────
   'cursos-producto': {
     id: 'cursos-producto',
     rutas: ['/productos/cursos-moodle'],

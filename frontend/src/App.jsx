@@ -421,6 +421,8 @@ function App() {
           {/* Conexión → Moodle (#335): cursos, alumnos y recursos de cada campus. Solo super admin y admin: lo corta el servidor. */}
           <Route path="/conexion/moodle" element={<MoodlePage />} />
           <Route path="/conexion/moodle/:campusId" element={<MoodleCampusPage />} />
+          {/* Moodle › Conexión del campus (apartado Moodle, Diego 25/11): la tarjeta Moodle de Integraciones. */}
+          <Route path="/moodle/conexion" element={<Navigate to="/finanzas/integraciones?seccion=moodle" replace />} />
           {/* Conexión → Conectores (WordPress, tiendas, APIs). Estaba en Captación
               hasta el 29/09; la dirección vieja lleva a la nueva. */}
           <Route path="/conexion/conectores" element={<ConnectorsPage />} />
