@@ -62,9 +62,14 @@ no verá nada.**
 
 **El Moodle de cada campus · solo lectura.**
 
-1. **Conexión › Moodle** enseña **Campus conectados** (con **Cursos activos** y
+1. **Moodle › Cursos y alumnos** enseña **Campus conectados** (con **Cursos activos** y
    **Cursos en total**) y **Pendientes de conectar**. Cada campus sale
    **Conectado**, **Sin conectar** o **No responde**.
+   Con un campus elegido arriba abre directamente sus cursos; con **Todos**, la
+   lista. Cuenta como conectado el campus con su Moodle en **Integraciones ›
+   Moodle** (el de todo el CRM) o con un token de solo lectura puesto aquí. Si
+   no tiene ninguno, dice **Este campus no tiene Moodle conectado** y lleva a
+   Integraciones.
 2. **Abrir** un campus: sus cursos, con buscador, filtros por categoría y estado
    y **Para revisar**:
    - **Nadie matriculado**: cursos activos sin alumnos.

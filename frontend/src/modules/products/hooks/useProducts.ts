@@ -27,7 +27,9 @@ export function useProducts(
   const [error, setError] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
-    if (!projectId && !ambito) return;
+    // «Todos los proyectos» es -1: `/products?projectId=-1` contesta 400 «projectId
+    // inválido» (75 en el registro de producción del 25/11). Sin campus, nada.
+    if (!(Number(projectId) > 0) && !ambito) return;
     setLoading(true);
     setError(null);
     try {

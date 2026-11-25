@@ -3,7 +3,7 @@ import { crearPasoSchema, editarPasoSchema, reordenarSchema, ajustarPasoSchema, 
 import { leadsToWasapiCsv, leadsToWasapiXlsx, detectCountry } from '../../shared/utils/wasapiCsv.js';
 import { avanzarPorContacto } from '../../shared/services/estado-prospecto.service.js';
 import { listaDelAmbito } from '../../shared/utils/ambito.js';
-import { personaDelInforme } from '../../shared/utils/roles.js';
+import { personaDelInforme, JEFES_DEL_INFORME } from '../../shared/utils/roles.js';
 
 export async function listarPasos(req, res, next) {
   try {
@@ -51,8 +51,9 @@ export async function desactivarPaso(req, res, next) {
 // gestora solo ve lo suyo aunque escriba el id de otra a mano. Admin y
 // superadmin ven todo, o el de una en concreto si lo piden. Quien lleva un
 // equipo comercial (09/11/2026), el de su equipo o el de una de ellas.
-function deQuienEsLaCola(req) {
-  return personaDelInforme(req.user, req.query.gestoraId ? Number(req.query.gestoraId) : null);
+// Soporte también ve el campus entero (25/11/2026): tiene la Cola y le salía vacía.
+export function deQuienEsLaCola(req) {
+  return personaDelInforme(req.user, req.query.gestoraId ? Number(req.query.gestoraId) : null, { jefes: JEFES_DEL_INFORME });
 }
 
 // Que proyectos entran: los que pida la pantalla (un campus, los de una

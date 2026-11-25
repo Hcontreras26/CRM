@@ -146,7 +146,8 @@ function PlansTab({ project, ambito, deUnCampus }: TabProps) {
     try {
       const [pl, us] = await Promise.all([
         client.get(`/payroll/plans?${consulta(ambito)}`),
-        client.get(`/users?incluirTodos=true`),
+        // Sin `limit` el servidor da 20 y faltaban personas (25/11/2026).
+        client.get(`/users?incluirTodos=true&limit=100`),
       ]);
       if (pl.success) setPlans(pl.data as PayrollPlan[]);
       if (us.success) setUsers(us.data as User[]);

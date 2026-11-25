@@ -95,7 +95,8 @@ describe('el menú por bloques (#534, parte 3): solo cambia el sitio', () => {
 describe('los bloques', () => {
   it('son los de la maqueta, en su orden, con el equipo de desarrollo al final', () => {
     const nombres = NAV_SECTIONS.map((s) => s.label).filter((n) => !['Testeo', 'Proyecto IA'].includes(n));
-    expect(nombres).toEqual(['Hoy', 'Comercial', 'Captación y publicidad', 'Académico', 'Finanzas', 'Análisis', 'Configuración', 'Sistema', 'Equipo de Desarrollo']);
+    // Diego, 25/11: apartado Moodle, detrás de Académico.
+    expect(nombres).toEqual(['Hoy', 'Comercial', 'Captación y publicidad', 'Académico', 'Moodle', 'Finanzas', 'Análisis', 'Configuración', 'Sistema', 'Equipo de Desarrollo']);
   });
 
   it('cada reubicación encaja con alguna entrada de antes (no hay ninguna muerta)', () => {

@@ -98,6 +98,8 @@ const PreguntarPage = lazy(() => import('./modules/ia-analisis/pages/PreguntarPa
 const FeedbackEncuestaPage = lazy(() => import('./modules/feedback/pages/FeedbackEncuestaPage'));
 // El formulario de datos fiscales de la factura automática (#764): sin sesión, desde el correo.
 const DatosFiscalesPage = lazy(() => import('./modules/factura-automatica/pages/DatosFiscalesPage'));
+// Facturas › Facturación automática (#764, 24/11): formularios, facturas solas y la auditoría.
+const FacturacionAutomaticaPage = lazy(() => import('./modules/factura-automatica/pages/FacturacionAutomaticaPage'));
 // La confirmación de los datos del diploma (#768): sin sesión, desde el correo.
 const ConfirmarDiplomaPage = lazy(() => import('./modules/diploma-confirmacion/pages/ConfirmarDiplomaPage'));
 const FeedbackPanelPage = lazy(() => import('./modules/feedback/pages/FeedbackPanelPage'));
@@ -158,6 +160,8 @@ const ClientsPage = lazy(() => import('./modules/clients/pages/ClientsPage'));
 const ClientDetailPage = lazy(() => import('./modules/clients/pages/ClientDetailPage'));
 const CommissionsPage = lazy(() => import('./modules/commissions/pages/CommissionsPage'));
 const MatriculasPage = lazy(() => import('./modules/matriculas/pages/MatriculasPage'));
+// Clientes › Apostillas de La Haya (CRM#1130).
+const ApostillasPage = lazy(() => import('./modules/apostillas/pages/ApostillasPage'));
 const SalesAnalysisPage = lazy(() => import('./modules/sales/pages/SalesAnalysisPage'));
 const VentasSinFormacionPage = lazy(() => import('./modules/sales/pages/VentasSinFormacionPage'));
 const SaleDetailPage = lazy(() => import('./modules/sales/pages/SaleDetailPage'));
@@ -193,6 +197,9 @@ const MoodlePage = lazy(() => import('./modules/moodle/pages/MoodlePage'));
 const MoodleCampusPage = lazy(() => import('./modules/moodle/pages/MoodleCampusPage'));
 // CRM#957: qué curso de Moodle es cada producto (lo lee la matrícula automática).
 const CursosDeProductosPage = lazy(() => import('./modules/moodle/pages/CursosDeProductosPage'));
+// CRM#1113: crear y editar una formación con sus módulos (Productos › Formaciones).
+const FormacionesPage = lazy(() => import('./modules/products/pages/FormacionesPage'));
+const FormacionEditorPage = lazy(() => import('./modules/products/pages/FormacionEditorPage'));
 const RolesPage = lazy(() => import('./modules/permissions/pages/RolesPage'));
 const CategoriesTreePage = lazy(() => import('./modules/product-categories/pages/CategoriesTreePage'));
 const ChannelsConfigPage = lazy(() => import('./modules/settings/pages/ChannelsConfigPage'));
@@ -298,6 +305,8 @@ function App() {
             <Route path="matriculas/certificaciones" element={<MatriculasPage />} />
             {/* Diplomas (#272): las solicitudes desde Moodle y los diplomas emitidos. */}
             <Route path="matriculas/diplomas" element={<MatriculasPage />} />
+            {/* Apostillas de La Haya (CRM#1130): el trámite de cada apostilla vendida. */}
+            <Route path="apostillas" element={<ConPermiso permiso="apostillas.view" a="/clientes"><ApostillasPage /></ConPermiso>} />
           </Route>
           <Route path="/ventas" element={<SalesPage />} />
           <Route path="/meta-ads" element={<MetaAdsPage />} />
@@ -365,6 +374,8 @@ function App() {
             <Route path="pendientes" element={<CoursesPendingPage />} />
             <Route path="woocommerce" element={<WooCommercePage />} />
             <Route path="cursos-moodle" element={<CursosDeProductosPage />} />
+            <Route path="formaciones" element={<FormacionesPage />} />
+            <Route path="formaciones/:id" element={<FormacionEditorPage />} />
           </Route>
           <Route path="/productos/:id" element={<ProductDetailPage />} />
 
@@ -398,6 +409,7 @@ function App() {
             </Route>
             <Route path="facturas" element={<InvoicesPage />} />
             <Route path="facturas/nueva" element={<InvoiceCreatePage />} />
+            <Route path="facturas/automatica" element={<FacturacionAutomaticaPage />} />
             <Route path="facturas/configuracion" element={<InvoicingConfigPage />} />
             <Route path="facturas/plantillas" element={<InvoiceTemplateEditorPage />} />
             {/* #202: en evaluación, solo en /testeo y en local, como el tablero (#210). */}
@@ -415,6 +427,8 @@ function App() {
           {/* Conexión → Moodle (#335): cursos, alumnos y recursos de cada campus. Solo super admin y admin: lo corta el servidor. */}
           <Route path="/conexion/moodle" element={<MoodlePage />} />
           <Route path="/conexion/moodle/:campusId" element={<MoodleCampusPage />} />
+          {/* Moodle › Conexión del campus (apartado Moodle, Diego 25/11): la tarjeta Moodle de Integraciones. */}
+          <Route path="/moodle/conexion" element={<Navigate to="/finanzas/integraciones?seccion=moodle" replace />} />
           {/* Conexión → Conectores (WordPress, tiendas, APIs). Estaba en Captación
               hasta el 29/09; la dirección vieja lleva a la nueva. */}
           <Route path="/conexion/conectores" element={<ConnectorsPage />} />
