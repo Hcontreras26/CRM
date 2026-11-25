@@ -224,7 +224,8 @@ export default function ClientsPage() {
 
   // Cargar productos del proyecto activo
   useEffect(() => {
-    if (!activeProject?.id) { setProductos([]); return; }
+    // Con «Todos» (-1) no hay un catálogo que pedir: era un 400 en cada visita (25/11).
+    if (!(Number(activeProject?.id) > 0)) { setProductos([]); return; }
     client.get(`/products?projectId=${activeProject.id}&limit=500`).then((r) => {
       if (r.success) setProductos(((r.data as Array<{ id: number; nombre: string }>) || []));
     }).catch(() => setProductos([]));
