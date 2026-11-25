@@ -89,4 +89,20 @@ CREATE TABLE IF NOT EXISTS gsc_sincronizacion (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Permisos para el usuario de la app (CRM 360 e ISEIE). Las tablas las crea
+-- quien pasa la migración (postgres) y, sin esto, la API no puede leerlas ni
+-- escribirlas: en staging se arregló a mano con ALTER OWNER (CRM#36). Sin
+-- secuencias: ninguna tabla tiene SERIAL. Mismo patrón que la 316.
+DO $$
+DECLARE r text; t text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['crm_user', 'crm_iseie_user'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      FOREACH t IN ARRAY ARRAY['gsc_diario', 'gsc_paginas_diarias', 'gsc_consultas_diarias', 'gsc_indexacion', 'gsc_sincronizacion'] LOOP
+        EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %I TO %I', t, r);
+      END LOOP;
+    END IF;
+  END LOOP;
+END $$;
+
 COMMIT;
