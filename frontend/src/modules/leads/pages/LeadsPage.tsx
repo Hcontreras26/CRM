@@ -778,7 +778,9 @@ export default function LeadsPage() {
               Solo para quien manda: es una vista de como esta repartiendo Make
               entre todo el equipo, no algo que una gestora necesite de sus
               compañeras. */}
-          {(user?.role === 'admin' || user?.role === 'superadmin') && (
+          {/* Por permiso y alcance (25/11/2026): también soporte y la líder de equipo, que lo
+                ve de su equipo (el servidor lo recorta con `alcanceDeLider`). */}
+          {veGestoras && (
             <UltimoLeadAsignado projectId={activeProject?.id} issuerId={activeIssuerId} />
           )}
 
