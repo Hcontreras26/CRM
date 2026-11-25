@@ -149,7 +149,7 @@ export default function LeadsPage() {
   const [colaSenal, setColaSenal] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { can } = usePermission();
+  const { can, veGestoras } = usePermission();
   // Eliminar: admin y superadmin, y desde el 01/10 la gestora con el permiso
   // «leads.delete» (#204) en SUS leads sin venta. El servidor lo vuelve a mirar.
   const puedeEliminar = (l: { responsable_id?: number | null; status?: string }) =>
@@ -432,11 +432,13 @@ export default function LeadsPage() {
     // los numeros tienen que moverse, y esa es la señal de que algo cambio.
   }, [activeProject?.id, leads]);
 
-  // Cargar lista de responsables para el filtro (solo admin/superadmin).
+  // Cargar lista de responsables para el filtro y para reasignar.
   // Con un proyecto concreto activo, solo los gestores de ESE proyecto;
   // en "Todos los proyectos" (id -1) sí se listan todos.
+  // Por permiso y alcance, no por rol (Diego, 25/11/2026): a la líder de equipo
+  // le salía vacía; el servidor le da ella y su equipo (`equipos.su_equipo`).
   useEffect(() => {
-    if (user?.role !== 'superadmin' && user?.role !== 'admin') return;
+    if (!veGestoras) return;
     const pidParam = activeProject?.id && activeProject.id > 0 ? `&projectId=${activeProject.id}` : '';
     // alcance=comercial: a quien lleva un equipo, solo su equipo (QA 09/11/2026).
     client.get(`/users?limit=100&alcance=comercial${pidParam}`)
@@ -444,7 +446,7 @@ export default function LeadsPage() {
         if (res.success) setGestores(res.data || []);
       })
       .catch(() => toast({ title: 'Error al cargar gestores', variant: 'destructive' }));
-  }, [user?.role, activeProject?.id]);
+  }, [veGestoras, activeProject?.id]);
 
   function handleMarkContacted(lead) {
     setConfirmingContact(lead);
@@ -776,7 +778,9 @@ export default function LeadsPage() {
               Solo para quien manda: es una vista de como esta repartiendo Make
               entre todo el equipo, no algo que una gestora necesite de sus
               compañeras. */}
-          {(user?.role === 'admin' || user?.role === 'superadmin') && (
+          {/* Por permiso y alcance (25/11/2026): también soporte y la líder de equipo, que lo
+                ve de su equipo (el servidor lo recorta con `alcanceDeLider`). */}
+          {veGestoras && (
             <UltimoLeadAsignado projectId={activeProject?.id} issuerId={activeIssuerId} />
           )}
 
@@ -1368,7 +1372,7 @@ export default function LeadsPage() {
           onMarcarContactado={can('leads.edit') ? marcarContactadosEnBloque : undefined}
           onCopiarContactos={copiarContactosEnBloque}
           gestores={gestores}
-          isAdmin={can('leads.assign')}
+          isAdmin={veGestoras && can('leads.assign')}
           loading={bulkLoading}
         />
       )}

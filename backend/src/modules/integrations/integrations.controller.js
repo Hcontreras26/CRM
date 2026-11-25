@@ -5,6 +5,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { listaDelAmbito, campusDeTodos } from '../../shared/utils/ambito.js';
 import { logger } from '../../shared/utils/logger.js';
 import { infoDelCampus, urlDelCampus, faltasDeFunciones, textoDeFaltas } from '../../shared/services/moodle.client.js';
+import { categoriasGuardadas } from '../products/formacion.moodle.js';
 import { urlDeStripe } from '../../shared/config/stripeApi.js';
 import { linksPagoActivos, proyectosIAActivos } from '../../shared/config/soloEnPruebas.js';
 import { paypalActivo } from '../cobros-externos/interruptores.js';
@@ -301,6 +302,9 @@ export async function upsert(req, res, next) {
       config.consultas = config.consultas === true || config.consultas === 'true';
       if (config.consultas && !anterior?.config_public?.consultas) config.consultas_desde = new Date().toISOString();
       if (!config.consultas) delete config.consultas_desde;
+      // La categoría de cada tipo de formación (CRM#1113): se edita en su propio
+      // apartado; aquí solo se deja pasar limpia (los tres tipos, ids enteros).
+      if (config.categorias_formacion !== undefined) config.categorias_formacion = categoriasGuardadas(config);
     }
     if (webhook_secret && webhook_secret.trim()) {
       const w = encrypt(webhook_secret.trim());

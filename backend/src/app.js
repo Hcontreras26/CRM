@@ -79,6 +79,8 @@ import certifexModule from './modules/certifex/index.js';
 import diplomaConfirmacionModule from './modules/diploma-confirmacion/index.js';
 import soporteModule from './modules/soporte/index.js';
 import incidenciasModule from './modules/incidencias/index.js';
+// Apostilla de La Haya (CRM#1130): el trámite de cada apostilla vendida.
+import apostillasModule from './modules/apostillas/index.js';
 import changeRequestsModule from './modules/change-requests/index.js';
 // Los errores del navegador (ErrorBoundary) llegan al registro del servidor, como en
 // CRM-ISEIE (paridad, 15/10). Público y con límite por IP.
@@ -149,9 +151,12 @@ import { startCopiaDiariaScheduler } from './jobs/copiaDiariaJob.js';
 import { startFacturacionAuditoriaScheduler } from './jobs/facturacionAuditoriaJob.js';
 import { startInformeMensualScheduler } from './jobs/informeMensualJob.js';
 import { startBrevoBloqueadosScheduler } from './jobs/brevoBloqueadosScheduler.js';
+import { startApostillasScheduler } from './jobs/apostillasScheduler.js';
 import { tareasActivas, facturasColaboradorActivas, linksPagoActivos, proyectosIAActivos, pluginMoodleActivo, cobroAutomaticoActivo, seguimientoLinksActivo } from './shared/config/soloEnPruebas.js';
 import { porteroDelWebhook, topeDelEnvio, traducirTope } from './modules/webhook-tokens/portero.js';
 import { MAX_ENVIO_BYTES } from './modules/matriculas/admision.archivos.js';
+// La versión del CRM: la primera de Novedades, la misma que enseña el frontal (25/11).
+import { ACTUAL as VERSION_ACTUAL } from './modules/novedades/versiones.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -223,7 +228,7 @@ app.get('/api', (_req, res) => {
     success: true,
     data: {
       name: 'CRM MultiProyecto API',
-      version: '1.0.0',
+      version: VERSION_ACTUAL.version,
       status: 'online',
       endpoints: {
         health: '/api/health',
@@ -239,7 +244,7 @@ app.get('/api', (_req, res) => {
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ success: true, data: { status: 'ok', timestamp: new Date().toISOString() } });
+  res.json({ success: true, data: { status: 'ok', version: VERSION_ACTUAL.version, timestamp: new Date().toISOString() } });
 });
 
 // Traído de CRM-ISEIE (paridad, 15/10).
@@ -351,6 +356,8 @@ const ALL_MODULES = [
   // El informe mensual por equipo y comercial y el ZIP de facturas para la gestoría (#772).
   { name: 'informe-mensual', mod: informeMensualModule },
   { name: 'matriculas', mod: matriculasModule },
+  // Clientes › Apostillas (CRM#1130). Migración 333.
+  { name: 'apostillas', mod: apostillasModule },
   { name: 'feedback', mod: feedbackModule },
   { name: 'factura-automatica', mod: facturaAutomaticaModule },
   { name: 'novedades', mod: novedadesModule },
@@ -610,6 +617,8 @@ if (process.env.NODE_ENV !== 'test') {
     startInformeMensualScheduler();
     // Apagada de serie (BREVO_BLOQUEADOS_ACTIVO): apagada no arranca ni pregunta a Brevo.
     startBrevoBloqueadosScheduler();
+    // Apostillas (CRM#1130): fichas nuevas cada 10 minutos y el aviso de atascadas (solo campana).
+    startApostillasScheduler();
     recuperarAdjuntosDeWhatsapp();
   });
 }

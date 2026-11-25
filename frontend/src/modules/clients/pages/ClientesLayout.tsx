@@ -1,11 +1,13 @@
 import { Outlet } from 'react-router-dom';
-import { UserCheck, ListBullets, GraduationCap } from '@phosphor-icons/react';
+import { UserCheck, ListBullets, GraduationCap, Stamp } from '@phosphor-icons/react';
+import usePermission from '@/shared/hooks/usePermission';
 import SubNav from '@/shared/components/ui/SubNav';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { ofreceMatriculas } from '@/shared/lib/etiquetas';
+import { ofreceMatriculas, esDeSuscripcion } from '@/shared/lib/etiquetas';
 
 export default function ClientesLayout() {
   const { activeProject } = useProjectContext();
+  const { can } = usePermission();
 
   // Matrículas no sale en una plataforma de IA, igual que en los accesos clave
   // de la propia pantalla: el catálogo de tipos dice «producto de suscripción,
@@ -20,6 +22,10 @@ export default function ClientesLayout() {
     { label: 'Listado', to: '/clientes', icon: ListBullets },
     ...(ofreceMatriculas(activeProject)
       ? [{ label: 'Solicitud de admisión', to: '/clientes/matriculas', icon: GraduationCap, end: false }]
+      : []),
+    // Apostillas de La Haya (CRM#1130): la ve todo el que entra al CRM, salvo tutores y colaboradores.
+    ...(can('apostillas.view') && !esDeSuscripcion(activeProject)
+      ? [{ label: 'Apostillas', to: '/clientes/apostillas', icon: Stamp, end: false }]
       : []),
   ];
 

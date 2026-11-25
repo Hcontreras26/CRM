@@ -121,7 +121,7 @@ crear una matrícula a mano desde la pantalla.
 
 ## 4. Diplomas
 
-Menú: **Clientes › Diplomas** (o la pestaña **Diplomas** de Matrículas). Sale
+Menú: **Moodle › Diplomas** (o la pestaña **Diplomas** de Matrículas). Sale
 cuando el panel de Certifex está encendido en ese CRM.
 
 El alumno pide su diploma desde Moodle al terminar. La petición llega aquí y

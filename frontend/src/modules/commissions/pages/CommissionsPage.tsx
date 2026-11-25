@@ -160,8 +160,11 @@ export default function CommissionsPage() {
     if (!isAdmin) return;
     (async () => {
       try {
-        const r = await client.get('/users?role=gestor&active=true');
-        if (r.success) setUsers(((r.data?.users || r.data || []) as User[]).filter((u) => u.role !== 'superadmin'));
+        // Las gestoras y las líderes de equipo, que también cobran comisión; sin
+        // `limit` el servidor daba 20 y faltaban personas (25/11/2026).
+        const listas = await Promise.all(['gestor', 'lider_equipo'].map((rol) => client.get(`/users?role=${rol}&active=true&limit=100`)
+          .then((r) => (r.success ? ((r.data?.users || r.data || []) as User[]) : [])).catch(() => [] as User[])));
+        setUsers(listas.flat().filter((u) => u.role !== 'superadmin').sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
       } catch {}
     })();
   }, [isAdmin]);

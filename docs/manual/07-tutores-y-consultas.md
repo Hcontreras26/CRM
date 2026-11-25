@@ -45,7 +45,7 @@ Campus**). Hasta entonces no verás ese campus.
 
 ### Las consultas
 
-Menú: **Tutores › Consultas**. El alumno escribe su duda en el campus, por la
+Menú: **Moodle › Consultas**. El alumno escribe su duda en el campus, por la
 mensajería de Moodle. El CRM la lee cada pocos minutos y la pone en la bandeja
 de su tutor. **El tutor responde desde el CRM** y la respuesta le llega al
 alumno en el campus, con el nombre del tutor.

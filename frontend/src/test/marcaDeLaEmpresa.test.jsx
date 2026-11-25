@@ -10,12 +10,11 @@ import { render } from '@testing-library/react';
     la empresa guardada: empresa en el selector, campus en el menú.
   - Con una empresa elegida, el menú lleva la marca de la EMPRESA: su logo o su
     nombre corto. Nunca el de un campus.
-  - La versión ya no se escribe a mano: sale de la etiqueta de Git.
+  - La versión ya no se escribe a mano: sale de Novedades (versionQueSeVe.test.jsx).
 */
 
 const { eleccionAlEntrar, nombreCortoDeEmpresa, ALL_PROJECTS_ID } = await import('@/contexts/AuthContext');
 const { EmpresaAvatar, resolverLogoEmpresa } = await import('@/shared/components/ui/ProjectAvatar');
-const { versionMasAlta } = await import('../../scripts/versionDeLaApp.js');
 
 const CEDIA = 8; const ICTESS = 9;
 const CAMPUS = [
@@ -75,20 +74,5 @@ describe('la marca de la empresa en el menú', () => {
   it('el logo subido al CRM se pide a su dirección pública', () => {
     expect(resolverLogoEmpresa({ id: 11, logo_url: null, logo_subido: true })).toMatch(/\/api\/invoices\/issuers\/11\/logo$/);
     expect(resolverLogoEmpresa({ id: 8, logo_url: null })).toBeNull();
-  });
-});
-
-describe('la versión que enseña el CRM', () => {
-  it('la etiqueta más alta, no la primera ni la de orden alfabético', () => {
-    expect(versionMasAlta({ etiquetas: ['v2.2.0', 'v2.5.9', 'v2.5.24', 'v2.10.0-rc', ''] })).toBe('2.5.24');
-  });
-
-  it('la fusión de la versión, antes de etiquetarla', () => {
-    expect(versionMasAlta({ etiquetas: ['v2.5.24'], asunto: 'v2.5.25 · rol «Tutor redactor» (#742)' })).toBe('2.5.25');
-    expect(versionMasAlta({ etiquetas: ['v2.5.24'], asunto: 'fix: algo de la v2.9.9' })).toBe('2.5.24');
-  });
-
-  it('sin etiquetas ni versión en el título, nada', () => {
-    expect(versionMasAlta({})).toBeNull();
   });
 });
