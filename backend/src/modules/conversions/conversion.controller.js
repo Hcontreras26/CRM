@@ -25,6 +25,9 @@ export async function create(req, res, next) {
   try {
     const parsed = createConversionSchema.safeParse(req.body);
     if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    // «Enviar factura automáticamente»: solo quien tiene `facturas.envio_auto` (25/11).
+    const { quitarSiNoPuede } = await import('../factura-automatica/factura-automatica.envio.js');
+    await quitarSiNoPuede(req, parsed.data);
     // Con curso de Moodle, sin fecha de inicio no se cierra la venta (#767, #1036).
     await exigirFechaSiTieneCurso(parsed.data);
     const conversion = await conversionService.create(parsed.data, req.user.userId);

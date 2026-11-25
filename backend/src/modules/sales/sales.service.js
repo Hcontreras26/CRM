@@ -177,6 +177,7 @@ export async function createSale(data, requestUser, { comprobarRepetida: mirarRe
       ...(forzar ? { forzar: true } : {}),
       // «Enviar factura automáticamente» y su correo (#764, 24/11): lo guarda la venta.
       ...(data.envio_factura ? { envio_factura: data.envio_factura } : {}),
+      ...(data.datos_fiscales ? { datos_fiscales: data.datos_fiscales } : {}),
     },
     requestUser?.userId || null,
     // Ya mirado arriba, con el alumno tal como llegó (correo y nombre del
