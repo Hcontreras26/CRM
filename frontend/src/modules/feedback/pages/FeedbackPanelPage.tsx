@@ -273,7 +273,13 @@ export default function FeedbackPanelPage() {
               })}
               {pestaña === 'empresa' && (datos?.porEmpresa || []).map((e) => {
                 // Una empresa abre su lista por empresa; un campus suelto, por campus.
-                const donde: Record<string, string> = e.issuer_id ? { soloEmpresa: String(e.issuer_id) } : { soloCampus: String(e.project_id) };
+                // Con un solo campus arriba («Solo este campus»), la fila de su
+                // empresa cuenta solo ese campus: su lista también, sin cambiar
+                // el ámbito. Antes abría la empresa entera (#593, punto 19).
+                const unCampusArriba = !issuerEfectivo && Number(activeProject?.id) > 0;
+                const donde: Record<string, string> = unCampusArriba
+                  ? {}
+                  : e.issuer_id ? { soloEmpresa: String(e.issuer_id) } : { soloCampus: String(e.project_id) };
                 return (
                   <tr key={`${e.issuer_id}-${e.project_id}`} className="border-t border-border">
                     <td className="py-2">{e.nombre}{e.issuer_id ? <span className="ml-1 text-xs text-muted-foreground">· {e.campus} campus con envíos</span> : null}</td>

@@ -171,15 +171,19 @@ export function limpiarRespuestas(entrada = {}) {
       const lista = (Array.isArray(v) ? v : [v]).filter((x) => vale(p, x));
       if (lista.length) r[p.clave] = [...new Set(lista)];
     } else if (p.tipo === 'escala') {
-      const n = Number(v);
+      // Un número o un texto con un número: `true` daba Number(true) = 1 y se
+      // guardaba como «1/5 · Muy mal» (#593, menores).
+      const n = typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN;
       if (Number.isInteger(n) && n >= 1 && n <= 5) r[p.clave] = n;
     } else if (p.tipo === 'texto') {
-      const t = String(v).trim().slice(0, 2000);
+      // Solo texto: un objeto se guardaba como «[object Object]» (#593, menores).
+      const t = typeof v === 'string' ? v.trim().slice(0, 2000) : '';
       if (t) r[p.clave] = t;
     }
     // Lo escrito en «Otro» (o tras una nota baja), solo si de verdad lo eligió.
     if (abreEscribir(p, r[p.clave])) {
-      const t = String(entrada[`${p.clave}_otro`] ?? '').trim().slice(0, 1000);
+      const otro = entrada[`${p.clave}_otro`];
+      const t = typeof otro === 'string' ? otro.trim().slice(0, 1000) : '';
       if (t) r[`${p.clave}_otro`] = t;
     }
     // La de después («¿cuándo?»), solo si contestó lo que la abre.
