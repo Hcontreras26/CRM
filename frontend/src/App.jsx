@@ -160,6 +160,8 @@ const ClientsPage = lazy(() => import('./modules/clients/pages/ClientsPage'));
 const ClientDetailPage = lazy(() => import('./modules/clients/pages/ClientDetailPage'));
 const CommissionsPage = lazy(() => import('./modules/commissions/pages/CommissionsPage'));
 const MatriculasPage = lazy(() => import('./modules/matriculas/pages/MatriculasPage'));
+// Clientes › Apostillas de La Haya (CRM#1130).
+const ApostillasPage = lazy(() => import('./modules/apostillas/pages/ApostillasPage'));
 const SalesAnalysisPage = lazy(() => import('./modules/sales/pages/SalesAnalysisPage'));
 const VentasSinFormacionPage = lazy(() => import('./modules/sales/pages/VentasSinFormacionPage'));
 const SaleDetailPage = lazy(() => import('./modules/sales/pages/SaleDetailPage'));
@@ -300,6 +302,8 @@ function App() {
             <Route path="matriculas/certificaciones" element={<MatriculasPage />} />
             {/* Diplomas (#272): las solicitudes desde Moodle y los diplomas emitidos. */}
             <Route path="matriculas/diplomas" element={<MatriculasPage />} />
+            {/* Apostillas de La Haya (CRM#1130): el trámite de cada apostilla vendida. */}
+            <Route path="apostillas" element={<ConPermiso permiso="apostillas.view" a="/clientes"><ApostillasPage /></ConPermiso>} />
           </Route>
           <Route path="/ventas" element={<SalesPage />} />
           <Route path="/meta-ads" element={<MetaAdsPage />} />

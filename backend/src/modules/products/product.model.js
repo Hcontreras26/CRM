@@ -20,6 +20,9 @@ const LIST_COLS = [
   'p.sin_desarrollar', 'p.responsable_desarrollo_id', 'p.plazo_desarrollo_dias',
   'p.active', 'p.created_at', 'p.updated_at',
   "LEFT(p.descripcion, 280) AS descripcion",
+  // 'apostilla' en la Apostilla de La Haya (CRM#1130): Formaciones la deja fuera.
+  // Necesita la migración 333 (va antes que el código, como siempre).
+  'p.servicio',
 ].join(', ');
 
 // Un campus o varios (#218: con «Todos» o una empresa, los del ámbito). Cada

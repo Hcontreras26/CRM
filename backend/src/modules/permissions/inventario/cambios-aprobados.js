@@ -660,6 +660,18 @@ export const CAMBIOS_DE_MENU = [
     },
     aprobadoPor: 'Pendiente de Diego (menú por permiso)',
   },
+  {
+    id: 'menu-apostillas',
+    que: 'Clientes › Apostillas (el trámite de la Apostilla de La Haya) sale a todos los que entran al CRM: admin, gestoras, líder, soporte y project manager. Tutores y colaboradores, no.',
+    motivo: 'CRM#1130 / CRM-ISEIE#786 (Diego, 25/11/2026): «lo ven todos», un producto propio que tiene que poder medirse. Es una pantalla nueva con su permiso `apostillas.view` y su ruta nueva: nadie pierde nada.',
+    perfiles: Object.fromEntries([
+      'superadmin', 'admin', 'soporte', 'project_manager', 'gestora', 'gestora+admin', 'gestora+tutor',
+      'gestora con factura_manager', 'gestora con editar_fechas_factura', 'gestora con usa_mcp',
+      'gestora con diplomas.view', 'gestora con tasks.close',
+    ].map((perfil) => [perfil, ['+ Comercial › Apostillas']])),
+    rutas: { 'Comercial › Apostillas': 'GET /api/apostillas/' },
+    aprobadoPor: 'Diego, 25/11',
+  },
 ];
 
 /**

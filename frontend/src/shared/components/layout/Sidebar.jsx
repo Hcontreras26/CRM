@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   CalendarCheck,
+  Stamp,
   ArrowCounterClockwise,
   SquaresFour,
   Users,
@@ -418,6 +419,10 @@ export const SECCIONES_DE_ANTES = [
       { label: 'Solicitud de admisión', to: '/clientes/matriculas', detail: 'Las que llegan del formulario', icon: GraduationCap, module: 'matriculas', permiso: 'matriculas.view',
         // Se llamó «Matrículas» hasta la #831: el buscador la sigue encontrando así.
         keywords: 'matrículas matricula admisión inscripción' },
+      // Apostilla de La Haya (CRM#1130): el trámite de cada apostilla vendida. La ven
+      // todos los que entran al CRM salvo tutores, colaboradores y redactoras (`apostillas.view`).
+      { label: 'Apostillas', to: '/clientes/apostillas', detail: 'Apostilla de La Haya', icon: Stamp, permiso: 'apostillas.view',
+        keywords: 'apostilla haya legalización título' },
       // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
       // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin),
       // y además, para VERLO en solo lectura, quien tenga `diplomas.view` (#384,
