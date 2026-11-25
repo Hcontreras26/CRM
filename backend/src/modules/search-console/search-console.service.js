@@ -269,7 +269,7 @@ const total = (r) => ({
   posicion: posicion(r?.posicion_suma, Number(r?.impresiones || 0)),
 });
 
-async function totales(projectId, desde, hasta) {
+export async function totales(projectId, desde, hasta) {
   const { rows } = await query(
     `SELECT SUM(clics)::int AS clics, SUM(impresiones)::int AS impresiones, SUM(posicion_suma) AS posicion_suma,
             COUNT(*)::int AS dias

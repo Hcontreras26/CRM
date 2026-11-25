@@ -138,6 +138,12 @@ export const TIPOS = {
     clase: ACCION, etiqueta: 'Disputa de Stripe a punto de vencer', agrupa: false,
     descripcion: 'Una disputa sigue sin respuesta en Stripe y vence en pocos días',
   },
+  // Search Console (#1156): los lunes, a los admin del campus, si los clics o las
+  // impresiones de la semana caen más del umbral. Pide mirar qué ha pasado.
+  gsc_caida: {
+    clase: ACCION, etiqueta: 'Caída en Google', agrupa: false,
+    descripcion: 'Los lunes, si los clics o las impresiones de una web caen más del umbral contra la semana anterior',
+  },
   task_asignada: {
     clase: ACCION, etiqueta: 'Tarea asignada', agrupa: false,
     descripcion: 'Cuando te asignan una tarea del equipo',

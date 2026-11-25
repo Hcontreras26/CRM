@@ -57,6 +57,20 @@ export interface PaginaIndexacion {
 }
 export interface Indexacion { indexadas: number; no_indexadas: number; errores: number; paginas: PaginaIndexacion[] }
 
+/** La última semana contra la anterior (#1156). Sin datos: solo `con_datos: false`. */
+export interface Semana {
+  con_datos: boolean;
+  actual?: Totales & { desde: string; hasta: string; dias: number };
+  anterior?: Totales & { desde: string; hasta: string; dias: number };
+  /** Las dos con sus 7 días y datos de esta semana: si no, no se compara. */
+  completa?: boolean;
+  reciente?: boolean;
+  /** Clics e impresiones en %; posición en puntos (positivo es peor). */
+  variacion?: { clics: number | null; impresiones: number | null; posicion: number | null };
+  /** Lo que ha caído más del umbral: lo que avisa el lunes. */
+  caidas?: Array<'clics' | 'impresiones'>;
+}
+
 type Cuerpo<T> = { success?: boolean; data?: T };
 const datos = <T,>(r: unknown) => (r as Cuerpo<T>).data as T;
 const qs = (projectId: number, desde: string, hasta: string) =>
@@ -72,6 +86,8 @@ export const searchConsoleApi = {
     client.get(`/search-console/paginas?${qs(projectId, desde, hasta)}&limite=500`).then(datos<Paginas>),
   indexacion: (projectId: number) =>
     client.get(`/search-console/indexacion?projectId=${projectId}`).then(datos<Indexacion>),
+  semana: (projectId: number) =>
+    client.get(`/search-console/semana?projectId=${projectId}`).then(datos<Semana>),
   sincronizar: (projectId: number) =>
     client.post('/search-console/sincronizar', { project_id: projectId }).then(datos<{ ok: boolean; dias: number }>),
 };
