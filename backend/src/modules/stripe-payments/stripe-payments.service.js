@@ -23,14 +23,27 @@ import * as cobroDelLink from '../links-pago/links-pago.cobro.js';
 import * as cobroAuto from '../links-pago/links-pago.cobro-auto.js';
 import { conElCodigo } from '../links-pago/links-pago.codigos.js';
 import { deUnidadesMinimas } from '../links-pago/links-pago.stripe.js';
+// Stripe prestado (322): un campus que cobra con la cuenta de otro de su empresa.
+import {
+  duenoDeLaCuenta, quienesLaUsan, elegirCampus, campusDeLaMarca, campusDelCliente, campusDelEvento, campusFinalDelCargo,
+} from './stripe-prestado.js';
 
 export { asociacionV2Activa };
 
+/**
+ * La clave de lectura de Stripe del campus. Si usa la cuenta de otro campus
+ * (Stripe prestado, 322), la de ese: nunca la del `.env`, que sería de otra
+ * cuenta.
+ */
 export async function getStripeKey(projectId) {
+  let dueno = projectId;
+  try { dueno = await duenoDeLaCuenta(projectId); }
+  catch (e) { logger.warn({ e: e.message, projectId }, 'getStripeKey: no se pudo saber si la cuenta es prestada'); }
   try {
-    const row = await integrationsModel.get(projectId, 'stripe');
+    const row = await integrationsModel.get(dueno, 'stripe');
     if (row?.encrypted_value) return decrypt(row.encrypted_value, row.iv, row.auth_tag);
   } catch (e) { logger.warn({ e: e.message }, 'getStripeKey failed'); }
+  if (dueno !== projectId) return null;
   return process.env.STRIPE_SECRET_KEY || null;
 }
 
@@ -498,7 +511,8 @@ async function fetchAndUpdateDispute(apiKey, projectId, charge) {
  */
 export async function filtroDeMetadata(projectId) {
   try {
-    const row = await integrationsModel.get(projectId, 'stripe');
+    // Con la cuenta prestada (322), el filtro es el de la cuenta: la del dueño.
+    const row = await integrationsModel.get(await duenoDeLaCuenta(projectId), 'stripe');
     const f = row?.config_public?.filtro_metadata;
     if (f?.clave && f?.valor) return { clave: String(f.clave), valor: String(f.valor) };
   } catch { /* sin integracion, sin filtro */ }
@@ -572,6 +586,12 @@ async function apuntaElFallo(projectId, err) {
 }
 
 export async function syncStripePayments(projectId, opciones = {}) {
+  // STRIPE PRESTADO (322): la cuenta se sincroniza UNA vez, la del dueño, y cada
+  // cargo va a su campus. Sincronizar desde un campus que la toma prestada es
+  // sincronizar la del dueño; con su propia vuelta, el dinero del dueño se
+  // guardaría también en este campus.
+  const dueno = await duenoDeLaCuenta(projectId);
+  if (dueno !== projectId) return syncStripePayments(dueno, opciones);
   try {
     return await sincroniza(projectId, opciones);
   } catch (err) {
@@ -642,6 +662,8 @@ async function sincroniza(projectId, { fullHistory = false, retryPending = false
   }
 
   const filtro = await filtroDeMetadata(projectId);
+  // Los campus que cobran con esta cuenta (Stripe prestado, 322): cada cargo, al suyo.
+  const prestados = await quienesLaUsan(projectId);
 
   let imported = 0;
   let ajenos = 0;
@@ -696,13 +718,14 @@ async function sincroniza(projectId, { fullHistory = false, retryPending = false
           if (primeroSinMarcar == null || ch.created < primeroSinMarcar) primeroSinMarcar = ch.created;
           continue;
         }
-        const payment = chargeToPayment(ch, projectId);
+        const campus = await campusDelCargo(projectId, prestados, ch);
+        const payment = chargeToPayment(ch, campus);
         const dbRow = await model.upsertPayment(payment);
-        try { await autoLinkIfPossible(projectId, payment, dbRow); }
-        catch (e) { logger.error({ err: e.message, projectId, stripeId: ch.id }, 'stripe: el cargo no se pudo enlazar con su venta (sondeo)'); }
+        try { await autoLinkIfPossible(campus, payment, dbRow); }
+        catch (e) { logger.error({ err: e.message, projectId: campus, stripeId: ch.id }, 'stripe: el cargo no se pudo enlazar con su venta (sondeo)'); }
         await trasAsociarCargo(dbRow.id);
         if (ch.disputed) {
-          await fetchAndUpdateDispute(apiKey, projectId, ch);
+          await fetchAndUpdateDispute(apiKey, campus, ch);
           disputesFound++;
         }
         imported++;
@@ -743,12 +766,13 @@ async function sincroniza(projectId, { fullHistory = false, retryPending = false
   // de cada 5 min no lo dispara: reasociar en masa es una decision del usuario,
   // no algo que deba pasar solo de madrugada.
   let reasociados = 0;
-  if (retryPending) try {
-    const pendientes = await model.listPendientesDeAsociar(projectId, 5000);
+  // Con la cuenta prestada (322), también los cargos de los campus que la usan.
+  if (retryPending) for (const pid of [projectId, ...prestados]) try {
+    const pendientes = await model.listPendientesDeAsociar(pid, 5000);
     for (const row of pendientes) {
       try {
         const antes = row.conversion_payment_id;
-        await autoLinkIfPossible(projectId, {
+        await autoLinkIfPossible(pid, {
           status: row.status,
           amount: Number(row.amount),
           customer_email: row.customer_email,
@@ -766,7 +790,7 @@ async function sincroniza(projectId, { fullHistory = false, retryPending = false
       }
     }
     // Y los que tienen venta pero se quedaron sin cobro (ver reengancharCobro).
-    for (const row of await model.listConVentaSinCobro(projectId, 500)) {
+    for (const row of await model.listConVentaSinCobro(pid, 500)) {
       try {
         await reengancharCobro({
           status: row.status, amount: Number(row.amount),
@@ -787,11 +811,13 @@ async function sincroniza(projectId, { fullHistory = false, retryPending = false
   // sondeo, una vez por hora y campus como mucho: un pedido que la tienda no
   // encuentra se volvería a pedir cada 5 minutos.
   let ventasCreadas = 0;
-  const ultima = ULTIMA_PASADA_COMPRAS.get(projectId) || 0;
-  if (retryPending || Date.now() - ultima > PASADA_COMPRAS_CADA_MS) {
-    ULTIMA_PASADA_COMPRAS.set(projectId, Date.now());
-    try { ventasCreadas = (await comprasDirectasSinVenta(projectId)).creadas; }
-    catch (e) { logger.warn({ projectId, err: e.message }, 'compra directa: la pasada falló; se reintenta en la siguiente'); }
+  for (const pid of [projectId, ...prestados]) {
+    const ultima = ULTIMA_PASADA_COMPRAS.get(pid) || 0;
+    if (retryPending || Date.now() - ultima > PASADA_COMPRAS_CADA_MS) {
+      ULTIMA_PASADA_COMPRAS.set(pid, Date.now());
+      try { ventasCreadas += (await comprasDirectasSinVenta(pid)).creadas; }
+      catch (e) { logger.warn({ projectId: pid, err: e.message }, 'compra directa: la pasada falló; se reintenta en la siguiente'); }
+    }
   }
 
   // LA MARCA DE AGUA NO PASA DE UN COBRO SIN MARCAR.
@@ -829,6 +855,19 @@ async function sincroniza(projectId, { fullHistory = false, retryPending = false
   }
   logger.info({ projectId, imported, ajenos, sinMarcar, sinMarcarViejos, disputesFound, pages, reasociados, ventasCreadas, completo }, 'Stripe sync OK');
   return { imported, ajenos, sinMarcar, sinMarcarViejos, disputes: disputesFound, pages, reasociados, ventasCreadas, completo };
+}
+
+/**
+ * A qué campus va un cargo de la cuenta de `dueno` (Stripe prestado, 322): el
+ * de su marca si es de uno que la toma prestada, el de su cliente si es una
+ * cuota de cobro automático de uno de ellos, o el dueño. Y nunca a dos: si el
+ * dueño ya lo tenía asociado, se queda en el dueño (`campusFinalDelCargo`).
+ */
+async function campusDelCargo(dueno, prestados, ch) {
+  if (!prestados?.length) return dueno;
+  const cliente = campusDeLaMarca(ch.metadata) == null ? await campusDelCliente(ch.customer, prestados) : null;
+  const campus = elegirCampus(dueno, prestados, { metadata: ch.metadata, campusDelCliente: cliente });
+  return campusFinalDelCargo(dueno, campus, ch.id);
 }
 
 // Cuándo pasó por última vez la pasada de compras directas en cada campus (en memoria).
@@ -1118,27 +1157,38 @@ async function enlazarDesdeElAviso(projectId, payment, dbRow) {
   });
 }
 
-export async function handleWebhookEvent(projectId, event) {
-  const apiKey = await getStripeKey(projectId);
+export async function handleWebhookEvent(duenoId, event) {
   const obj = event.data?.object;
   if (!obj) return { skipped: 'no data' };
+  // STRIPE PRESTADO (322): el aviso llega por la ruta del campus dueño de la
+  // cuenta. Si es de un campus que se la toma prestada (su marca, el precio de
+  // su cuota, su cliente), se procesa como ese campus, no como «ajeno».
+  const dueno = Number(duenoId);
+  const projectId = await campusDelEvento(dueno, event);
+  if (projectId !== dueno) {
+    logger.info({ dueno, projectId, type: event.type, stripeId: obj.id }, 'stripe: aviso de un campus que usa la cuenta de otro');
+  }
+  // El cargo, a un solo campus: si el dueño ya lo tenía asociado, se queda allí.
+  const campusDe = (chargeId) => (projectId === dueno ? dueno : campusFinalDelCargo(dueno, projectId, chargeId));
+  const apiKey = await getStripeKey(projectId);
 
   switch (event.type) {
     case 'charge.succeeded':
     case 'charge.updated':
     case 'charge.refunded':
     case 'charge.failed': {
-      const payment = chargeToPayment(obj, projectId);
+      const campus = await campusDe(obj.id);
+      const payment = chargeToPayment(obj, campus);
       const dbRow = await model.upsertPayment(payment);
-      try { await enlazarDesdeElAviso(projectId, payment, dbRow); }
-      catch (e) { logger.error({ err: e.message, projectId, stripeId: payment.stripe_id }, 'stripe: el cargo no se pudo enlazar con su venta (aviso)'); }
+      try { await enlazarDesdeElAviso(campus, payment, dbRow); }
+      catch (e) { logger.error({ err: e.message, projectId: campus, stripeId: payment.stripe_id }, 'stripe: el cargo no se pudo enlazar con su venta (aviso)'); }
       if (event.type === 'charge.succeeded') await trasAsociarCargo(dbRow.id);
-      if (obj.disputed && apiKey) await fetchAndUpdateDispute(apiKey, projectId, obj);
+      if (obj.disputed && apiKey) await fetchAndUpdateDispute(apiKey, campus, obj);
       // Un reembolso no acaba en stripe_payments: si el alumno recupera su
       // dinero, hay que registrar la devolucion en su venta y deshacer la
       // comision del tutor. Antes se quedaba aqui y el tutor cobraba igual.
       if (event.type === 'charge.refunded') {
-        try { await propagarReembolso(obj, projectId); }
+        try { await propagarReembolso(obj, campus); }
         catch (e) { logger.error({ err: e.message, charge: obj.id }, 'reembolso: no se pudo propagar'); }
       }
       return { processed: event.type, stripeId: obj.id };
@@ -1161,10 +1211,11 @@ export async function handleWebhookEvent(projectId, event) {
       if (apiKey && obj.latest_charge) {
         try {
           const ch = await stripeGet(apiKey, `/v1/charges/${obj.latest_charge}`);
-          const payment = chargeToPayment(ch, projectId);
+          const campus = await campusDe(ch.id);
+          const payment = chargeToPayment(ch, campus);
           const dbRow = await model.upsertPayment(payment);
-          try { await enlazarDesdeElAviso(projectId, payment, dbRow); }
-          catch (e) { logger.error({ err: e.message, projectId, stripeId: payment.stripe_id }, 'stripe: el cargo no se pudo enlazar con su venta (payment_intent)'); }
+          try { await enlazarDesdeElAviso(campus, payment, dbRow); }
+          catch (e) { logger.error({ err: e.message, projectId: campus, stripeId: payment.stripe_id }, 'stripe: el cargo no se pudo enlazar con su venta (payment_intent)'); }
           if (event.type === 'payment_intent.succeeded') await trasAsociarCargo(dbRow.id);
         } catch (e) { logger.warn({ err: e.message }, 'fetch charge from PI failed'); }
       }
@@ -1186,7 +1237,8 @@ export async function handleWebhookEvent(projectId, event) {
             payment_intent: r.paymentIntent, 'expand[]': 'data.balance_transaction',
           });
           for (const ch of cargos.data || []) {
-            const payment = chargeToPayment(ch, projectId);
+            const campus = await campusDe(ch.id);
+            const payment = chargeToPayment(ch, campus);
             let dbRow = await model.upsertPayment(payment);
             // Un link creado directamente en Stripe (CRM#1019): el cargo, a su link,
             // con lo que dijo la sesión (correo, móvil, descuento); se busca a quién
@@ -1197,8 +1249,8 @@ export async function handleWebhookEvent(projectId, event) {
               if (!payment.customer_email && r.checkout?.email) payment.customer_email = r.checkout.email;
               if (!payment.customer_phone && r.checkout?.telefono) payment.customer_phone = r.checkout.telefono;
             }
-            try { await enlazarDesdeElAviso(projectId, payment, dbRow); }
-            catch (e) { logger.error({ err: e.message, projectId, stripeId: payment.stripe_id }, 'stripe: el cargo de un link de pago no se pudo enlazar (checkout)'); }
+            try { await enlazarDesdeElAviso(campus, payment, dbRow); }
+            catch (e) { logger.error({ err: e.message, projectId: campus, stripeId: payment.stripe_id }, 'stripe: el cargo de un link de pago no se pudo enlazar (checkout)'); }
             if (payment.status === 'succeeded') await trasAsociarCargo(dbRow.id);
           }
         } catch (e) { logger.warn({ err: e.message, projectId, linkId: r.link?.id }, 'links de pago: no se pudo traer el cargo de la sesión; lo traerá el sondeo'); }
@@ -1230,10 +1282,11 @@ export async function handleWebhookEvent(projectId, event) {
             payment_intent: r.paymentIntent, 'expand[]': 'data.balance_transaction',
           });
           for (const ch of cargos.data || []) {
-            const payment = chargeToPayment(ch, projectId);
+            const campus = await campusDe(ch.id);
+            const payment = chargeToPayment(ch, campus);
             const dbRow = await model.upsertPayment(payment);
-            try { await enlazarDesdeElAviso(projectId, payment, dbRow); }
-            catch (e) { logger.error({ err: e.message, projectId, stripeId: payment.stripe_id }, 'stripe: el cargo de una cuota automática no se pudo enlazar'); }
+            try { await enlazarDesdeElAviso(campus, payment, dbRow); }
+            catch (e) { logger.error({ err: e.message, projectId: campus, stripeId: payment.stripe_id }, 'stripe: el cargo de una cuota automática no se pudo enlazar'); }
             if (payment.status === 'succeeded') await trasAsociarCargo(dbRow.id);
           }
         } catch (e) { logger.warn({ err: e.message, projectId, factura: obj.id }, 'cobro automático: no se pudo traer el cargo de la factura; lo traerá el sondeo'); }

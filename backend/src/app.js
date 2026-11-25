@@ -19,6 +19,7 @@ import tutoresModule from './modules/tutores/index.js';
 import consultasModule from './modules/consultas/index.js';
 import notificationsModule from './modules/notifications/index.js';
 import metaAdsModule from './modules/meta-ads/index.js';
+import googleAnalyticsModule from './modules/google-analytics/index.js';
 import googleAdsModule from './modules/google-ads/index.js';
 import accountingModule from './modules/accounting/index.js';
 import expensesModule from './modules/expenses/index.js';
@@ -105,6 +106,7 @@ import { startStripeDisputasScheduler } from './jobs/stripeDisputasScheduler.js'
 import { startDocumentOrphanScheduler } from './jobs/documentOrphanScheduler.js';
 import { startGoogleAdsTokenScheduler } from './jobs/googleAdsTokenScheduler.js';
 import { startMetaAdsSyncScheduler } from './jobs/metaAdsSyncScheduler.js';
+import { startGoogleAnalyticsSyncScheduler } from './jobs/googleAnalyticsSyncScheduler.js';
 import { startGoogleAdsSyncScheduler } from './jobs/googleAdsSyncScheduler.js';
 import { startMetaTokensScheduler } from './jobs/metaTokensScheduler.js';
 import { startTutorCommissionsScheduler } from './jobs/tutorCommissionsScheduler.js';
@@ -326,6 +328,8 @@ const ALL_MODULES = [
   { name: 'consultas', mod: consultasModule },
   { name: 'notifications', mod: notificationsModule },
   { name: 'meta-ads', mod: metaAdsModule },
+  // Google Analytics 4 (CRM#55): lo que pasa antes del lead.
+  { name: 'google-analytics', mod: googleAnalyticsModule },
   // Google Ads (CRM#54): campañas y gasto, con el coste por venta.
   { name: 'google-ads', mod: googleAdsModule },
   { name: 'accounting', mod: accountingModule },
@@ -547,6 +551,8 @@ if (process.env.NODE_ENV !== 'test') {
     startDocumentOrphanScheduler();
     startGoogleAdsTokenScheduler();
     startMetaAdsSyncScheduler();
+    // Sincronización de Google Analytics 4 (CRM#55). Apagada sin GA4_SYNC_ACTIVO=1.
+    startGoogleAnalyticsSyncScheduler();
     // Sincronización de Google Ads (CRM#54). Apagada sin GOOGLE_ADS_SYNC_ACTIVO=1.
     startGoogleAdsSyncScheduler();
     // Renovación diaria de tokens de Meta e Instagram (#471). Apagada sin META_TOKENS_RENOVACION_ACTIVA=1.

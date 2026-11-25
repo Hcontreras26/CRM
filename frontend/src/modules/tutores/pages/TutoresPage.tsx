@@ -26,6 +26,8 @@ import { tutoresApi, type Tutor, type Colaboracion, type AjustesTutores } from '
 import { avisoCambioCorreo } from '@/modules/users/api/users.api';
 import { confirmacionCambioCorreo, problemaDeContrasena } from '@/modules/users/lib/credenciales';
 import ConsultasDelTutor from '../components/ConsultasDelTutor';
+import RedaccionEnMoodle from '../components/RedaccionEnMoodle';
+import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
 import usePermission from '@/shared/hooks/usePermission';
 
 // Tutores y sus colaboraciones.
@@ -1094,6 +1096,8 @@ export default function TutoresPage() {
               )}
               {/* Consultas de alumnos (#187): campus, empresas y matrícula. */}
               <ConsultasDelTutor key={elegido.id} tutorId={elegido.id} puedeGestionar />
+              {/* La redactora en Moodle (#1026): su cuenta y su rol en los cursos que redacta. Aún en pruebas. */}
+              {SOLO_EN_PRUEBAS && <RedaccionEnMoodle key={`redaccion-${elegido.id}`} tutorId={elegido.id} />}
             </>
           )}
         </div>

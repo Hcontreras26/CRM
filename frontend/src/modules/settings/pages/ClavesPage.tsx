@@ -37,6 +37,7 @@ const ICONO: Record<string, { Icon: typeof Key; color: string; que: string }> = 
   meta:        { Icon: ChartBar,       color: 'bg-info-soft text-info-soft-foreground',         que: 'Meta Ads' },
   google_ads:  { Icon: ChartBar,       color: 'bg-warning-soft text-warning-soft-foreground',     que: 'Google Ads' },
   gsc:         { Icon: MagnifyingGlass,color: 'bg-success-soft text-success-soft-foreground', que: 'Search Console' },
+  google_analytics: { Icon: ChartBar,  color: 'bg-success-soft text-success-soft-foreground', que: 'Visitas de la web (GA4)' },
   woocommerce: { Icon: ShoppingBag,    color: 'bg-warning-soft text-warning-soft-foreground', que: 'Tienda y pedidos' },
   evolution:   { Icon: WhatsappLogo,   color: 'bg-success-soft text-success-soft-foreground',     que: 'Puente de WhatsApp' },
   r2:          { Icon: Cloud,          color: 'bg-info-soft text-info-soft-foreground',             que: 'Almacenamiento' },
@@ -48,7 +49,7 @@ const deServicio = (s: string) => ICONO[s] || { Icon: Key, color: 'bg-muted text
 
 const NOMBRE: Record<string, string> = {
   brevo: 'Brevo', stripe: 'Stripe', meta: 'Meta Ads', google_ads: 'Google Ads',
-  gsc: 'Search Console', woocommerce: 'WooCommerce', evolution: 'Evolution',
+  gsc: 'Search Console', google_analytics: 'Google Analytics', woocommerce: 'WooCommerce', evolution: 'Evolution',
   r2: 'Cloudflare R2', make: 'Make', claude: 'Claude', moodle: 'Moodle',
 };
 

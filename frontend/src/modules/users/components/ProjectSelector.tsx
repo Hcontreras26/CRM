@@ -196,7 +196,7 @@ export default function ProjectSelector({
                         <span>Recibe leads</span>
                       </label>
                     ) : role === 'gestor' ? (
-                      <span className="text-secundario font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded flex-shrink-0">
+                      <span className="text-secundario font-semibold text-success-soft-foreground bg-success-soft px-1.5 py-0.5 rounded flex-shrink-0">
                         Recibe leads
                       </span>
                     ) : null)}
@@ -215,7 +215,7 @@ export default function ProjectSelector({
       </div>
 
       {conEmpresas && faltaMigracionEmpresas && (
-        <p className="text-secundario text-amber-600 dark:text-amber-500 mt-2 px-1">
+        <p className="text-secundario text-warning mt-2 px-1">
           Falta aplicar la migración 203. Hasta entonces la empresa entera no se
           puede guardar: marca sus campus uno a uno o con «Marcar todos».
         </p>

@@ -65,7 +65,7 @@ import {
 import { linksPagoEncendidos } from '@/shared/lib/linksPago';
 import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
-import { rolesDe, soloEsColaborador, soloEsTutor } from '@/shared/lib/roles';
+import { rolesDe, soloEsColaborador, soloEsTutor, soloEsTutorRedactor } from '@/shared/lib/roles';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useIdsDelAmbito } from '@/shared/hooks/useAmbito';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -236,6 +236,8 @@ export const SECCIONES_DE_ANTES = [
   // Aprobada para producción en la 2.2.0 (Diego, 16/10).
   {
     label: 'Equipo de Desarrollo',
+    // Para quien es solo tutora redactora, «Mis tareas»: funciona igual (Diego, 24/11/2026).
+    labelRedactora: 'Mis tareas',
     icon: Code,
     items: [
       // El tutor, su tablero de tutores (Diego, 04/11): con «Ver su tablero».
@@ -276,6 +278,8 @@ export const SECCIONES_DE_ANTES = [
       // Meta Ads: administración por su rol; y en solo lectura a quien se le da
       // `meta_ads.view` (26/10/2026: el equipo de desarrollo), también si es solo colaborador.
       { label: 'Meta Ads', to: '/meta-ads', detail: 'Gasto y resultados', icon: ChartBar, roles: ['superadmin', 'admin'], permiso: 'meta_ads.view', oPermiso: 'meta_ads.view', colaboradorConPermiso: 'meta_ads.view' },
+      // Google Analytics (CRM#55): visitas → prospectos → ventas, por canal y por página.
+      { label: 'Google Analytics', to: '/google-analytics', detail: 'Lo que pasa antes del lead', icon: ChartLineUp, roles: ['superadmin', 'admin'], permiso: 'google_analytics.view', oPermiso: 'google_analytics.view' },
       // Google Ads (CRM#54): campañas, grupos y anuncios con su gasto y su coste por venta.
       { label: 'Google Ads', to: '/google-ads', detail: 'Gasto y coste por venta', icon: ChartBar, roles: ['superadmin', 'admin'], permiso: 'google_ads.view', oPermiso: 'google_ads.view' },
     ],
@@ -833,6 +837,11 @@ export function canSeeItem(item, roles, modules, projectType, soloColaboraciones
 }
 
 /** Vanessa y quien lleve las colaboraciones: solo tutores. Un admin con la casilla NO se recorta. */
+/** El nombre de una sección del menú: la tutora redactora ve el suyo si lo tiene (Diego, 24/11/2026). */
+export function nombreDeSeccion(section, user) {
+  return section.labelRedactora && soloEsTutorRedactor(user) ? section.labelRedactora : section.label;
+}
+
 export function esSoloColaboraciones(user) {
   return user?.gestor_colaboraciones === true
     && !['superadmin', 'admin', 'soporte'].includes(user?.role);
@@ -1227,6 +1236,12 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
   const veProspectosNuevos = can('leads.view');
   const veReportesDeSpam = can('leads.spam');
   const usaMensajes = can('mensajes.usar');
+  // Consultas de alumnos por contestar (Diego, 24/11: «si alguien escribe, que salga
+  // el aviso donde dice Consultas, no solo en la campana»). La tutora, las suyas;
+  // administración, las de sus campus.
+  const atiendeConsultas = can('consultas.atender');
+  const veConsultas = can('consultas.view');
+  const [consultasBadge, setConsultasBadge] = useState(0);
 
   // Estado de secciones colapsadas (Captación, Catálogo, Finanzas, etc.).
   // Persistido en localStorage. Por defecto, abierto: Principal + la sección
@@ -1389,6 +1404,38 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       }
     };
   }, [activeProject?.id, user, veProspectosNuevos, idsDelAmbitoCsv]);
+
+  // Contador de Consultas: las pendientes (esperan respuesta). Cada 2 minutos y al
+  // volver a la pestaña, como el de prospectos nuevos.
+  useEffect(() => {
+    if (!user || (!atiendeConsultas && !veConsultas)) { setConsultasBadge(0); return undefined; }
+    let cancelled = false;
+    let interval = null;
+    async function contar() {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      try {
+        let url = '/consultas/mias?estado=pendientes';
+        if (!atiendeConsultas) {
+          const p = new URLSearchParams({ estado: 'pendientes' });
+          if (activeProject?.id > 0) p.set('projectId', String(activeProject.id));
+          url = `/consultas?${p.toString()}`;
+        }
+        const res = await client.get(url);
+        const d = res?.data;
+        if (!cancelled && res?.success) setConsultasBadge(Number(d?.total ?? d?.consultas?.length ?? 0) || 0);
+      } catch { /* sin contador, el menú sigue */ }
+    }
+    function start() { stop(); contar(); interval = setInterval(contar, 2 * 60 * 1000); }
+    function stop() { if (interval) { clearInterval(interval); interval = null; } }
+    function alVolver() { if (document.hidden) stop(); else start(); }
+    if (typeof document === 'undefined' || !document.hidden) start();
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', alVolver);
+    return () => {
+      cancelled = true;
+      stop();
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', alVolver);
+    };
+  }, [user, atiendeConsultas, veConsultas, activeProject?.id]);
 
   // Badge de reportes de spam pendientes: quien puede verlos (`leads.spam`), por
   // permiso y no por rol (#423, #631).
@@ -1564,7 +1611,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
             ? entradasDeSeccion(section, { user, can, modules: activeProject?.modules, projectType: tipoDelMenu(activeProject?.type), soloColab })
             : [];
           if (visibleItems.length === 0) return null;
-          const sectionLabel = applyLabel(section.label, activeProject?.sidebar_labels);
+          const sectionLabel = applyLabel(nombreDeSeccion(section, user), activeProject?.sidebar_labels);
           const isOpen = !!openSections[section.label];
           // El icono del encabezado (#105). Mismo tamano y peso que los de las
           // entradas —18 y `regular`—: la idea es que ordenen, no que compitan.
@@ -1595,6 +1642,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                   item.to === '/prospectos' && newLeadsBadge > 0 ? newLeadsBadge
                   : item.to === '/notificaciones' && spamReportsBadge > 0 ? spamReportsBadge
                   : item.to === '/mensajes' && msgUnreadBadge > 0 ? msgUnreadBadge
+                  : item.to === '/consultas' && consultasBadge > 0 ? consultasBadge
                   : undefined
                 }
                 labelOverrides={activeProject?.sidebar_labels}

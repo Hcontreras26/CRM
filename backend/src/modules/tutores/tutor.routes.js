@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { verifyToken } from '../../shared/middleware/auth.js';
 import { puede } from '../../shared/middleware/permissions.js';
-import { pluginMoodleActivo } from '../../shared/config/soloEnPruebas.js';
+import { pluginMoodleActivo, redactorasMoodleActivo } from '../../shared/config/soloEnPruebas.js';
 import * as ctrl from './tutor.controller.js';
 
 const router = Router();
@@ -51,6 +51,11 @@ router.get('/mi-campus/tareas/:projectId/:cursoId/:tareaId/archivo', puede('tuto
 router.get('/mi-campus/tareas/:projectId/:cursoId/:tareaId', puede('tutores.mis_cursos'), ctrl.verTarea);
 // El curso entero, como en Moodle: temas y todas sus actividades.
 router.get('/mi-campus/cursos/:projectId/:cursoId', puede('tutores.mis_cursos'), ctrl.verCurso);
+// La redactora ve lo suyo (#1026): su cuenta y su rol en los cursos que redacta, con el id
+// del token (sin `:id`: no puede pedir el de otra). Antes que `/:id/...`. Aún sin aprobar.
+if (redactorasMoodleActivo()) {
+  router.get('/mi-campus/redaccion-moodle', puede('tutores.mis_cursos'), ctrl.miRedaccionMoodle);
+}
 // Poner la nota ESCRIBE en el Moodle del alumno (por el plugin, `local_crm_calificar`):
 // con NODE_ENV=production no se monta —404— salvo en /testeo o con
 // PLUGIN_MOODLE_EN_PRODUCCION=1, como las rutas del plugin en consultas.routes.js.
@@ -84,6 +89,11 @@ router.post('/:id/campus/:projectId/desvincular', puede('tutores.gestionar'), ct
 // Su correo del CRM no es el de Moodle: buscar su cuenta y vincularla a mano.
 router.get('/:id/campus/:projectId/buscar-cuenta', puede('tutores.gestionar'), ctrl.buscarCuentaMoodle);
 router.post('/:id/campus/:projectId/vincular', puede('tutores.gestionar'), ctrl.vincularCuentaMoodle);
+// La redactora en Moodle (#1026): su cuenta y su rol en los cursos que redacta. Solo LEE,
+// pero aún sin aprobar: en producción, 404 salvo REDACTORAS_MOODLE_EN_PRODUCCION=1.
+if (redactorasMoodleActivo()) {
+  router.get('/:id/redaccion-moodle', puede('tutores.gestionar'), ctrl.redaccionMoodle);
+}
 router.post('/:id/empresas', puede('tutores.gestionar'), ctrl.asignarEmpresa);
 router.delete('/:id/empresas/:issuerId', puede('tutores.gestionar'), ctrl.quitarEmpresa);
 router.patch('/:id/disponible', puede('tutores.gestionar'), ctrl.cambiarDisponible);

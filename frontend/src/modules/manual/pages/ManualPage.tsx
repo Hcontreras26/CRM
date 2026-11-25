@@ -134,9 +134,9 @@ function Steps({ items }: { items: Step[] }) {
 
 function Callout({ type = 'info', children }: { type?: 'info' | 'warning' | 'success' | 'tip' | 'warn'; children: React.ReactNode }) {
   const cfg = {
-    info: { icon: Info,        accent: 'border-l-blue-500',    ic: 'text-blue-500' },
-    tip:  { icon: CheckCircle, accent: 'border-l-emerald-500', ic: 'text-emerald-500' },
-    warn: { icon: Warning,     accent: 'border-l-amber-500',   ic: 'text-amber-500' },
+    info: { icon: Info,        accent: 'border-l-blue-500',    ic: 'text-info' },
+    tip:  { icon: CheckCircle, accent: 'border-l-emerald-500', ic: 'text-success' },
+    warn: { icon: Warning,     accent: 'border-l-amber-500',   ic: 'text-warning' },
   };
   const c = cfg[type];
   const Icon = c.icon;
@@ -158,15 +158,15 @@ function Kbd({ children }: { children: React.ReactNode }) {
 
 function StatusBadge({ label, color }: { label: string; color: string }) {
   const colors = {
-    blue:   'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    orange: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-    sky:    'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
-    amber:  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    violet: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
-    red:    'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-    green:  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    blue:   'bg-info-soft text-info-soft-foreground',
+    orange: 'bg-warning-soft text-warning-soft-foreground',
+    sky:    'bg-info-soft text-info-soft-foreground',
+    amber:  'bg-warning-soft text-warning-soft-foreground',
+    violet: 'bg-primary/10 text-primary',
+    red:    'bg-destructive-soft text-destructive-soft-foreground',
+    green:  'bg-success-soft text-success-soft-foreground',
     gray:   'bg-muted text-muted-foreground',
-    indigo: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+    indigo: 'bg-primary/10 text-primary',
   };
   return (
     <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold ${colors[color]}`}>
@@ -319,8 +319,8 @@ export default function ManualPage() {
             { role: 'Admin', color: 'blue', desc: 'Acceso operativo completo dentro de sus proyectos. Puede crear usuarios pero no gestionarlos globalmente.', icon: LockKey },
             { role: 'Gestor', color: 'gray', desc: 'Solo ve sus proyectos asignados. En prospectos, gestiona únicamente los leads asignados a él.', icon: Users },
           ].map(r => {
-            const borderColors = { violet: 'border-violet-200 dark:border-violet-900', blue: 'border-blue-200 dark:border-blue-900', gray: 'border-border' };
-            const bgColors = { violet: 'bg-violet-50/60 dark:bg-violet-950/20', blue: 'bg-blue-50/60 dark:bg-blue-950/20', gray: 'bg-muted/40' };
+            const borderColors = { violet: 'border-primary/30', blue: 'border-info/30', gray: 'border-border' };
+            const bgColors = { violet: 'bg-primary/10', blue: 'bg-info-soft', gray: 'bg-muted/40' };
             return (
               <div key={r.role} className={`rounded-xl border p-4 ${borderColors[r.color]} ${bgColors[r.color]}`}>
                 <div className="flex items-center gap-2 mb-2">
@@ -362,10 +362,10 @@ export default function ManualPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-3">
           {[
             { icon: Bell, label: 'Pendientes', desc: 'Recordatorios vencidos hoy', color: 'text-orange-500' },
-            { icon: Users, label: 'Nuevos hoy', desc: 'Prospectos llegados hoy y esta semana', color: 'text-blue-500' },
+            { icon: Users, label: 'Nuevos hoy', desc: 'Prospectos llegados hoy y esta semana', color: 'text-info' },
             { icon: Warning, label: 'Inactivos', desc: 'Sin actividad reciente, necesitan contacto', color: 'text-amber-500' },
-            { icon: Receipt, label: 'Cobros vencidos', desc: 'Pagos atrasados en cuentas por cobrar', color: 'text-red-500' },
-            { icon: CurrencyEur, label: 'Ingresos hoy', desc: 'Importe cobrado en el día actual', color: 'text-emerald-500' },
+            { icon: Receipt, label: 'Cobros vencidos', desc: 'Pagos atrasados en cuentas por cobrar', color: 'text-destructive' },
+            { icon: CurrencyEur, label: 'Ingresos hoy', desc: 'Importe cobrado en el día actual', color: 'text-success' },
           ].map(item => {
             const Icon = item.icon;
             return (
@@ -436,10 +436,10 @@ export default function ManualPage() {
         <SubHeader>Acciones masivas</SubHeader>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 my-3">
           {[
-            { icon: Tag, label: 'Cambiar estado', color: 'text-blue-500' },
-            { icon: UserPlus, label: 'Asignar gestor', color: 'text-violet-500' },
-            { icon: DownloadSimple, label: 'Exportar CSV', color: 'text-emerald-500' },
-            { icon: Trash, label: 'Eliminar', color: 'text-red-500' },
+            { icon: Tag, label: 'Cambiar estado', color: 'text-info' },
+            { icon: UserPlus, label: 'Asignar gestor', color: 'text-primary' },
+            { icon: DownloadSimple, label: 'Exportar CSV', color: 'text-success' },
+            { icon: Trash, label: 'Eliminar', color: 'text-destructive' },
           ].map(a => {
             const Icon = a.icon;
             return (
@@ -609,7 +609,7 @@ export default function ManualPage() {
             ['General + Facturación', 'Lo mismo más lo facturado (nº de facturas e importe facturado).'],
           ].map(([t, d]) => (
             <div key={t} className="flex items-start gap-2 text-xs text-muted-foreground">
-              <CheckCircle size={13} className="text-emerald-500 flex-shrink-0 mt-0.5" weight="fill" />
+              <CheckCircle size={13} className="text-success flex-shrink-0 mt-0.5" weight="fill" />
               <span><strong className="text-foreground">{t}:</strong> {d}</span>
             </div>
           ))}
@@ -631,7 +631,7 @@ export default function ManualPage() {
             'Recomendaciones de mejora', 'Exportación a PDF con un clic (markdown → PDF cliente-side)',
           ].map(item => (
             <div key={item} className="flex items-center gap-2 text-xs text-muted-foreground">
-              <CheckCircle size={13} className="text-emerald-500 flex-shrink-0" weight="fill" />
+              <CheckCircle size={13} className="text-success flex-shrink-0" weight="fill" />
               {item}
             </div>
           ))}
@@ -962,7 +962,7 @@ export default function ManualPage() {
           ].map((row, i) => (
             <div key={i} className={`grid grid-cols-[180px_50px_1fr] gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-border' : ''}`}>
               <code className="text-[11px] font-mono text-primary self-center">{row.name}</code>
-              <span className={`text-[10px] font-bold uppercase self-center ${row.req === 'sí' ? 'text-red-600' : row.req === '*' ? 'text-amber-600' : 'text-muted-foreground'}`}>{row.req}</span>
+              <span className={`text-[10px] font-bold uppercase self-center ${row.req === 'sí' ? 'text-destructive' : row.req === '*' ? 'text-warning' : 'text-muted-foreground'}`}>{row.req}</span>
               <p className="text-[11px] text-muted-foreground self-center">{row.desc}</p>
             </div>
           ))}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, ArrowSquareOut, CaretLeft, CaretRight, CheckCircle, FileText, Warning,
 } from '@phosphor-icons/react';
@@ -70,6 +70,9 @@ export default function CorregirTareaPage() {
   const projectId = Number(params.projectId);
   const cursoId = Number(params.cursoId);
   const tareaId = Number(params.tareaId);
+  // ?alumno=: la entrega que se ha pulsado en «Mi campus» (Por corregir), abierta de entrada.
+  const [busqueda] = useSearchParams();
+  const alumnoPedido = Number(busqueda.get('alumno')) || null;
   const [datos, setDatos] = useState<TareaParaCorregir | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>('sin_corregir');
@@ -85,14 +88,15 @@ export default function CorregirTareaPage() {
       if (r.success && r.data) {
         setDatos(r.data); setError(null);
         const pendientes = r.data.entregas.filter((e) => e.estado === 'sin_corregir');
-        setElegido((actual) => actual ?? (pendientes[0] || r.data.entregas[0])?.alumnoId ?? null);
-        setFiltro((f) => (f === 'sin_corregir' && pendientes.length === 0 ? 'todas' : f));
+        const pedida = alumnoPedido ? r.data.entregas.find((e) => e.alumnoId === alumnoPedido) : null;
+        setElegido((actual) => actual ?? pedida?.alumnoId ?? (pendientes[0] || r.data.entregas[0])?.alumnoId ?? null);
+        setFiltro((f) => (f === 'sin_corregir' && (pendientes.length === 0 || (pedida && pedida.estado !== 'sin_corregir')) ? 'todas' : f));
       }
     } catch (e) {
       const err = e as { data?: { error?: string }; message?: string };
       setError(err?.data?.error || err?.message || 'No se ha podido abrir la tarea.');
     }
-  }, [projectId, cursoId, tareaId]);
+  }, [projectId, cursoId, tareaId, alumnoPedido]);
   useEffect(() => { cargar(); }, [cargar]);
 
   const todas = useMemo(() => [...(datos?.entregas || [])].sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]

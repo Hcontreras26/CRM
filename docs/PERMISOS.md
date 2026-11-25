@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-957 rutas en 74 módulos, y 31 acciones con condición dentro de una ruta.
+963 rutas en 75 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -520,6 +520,15 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | grupos | `GET /api/google-ads/campanas/:campaignId/grupos` | (no existía) | (ruta nueva) | `google_ads.view` |
 | asignarCampus | `PATCH /api/google-ads/campanas/:campaignId/campus` | (no existía) | (ruta nueva) | `google_ads.edit` |
 | sincronizar | `POST /api/google-ads/sincronizar` | (no existía) | (ruta nueva) | `google_ads.edit` |
+
+## google-analytics
+
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
+|---|---|---|---|---|
+| estado | `GET /api/google-analytics/estado` | (no existía) | (ruta nueva) | `google_analytics.view` |
+| embudo | `GET /api/google-analytics/embudo` | (no existía) | (ruta nueva) | `google_analytics.view` |
+| paginas | `GET /api/google-analytics/paginas` | (no existía) | (ruta nueva) | `google_analytics.view` |
+| sincronizar | `POST /api/google-analytics/sincronizar` | (no existía) | (ruta nueva) | `google_analytics.edit` |
 
 ## ia-analisis
 
@@ -1205,6 +1214,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | archivoEntregado | `GET /api/tutores/mi-campus/tareas/:projectId/:cursoId/:tareaId/archivo` | (no existía) | (ruta nueva) | `tutores.mis_cursos` |
 | verTarea | `GET /api/tutores/mi-campus/tareas/:projectId/:cursoId/:tareaId` | (no existía) | (ruta nueva) | `tutores.mis_cursos` |
 | verCurso | `GET /api/tutores/mi-campus/cursos/:projectId/:cursoId` | (no existía) | (ruta nueva) | `tutores.mis_cursos` |
+| miRedaccionMoodle | `GET /api/tutores/mi-campus/redaccion-moodle` | (no existía) | (ruta nueva) | `tutores.mis_cursos` |
 | calificar | `POST /api/tutores/mi-campus/tareas/:projectId/:cursoId/:tareaId/calificar` | (no existía) | (ruta nueva) | `tutores.mis_cursos` |
 | brochureDelCurso | `GET /api/tutores/curso/:productId/brochure` | sesión · a mano: tutor.controller.js · esTutor \|\| exigirGestion | superadmin, admin, tutor y gestor/soporte/project_manager con «gestor_colaboraciones» | `tutores.mis_cursos` o `tutores.gestionar` |
 | buscar | `GET /api/tutores/buscar` | (no existía) | (ruta nueva) | `tutores.gestionar` |
@@ -1222,6 +1232,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | desvincularCuenta | `POST /api/tutores/:id/campus/:projectId/desvincular` | (no existía) | (ruta nueva) | `tutores.gestionar` |
 | buscarCuentaMoodle | `GET /api/tutores/:id/campus/:projectId/buscar-cuenta` | (no existía) | (ruta nueva) | `tutores.gestionar` |
 | vincularCuentaMoodle | `POST /api/tutores/:id/campus/:projectId/vincular` | (no existía) | (ruta nueva) | `tutores.gestionar` |
+| redaccionMoodle | `GET /api/tutores/:id/redaccion-moodle` | (no existía) | (ruta nueva) | `tutores.gestionar` |
 | asignarEmpresa | `POST /api/tutores/:id/empresas` | sesión · a mano: tutor.controller.js · exigirGestion | superadmin, admin y gestor/soporte/project_manager/tutor con «gestor_colaboraciones» | `tutores.gestionar` |
 | quitarEmpresa | `DELETE /api/tutores/:id/empresas/:issuerId` | sesión · a mano: tutor.controller.js · exigirGestion | superadmin, admin y gestor/soporte/project_manager/tutor con «gestor_colaboraciones» | `tutores.gestionar` |
 | cambiarDisponible | `PATCH /api/tutores/:id/disponible` | sesión · a mano: tutor.controller.js · exigirGestion | superadmin, admin y gestor/soporte/project_manager/tutor con «gestor_colaboraciones» | `tutores.gestionar` |
@@ -1527,6 +1538,13 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver Meta Ads | `meta_ads.view` | Cuentas, campañas, anuncios y su rendimiento. | Admin, Soporte, Project manager |  |
 | Conectar y sincronizar Meta Ads | `meta_ads.edit` | Conectar cuentas, sincronizarlas y asociar campañas a productos. | Admin, Soporte | `meta_ads.view` |
+
+### Google Analytics
+
+| Permiso | Clave | Qué deja hacer | De serie | Necesita |
+|---|---|---|---|---|
+| Ver Google Analytics | `google_analytics.view` | Visitas por canal y por página de curso, y cuántas acaban en prospecto y en venta. | Admin, Soporte, Project manager |  |
+| Sincronizar Google Analytics | `google_analytics.edit` | Traer ya los datos de GA4 de un campus. | Admin, Soporte | `google_analytics.view` |
 
 ### Google Ads
 

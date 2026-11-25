@@ -13,6 +13,7 @@ import {
 } from './tutor.validation.js';
 import * as campusTutor from './tutor.campus.js';
 import * as campusDeLaTutora from './tutor.micampus.js';
+import { redaccionEnMoodle } from './tutor.redaccion.js';
 import * as correccion from './tutor.correccion.js';
 import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
@@ -94,7 +95,10 @@ export async function buscar(req, res, next) {
 export async function miCampus(req, res, next) {
   try {
     const refrescar = req.query.refrescar === '1';
-    res.json({ success: true, data: await campusDeLaTutora.miCampus(req.user.userId, { refrescar }) });
+    // ?campus=3,7: solo esos campus suyos (el selector de Mi campus). Lo que no es un id, fuera.
+    const campus = String(req.query.campus || '').split(',').map((x) => parseInt(x, 10))
+      .filter((n) => Number.isInteger(n) && n > 0).slice(0, 50);
+    res.json({ success: true, data: await campusDeLaTutora.miCampus(req.user.userId, { refrescar, campus }) });
   } catch (err) { next(err); }
 }
 
@@ -956,6 +960,28 @@ export async function vincularCuentaMoodle(req, res, next) {
     await exigirCampusMio(req, projectId);
     await campusTutor.vincularAMano(id, projectId, moodleUserId);
     res.json({ success: true, data: await panelDelTutor(req, id, []) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/tutores/:id/redaccion-moodle — la redactora en Moodle (#1026): su cuenta de cada
+// campus y si es profesora de los cursos que redacta. Solo lee. Solo los campus de quien mira.
+export async function redaccionMoodle(req, res, next) {
+  try {
+    const id = await exigirTutorGestionable(req);
+    const campusVisibles = veTodoElCrm(req.user) ? null : await campusDeLaPersona(req.user.userId);
+    const data = await redaccionEnMoodle(id, { campusVisibles });
+    if (!data) throw new AppError('Tutor no encontrado', 404, 'NOT_FOUND');
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// GET /api/tutores/mi-campus/redaccion-moodle — lo mismo, para la propia redactora en «Mi
+// campus» (#1026, Diego en #1059). Siempre con el id del token: la ruta no recibe ninguno.
+export async function miRedaccionMoodle(req, res, next) {
+  try {
+    const data = await redaccionEnMoodle(req.user.userId, { ella: true });
+    if (!data) throw new AppError('Tutor no encontrado', 404, 'NOT_FOUND');
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 }
 

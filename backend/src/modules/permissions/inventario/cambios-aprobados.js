@@ -661,6 +661,22 @@ export const CAMBIOS_DE_MENU = [
     aprobadoPor: 'Pendiente de Diego (menú por permiso)',
   },
   {
+    id: 'menu-google-analytics-55',
+    que: '«Publicidad › Google Analytics»: visitas de la web por día, por canal y por página de entrada, cruzadas con prospectos y ventas (CRM#55). La ve quien tiene `google_analytics.view`, clave nueva: admin, soporte y project manager de serie, cada uno en sus campus. Sincronizar a mano, `google_analytics.edit` (admin y soporte).',
+    motivo: 'CRM#55: el embudo empezaba cuando alguien deja su teléfono; con GA4 se ve lo de antes, y si un curso no vende porque no lo ven o porque no convence.',
+    perfiles: {
+      superadmin: ['+ Publicidad › Google Analytics'],
+      admin: ['+ Publicidad › Google Analytics'],
+      soporte: ['+ Publicidad › Google Analytics'],
+      project_manager: ['+ Publicidad › Google Analytics'],
+      'gestora+admin': ['+ Publicidad › Google Analytics'],
+    },
+    rutas: {
+      'Publicidad › Google Analytics': 'GET /api/google-analytics/estado',
+    },
+    aprobadoPor: 'Pendiente de Diego (CRM#55)',
+  },
+  {
     id: 'menu-google-ads-54',
     que: '«Publicidad › Google Ads»: campañas, grupos y anuncios de Google con su gasto, y los prospectos, ventas y coste por venta que han traído al CRM (CRM#54). La ve quien tiene `google_ads.view`, clave nueva: admin, soporte y project manager de serie, cada uno en sus campus. Sincronizar a mano y asociar una campaña a otro campus, `google_ads.edit` (admin y soporte).',
     motivo: 'CRM#54: el CRM no sabía nada de Google Ads; ni gasto, ni campañas. Sustituye a «Campañas › Google Ads», que enseñaba «Aún no conectado» (#216).',

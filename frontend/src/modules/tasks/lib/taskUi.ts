@@ -2,10 +2,10 @@ import type { Task, TaskPriority, TaskStatus, TagColor } from '../types';
 
 /** Las cuatro columnas del sistema por defecto, en orden. */
 export const DEFAULT_COLUMNS: ReadonlyArray<{ key: TaskStatus; label: string; dot: string; head: string }> = [
-  { key: 'por_hacer', label: 'Por hacer', dot: 'bg-slate-400', head: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200' },
-  { key: 'en_curso', label: 'En curso', dot: 'bg-blue-500', head: 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300' },
-  { key: 'en_revision', label: 'En revisión', dot: 'bg-amber-500', head: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300' },
-  { key: 'hecha', label: 'Hecha', dot: 'bg-emerald-500', head: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' },
+  { key: 'por_hacer', label: 'Por hacer', dot: 'bg-muted-foreground', head: 'bg-muted text-muted-foreground' },
+  { key: 'en_curso', label: 'En curso', dot: 'bg-info', head: 'bg-info-soft text-info-soft-foreground' },
+  { key: 'en_revision', label: 'En revisión', dot: 'bg-warning', head: 'bg-warning-soft text-warning-soft-foreground' },
+  { key: 'hecha', label: 'Hecha', dot: 'bg-success', head: 'bg-success-soft text-success-soft-foreground' },
 ];
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -18,18 +18,18 @@ export const STATUS_LABEL: Record<string, string> = {
 export const PRIORITY: Record<TaskPriority, { label: string; border: string; chip: string }> = {
   alta: {
     label: 'Alta',
-    border: 'border-l-rose-500 dark:border-l-rose-600',
-    chip: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50',
+    border: 'border-l-destructive',
+    chip: 'bg-destructive-soft text-destructive-soft-foreground border border-destructive/30',
   },
   media: {
     label: 'Media',
-    border: 'border-l-amber-500 dark:border-l-amber-600',
-    chip: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50',
+    border: 'border-l-warning',
+    chip: 'bg-warning-soft text-warning-soft-foreground border border-warning/30',
   },
   baja: {
     label: 'Baja',
-    border: 'border-l-slate-400 dark:border-l-slate-600',
-    chip: 'bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300 border border-slate-200 dark:border-slate-700',
+    border: 'border-l-border',
+    chip: 'bg-muted text-muted-foreground border border-border',
   },
 };
 

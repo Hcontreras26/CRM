@@ -25,6 +25,8 @@ const SERVICIOS = [
   // CRM#54: el token solo vale para «Probar»; para traer campañas hace falta la cuenta.
   { id: 'google_ads', nombre: 'Google Ads', pista: '{"refresh_token":"1//…","customer_id":"123-456-7890","login_customer_id":"(MCC, opcional)"}' },
   { id: 'gsc', nombre: 'Search Console', pista: '' },
+  // GA4 de un campus (CRM#55): el JSON de la cuenta de servicio con "property_id" añadido.
+  { id: 'google_analytics', nombre: 'Google Analytics 4', pista: '{"property_id":"123456789","client_email":"…","private_key":"…"}' },
   { id: 'woocommerce', nombre: 'WooCommerce', pista: 'ck_… / cs_…' },
   { id: 'evolution', nombre: 'Evolution (WhatsApp)', pista: '' },
   { id: 'r2', nombre: 'Cloudflare R2', pista: '' },

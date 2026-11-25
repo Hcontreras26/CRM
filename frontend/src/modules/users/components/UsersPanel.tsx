@@ -295,9 +295,9 @@ export default function UsersPanel() {
       )}
 
       {lista.truncado && (
-        <div className="rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs flex items-start gap-2">
-          <WarningCircle size={15} weight="duotone" className="text-amber-600 flex-shrink-0 mt-px" />
-          <p className="text-amber-900 dark:text-amber-200">
+        <div className="rounded-md border border-warning/30 bg-warning-soft p-3 text-xs flex items-start gap-2">
+          <WarningCircle size={15} weight="duotone" className="text-warning flex-shrink-0 mt-px" />
+          <p className="text-warning-soft-foreground">
             Se muestran <strong>{lista.cargados}</strong> de <strong>{lista.total}</strong> usuarios.
             El buscador solo mira los cargados — buscar sobre el total necesita que el endpoint acepte búsqueda.
           </p>
