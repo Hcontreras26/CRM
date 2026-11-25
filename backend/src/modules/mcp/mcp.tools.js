@@ -3,7 +3,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import * as reportes from '../reports/report.model.js';
 import { resumenDelDia } from '../reports/resumenDelDia.js';
 import * as proceso from '../proceso/proceso.model.js';
-import * as feedback from '../feedback/feedback.model.js';
+import * as feedback from '../feedback/feedback.service.js';
 import * as metas from '../sales/sales.goals.js';
 import * as metaAds from '../meta-ads/meta-ads.service.js';
 import * as egresos from '../expenses/expense.model.js';
@@ -126,8 +126,18 @@ export const INFORMES = {
     ejecutar: ({ projectIds, asesoraId }) => proceso.resumenDeSeguimiento({ projectIds, asesoraId }),
   },
   feedback: {
-    descripcion: 'Encuestas de feedback de Reportes: enviadas y respondidas, motivos de no compra, por disparador, campus, gestora y mes. Acepta desde y hasta.',
-    ejecutar: ({ projectIds, asesoraId, from, to }) => feedback.panel({ projectIds, gestoraId: asesoraId, desde: from, hasta: to }),
+    descripcion: 'Encuestas de feedback de Reportes: enviadas, respondidas y tasa de respuesta, motivos de no compra, nota media de cada pregunta, por disparador, campus, empresa, gestora y mes. Acepta desde y hasta.',
+    // La MISMA función que el panel (#1154): antes iba al modelo a pelo, sin la
+    // tasa ni el resumen por pregunta y con las respuestas en bruto; una fecha
+    // imposible («2026-02-30») daba un error de la base; y un campus de pruebas
+    // pedido por su id salía vacío, cuando en la pantalla sí cuenta.
+    ejecutar: ({ projectIds, asesoraId, from, to }) => feedback.resumenDelPanel({
+      projectIds,
+      conPruebas: Array.isArray(projectIds) && projectIds.length === 1,
+      gestoraId: asesoraId,
+      desde: feedback.fechaValida(from),
+      hasta: feedback.fechaValida(to),
+    }),
   },
   pendientes_de_facturar: {
     descripcion: 'Cobros que todavía no tienen factura (cliente abreviado, curso, último cobro e importe), como «Pendientes de facturar». Acepta desde y hasta (por fecha de cobro).',
