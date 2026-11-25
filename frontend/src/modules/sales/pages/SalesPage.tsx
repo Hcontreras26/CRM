@@ -36,7 +36,7 @@ export default function SalesPage() {
   // «para el caso del admin tambien: registrar venta de otra gestora».
   const [modoVenta, setModoVenta] = useState<'existing' | 'otra_gestora' | 'sin_gestora'>('existing');
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const { can } = usePermission();
+  const { can, veGestoras } = usePermission();
   const puedeSinGestora = can('conversions.sin_gestora');
   // Registrar una venta a nombre de otra persona es reasignar dinero: lo mismo
   // que hace falta para reasignar prospectos.
@@ -91,11 +91,12 @@ export default function SalesPage() {
   const [gestores, setGestores] = useState<Array<{ id: number; nombre: string }>>([]);
   const [responsableId, setResponsableId] = useState<number | null>(null);
   useEffect(() => {
-    if (!isAdmin) return;
+    // Por permiso y alcance (Diego, 25/11/2026): también la líder de equipo, con su equipo.
+    if (!veGestoras) return;
     const pid = projectIdParam ? `&projectId=${projectIdParam}` : '';
     // alcance=comercial: a quien lleva un equipo, solo su equipo (QA 09/11/2026).
     client.get(`/users?limit=100&alcance=comercial${pid}`).then((r) => setGestores(r.success ? (r.data || []) : [])).catch(() => {});
-  }, [isAdmin, projectIdParam]);
+  }, [veGestoras, projectIdParam]);
 
   // País de entrada (#221): el del prospecto de cada venta. Solo sale si algún
   // campus de lo que se mira tiene tabla de países (Psiko y Fono Aprende).
@@ -124,7 +125,7 @@ export default function SalesPage() {
           <>
           {/* El recorrido de las ventas repetidas (#928): solo con el botón (CRM#1012). */}
           <VerRecorrido id="ventas-repetidas" />
-          {isAdmin && !allProjects && !esIA && (
+          {veGestoras && !allProjects && !esIA && (
             <div className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-border bg-card text-sm">
               <UsersThree size={14} className="text-muted-foreground" />
               <select
@@ -299,7 +300,8 @@ export default function SalesPage() {
             </Suspense>
           )}
 
-          {isAdmin && !esIA && (
+          {/* Las ventas por asesora: quien ve las del equipo (la líder, las de su equipo). */}
+          {veGestoras && can('ventas.view_equipo') && !esIA && (
             <Suspense fallback={null}>
               <GestoresStatsTable projectId={projectIdParam} issuerId={issuerIdParam} canEdit={!allProjects} periodo={mes} />
             </Suspense>

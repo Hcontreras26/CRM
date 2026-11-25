@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import client from '@/shared/api/client';
 import { Eye, EyeSlash, Check, X, ShieldCheck } from '@phosphor-icons/react';
 import { MARCA } from '@/shared/config/marca';
+import { ETIQUETA_VERSION } from '@/shared/config/version';
 
 const RULES = [
   { id: 'length', label: 'Mínimo 8 caracteres', test: (v) => v.length >= 8 },
@@ -187,7 +188,7 @@ export default function SetPasswordPage() {
         )}
 
         <p className="text-center text-xs text-muted-foreground/60 mt-6">
-          &copy; 2026 CRM MultiProyecto · v0.1.0 Beta
+          &copy; {new Date().getFullYear()} CRM MultiProyecto{ETIQUETA_VERSION ? ` · ${ETIQUETA_VERSION}` : ''}
         </p>
       </div>
     </div>

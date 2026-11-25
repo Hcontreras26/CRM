@@ -22,7 +22,7 @@ import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
-import { useAuth } from '@/contexts/AuthContext';
+import usePermission from '@/shared/hooks/usePermission';
 import client from '@/shared/api/client';
 import { traerCola, traerResumen, type PasoEnCola, type ResumenCola, type FormacionDeLaLista } from '../api/agenda.api';
 import { iconoDeCanal, nombreDeCanal } from '../lib/canales';
@@ -88,8 +88,9 @@ export default function ColaDelDiaPage() {
   const { activeProject, activeIssuer } = useProjectContext();
   // Los campus de la empresa elegida. Sin empresa, todos los del usuario.
   const campus = useProyectosDelAmbito<{ id: number; nombre: string }>();
-  const { user } = useAuth();
-  const esAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  // La cola del equipo y el filtro de gestora: por permiso y alcance, no por rol
+  // (Diego, 25/11/2026: a la líder de equipo le salía «Tu día» sin filtro).
+  const { veGestoras: esAdmin } = usePermission();
 
   const [cola, setCola] = useState<PasoEnCola[]>([]);
   const [resumen, setResumen] = useState<ResumenCola | null>(null);

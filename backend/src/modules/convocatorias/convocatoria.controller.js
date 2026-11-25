@@ -1,6 +1,6 @@
 import * as Conv from './convocatoria.service.js';
 import { listaDelAmbito, campusDeTodos } from '../../shared/utils/ambito.js';
-import { personaDelInforme } from '../../shared/utils/roles.js';
+import { personaDelInforme, JEFES_DEL_INFORME } from '../../shared/utils/roles.js';
 import {
   crearConvocatoriaSchema, editarConvocatoriaSchema,
   ofrecerSchema, actualizarOfrecimientoSchema,
@@ -8,9 +8,10 @@ import {
 
 // A quién se le recorta. Igual que en los informes: lo decide el servidor, no
 // lo que llegue por la URL. Una gestora solo ve lo suyo; quien lleva un equipo
-// comercial (09/11/2026), lo de su equipo.
-function deQuien(req) {
-  return personaDelInforme(req.user, req.query.gestoraId ? Number(req.query.gestoraId) : null);
+// comercial (09/11/2026), lo de su equipo. Soporte, el campus entero (25/11/2026:
+// le salía vacío, como la Cola y los informes).
+export function deQuien(req) {
+  return personaDelInforme(req.user, req.query.gestoraId ? Number(req.query.gestoraId) : null, { jefes: JEFES_DEL_INFORME });
 }
 
 // Los campus del embudo y de los pendientes: los que pida, dentro de los suyos;

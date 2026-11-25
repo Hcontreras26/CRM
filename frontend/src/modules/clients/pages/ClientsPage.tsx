@@ -33,6 +33,7 @@ import {
 const RegisterSaleDialog = lazy(() => import('@/modules/sales/components/RegisterSaleDialog'));
 import type { Client } from '@/shared/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { ROLES_DE_GESTORA } from '@/shared/lib/roles';
 import usePermission from '@/shared/hooks/usePermission';
 import { etiquetaProducto, ofreceMatriculas } from '@/shared/lib/etiquetas';
 
@@ -161,7 +162,7 @@ function QuickActions({ client: c, onUpsell, onDelete }: QuickActionsProps) {
 export default function ClientsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { can } = usePermission();
+  const { can, veGestoras } = usePermission();
   const { activeProject, projects, isAllProjects, activeIssuer } = useProjectContext() as {
     activeProject: { id?: number | null; nombre?: string; isAll?: boolean };
     projects: Array<{ id: number }>;
@@ -212,19 +213,23 @@ export default function ClientsPage() {
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [search]);
 
-  // Cargar gestores (solo admin/superadmin)
+  // Cargar gestores. Por permiso y alcance, no por rol (Diego, 25/11/2026): a la
+  // líder de equipo no le salía el filtro. Las gestoras y las líderes de equipo (que también venden).
   useEffect(() => {
-    if (user?.role !== 'superadmin' && user?.role !== 'admin') return;
+    if (!veGestoras) return;
     const projectFilter = !isAllProjects && activeProject?.id ? `&projectId=${activeProject.id}` : '';
     // alcance=comercial: a quien lleva un equipo, solo su equipo (QA 09/11/2026).
-    client.get(`/users?active=true&role=gestor&limit=100&alcance=comercial${projectFilter}`).then((r) => {
-      if (r.success) setGestores(((r.data as Array<{ id: number; nombre: string }>) || []));
-    }).catch(() => setGestores([]));
-  }, [user?.role, activeProject?.id, isAllProjects]);
+    Promise.all(ROLES_DE_GESTORA.map((rol) => client
+      .get(`/users?active=true&role=${rol}&limit=100&alcance=comercial${projectFilter}`)
+      .then((r) => (r.success ? (r.data as Array<{ id: number; nombre: string }>) || [] : []))
+      .catch(() => [] as Array<{ id: number; nombre: string }>)))
+      .then((listas) => setGestores(listas.flat().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))));
+  }, [veGestoras, activeProject?.id, isAllProjects]);
 
   // Cargar productos del proyecto activo
   useEffect(() => {
-    if (!activeProject?.id) { setProductos([]); return; }
+    // Con «Todos» (-1) no hay un catálogo que pedir: era un 400 en cada visita (25/11).
+    if (!(Number(activeProject?.id) > 0)) { setProductos([]); return; }
     client.get(`/products?projectId=${activeProject.id}&limit=500`).then((r) => {
       if (r.success) setProductos(((r.data as Array<{ id: number; nombre: string }>) || []));
     }).catch(() => setProductos([]));

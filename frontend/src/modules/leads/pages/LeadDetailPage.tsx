@@ -73,7 +73,7 @@ export default function LeadDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { can } = usePermission();
+  const { can, veGestoras } = usePermission();
   const {
     lead, timeline, interacciones, reminders, utms, loading, error, refetch,
     updateStatus, addInteraction, addReminder, completeReminder, reassign, updateLead,
@@ -101,13 +101,16 @@ export default function LeadDetailPage() {
 
   const isAdmin = user?.role === 'superadmin' || user?.role === 'admin';
 
+  // Las gestoras para «Reasignar»: por permiso y alcance, no por rol (Diego,
+  // 25/11/2026). La líder de equipo tenía el botón (`leads.assign`) y la lista
+  // vacía; el servidor le da ella y su equipo (`equipos.su_equipo`).
   useEffect(() => {
-    if (!isAdmin || gestores.length > 0) return;
+    if (!veGestoras || gestores.length > 0) return;
     // alcance=comercial: a quien lleva un equipo, solo su equipo (QA 09/11/2026).
     client.get('/users?limit=100&alcance=comercial')
       .then((res) => { if (res.success) setGestores(res.data || []); })
       .catch(() => toast({ title: 'Error al cargar gestores', variant: 'destructive' }));
-  }, [isAdmin, gestores.length]);
+  }, [veGestoras, gestores.length]);
 
   useEffect(() => {
     if (lead?.estado && !selectedEstado) {
