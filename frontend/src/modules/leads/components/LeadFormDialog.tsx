@@ -20,6 +20,7 @@ import { detectCountryFromPhone } from '../lib/phoneCountry';
 import type { Lead } from '@/shared/types';
 import FilaCampos from '@/shared/components/ui/FilaCampos';
 import { rutaApp } from '@/shared/lib/rutaApp';
+import { esRolDeGestora } from '@/shared/lib/roles';
 
 interface CustomFieldDef {
   id: number;
@@ -83,7 +84,7 @@ export default function LeadFormDialog({ open, onClose, lead, onSubmit }: Props)
   }, [open]);
 
   const { user } = useAuth() as any;
-  const isGestor = user?.role === 'gestor';
+  const isGestor = esRolDeGestora(user?.role);
   // El catálogo, solo de un campus suyo: editar un prospecto de un campus que
   // no es de quien mira daba 403 PROJECT_FORBIDDEN (CRM#859).
   const { products, refetch: refetchProducts } = useProducts(esCampusMio(projects, effectiveProjectId) ? effectiveProjectId : null);

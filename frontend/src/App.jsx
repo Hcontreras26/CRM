@@ -167,6 +167,7 @@ const LinksDePagoPage = lazy(() => import('./modules/links-pago/pages/LinksDePag
 const MetaAdsPage = lazy(() => import('./modules/meta-ads/pages/MetaAdsPage'));
 // Google Analytics 4 (CRM#55): lo que pasa antes del lead.
 const GoogleAnalyticsPage = lazy(() => import('./modules/google-analytics/pages/GoogleAnalyticsPage'));
+const SeoPage = lazy(() => import('./modules/seo/pages/SeoPage'));
 const ChangeRequestsPage = lazy(() => import('./modules/change-requests/pages/ChangeRequestsPage'));
 const ChangeRequestDetailPage = lazy(() => import('./modules/change-requests/pages/ChangeRequestDetailPage'));
 const DupReviewQueuePage = lazy(() => import('./modules/leads/pages/DupReviewQueuePage'));
@@ -301,6 +302,8 @@ function App() {
           <Route path="/ventas" element={<SalesPage />} />
           <Route path="/meta-ads" element={<MetaAdsPage />} />
           <Route path="/google-analytics" element={<GoogleAnalyticsPage />} />
+          {/* CRM#36: Search Console de cada campus. */}
+          <Route path="/trafico-organico" element={<SeoPage />} />
           <Route path="/prospectos/revision-duplicados" element={<DupReviewQueuePage />} />
           <Route path="/prospectos/duplicados" element={<DuplicatesPage />} />
           <Route path="/clientes/:id" element={<ClientDetailPage />} />
@@ -346,7 +349,7 @@ function App() {
             <Route index element={<AunNoConectadoPage titulo="Campañas" />} />
             <Route path="meta" element={<Navigate to="/meta-ads" replace />} />
             <Route path="google" element={<AunNoConectadoPage titulo="Google Ads" />} />
-            <Route path="seo" element={<AunNoConectadoPage titulo="Tráfico orgánico" />} />
+            <Route path="seo" element={<Navigate to="/trafico-organico" replace />} />
           </Route>
 
           {/* Productos — tabs */}

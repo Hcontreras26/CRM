@@ -15440,6 +15440,158 @@
   "puertas": []
  },
  {
+  "id": "GET /api/search-console/estado",
+  "tipo": "ruta",
+  "modulo": "search-console",
+  "metodo": "GET",
+  "ruta": "/api/search-console/estado",
+  "relativa": "GET /estado",
+  "controlador": "estado",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "search_console.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/search-console/resumen",
+  "tipo": "ruta",
+  "modulo": "search-console",
+  "metodo": "GET",
+  "ruta": "/api/search-console/resumen",
+  "relativa": "GET /resumen",
+  "controlador": "resumen",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "search_console.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/search-console/consultas",
+  "tipo": "ruta",
+  "modulo": "search-console",
+  "metodo": "GET",
+  "ruta": "/api/search-console/consultas",
+  "relativa": "GET /consultas",
+  "controlador": "consultas",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "search_console.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/search-console/paginas",
+  "tipo": "ruta",
+  "modulo": "search-console",
+  "metodo": "GET",
+  "ruta": "/api/search-console/paginas",
+  "relativa": "GET /paginas",
+  "controlador": "paginas",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "search_console.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/search-console/indexacion",
+  "tipo": "ruta",
+  "modulo": "search-console",
+  "metodo": "GET",
+  "ruta": "/api/search-console/indexacion",
+  "relativa": "GET /indexacion",
+  "controlador": "indexacion",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "search_console.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/search-console/sincronizar",
+  "tipo": "ruta",
+  "modulo": "search-console",
+  "metodo": "POST",
+  "ruta": "/api/search-console/sincronizar",
+  "relativa": "POST /sincronizar",
+  "controlador": "sincronizar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "search_console.edit"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/soporte/",
   "tipo": "ruta",
   "modulo": "soporte",
@@ -18589,7 +18741,8 @@
    {
     "tipo": "puede",
     "claves": [
-     "users.view"
+     "users.view",
+     "equipos.su_equipo"
     ]
    }
   ],

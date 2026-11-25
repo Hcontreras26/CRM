@@ -14,7 +14,7 @@ import { planificarPasosDeLead, ajustarPaso } from '../proceso/proceso.model.js'
 import { cruzarConPulsacion } from '../widget/widget.pulsaciones.js';
 import { avisarGestoraDelLeadNuevo } from './aviso-gestora.js';
 import { avanzarPorContacto } from '../../shared/services/estado-prospecto.service.js';
-import { soloLoSuyo, ROLES_DE_TUTOR } from '../../shared/utils/roles.js';
+import { soloLoSuyo, ROLES_DE_TUTOR, esRolDeGestora } from '../../shared/utils/roles.js';
 
 // Dispara secuencias de email activas que tengan el trigger indicado
 async function triggerSequences(triggerEvent, leadId, projectId) {
@@ -980,7 +980,7 @@ export async function createManualLead({ project_id, nombre, email, telefono, wh
   // responsable en el webhook y este camino ni se usa.
   let forcedResponsableId = null;
   const advanceRoundRobin = false;
-  if (creatorUser && (creatorUser.role === 'gestor' || creatorUser.role === 'admin')) {
+  if (creatorUser && (esRolDeGestora(creatorUser.role) || creatorUser.role === 'admin')) {
     forcedResponsableId = creatorUser.userId;
   }
 

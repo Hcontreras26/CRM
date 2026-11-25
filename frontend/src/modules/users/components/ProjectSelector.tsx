@@ -44,6 +44,7 @@ interface Grupo {
  *
  *  · gestor              — recibe siempre, el flag ni se mira
  *  · admin / superadmin  — solo si el flag esta marcado en ese proyecto
+ *  · lider de equipo     — igual que un admin (CRM#1105): se decide por persona
  *  · soporte / tutor     — no entran nunca en el reparto
  *
  * Por eso el interruptor solo sale para admin, y al gestor se le pinta fijo:
@@ -58,7 +59,7 @@ export default function ProjectSelector({
   projects, selected, role, onToggle, onToggleRecibeLeads, onSetMany, required = false,
   empresas, empresasEnteras = [], onToggleEmpresa, faltaMigracionEmpresas = false, esColaborador = false,
 }: Props) {
-  const mostrarToggle = role === 'admin';
+  const mostrarToggle = role === 'admin' || role === 'lider_equipo';
   // La casilla de empresa: admin y colaborador, y solo si quien edita puede darla.
   const paraColaborador = role !== 'admin' && esColaborador;
   const conEmpresas = (role === 'admin' || paraColaborador) && !!onToggleEmpresa && !!empresas;

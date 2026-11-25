@@ -36,7 +36,7 @@ export async function listAvailability(req, res, next) {
                 WHERE user_id = u.id AND fecha_fin >= CURRENT_DATE
               )::int AS bloques_futuros
        FROM users u
-       WHERE u.role IN ('admin', 'gestor', 'superadmin')
+       WHERE u.role IN ('admin', 'gestor', 'lider_equipo', 'superadmin')
          AND ($1::int[] IS NULL OR EXISTS (
                SELECT 1 FROM user_projects up
                 WHERE up.user_id = u.id AND up.active AND up.project_id = ANY($1::int[])))

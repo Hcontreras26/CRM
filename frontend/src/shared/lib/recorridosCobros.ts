@@ -9,6 +9,14 @@ import { RECORRIDOS_NOVEDADES_B, type IdRecorridoNovedadesB } from '@/shared/lib
 import { RECORRIDOS_NOVEDADES_301, type IdRecorridoNovedades301 } from '@/shared/lib/recorridosNovedades301';
 // Los del día a día de una gestora (#941, tanda C: Clientes, ficha y cola), en su propio fichero.
 import { RECORRIDOS_GESTORA, type IdRecorridoGestora } from '@/shared/lib/recorridosGestora';
+// Los del día a día, segunda tanda (#941, tanda D: Seguimiento y Conexión de WhatsApp; Consultas va en `recorridosNovedades301.ts`).
+import { RECORRIDOS_GESTORA_B, type IdRecorridoGestoraB } from '@/shared/lib/recorridosGestoraB';
+// Los del día a día, tercera tanda (#941, tanda E: Banco y Actividad de WhatsApp, Correos y las pestañas de Consultas).
+import { RECORRIDOS_GESTORA_C, type IdRecorridoGestoraC } from '@/shared/lib/recorridosGestoraC';
+// Los del día a día, cuarta tanda (#941, tanda F: Tutores y Proceso comercial).
+import { RECORRIDOS_GESTORA_D, type IdRecorridoGestoraD } from '@/shared/lib/recorridosGestoraD';
+// Lo que faltaba de Comercial (#941, tanda G: Convocatorias, los duplicados y Solicitud de admisión), en su propio fichero.
+import { RECORRIDOS_GESTORA_E, type IdRecorridoGestoraE } from '@/shared/lib/recorridosGestoraE';
 // Links de pago y cuotas, los principales (CRM#1012), en su propio fichero.
 import { RECORRIDOS_LINKS, type IdRecorridoLinks } from '@/shared/lib/recorridosLinksYCuotas';
 
@@ -62,6 +70,10 @@ export type IdRecorridoCobros =
   | IdRecorridoNovedadesB
   | IdRecorridoNovedades301
   | IdRecorridoGestora
+  | IdRecorridoGestoraB
+  | IdRecorridoGestoraC
+  | IdRecorridoGestoraD
+  | IdRecorridoGestoraE
   | IdRecorridoLinks;
 
 export interface RecorridoCobros {
@@ -488,6 +500,14 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
 
   // ─── 9 · El día a día de una gestora (#941, tanda C): `recorridosGestora.ts` ───
   ...RECORRIDOS_GESTORA,
+  // ─── 9 · El día a día, segunda tanda (#941, tanda D): `recorridosGestoraB.ts` ───
+  ...RECORRIDOS_GESTORA_B,
+  // ─── 9 · El día a día, tercera tanda (#941, tanda E): `recorridosGestoraC.ts` ───
+  ...RECORRIDOS_GESTORA_C,
+  // ─── 9 · El día a día, cuarta tanda (#941, tanda F): `recorridosGestoraD.ts` ───
+  ...RECORRIDOS_GESTORA_D,
+  // ─── 9 · Lo que faltaba de Comercial (#941, tanda G): `recorridosGestoraE.ts` ───
+  ...RECORRIDOS_GESTORA_E,
   // ─── 10 · Links de pago y cuotas (CRM#1012): `recorridosLinksYCuotas.ts` ───
   ...RECORRIDOS_LINKS,
 };
