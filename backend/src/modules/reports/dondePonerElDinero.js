@@ -48,7 +48,7 @@ async function canalesConGasto(lista) {
     const { rows } = await query(`SELECT EXISTS (SELECT 1 FROM google_ads_cuentas g WHERE g.backfill_done AND ${proyecto}) AS hay`, params);
     return rows[0]?.hay ? [...CANALES_CON_GASTO, 'google_ads'] : CANALES_CON_GASTO;
   } catch (err) {
-    // Sin la migración 324 la tabla no existe: el panel sigue como antes.
+    // Sin la migración 335 la tabla no existe: el panel sigue como antes.
     if (err.code === '42P01') return CANALES_CON_GASTO;
     throw err;
   }

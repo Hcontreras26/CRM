@@ -1,4 +1,4 @@
--- 324 · Google Ads: campañas y gasto en el CRM (CRM#54)
+-- 335 · Google Ads: campañas y gasto en el CRM (CRM#54)
 --
 -- Hasta ahora el CRM no sabía nada de Google Ads: ni gasto, ni campañas. Con
 -- esto, por campus (la credencial «google_ads» de cada uno, que ya existía):
@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS google_ads_diario (
     elemento_id     VARCHAR(30) NOT NULL,
     fecha           DATE NOT NULL,
     campaign_id     VARCHAR(30) NOT NULL,
-    ad_group_id     VARCHAR(30),
+    -- El grupo ('' en el nivel campaña): un anuncio en dos grupos son dos filas.
+    ad_group_id     VARCHAR(30) NOT NULL DEFAULT '',
     customer_id     VARCHAR(20) NOT NULL,
     project_id      INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     nombre          VARCHAR(500),
@@ -68,7 +69,7 @@ CREATE TABLE IF NOT EXISTS google_ads_diario (
     conversiones    NUMERIC(12,2) NOT NULL DEFAULT 0,
     valor_conv      NUMERIC(12,2) NOT NULL DEFAULT 0,
     synced_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (nivel, elemento_id, fecha)
+    PRIMARY KEY (nivel, elemento_id, ad_group_id, fecha)
 );
 
 CREATE INDEX IF NOT EXISTS idx_google_ads_diario_campana

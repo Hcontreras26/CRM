@@ -83,6 +83,49 @@ async function guardarEstado(projectId, { cuenta = null, ok, error = null, backf
   );
 }
 
+/**
+ * Una cuenta de Google Ads va en un solo campus. Si la misma cuenta estuviera en
+ * dos, cada vuelta borraría el gasto del otro y le quitaría sus campañas. Para
+ * que una campaña cuente en otro campus está `project_id_asignado`.
+ * Devuelve el campus que ya la tiene, o null.
+ */
+export async function campusConLaCuenta(customerId, projectId) {
+  if (!customerId) return null;
+  const { rows } = await query(
+    `SELECT g.project_id, p.nombre FROM google_ads_cuentas g JOIN projects p ON p.id = g.project_id
+      WHERE g.customer_id = $1 AND g.project_id <> $2 LIMIT 1`,
+    [customerId, projectId]
+  );
+  return rows[0] || null;
+}
+
+export function mensajeCuentaRepetida(customerId, otro) {
+  return `La cuenta de Google Ads ${customerId} ya está en el campus «${otro.nombre}». Una cuenta va en un solo campus: `
+    + 'para que una campaña cuente en otro, cámbiala de campus en Publicidad › Google Ads.';
+}
+
+/**
+ * Google puede devolver dos filas con la misma clave en una tanda: se suman
+ * aquí, antes de escribir, porque un `ON CONFLICT DO UPDATE` no puede tocar dos
+ * veces la misma fila en la misma sentencia. Un anuncio en dos grupos son dos
+ * filas: el grupo va en la clave.
+ */
+export function agrupar(filas) {
+  const por = new Map();
+  for (const f of filas) {
+    const k = `${f.nivel}|${f.elemento_id}|${f.ad_group_id}|${f.fecha}`;
+    const y = por.get(k);
+    if (!y) { por.set(k, { ...f }); continue; }
+    y.coste = dinero(y.coste + f.coste);
+    y.impresiones += f.impresiones;
+    y.clics += f.clics;
+    y.conversiones = dinero(y.conversiones + f.conversiones);
+    y.valor_conv = dinero(y.valor_conv + f.valor_conv);
+    y.nombre = y.nombre || f.nombre;
+  }
+  return [...por.values()];
+}
+
 /** Las filas del diario de un nivel, ya planas. */
 function aplanar(filas, nivel, { customerId, projectId }) {
   return filas.map((f) => {
@@ -93,7 +136,7 @@ function aplanar(filas, nivel, { customerId, projectId }) {
       coste: deMicros(m.costMicros), impresiones: Number(m.impressions || 0), clics: Number(m.clicks || 0),
       conversiones: dinero(m.conversions), valor_conv: dinero(m.conversionsValue),
     };
-    if (nivel === 'campana') return { ...base, elemento_id: String(f.campaign?.id), ad_group_id: null, nombre: f.campaign?.name || null };
+    if (nivel === 'campana') return { ...base, elemento_id: String(f.campaign?.id), ad_group_id: '', nombre: f.campaign?.name || null };
     if (nivel === 'grupo') return { ...base, elemento_id: String(f.adGroup?.id), ad_group_id: String(f.adGroup?.id), nombre: f.adGroup?.name || null };
     const ad = f.adGroupAd?.ad || {};
     return { ...base, elemento_id: String(ad.id), ad_group_id: String(f.adGroup?.id), nombre: ad.name || ad.type || null };
@@ -106,6 +149,8 @@ function aplanar(filas, nivel, { customerId, projectId }) {
  */
 export async function sincronizarProyecto(projectId, { desde, hasta, cred = null, buscarImpl = buscar } = {}) {
   const c = cred || await credencialDe(projectId);
+  const otro = await campusConLaCuenta(c.customerId, projectId);
+  if (otro) throw new AppError(mensajeCuentaRepetida(c.customerId, otro), 409, 'GOOGLE_ADS_CUENTA_REPETIDA');
   const q = consultas(desde, hasta);
   const [cuentaFilas, campanas, dCamp, dGrupos, dAnuncios] = await Promise.all([
     buscarImpl(c, q.cuenta), buscarImpl(c, q.campanas),
@@ -114,9 +159,9 @@ export async function sincronizarProyecto(projectId, { desde, hasta, cred = null
   const cu = cuentaFilas[0]?.customer || {};
   const cuenta = { customerId: c.customerId, nombre: cu.descriptiveName || null, moneda: cu.currencyCode || null, zona: cu.timeZone || null };
   const ctx = { customerId: c.customerId, projectId };
-  const diario = [
+  const diario = agrupar([
     ...aplanar(dCamp, 'campana', ctx), ...aplanar(dGrupos, 'grupo', ctx), ...aplanar(dAnuncios, 'anuncio', ctx),
-  ].filter((f) => f.fecha && f.elemento_id && f.elemento_id !== 'undefined');
+  ].filter((f) => f.fecha && f.elemento_id && f.elemento_id !== 'undefined'));
 
   // La foto de cada campaña; las borradas que gastaron en el tramo, con el nombre del diario.
   const fotos = new Map();
@@ -164,12 +209,11 @@ export async function sincronizarProyecto(projectId, { desde, hasta, cred = null
            FROM unnest($3::text[], $4::text[], $5::date[], $6::text[], $7::text[], $8::text[],
                        $9::numeric[], $10::bigint[], $11::bigint[], $12::numeric[], $13::numeric[])
              AS x(nv, el, f, ca, ag, n, co, im, cl, cv, va)
-         ON CONFLICT (nivel, elemento_id, fecha) DO UPDATE SET
-           coste = google_ads_diario.coste + EXCLUDED.coste,
-           impresiones = google_ads_diario.impresiones + EXCLUDED.impresiones,
-           clics = google_ads_diario.clics + EXCLUDED.clics,
-           conversiones = google_ads_diario.conversiones + EXCLUDED.conversiones,
-           valor_conv = google_ads_diario.valor_conv + EXCLUDED.valor_conv`,
+         ON CONFLICT (nivel, elemento_id, ad_group_id, fecha) DO UPDATE SET
+           campaign_id = EXCLUDED.campaign_id, customer_id = EXCLUDED.customer_id,
+           project_id = EXCLUDED.project_id, nombre = EXCLUDED.nombre,
+           coste = EXCLUDED.coste, impresiones = EXCLUDED.impresiones, clics = EXCLUDED.clics,
+           conversiones = EXCLUDED.conversiones, valor_conv = EXCLUDED.valor_conv, synced_at = NOW()`,
         [c.customerId, projectId,
           diario.map((f) => f.nivel), diario.map((f) => f.elemento_id), diario.map((f) => f.fecha),
           diario.map((f) => f.campaign_id), diario.map((f) => f.ad_group_id),

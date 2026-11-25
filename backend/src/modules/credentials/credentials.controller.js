@@ -4,6 +4,8 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { query } from '../../shared/config/db.js';
 import { decrypt } from '../../shared/utils/crypto.js';
 import { probarCredencial as probarCredencialGoogleAds } from '../google-ads/google-ads.client.js';
+import { campusConLaCuenta, mensajeCuentaRepetida } from '../google-ads/google-ads.service.js';
+import { leerCredencialGoogleAds } from '../../shared/services/googleAds.service.js';
 import { anotar, historial, ACCIONES } from './credentials.registro.js';
 import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import { claveDeIA, ORIGENES, DONDE_SE_CONFIGURA, probarClaveDeIA } from './clave-ia.js';
@@ -149,7 +151,7 @@ export async function test(req, res, next) {
     // Carga la fila completa para conocer el `service`. Necesario para decidir
     // si hacemos validacion real (google_ads) o stub.
     const { rows } = await query(
-      `SELECT ac.service, ac.encrypted_value, ac.iv, ac.auth_tag, p.gsc_property
+      `SELECT ac.service, ac.project_id, ac.encrypted_value, ac.iv, ac.auth_tag, p.gsc_property
          FROM api_credentials ac LEFT JOIN projects p ON p.id = ac.project_id
         WHERE ac.id = $1`,
       [id]
@@ -167,7 +169,12 @@ export async function test(req, res, next) {
         await model.recordTestResult(id, 'failed');
         return res.json({ success: true, data: { result: 'failed', message: `Decrypt fallo: ${err.message}` } });
       }
-      const r = await probarCredencialGoogleAds(valor);
+      // Una cuenta va en un solo campus: si no, se pisan el gasto y las campañas.
+      const { customerId } = leerCredencialGoogleAds(valor);
+      const otro = await campusConLaCuenta(customerId, row.project_id);
+      const r = otro
+        ? { result: 'failed', code: 'GOOGLE_ADS_CUENTA_REPETIDA', message: mensajeCuentaRepetida(customerId, otro) }
+        : await probarCredencialGoogleAds(valor);
       await model.recordTestResult(id, r.result);
       return res.json({ success: true, data: r });
     }

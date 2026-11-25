@@ -10,7 +10,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
  *     con las ventas con cobro: coste por venta;
  *   · una campaña se puede apuntar a otro campus;
  *   · «¿Dónde ponemos el dinero?» (#56) ya tiene el gasto de Google;
- *   · si Google falla, queda anotado y no se pierde lo que había.
+ *   · si Google falla, queda anotado y no se pierde lo que había;
+ *   · filas repetidas en una tanda se suman (un anuncio en dos grupos son dos);
+ *   · una cuenta va en un solo campus: el segundo que la pega no la sincroniza.
  *
  *   npm run db:preparar && npx vitest run tests/googleAdsBase54.test.js
  */
@@ -28,10 +30,10 @@ const ids = { leads: [], conversions: [] };
 const base = String(Date.now()).slice(-9);
 // La cuenta también al azar: la vuelta reescribe el tramo de SU cuenta.
 const CUENTA = `3${base}`;
-const C1 = `7${base}`; const C2 = `8${base}`; const G1 = `5${base}`; const A1 = `4${base}`;
+const C1 = `7${base}`; const C2 = `8${base}`; const G1 = `5${base}`; const G2 = `6${base}`; const A1 = `4${base}`;
 
 const metricas = (coste, imp, clics) => ({ costMicros: String(coste * 1e6), impressions: String(imp), clicks: String(clics), conversions: 1, conversionsValue: 0 });
-const google = { falla: false };
+const google = { falla: false, repetidas: false };
 async function buscarFalso(_cred, gaql) {
   if (google.falla) throw new Error('Google Ads: User doesn\'t have permission to access customer.');
   if (gaql.includes('FROM customer')) return [{ customer: { id: CUENTA, descriptiveName: `${MARCA} cuenta`, currencyCode: 'EUR', timeZone: 'Europe/Madrid' } }];
@@ -52,6 +54,9 @@ async function buscarFalso(_cred, gaql) {
     return [{ campaign: { id: C1 }, adGroup: { id: G1, name: 'Duelo exacta' }, segments: { date: '2026-11-20' }, metrics: metricas(100, 1000, 50) }];
   }
   if (gaql.includes('FROM ad_group_ad')) {
+    const fila = (g, coste) => ({ campaign: { id: C1 }, adGroup: { id: g }, adGroupAd: { ad: { id: A1, name: null, type: 'RESPONSIVE_SEARCH_AD' } }, segments: { date: '2026-11-20' }, metrics: metricas(coste, 100, 5) });
+    // El mismo anuncio en dos grupos, y una fila repetida tal cual.
+    if (google.repetidas) return [fila(G1, 60), fila(G1, 40), fila(G2, 25)];
     return [{ campaign: { id: C1 }, adGroup: { id: G1 }, adGroupAd: { ad: { id: A1, name: null, type: 'RESPONSIVE_SEARCH_AD' } }, segments: { date: '2026-11-20' }, metrics: metricas(100, 1000, 50) }];
   }
   throw new Error(`consulta inesperada: ${gaql}`);
@@ -157,6 +162,36 @@ describe('Google Ads contra la base', () => {
     expect(cuenta.last_status).toBe('error');
     expect(cuenta.last_error).toMatch(/permission/);
     expect((await ads.campanas(P, '2026-11-01', '2026-11-30')).total.coste).toBe(180);
+  });
+
+  it('filas repetidas en la tanda se suman y un anuncio en dos grupos son dos filas', async () => {
+    google.repetidas = true;
+    const r = await ads.ponerAlDia(P, { ahora, buscarImpl: buscarFalso });
+    google.repetidas = false;
+    expect(r).toMatchObject({ ok: true });
+    const filas = await q(
+      `SELECT ad_group_id, coste::float coste, clics::int clics FROM google_ads_diario
+        WHERE nivel = 'anuncio' AND elemento_id = $1 ORDER BY ad_group_id`, [A1]);
+    expect(filas).toEqual([{ ad_group_id: G1, coste: 100, clics: 10 }, { ad_group_id: G2, coste: 25, clics: 5 }]);
+    // Vuelve a lo de siempre para las pruebas de después.
+    expect((await ads.ponerAlDia(P, { ahora, buscarImpl: buscarFalso })).ok).toBe(true);
+  });
+
+  it('una cuenta va en un solo campus: el segundo que la pega no la sincroniza ni pisa al primero', async () => {
+    await credenciales.upsert({
+      project_id: OTRO, service: ads.SERVICIO, entorno: 'produccion',
+      value: JSON.stringify({ refresh_token: '1//y', customer_id: CUENTA }),
+    });
+    expect(await ads.campusConLaCuenta(CUENTA, OTRO)).toMatchObject({ project_id: P });
+    expect(await ads.campusConLaCuenta(CUENTA, P)).toBeNull();
+    const r = await ads.ponerAlDia(OTRO, { ahora, buscarImpl: buscarFalso });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/ya está en el campus/);
+    const [{ n }] = await q(`SELECT COUNT(*)::int n FROM google_ads_campanas WHERE campaign_id = ANY($1) AND project_id = $2`, [[C1, C2], P]);
+    expect(n).toBe(2);
+    expect((await ads.campanas(P, '2026-11-01', '2026-11-30')).total.coste).toBe(180);
+    await q(`DELETE FROM api_credentials WHERE project_id = $1`, [OTRO]);
+    await q(`DELETE FROM google_ads_cuentas WHERE project_id = $1`, [OTRO]);
   });
 
   it('sin `customer_id` en la credencial lo dice', async () => {

@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-963 rutas en 75 módulos, y 31 acciones con condición dentro de una ruta.
+969 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -509,6 +509,17 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | remove | `DELETE /api/forms/:id` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `forms.delete` |
 | startListening | `POST /api/forms/:id/listen` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `forms.edit` |
 | stopListening | `POST /api/forms/:id/listen/stop` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `forms.edit` |
+
+## google-ads
+
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
+|---|---|---|---|---|
+| estado | `GET /api/google-ads/estado` | (no existía) | (ruta nueva) | `google_ads.view` |
+| campanas | `GET /api/google-ads/campanas` | (no existía) | (ruta nueva) | `google_ads.view` |
+| diario | `GET /api/google-ads/diario` | (no existía) | (ruta nueva) | `google_ads.view` |
+| grupos | `GET /api/google-ads/campanas/:campaignId/grupos` | (no existía) | (ruta nueva) | `google_ads.view` |
+| asignarCampus | `PATCH /api/google-ads/campanas/:campaignId/campus` | (no existía) | (ruta nueva) | `google_ads.edit` |
+| sincronizar | `POST /api/google-ads/sincronizar` | (no existía) | (ruta nueva) | `google_ads.edit` |
 
 ## google-analytics
 
@@ -1552,6 +1563,13 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver Tráfico orgánico | `search_console.view` | Clics, impresiones, posición, búsquedas y páginas de Google, y qué páginas de formación no están indexadas. | Admin, Soporte, Project manager |  |
 | Sincronizar Search Console | `search_console.edit` | Traer ya los datos de Search Console de un campus. | Admin, Soporte | `search_console.view` |
+
+### Google Ads
+
+| Permiso | Clave | Qué deja hacer | De serie | Necesita |
+|---|---|---|---|---|
+| Ver Google Ads | `google_ads.view` | Campañas, grupos y anuncios de Google con su gasto, y lo que han traído al CRM. | Admin, Soporte, Project manager |  |
+| Sincronizar Google Ads | `google_ads.edit` | Traer ya los datos de Google Ads de un campus y asociar campañas a otro campus. | Admin, Soporte | `google_ads.view` |
 
 ## Catálogo
 
