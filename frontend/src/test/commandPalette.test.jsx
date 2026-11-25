@@ -87,10 +87,13 @@ describe('páginas: exactamente las del menú de cada perfil', () => {
     expect(rutasDe(PERFILES.superadmin, ia)).not.toContain('/finanzas/nominas');
   });
 
-  it('nada «Próximamente»: Campañas y Google Ads no se encuentran', () => {
-    const rutas = rutasDe(PERFILES.superadmin);
-    expect(rutas).not.toContain('/campanas');
-    expect(rutas).not.toContain('/google-ads');
+  it('nada «Próximamente»: Campañas no se encuentra', () => {
+    expect(rutasDe(PERFILES.superadmin)).not.toContain('/campanas');
+  });
+
+  // Google Ads volvió con pantalla de verdad (CRM#54): se encuentra como cualquier otra.
+  it('Google Ads se encuentra, como en el menú', () => {
+    expect(rutasDe(PERFILES.superadmin)).toContain('/google-ads');
   });
 });
 
