@@ -10,8 +10,9 @@ router.use(verifyToken);
 
 /**
  * Google Analytics (CRM#55): ver (`google_analytics.view`) y sincronizar
- * (`google_analytics.edit`). La credencial se guarda en «Claves» como las demás
- * (servicio `google_analytics`), no aquí.
+ * (`google_analytics.edit`). La credencial se carga en Integraciones › Google
+ * Analytics 4 de cada campus (CRM#1099) y se guarda con las demás claves (servicio
+ * `google_analytics`), no aquí.
  *
  * Y solo de SUS campus, como Meta Ads: el `projectId` pedido tiene que ser suyo.
  */

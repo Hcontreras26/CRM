@@ -7871,6 +7871,136 @@
   "puertas": []
  },
  {
+  "id": "POST /api/integrations/google/gsc/sitios",
+  "tipo": "ruta",
+  "modulo": "integrations",
+  "metodo": "POST",
+  "ruta": "/api/integrations/google/gsc/sitios",
+  "relativa": "POST /google/gsc/sitios",
+  "controlador": "sitios",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "integrations.google"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/integrations/google/:servicio",
+  "tipo": "ruta",
+  "modulo": "integrations",
+  "metodo": "GET",
+  "ruta": "/api/integrations/google/:servicio",
+  "relativa": "GET /google/:servicio",
+  "controlador": "ver",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "integrations.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/integrations/google/:servicio",
+  "tipo": "ruta",
+  "modulo": "integrations",
+  "metodo": "PUT",
+  "ruta": "/api/integrations/google/:servicio",
+  "relativa": "PUT /google/:servicio",
+  "controlador": "guardar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "integrations.google"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/integrations/google/:servicio/probar",
+  "tipo": "ruta",
+  "modulo": "integrations",
+  "metodo": "POST",
+  "ruta": "/api/integrations/google/:servicio/probar",
+  "relativa": "POST /google/:servicio/probar",
+  "controlador": "probar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "integrations.google"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "DELETE /api/integrations/google/:servicio",
+  "tipo": "ruta",
+  "modulo": "integrations",
+  "metodo": "DELETE",
+  "ruta": "/api/integrations/google/:servicio",
+  "relativa": "DELETE /google/:servicio",
+  "controlador": "quitar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "integrations.google"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/integrations/:provider",
   "tipo": "ruta",
   "modulo": "integrations",
