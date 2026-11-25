@@ -11,6 +11,7 @@ import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import SkeletonTable from '@/shared/components/ui/SkeletonTable';
+import { esRolDeGestora } from '@/shared/lib/roles';
 import {
   CurrencyEur, WarningCircle, Wallet, Receipt, CaretLeft, CaretRight,
   ListBullets, CalendarBlank, Coins,
@@ -41,7 +42,7 @@ export default function ReceivablePage() {
   // El filtro «Proyecto»: los campus de la empresa de arriba, o los suyos sin los de pruebas (#346).
   const campusDelAmbito = useProyectosDelAmbito<{ id: number; nombre?: string }>();
   const { user } = useAuth() as { user: { role?: string } | null };
-  const isGestor = user?.role === 'gestor';
+  const isGestor = esRolDeGestora(user?.role);
 
   const [items, setItems] = useState<Row[]>([]);
   const [gestoras, setGestoras] = useState<{ id: number; nombre: string }[]>([]);

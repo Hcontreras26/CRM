@@ -10,6 +10,17 @@ import { preguntasPara } from './preguntas.js';
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * Una fecha AAAA-MM-DD que exista de verdad, o null. El formato solo no basta:
+ * `2026-02-30` pasaba y PostgreSQL tumbaba el panel con un 500 (#593, punto 20).
+ */
+export function fechaValida(texto) {
+  if (!FECHA.test(texto || '')) return null;
+  const [a, m, d] = texto.split('-').map(Number);
+  const f = new Date(Date.UTC(a, m - 1, d));
+  return f.getUTCFullYear() === a && f.getUTCMonth() === m - 1 && f.getUTCDate() === d ? texto : null;
+}
+
+/**
  * El recorte del panel, según quién mira.
  *
  *   · superadmin y soporte: lo que pidan.
@@ -32,10 +43,14 @@ async function recorteDe(req) {
     { jefes: ['admin', 'superadmin', 'soporte'] });
   return {
     projectIds,
+    // Los campus de pruebas solo cuentan si se pide ESE campus (#593, punto 9).
+    // Al elegir empresa, o en el «Todos» de un admin o de una gestora (sus
+    // campus), salían sumados como si fueran de verdad.
+    conPruebas: !ambito.projectIds && !varios.length && Boolean(ambito.projectId),
     gestoraId: sinGestora && deQuien == null ? 'sin' : deQuien,
     deUsuario: rol === 'superadmin' || rol === 'soporte' ? null : req.user.userId,
-    desde: FECHA.test(req.query.desde || '') ? req.query.desde : null,
-    hasta: FECHA.test(req.query.hasta || '') ? req.query.hasta : null,
+    desde: fechaValida(req.query.desde),
+    hasta: fechaValida(req.query.hasta),
   };
 }
 

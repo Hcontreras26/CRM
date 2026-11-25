@@ -46,7 +46,7 @@ export default function RulesDialog({ onClose, onSaved }: Props) {
         client.get('/projects'),
       ]);
       if (r.success) setRules(r.data || []);
-      if (u.success) setUsers(((u.data?.users || u.data || []) as User[]).filter((x) => x.role === 'gestor' || x.role === 'admin'));
+      if (u.success) setUsers(((u.data?.users || u.data || []) as User[]).filter((x) => ['gestor', 'lider_equipo', 'admin'].includes(x.role)));
       if (pj.success) setProjects((pj.data as Project[]) || []);
     } finally { setLoading(false); }
   }

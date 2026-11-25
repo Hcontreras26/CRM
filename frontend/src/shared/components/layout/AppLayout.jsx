@@ -171,6 +171,7 @@ const ALL_PROJECTS_OK = [
   /^\/prospectos\/revision-duplicados$/,
   /^\/meta-ads$/,
   /^\/google-analytics$/, // CRM#55: pide el campus dentro, como Meta Ads
+  /^\/trafico-organico$/, // CRM#36: pide el campus dentro, como Google Analytics
   /^\/google-ads$/, // CRM#54: pide el campus dentro, como Meta Ads
   /^\/chat-ia$/,
   /^\/conexion\/moodle(?:\/\d+)?$/,
@@ -424,6 +425,7 @@ const CON_SOCIEDAD_OK = [
   /^\/prospectos\/revision-duplicados$/,
   /^\/meta-ads$/,
   /^\/google-analytics$/, // CRM#55: pide el campus dentro, como Meta Ads
+  /^\/trafico-organico$/, // CRM#36: pide el campus dentro, como Google Analytics
   /^\/google-ads$/, // CRM#54: pide el campus dentro, como Meta Ads
   /^\/chat-ia$/,
   /^\/conexion\/moodle(?:\/\d+)?$/,

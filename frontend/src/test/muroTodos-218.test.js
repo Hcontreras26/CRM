@@ -52,6 +52,7 @@ const TANDA_3 = [
   '/prospectos/proceso', '/prospectos/duplicados', '/prospectos/revision-duplicados',
   '/meta-ads', '/chat-ia', '/conexion/moodle', '/conexion/moodle/1753',
   '/google-analytics', // CRM#55
+  '/trafico-organico', // CRM#36
   '/google-ads', // CRM#54
 ];
 

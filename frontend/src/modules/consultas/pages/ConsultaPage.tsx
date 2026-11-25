@@ -196,7 +196,7 @@ function Bandeja({ actual, puedes, plazoHoras, version }: { actual: number; pued
   }, [actual, puedes, version]);
 
   return (
-    <nav aria-label="Consultas pendientes" className="hidden min-h-0 flex-col border-r border-border bg-card lg:flex">
+    <nav aria-label="Consultas pendientes" data-recorrido="consulta-bandeja" className="hidden min-h-0 flex-col border-r border-border bg-card lg:flex">
       <Cabecera>
         <h2 className="flex-1 text-normal font-semibold text-foreground">Pendientes</h2>
         {lista && <span className="rounded-full bg-muted px-2 py-0.5 text-secundario font-medium tabular-nums text-muted-foreground">{lista.length}</span>}
@@ -693,7 +693,7 @@ export default function ConsultaPage() {
             </>
           ) : (
             <>
-              <Cabecera className="gap-3">
+              <Cabecera className="gap-2 sm:gap-3">
                 <Link to="/consultas" aria-label="Volver a Consultas" className="-ml-1 inline-grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden">
                   <ArrowLeft size={16} aria-hidden />
                 </Link>
@@ -710,7 +710,13 @@ export default function ConsultaPage() {
                 <span className="hidden shrink-0 whitespace-nowrap 2xl:inline-flex"><Plazo c={c} plazoHoras={c.plazoHoras} /></span>
                 <span aria-hidden className="mx-1 hidden h-5 w-px bg-border 2xl:block" />
                 <div className="flex items-center gap-0.5">
-                  <VerRecorrido id="consulta-responder" listo={!!c} compacto />
+                  {/* «Ver recorrido», solo con la brújula donde la cabecera no tiene sitio
+                      (el nombre sigue en su aria-label y su title): en el móvil y con la ficha
+                      abierta al lado (1280-1535 px). Con el texto, «Cerrar» se salía de la
+                      pantalla a 375 px y se quedaba debajo de la ficha a 1280. */}
+                  <span className="inline-flex max-sm:[&>button]:gap-0 max-sm:[&>button]:px-2 max-sm:[&>button]:text-[0px] xl:max-2xl:[&>button]:gap-0 xl:max-2xl:[&>button]:px-2 xl:max-2xl:[&>button]:text-[0px]">
+                    <VerRecorrido id="consulta-responder" listo={!!c} compacto />
+                  </span>
                   {ctx?.conversacionUrl && (
                     <BotonIcono etiqueta="Abrir esta conversación en Moodle" href={ctx.conversacionUrl}><ArrowSquareOut size={16} aria-hidden /></BotonIcono>
                   )}
@@ -729,7 +735,7 @@ export default function ConsultaPage() {
               </Cabecera>
 
               {verFicha && (
-                <div className="max-h-[55vh] overflow-y-auto border-b border-border xl:hidden">
+                <div data-recorrido="consulta-ficha" className="max-h-[55vh] overflow-y-auto border-b border-border xl:hidden">
                   <Ficha c={c} ctx={ctx} cargando={cargandoCtx} alInsertar={insertar} puedeEscribir={puedeEscribir} admin={reasignar} />
                 </div>
               )}
@@ -917,7 +923,7 @@ export default function ConsultaPage() {
           )}
         </section>
 
-        <aside aria-label="Ficha del alumno" className="hidden min-h-0 flex-col border-l border-border bg-card xl:flex">
+        <aside aria-label="Ficha del alumno" data-recorrido="consulta-ficha" className="hidden min-h-0 flex-col border-l border-border bg-card xl:flex">
           <Cabecera>
             <IdentificationCard size={16} className="text-muted-foreground" aria-hidden />
             <h2 className="flex-1 text-normal font-semibold text-foreground">Ficha del alumno</h2>

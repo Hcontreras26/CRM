@@ -24,7 +24,8 @@ const SERVICIOS = [
   { id: 'meta', nombre: 'Meta Ads', pista: 'EAA…' },
   // CRM#54: el token solo vale para «Probar»; para traer campañas hace falta la cuenta.
   { id: 'google_ads', nombre: 'Google Ads', pista: '{"refresh_token":"1//…","customer_id":"123-456-7890","login_customer_id":"(MCC, opcional)"}' },
-  { id: 'gsc', nombre: 'Search Console', pista: '' },
+  // Search Console de un campus (CRM#36): el JSON de la cuenta de servicio con "site_url" añadido.
+  { id: 'gsc', nombre: 'Search Console', pista: '{"site_url":"sc-domain:tuweb.com","client_email":"…","private_key":"…"}' },
   // GA4 de un campus (CRM#55): el JSON de la cuenta de servicio con "property_id" añadido.
   { id: 'google_analytics', nombre: 'Google Analytics 4', pista: '{"property_id":"123456789","client_email":"…","private_key":"…"}' },
   { id: 'woocommerce', nombre: 'WooCommerce', pista: 'ck_… / cs_…' },

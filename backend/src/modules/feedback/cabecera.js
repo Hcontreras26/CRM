@@ -137,6 +137,10 @@ export async function servir(req, res, next) {
     const cabecera = await cabeceraDe(id);
     if (!cabecera) return res.status(404).end();
     res.set('Content-Type', 'image/png');
+    // La pide el cliente de correo desde OTRO origen (Outlook web, Apple Mail…).
+    // helmet pone `Cross-Origin-Resource-Policy: same-origin` a todo, y con eso
+    // la cabecera podía salir rota (#593, punto 24).
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     // La URL lleva la versión (?v=...): se puede guardar un día sin miedo.
     // Si le falta el logo, unos minutos: que se vuelva a pedir cuando baje.
     res.set('Cache-Control', cabecera.faltaLogo ? 'public, max-age=300' : 'public, max-age=86400');
@@ -196,6 +200,10 @@ export async function servirInsignia(req, res, next) {
     const png = await insigniaDe(id);
     if (!png) return res.status(404).end();
     res.set('Content-Type', 'image/png');
+    // La pide el cliente de correo desde OTRO origen (Outlook web, Apple Mail…).
+    // helmet pone `Cross-Origin-Resource-Policy: same-origin` a todo, y con eso
+    // la cabecera podía salir rota (#593, punto 24).
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     res.set('Cache-Control', 'public, max-age=86400');
     return res.send(png);
   } catch (err) {

@@ -677,6 +677,22 @@ export const CAMBIOS_DE_MENU = [
     aprobadoPor: 'Pendiente de Diego (CRM#55)',
   },
   {
+    id: 'menu-trafico-organico-36',
+    que: '«Publicidad › Tráfico orgánico»: clics, impresiones, CTR y posición de Google comparados con el periodo anterior, las búsquedas, las páginas con muchas impresiones y CTR bajo y las páginas de formación sin indexar (CRM#36). La ve quien tiene `search_console.view`, clave nueva: admin, soporte y project manager de serie, cada uno en sus campus. Sincronizar a mano, `search_console.edit` (admin y soporte).',
+    motivo: 'CRM#36 (tarea 222 de Carlos): hacer el análisis SEO desde el CRM sin entrar en Search Console. Sustituye a «Campañas › Tráfico orgánico», que decía «Aún no conectado» y había salido del menú (#534).',
+    perfiles: {
+      superadmin: ['+ Publicidad › Tráfico orgánico'],
+      admin: ['+ Publicidad › Tráfico orgánico'],
+      soporte: ['+ Publicidad › Tráfico orgánico'],
+      project_manager: ['+ Publicidad › Tráfico orgánico'],
+      'gestora+admin': ['+ Publicidad › Tráfico orgánico'],
+    },
+    rutas: {
+      'Publicidad › Tráfico orgánico': 'GET /api/search-console/estado',
+    },
+    aprobadoPor: 'Pendiente de Diego (CRM#36)',
+  },
+  {
     id: 'menu-google-ads-54',
     que: '«Publicidad › Google Ads»: campañas, grupos y anuncios de Google con su gasto, y los prospectos, ventas y coste por venta que han traído al CRM (CRM#54). La ve quien tiene `google_ads.view`, clave nueva: admin, soporte y project manager de serie, cada uno en sus campus. Sincronizar a mano y asociar una campaña a otro campus, `google_ads.edit` (admin y soporte).',
     motivo: 'CRM#54: el CRM no sabía nada de Google Ads; ni gasto, ni campañas. Sustituye a «Campañas › Google Ads», que enseñaba «Aún no conectado» (#216).',

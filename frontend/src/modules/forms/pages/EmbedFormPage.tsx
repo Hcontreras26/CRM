@@ -72,7 +72,10 @@ export default function EmbedFormPage() {
       const res = await fetch(`${API_BASE}/forms/public/${embedId}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        // El iframe no puede leer la URL del padre con window.location (es de
+        // otro dominio), pero document.referrer sí funciona: de ahí sale el
+        // fbclid, si lo hay (#474).
+        body: JSON.stringify({ ...values, landing_url: document.referrer || undefined }),
       });
       const json = await res.json();
       if (json.success) {
