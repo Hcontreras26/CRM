@@ -8,6 +8,7 @@ import { anotar, historial, ACCIONES } from './credentials.registro.js';
 import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import { claveDeIA, ORIGENES, DONDE_SE_CONFIGURA, probarClaveDeIA } from './clave-ia.js';
 import { probarCredencial as probarCredencialGA4 } from '../google-analytics/google-analytics.client.js';
+import { probarCredencial as probarCredencialGSC } from '../search-console/search-console.client.js';
 
 /**
  * Lo que ve de las claves quien no ve todo el CRM (CRM#632).
@@ -148,7 +149,9 @@ export async function test(req, res, next) {
     // Carga la fila completa para conocer el `service`. Necesario para decidir
     // si hacemos validacion real (google_ads) o stub.
     const { rows } = await query(
-      `SELECT service, encrypted_value, iv, auth_tag FROM api_credentials WHERE id = $1`,
+      `SELECT ac.service, ac.encrypted_value, ac.iv, ac.auth_tag, p.gsc_property
+         FROM api_credentials ac LEFT JOIN projects p ON p.id = ac.project_id
+        WHERE ac.id = $1`,
       [id]
     );
     const row = rows[0];
@@ -202,6 +205,20 @@ export async function test(req, res, next) {
         return res.json({ success: true, data: { result: 'failed', message: `Decrypt fallo: ${err.message}` } });
       }
       const r = await probarCredencialGA4(valor);
+      await model.recordTestResult(id, r.result);
+      return res.json({ success: true, data: r });
+    }
+
+    if (row.service === 'gsc') {
+      // CRM#36: la cuenta de servicio contra la propiedad de Search Console (los clics de una semana).
+      let valor;
+      try {
+        valor = decrypt(row.encrypted_value, row.iv, row.auth_tag);
+      } catch (err) {
+        await model.recordTestResult(id, 'failed');
+        return res.json({ success: true, data: { result: 'failed', message: `Decrypt fallo: ${err.message}` } });
+      }
+      const r = await probarCredencialGSC(valor, row.gsc_property);
       await model.recordTestResult(id, r.result);
       return res.json({ success: true, data: r });
     }

@@ -23,7 +23,8 @@ const SERVICIOS = [
   { id: 'stripe', nombre: 'Stripe', pista: 'sk_live_… o sk_test_…' },
   { id: 'meta', nombre: 'Meta Ads', pista: 'EAA…' },
   { id: 'google_ads', nombre: 'Google Ads', pista: 'refresh token' },
-  { id: 'gsc', nombre: 'Search Console', pista: '' },
+  // Search Console de un campus (CRM#36): el JSON de la cuenta de servicio con "site_url" añadido.
+  { id: 'gsc', nombre: 'Search Console', pista: '{"site_url":"sc-domain:tuweb.com","client_email":"…","private_key":"…"}' },
   // GA4 de un campus (CRM#55): el JSON de la cuenta de servicio con "property_id" añadido.
   { id: 'google_analytics', nombre: 'Google Analytics 4', pista: '{"property_id":"123456789","client_email":"…","private_key":"…"}' },
   { id: 'woocommerce', nombre: 'WooCommerce', pista: 'ck_… / cs_…' },

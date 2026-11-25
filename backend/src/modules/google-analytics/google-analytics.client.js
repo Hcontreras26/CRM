@@ -1,5 +1,7 @@
-import crypto from 'node:crypto';
 import { AppError } from '../../shared/utils/AppError.js';
+import {
+  firmarJwtGoogle, tokenDeAccesoGoogle, olvidarTokensGoogle, cuentaDeServicio,
+} from '../../shared/services/googleCuentaServicio.service.js';
 
 /**
  * El cliente de la GA4 Data API (CRM#55), sin dependencias: la cuenta de
@@ -12,7 +14,6 @@ import { AppError } from '../../shared/utils/AppError.js';
  * «Lector» en esa propiedad.
  */
 
-const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DATA_API = 'https://analyticsdata.googleapis.com/v1beta';
 const SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
 
@@ -35,54 +36,16 @@ export function leerCredencial(valor) {
   if (!/^\d+$/.test(propertyId)) {
     throw new AppError('`property_id` es el número de la propiedad de GA4 (no el «G-…» de la web)', 400, 'GA4_CREDENCIAL_INVALIDA');
   }
-  return {
-    propertyId,
-    clientEmail: o.client_email,
-    // Al pegarla en un formulario los saltos de línea suelen llegar como «\n» literal.
-    privateKey: String(o.private_key).replace(/\\n/g, '\n'),
-  };
+  return { propertyId, ...cuentaDeServicio(o) };
 }
 
-const b64url = (x) => Buffer.from(x).toString('base64url');
+/** El JWT firmado que se cambia por un token de acceso (con el scope de GA4). */
+export const firmarJwt = (cred, ahora = Date.now()) => firmarJwtGoogle(cred, SCOPE, ahora);
 
-/** El JWT firmado que se cambia por un token de acceso. */
-export function firmarJwt({ clientEmail, privateKey }, ahora = Date.now()) {
-  const iat = Math.floor(ahora / 1000);
-  const cabecera = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const cuerpo = b64url(JSON.stringify({
-    iss: clientEmail, scope: SCOPE, aud: TOKEN_URL, iat, exp: iat + 3600,
-  }));
-  const firma = crypto.sign('RSA-SHA256', Buffer.from(`${cabecera}.${cuerpo}`), privateKey).toString('base64url');
-  return `${cabecera}.${cuerpo}.${firma}`;
-}
-
-// Un token por cuenta de servicio, mientras dure (una hora, menos un margen).
-const tokens = new Map();
-
-export async function tokenDeAcceso(cred) {
-  const guardado = tokens.get(cred.clientEmail);
-  if (guardado && guardado.vence > Date.now() + 60_000) return guardado.token;
-
-  const res = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: firmarJwt(cred),
-    }),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || !json.access_token) {
-    throw new AppError(
-      `Google no acepta la cuenta de servicio: ${json.error_description || json.error || res.status}`,
-      502, 'GA4_AUTH');
-  }
-  tokens.set(cred.clientEmail, { token: json.access_token, vence: Date.now() + (json.expires_in || 3600) * 1000 });
-  return json.access_token;
-}
+export const tokenDeAcceso = (cred) => tokenDeAccesoGoogle(cred, SCOPE, 'GA4_AUTH');
 
 /** Para las pruebas. */
-export const olvidarTokens = () => tokens.clear();
+export const olvidarTokens = olvidarTokensGoogle;
 
 /**
  * Un `runReport` paginado. Devuelve filas planas:
