@@ -100,11 +100,16 @@ describe('#793 · una emitida no se borra ni se cambia', () => {
     expect((await factura(EMITIDA_4))?.numero).toBe(4);
   });
 
-  it('borrarla desde la pantalla, emitida por error: la gestora y el admin sí (Diego, 19/11)', async () => {
+  // Desde la CRM#1034, por error se borra solo con su ruta, su permiso y su motivo
+  // (eliminarPorError1034.test.js). El DELETE de siempre ya no borra una emitida.
+  it('borrarla con DELETE: 409 FACTURA_EMITIDA, también el admin (CRM#1034)', async () => {
     const id = await nueva({ numero: 9, serie: `X${SERIE.slice(1)}`, prefijo: 'X-' });
-    const r = await request.delete(`/api/invoices/${id}`).set(como(GESTORA));
-    expect(r.status, JSON.stringify(r.body)).toBe(200);
-    expect(await factura(id)).toBeFalsy();
+    for (const u of [GESTORA, ADMIN]) {
+      const r = await request.delete(`/api/invoices/${id}`).set(como(u));
+      expect(r.status, JSON.stringify(r.body)).toBe(409);
+      expect(r.body.code).toBe('FACTURA_EMITIDA');
+    }
+    expect(await factura(id)).toBeTruthy();
   });
 
   it('corregirla: el admin y la gestora sí (Diego, 19/11)', async () => {
