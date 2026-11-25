@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useCampusDeLaPantalla } from '@/shared/hooks/useCampusDeLaPantalla';
 import ElegirCampus from '@/shared/components/ui/ElegirCampus';
 import { ArrowsClockwise, PlugsConnected, Receipt, Eye, CursorClick, Target, ChartLineUp, Warning, Gear, CaretRight, CaretDown, Plus, CaretUpDown } from '@phosphor-icons/react';
@@ -6,6 +6,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { metaApi, MetaAccount, MetaCampaign, MetaDashboard, MetaRoiRow, MetaAdSet, MetaAd } from '../api/metaAds.api';
 import { toast } from '@/shared/hooks/useToast';
 import { tieneRol } from '@/shared/lib/roles';
+import { ErrorDeCarga, datosDe, mensajeDe } from '../components/EstadoDeCarga';
+
+/** Lo que se pide a la vez para el rango: cada uno puede fallar por su cuenta. */
+type Bloque = 'dashboard' | 'campaigns' | 'roi' | 'products';
+
+/** «del 1 nov. al 25 nov.»: para decir de qué periodo no hay datos. */
+function periodo(desde: string, hasta: string) {
+  const f = (s: string) => new Date(`${s}T00:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  return `del ${f(desde)} al ${f(hasta)}`;
+}
 
 const ConnectWizard = lazy(() => import('../components/ConnectWizard'));
 const AssociateProductsDialog = lazy(() => import('../components/AssociateProductsDialog'));
@@ -65,12 +75,24 @@ export default function MetaAdsPage() {
   const [dateFrom, setDateFrom] = useState(def30);
   const [dateTo, setDateTo] = useState(today);
 
+  // Si no se pudieron cargar las cuentas, se dice (#1155). Antes el fallo se
+  // tragaba como «ninguna cuenta», y la pantalla ofrecía conectar una al campus
+  // que ya la tenía.
+  const [errorCuentas, setErrorCuentas] = useState<string | null>(null);
+  // Cada bloque con su fallo, por separado: que falle el ROI no tapa las campañas.
+  const [errores, setErrores] = useState<Partial<Record<Bloque, string>>>({});
+  const [cargandoDatos, setCargandoDatos] = useState(false);
+  // Solo vale la respuesta del último pedido: al cambiar de rango o de cuenta,
+  // la del anterior podía llegar tarde y pintar sus cifras bajo el nuevo.
+  const pedido = useRef(0);
+
   function loadAccounts() {
     if (!projectId) return;
     setLoading(true);
+    setErrorCuentas(null);
     metaApi.accounts(projectId)
-      .then((r: any) => setAccounts(r?.data || []))
-      .catch(() => setAccounts([]))
+      .then((r) => setAccounts(datosDe<MetaAccount[]>(r, [])))
+      .catch((err) => { setAccounts([]); setErrorCuentas(mensajeDe(err)); })
       .finally(() => setLoading(false));
   }
 
@@ -81,10 +103,23 @@ export default function MetaAdsPage() {
     // detallada hay que iterar por accountId. Por ahora mostramos siempre el agregado.
     // Si filterAccountId está set, pasamos accountId para filtrar; si no, todas cuentas.
     const accountId = filterAccountId || undefined;
-    metaApi.dashboard(projectId, { dateFrom, dateTo, accountId }).then((r: any) => setDashboard(r?.data || null)).catch(() => setDashboard(null));
-    metaApi.campaigns(projectId, { dateFrom, dateTo, accountId }).then((r: any) => setCampaigns(r?.data || [])).catch(() => setCampaigns([]));
-    metaApi.roi(projectId, { dateFrom, dateTo }).then((r: any) => setRoi(r?.data || [])).catch(() => setRoi([]));
-    metaApi.productsView(projectId, { dateFrom, dateTo }).then((r: any) => setProductsView(r?.data || [])).catch(() => setProductsView([]));
+    const este = ++pedido.current;
+    const vale = () => este === pedido.current;
+    setCargandoDatos(true);
+    setErrores({});
+    const una = <T,>(que: Bloque, llamada: Promise<unknown>, poner: (v: T) => void, vacio: T) => llamada
+      .then((r) => { if (vale()) poner(datosDe<T>(r, vacio)); })
+      .catch((err) => {
+        if (!vale()) return;
+        poner(vacio);
+        setErrores((e) => ({ ...e, [que]: mensajeDe(err) }));
+      });
+    Promise.all([
+      una<MetaDashboard | null>('dashboard', metaApi.dashboard(projectId, { dateFrom, dateTo, accountId }), setDashboard, null),
+      una<MetaCampaign[]>('campaigns', metaApi.campaigns(projectId, { dateFrom, dateTo, accountId }), setCampaigns, []),
+      una<MetaRoiRow[]>('roi', metaApi.roi(projectId, { dateFrom, dateTo }), setRoi, []),
+      una<any[]>('products', metaApi.productsView(projectId, { dateFrom, dateTo }), setProductsView, []),
+    ]).finally(() => { if (vale()) setCargandoDatos(false); });
   }
 
   useEffect(() => { loadAccounts(); }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -131,6 +166,8 @@ export default function MetaAdsPage() {
   }
 
   const currency = account?.currency || 'EUR';
+  // En la pestaña, «—» si no se cargó: «Campañas (0)» decía que no hay ninguna.
+  const cuenta = (n: number, b: Bloque) => (errores[b] ? '—' : n);
 
   // Estados de página
   if (!projectId) {
@@ -146,12 +183,27 @@ export default function MetaAdsPage() {
   if (loading) {
     return <div className="h-40 bg-muted/40 rounded-lg animate-pulse" />;
   }
+  // No se sabe si tiene cuenta: se dice así, y no se ofrece conectar una que
+  // a lo mejor ya está (#1155).
+  if (errorCuentas) {
+    return (
+      <div className="space-y-3">
+        {selector}
+        <ErrorDeCarga que="las cuentas de Meta de este campus" motivo={errorCuentas} onReintentar={loadAccounts} />
+      </div>
+    );
+  }
   if (soloVer && accounts.length === 0) {
+    // Sin cuenta, y quien mira no puede conectarla: a quién pedírselo. Quien
+    // sí puede ve debajo el asistente para conectarla.
     return (
       <div className="space-y-3">
         {selector}
         <div className="bg-info-soft border border-border rounded-lg p-6 text-center text-sm">
-          Este campus no tiene ninguna cuenta de Meta conectada todavía.
+          <p className="font-semibold flex items-center justify-center gap-1.5">
+            <PlugsConnected size={16} /> {campus.nombre || 'Este campus'} no tiene ninguna cuenta de Meta conectada.
+          </p>
+          <p className="mt-1 text-muted-foreground">Conectarla es cosa de administración: pídeselo a quien gestione la publicidad del campus.</p>
         </div>
       </div>
     );
@@ -276,6 +328,11 @@ export default function MetaAdsPage() {
       </div>
       )}
 
+      {/* Si fallan las cifras del periodo se dice, en vez de no pintar nada (#1155). */}
+      {tab !== 'config' && tab !== 'manual' && errores.dashboard && (
+        <ErrorDeCarga que="las cifras del periodo" motivo={errores.dashboard} onReintentar={loadData} />
+      )}
+
       {/* KPIs del dashboard */}
       {tab !== 'config' && tab !== 'manual' && dashboard && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -302,11 +359,11 @@ export default function MetaAdsPage() {
         <div className="px-4 py-2 border-b border-border flex gap-1 flex-wrap">
           <button onClick={() => setTab('campaigns')}
             className={`px-3 py-1.5 rounded-md text-sm font-semibold ${tab === 'campaigns' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}>
-            Campañas ({campaigns.length})
+            Campañas ({cuenta(campaigns.length, 'campaigns')})
           </button>
           <button onClick={() => setTab('products')}
             className={`px-3 py-1.5 rounded-md text-sm font-semibold ${tab === 'products' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}>
-            Por producto ({productsView.length})
+            Por producto ({cuenta(productsView.length, 'products')})
           </button>
           <button onClick={() => setTab('roi')}
             className={`px-3 py-1.5 rounded-md text-sm font-semibold ${tab === 'roi' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}>
@@ -326,9 +383,14 @@ export default function MetaAdsPage() {
 
         {tab === 'campaigns' && (
           <div className="overflow-x-auto">
-            {campaigns.length === 0 ? (
+            {errores.campaigns ? (
+              <div className="p-4"><ErrorDeCarga que="las campañas" motivo={errores.campaigns} onReintentar={loadData} /></div>
+            ) : cargandoDatos && campaigns.length === 0 ? (
+              <p className="p-6 text-center text-sm text-muted-foreground">Cargando campañas…</p>
+            ) : campaigns.length === 0 ? (
+              /* Sin «backfill»: casi nunca era eso, y no le decía nada a nadie (#1155). */
               <p className="p-6 text-center text-sm text-muted-foreground">
-                Sin campañas en este rango. Si conectaste hace poco, espera al backfill o pulsa "90d".
+                Todavía no hay datos de campañas {periodo(dateFrom, dateTo)}. Prueba con un periodo más amplio.
               </p>
             ) : (
               <table className="w-full text-sm">
@@ -369,11 +431,19 @@ export default function MetaAdsPage() {
         )}
 
         {tab === 'products' && (
-          <ProductsViewTable rows={productsView} currency={currency} />
+          errores.products
+            ? <div className="p-4"><ErrorDeCarga que="la vista por producto" motivo={errores.products} onReintentar={loadData} /></div>
+            : cargandoDatos && productsView.length === 0
+              ? <p className="p-6 text-center text-sm text-muted-foreground">Cargando la vista por producto…</p>
+              : <ProductsViewTable rows={productsView} currency={currency} />
         )}
 
         {tab === 'roi' && (
-          <RoiTable rows={roi} currency={currency} />
+          errores.roi
+            ? <div className="p-4"><ErrorDeCarga que="los datos del gasto a la venta" motivo={errores.roi} onReintentar={loadData} /></div>
+            : cargandoDatos && roi.length === 0
+              ? <p className="p-6 text-center text-sm text-muted-foreground">Cargando del gasto a la venta…</p>
+              : <RoiTable rows={roi} currency={currency} periodoTexto={periodo(dateFrom, dateTo)} />
         )}
 
         {tab === 'manual' && (
@@ -478,16 +548,20 @@ function CampaignRow({ c, projectId, currency, dateFrom, dateTo, onAssociate, on
   const [open, setOpen] = useState(false);
   const [adsets, setAdSets] = useState<MetaAdSet[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     if (!open || adsets) return;
     setLoading(true);
+    setError(null);
     metaApi.adsets(projectId, c.campaign_id, { dateFrom, dateTo })
-      .then((r: any) => setAdSets(r?.data || []))
-      .catch(() => setAdSets([]))
+      .then((r) => setAdSets(datosDe<MetaAdSet[]>(r, [])))
+      // Un fallo no es «esta campaña no tiene conjuntos» (#1155).
+      .catch((err) => setError(mensajeDe(err)))
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, intento]);
 
   // Si cambia el rango de fechas y ya estaba abierto, recargar.
   useEffect(() => { if (open) setAdSets(null); /* fuerza recarga */ }, [dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -545,6 +619,10 @@ function CampaignRow({ c, projectId, currency, dateFrom, dateTo, onAssociate, on
           <td colSpan={9} className="px-0 py-0">
             {loading ? (
               <div className="px-8 py-3 text-xs text-muted-foreground">Cargando conjuntos…</div>
+            ) : error ? (
+              <div className="px-8 py-3">
+                <ErrorDeCarga compacto que="los conjuntos de esta campaña" motivo={error} onReintentar={() => setIntento((n) => n + 1)} />
+              </div>
             ) : adsets && adsets.length === 0 ? (
               /* El mensaje de antes se disculpaba por el backfill, que no tenia
                  nada que ver: los conjuntos estaban --924 en la base-- y lo que
@@ -575,16 +653,20 @@ function AdSetRow({ a, projectId, currency, dateFrom, dateTo, onAssociate }:
   const [open, setOpen] = useState(false);
   const [ads, setAds] = useState<MetaAd[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     if (!open || ads) return;
     setLoading(true);
+    setError(null);
     metaApi.ads(projectId, a.adset_id, { dateFrom, dateTo })
-      .then((r: any) => setAds(r?.data || []))
-      .catch(() => setAds([]))
+      .then((r) => setAds(datosDe<MetaAd[]>(r, [])))
+      // Un fallo no es «sin anuncios en este rango» (#1155).
+      .catch((err) => setError(mensajeDe(err)))
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, intento]);
 
   useEffect(() => { if (open) setAds(null); }, [dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -630,8 +712,12 @@ function AdSetRow({ a, projectId, currency, dateFrom, dateTo, onAssociate }:
           <td colSpan={9} className="px-0 py-0">
             {loading ? (
               <div className="pl-14 py-2 text-xs text-muted-foreground">Cargando anuncios…</div>
+            ) : error ? (
+              <div className="pl-14 py-2">
+                <ErrorDeCarga compacto que="los anuncios de este conjunto" motivo={error} onReintentar={() => setIntento((n) => n + 1)} />
+              </div>
             ) : ads && ads.length === 0 ? (
-              <div className="pl-14 py-2 text-xs text-muted-foreground italic">Sin anuncios en este rango.</div>
+              <div className="pl-14 py-2 text-xs text-muted-foreground italic">Todavía no hay datos de anuncios de este conjunto {periodo(dateFrom, dateTo)}.</div>
             ) : (
               <table className="w-full text-xs">
                 <tbody>
@@ -765,11 +851,11 @@ function ProductLinks({ links }: { links: Array<{ scope: string; id: string; nam
  * los leads captados en el rango (una campaña de hace dos meses sigue cobrando),
  * y «Entró en el periodo» mira la caja del rango, sea de cuando sea el lead.
  */
-function RoiTable({ rows, currency }: { rows: MetaRoiRow[]; currency: string }) {
+function RoiTable({ rows, currency, periodoTexto }: { rows: MetaRoiRow[]; currency: string; periodoTexto: string }) {
   if (rows.length === 0) {
     return (
       <p className="p-6 text-center text-sm text-muted-foreground">
-        Sin datos en este rango. Aquí salen las campañas con gasto o con prospectos que llegaron por ellas
+        Todavía no hay datos {periodoTexto}. Aquí salen las campañas con gasto o con prospectos que llegaron por ellas
         (el CRM lee la campaña de la UTM del prospecto).
       </p>
     );
