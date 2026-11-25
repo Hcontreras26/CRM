@@ -13,6 +13,7 @@ export const ROLE_LABELS: Record<string, string> = {
   superadmin: 'Superadmin',
   admin: 'Admin',
   gestor: 'Gestor',
+  lider_equipo: 'Líder de equipo',
   soporte: 'Desarrollador / Soporte',
   tutor: 'Tutor / Profesor',
   colaborador: 'Colaborador',
@@ -32,6 +33,7 @@ export const ROLE_LABELS_CORTOS: Record<string, string> = {
   superadmin: 'Superadmin',
   admin: 'Admin',
   gestor: 'Gestor',
+  lider_equipo: 'Líder de equipo',
   soporte: 'Soporte',
   tutor: 'Tutor',
   colaborador: 'Colaborador',
@@ -43,6 +45,8 @@ export const ROLE_LABELS_CORTOS: Record<string, string> = {
 export const ASSIGNABLE_ROLES: ReadonlyArray<{ value: UserRole; label: string; hint: string }> = [
   { value: 'admin', label: ROLE_LABELS.admin, hint: 'Acceso operativo completo. No gestiona usuarios.' },
   { value: 'gestor', label: ROLE_LABELS.gestor, hint: 'Solo sus proyectos y sus prospectos. Entra en el reparto.' },
+  // CRM#1105: lo de una gestora y lo de su equipo comercial (se elige en su ficha).
+  { value: 'lider_equipo', label: ROLE_LABELS.lider_equipo, hint: 'Lo suyo y lo de las gestoras de su equipo comercial. Sin administración. Recibe leads solo donde se le marque.' },
   { value: 'soporte', label: ROLE_LABELS.soporte, hint: 'Ve todos los proyectos. Para soporte tecnico.' },
   { value: 'tutor', label: ROLE_LABELS.tutor, hint: 'Colaborador externo: solo sus formaciones y sus comisiones.' },
   { value: 'colaborador', label: ROLE_LABELS.colaborador, hint: 'Equipo interno o externo (web, SEO, contenido): solo ve su tablero de Tareas.' },

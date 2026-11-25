@@ -48,7 +48,9 @@ export async function gestoresDelReparto(ejecutar, projectId) {
        JOIN users u ON u.id = up.user_id
         AND u.active = true
         AND u.is_available = true
-        AND (u.role = 'gestor' OR (u.role IN ('admin','superadmin') AND up.recibe_leads = TRUE))
+        AND (u.role = 'gestor' OR (u.role IN ('admin','superadmin','lider_equipo') AND up.recibe_leads = TRUE))
+        -- La líder de equipo (CRM#1105), como un admin: solo si se le marca que
+        -- recibe en ese campus. Se decide por persona, no por su rol.
         -- Quien lleva las colaboraciones de los profesores NO vende: da de alta
         -- tutores y le toca el porcentaje. Entraba en el reparto solo por tener
         -- rol de gestora, y un lead que le cae a ella es un lead que nadie

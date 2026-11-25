@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ambitoComoObjeto } from '@/shared/lib/ambitoInforme';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
+// El recorrido guiado de la pantalla (#941, tanda G).
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 
 const MergeLeadDialog = lazy(() => import('../components/MergeLeadDialog'));
 
@@ -102,13 +104,16 @@ export default function DupReviewQueuePage() {
 
 
   return (
-    <div className="space-y-5 pb-8">
+    /* El margen de scroll de lo que señala el recorrido (#941, tanda G): que la
+       barra fija de arriba no tape el principio de lo señalado. */
+    <div className="space-y-5 pb-8 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title="Revisión de duplicados"
         subtitle="Prospectos que llegaron por webhook con datos duplicados. El webhook nunca se bloqueó (Make recibió 200 OK). Decide si conservas, fusionas con el original o descartas."
+        actions={<VerRecorrido id="revision-duplicados" listo={!loading} />}
       />
 
-      <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-2 flex-wrap">
+      <div data-recorrido="revision-estados" className="bg-card border border-border rounded-lg p-3 flex items-center gap-2 flex-wrap">
         {([
           { key: 'pending', label: 'Pendientes', tone: 'amber', count: counts.pending },
           { key: 'approved', label: 'Aprobados', tone: 'emerald', count: counts.approved },
@@ -144,7 +149,7 @@ export default function DupReviewQueuePage() {
           <p className="text-xs mt-1">Los duplicados que entren por webhook aparecerán aquí.</p>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul data-recorrido="revision-lista" className="space-y-3">
           {items.map((it) => (
             <li key={it.id} className="bg-card border border-border rounded-lg p-4">
               <div className="flex items-start gap-4">
@@ -192,7 +197,7 @@ export default function DupReviewQueuePage() {
               </div>
 
               {statusFilter === 'pending' && (
-                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
+                <div data-recorrido="revision-decidir" className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-border">
                   <button onClick={() => approve(it)} disabled={busyId === it.id}
                     className="h-9 px-3 rounded-md bg-success text-success-foreground text-sm font-semibold hover:bg-success/90 disabled:opacity-50 flex items-center gap-1.5">
                     <CheckCircle size={14} weight="bold" /> Aprobar (queda activo)

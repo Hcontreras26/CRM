@@ -9,7 +9,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { veTodoElCrm, campusDeLaPersona, listaDelAmbito, exigirCampusSuyo } from '../../shared/utils/ambito.js';
 import { leadsToWasapiCsv, leadsToWasapiXlsx, detectCountry } from '../../shared/utils/wasapiCsv.js';
 import { tienePermiso } from '../../shared/middleware/permissions.js';
-import { soloLoSuyo, alcanceComercial, acotarAlAlcance, enElAlcance } from '../../shared/utils/roles.js';
+import { soloLoSuyo, alcanceComercial, alcanceDeLider, acotarAlAlcance, enElAlcance } from '../../shared/utils/roles.js';
 import { pluginMoodleActivo } from '../../shared/config/soloEnPruebas.js';
 import { avanceDelAlumno } from './avance-moodle.js';
 
@@ -680,9 +680,10 @@ export async function reassign(req, res, next) {
     }
     // Quien lleva un equipo comercial (09/11/2026) reasigna dentro de él: solo
     // prospectos suyos o de sus gestoras, y solo a ella misma o a una de ellas.
-    // Sin equipo, como siempre (lo decide el permiso `leads.assign`).
-    const alcance = await alcanceComercial(req.user);
-    if (alcance && alcance.length > 1) {
+    // Sin equipo, como siempre (lo decide el permiso `leads.assign`). La líder de
+    // equipo (CRM#1105) siempre dentro del suyo, aunque hoy lo tenga vacío.
+    const alcance = await alcanceDeLider(req.user);
+    if (alcance) {
       await exigirQueSeaSuyo(req, id);
       if (!enElAlcance(alcance, parsed.data.responsable_id)) {
         throw new AppError('Solo puedes pasarlo a alguien de tu equipo', 403, 'FUERA_DE_TU_EQUIPO');
@@ -700,6 +701,11 @@ export async function reassignPending(req, res, next) {
     const projectId = parseInt(req.query.projectId);
     if (isNaN(projectId) || projectId <= 0) {
       throw new AppError('projectId requerido', 400, 'PROJECT_REQUIRED');
+    }
+    // Repartir los sin dueño del campus entero no es de quien lleva un equipo
+    // (CRM#1105): le caerían a gestoras de fuera. Ella reasigna dentro del suyo.
+    if (await alcanceDeLider(req.user)) {
+      throw new AppError('Repartir los prospectos sin gestora del campus es de administración', 403, 'FUERA_DE_TU_EQUIPO');
     }
     const result = await leadService.reassignPending(projectId);
     res.json({ success: true, data: result });

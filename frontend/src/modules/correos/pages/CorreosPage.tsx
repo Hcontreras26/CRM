@@ -8,6 +8,8 @@ import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import RangoRapido from '@/shared/components/ui/RangoRapido';
+// El recorrido guiado de la pantalla (#941, tanda E).
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import { correosApi, type CorreoEnLista, type CorreoCompleto } from '../api/correos.api';
 
 /**
@@ -124,15 +126,18 @@ export default function CorreosPage() {
   }
 
   return (
-    <div className="space-y-4">
+    // El margen de scroll de lo que señala el recorrido (#941): la barra fija de
+    // arriba no le tapa el principio.
+    <div className="space-y-4 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title="Correos"
         subtitle="Lo que manda el CRM y lo que llega al buzón, con su texto"
+        actions={<VerRecorrido id="correos" listo={!cargando} />}
       />
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
+        <div data-recorrido="correos-pestanas" className="flex flex-wrap items-center gap-1">
           {PESTANAS.map(({ clave, rotulo, icono: Icono }) => (
             <button
               key={clave}
@@ -150,7 +155,7 @@ export default function CorreosPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 h-8 px-2.5 rounded-md border border-border bg-card min-w-[15rem]">
+        <div data-recorrido="correos-buscar" className="flex items-center gap-2 h-8 px-2.5 rounded-md border border-border bg-card min-w-[15rem]">
           <MagnifyingGlass size={13} className="text-muted-foreground shrink-0" />
           <input
             value={busca}
@@ -168,7 +173,7 @@ export default function CorreosPage() {
 
         <RangoRapido valor={rango} alElegir={setRango} />
 
-        <div className="ml-auto flex items-center gap-2">
+        <div data-recorrido="correos-buzon" className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={traerDelBuzon} disabled={trayendo}>
             <TrayArrowDown size={13} weight="bold" className="mr-1.5" />
             {trayendo ? 'Leyendo el buzón…' : 'Traer del buzón'}
@@ -180,7 +185,7 @@ export default function CorreosPage() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div data-recorrido="correos-lista" className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border text-sm text-muted-foreground">
           {total} {total === 1 ? 'correo' : 'correos'}
         </div>

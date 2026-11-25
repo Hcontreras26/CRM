@@ -12,6 +12,7 @@ import { logger } from '../../shared/utils/logger.js';
 import { buildPermissionsMap, resolveUserView } from '../permissions/permissions.service.js';
 import { alcanceDeLider } from '../../shared/utils/roles.js';
 import { linksPagoActivos, pluginMoodleActivo, seguimientoLinksActivo } from '../../shared/config/soloEnPruebas.js';
+import { monitaskActivo } from '../monitask/interruptor.js';
 
 function getClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
@@ -179,7 +180,15 @@ export async function me(req, res, next) {
           // Los recordatorios al alumno de un link sin pagar (CRM#984,
           // LINKS_PAGO_SEGUIMIENTO_EN_PRODUCCION): «Crear link» y la venta dicen
           // si al alumno se le recordará cada cuota o hay que mandársela (24/11).
-          funciones: { links_pago: linksPagoActivos(), plugin_moodle: pluginMoodleActivo(), recordatorios_links: seguimientoLinksActivo() },
+          // Monitask (#236): MONITASK_ACTIVO. Con él apagado, el menú no enseña
+          // «Actividad» y la pantalla y la tarjeta no piden /monitask/estado (que
+          // contestaría 404 y llenaba el registro de «Peticion rechazada»).
+          funciones: {
+            links_pago: linksPagoActivos(),
+            plugin_moodle: pluginMoodleActivo(),
+            recordatorios_links: seguimientoLinksActivo(),
+            monitask: monitaskActivo(),
+          },
         },
         permissions,
         // null = sin recorte por equipo; si lleva uno, [ella, ...sus gestoras].

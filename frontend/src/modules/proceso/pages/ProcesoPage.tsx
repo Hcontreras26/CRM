@@ -1,6 +1,8 @@
 import { useEffect, useState, type DragEvent } from 'react';
 import { Plus, PencilSimple, EyeSlash, Eye, DotsSixVertical, Info, ArrowRight, ListChecks, ChatText, CaretDown } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
+// El recorrido guiado de la pantalla (#941).
+import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import Card from '@/shared/components/ui/Card';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import usePermission from '@/shared/hooks/usePermission';
@@ -165,15 +167,21 @@ export default function ProcesoPage() {
   }
 
   return (
-    <div className="space-y-bloque">
+    /* El margen de scroll de lo que señala el recorrido (#941): que la barra
+       fija de arriba no tape el principio de lo señalado. */
+    <div className="space-y-bloque [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title="Proceso comercial"
         subtitle="Los pasos por los que pasa cada prospecto, en orden."
         backTo="/prospectos"
         backLabel="Prospectos"
-        actions={admin ? (
+        actions={(
+          <>
+          <VerRecorrido id="proceso-comercial" listo={!cargando} />
+          {admin && (
           <button
             type="button"
+            data-recorrido="proceso-nuevo"
             onClick={() => { setErrorDialogo(null); setCreando(true); }}
             className="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-primary text-primary-foreground text-xs sm:text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
           >
@@ -181,12 +189,14 @@ export default function ProcesoPage() {
             <span className="hidden sm:inline">Nuevo paso</span>
             <span className="sm:hidden">Nuevo</span>
           </button>
-        ) : null}
+          )}
+          </>
+        )}
       />
 
       {/* Lo que hay que saber antes de tocar nada. Va en la pantalla y no solo
           en la tarea: quien la abre no ha leido la tarea. */}
-      <Card className="flex items-start gap-2.5">
+      <Card data-recorrido="proceso-dias" className="flex items-start gap-2.5">
         <Info size={17} weight="regular" className="mt-0.5 shrink-0 text-info" />
         <p className="text-normal text-muted-foreground">
           Los días son <strong className="text-foreground">días desde que entra el prospecto</strong>, no días de la
@@ -195,7 +205,7 @@ export default function ProcesoPage() {
         </p>
       </Card>
 
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div data-recorrido="proceso-ambito" className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-secundario text-muted-foreground">
             {deQuien ? `Proceso de ${deQuien}` : 'Elige un proyecto'}
@@ -271,7 +281,7 @@ export default function ProcesoPage() {
           description={admin ? 'Crea el primero para empezar a ordenar el proceso.' : 'Cuando un administrador los cree, aparecerán aquí.'}
         />
       ) : (
-        <ol aria-label="Pasos del proceso" className="space-y-fila">
+        <ol data-recorrido="proceso-pasos" aria-label="Pasos del proceso" className="space-y-fila">
           {pasos.map((paso, i) => {
             return (
               <li
@@ -376,6 +386,8 @@ export default function ProcesoPage() {
 
                     <button
                       type="button"
+                      // El primero, para el paso «Plantillas de este paso» del recorrido (#941).
+                      data-recorrido={i === 0 ? 'proceso-plantillas' : undefined}
                       onClick={() => setConPlantillas((x) => (x === paso.id ? null : paso.id))}
                       aria-expanded={conPlantillas === paso.id}
                       className="inline-flex items-center gap-1 text-secundario font-semibold text-primary hover:underline"
@@ -402,7 +414,7 @@ export default function ProcesoPage() {
                   </div>
 
                   {admin && (
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div data-recorrido={i === 0 ? 'proceso-editar' : undefined} className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
                         onClick={() => { setErrorDialogo(null); setEditando(paso); }}

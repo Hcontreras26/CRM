@@ -10,6 +10,10 @@ import { RECORRIDOS_FINANZAS } from '@/shared/lib/recorridosFinanzas';
 import { RECORRIDOS_NOVEDADES } from '@/shared/lib/recorridosNovedades';
 import { RECORRIDOS_NOVEDADES_B } from '@/shared/lib/recorridosNovedadesB';
 import { RECORRIDOS_GESTORA } from '@/shared/lib/recorridosGestora';
+import { RECORRIDOS_GESTORA_B } from '@/shared/lib/recorridosGestoraB';
+import { RECORRIDOS_GESTORA_C } from '@/shared/lib/recorridosGestoraC';
+import { RECORRIDOS_GESTORA_D } from '@/shared/lib/recorridosGestoraD';
+import { RECORRIDOS_GESTORA_E } from '@/shared/lib/recorridosGestoraE';
 
 /*
   El cartel del recorrido en el móvil (testeo del 18/11, CRM#908): a 375 px, en
@@ -194,6 +198,45 @@ describe('a 375 px, todos los recorridos, paso a paso', () => {
   it('entre ellos, los del día a día de una gestora (#941, tanda C), con todos sus pasos', () => {
     expect(Object.keys(RECORRIDOS_GESTORA)).toEqual(['clientes', 'prospecto-ficha', 'cola-del-dia']);
     for (const r of Object.values(RECORRIDOS_GESTORA)) {
+      const fila = TODOS.find(([id]) => id === r.id);
+      expect(fila, r.id).toBeTruthy();
+      expect(fila[1]).toHaveLength(r.pasos.length);
+    }
+  });
+
+  it('entre ellos, los del día a día, segunda tanda (#941, tanda D), con todos sus pasos', () => {
+    expect(Object.keys(RECORRIDOS_GESTORA_B)).toEqual(['seguimiento-fin-de-mes', 'whatsapp-conexion']);
+    for (const r of Object.values(RECORRIDOS_GESTORA_B)) {
+      const fila = TODOS.find(([id]) => id === r.id);
+      expect(fila, r.id).toBeTruthy();
+      expect(fila[1]).toHaveLength(r.pasos.length);
+    }
+  });
+
+  it('entre ellos, los del día a día, tercera tanda (#941, tanda E), con todos sus pasos', () => {
+    expect(Object.keys(RECORRIDOS_GESTORA_C)).toEqual([
+      'whatsapp-banco', 'whatsapp-actividad', 'correos',
+      'consultas-alumnos', 'consultas-carga', 'consultas-tutores', 'consultas-metricas', 'consultas-respuestas',
+    ]);
+    for (const r of Object.values(RECORRIDOS_GESTORA_C)) {
+      const fila = TODOS.find(([id]) => id === r.id);
+      expect(fila, r.id).toBeTruthy();
+      expect(fila[1]).toHaveLength(r.pasos.length);
+    }
+  });
+
+  it('entre ellos, los del día a día, cuarta tanda (#941, tanda F), con todos sus pasos', () => {
+    expect(Object.keys(RECORRIDOS_GESTORA_D)).toEqual(['tutores', 'proceso-comercial']);
+    for (const r of Object.values(RECORRIDOS_GESTORA_D)) {
+      const fila = TODOS.find(([id]) => id === r.id);
+      expect(fila, r.id).toBeTruthy();
+      expect(fila[1]).toHaveLength(r.pasos.length);
+    }
+  });
+
+  it('entre ellos, lo que faltaba de Comercial (#941, tanda G), con todos sus pasos', () => {
+    expect(Object.keys(RECORRIDOS_GESTORA_E)).toEqual(['convocatorias', 'revision-duplicados', 'buscar-duplicados', 'solicitud-admision']);
+    for (const r of Object.values(RECORRIDOS_GESTORA_E)) {
       const fila = TODOS.find(([id]) => id === r.id);
       expect(fila, r.id).toBeTruthy();
       expect(fila[1]).toHaveLength(r.pasos.length);
