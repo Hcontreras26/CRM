@@ -25,6 +25,9 @@ import { consultasApi, type ConsultaFila } from '@/modules/consultas/api/consult
 import Progreso from '@/modules/moodle/components/ProgresoCurso';
 // El recorrido guiado de la pantalla (#928): solo con el botón (CRM#1012).
 import VerRecorrido from '@/shared/components/ui/VerRecorrido';
+// «Mi campus» de administración (Diego, 25/11): todo el campus, con su permiso.
+import usePermission from '@/shared/hooks/usePermission';
+import CampusAdministracion from '../components/CampusAdministracion';
 
 /*
   «Mi campus» (#681): lo que la tutora tiene que hacer hoy en Moodle.
@@ -396,14 +399,35 @@ const PESTANAS = [
   { id: 'campus', label: 'Por hacer en Moodle', icono: <ClipboardText size={15} aria-hidden /> },
   { id: 'cursos', label: 'Mis cursos y comisiones', icono: <Coins size={15} aria-hidden /> },
 ] as const;
+/**
+ * Y la de administración (Diego, 25/11), con `tutores.campus_administracion`: todo el campus.
+ * Con ella, la de la tutora se llama «Mis cursos en Moodle», para que se vea cuál es cuál.
+ */
+const PESTANA_ADMINISTRACION = { id: 'administracion', label: 'Todo el campus (administración)', icono: <GraduationCap size={15} aria-hidden /> } as const;
+type Vista = 'campus' | 'cursos' | 'administracion';
 
 export default function MiCampusPage() {
   const [params, setParams] = useSearchParams();
   const { user } = useAuth() as { user: { role?: string; roles_extra?: string[] } | null };
   const soloRedactora = soloEsTutorRedactor(user);
-  const pestanas = soloRedactora ? PESTANAS.filter((t) => t.id !== 'cursos') : PESTANAS;
-  const vista: 'campus' | 'cursos' = !soloRedactora && params.get('vista') === 'cursos' ? 'cursos' : 'campus';
-  const irA = (v: 'campus' | 'cursos') => setParams(v === 'cursos' ? { vista: 'cursos' } : {}, { replace: true });
+  const { can } = usePermission();
+  const puedeAdministracion = can('tutores.campus_administracion');
+  const puedeMios = can('tutores.mis_cursos');
+  // Administración con su propia cuenta enlazada (da clase): también ve «sus cursos».
+  const [cuentaEnlazada, setCuentaEnlazada] = useState(false);
+  const [leidoAdministracion, setLeidoAdministracion] = useState<string | null>(null);
+  // Sin el permiso de administración, las pestañas de siempre (tutoras y redactoras, igual que antes).
+  const pestanas: Array<{ id: Vista; label: string; icono: React.ReactNode }> = !puedeAdministracion
+    ? [...(soloRedactora ? PESTANAS.filter((t) => t.id !== 'cursos') : PESTANAS)]
+    : [
+      ...(puedeMios || cuentaEnlazada ? [{ ...PESTANAS[0], label: 'Mis cursos en Moodle' }] : []),
+      PESTANA_ADMINISTRACION,
+      ...(puedeMios && !soloRedactora ? [PESTANAS[1]] : []),
+    ];
+  const porDefecto: Vista = puedeAdministracion && !puedeMios ? 'administracion' : 'campus';
+  const pedida = params.get('vista') as Vista | null;
+  const vista: Vista = pedida && pestanas.some((t) => t.id === pedida) ? pedida : porDefecto;
+  const irA = (v: Vista) => setParams(v === porDefecto ? {} : { vista: v }, { replace: true });
   const [datos, setDatos] = useState<MiCampus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -504,17 +528,22 @@ export default function MiCampusPage() {
   });
 
   const leido = datos ? new Date(datos.leidoAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : null;
+  const leidoAdmin = leidoAdministracion ? new Date(leidoAdministracion).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : null;
+  // Cada vista dice cuál es: la de administración (todo el campus) o la suya (sus cursos).
+  const subtitulo = vista === 'cursos' ? 'Tus cursos y lo que te corresponde'
+    : vista === 'administracion' ? `Administración: todo el campus en Moodle${leidoAdmin ? ` · leído a las ${leidoAdmin}` : ''}`
+      : (leido ? `Tus cursos en Moodle · leído a las ${leido}` : 'Tus cursos en Moodle');
 
   return (
     // El margen de scroll de lo que señala el recorrido: que la barra fija no lo tape.
     <div className="mx-auto max-w-6xl space-y-5 [&_[data-recorrido]]:scroll-mt-40 max-sm:[&_[data-recorrido]]:scroll-mt-64">
       <PageHeader
         title={<span className="inline-flex flex-wrap items-center gap-2">Mi campus <EtiquetaEnPruebas /></span>}
-        subtitle={vista === 'cursos' ? 'Tus cursos y lo que te corresponde' : (leido ? `Tus cursos en Moodle · leído a las ${leido}` : 'Tus cursos en Moodle')}
+        subtitle={subtitulo}
         actions={(
           <>
           {/* El recorrido (#928): solo con el botón (CRM#1012). */}
-          <VerRecorrido id="mi-campus" listo={vista === 'cursos' || !cargando} compacto />
+          <VerRecorrido id="mi-campus" listo={vista !== 'campus' || !cargando} compacto />
           {vista === 'campus' && (
           <Button data-recorrido="mi-campus-actualizar" variant="outline" size="sm" disabled={cargando} onClick={actualizar} className="h-8 text-secundario">
             <ArrowsClockwise size={14} className={cn('mr-1.5', cargando && 'animate-spin')} aria-hidden />
@@ -537,7 +566,9 @@ export default function MiCampusPage() {
       </div>
       )}
 
-      {vista === 'cursos' ? <MisCursosPage incrustada /> : (<>
+      {vista === 'cursos' ? <MisCursosPage incrustada /> : vista === 'administracion' ? (
+        <CampusAdministracion alLeer={({ leidoAt, tengoCuentaEnlazada }) => { setLeidoAdministracion(leidoAt); setCuentaEnlazada(tengoCuentaEnlazada); }} />
+      ) : (<>
       {error && !datos && (
         <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive-soft dark:bg-destructive/15 px-4 py-4">
           <p className="text-normal font-semibold text-foreground">No se ha podido leer tu campus</p>
