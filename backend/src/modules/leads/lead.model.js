@@ -582,17 +582,21 @@ export async function createLeadWithRoundRobin({ projectId, nombre, email, telef
     // Guardar UTMs si hay datos relevantes. Antes esto SOLO insertaba si había
     // utm_source/medium/campaign, ignorando canal_detectado. Resultado: al crear
     // manualmente con "WhatsApp" el canal no se guardaba. Ahora también dispara
-    // si viene canal o landing_url.
+    // si viene canal, landing_url, o cualquiera de los datos de atribución del
+    // formulario/widget (#474): client_ip y user_agent casi siempre vienen, así
+    // que un lead de la web crea esta fila prácticamente siempre.
     if (
       utms && (
         utms.utm_source || utms.utm_medium || utms.utm_campaign ||
-        utms.canal_detectado || utms.landing_url || utms.referrer
+        utms.canal_detectado || utms.landing_url || utms.referrer ||
+        utms.fbc || utms.fbp || utms.client_ip || utms.user_agent
       )
     ) {
       await client.query(
-        `INSERT INTO lead_utms (lead_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, canal_detectado, referrer)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [lead.id, utms.utm_source, utms.utm_medium, utms.utm_campaign, utms.utm_content, utms.utm_term, utms.landing_url, utms.canal_detectado, utms.referrer || null]
+        `INSERT INTO lead_utms (lead_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, canal_detectado, referrer, fbc, fbp, client_ip, user_agent)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [lead.id, utms.utm_source, utms.utm_medium, utms.utm_campaign, utms.utm_content, utms.utm_term, utms.landing_url, utms.canal_detectado, utms.referrer || null,
+         utms.fbc || null, utms.fbp || null, utms.client_ip || null, utms.user_agent || null]
       );
     }
 
