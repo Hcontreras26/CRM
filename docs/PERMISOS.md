@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-957 rutas en 74 módulos, y 31 acciones con condición dentro de una ruta.
+963 rutas en 75 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -1065,6 +1065,17 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | deleteGoal | `DELETE /api/ventas/goals/:id` | sesión | superadmin, admin, gestor, soporte, project_manager | `ventas.metas` |
 | create · registrar una venta que no es de nadie («sin gestora») | `POST /api/ventas/` | cuando registrar una venta que no es de nadie («sin gestora»): a mano, sales.controller.js · resolvePermission(conversions.sin_gestora) | superadmin, admin | `conversions.sin_gestora` |
 
+## search-console
+
+| Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
+|---|---|---|---|---|
+| estado | `GET /api/search-console/estado` | (no existía) | (ruta nueva) | `search_console.view` |
+| resumen | `GET /api/search-console/resumen` | (no existía) | (ruta nueva) | `search_console.view` |
+| consultas | `GET /api/search-console/consultas` | (no existía) | (ruta nueva) | `search_console.view` |
+| paginas | `GET /api/search-console/paginas` | (no existía) | (ruta nueva) | `search_console.view` |
+| indexacion | `GET /api/search-console/indexacion` | (no existía) | (ruta nueva) | `search_console.view` |
+| sincronizar | `POST /api/search-console/sincronizar` | (no existía) | (ruta nueva) | `search_console.edit` |
+
 ## soporte
 
 | Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
@@ -1534,6 +1545,13 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver Google Analytics | `google_analytics.view` | Visitas por canal y por página de curso, y cuántas acaban en prospecto y en venta. | Admin, Soporte, Project manager |  |
 | Sincronizar Google Analytics | `google_analytics.edit` | Traer ya los datos de GA4 de un campus. | Admin, Soporte | `google_analytics.view` |
+
+### Search Console
+
+| Permiso | Clave | Qué deja hacer | De serie | Necesita |
+|---|---|---|---|---|
+| Ver Tráfico orgánico | `search_console.view` | Clics, impresiones, posición, búsquedas y páginas de Google, y qué páginas de formación no están indexadas. | Admin, Soporte, Project manager |  |
+| Sincronizar Search Console | `search_console.edit` | Traer ya los datos de Search Console de un campus. | Admin, Soporte | `search_console.view` |
 
 ## Catálogo
 

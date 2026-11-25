@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { getGscMetrics, getGscConsolidated, type GscMetrics, type GscConsolidated, type GscTotals } from '../api/gsc.api';
+import {
+  searchConsoleApi, type Resumen, type ConsultaGsc, type Paginas, type Indexacion,
+} from '../api/searchConsole.api';
 
 export type Preset = '7d' | '14d' | '28d' | '90d';
 
@@ -14,55 +16,62 @@ export interface DateRange { fechaDesde: string; fechaHasta: string }
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 
-export function rangeFromPreset(preset: Preset, now: number = Date.now()): DateRange {
-  // GSC tiene retraso de 3 dias — fechaHasta es 3 dias antes de hoy
-  const days = PRESET_PERIODS[preset]?.days ?? 28;
+/**
+ * El periodo de un preset. Search Console va 2–3 días por detrás: el periodo
+ * acaba hace 3 días para no comparar días a medias.
+ */
+export function rangeFromPreset(preset: Preset | string, now: number = Date.now()): DateRange {
+  const days = PRESET_PERIODS[preset as Preset]?.days ?? 28;
   const hasta = new Date(now - 3 * 86400000);
   const desde = new Date(hasta.getTime() - days * 86400000);
   return { fechaDesde: isoDate(desde), fechaHasta: isoDate(hasta) };
 }
 
-interface MetricsState {
-  totals: GscTotals | null;
-  rows: GscMetrics['rows'];
-  lastUpdate: string | null;
+interface Datos {
+  resumen: Resumen | null;
+  consultas: ConsultaGsc[];
+  paginas: Paginas | null;
+  indexacion: Indexacion | null;
 }
+const VACIO: Datos = { resumen: null, consultas: [], paginas: null, indexacion: null };
 
-export function useOrganicTraffic(projectId: string | number | undefined) {
+/**
+ * Los datos de «Tráfico orgánico» de un campus conectado. `recarga` cambia
+ * tras sincronizar, para volver a pedirlos.
+ */
+export function useOrganicTraffic(projectId: number | null, conectado: boolean, recarga: unknown = null) {
   const [preset, setPreset] = useState<Preset>('28d');
   const [customRange, setCustomRange] = useState<DateRange | null>(null);
-  const [metrics, setMetrics] = useState<MetricsState>({ totals: null, rows: [], lastUpdate: null });
-  const [consolidated, setConsolidated] = useState<GscConsolidated>({ months: [] });
+  const [datos, setDatos] = useState<Datos>(VACIO);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const range: DateRange = customRange || rangeFromPreset(preset);
 
   useEffect(() => {
-    if (!projectId) {
-      setMetrics({ totals: null, rows: [], lastUpdate: null });
-      setConsolidated({ months: [] });
-      return;
+    if (!projectId || !conectado || range.fechaDesde > range.fechaHasta) {
+      setDatos(VACIO);
+      return undefined;
     }
+    let vivo = true;
     setLoading(true);
     setError(null);
+    const { fechaDesde: d, fechaHasta: h } = range;
     Promise.all([
-      getGscMetrics(projectId, range).then(r => (r.success && r.data) ? r.data : Promise.reject(r.error || 'Error metrics')),
-      getGscConsolidated(projectId).then(r => (r.success && r.data) ? r.data : Promise.reject(r.error || 'Error consolidated')),
-    ]).then(([m, c]) => {
-      setMetrics(m);
-      setConsolidated(c);
-    }).catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  }, [projectId, range.fechaDesde, range.fechaHasta]); // eslint-disable-line
+      searchConsoleApi.resumen(projectId, d, h),
+      searchConsoleApi.consultas(projectId, d, h),
+      searchConsoleApi.paginas(projectId, d, h),
+      searchConsoleApi.indexacion(projectId),
+    ])
+      .then(([resumen, consultas, paginas, indexacion]) => {
+        if (vivo) setDatos({ resumen, consultas: consultas || [], paginas, indexacion });
+      })
+      .catch((err: { data?: { error?: string }; message?: string }) => {
+        if (vivo) setError(err?.data?.error || err?.message || 'No se pudo cargar');
+      })
+      .finally(() => { if (vivo) setLoading(false); });
+    return () => { vivo = false; };
+  }, [projectId, conectado, range.fechaDesde, range.fechaHasta, recarga]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return {
-    metrics,
-    consolidated,
-    loading,
-    error,
-    preset, setPreset,
-    customRange, setCustomRange,
-    range,
-  };
+  return { ...datos, loading, error, preset, setPreset, customRange, setCustomRange, range };
 }

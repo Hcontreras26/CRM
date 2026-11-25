@@ -20,6 +20,7 @@ import consultasModule from './modules/consultas/index.js';
 import notificationsModule from './modules/notifications/index.js';
 import metaAdsModule from './modules/meta-ads/index.js';
 import googleAnalyticsModule from './modules/google-analytics/index.js';
+import searchConsoleModule from './modules/search-console/index.js';
 import accountingModule from './modules/accounting/index.js';
 import expensesModule from './modules/expenses/index.js';
 import integrationsModule from './modules/integrations/index.js';
@@ -106,6 +107,7 @@ import { startDocumentOrphanScheduler } from './jobs/documentOrphanScheduler.js'
 import { startGoogleAdsTokenScheduler } from './jobs/googleAdsTokenScheduler.js';
 import { startMetaAdsSyncScheduler } from './jobs/metaAdsSyncScheduler.js';
 import { startGoogleAnalyticsSyncScheduler } from './jobs/googleAnalyticsSyncScheduler.js';
+import { startSearchConsoleSyncScheduler } from './jobs/searchConsoleSyncScheduler.js';
 import { startMetaTokensScheduler } from './jobs/metaTokensScheduler.js';
 import { startTutorCommissionsScheduler } from './jobs/tutorCommissionsScheduler.js';
 import { startTutoresCampusScheduler } from './jobs/tutoresCampusScheduler.js';
@@ -328,6 +330,7 @@ const ALL_MODULES = [
   { name: 'meta-ads', mod: metaAdsModule },
   // Google Analytics 4 (CRM#55): lo que pasa antes del lead.
   { name: 'google-analytics', mod: googleAnalyticsModule },
+  { name: 'search-console', mod: searchConsoleModule },
   { name: 'accounting', mod: accountingModule },
   // Egresos, su propio modulo e igual que en CRM-ISEIE (#227). Va DESPUES de
   // `accounting`: su alias /api/accounting/expenses cuelga de ese prefijo.
@@ -549,6 +552,8 @@ if (process.env.NODE_ENV !== 'test') {
     startMetaAdsSyncScheduler();
     // Sincronización de Google Analytics 4 (CRM#55). Apagada sin GA4_SYNC_ACTIVO=1.
     startGoogleAnalyticsSyncScheduler();
+    // Sincronización de Search Console (CRM#36). Apagada sin GSC_SYNC_ACTIVO=1.
+    startSearchConsoleSyncScheduler();
     // Renovación diaria de tokens de Meta e Instagram (#471). Apagada sin META_TOKENS_RENOVACION_ACTIVA=1.
     startMetaTokensScheduler();
     startTutorCommissionsScheduler();

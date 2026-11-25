@@ -245,6 +245,13 @@ export const SECCIONES = [
           a('edit', 'Sincronizar Google Analytics', 'Traer ya los datos de GA4 de un campus.', ADMIN_SOPORTE),
         ],
       },
+      {
+        // CRM#36: lo que pasa en Google antes de la visita (búsquedas, posiciones, indexación).
+        clave: 'search_console', nombre: 'Search Console', acciones: [
+          a('view', 'Ver Tráfico orgánico', 'Clics, impresiones, posición, búsquedas y páginas de Google, y qué páginas de formación no están indexadas.', yPM(ADMIN_SOPORTE)),
+          a('edit', 'Sincronizar Search Console', 'Traer ya los datos de Search Console de un campus.', ADMIN_SOPORTE),
+        ],
+      },
     ],
   },
   {
