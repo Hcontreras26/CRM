@@ -45,12 +45,19 @@ router.get('/anuncios', puede('tutores.gestionar'), ctrl.anunciosDeTutores);
 // La ficha del curso que imparte, sin poder tocarla.
 router.get('/curso/:productId', puede('tutores.mis_cursos', 'tutores.gestionar'), ctrl.cursoDetalle);
 // «Mi campus» (#681): sus cursos de Moodle con alumnos, dudas y tareas por corregir. Solo lo suyo.
-router.get('/mi-campus', puede('tutores.mis_cursos'), ctrl.miCampus);
+// Con «Mi campus de administración» también: quien revisa el campus y además da clase con su
+// cuenta enlazada ve y corrige lo suyo como cualquier tutora. Lo de dentro solo es SUYO
+// (tutor_campus de quien pide y, para corregir, profesora del curso en Moodle).
+const MIS_CURSOS = ['tutores.mis_cursos', 'tutores.campus_administracion'];
+router.get('/mi-campus', puede(...MIS_CURSOS), ctrl.miCampus);
+// «Mi campus» de administración (25/11): todo el campus con el token del campus, solo lectura.
+router.get('/mi-campus/administracion', puede('tutores.campus_administracion'), ctrl.campusAdministracion);
+router.get('/mi-campus/administracion/cursos/:projectId/:cursoId', puede('tutores.campus_administracion'), ctrl.cursoAdministracion);
 // Corregir desde el CRM (#681): la tarea con sus entregas, un archivo entregado y la nota.
-router.get('/mi-campus/tareas/:projectId/:cursoId/:tareaId/archivo', puede('tutores.mis_cursos'), ctrl.archivoEntregado);
-router.get('/mi-campus/tareas/:projectId/:cursoId/:tareaId', puede('tutores.mis_cursos'), ctrl.verTarea);
+router.get('/mi-campus/tareas/:projectId/:cursoId/:tareaId/archivo', puede(...MIS_CURSOS), ctrl.archivoEntregado);
+router.get('/mi-campus/tareas/:projectId/:cursoId/:tareaId', puede(...MIS_CURSOS), ctrl.verTarea);
 // El curso entero, como en Moodle: temas y todas sus actividades.
-router.get('/mi-campus/cursos/:projectId/:cursoId', puede('tutores.mis_cursos'), ctrl.verCurso);
+router.get('/mi-campus/cursos/:projectId/:cursoId', puede(...MIS_CURSOS), ctrl.verCurso);
 // La redactora ve lo suyo (#1026): su cuenta y su rol en los cursos que redacta, con el id
 // del token (sin `:id`: no puede pedir el de otra). Antes que `/:id/...`. Aún sin aprobar.
 if (redactorasMoodleActivo()) {
@@ -61,7 +68,7 @@ if (redactorasMoodleActivo()) {
 // PLUGIN_MOODLE_EN_PRODUCCION=1, como las rutas del plugin en consultas.routes.js.
 // Leer (Mi campus, la tarea, el curso, los archivos) sí va siempre: no cambia nada.
 if (pluginMoodleActivo()) {
-  router.post('/mi-campus/tareas/:projectId/:cursoId/:tareaId/calificar', puede('tutores.mis_cursos'), ctrl.calificar);
+  router.post('/mi-campus/tareas/:projectId/:cursoId/:tareaId/calificar', puede(...MIS_CURSOS), ctrl.calificar);
 }
 router.get('/curso/:productId/brochure', puede('tutores.mis_cursos', 'tutores.gestionar'), ctrl.brochureDelCurso);
 

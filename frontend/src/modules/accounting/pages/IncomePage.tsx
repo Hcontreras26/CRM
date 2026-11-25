@@ -2,7 +2,6 @@ import { useEffect, useState, lazy, Suspense, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '@/shared/api/client';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { useAuth } from '@/contexts/AuthContext';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import KpiCard from '@/shared/components/ui/KpiCard';
 import EmptyState from '@/shared/components/ui/EmptyState';
@@ -130,8 +129,10 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
     });
   }, [esIA, activeProject?.id]);
   const issuerIdParam = activeIssuerId ?? null;
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  // La lista y el filtro de gestoras y el «Equipo de ventas»: por permiso y alcance
+  // (25/11/2026), no por rol: soporte tiene Ingresos y no le salían.
+  const { can, veGestoras } = usePermission();
+  const isAdmin = veGestoras && can('ventas.view_equipo');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -140,7 +141,6 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   // Van AQUI y no solo en /ventas: esta es la pantalla que se usa --Finanzas >
   // Ventas--, y son dos componentes distintos con el mismo nombre. Ponerlo solo
   // en el otro fue como no ponerlo.
-  const { can } = usePermission();
   const puedeSinGestora = can('conversions.sin_gestora');
   const puedeDeOtra = can('leads.assign');
   const [modoVenta, setModoVenta] = useState<'existing' | 'otra_gestora' | 'sin_gestora'>('existing');

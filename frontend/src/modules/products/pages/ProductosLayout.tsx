@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { Package, ListBullets, Tree, Clock, ShoppingBag, GraduationCap } from '@phosphor-icons/react';
+import { Package, ListBullets, Tree, Clock, ShoppingBag, GraduationCap, BookOpen } from '@phosphor-icons/react';
 import SubNav from '@/shared/components/ui/SubNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { soloEsTutor, soloEsTutorRedactor } from '@/shared/lib/roles';
@@ -12,6 +12,8 @@ import { soloEsTutor, soloEsTutorRedactor } from '@/shared/lib/roles';
 // nombres cruzados.
 const TABS = [
   { label: 'Catálogo', to: '/productos', icon: ListBullets },
+  // CRM#1113: la formación entera —datos, módulos y tutoras— en una ficha. Con `products.edit` (SIN_ENTRADA del Sidebar).
+  { label: 'Formaciones', to: '/productos/formaciones', icon: BookOpen },
   { label: 'Por categoría', to: '/productos/arbol', icon: ListBullets },
   { label: 'Árbol de categorías', to: '/productos/categorias', icon: Tree },
   { label: 'Cursos pendientes', to: '/productos/pendientes', icon: Clock },

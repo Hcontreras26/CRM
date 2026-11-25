@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   CalendarCheck,
+  Stamp,
   ArrowCounterClockwise,
   SquaresFour,
   Users,
@@ -48,6 +49,7 @@ import {
   Tree,
   ListBullets,
   GraduationCap,
+  Student,
   CurrencyEur,
   TrendUp,
   TrendDown,
@@ -77,7 +79,8 @@ import Portal from '@/shared/components/ui/portal';
 import { ProjectAvatar, EmpresaAvatar } from '@/shared/components/ui/ProjectAvatar';
 import { isFloatingDockHidden, setFloatingDockHidden } from './FloatingDock';
 import { toast } from '@/shared/hooks/useToast';
-import { isBetaAllowed, BETA_MODE, BETA_VERSION } from '@/shared/config/betaConfig';
+import { isBetaAllowed } from '@/shared/config/betaConfig';
+import { VERSION_APP, ETIQUETA_VERSION } from '@/shared/config/version';
 import { moduloApagado } from '@/shared/lib/modulos';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
@@ -320,7 +323,8 @@ export const SECCIONES_DE_ANTES = [
       // «Mis cursos» (sus cursos y su parte) ya no va en el menú (05/11): la tutora trabaja
       // desde «Mi campus». La pantalla sigue en /mis-cursos para los enlaces de los correos.
       // #681: sus cursos en Moodle, con lo que tiene por corregir y contestar.
-      { label: 'Mi campus', to: '/mis-cursos/campus', detail: 'Por corregir, dudas y alumnos', icon: ClipboardText, roles: ['tutor', 'tutor_redactor'], statusTag: 'Pruebas', permiso: 'tutores.mis_cursos' },
+      // Y administración (Diego, 25/11), con «Mi campus de administración»: todo el campus.
+      { label: 'Mi campus', to: '/mis-cursos/campus', detail: 'Por corregir, dudas y alumnos', icon: ClipboardText, roles: ['superadmin', 'admin', 'tutor', 'tutor_redactor'], statusTag: 'Pruebas', permiso: ['tutores.mis_cursos', 'tutores.campus_administracion'] },
       // Consultas de alumnos (#188): el tutor, su bandeja; administración, todas.
       { label: 'Consultas', to: '/consultas', detail: 'Las dudas de los alumnos', icon: ChatCircleText, roles: ['superadmin', 'admin', 'tutor', 'tutor_redactor'], module: 'tutores', statusTag: 'Pruebas', permiso: ['consultas.view', 'consultas.atender'], oPermiso: 'consultas.view' },
       { label: 'Sin tutor', to: '/tutores/sin-tutor', detail: 'Formaciones sin asignar', icon: Warning, roles: ['superadmin', 'admin'], module: 'tutores', permiso: 'tutores.gestionar', oPermiso: 'tutores.gestionar' },
@@ -422,6 +426,10 @@ export const SECCIONES_DE_ANTES = [
       { label: 'Solicitud de admisión', to: '/clientes/matriculas', detail: 'Las que llegan del formulario', icon: GraduationCap, module: 'matriculas', permiso: 'matriculas.view',
         // Se llamó «Matrículas» hasta la #831: el buscador la sigue encontrando así.
         keywords: 'matrículas matricula admisión inscripción' },
+      // Apostilla de La Haya (CRM#1130): el trámite de cada apostilla vendida. La ven
+      // todos los que entran al CRM salvo tutores, colaboradores y redactoras (`apostillas.view`).
+      { label: 'Apostillas', to: '/clientes/apostillas', detail: 'Apostilla de La Haya', icon: Stamp, permiso: 'apostillas.view',
+        keywords: 'apostilla haya legalización título' },
       // Diplomas de Certifex (#272): lo que piden los alumnos desde Moodle, aprobarlo,
       // enviarlo y revocarlo. Los mismos roles que la API (`soloRoles` admin/superadmin),
       // y además, para VERLO en solo lectura, quien tenga `diplomas.view` (#384,
@@ -445,7 +453,8 @@ export const SECCIONES_DE_ANTES = [
     icon: PlugsConnected,
     items: [
       { label: 'MCP', to: '/conexion/mcp', detail: 'Consultar desde Claude', icon: Robot, accesoMcp: true },
-      // #335: los cursos, alumnos y recursos de los Moodle de cada campus.
+      // #335: los cursos, alumnos y recursos de los Moodle de cada campus. En el menú,
+      // «Moodle › Cursos y alumnos» (apartado Moodle, Diego 25/11: `bloquesDelMenu.js`).
       { label: 'Moodle', to: '/conexion/moodle', detail: 'Cursos y alumnos de cada campus', icon: GraduationCap, roles: ['superadmin', 'admin'], permiso: 'moodle.view' },
       { label: 'Conectores', to: '/conexion/conectores', detail: 'WordPress, tiendas y APIs', icon: CloudArrowDown, roles: ['superadmin', 'admin'], module: 'connectors', permiso: 'connectors.view' },
       // Todos los webhooks en un sitio, señalados por su función (#690, Diego 05/11:
@@ -465,6 +474,20 @@ export const SECCIONES_DE_ANTES = [
         // lista las pestañas: lleva aquí, y desde aquí a cada una.
         keywords: 'webhook de transferencias · webhooks de captación · webhooks de prospectos · escenarios de make · make zapier n8n transferencias depósitos stripe woocommerce admisión matrícula formularios entradas avisos' },
       { label: 'Asignación de leads', to: '/conexion/asignacion-leads', detail: 'A quién va cada formulario', icon: Shuffle, roles: ['superadmin', 'admin'], permiso: 'webhooks_salientes.view' },
+    ],
+  },
+  // El apartado Moodle (Diego, 25/11/2026: «que en el menú salga un apartado de
+  // Moodle […] y poder meter todo lo de Moodle ahí»). Sus entradas se declaran
+  // donde estaban, con sus permisos y roles, y `bloquesDelMenu.js` las trae aquí
+  // (Mi campus, Consultas, Cursos y alumnos, Cursos de Moodle, Cursos pendientes,
+  // Diplomas). La única propia es la conexión del campus: la tarjeta Moodle de
+  // Integraciones, con el mismo permiso que «Integraciones» (`integrations.view`).
+  {
+    label: 'Moodle',
+    // Su propio icono: GraduationCap ya es el de «Cursos y alumnos» y «Cursos de Moodle» (#105).
+    icon: Student,
+    items: [
+      { label: 'Conexión del campus', to: '/moodle/conexion', detail: 'Integraciones › Moodle', icon: PlugsConnected, roles: ['superadmin', 'admin'], salvoTipo: ['ia'], permiso: 'integrations.view' },
     ],
   },
   {
@@ -659,6 +682,9 @@ const SIN_ENTRADA = {
   '/finanzas/conciliacion/facturas': 'facturas.gestionar',
   // La de cargos de Stripe (#906): la clave de «Asociar» en Pagos Stripe.
   '/finanzas/conciliacion/cargos-stripe': 'stripe.edit',
+  // Productos › Formaciones (CRM#1113): crear y editar formaciones con sus módulos.
+  // La pestaña, a quien puede editar el catálogo; el servidor pide lo mismo.
+  '/productos/formaciones': ['products.edit', 'products.create'],
 };
 // Lo que esas rutas piden ADEMÁS (todos), como `tambienPermiso` en una entrada
 // del menú. La pestaña Prospectos es la pantalla de Captación › Webhooks, que
@@ -1500,7 +1526,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       )}
     >
       {/* La cabecera: el logo grande arriba y los textos debajo.
-          En una linea no cabia: con el logo, «MultiCRM» y la chapa de BETA en
+          En una linea no cabia: con el logo, «MultiCRM» y la chapa de la versión en
           240 pixeles, el nombre acababa cortado en «Multi…». Apilado, el logo
           se ve de verdad —es lo que dice en que marca estas— y el texto cabe
           entero. */}
@@ -1537,9 +1563,13 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
           <div className="mt-2 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="font-semibold text-sm text-foreground truncate">{MARCA}</span>
-              {BETA_MODE && (
-                <span className="text-[9px] font-bold uppercase tracking-wider bg-warning-soft text-warning-soft-foreground px-1.5 py-0.5 rounded flex-shrink-0">
-                  BETA{BETA_VERSION ? ` ${BETA_VERSION}` : ''}
+              {/* La versión, la de Novedades (25/11): antes «BETA 1.0.0». */}
+              {ETIQUETA_VERSION && (
+                <span
+                  title={`Versión ${VERSION_APP}`}
+                  className="text-[10px] font-mono font-semibold tabular-nums bg-muted text-muted-foreground px-1.5 py-0.5 rounded flex-shrink-0"
+                >
+                  {ETIQUETA_VERSION}
                 </span>
               )}
             </div>
@@ -1688,7 +1718,8 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
                 : section.label === 'Comercial' ? 'menu-comercial'
                   : section.label === 'Académico' ? 'menu-academico'
                     : section.label === 'Finanzas' ? 'menu-finanzas'
-                      : section.label === 'Configuración' ? 'menu-configuracion' : anclaDelBloque(section.label)}
+                      : section.label === 'Configuración' ? 'menu-configuracion'
+                        : section.label === 'Moodle' ? 'menu-moodle' : anclaDelBloque(section.label)}
             >
               <button
                 type="button"

@@ -362,6 +362,12 @@ export function comoIds(v) {
  * (09/11/2026): quien lo lleva ve su equipo, o una de él si la pide, nunca a
  * otra. Sin equipo, exactamente lo de antes.
  */
+/**
+ * Quien ve el campus entero en los informes y en la cola: todo, o la de una si la
+ * pide. Soporte también (25/11/2026): tenía Reportes y la Cola y le salían vacíos.
+ */
+export const JEFES_DEL_INFORME = ['admin', 'superadmin', 'soporte'];
+
 export async function personaDelInforme(user, pedido, { jefes = ['admin', 'superadmin'] } = {}) {
   const alcance = await alcanceComercial(user);
   const esJefe = jefes.includes(user?.role);

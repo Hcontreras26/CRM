@@ -37,7 +37,34 @@ export const BLOQUES_DEL_MENU = {
   aprobadoPor: 'Diego, 18/11',
 };
 
+/**
+ * El apartado «Moodle» (Diego, 25/11/2026: «necesito que en el menú salga un
+ * apartado de Moodle, porque no se entiende del todo, y poder meter todo lo de
+ * Moodle ahí»). Lo de Moodle estaba repartido por Académico y Configuración;
+ * ahora va junto, en un bloque propio. Mismo principio que el
+ * reparto por bloques: SOLO CAMBIA EL SITIO. Cada entrada conserva su permiso,
+ * sus roles y sus módulos, así que nadie ve nada que antes no viera, y a quien
+ * no le queda ninguna entrada de Moodle el bloque no le sale (un bloque vacío
+ * no se pinta). La única entrada nueva, «Conexión del campus», lleva a la
+ * pantalla de siempre (Integraciones › Moodle) con el permiso de siempre
+ * (`integrations.view`): la ve quien ya veía «Integraciones»
+ * (`menu-apartado-moodle` en `cambios-aprobados.js`).
+ */
+export const APARTADO_MOODLE = {
+  id: 'apartado-moodle',
+  que: 'Un bloque «Moodle» en el menú con Mi campus, Consultas, Cursos y alumnos (antes «Conexión › Moodle»), Cursos de Moodle, Cursos pendientes, Diplomas y la conexión del campus, sin cambiar quién ve qué.',
+  aprobadoPor: 'Diego, 25/11',
+};
+
 export const REUBICACIONES = [
+  // MOODLE (Diego, 25/11: apartado Moodle). Van PRIMERO: gana la primera regla que
+  // encaja, y «Tutores», «Catálogo», «Clientes» y «Conexión» se mueven enteros más abajo.
+  ['Tutores › Mi campus', 'Moodle › Mi campus'],
+  ['Tutores › Consultas', 'Moodle › Consultas'],
+  ['Conexión › Moodle', 'Moodle › Cursos y alumnos'],
+  ['Catálogo › Cursos de Moodle', 'Moodle › Cursos de Moodle'],
+  ['Catálogo › Cursos pendientes', 'Moodle › Cursos pendientes'],
+  ['Clientes › Diplomas', 'Moodle › Diplomas'],
   // HOY: lo de cada mañana.
   ['Principal › Dashboard', 'Hoy › Dashboard'],
   ['Principal › Prospectos › La cola del día', 'Hoy › La cola del día'],
@@ -55,7 +82,7 @@ export const REUBICACIONES = [
   // salían (estaban en Clientes); dentro, un proyecto IA los perdería.
   ['Clientes › Revisión duplicados', 'Comercial › Revisión duplicados'],
   ['Clientes › Buscar duplicados', 'Comercial › Buscar duplicados'],
-  ['Clientes › Diplomas', 'Académico › Diplomas'],
+  // «Clientes › Diplomas» iba a Académico; desde el 25/11, al apartado Moodle (arriba).
   ['Clientes', 'Comercial'],
   // CAPTACIÓN Y PUBLICIDAD.
   ['Captación', 'Captación y publicidad'],
@@ -76,9 +103,21 @@ export const REUBICACIONES = [
 
 /** El orden de los bloques. Los que no estén aquí van al final, en su orden. */
 export const ORDEN_DE_LOS_BLOQUES = [
-  'Testeo', 'Hoy', 'Comercial', 'Proyecto IA', 'Captación y publicidad', 'Académico',
+  'Testeo', 'Hoy', 'Comercial', 'Proyecto IA', 'Captación y publicidad', 'Académico', 'Moodle',
   'Finanzas', 'Análisis', 'Configuración', 'Sistema', 'Equipo de Desarrollo',
 ];
+
+/**
+ * El orden de las entradas DENTRO de un bloque, cuando el de las secciones de
+ * antes no sirve. El apartado Moodle junta entradas de cinco secciones; sin
+ * esto saldrían en el orden en que se declararon, no en el de uso: primero lo
+ * de cada día (Mi campus y Consultas), luego los cursos y, al final, la
+ * conexión. Lo que no esté en la lista va detrás, en su orden.
+ */
+export const ORDEN_DENTRO_DEL_BLOQUE = {
+  // «Mis cursos» solo está en el menú de CRM-ISEIE (en el 360 es una pestaña de Mi campus).
+  Moodle: ['Mi campus', 'Mis cursos', 'Consultas', 'Cursos y alumnos', 'Cursos de Moodle', 'Cursos pendientes', 'Diplomas', 'Conexión del campus'],
+};
 
 const SEP = ' › ';
 
@@ -197,6 +236,17 @@ export function reagruparMenu(secciones, bloques = {}, reubicaciones = REUBICACI
     const ancla = items.findIndex((x) => x.label === c.despuesDe);
     if (ancla < 0) throw new Error(`bloquesDelMenu: «${c.seccion}${SEP}${c.despuesDe}» no existe para colocar «${c.label}»`);
     items.splice(ancla + 1, 0, entrada);
+  }
+
+  for (const [bloque, labels] of Object.entries(ORDEN_DENTRO_DEL_BLOQUE)) {
+    const s = nuevas.get(bloque);
+    if (!s) continue;
+    const pos = (it) => {
+      const i = labels.indexOf(it.label);
+      return i < 0 ? labels.length : i;
+    };
+    // `sort` es estable: lo que no está en la lista conserva su orden.
+    s.items.sort((a, b) => pos(a) - pos(b));
   }
 
   const orden = (n) => {
