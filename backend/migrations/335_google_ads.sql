@@ -77,4 +77,17 @@ CREATE INDEX IF NOT EXISTS idx_google_ads_diario_campana
 CREATE INDEX IF NOT EXISTS idx_google_ads_diario_cuenta
     ON google_ads_diario (customer_id, fecha);
 
+-- Permisos para el usuario del CRM (como en la 316 y la 232): sin esto las
+-- tablas quedan de postgres y la API da 500. No hay secuencias: ninguna clave
+-- es SERIAL.
+DO $$
+DECLARE r text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['crm_user', 'crm_iseie_user'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON google_ads_cuentas, google_ads_campanas, google_ads_diario TO %I', r);
+    END IF;
+  END LOOP;
+END $$;
+
 COMMIT;
