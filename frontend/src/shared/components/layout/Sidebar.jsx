@@ -78,7 +78,8 @@ import Portal from '@/shared/components/ui/portal';
 import { ProjectAvatar, EmpresaAvatar } from '@/shared/components/ui/ProjectAvatar';
 import { isFloatingDockHidden, setFloatingDockHidden } from './FloatingDock';
 import { toast } from '@/shared/hooks/useToast';
-import { isBetaAllowed, BETA_MODE, BETA_VERSION } from '@/shared/config/betaConfig';
+import { isBetaAllowed } from '@/shared/config/betaConfig';
+import { VERSION_APP, ETIQUETA_VERSION } from '@/shared/config/version';
 import { moduloApagado } from '@/shared/lib/modulos';
 import { CERTIFEX_PANEL } from '@/shared/lib/certifexPanel';
 import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
@@ -1504,7 +1505,7 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
       )}
     >
       {/* La cabecera: el logo grande arriba y los textos debajo.
-          En una linea no cabia: con el logo, «MultiCRM» y la chapa de BETA en
+          En una linea no cabia: con el logo, «MultiCRM» y la chapa de la versión en
           240 pixeles, el nombre acababa cortado en «Multi…». Apilado, el logo
           se ve de verdad —es lo que dice en que marca estas— y el texto cabe
           entero. */}
@@ -1541,9 +1542,13 @@ export default function Sidebar({ onNavigate, collapsed = false, onToggleCollaps
           <div className="mt-2 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="font-semibold text-sm text-foreground truncate">{MARCA}</span>
-              {BETA_MODE && (
-                <span className="text-[9px] font-bold uppercase tracking-wider bg-warning-soft text-warning-soft-foreground px-1.5 py-0.5 rounded flex-shrink-0">
-                  BETA{BETA_VERSION ? ` ${BETA_VERSION}` : ''}
+              {/* La versión, la de Novedades (25/11): antes «BETA 1.0.0». */}
+              {ETIQUETA_VERSION && (
+                <span
+                  title={`Versión ${VERSION_APP}`}
+                  className="text-[10px] font-mono font-semibold tabular-nums bg-muted text-muted-foreground px-1.5 py-0.5 rounded flex-shrink-0"
+                >
+                  {ETIQUETA_VERSION}
                 </span>
               )}
             </div>
