@@ -1,6 +1,19 @@
 import { query } from '../../shared/config/db.js';
 
 /**
+ * Los días del feedback se cuentan en hora de Madrid, como el tope diario
+ * (`correosDeHoy`) y la agenda (`agendarVuelta`). Con `::date` o CURRENT_DATE
+ * mandaba la zona de la sesión de PostgreSQL, que no tiene por qué ser esa
+ * (#593, punto 14).
+ */
+const ZONA = 'Europe/Madrid';
+const diaMadrid = (expr) => `(${expr} AT TIME ZONE '${ZONA}')::date`;
+const HOY = `(NOW() AT TIME ZONE '${ZONA}')::date`;
+
+/** Un correo con forma de correo: algo@algo.algo, sin espacios. */
+const CORREO_CON_FORMA = `'^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$'`;
+
+/**
  * Lo que hace falta de una persona para escribirle: a quién, de qué marca y por
  * qué formación preguntó. La marca sale del CAMPUS (logo y color), que es lo que
  * la persona reconoce: preguntó en la web de ISEIH, no en «el CRM».
@@ -170,14 +183,15 @@ export async function candidatosDelDia7({ tope = 25, maxDias = 30, inicio = null
     `SELECT id FROM (
        SELECT DISTINCT ON (lower(trim(l.email))) l.id, act.ultima
          FROM leads l
-         JOIN projects p ON p.id = l.project_id AND NOT COALESCE(p.es_prueba, false)
+         -- Ni campus de pruebas ni campus desactivados (#593, punto 23).
+         JOIN projects p ON p.id = l.project_id AND NOT COALESCE(p.es_prueba, false) AND p.active
          JOIN LATERAL (
-           SELECT (MIN(li.fecha) FILTER (WHERE li.tipo <> 'nota'))::date AS primer_contacto
+           SELECT ${diaMadrid("MIN(li.fecha) FILTER (WHERE li.tipo <> 'nota')")} AS primer_contacto
              FROM lead_interactions li
             WHERE li.lead_id = l.id
          ) pc ON pc.primer_contacto IS NOT NULL
          CROSS JOIN LATERAL (
-           SELECT GREATEST(
+           SELECT ${diaMadrid(`GREATEST(
                     (SELECT MAX(li.fecha) FROM lead_interactions li
                        JOIN leads o ON o.id = li.lead_id
                       WHERE lower(trim(o.email)) = lower(trim(l.email))),
@@ -185,12 +199,14 @@ export async function candidatosDelDia7({ tope = 25, maxDias = 30, inicio = null
                        JOIN leads o ON o.id = wc.lead_id
                        JOIN wa_mensajes m ON m.conversacion_id = wc.id
                       WHERE lower(trim(o.email)) = lower(trim(l.email)))
-                  )::date AS ultima
+                  )`)} AS ultima
          ) act
         WHERE l.deleted_at IS NULL
           AND l.status NOT IN ('convertido', 'no_interesado')
-          AND NULLIF(TRIM(l.email), '') IS NOT NULL
-          AND act.ultima BETWEEN CURRENT_DATE - $2::int AND CURRENT_DATE - 7
+          -- Con forma de correo: «juan@gmail» o «no tiene» salían elegidos y
+          -- Brevo los rechazaba (#593, menores).
+          AND TRIM(l.email) ~ ${CORREO_CON_FORMA}
+          AND act.ultima BETWEEN ${HOY} - $2::int AND ${HOY} - 7
           AND ($3::date IS NULL OR pc.primer_contacto >= $3::date)
           AND NOT EXISTS (SELECT 1 FROM feedback_envios f WHERE f.lead_id = l.id)
           AND NOT EXISTS (SELECT 1 FROM feedback_envios f
@@ -220,6 +236,8 @@ export async function sigueTocandole(leadId) {
         AND l.deleted_at IS NULL
         AND l.status NOT IN ('convertido', 'no_interesado')
         AND NULLIF(TRIM(l.email), '') IS NOT NULL
+        -- Si su campus se desactivó entretanto, ya no se le escribe (#593, punto 23).
+        AND EXISTS (SELECT 1 FROM projects p WHERE p.id = l.project_id AND p.active)
         AND NOT EXISTS (SELECT 1 FROM feedback_envios f
                          WHERE f.lead_id <> l.id AND f.estado = 'enviado'
                            AND f.email IS NOT NULL AND lower(trim(f.email)) = lower(trim(l.email)))
@@ -277,12 +295,16 @@ export async function correosDeHoy() {
  *   · deUsuario : un admin que no es superadmin, solo sus campus.
  *   · fechas    : por el día en que SALIÓ el correo.
  */
-function recorte({ projectIds, gestoraId, deUsuario, desde, hasta }, par) {
+function recorte({ projectIds, gestoraId, deUsuario, desde, hasta, conPruebas = false }, par) {
   const trozos = [];
   if (Array.isArray(projectIds) && projectIds.length) {
     par.push(projectIds.map(Number));
     trozos.push(`AND f.project_id = ANY($${par.length}::int[])`);
-  } else {
+  }
+  // Los campus de pruebas, fuera salvo que se haya pedido ese campus en
+  // concreto (`conPruebas`). Antes solo se quitaban sin ningún campus: al
+  // elegir empresa, o en el «Todos» de un admin, se sumaban (#593, punto 9).
+  if (!conPruebas) {
     trozos.push('AND f.project_id NOT IN (SELECT id FROM projects WHERE COALESCE(es_prueba, false))');
   }
   // «sin»: la fila «Sin gestora» del desglose. Antes no mandaba nada y su
@@ -300,13 +322,15 @@ function recorte({ projectIds, gestoraId, deUsuario, desde, hasta }, par) {
     trozos.push(`AND EXISTS (SELECT 1 FROM user_projects up
                               WHERE up.user_id = $${par.length} AND up.project_id = f.project_id AND up.active)`);
   }
+  // El día, en hora de Madrid (#593, punto 14): con `::date` a secas se cortaba
+  // en la hora del servidor, y lo enviado a las 00:30 caía en el día anterior.
   if (desde) {
     par.push(desde);
-    trozos.push(`AND COALESCE(f.enviado_at, f.created_at)::date >= $${par.length}::date`);
+    trozos.push(`AND ${diaMadrid('COALESCE(f.enviado_at, f.created_at)')} >= $${par.length}::date`);
   }
   if (hasta) {
     par.push(hasta);
-    trozos.push(`AND COALESCE(f.enviado_at, f.created_at)::date <= $${par.length}::date`);
+    trozos.push(`AND ${diaMadrid('COALESCE(f.enviado_at, f.created_at)')} <= $${par.length}::date`);
   }
   return trozos.join('\n        ');
 }
@@ -373,7 +397,7 @@ export async function panel(filtros) {
         GROUP BY f.gestora_id, u.nombre
         ORDER BY enviados DESC, nombre`, par),
     query(
-      `SELECT to_char(date_trunc('month', f.enviado_at), 'YYYY-MM') AS mes,
+      `SELECT to_char(f.enviado_at AT TIME ZONE '${ZONA}', 'YYYY-MM') AS mes,
               count(*)::int AS enviados,
               count(*) FILTER (WHERE f.respondido_at IS NOT NULL)::int AS respondidos
          ${base}

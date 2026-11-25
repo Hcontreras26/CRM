@@ -62,7 +62,8 @@ describe('el correo de feedback sale solo tras 7 días sin interacción', () => 
     // comportamiento se prueba contra la base en feedbackPorPersona593.
     expect(sql).toMatch(/SELECT MAX\(li\.fecha\) FROM lead_interactions li/);
     expect(sql).toMatch(/SELECT MAX\(m\.ts\) FROM wa_conversaciones wc/);
-    expect(sql).toMatch(/act\.ultima BETWEEN CURRENT_DATE - \$2::int AND CURRENT_DATE - 7/);
+    // El «hoy», en hora de Madrid (#1133, punto 14 de la auditoría #593).
+    expect(sql).toMatch(/act\.ultima BETWEEN \(NOW\(\) AT TIME ZONE 'Europe\/Madrid'\)::date - \$2::int AND \(NOW\(\) AT TIME ZONE 'Europe\/Madrid'\)::date - 7/);
     expect(sql).not.toMatch(/pc\.primer_contacto BETWEEN/);
     expect(sql).toMatch(/pc\.primer_contacto >= \$3::date/);
   });
