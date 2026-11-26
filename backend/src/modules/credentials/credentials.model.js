@@ -228,6 +228,9 @@ export function secretoVisible(value) {
     try {
       const o = JSON.parse(texto);
       if (o && typeof o.token === 'string' && o.token.length >= 4) return o.token;
+      // Cuenta de servicio de Google (GA4, Search Console): el ID de la clave, que es
+      // lo que enseña Google Cloud en «Claves». Nunca un trozo de `private_key`.
+      if (o?.type === 'service_account') return String(o.private_key_id || o.client_email || '····');
     } catch { /* no es JSON: vale el valor entero */ }
   }
   return texto;

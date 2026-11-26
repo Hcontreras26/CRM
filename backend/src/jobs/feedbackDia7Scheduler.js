@@ -1,5 +1,5 @@
 import { logger } from '../shared/utils/logger.js';
-import { vueltaDelDia7 } from '../modules/feedback/feedback.service.js';
+import { vueltaDelDia7, falloDeLaVuelta } from '../modules/feedback/feedback.service.js';
 import { vigilar } from './latido.js';
 
 /**
@@ -41,17 +41,28 @@ async function vuelta() {
   // Ni de madrugada ni de noche: un correo así se lee peor, y a esa hora nadie
   // de la casa está para ver si algo ha ido mal.
   if (hora < DESDE || hora >= HASTA) return null;
+  let r;
   try {
-    const r = await vueltaDelDia7({ pila: PILA, tope: TOPE, maxDias: MAX_DIAS, inicio: INICIO });
+    r = await vueltaDelDia7({ pila: PILA, tope: TOPE, maxDias: MAX_DIAS, inicio: INICIO });
     if (r.pedidos || r.reintentos) logger.info(r, 'Feedback del 7.º día: una tanda');
-    return r;
   } catch (err) {
     logger.error({ err: err.message }, 'Fallo pidiendo el feedback del 7.º día');
     // Se relanza para que `vigilar` lo apunte: tragárselo dejaba la tarea
     // «sana» en la pantalla de estado aunque fallara en cada vuelta (#593).
     throw err;
   }
+  // Los correos que no salieron, también (#1154): la vuelta podía terminar sin
+  // excepción con todos rechazados por Brevo, y el monitor la daba por buena.
+  // Se lanza DESPUÉS de mandar la tanda entera: un correo malo no para al resto.
+  const fallo = falloDeLaVuelta(r);
+  if (fallo) {
+    logger.warn(r, `Feedback del 7.º día: ${fallo}`);
+    throw new Error(fallo);
+  }
+  return r;
 }
+
+export { vuelta as _vuelta };
 
 export function startFeedbackDia7Scheduler() {
   if (process.env.FEEDBACK_DIA7_DISABLED === '1') {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as EventoDeTecla } from 'react';
 import { Link } from 'react-router-dom';
 import { X } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
@@ -387,6 +387,26 @@ function ListaDeDetras({ detalle, base, textoMotivo, disparadores, onCerrar }: {
 }) {
   const [filas, setFilas] = useState<FilaFeedback[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // El foco, como en cualquier ventana (#1154): entra al abrirla, no se escapa
+  // con el tabulador a la página de detrás y vuelve al número que la abrió al
+  // cerrarla. Antes se quedaba detrás: con el teclado no se llegaba a la lista,
+  // y en el móvil el lector seguía leyendo el panel tapado.
+  const ventana = useRef<HTMLDivElement>(null);
+  const cerrar = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const antes = document.activeElement as HTMLElement | null;
+    cerrar.current?.focus();
+    return () => { antes?.focus?.(); };
+  }, []);
+  const atraparFoco = (e: EventoDeTecla) => {
+    if (e.key !== 'Tab' || !ventana.current) return;
+    const enfocables = ventana.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    if (!enfocables.length) return;
+    const primero = enfocables[0];
+    const ultimo = enfocables[enfocables.length - 1];
+    if (e.shiftKey && document.activeElement === primero) { e.preventDefault(); ultimo.focus(); }
+    else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primero.focus(); }
+  };
   useEffect(() => {
     let vivo = true;
     const p = new URLSearchParams(base);
@@ -417,11 +437,11 @@ function ListaDeDetras({ detalle, base, textoMotivo, disparadores, onCerrar }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onCerrar}>
-      <div role="dialog" aria-modal="true" aria-label={detalle.titulo}
+      <div ref={ventana} role="dialog" aria-modal="true" aria-label={detalle.titulo} onKeyDown={atraparFoco}
         className="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-t-xl bg-card sm:rounded-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="font-semibold">{detalle.titulo}{filas ? ` · ${detalle.total ?? filas.length}` : ''}</h3>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" className="rounded p-1 hover:bg-muted"><X size={16} /></button>
+          <button ref={cerrar} type="button" onClick={onCerrar} aria-label="Cerrar" className="rounded p-1 hover:bg-muted"><X size={16} /></button>
         </div>
         <div className="max-h-[70vh] overflow-auto">
           {/* Si la lista no las trae todas, se dice cuántas enseña (#593). */}
