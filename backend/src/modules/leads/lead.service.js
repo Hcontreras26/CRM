@@ -7,7 +7,7 @@ import { normalizePhone } from '../../shared/utils/normalizePhone.js';
 import { notifyAdmins, notifyUsers } from '../notifications/notifications.service.js';
 import * as dupQueue from './dup-queue.service.js';
 import * as leadProducts from './lead-products.service.js';
-import { deducirCanal } from './canal.js';
+import { deducirCanal, clicsDelOrigen } from './canal.js';
 // La campaña, el conjunto y el anuncio de Meta de cada prospecto (puerta 8, CRM#806).
 import { resolverOrigenMeta, formacionDeLaPublicidad, guardarOrigenMeta } from './origen-meta.js';
 import { planificarPasosDeLead, ajustarPaso } from '../proceso/proceso.model.js';
@@ -220,6 +220,9 @@ async function _createLeadCore(project, leadData) {
     utm_medium: leadData.utm_medium,
     referrer: leadData.referrer,
     landing_url: leadData.landing_url,
+    gclid: leadData.gclid,
+    fbclid: leadData.fbclid,
+    ttclid: leadData.ttclid,
   });
   // Con un anuncio, un conjunto o una campaña de Meta reconocidos, no es «directo»
   // (un formulario instantáneo de Meta llega por Make sin UTM ni dirección).
@@ -296,6 +299,7 @@ async function _createLeadCore(project, leadData) {
       utm_term: leadData.utm_term || null,
       landing_url: leadData.landing_url || null,
       referrer: leadData.referrer || null,
+      ...clicsDelOrigen(leadData),
       canal_detectado: canalDetectado,
     },
   });

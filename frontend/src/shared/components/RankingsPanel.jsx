@@ -20,9 +20,11 @@ const fmtMoney = (n) => new Intl.NumberFormat('es-ES', {
 }).format(Number(n || 0));
 const fmtNum = (n) => new Intl.NumberFormat('es-ES').format(Number(n || 0));
 
+// Las categorías fijas del informe de canales (#48): el servidor agrupa los
+// canales finos (TikTok, WhatsApp…) en estas y manda también `nombre`.
 const CANALES = {
-  meta_ads: 'Meta Ads', google_ads: 'Google Ads', tiktok_ads: 'TikTok Ads', organico: 'Orgánico',
-  chatgpt_ia: 'ChatGPT / IA', directo: 'Directo', referido: 'Referido', whatsapp: 'WhatsApp', sin_origen: 'Sin origen',
+  pago_google: 'Pago Google', pago_meta: 'Pago Meta', organico: 'Orgánico', ia: 'IA',
+  directo: 'Directo', referido: 'Referido', otros: 'Otros', sin_origen: 'Sin origen',
 };
 const etiquetaCanal = (c) => CANALES[c] || c || 'Sin origen';
 
@@ -41,7 +43,7 @@ const VISTAS = {
   canales: {
     etiqueta: 'Canales', titulo: 'Origen de los prospectos', icon: Signpost, endpoint: '/informes/canales', clave: 'canal',
     sinDetalle: true,
-    ayuda: 'De dónde llegó cada prospecto y cuánto se ha vendido y cobrado por canal. «Sin origen» son los prospectos de los que no se sabe nada: no se reparten entre los demás.',
+    ayuda: 'De dónde llegó cada prospecto y cuánto se ha vendido y cobrado por canal: Pago Google, Pago Meta, Orgánico, IA (ChatGPT y las demás), Directo, Referido y Otros (TikTok, WhatsApp, Instagram). «Sin origen» son los prospectos de los que no se sabe nada: no se reparten entre los demás.',
     cols: [
       { k: 'canal', h: 'Canal', t: 'canal' },
       { k: 'leads', h: 'Prospectos', t: 'num' },
@@ -94,8 +96,10 @@ export default function RankingsPanel({ from, to }) {
 
   const visibles = useMemo(() => {
     const t = busca.trim().toLowerCase();
-    return t ? filas.filter((f) => String(f[conf.clave] || '').toLowerCase().includes(t)) : filas;
-  }, [filas, busca, conf.clave]);
+    // En canales se busca por cómo se llama («Pago Meta»), no por su clave.
+    const texto = (f) => (vista === 'canales' ? etiquetaCanal(f[conf.clave]) : String(f[conf.clave] || ''));
+    return t ? filas.filter((f) => texto(f).toLowerCase().includes(t)) : filas;
+  }, [filas, busca, conf.clave, vista]);
 
   // Solo en la vista de canales: cuántos prospectos no traen ninguna pista de origen.
   const sinOrigen = vista === 'canales' ? filas.find((f) => f.canal === 'sin_origen') : null;
