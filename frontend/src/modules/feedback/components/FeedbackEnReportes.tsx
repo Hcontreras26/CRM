@@ -39,6 +39,32 @@ function respuestaEnTexto(datos: PanelFeedback, clave: string, valor: unknown) {
   return (Array.isArray(valor) ? valor : [valor]).map(texto).join(', ');
 }
 
+/**
+ * El CSV de «Respuestas»: una fila por persona que contestó, con cada pregunta
+ * en su columna.
+ *
+ * «Cuándo se envió» llevaba el MOTIVO del envío («Al 7.º día sin comprar») y
+ * no la fecha: ahora es la fecha, en hora de Madrid, y el motivo va en su
+ * propia columna (#1154).
+ */
+export function respuestasEnCsv(datos: PanelFeedback, filas: FilaFeedback[]): string[] {
+  const preguntas = datos.preguntas;
+  const conOtro = preguntas.filter((q) => filas.some((f) => f.respuestas?.[`${q.clave}_otro`]));
+  const cab = ['Contestó', 'Prospecto', 'Correo', 'Campus', 'Gestora', 'Cuándo se envió', 'Por qué se envió',
+    ...preguntas.map((q) => q.texto), ...conOtro.map((q) => `${q.texto} · lo que escribió`)];
+  const lineas = [cab.map(celda).join(',')];
+  for (const f of filas) {
+    const r = f.respuestas || {};
+    lineas.push([
+      diaDeMadrid(f.respondido_at), f.lead_nombre, f.email, f.proyecto, f.gestora,
+      diaDeMadrid(f.enviado_at), datos.disparadores[f.disparador] || f.disparador,
+      ...preguntas.map((q) => respuestaEnTexto(datos, q.clave, r[q.clave] ?? (q.clave === 'motivo' ? f.motivo : undefined))),
+      ...conOtro.map((q) => r[`${q.clave}_otro`] ?? ''),
+    ].map(celda).join(','));
+  }
+  return lineas;
+}
+
 export function feedbackEnCsv(datos: PanelFeedback, sep: (fila: unknown[]) => string) {
   const t = datos.totales;
   const filas: string[] = [];
@@ -67,7 +93,9 @@ export function feedbackEnCsv(datos: PanelFeedback, sep: (fila: unknown[]) => st
     filas.push(sep(['Lo que escribieron (los 40 últimos de cada pregunta)', 'Nota', 'Comentario', 'Prospecto', 'Gestora', 'Fecha']));
     conEscritos.forEach((p) => p.escritos!.forEach((e) => filas.push(sep([
       p.clave === 'motivo' ? 'Otro motivo' : p.texto, e.nota ?? '', e.texto, e.lead_nombre || '', e.gestora || '',
-      e.fecha ? new Date(e.fecha).toLocaleDateString('es-ES') : '',
+      // En hora de Madrid, como el resto de fechas del CSV (#1154): con la del
+      // navegador, la misma respuesta salía con un día distinto según quién bajara el CSV.
+      diaDeMadrid(e.fecha),
     ]))));
     filas.push('');
   }
@@ -126,27 +154,16 @@ export default function FeedbackEnReportes({ from, to, issuerId, project, onDato
       // Todas: antes se cortaba en 500 sin avisar (#593). El servidor da hasta 5000.
       p.set('limite', '5000');
       const filas: FilaFeedback[] = await traerLista(p);
-      const preguntas = datos!.preguntas;
-      const conOtro = preguntas.filter((q) => filas.some((f) => f.respuestas?.[`${q.clave}_otro`]));
-      const cab = ['Contestó', 'Prospecto', 'Correo', 'Campus', 'Gestora', 'Cuándo se envió',
-        ...preguntas.map((q) => q.texto), ...conOtro.map((q) => `${q.texto} · lo que escribió`)];
-      const lineas = [cab.map(celda).join(',')];
-      for (const f of filas) {
-        const r = f.respuestas || {};
-        lineas.push([
-          diaDeMadrid(f.respondido_at), f.lead_nombre, f.email, f.proyecto, f.gestora,
-          datos!.disparadores[f.disparador] || f.disparador,
-          ...preguntas.map((q) => respuestaEnTexto(datos!, q.clave, r[q.clave] ?? (q.clave === 'motivo' ? f.motivo : undefined))),
-          ...conOtro.map((q) => r[`${q.clave}_otro`] ?? ''),
-        ].map(celda).join(','));
-      }
-      const blob = new Blob([`﻿${lineas.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+      const lineas = respuestasEnCsv(datos!, filas);
+      const blob = new Blob([`﻿${lineas.join('\r\n')}`], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `feedback-respuestas-${rangoEnNombre(from, to)}.csv`;
       a.click();
-      URL.revokeObjectURL(url);
+      // Un momento después: soltarla en el acto cortaba la descarga en
+      // Firefox y Safari, que la empiezan cuando el clic ya ha vuelto (#1154).
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
       const total = datos!.totales.respondidos;
       toast(filas.length < total
         ? { title: `${filas.length} de ${total} respuestas descargadas`, description: 'Son las más recientes: para el resto, acota las fechas.' }

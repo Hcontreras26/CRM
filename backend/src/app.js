@@ -137,6 +137,7 @@ import { startMcpVigilanciaScheduler } from './jobs/mcpVigilanciaScheduler.js';
 import { startCorreoEntranteScheduler } from './jobs/correoEntranteScheduler.js';
 import { startPasoVencidoScheduler } from './jobs/pasoVencidoScheduler.js';
 import { startFeedbackDia7Scheduler } from './jobs/feedbackDia7Scheduler.js';
+import { comprobarBaseDeLaEncuesta } from './modules/feedback/feedback.service.js';
 import { startFacturaAutomaticaScheduler } from './jobs/facturaAutomaticaScheduler.js';
 import { startDiplomaConfirmacionScheduler } from './jobs/diplomaConfirmacionScheduler.js';
 import { startMatriculaMoodleScheduler } from './jobs/matriculaMoodleScheduler.js';
@@ -543,6 +544,10 @@ process.on('uncaughtException', (err) => {
 
 // Solo escuchar si no estamos en tests
 if (process.env.NODE_ENV !== 'test') {
+  // En producción, sin la dirección de la encuesta de feedback no se arranca:
+  // los correos saldrían con enlaces a localhost (#1154). Mejor que PM2 lo
+  // enseñe al desplegar que enterarse por las encuestas que nadie contesta.
+  comprobarBaseDeLaEncuesta();
   app.listen(PORT, () => {
     logger.info(`CRM API corriendo en puerto ${PORT}`);
     startEmailSequenceScheduler();

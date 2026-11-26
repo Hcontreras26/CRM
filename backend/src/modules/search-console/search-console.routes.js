@@ -10,8 +10,9 @@ router.use(verifyToken);
 
 /**
  * Search Console (CRM#36): ver (`search_console.view`) y sincronizar
- * (`search_console.edit`). La credencial se guarda en «Claves» como las demás
- * (servicio `gsc`), no aquí.
+ * (`search_console.edit`). La credencial se carga en Integraciones › Search
+ * Console de cada campus (CRM#1099) y se guarda con las demás claves (servicio
+ * `gsc`), no aquí.
  *
  * Y solo de SUS campus, como Google Analytics: el `projectId` pedido tiene que ser suyo.
  */

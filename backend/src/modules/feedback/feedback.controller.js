@@ -4,21 +4,12 @@ import { query } from '../../shared/config/db.js';
 import { proyectosDelAmbito, veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import { personaDelInforme, alcanceComercial } from '../../shared/utils/roles.js';
 import * as service from './feedback.service.js';
-import { CLAVES, DISPARADORES, MOTIVOS } from './motivos.js';
+import { CLAVES, DISPARADORES } from './motivos.js';
 import { preguntasPara } from './preguntas.js';
 
-const FECHA = /^\d{4}-\d{2}-\d{2}$/;
-
-/**
- * Una fecha AAAA-MM-DD que exista de verdad, o null. El formato solo no basta:
- * `2026-02-30` pasaba y PostgreSQL tumbaba el panel con un 500 (#593, punto 20).
- */
-export function fechaValida(texto) {
-  if (!FECHA.test(texto || '')) return null;
-  const [a, m, d] = texto.split('-').map(Number);
-  const f = new Date(Date.UTC(a, m - 1, d));
-  return f.getUTCFullYear() === a && f.getUTCMonth() === m - 1 && f.getUTCDate() === d ? texto : null;
-}
+// Vive en el servicio desde la #1154: el MCP también la necesita.
+const { fechaValida } = service;
+export { fechaValida };
 
 /**
  * El recorte del panel, según quién mira.
@@ -91,22 +82,9 @@ async function exigirQueSeaSuyo(req, leadId) {
 // GET /api/feedback/panel
 export async function panel(req, res, next) {
   try {
-    const { contestadas, ...datos } = await service.model.panel(await recorteDe(req));
-    const totales = datos.totales;
-    res.json({
-      success: true,
-      data: {
-        ...datos,
-        totales: {
-          ...totales,
-          tasa: totales.enviados ? Math.round((totales.respondidos * 1000) / totales.enviados) / 10 : 0,
-        },
-        motivos: MOTIVOS,
-        // Pregunta a pregunta: cuántos eligieron cada cosa y lo que escribieron.
-        preguntas: service.resumenDePreguntas(contestadas),
-        disparadores: DISPARADORES,
-      },
-    });
+    // Lo mismo que da el MCP (`informe` tipo «feedback»): una sola función
+    // para que las dos cifras no puedan separarse (#1154).
+    res.json({ success: true, data: await service.resumenDelPanel(await recorteDe(req)) });
   } catch (err) { next(err); }
 }
 
@@ -120,6 +98,21 @@ export async function lista(req, res, next) {
       limite: Number.isInteger(Number(req.query.limite)) && Number(req.query.limite) > 0 ? Number(req.query.limite) : 500,
     });
     res.json({ success: true, data: filas });
+  } catch (err) { next(err); }
+}
+
+// GET /api/feedback/exportar -> las respuestas en CSV, con el mismo recorte
+// que el panel (#1157): una gestora, lo suyo; un admin, sus campus.
+export async function exportar(req, res, next) {
+  try {
+    const filtros = await recorteDe(req);
+    const { csv, total, tope } = await service.exportarRespuestas(filtros);
+    const rango = filtros.desde || filtros.hasta ? `${filtros.desde || 'inicio'}_${filtros.hasta || 'hoy'}` : 'desde-siempre';
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="feedback-respuestas-${rango}.csv"`);
+    res.setHeader('X-Total-Descargados', String(total));
+    res.setHeader('X-Tope', String(tope));
+    res.send(csv);
   } catch (err) { next(err); }
 }
 

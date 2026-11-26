@@ -11,6 +11,7 @@ import EstadoDeLaSincronizacion from '../components/EstadoDeLaSincronizacion';
 import SupabaseCard from '../components/SupabaseCard';
 import CategoriasFormacionesMoodle from '../components/CategoriasFormacionesMoodle';
 import MonitaskCard from '@/modules/monitask/components/MonitaskCard';
+import GoogleCredencialCard from '../components/GoogleCredencialCard';
 import { toast } from '@/shared/hooks/useToast';
 import usePermission from '@/shared/hooks/usePermission';
 import { SOLO_EN_PRUEBAS } from '@/shared/lib/soloEnPruebas';
@@ -169,7 +170,7 @@ export default function IntegrationsPage() {
         ) as unknown as string}
         subtitle={vistaGeneral
           ? 'El estado de las conexiones (Stripe, Brevo, el campus Moodle) de cada campus.'
-          : `Configura conexiones externas (Stripe, Brevo, el campus Moodle${esIA ? ', Supabase' : ''}) para ${activeProject?.nombre || 'el proyecto activo'}.`}
+          : `Configura conexiones externas (Stripe, Brevo, el campus Moodle${esIA ? ', Supabase' : ''}, Google Analytics, Search Console) para ${activeProject?.nombre || 'el proyecto activo'}.`}
         /* El recorrido de Stripe y los links (18/11): con un campus elegido, que es
            cuando salen sus tarjetas. */
         actions={pid ? <VerRecorrido id="integraciones-stripe" /> : null}
@@ -186,6 +187,7 @@ export default function IntegrationsPage() {
           <ul className="list-disc list-inside pl-2 space-y-0.5">
             <li><strong>Stripe:</strong> con el access token guardado, el CRM sondea los cobros cada cinco minutos y los deja en <em>Pagos Stripe</em> para asociarlos a una venta. En proyectos IA, además, el dashboard lee MRR, suscripciones y cobros fallidos en vivo. El webhook es <em>opcional</em>: sirve para no esperar esos cinco minutos, y sin su secreto de firma se rechaza.</li>
             <li><strong>Campus (Moodle):</strong> las consultas de alumnos, «Moodle › Mi campus» y las notas. Con el token del campus, el CRM comprueba que cada tutor es usuario del campus de su proyecto. Su servicio necesita {TOTAL_FUNCIONES_MOODLE} funciones y «Puede descargar archivos»: «Probar conexión» dice cuáles faltan.</li>
+            <li><strong>Google Analytics 4 y Search Console:</strong> con la cuenta de servicio de Google del campus (su JSON) y su propiedad, el CRM trae las visitas por canal y por página y las búsquedas en Google. Cada tarjeta explica cómo crearla y darle acceso de solo lectura; «Probar» hace una llamada real y dice qué falta.</li>
             <li><strong>Brevo:</strong> envía emails transaccionales (lead asignado, recordatorios, confirmación de pago) usando el From email validado. La automatización de resúmenes diarios / SLA 30min está en desarrollo.</li>
             {esIA && (
               <li><strong>Supabase:</strong> la base de la propia app IA. De ahí salen sus usuarios y
@@ -238,6 +240,10 @@ export default function IntegrationsPage() {
           <div id="integracion-moodle" data-testid="integracion-moodle" className={`scroll-mt-4 rounded-lg ${irAMoodle ? 'ring-2 ring-primary' : ''}`}>
             <MoodleCard projectId={pid} />
           </div>
+          {/* Google Analytics 4 y Search Console del campus (CRM#1099): la cuenta de
+              servicio y la propiedad, donde las leen sus módulos. */}
+          <GoogleCredencialCard key={`ga4-${pid}`} projectId={pid} servicio="ga4" />
+          <GoogleCredencialCard key={`gsc-${pid}`} projectId={pid} servicio="gsc" />
         </div>
       )}
     </div>
@@ -1350,6 +1356,14 @@ interface EstadoPlugin {
   sincronizado_at?: string | null;
   sincronizacion_error?: string | null;
   version_plugin?: string | null;
+  /** El Moodle se ha quedado con una actualización pendiente (Campus-Moodle#24, plugin 1.12.0). */
+  actualizacion_pendiente?: {
+    version_disco?: string;
+    version_bd?: string;
+    pendientes?: string;
+    desde?: string;
+    explicacion?: string;
+  } | null;
 }
 
 /**
@@ -1407,6 +1421,7 @@ function PluginDelCrm({ projectId, alConectar }: { projectId: number; alConectar
 
   if (!estado) return null;
   const conectado = estado.activo;
+  const pendiente = estado.actualizacion_pendiente || null;
   return (
     <div className="space-y-3 rounded-lg border border-border p-4" data-testid="plugin-del-crm">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1425,11 +1440,24 @@ function PluginDelCrm({ projectId, alConectar }: { projectId: number; alConectar
           <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-bold text-muted-foreground">Sin conectar</span>
         )}
       </div>
+      {conectado && pendiente && (
+        // Campus-Moodle#24: el Moodle espera a que un administrador complete una actualización.
+        <div role="alert" data-testid="actualizacion-pendiente"
+          className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive-soft p-3 text-destructive-soft-foreground">
+          <WarningCircle size={16} weight="fill" className="mt-0.5 shrink-0 text-destructive" aria-hidden />
+          <div className="min-w-0 text-xs">
+            <p className="font-semibold">
+              Actualización pendiente en el Moodle{pendiente.desde ? ` · desde ${fmt(pendiente.desde)}` : ''}
+            </p>
+            <p className="mt-1 break-words">{pendiente.explicacion}</p>
+          </div>
+        </div>
+      )}
       {conectado && (estado.sincronizado_at || estado.sincronizacion_error) && (
         <p className={`mt-2 text-xs ${estado.sincronizacion_error ? 'text-destructive' : 'text-muted-foreground'}`}>
           {estado.sincronizacion_error
             ? <>{estado.sincronizacion_error}{estado.sincronizado_at ? ` · último repaso bueno ${fmt(estado.sincronizado_at)}` : ''}</>
-            : <>Al día · repasado {fmt(estado.sincronizado_at!)}{estado.version_plugin ? ` · plugin ${estado.version_plugin}` : ''}</>}
+            : <>{pendiente ? 'Repasado' : 'Al día · repasado'} {fmt(estado.sincronizado_at!)}{estado.version_plugin ? ` · plugin ${estado.version_plugin}` : ''}</>}
         </p>
       )}
 

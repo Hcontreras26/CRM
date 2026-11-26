@@ -7,7 +7,7 @@ import { notifyUsers } from '../notifications/notifications.service.js';
 import * as leadModel from '../leads/lead.model.js';
 import * as model from './feedback.model.js';
 import { versionDe } from './cabecera.js';
-import { DISPARADORES } from './motivos.js';
+import { DISPARADORES, MOTIVOS } from './motivos.js';
 import {
   ESCALA, PREGUNTAS, preguntasPara, limpiarRespuestas, textoDeRespuesta, lineaDe, diasHastaVolver,
 } from './preguntas.js';
@@ -31,10 +31,39 @@ import {
  * quedan como «bloqueado», con el motivo, y se cuentan aparte en el panel.
  */
 
-/** A dónde lleva el enlace del correo. /testeo tiene su propia dirección. */
-function baseDeLaEncuesta() {
-  return (process.env.FEEDBACK_BASE_URL || process.env.CRM_BASE_URL || 'http://localhost:5173/crm')
-    .replace(/\/+$/, '');
+/**
+ * A dónde lleva el enlace del correo. /testeo tiene su propia dirección.
+ *
+ * El `localhost` de reserva es SOLO para desarrollo. En producción, sin
+ * FEEDBACK_BASE_URL ni CRM_BASE_URL, el correo salía con un enlace a
+ * localhost que la persona no puede abrir: la encuesta perdida y nadie se
+ * enteraba (#1154). Ahora eso no arranca (`comprobarBaseDeLaEncuesta`) y, si
+ * aun así llegara aquí, falla en vez de mandar el enlace roto.
+ */
+const RESERVA_LOCAL = 'http://localhost:5173/crm';
+
+function baseConfigurada(env = process.env) {
+  return String(env.FEEDBACK_BASE_URL || env.CRM_BASE_URL || '').trim().replace(/\/+$/, '');
+}
+
+export function baseDeLaEncuesta(env = process.env) {
+  const base = baseConfigurada(env);
+  if (base) return base;
+  if (env.NODE_ENV === 'production') {
+    throw new Error('Falta FEEDBACK_BASE_URL o CRM_BASE_URL: el correo de feedback saldría con enlaces a localhost');
+  }
+  return RESERVA_LOCAL;
+}
+
+/**
+ * Al arrancar: en producción, sin la dirección, el servidor no se levanta.
+ * Mejor un arranque que falla y se ve en PM2 que doscientos correos al día con
+ * un enlace que no abre (#1154).
+ */
+export function comprobarBaseDeLaEncuesta(env = process.env) {
+  if (env.NODE_ENV === 'production' && !baseConfigurada(env)) {
+    throw new Error('Falta FEEDBACK_BASE_URL o CRM_BASE_URL en el .env: sin ellas los correos de feedback llevarían enlaces a localhost');
+  }
 }
 
 export function enlaceDe(token, { vista = false } = {}) {
@@ -129,7 +158,25 @@ export function correoDe(d, token, { vista = false } = {}) {
         <a href="${escapar(enlaceDe(token, { vista }))}" style="color:#5b6572;word-break:break-all">${escapar(enlaceDe(token, { vista }))}</a></p>
     </div>
   </div></body></html>`;
-  return { asunto, html };
+  // La parte de TEXTO PLANO (#1154): sin ella el correo era solo HTML, que
+  // algunos filtros puntúan como spam y que los clientes de solo texto no
+  // pueden leer. Brevo la manda como la otra mitad de un `multipart/alternative`.
+  const texto = [
+    ...(vista ? ['VISTA PREVIA: esto es lo que recibirá la persona. Todavía no se le ha enviado.', ''] : []),
+    nombre ? `Hola, ${nombre}:` : 'Hola:',
+    '',
+    `Hace unos días nos pediste información ${d.producto ? `sobre ${d.producto}` : 'sobre nuestro programa'} y no seguiste adelante.`,
+    'Nos ayudaría mucho saber por qué: son dos clics y nos sirve para mejorar.',
+    '',
+    `Contestar: ${enlaceDe(token, { vista })}`,
+    '',
+    'Gracias por tu tiempo,',
+    d.proyecto ? `el equipo de ${d.proyecto}` : 'el equipo',
+    '',
+    '--',
+    'Este correo es automático: no lo contestes, nadie lo leería.',
+  ].join('\n');
+  return { asunto, html, texto };
 }
 
 /**
@@ -180,12 +227,13 @@ function remitenteDe(datos) {
 
 /** Manda el correo de una fila ya creada y deja anotado cómo fue. */
 async function mandar(envio, datos) {
-  const { asunto, html } = correoDe(datos, envio.token);
+  const { asunto, html, texto } = correoDe(datos, envio.token);
   const remitente = remitenteDe(datos);
   const correo = {
     to: { email: envio.email, name: datos.nombre || undefined },
     subject: asunto,
     htmlContent: html,
+    textContent: texto,
     tags: ['feedback', envio.disparador],
     projectId: envio.project_id,
     fromEmail: remitente.email,
@@ -264,11 +312,12 @@ async function mandarVistaPrevia(envio, datos, userId) {
   const { rows } = await query('SELECT email, nombre FROM users WHERE id = $1', [userId]);
   const quien = rows[0];
   if (!quien?.email) return;
-  const { asunto, html } = correoDe(datos, envio.token, { vista: true });
+  const { asunto, html, texto } = correoDe(datos, envio.token, { vista: true });
   await sendEmail({
     to: { email: quien.email, name: quien.nombre },
     subject: `[Vista previa] ${asunto}`,
     htmlContent: html,
+    textContent: texto,
     fromName: remitenteDe(datos).nombre,
     tags: ['feedback', 'vista-previa'],
     projectId: envio.project_id,
@@ -294,7 +343,11 @@ export async function noEnviar(leadId, userId) {
   if (!envio || envio.estado !== 'revision') {
     throw new AppError('Este correo ya no está pendiente de revisar', 409, 'NO_PENDIENTE');
   }
-  const fila = await model.marcarEnvio(envio.id, { estado: 'cancelado', nota: `Descartado por el usuario ${userId}` });
+  // Con el NOMBRE de quien lo decidió: la ficha enseñaba «Descartado por el
+  // usuario 12», que no le dice nada a nadie (#1154).
+  const { rows } = await query('SELECT nombre FROM users WHERE id = $1', [userId]);
+  const fila = await model.marcarEnvio(envio.id, {
+    estado: 'cancelado', nota: `lo descartó ${rows[0]?.nombre || 'alguien del equipo'} tras revisarlo` });
   await apuntarEnSuHistorial(leadId, '🚫 Correo de feedback preparado y NO enviado', userId);
   return fila;
 }
@@ -446,6 +499,96 @@ export function resumenDePreguntas(contestadas) {
   }).flat();
 }
 
+const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Una fecha AAAA-MM-DD que exista de verdad, o null. El formato solo no basta:
+ * `2026-02-30` pasaba y PostgreSQL tumbaba el panel con un 500 (#593, punto 20).
+ */
+export function fechaValida(texto) {
+  if (!FECHA.test(texto || '')) return null;
+  const [a, m, d] = texto.split('-').map(Number);
+  const f = new Date(Date.UTC(a, m - 1, d));
+  return f.getUTCFullYear() === a && f.getUTCMonth() === m - 1 && f.getUTCDate() === d ? texto : null;
+}
+
+/**
+ * Las cifras del panel de Feedback, ya montadas: totales con la tasa, cada
+ * desglose y el resumen pregunta a pregunta.
+ *
+ * La usan la pantalla (`GET /api/feedback/panel`) y el MCP (informe
+ * «feedback»). Antes el MCP llamaba al modelo a pelo: no traía la tasa ni la
+ * nota media de cada pregunta, y sí las respuestas en bruto, así que Claude
+ * tenía que calcularlas por su cuenta y no siempre le salían igual (#1154).
+ */
+export async function resumenDelPanel(filtros) {
+  const { contestadas, ...datos } = await model.panel(filtros);
+  const totales = datos.totales;
+  return {
+    ...datos,
+    totales: {
+      ...totales,
+      tasa: totales.enviados ? Math.round((totales.respondidos * 1000) / totales.enviados) / 10 : 0,
+    },
+    motivos: MOTIVOS,
+    // Pregunta a pregunta: cuántos eligieron cada cosa y lo que escribieron.
+    preguntas: resumenDePreguntas(contestadas),
+    disparadores: DISPARADORES,
+  };
+}
+
+/**
+ * Una celda de CSV, entre comillas y a salvo de fórmulas: lo escribe gente de
+ * fuera (la encuesta es pública), y un comentario `=HYPERLINK(…)` se abría en
+ * Excel como fórmula. Igual que `celdaCsv` del frontend (#593).
+ */
+const PELIGRO = /^[=+\-@\t\r]/;
+const BOM = String.fromCharCode(0xFEFF);
+export function celdaCsv(v) {
+  let s = String(v ?? '');
+  if (typeof v === 'string' && PELIGRO.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+export const CABECERA_CSV = ['Fecha', 'Campus', 'Gestora', 'Motivo', 'Puntuación', 'Comentario'];
+
+/**
+ * El CSV de las respuestas del panel (#1157): fecha (en que contestó, hora de
+ * Madrid), campus, gestora, motivo, puntuación (la nota de atención, 1 a 5) y
+ * comentario. Sin correo, teléfono ni token: el modelo ni los pide.
+ *
+ * Comentario: «Deja tus comentarios» y, tras una nota de 3 o menos, lo que
+ * contó de la atención. Lo escrito en «Otro motivo» va con el motivo. Las
+ * respuestas de la encuesta de antes solo traen `motivo` y `comentario` (que
+ * era el «Otro motivo»).
+ */
+export function respuestasEnCsv(filas) {
+  const lineas = [CABECERA_CSV.map(celdaCsv).join(',')];
+  for (const f of filas) {
+    const r = f.respuestas || {};
+    const motivo = r.motivo ?? f.motivo;
+    const motivoOtro = r.motivo_otro ?? f.comentario;
+    const nota = Number.isInteger(Number(r.nota_atencion)) && r.nota_atencion != null ? Number(r.nota_atencion) : '';
+    const comentario = [
+      r.nota_atencion_otro ? `Sobre la atención: ${r.nota_atencion_otro}` : null,
+      r.comentarios || null,
+    ].filter(Boolean).join(' · ');
+    lineas.push([
+      f.fecha || '', f.campus || '', f.gestora || 'Sin gestora',
+      motivo ? textoDeRespuesta('motivo', motivo, motivoOtro) : '',
+      nota, comentario,
+    ].map(celdaCsv).join(','));
+  }
+  // Con BOM: sin él, Excel abre las tildes como «Ã³».
+  return `${BOM}${lineas.join('\r\n')}\r\n`;
+}
+
+/** Las respuestas filtradas, ya en CSV, y cuántas son. */
+export async function exportarRespuestas(filtros) {
+  const filas = await model.respuestasParaExportar(filtros);
+  return { csv: respuestasEnCsv(filas), total: filas.length, tope: model.TOPE_EXPORTAR };
+}
+
 /** El proceso del 7.º día: una vuelta. Devuelve cuántos se pidieron. */
 /**
  * El 7.º día, en TANDAS (Diego, 28/09: «máximo 200 correos diarios, así que
@@ -458,20 +601,43 @@ export async function vueltaDelDia7({ pila = 25, tope = 200, maxDias = 30, inici
   const hueco = Math.max(0, Math.min(pila, tope - hoy));
   if (!hueco) return { candidatos: 0, pedidos: 0, reintentos: 0, hoy, tope };
 
+  // Los que NO salieron, contados aparte (#1154). Antes un correo que Brevo
+  // rechazaba contaba como «pedido» y la vuelta terminaba bien: el monitor de
+  // tareas la pintaba en verde aunque no saliera ninguno.
+  const fallos = { n: 0, ultimo: null };
+  const anotarFallo = (motivo) => { fallos.n += 1; fallos.ultimo = String(motivo || 'sin motivo'); };
+
   // Primero lo que se quedó sin salir: esa persona lleva más esperando (#593).
-  const reintentos = await reintentar(hueco);
+  const reintentos = await reintentar(hueco, anotarFallo);
   const quedan = hueco - reintentos;
 
   const ids = quedan > 0 ? await model.candidatosDelDia7({ tope: quedan, maxDias, inicio }) : [];
   let pedidos = 0;
   for (const id of ids) {
     try {
-      if (await pedirFeedback(id, 'dia7')) pedidos += 1;
+      const fila = await pedirFeedback(id, 'dia7');
+      if (fila) pedidos += 1;
+      if (fila?.estado === 'fallido') anotarFallo(fila.nota_envio);
     } catch (err) {
+      anotarFallo(err.message);
       logger.warn({ err: err.message, leadId: id }, 'feedback: fallo pidiéndolo al 7.º día');
     }
   }
-  return { candidatos: ids.length, pedidos, reintentos, hoy: hoy + pedidos + reintentos, tope };
+  return {
+    candidatos: ids.length, pedidos, reintentos, fallidos: fallos.n, ultimoFallo: fallos.ultimo,
+    hoy: hoy + pedidos + reintentos, tope,
+  };
+}
+
+/**
+ * Lo que el monitor de tareas tiene que ver de una vuelta del 7.º día: si algún
+ * correo no salió, la vuelta es un fallo, con cuántos y el último motivo. Si
+ * salieron todos, null (#1154).
+ */
+export function falloDeLaVuelta(r) {
+  if (!r?.fallidos) return null;
+  const cuantos = r.fallidos === 1 ? '1 correo de feedback no salió' : `${r.fallidos} correos de feedback no salieron`;
+  return `${cuantos}: ${r.ultimoFallo || 'sin motivo'}`;
 }
 
 /**
@@ -480,7 +646,7 @@ export async function vueltaDelDia7({ pila = 25, tope = 200, maxDias = 30, inici
  * se quedaban sin encuesta para siempre (#593). Si entretanto compró o ya la
  * recibió por otra ficha, no se manda: queda «cancelado» y dicho por qué.
  */
-async function reintentar(tope) {
+async function reintentar(tope, anotarFallo = () => {}) {
   const filas = await model.reintentables({ tope });
   let hechos = 0;
   for (const envio of filas) {
@@ -491,9 +657,11 @@ async function reintentar(tope) {
       }
       const datos = await model.datosDelLead(envio.lead_id);
       if (!datos || datos.deleted_at || datos.es_prueba) continue;
-      await mandar(envio, datos);
+      const fila = await mandar(envio, datos);
       hechos += 1;
+      if (fila?.estado === 'fallido') anotarFallo(fila.nota_envio);
     } catch (err) {
+      anotarFallo(err.message);
       logger.warn({ err: err.message, leadId: envio.lead_id }, 'feedback: fallo reintentándolo');
     }
   }
