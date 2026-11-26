@@ -61,4 +61,20 @@ CREATE TABLE IF NOT EXISTS ga4_sincronizacion (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Permisos para el usuario de la app (CRM 360 e ISEIE). Las tablas las crea
+-- quien pasa la migración (postgres) y, sin esto, la API no puede leerlas ni
+-- escribirlas: en staging se arregló a mano con ALTER OWNER (CRM#55). Sin
+-- secuencias: ninguna tabla tiene SERIAL. Mismo patrón que la 316.
+DO $$
+DECLARE r text; t text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY['crm_user', 'crm_iseie_user'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      FOREACH t IN ARRAY ARRAY['ga4_canales_diarios', 'ga4_paginas_diarias', 'ga4_sincronizacion'] LOOP
+        EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %I TO %I', t, r);
+      END LOOP;
+    END IF;
+  END LOOP;
+END $$;
+
 COMMIT;

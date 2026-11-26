@@ -110,6 +110,25 @@ export async function analitica(cred, { desde, hasta, dimensiones, maxFilas = 50
 }
 
 /**
+ * Las propiedades de Search Console que ve la cuenta de servicio (para el
+ * desplegable de Integraciones). Fuera las «siteUnverifiedUser»: ahí la cuenta
+ * no tiene permiso de verdad. `cred` basta con `{ clientEmail, privateKey }`.
+ */
+export async function sitios(cred) {
+  const token = await tokenDeAcceso(cred);
+  const res = await fetch(`${API}/sites`, { headers: { Authorization: `Bearer ${token}` } });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = json?.error?.message || `HTTP ${res.status}`;
+    throw new AppError(`Search Console: ${msg}`, res.status === 403 ? 403 : 502, 'GSC_API');
+  }
+  return (json.siteEntry || [])
+    .filter((s) => s.siteUrl && s.permissionLevel !== 'siteUnverifiedUser')
+    .map((s) => ({ site_url: s.siteUrl, permiso: s.permissionLevel || null }))
+    .sort((a, b) => a.site_url.localeCompare(b.site_url));
+}
+
+/**
  * La inspección de URL: si Google tiene la página indexada. Cuota de Google:
  * 2.000 al día y 600 al minuto por propiedad.
  */

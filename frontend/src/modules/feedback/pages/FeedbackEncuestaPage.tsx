@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 /**
@@ -64,6 +64,12 @@ export default function FeedbackEncuestaPage() {
   const [resp, setResp] = useState<Respuestas>({});
   const [enviando, setEnviando] = useState(false);
   const [hecho, setHecho] = useState(false);
+  // Pulsó «Enviar» sin la obligatoria: se marca la que falta (#1154).
+  const [intentoSinObligatoria, setIntentoSinObligatoria] = useState(false);
+  // Al terminar, el foco va al «¡Gracias!»: el botón que tenía desaparece y,
+  // sin esto, el lector de pantalla se quedaba callado en ninguna parte.
+  const final = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (hecho || datos?.respondida) final.current?.focus(); }, [hecho, datos?.respondida]);
 
   useEffect(() => {
     fetch(`${API_BASE}/f/${token}`)
@@ -100,7 +106,14 @@ export default function FeedbackEncuestaPage() {
   const recuadro = 'w-full rounded-lg border border-[#d8dee6] px-3 py-2 text-base focus:outline-none focus:ring-2';
 
   async function enviar() {
-    if (faltaObligatoria || vista) return;
+    if (vista) return;
+    if (faltaObligatoria) {
+      // Con el teclado: a la primera obligatoria sin contestar.
+      setIntentoSinObligatoria(true);
+      const falta = datos?.preguntas.find((p) => p.obligatoria && !resp[p.clave]);
+      if (falta) document.getElementById(`p-${falta.clave}`)?.focus();
+      return;
+    }
     setEnviando(true);
     setError(null);
     try {
@@ -167,13 +180,13 @@ export default function FeedbackEncuestaPage() {
               participó, en vez de enseñarle un formulario que no guardaría. */}
           {datos && hecho && (
             <div>
-              <h1 className="text-xl font-bold">¡Gracias{datos.nombre ? `, ${datos.nombre}` : ''}!</h1>
+              <h1 ref={final} tabIndex={-1} className="text-xl font-bold focus:outline-none">¡Gracias{datos.nombre ? `, ${datos.nombre}` : ''}!</h1>
               <p className="mt-2 text-base leading-relaxed text-[#3b4450]">Nos lo apuntamos: nos ayuda de verdad a mejorar.</p>
             </div>
           )}
           {datos && datos.respondida && !hecho && (
             <div>
-              <h1 className="text-xl font-bold">Ya has participado{datos.nombre ? `, ${datos.nombre}` : ''}</h1>
+              <h1 ref={final} tabIndex={-1} className="text-xl font-bold focus:outline-none">Ya has participado{datos.nombre ? `, ${datos.nombre}` : ''}</h1>
               <p className="mt-2 text-base leading-relaxed text-[#3b4450]">
                 Esta encuesta ya está contestada y solo se puede responder una vez. ¡Gracias por tu tiempo!
               </p>
@@ -195,19 +208,30 @@ export default function FeedbackEncuestaPage() {
                 {datos.preguntas.map((p, i) => {
                   const id = `p-${p.clave}`;
                   const elegidas = Array.isArray(resp[p.clave]) ? (resp[p.clave] as string[]) : [];
+                  // Lo que se lee debajo de la pregunta, enlazado al campo para
+                  // que el lector de pantalla lo diga al llegar (#1154).
+                  const ayudas = [p.destacado && `${id}-destacado`, p.ayuda && `${id}-ayuda`].filter(Boolean).join(' ') || undefined;
+                  // «Varias» son casillas: van en un grupo con su leyenda. Una
+                  // <label> apuntando al <summary> no nombraba nada (#1154).
+                  const Bloque = p.tipo === 'varias' ? 'fieldset' : 'div';
+                  const Titulo = p.tipo === 'varias' ? 'legend' : 'label';
                   return (
-                    <div key={p.clave}>
-                      <label htmlFor={id} className="block text-base font-semibold leading-snug">
+                    <Bloque key={p.clave} className="min-w-0" aria-describedby={p.tipo === 'varias' ? ayudas : undefined}>
+                      <Titulo {...(p.tipo === 'varias' ? {} : { htmlFor: id })} className="block text-base font-semibold leading-snug">
                         {/* «Deja tus comentarios» cierra la encuesta: sin número. */}
                         {p.tipo !== 'texto' && <span className="mr-1 text-[#8a939e]">{i + 1}.</span>} {p.texto}
-                        {p.obligatoria && <span className="ml-1" style={{ color: colorTexto }} aria-label="obligatoria">*</span>}
-                      </label>
-                      {p.destacado && <p className="mt-1 text-sm font-semibold" style={{ color: colorTexto }}>{p.destacado}</p>}
-                      {p.ayuda && <p className="mt-0.5 text-sm text-[#5b6572]">{p.ayuda}</p>}
+                        {/* El asterisco se ve; lo que se OYE es «obligatoria»
+                            (un aria-label en un <span> no lo leía nadie). */}
+                        {p.obligatoria && <><span className="ml-1" style={{ color: colorTexto }} aria-hidden="true">*</span><span className="sr-only"> (obligatoria)</span></>}
+                      </Titulo>
+                      {p.destacado && <p id={`${id}-destacado`} className="mt-1 text-sm font-semibold" style={{ color: colorTexto }}>{p.destacado}</p>}
+                      {p.ayuda && <p id={`${id}-ayuda`} className="mt-0.5 text-sm text-[#5b6572]">{p.ayuda}</p>}
 
                       {(p.tipo === 'unica' || p.tipo === 'escala') && (
                         <div className="relative mt-2">
-                          <select id={id} value={resp[p.clave] === undefined ? '' : String(resp[p.clave])}
+                          <select id={id} aria-describedby={ayudas} aria-required={p.obligatoria || undefined}
+                            aria-invalid={(intentoSinObligatoria && p.obligatoria && !resp[p.clave]) || undefined}
+                            value={resp[p.clave] === undefined ? '' : String(resp[p.clave])}
                             onChange={(e) => {
                               const v = e.target.value;
                               if (!v) quitar(p.clave);
@@ -226,7 +250,7 @@ export default function FeedbackEncuestaPage() {
                       {/* Varias: un desplegable que al abrirse deja marcar las que quiera. */}
                       {p.tipo === 'varias' && (
                         <details className="mt-2">
-                          <summary id={id} className={`relative ${desplegable} list-none [&::-webkit-details-marker]:hidden`} style={borde(elegidas.length > 0)}>
+                          <summary id={id} aria-describedby={ayudas} className={`relative ${desplegable} list-none [&::-webkit-details-marker]:hidden`} style={borde(elegidas.length > 0)}>
                             <span className={elegidas.length ? '' : 'text-[#5b6572]'}>
                               {elegidas.length
                                 ? p.opciones.filter((o) => elegidas.includes(o.clave)).map((o) => o.texto).join(', ')
@@ -262,7 +286,7 @@ export default function FeedbackEncuestaPage() {
                       )}
 
                       {p.tipo === 'texto' && (
-                        <textarea id={id} value={(resp[p.clave] as string) || ''}
+                        <textarea id={id} aria-describedby={ayudas} value={(resp[p.clave] as string) || ''}
                           onChange={(e) => (e.target.value ? poner(p.clave, e.target.value) : quitar(p.clave))}
                           maxLength={2000} rows={4} placeholder={p.pista || ''} className={`mt-2 ${recuadro}`} />
                       )}
@@ -278,20 +302,29 @@ export default function FeedbackEncuestaPage() {
                             className={`${p.escribirTexto ? 'mt-1.5' : ''} ${recuadro}`} />
                         </div>
                       )}
-                    </div>
+                    </Bloque>
                   );
                 })}
               </div>
 
-              {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+              {/* Anunciado al aparecer: si no, quien usa lector de pantalla
+                  pulsaba «Enviar» y no se enteraba de que había fallado (#1154). */}
+              <p role="alert" className="mt-4 text-sm text-destructive empty:hidden">{error || ''}</p>
 
-              <button type="button" onClick={enviar} disabled={faltaObligatoria || enviando || vista}
-                className="mt-7 w-full rounded-lg px-5 py-3 text-base font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ background: color, color: tintaBoton }}>
+              {/* Sin `disabled` mientras falta la obligatoria: un botón
+                  desactivado se salta con el tabulador, y con el teclado no
+                  había forma de saber por qué no se podía enviar. Ahora se
+                  puede pulsar: lleva a la pregunta que falta y lo dice (#1154). */}
+              <button type="button" onClick={enviar} disabled={enviando || vista}
+                aria-disabled={faltaObligatoria || undefined}
+                aria-describedby={faltaObligatoria && !vista ? 'falta-obligatoria' : undefined}
+                className="mt-7 w-full rounded-lg px-5 py-3 text-base font-bold transition-opacity focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+                style={{ background: color, color: tintaBoton, outlineColor: colorTexto }}>
                 {vista ? 'Vista previa: no se envía' : (enviando ? 'Enviando…' : 'Enviar')}
               </button>
               {faltaObligatoria && !vista && (
-                <p className="mt-2 text-center text-sm text-[#5b6572]">Contesta al menos la primera para poder enviarla.</p>
+                <p id="falta-obligatoria" className={`mt-2 text-center text-sm ${intentoSinObligatoria ? 'font-semibold text-destructive' : 'text-[#5b6572]'}`}>
+                  Contesta al menos la primera para poder enviarla.</p>
               )}
             </div>
           )}
