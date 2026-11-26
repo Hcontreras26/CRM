@@ -33,7 +33,7 @@ export function credencialParaDatos(valor) {
   return { ...c, loginCustomerId: c.loginCustomerId || (process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || '').replace(/[^0-9]/g, '') || null };
 }
 
-async function tokenDeAcceso(cred) {
+export async function tokenDeAcceso(cred) {
   const r = await refreshGoogleAdsAccessToken({
     clientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
     clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,

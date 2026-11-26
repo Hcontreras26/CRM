@@ -12,7 +12,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
  *   · «¿Dónde ponemos el dinero?» (#56) ya tiene el gasto de Google;
  *   · si Google falla, queda anotado y no se pierde lo que había;
  *   · filas repetidas en una tanda se suman (un anuncio en dos grupos son dos);
- *   · una cuenta va en un solo campus: el segundo que la pega no la sincroniza.
+ *   · una cuenta va en un solo campus: el segundo que la pega no la sincroniza,
+ *     salvo que el primero ya no tenga la credencial activa.
  *
  *   npm run db:preparar && npx vitest run tests/googleAdsBase54.test.js
  */
@@ -192,6 +193,17 @@ describe('Google Ads contra la base', () => {
     expect((await ads.campanas(P, '2026-11-01', '2026-11-30')).total.coste).toBe(180);
     await q(`DELETE FROM api_credentials WHERE project_id = $1`, [OTRO]);
     await q(`DELETE FROM google_ads_cuentas WHERE project_id = $1`, [OTRO]);
+  });
+
+  it('si la cuenta se quita del primer campus, el segundo ya puede usarla (no queda bloqueada)', async () => {
+    // google_ads_cuentas de P sigue ahí; lo que cuenta es la credencial activa.
+    await q(`UPDATE api_credentials SET active = false WHERE project_id = $1 AND service = $2`, [P, ads.SERVICIO]);
+    try {
+      expect(await ads.campusConLaCuenta(CUENTA, OTRO)).toBeNull();
+    } finally {
+      await q(`UPDATE api_credentials SET active = true WHERE project_id = $1 AND service = $2`, [P, ads.SERVICIO]);
+    }
+    expect(await ads.campusConLaCuenta(CUENTA, OTRO)).toMatchObject({ project_id: P });
   });
 
   it('sin `customer_id` en la credencial lo dice', async () => {

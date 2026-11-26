@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowsClockwise, CaretDown, CaretRight, ChartLineUp, FileCsv, Info, PlugsConnected, Warning,
@@ -82,7 +82,11 @@ export default function GoogleAdsPage() {
   const [error, setError] = useState<string | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [abierta, setAbierta] = useState<string | null>(null);
-  const [grupos, setGrupos] = useState<Record<string, Grupo[] | 'cargando'>>({});
+  // Los grupos de cada campaña: cargando, cargados o con el error de la carga.
+  // Un fallo no es «sin grupos» (revisión de la PR #1145, como Meta en la #1169).
+  const [grupos, setGrupos] = useState<Record<string, Grupo[] | 'cargando' | { error: string }>>({});
+  // Cada vuelta de la tabla (campus o fechas) invalida los grupos pedidos antes.
+  const vueltaTabla = useRef(0);
   const [recarga, setRecarga] = useState(0);
 
   const cargarEstado = useCallback(() => {
@@ -101,6 +105,7 @@ export default function GoogleAdsPage() {
   useEffect(() => {
     if (!projectId || !conectado || desde > hasta) return undefined;
     let vivo = true;
+    vueltaTabla.current += 1;
     setCargando(true); setError(null); setGrupos({}); setAbierta(null);
     Promise.all([googleAdsApi.campanas(projectId, desde, hasta), googleAdsApi.diario(projectId, desde, hasta)])
       .then(([c, d]) => { if (vivo) { setDatos(c); setDias(d || []); } })
@@ -130,11 +135,22 @@ export default function GoogleAdsPage() {
     if (!projectId) return;
     if (abierta === c.campaign_id) { setAbierta(null); return; }
     setAbierta(c.campaign_id);
-    if (grupos[c.campaign_id]) return;
-    setGrupos((g) => ({ ...g, [c.campaign_id]: 'cargando' }));
-    googleAdsApi.grupos(projectId, c.campaign_id, desde, hasta)
-      .then((gs) => setGrupos((g) => ({ ...g, [c.campaign_id]: gs || [] })))
-      .catch(() => setGrupos((g) => ({ ...g, [c.campaign_id]: [] })));
+    const g = grupos[c.campaign_id];
+    // Ya cargados o cargando: nada. Con error, se vuelve a intentar al abrir.
+    if (g && !(typeof g === 'object' && 'error' in g)) return;
+    cargarGrupos(c.campaign_id);
+  }
+
+  function cargarGrupos(campaignId: string) {
+    if (!projectId) return;
+    const vuelta = vueltaTabla.current;
+    const vale = () => vuelta === vueltaTabla.current;
+    setGrupos((g) => ({ ...g, [campaignId]: 'cargando' }));
+    googleAdsApi.grupos(projectId, campaignId, desde, hasta)
+      .then((gs) => { if (vale()) setGrupos((g) => ({ ...g, [campaignId]: gs || [] })); })
+      .catch((err: { data?: { error?: string }; message?: string }) => {
+        if (vale()) setGrupos((g) => ({ ...g, [campaignId]: { error: err?.data?.error || err?.message || 'No se pudo cargar' } }));
+      });
   }
 
   async function asignar(c: Campana, destino: number) {
@@ -336,6 +352,15 @@ export default function GoogleAdsPage() {
                               <td colSpan={puedeEditar ? 9 : 8} className="px-6 py-2">
                                 {g === 'cargando' || g === undefined ? (
                                   <p className="text-muted-foreground">Cargando grupos…</p>
+                                ) : !Array.isArray(g) ? (
+                                  <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-destructive">
+                                    <Warning size={14} weight="bold" className="shrink-0" />
+                                    <span>No se han podido cargar los grupos de esta campaña: {g.error}</span>
+                                    <button type="button" onClick={() => cargarGrupos(c.campaign_id)}
+                                      className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-0.5 font-semibold text-foreground hover:bg-muted">
+                                      <ArrowsClockwise size={12} /> Reintentar
+                                    </button>
+                                  </div>
                                 ) : g.length === 0 ? (
                                   <p className="text-muted-foreground">Sin grupos con impresiones en el periodo (Máximo rendimiento no tiene grupos de anuncios).</p>
                                 ) : (

@@ -2,7 +2,7 @@ import { query, getClient } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { getDecryptedValue } from '../credentials/credentials.model.js';
-import { credencialParaDatos, buscar, consultas, deMicros } from './google-ads.client.js';
+import { credencialParaDatos, buscar, consultas, deMicros, tokenDeAcceso } from './google-ads.client.js';
 
 /**
  * Google Ads: campañas y gasto en el CRM (CRM#54). El molde es Meta Ads.
@@ -91,10 +91,16 @@ async function guardarEstado(projectId, { cuenta = null, ok, error = null, backf
  */
 export async function campusConLaCuenta(customerId, projectId) {
   if (!customerId) return null;
+  // Solo cuenta el campus que AÚN tiene la credencial activa: google_ads_cuentas
+  // no se borra nunca, y si la cuenta pasa del campus A al B (se quita o se
+  // desactiva en A y se pega en B), B no debe quedar rechazado para siempre.
   const { rows } = await query(
-    `SELECT g.project_id, p.nombre FROM google_ads_cuentas g JOIN projects p ON p.id = g.project_id
+    `SELECT g.project_id, p.nombre FROM google_ads_cuentas g
+       JOIN projects p ON p.id = g.project_id
+       JOIN api_credentials ac ON ac.project_id = g.project_id AND ac.service = $3 AND ac.active = true
+        AND COALESCE(ac.metadata->>'entorno', 'produccion') = 'produccion'
       WHERE g.customer_id = $1 AND g.project_id <> $2 LIMIT 1`,
-    [customerId, projectId]
+    [customerId, projectId, SERVICIO]
   );
   return rows[0] || null;
 }
@@ -152,9 +158,11 @@ export async function sincronizarProyecto(projectId, { desde, hasta, cred = null
   const otro = await campusConLaCuenta(c.customerId, projectId);
   if (otro) throw new AppError(mensajeCuentaRepetida(c.customerId, otro), 409, 'GOOGLE_ADS_CUENTA_REPETIDA');
   const q = consultas(desde, hasta);
+  // El token se renueva una vez para las cinco consultas, no una por consulta.
+  const token = buscarImpl === buscar ? await tokenDeAcceso(c) : null;
+  const b = (gaql) => buscarImpl(c, gaql, { token });
   const [cuentaFilas, campanas, dCamp, dGrupos, dAnuncios] = await Promise.all([
-    buscarImpl(c, q.cuenta), buscarImpl(c, q.campanas),
-    buscarImpl(c, q.diarioCampanas), buscarImpl(c, q.diarioGrupos), buscarImpl(c, q.diarioAnuncios),
+    b(q.cuenta), b(q.campanas), b(q.diarioCampanas), b(q.diarioGrupos), b(q.diarioAnuncios),
   ]);
   const cu = cuentaFilas[0]?.customer || {};
   const cuenta = { customerId: c.customerId, nombre: cu.descriptiveName || null, moneda: cu.currencyCode || null, zona: cu.timeZone || null };
