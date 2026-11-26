@@ -13,12 +13,13 @@ const { api, auth } = vi.hoisted(() => ({
     accounts: vi.fn(), dashboard: vi.fn(), campaigns: vi.fn(), roi: vi.fn(), productsView: vi.fn(),
     adsets: vi.fn(), ads: vi.fn(),
   },
-  auth: { user: { role: 'admin' } },
+  // Lo que decide es el permiso de la ruta, `meta_ads.edit`, no el rol (#1169).
+  auth: { permisos: { 'meta_ads.view': true, 'meta_ads.edit': true }, campus: { id: 3, nombre: 'Psiko Aprende' } },
 }));
 
 vi.mock('@/modules/meta-ads/api/metaAds.api', () => ({ metaApi: api }));
-vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: auth.user }) }));
-vi.mock('@/shared/hooks/useCampusDeLaPantalla', () => ({ useCampusDeLaPantalla: () => ({ id: 3, nombre: 'Psiko Aprende' }) }));
+vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: (k) => !!auth.permisos[k] }) }));
+vi.mock('@/shared/hooks/useCampusDeLaPantalla', () => ({ useCampusDeLaPantalla: () => auth.campus }));
 vi.mock('@/shared/components/ui/ElegirCampus', () => ({ default: () => null }));
 vi.mock('@/modules/meta-ads/components/ConnectWizard', () => ({ default: () => <p>Asistente para conectar Meta</p> }));
 
@@ -35,7 +36,8 @@ const falla = (msg = 'Error 500') => Promise.reject(Object.assign(new Error(msg)
 
 beforeEach(() => {
   vi.clearAllMocks();
-  auth.user = { role: 'admin' };
+  auth.permisos = { 'meta_ads.view': true, 'meta_ads.edit': true };
+  auth.campus = { id: 3, nombre: 'Psiko Aprende' };
   api.accounts.mockImplementation(() => ok([CUENTA]));
   api.dashboard.mockImplementation(() => ok({ totals: { spend: 100, impressions: 1000, leads: 2, ctr: 1, cpl: 50 }, daily: [] }));
   api.campaigns.mockImplementation(() => ok([CAMPANA]));
@@ -108,13 +110,62 @@ describe('campus sin cuenta de Meta', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('quien solo consulta ve que no hay cuenta y a quién pedírsela', async () => {
-    auth.user = { role: 'gestor' };
+  it('quien solo consulta (sin meta_ads.edit) ve que no hay cuenta y a quién pedírsela', async () => {
+    auth.permisos = { 'meta_ads.view': true };
     api.accounts.mockImplementationOnce(() => ok([]));
     render(<MetaAdsPage />);
     await screen.findByText(/Psiko Aprende no tiene ninguna cuenta de Meta conectada/);
     expect(screen.getByText(/pídeselo a quien gestione la publicidad/)).toBeTruthy();
     expect(screen.queryByText('Asistente para conectar Meta')).toBeNull();
+  });
+});
+
+describe('por permiso, no por rol (#1169)', () => {
+  it('sin meta_ads.edit, con cuenta, no hay «Sincronizar» ni «Asociar» ni configuración', async () => {
+    auth.permisos = { 'meta_ads.view': true };
+    render(<MetaAdsPage />);
+    await screen.findByText('Máster otoño');
+    expect(screen.queryByText('Asociar')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Sincronizar ahora/ })).toBeNull();
+  });
+
+  it('con meta_ads.edit (p. ej. una gestora con la excepción) sí puede asociar', async () => {
+    render(<MetaAdsPage />);
+    await screen.findByText('Máster otoño');
+    expect(screen.getByText('Asociar')).toBeTruthy();
+  });
+});
+
+describe('las filas abiertas siguen al rango de fechas', () => {
+  it('al cambiar el rango con una campaña abierta, se vuelven a pedir sus conjuntos', async () => {
+    api.adsets.mockImplementation(() => ok([{ adset_id: 'a1', nombre: 'Conjunto A', status: 'ACTIVE', total_spend: 5, total_impressions: 1, total_clicks: 0, total_leads: 0 }]));
+    render(<MetaAdsPage />);
+    fireEvent.click(await screen.findByTitle('Ver conjuntos'));
+    await screen.findByText('Conjunto A');
+    expect(api.adsets).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: '7d' }));
+    await waitFor(() => expect(api.adsets).toHaveBeenCalledTimes(2));
+    const [, , rango] = api.adsets.mock.calls[1];
+    expect(rango.dateFrom).not.toBe(api.adsets.mock.calls[0][2].dateFrom);
+    await screen.findByText('Conjunto A');
+  });
+});
+
+describe('las cuentas de un campus anterior no se pintan', () => {
+  it('al cambiar de campus, la respuesta del anterior que llega tarde se descarta', async () => {
+    let soltarVieja;
+    api.accounts
+      .mockImplementationOnce(() => new Promise((r) => { soltarVieja = () => r({ success: true, data: [{ ...CUENTA, ad_account_nombre: 'Cuenta vieja' }] }); }))
+      .mockImplementation(() => ok([CUENTA]));
+    const { rerender } = render(<MetaAdsPage />);
+    await waitFor(() => expect(api.accounts).toHaveBeenCalledTimes(1));
+    auth.campus = { id: 4, nombre: 'Fono Aprende' };
+    rerender(<MetaAdsPage />);
+    await screen.findByText('Psiko Ads');
+    soltarVieja();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText('Cuenta vieja')).toBeNull();
+    expect(screen.getByText('Psiko Ads')).toBeTruthy();
   });
 });
 

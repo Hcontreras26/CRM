@@ -2,10 +2,9 @@ import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { useCampusDeLaPantalla } from '@/shared/hooks/useCampusDeLaPantalla';
 import ElegirCampus from '@/shared/components/ui/ElegirCampus';
 import { ArrowsClockwise, PlugsConnected, Receipt, Eye, CursorClick, Target, ChartLineUp, Warning, Gear, CaretRight, CaretDown, Plus, CaretUpDown } from '@phosphor-icons/react';
-import { useAuth } from '@/contexts/AuthContext';
+import usePermission from '@/shared/hooks/usePermission';
 import { metaApi, MetaAccount, MetaCampaign, MetaDashboard, MetaRoiRow, MetaAdSet, MetaAd } from '../api/metaAds.api';
 import { toast } from '@/shared/hooks/useToast';
-import { tieneRol } from '@/shared/lib/roles';
 import { ErrorDeCarga, datosDe, mensajeDe } from '../components/EstadoDeCarga';
 
 /** Lo que se pide a la vez para el rango: cada uno puede fallar por su cuenta. */
@@ -41,19 +40,19 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default function MetaAdsPage() {
-  const { user } = useAuth() as {
-    user: { role?: string; roles_extra?: string[] } | null;
-  };
+  const { can } = usePermission();
   // La publicidad es de UN campus: cada uno tiene su cuenta de anuncios (Diego,
   // 15/09: «publicidad individual»). Con una empresa o «Todos» arriba, ya no se
   // tapia: se elige aquí cuál (#218, tanda 3).
   const campus = useCampusDeLaPantalla();
   const projectId = campus.id;
   const selector = <ElegirCampus campus={campus} que="sus anuncios" />;
-  // Quien la ve por `meta_ads.view` (26/10/2026: el equipo de desarrollo) solo
-  // CONSULTA: conectar, sincronizar, configurar y asociar son de administración
-  // (el servidor también se lo niega).
-  const soloVer = !tieneRol(user, 'admin', 'superadmin', 'soporte');
+  // Quien la ve por `meta_ads.view` solo CONSULTA: conectar, sincronizar,
+  // configurar y asociar piden `meta_ads.edit`, el mismo permiso que la ruta
+  // (meta-ads.routes.js). Por permiso y no por rol (#1169): una gestora con la
+  // excepción puede conectarla, y un admin al que se le quita no ve un
+  // asistente que acaba en 403.
+  const soloVer = !can('meta_ads.edit');
   const [accounts, setAccounts] = useState<MetaAccount[]>([]);
   // ID de la cuenta filtrada en la UI. null = "Todas" (agrega cross-cuentas, default).
   const [filterAccountId, setFilterAccountId] = useState<number | null>(null);
@@ -85,15 +84,19 @@ export default function MetaAdsPage() {
   // Solo vale la respuesta del último pedido: al cambiar de rango o de cuenta,
   // la del anterior podía llegar tarde y pintar sus cifras bajo el nuevo.
   const pedido = useRef(0);
+  // Lo mismo con las cuentas: al cambiar de campus, las del anterior se descartan.
+  const pedidoCuentas = useRef(0);
 
   function loadAccounts() {
     if (!projectId) return;
+    const este = ++pedidoCuentas.current;
+    const vale = () => este === pedidoCuentas.current;
     setLoading(true);
     setErrorCuentas(null);
     metaApi.accounts(projectId)
-      .then((r) => setAccounts(datosDe<MetaAccount[]>(r, [])))
-      .catch((err) => { setAccounts([]); setErrorCuentas(mensajeDe(err)); })
-      .finally(() => setLoading(false));
+      .then((r) => { if (vale()) setAccounts(datosDe<MetaAccount[]>(r, [])); })
+      .catch((err) => { if (vale()) { setAccounts([]); setErrorCuentas(mensajeDe(err)); } })
+      .finally(() => { if (vale()) setLoading(false); });
   }
 
   function loadData() {
@@ -551,20 +554,23 @@ function CampaignRow({ c, projectId, currency, dateFrom, dateTo, onAssociate, on
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
 
+  // Abierta, se pide al abrir, al reintentar y al cambiar el rango de fechas
+  // (antes, con el rango, se vaciaba y no se volvía a pedir). Una respuesta de
+  // un rango anterior que llegue tarde se descarta.
   useEffect(() => {
-    if (!open || adsets) return;
+    if (!open) return;
+    let vigente = true;
+    setAdSets(null);
     setLoading(true);
     setError(null);
     metaApi.adsets(projectId, c.campaign_id, { dateFrom, dateTo })
-      .then((r) => setAdSets(datosDe<MetaAdSet[]>(r, [])))
+      .then((r) => { if (vigente) setAdSets(datosDe<MetaAdSet[]>(r, [])); })
       // Un fallo no es «esta campaña no tiene conjuntos» (#1155).
-      .catch((err) => setError(mensajeDe(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => { if (vigente) setError(mensajeDe(err)); })
+      .finally(() => { if (vigente) setLoading(false); });
+    return () => { vigente = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, intento]);
-
-  // Si cambia el rango de fechas y ya estaba abierto, recargar.
-  useEffect(() => { if (open) setAdSets(null); /* fuerza recarga */ }, [dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, intento, dateFrom, dateTo]);
 
   return (
     <>
@@ -656,19 +662,21 @@ function AdSetRow({ a, projectId, currency, dateFrom, dateTo, onAssociate }:
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
 
+  // Como los conjuntos: al abrir, al reintentar y al cambiar el rango.
   useEffect(() => {
-    if (!open || ads) return;
+    if (!open) return;
+    let vigente = true;
+    setAds(null);
     setLoading(true);
     setError(null);
     metaApi.ads(projectId, a.adset_id, { dateFrom, dateTo })
-      .then((r) => setAds(datosDe<MetaAd[]>(r, [])))
+      .then((r) => { if (vigente) setAds(datosDe<MetaAd[]>(r, [])); })
       // Un fallo no es «sin anuncios en este rango» (#1155).
-      .catch((err) => setError(mensajeDe(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => { if (vigente) setError(mensajeDe(err)); })
+      .finally(() => { if (vigente) setLoading(false); });
+    return () => { vigente = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, intento]);
-
-  useEffect(() => { if (open) setAds(null); }, [dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, intento, dateFrom, dateTo]);
 
   return (
     <>
