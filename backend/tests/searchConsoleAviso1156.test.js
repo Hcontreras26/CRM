@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const diario = new Map();      // fecha → { clics, impresiones, posicion_suma }
 let avisos = [];               // lo que ha escrito notifyUsers
 let admins = [7, 8];
+let sinPermiso = new Set();     // ids a los que se les ha quitado search_console.view
 
 vi.mock('../src/shared/config/db.js', () => ({
   getClient: vi.fn(),
@@ -33,6 +34,10 @@ vi.mock('../src/shared/config/db.js', () => ({
     if (/FROM users u/.test(sql)) return { rows: admins.map((id) => ({ id })) };
     throw new Error(`SQL no simulado: ${sql.slice(0, 60)}`);
   }),
+}));
+
+vi.mock('../src/modules/permissions/permissions.service.js', () => ({
+  explicarPermisos: vi.fn(async (id) => ({ mapa: { 'search_console.view': !sinPermiso.has(id) } })),
 }));
 
 vi.mock('../src/modules/notifications/notifications.service.js', () => ({
@@ -64,6 +69,7 @@ function llenar({ antes = 100, ahora = 100, imprAntes = 1000, imprAhora = 1000, 
 beforeEach(() => {
   avisos = [];
   admins = [7, 8];
+  sinPermiso = new Set();
 });
 
 describe('las cuentas', () => {
@@ -167,6 +173,19 @@ describe('el aviso de los lunes', () => {
     admins = [];
     expect(await avisarSiCae(3, 'Psiko', { ahora: LUNES, u: U })).toEqual({ avisado: false, motivo: 'sin_destinatarios' });
     expect(avisos).toHaveLength(0);
+  });
+
+  it('solo a quien tiene search_console.view: al que se le quitó no le llega un aviso que le daría 403', async () => {
+    llenar({ antes: 100, ahora: 60 });
+    sinPermiso = new Set([8]);
+    await avisarSiCae(3, 'Psiko', { ahora: LUNES, u: U });
+    expect(avisos[0].targetUserIds).toEqual([7]);
+  });
+
+  it('si en el campus nadie puede verlo, no se avisa a nadie', async () => {
+    llenar({ antes: 100, ahora: 60 });
+    sinPermiso = new Set([7, 8]);
+    expect(await avisarSiCae(3, 'Psiko', { ahora: LUNES, u: U })).toEqual({ avisado: false, motivo: 'sin_destinatarios' });
   });
 
   it('el tipo está en el mapa de la campana y pide acción', () => {

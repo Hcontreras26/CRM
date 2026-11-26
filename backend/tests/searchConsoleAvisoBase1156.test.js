@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 /**
  * El aviso de la semana de Search Console (CRM#1156) contra la base de verdad:
- * a quién llega (los admin DE ESE campus, no los de otro), que no se repite el
- * mismo lunes y que la ruta de la semana no falla sin datos.
+ * a quién llega (quien puede verlo en ESE campus: por permiso, no por rol), que
+ * no se repite el mismo lunes y que la ruta de la semana no falla sin datos.
  *
  *   npm run db:preparar && npx vitest run tests/searchConsoleAvisoBase1156.test.js
  */
@@ -35,6 +35,14 @@ beforeAll(async () => {
   await usuario('admin', 'admin', P);
   await usuario('adminOtro', 'admin', OTRO);
   await usuario('gestora', 'gestor', P);
+  // Revisión de Diego (PR #1165): por permiso, no por rol.
+  await usuario('adminSinPermiso', 'admin', P);
+  await q(`INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES ($1, 'search_console', 'view', false)`,
+    [u.adminSinPermiso]);
+  await usuario('pm', 'project_manager', P);
+  await usuario('gestoraConPermiso', 'gestor', P);
+  await q(`INSERT INTO user_permission_overrides (user_id, resource, action, allowed) VALUES ($1, 'search_console', 'view', true)`,
+    [u.gestoraConPermiso]);
 
   // 14 días hasta el domingo 22/11: 100 clics al día la semana anterior, 60 la última.
   const fin = Date.parse('2026-11-22T00:00:00Z');
@@ -47,6 +55,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await q(`DELETE FROM admin_notifications WHERE type = 'gsc_caida' AND metadata->>'project_id' = ANY($1::text[])`, [[String(P), String(OTRO)]]);
+  await q(`DELETE FROM user_permission_overrides WHERE user_id = ANY($1::int[])`, [Object.values(u)]);
   await q(`DELETE FROM user_projects WHERE user_id = ANY($1::int[])`, [Object.values(u)]);
   await q(`DELETE FROM users WHERE id = ANY($1::int[])`, [Object.values(u)]);
   await q(`DELETE FROM projects WHERE id = ANY($1::int[])`, [[P, OTRO]]);
@@ -54,7 +63,7 @@ afterAll(async () => {
 });
 
 describe('el aviso, en la base', () => {
-  it('cae el 40 % → un aviso a los admin de ese campus (y super admin), no a los de otro ni a la gestora', async () => {
+  it('cae el 40 % → un aviso a quien puede verlo en ese campus, no a los de otro ni a la gestora', async () => {
     const r = await avisarSiCae(P, `${MARCA} uno`, { ahora: LUNES, u: U });
     expect(r.avisado).toBe(true);
     const [n] = await q(`SELECT * FROM admin_notifications WHERE id = $1`, [r.notificacion]);
@@ -62,6 +71,11 @@ describe('el aviso, en la base', () => {
     expect(n.target_user_ids).toContain(u.admin);
     expect(n.target_user_ids).not.toContain(u.adminOtro);
     expect(n.target_user_ids).not.toContain(u.gestora);
+    // Por permiso, no por rol: el admin al que se le quitó no lo recibe; el
+    // project manager (lo trae de serie) y la gestora con excepción, sí.
+    expect(n.target_user_ids).not.toContain(u.adminSinPermiso);
+    expect(n.target_user_ids).toContain(u.pm);
+    expect(n.target_user_ids).toContain(u.gestoraConPermiso);
     expect(n.metadata).toMatchObject({ project_id: P, lunes: '2026-11-23', caidas: [{ metrica: 'clics', variacion: -40 }] });
   });
 

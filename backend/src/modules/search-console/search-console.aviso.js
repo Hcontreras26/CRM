@@ -1,6 +1,7 @@
 import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
 import { notifyUsers } from '../notifications/notifications.service.js';
+import { explicarPermisos } from '../permissions/permissions.service.js';
 import { proyectosConGSC, totales } from './search-console.service.js';
 
 /**
@@ -8,7 +9,8 @@ import { proyectosConGSC, totales } from './search-console.service.js';
  *
  * Cada lunes, por campus: la última semana contra la anterior (clics,
  * impresiones y posición media). Si los clics o las impresiones caen más del
- * umbral, aviso en la campana a los admin de ese campus. La misma cuenta la
+ * umbral, aviso en la campana a quien puede verlo en ese campus
+ * (`search_console.view`). La misma cuenta la
  * enseña la pantalla «Tráfico orgánico» en una línea arriba.
  *
  * QUÉ SEMANA. Search Console va 2–3 días por detrás: el lunes todavía no tiene
@@ -129,17 +131,37 @@ export function caidas(semana, u = umbrales()) {
   return fuera;
 }
 
-/** Los admin del campus y los super admin, activos. Vacío = no se avisa. */
-async function adminsDelCampus(projectId) {
+/**
+ * A quién avisar: quien puede ABRIR lo que enlaza el aviso (revisión de Diego
+ * en la PR #1165, como `destinatariosDeAcceso` de soporte).
+ *
+ *   · El ALCANCE, igual que la ruta (`deSusCampus`): super admin y soporte ven
+ *     todos los campus; el resto, los suyos (`user_projects` activos).
+ *   · De ahí, solo quien tenga `search_console.view`. Al admin al que se le ha
+ *     quitado no le llega un aviso que le daría 403; al project manager, que lo
+ *     trae de serie, o a quien lo tiene por excepción, sí.
+ *
+ * Vacío = no se avisa.
+ */
+export async function quienPuedeVerlo(projectId) {
   const { rows } = await query(
-    `SELECT DISTINCT u.id FROM users u
-      WHERE u.active AND (u.role = 'superadmin'
-         OR (u.role = 'admin' AND EXISTS (SELECT 1 FROM user_projects up
-              WHERE up.user_id = u.id AND up.project_id = $1 AND up.active)))
+    `SELECT u.id FROM users u
+      WHERE u.active AND (u.role IN ('superadmin', 'soporte')
+         OR EXISTS (SELECT 1 FROM user_projects up
+              WHERE up.user_id = u.id AND up.project_id = $1 AND up.active))
       ORDER BY u.id`,
     [projectId]
   );
-  return rows.map((r) => r.id);
+  const out = [];
+  for (const { id } of rows) {
+    try {
+      const e = await explicarPermisos(id);
+      if (e?.mapa?.['search_console.view'] === true) out.push(id);
+    } catch (err) {
+      logger.warn({ err: err.message, userId: id }, 'Search Console: no se pudieron leer los permisos de un destinatario');
+    }
+  }
+  return out;
 }
 
 const num = (n) => new Intl.NumberFormat('es-ES').format(n);
@@ -180,9 +202,9 @@ export async function avisarSiCae(projectId, nombre, { ahora = new Date(), desti
   );
   if (previos.length) return { avisado: false, motivo: 'ya_avisado', lunes };
 
-  // `notifyUsers` con la lista vacía avisa a TODOS los admin: un campus sin
-  // admin no se lo cuenta a los de otros.
-  const para = destinatarios ?? await adminsDelCampus(projectId);
+  // `notifyUsers` con la lista vacía avisa a TODOS los admin: si en el campus
+  // nadie puede verlo, no se le cuenta a los de otros.
+  const para = destinatarios ?? await quienPuedeVerlo(projectId);
   if (!para.length) return { avisado: false, motivo: 'sin_destinatarios' };
 
   const creado = await notifyUsers({
