@@ -469,8 +469,6 @@ export const SECCIONES = [
         clave: 'feedback', nombre: 'Feedback', acciones: [
           a('view', 'Ver feedback', 'El panel y las respuestas de los clientes.', TODOS),
           a('enviar', 'Enviar la encuesta', 'Mandar, o no, la encuesta revisada a un cliente.', TODOS),
-          // #1157: con el mismo alcance que el panel (una gestora, lo suyo; un admin, sus campus).
-          a('exportar', 'Exportar las respuestas', 'Bajar en CSV las respuestas filtradas: fecha, campus, gestora, motivo, puntuación y comentario, sin datos de contacto.', TODOS, { requiere: ['feedback.view'] }),
         ],
       },
       {
