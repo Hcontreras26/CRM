@@ -217,7 +217,7 @@ export default function GoogleAnalyticsPage() {
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">
             Propiedad {estado?.property_id || '—'} · Última sincronización: {cuando(estado?.last_synced_at || null)}
-            {!syncActivo && ' · la sincronización automática está apagada'}
+            {!(estado?.sync_activa ?? syncActivo) && ' · la sincronización automática de este campus está apagada (se enciende en Integraciones)'}
           </p>
           {estado?.last_status === 'error' && (
             <p className="mt-1 flex items-start gap-1.5 text-xs text-destructive" role="alert">

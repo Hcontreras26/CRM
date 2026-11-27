@@ -5,8 +5,16 @@ import * as credenciales from '../credentials/credentials.model.js';
 import { cuentaDeServicio } from '../../shared/services/googleCuentaServicio.service.js';
 import * as ga4 from '../google-analytics/google-analytics.client.js';
 import * as gsc from '../search-console/search-console.client.js';
-import { syncActivo as ga4SyncActivo } from '../google-analytics/google-analytics.service.js';
-import { syncActivo as gscSyncActivo } from '../search-console/search-console.service.js';
+import {
+  syncActivo as ga4SyncActivo, ponerAlDia as ga4PonerAlDia,
+} from '../google-analytics/google-analytics.service.js';
+import {
+  syncActivo as gscSyncActivo, ponerAlDia as gscPonerAlDia,
+} from '../search-console/search-console.service.js';
+import { umbralesDe, COLUMNA_UMBRAL, UMBRALES_DE_SERIE } from '../search-console/search-console.aviso.js';
+import { interruptorDelCampus } from '../../shared/utils/interruptorCampus.js';
+import { proximaVuelta as ga4ProximaVuelta } from '../../jobs/googleAnalyticsSyncScheduler.js';
+import { proximaVuelta as gscProximaVuelta } from '../../jobs/searchConsoleSyncScheduler.js';
 
 /**
  * GOOGLE ANALYTICS 4 Y SEARCH CONSOLE EN INTEGRACIONES (Diego, 25/11; CRM#1099).
@@ -35,6 +43,10 @@ export const SERVICIOS = {
     api: 'Google Analytics Data API',
     tablaSync: 'ga4_sincronizacion',
     syncActivo: ga4SyncActivo,
+    variable: 'GA4_SYNC_ACTIVO',
+    ponerAlDia: (...a) => ga4PonerAlDia(...a),
+    proximaVuelta: (...a) => ga4ProximaVuelta(...a),
+    tickMs: () => parseInt(process.env.GA4_SYNC_TICK_MS || String(6 * 60 * 60 * 1000), 10),
   },
   gsc: {
     servicio: 'gsc',
@@ -42,6 +54,10 @@ export const SERVICIOS = {
     api: 'Google Search Console API',
     tablaSync: 'gsc_sincronizacion',
     syncActivo: gscSyncActivo,
+    variable: 'GSC_SYNC_ACTIVO',
+    ponerAlDia: (...a) => gscPonerAlDia(...a),
+    proximaVuelta: (...a) => gscProximaVuelta(...a),
+    tickMs: () => parseInt(process.env.GSC_SYNC_TICK_MS || String(6 * 60 * 60 * 1000), 10),
   },
 };
 
@@ -125,16 +141,62 @@ async function valorGuardado(servicio, projectId) {
 }
 
 async function sincronizacionDe(tabla, projectId) {
+  // El interruptor y los umbrales son de la 342 (CRM#1210); sin ella, lo de antes.
+  const gsc = tabla === 'gsc_sincronizacion';
   try {
     const { rows } = await query(
-      `SELECT last_synced_at, last_status, last_error, updated_at FROM ${tabla} WHERE project_id = $1`,
+      `SELECT s.*, por.nombre AS sync_cambiado_por_nombre
+              ${gsc ? ', um.nombre AS umbrales_cambiado_por_nombre' : ''}
+         FROM ${tabla} s
+         LEFT JOIN users por ON por.id = s.sync_cambiado_por
+         ${gsc ? 'LEFT JOIN users um ON um.id = s.umbrales_cambiado_por' : ''}
+        WHERE s.project_id = $1`,
       [projectId]
     );
     return rows[0] || null;
   } catch {
-    // La tabla es de la 323 / 334: si no se ha aplicado, no hay sincronización que enseñar.
-    return null;
+    try {
+      const { rows } = await query(
+        `SELECT last_synced_at, last_status, last_error, updated_at FROM ${tabla} WHERE project_id = $1`,
+        [projectId]
+      );
+      return rows[0] || null;
+    } catch {
+      // La tabla es de la 323 / 334: si no se ha aplicado, no hay sincronización que enseñar.
+      return null;
+    }
   }
+}
+
+/**
+ * La sincronización automática del campus, para la tarjeta (CRM#1210): si está
+ * encendida, de dónde sale eso (pantalla, `.env` o de serie), quién la tocó, y
+ * cuándo es la próxima vuelta (solo si está encendida y la tarea corre aquí).
+ */
+export function automaticaDe(s, sync, ahora = new Date()) {
+  const { activo, origen } = interruptorDelCampus(sync?.sync_activo ?? null, s.syncActivo());
+  const proxima = activo ? s.proximaVuelta(ahora) : null;
+  return {
+    activa: activo,
+    origen,
+    variable: s.variable,
+    cambiada_por: origen === 'pantalla' ? sync?.sync_cambiado_por_nombre || null : null,
+    cambiada_at: origen === 'pantalla' ? sync?.sync_cambiado_at || null : null,
+    proxima_vuelta: proxima ? proxima.toISOString() : null,
+    cada_horas: Math.round((s.tickMs() / 3600000) * 10) / 10,
+  };
+}
+
+/** Los umbrales del aviso de caída del campus, para la tarjeta de Search Console. */
+function umbralesParaTarjeta(sync) {
+  const { origen, ...valores } = umbralesDe(sync);
+  return {
+    valores,
+    origen,
+    de_serie: { ...UMBRALES_DE_SERIE },
+    cambiado_por: sync?.umbrales_cambiado_por_nombre || null,
+    cambiado_at: sync?.umbrales_cambiado_at || null,
+  };
 }
 
 /**
@@ -176,7 +238,9 @@ export async function estado(clave, projectId) {
   const prueba = fila?.last_tested_at
     ? { at: fila.last_tested_at, ok: fila.last_test_result === 'ok', mensaje: fila.metadata?.ultima_prueba_mensaje || null }
     : null;
-  const sync = fila ? await sincronizacionDe(s.tablaSync, projectId) : null;
+  // Aunque no haya credencial: el interruptor y los umbrales se conservan al quitarla.
+  const sync = await sincronizacionDe(s.tablaSync, projectId);
+  const automatica = automaticaDe(s, sync);
 
   return {
     servicio: clave,
@@ -187,10 +251,15 @@ export async function estado(clave, projectId) {
     puesta_por: fila?.puesta_por || null,
     actualizada_at: fila?.updated_at || null,
     ultima_prueba: prueba,
-    ultima_sincronizacion: sync
+    ultima_sincronizacion: fila && sync && (sync.last_status || sync.last_synced_at)
       ? { at: sync.last_synced_at, estado: sync.last_status, error: sync.last_error || null }
       : null,
-    sincronizacion_activa: s.syncActivo(),
+    // La automática de ESTE campus (CRM#1210). `sincronizacion_activa` se queda
+    // por compatibilidad con quien la leía antes.
+    sincronizacion_activa: automatica.activa,
+    sincronizacion: automatica,
+    sincronizando: enCurso.has(`${clave}:${projectId}`),
+    ...(clave === 'gsc' ? { umbrales_aviso: umbralesParaTarjeta(sync) } : {}),
     // Para ofrecer «usar la misma cuenta» si el otro servicio ya está conectado.
     otra_cuenta: correoOtro ? { servicio: clave === 'ga4' ? 'gsc' : 'ga4', client_email: correoOtro } : null,
   };
@@ -415,4 +484,86 @@ export async function sitiosDeSearchConsole(projectId, { json, misma_cuenta } = 
   } catch (err) {
     throw new AppError(explicarError('gsc', err, { clientEmail: o.client_email, siteUrl: 'la propiedad' }), 502, 'GSC_API');
   }
+}
+
+// ─── La sincronización del campus desde la tarjeta (CRM#1210) ────────────────
+
+/** Los «Sincronizar ahora» en marcha, para no lanzar dos a la vez del mismo campus. */
+const enCurso = new Set();
+
+/**
+ * Enciende o apaga la sincronización automática del campus. `activo` null =
+ * «como diga el servidor» (vuelve a la reserva del `.env`). Devuelve cómo
+ * estaba y cómo queda, para el registro.
+ */
+export async function ponerSincronizacion(clave, projectId, activo, userId) {
+  const s = servicioDe(clave);
+  const antes = await sincronizacionDe(s.tablaSync, projectId);
+  await query(
+    `INSERT INTO ${s.tablaSync} (project_id, sync_activo, sync_cambiado_por, sync_cambiado_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (project_id) DO UPDATE SET
+       sync_activo = EXCLUDED.sync_activo,
+       sync_cambiado_por = EXCLUDED.sync_cambiado_por,
+       sync_cambiado_at = NOW(),
+       updated_at = NOW()`,
+    [projectId, activo, userId || null]
+  );
+  return {
+    antes: interruptorDelCampus(antes?.sync_activo ?? null, s.syncActivo()),
+    despues: interruptorDelCampus(activo, s.syncActivo()),
+  };
+}
+
+/**
+ * «Sincronizar ahora»: una vuelta ya para este campus, esté encendida la
+ * automática o no (no la cambia). Hace falta la credencial. No lanza por un
+ * fallo de Google: devuelve { ok, mensaje } con el error explicado.
+ */
+export async function sincronizarAhora(clave, projectId, { ahora = new Date() } = {}) {
+  const s = servicioDe(clave);
+  const fila = await filaDe(s.servicio, projectId);
+  if (!fila) throw new AppError(`Este campus no tiene ${s.nombre} conectado: guarda primero la cuenta.`, 404, 'NOT_FOUND');
+  const k = `${clave}:${projectId}`;
+  if (enCurso.has(k)) {
+    throw new AppError(`Ya se está sincronizando ${s.nombre} de este campus. Espera a que acabe.`, 409, 'GOOGLE_SYNC_EN_CURSO');
+  }
+  enCurso.add(k);
+  try {
+    const r = await s.ponerAlDia(projectId, { ahora });
+    if (r.ok) return { ok: true, dias: r.dias, mensaje: `Hecho: datos de los últimos ${r.dias} días traídos de ${s.nombre}.` };
+    const o = await valorGuardado(s.servicio, projectId);
+    return {
+      ok: false,
+      dias: r.dias,
+      mensaje: explicarError(clave, { message: r.error }, {
+        clientEmail: o?.client_email, propertyId: o?.property_id, siteUrl: o?.site_url,
+      }),
+    };
+  } finally {
+    enCurso.delete(k);
+  }
+}
+
+/**
+ * Los umbrales del aviso de caída de Search Console del campus. `valores`: los
+ * cuatro (ya validados con Zod), o null para volver a los del servidor / de
+ * serie. Devuelve los de antes y los que quedan, para el registro.
+ */
+export async function guardarUmbrales(projectId, valores, userId) {
+  const claves = Object.keys(UMBRALES_DE_SERIE);
+  const { origen: _a, ...antes } = umbralesDe(await sincronizacionDe('gsc_sincronizacion', projectId));
+  const cols = claves.map((k) => COLUMNA_UMBRAL[k]);
+  await query(
+    `INSERT INTO gsc_sincronizacion (project_id, ${cols.join(', ')}, umbrales_cambiado_por, umbrales_cambiado_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+     ON CONFLICT (project_id) DO UPDATE SET
+       ${cols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')},
+       umbrales_cambiado_por = EXCLUDED.umbrales_cambiado_por,
+       umbrales_cambiado_at = NOW(),
+       updated_at = NOW()`,
+    [projectId, ...claves.map((k) => (valores ? valores[k] : null)), userId || null]
+  );
+  const { origen: _d, ...despues } = umbralesDe(await sincronizacionDe('gsc_sincronizacion', projectId));
+  return { antes, despues };
 }

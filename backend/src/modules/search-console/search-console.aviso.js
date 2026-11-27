@@ -43,17 +43,56 @@ const entero = (v, porDefecto) => {
   return Number.isFinite(n) && n >= 0 ? n : porDefecto;
 };
 
+/** Los de serie, si ni la pantalla ni el `.env` dicen nada. */
+export const UMBRALES_DE_SERIE = Object.freeze({ clics: 30, impresiones: 30, minClics: 20, minImpresiones: 200 });
+const VARIABLE = {
+  clics: 'GSC_AVISO_CAIDA_CLICS',
+  impresiones: 'GSC_AVISO_CAIDA_IMPRESIONES',
+  minClics: 'GSC_AVISO_MIN_CLICS',
+  minImpresiones: 'GSC_AVISO_MIN_IMPRESIONES',
+};
+/** Dónde guarda cada uno la tarjeta del campus (`gsc_sincronizacion`, migración 342). */
+export const COLUMNA_UMBRAL = Object.freeze({
+  clics: 'aviso_caida_clics',
+  impresiones: 'aviso_caida_impresiones',
+  minClics: 'aviso_min_clics',
+  minImpresiones: 'aviso_min_impresiones',
+});
+
 /**
- * Los umbrales, del `.env`. Una caída de más del % avisa; 0 apaga esa métrica.
+ * Los umbrales de un campus. Una caída de más del % avisa; 0 apaga esa métrica.
  * Los mínimos son de la semana ANTERIOR.
+ *
+ * De dónde sale cada uno (CRM#1210), por este orden: lo guardado en la tarjeta
+ * del campus (`fila`, columnas de la 342); si no, el `.env` como reserva; si
+ * no, el de serie. `origen` dice cuál, para que la pantalla lo cuente.
  */
+export function umbralesDe(fila, env = process.env) {
+  const out = {};
+  const origen = {};
+  for (const k of Object.keys(UMBRALES_DE_SERIE)) {
+    const guardado = fila?.[COLUMNA_UMBRAL[k]];
+    const delServidor = entero(env[VARIABLE[k]], null);
+    if (guardado != null && Number.isFinite(Number(guardado))) { out[k] = Number(guardado); origen[k] = 'pantalla'; }
+    else if (delServidor != null) { out[k] = delServidor; origen[k] = 'servidor'; }
+    else { out[k] = UMBRALES_DE_SERIE[k]; origen[k] = 'serie'; }
+  }
+  return { ...out, origen };
+}
+
+/** Los del `.env` (o los de serie), sin mirar ningún campus. */
 export function umbrales(env = process.env) {
-  return {
-    clics: entero(env.GSC_AVISO_CAIDA_CLICS, 30),
-    impresiones: entero(env.GSC_AVISO_CAIDA_IMPRESIONES, 30),
-    minClics: entero(env.GSC_AVISO_MIN_CLICS, 20),
-    minImpresiones: entero(env.GSC_AVISO_MIN_IMPRESIONES, 200),
-  };
+  const { origen: _o, ...u } = umbralesDe(null, env);
+  return u;
+}
+
+/** Los umbrales que valen ahora para un campus (lee su fila de `gsc_sincronizacion`). */
+export async function umbralesDelCampus(projectId, env = process.env) {
+  const { rows } = await query(
+    `SELECT ${Object.values(COLUMNA_UMBRAL).join(', ')} FROM gsc_sincronizacion WHERE project_id = $1`,
+    [projectId]
+  );
+  return umbralesDe(rows[0] || null, env);
 }
 
 const dia = (d) => d.toISOString().slice(0, 10);
@@ -186,7 +225,8 @@ export function textoDelAviso(nombre, semana, fuera) {
  * Mira un campus y avisa si ha caído. No lanza: devuelve qué pasó.
  * `ahora` y `destinatarios` son para las pruebas.
  */
-export async function avisarSiCae(projectId, nombre, { ahora = new Date(), destinatarios = null, u = umbrales() } = {}) {
+export async function avisarSiCae(projectId, nombre, { ahora = new Date(), destinatarios = null, u = null } = {}) {
+  if (!u) u = await umbralesDelCampus(projectId);
   const semana = await semanaDe(projectId, { ahora });
   const fuera = caidas(semana, u);
   if (!fuera.length) {
@@ -226,15 +266,17 @@ export async function avisarSiCae(projectId, nombre, { ahora = new Date(), desti
 }
 
 /**
- * La vuelta de los lunes, para todos los campus con Search Console. Un campus
- * que falla no para a los demás.
+ * La vuelta de los lunes. `campus`: las filas de `proyectosConGSC` que mirar
+ * (la tarea pasa solo las encendidas); sin él, todos los que tienen Search
+ * Console. Cada uno con SUS umbrales (CRM#1210). Un campus que falla no para a
+ * los demás.
  */
-export async function revisarCaidas({ ahora = new Date() } = {}) {
+export async function revisarCaidas({ ahora = new Date(), campus = null } = {}) {
   const resumen = { campus: 0, avisados: 0, errores: 0 };
-  for (const p of await proyectosConGSC()) {
+  for (const p of campus ?? await proyectosConGSC()) {
     resumen.campus += 1;
     try {
-      const r = await avisarSiCae(p.project_id, p.nombre, { ahora });
+      const r = await avisarSiCae(p.project_id, p.nombre, { ahora, u: umbralesDe(p) });
       if (r.avisado) resumen.avisados += 1;
     } catch (err) {
       resumen.errores += 1;

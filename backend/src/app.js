@@ -562,9 +562,9 @@ if (process.env.NODE_ENV !== 'test') {
     startDocumentOrphanScheduler();
     startGoogleAdsTokenScheduler();
     startMetaAdsSyncScheduler();
-    // Sincronización de Google Analytics 4 (CRM#55). Apagada sin GA4_SYNC_ACTIVO=1.
+    // Sincronización de Google Analytics 4 (CRM#55): solo los campus encendidos en su tarjeta (CRM#1210).
     startGoogleAnalyticsSyncScheduler();
-    // Sincronización de Search Console (CRM#36). Apagada sin GSC_SYNC_ACTIVO=1.
+    // Sincronización de Search Console (CRM#36): solo los campus encendidos en su tarjeta (CRM#1210).
     startSearchConsoleSyncScheduler();
     // Renovación diaria de tokens de Meta e Instagram (#471). Apagada sin META_TOKENS_RENOVACION_ACTIVA=1.
     startMetaTokensScheduler();

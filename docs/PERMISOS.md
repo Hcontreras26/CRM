@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-1006 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
+1009 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -603,6 +603,9 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | ver | `GET /api/integrations/moodle/categorias` | (no existía) | (ruta nueva) | `integrations.view` |
 | guardar | `PUT /api/integrations/moodle/categorias` | (no existía) | (ruta nueva) | `integrations.edit` |
 | sitios | `POST /api/integrations/google/gsc/sitios` | (no existía) | (ruta nueva) | `integrations.google` |
+| guardarUmbrales | `PUT /api/integrations/google/gsc/umbrales` | (no existía) | (ruta nueva) | `integrations.google` |
+| ponerSincronizacion | `PUT /api/integrations/google/:servicio/sincronizacion` | (no existía) | (ruta nueva) | `integrations.google` |
+| sincronizarAhora | `POST /api/integrations/google/:servicio/sincronizar` | (no existía) | (ruta nueva) | `integrations.google` |
 | ver | `GET /api/integrations/google/:servicio` | (no existía) | (ruta nueva) | `integrations.view` |
 | guardar | `PUT /api/integrations/google/:servicio` | (no existía) | (ruta nueva) | `integrations.google` |
 | probar | `POST /api/integrations/google/:servicio/probar` | (no existía) | (ruta nueva) | `integrations.google` |
@@ -1781,7 +1784,7 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver integraciones | `integrations.view` | Los servicios conectados (Stripe, Brevo…). | Admin, Soporte, Project manager |  |
 | Configurar integraciones | `integrations.edit` | Conectarlos, probarlos y desconectarlos. | Admin, Soporte | `integrations.view` |
-| Conectar Google Analytics y Search Console | `integrations.google` | Subir la cuenta de servicio de Google de un campus, elegir su propiedad de GA4 o de Search Console, probarla y quitarla. | Admin | `integrations.view` |
+| Conectar Google Analytics y Search Console | `integrations.google` | Subir la cuenta de servicio de Google de un campus, elegir su propiedad de GA4 o de Search Console, probarla y quitarla; encender su sincronización, sincronizar ahora y poner los umbrales del aviso de caída de Search Console. | Admin | `integrations.view` |
 | Ver la salud de las conexiones | `integrations.salud` | Si cada conexión de sus campus funciona (Stripe, Moodle, WooCommerce, Brevo, Meta, webhooks), con su última señal y el motivo si falla; y comprobarlas ahora. | Admin | `integrations.view` |
 
 ## Análisis

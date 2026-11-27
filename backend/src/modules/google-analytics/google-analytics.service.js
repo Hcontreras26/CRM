@@ -3,6 +3,7 @@ import { logger } from '../../shared/utils/logger.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { getDecryptedValue } from '../credentials/credentials.model.js';
 import { leerCredencial, informe, fechaGa } from './google-analytics.client.js';
+import { interruptorDelCampus, envEncendido } from '../../shared/utils/interruptorCampus.js';
 
 /**
  * Google Analytics: lo que pasa antes del lead (CRM#55).
@@ -19,10 +20,17 @@ export const SERVICIO = 'google_analytics';
 const TZ = process.env.APP_TIMEZONE || 'Europe/Madrid';
 const ENTRADA = `(COALESCE(l.fecha_solicitud, l.created_at) AT TIME ZONE '${TZ}')::date`;
 
-/** El interruptor de la sincronización periódica. Apagado de serie. */
+/**
+ * La variable del servidor (GA4_SYNC_ACTIVO). Desde CRM#1210 solo es la RESERVA:
+ * vale para los campus en los que nadie ha tocado el interruptor de la tarjeta.
+ */
 export function syncActivo() {
-  const v = String(process.env.GA4_SYNC_ACTIVO || '').trim().toLowerCase();
-  return v === '1' || v === 'true';
+  return envEncendido(process.env.GA4_SYNC_ACTIVO);
+}
+
+/** Si un campus se sincroniza solo, y por qué (`fila` de `proyectosConGA4`). */
+export function interruptorDe(fila) {
+  return interruptorDelCampus(fila?.sync_activo ?? null, syncActivo());
 }
 
 /** Días que se traen la primera vez. */
@@ -54,7 +62,8 @@ const haceDias = (n, ahora = new Date()) => dia(new Date(ahora.getTime() - n * 8
 /** Los campus que tienen credencial de GA4 (solo la de producción). */
 export async function proyectosConGA4() {
   const { rows } = await query(
-    `SELECT ac.project_id, p.nombre, s.last_synced_at, s.last_status, s.last_error, s.backfill_done, s.property_id
+    `SELECT ac.project_id, p.nombre, s.last_synced_at, s.last_status, s.last_error, s.backfill_done, s.property_id,
+            s.sync_activo
        FROM api_credentials ac
        JOIN projects p ON p.id = ac.project_id
        LEFT JOIN ga4_sincronizacion s ON s.project_id = ac.project_id

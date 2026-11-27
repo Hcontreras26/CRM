@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 
 /**
  * CRM#1099 · Integraciones › Google Analytics 4 y Search Console (Diego, 25/11).
@@ -131,13 +131,17 @@ describe('GA4, para quien puede conectarla', () => {
     fireEvent.click(screen.getByRole('button', { name: /Probar/ }));
     expect(await screen.findByText(/añádela como «Lector»/)).toBeTruthy();
 
-    const confirmar = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    // «Quitar» pregunta con el diálogo del CRM, no con `confirm()` (CRM#1210).
     fireEvent.click(screen.getByRole('button', { name: /Quitar/ }));
+    let dialogo = await screen.findByRole('dialog');
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(api.delete).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /Quitar/ }));
+    dialogo = await screen.findByRole('dialog');
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Quitar' }));
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/integrations/google/ga4?projectId=10'));
     expect(await screen.findByText('Sin conectar')).toBeTruthy();
-    confirmar.mockRestore();
   });
 });
 

@@ -200,7 +200,7 @@ export default function SeoPage() {
           <p className="text-xs text-muted-foreground">
             {estado?.site_url || '—'} · Última sincronización: {cuando(estado?.last_synced_at || null)}
             {r?.ultimo_dia && ` · Datos hasta el ${diaCorto(r.ultimo_dia)}`}
-            {!syncActivo && ' · la sincronización automática está apagada'}
+            {!(estado?.sync_activa ?? syncActivo) && ' · la sincronización automática de este campus está apagada (se enciende en Integraciones)'}
           </p>
           <div className="mt-1"><LineaSemana semana={semana} /></div>
           {estado?.last_status === 'error' && (

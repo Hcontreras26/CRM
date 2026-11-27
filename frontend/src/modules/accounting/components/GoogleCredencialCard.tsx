@@ -7,6 +7,8 @@ import {
   FloppyDisk, PlugsConnected, Trash, ArrowSquareOut, Question, ArrowsClockwise,
 } from '@phosphor-icons/react';
 import { leerJsonCuenta, soloNumeros } from '../lib/cuentaServicioGoogle';
+import ConfirmDialog from '@/shared/components/ui/ConfirmDialog';
+import GoogleSincronizacion, { type Automatica, type UmbralesAviso } from './GoogleSincronizacion';
 
 /**
  * GOOGLE ANALYTICS 4 Y SEARCH CONSOLE DEL CAMPUS (CRM#1099, Diego 25/11).
@@ -35,6 +37,10 @@ interface EstadoGoogle {
   ultima_prueba: { at: string; ok: boolean; mensaje: string | null } | null;
   ultima_sincronizacion: { at: string | null; estado: string | null; error: string | null } | null;
   sincronizacion_activa: boolean;
+  /** La automática de este campus y de dónde sale (CRM#1210). */
+  sincronizacion?: Automatica;
+  /** Solo Search Console: los umbrales del aviso de caída (CRM#1210). */
+  umbrales_aviso?: UmbralesAviso;
   otra_cuenta: { servicio: ServicioGoogle; client_email: string } | null;
 }
 
@@ -156,6 +162,8 @@ export default function GoogleCredencialCard({ projectId, servicio }: { projectI
   const [probando, setProbando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; mensaje: string } | null>(null);
   const [verPasos, setVerPasos] = useState<boolean | null>(null);
+  const [confirmarQuitar, setConfirmarQuitar] = useState(false);
+  const [quitando, setQuitando] = useState(false);
   const archivo = useRef<HTMLInputElement>(null);
 
   const aplicar = useCallback((d: EstadoGoogle) => {
@@ -260,7 +268,7 @@ export default function GoogleCredencialCard({ projectId, servicio }: { projectI
   }
 
   async function quitar() {
-    if (!confirm(`¿Quitar la conexión de ${t.titulo} de este campus? Lo ya traído se queda, pero dejarán de llegar datos nuevos.`)) return;
+    setQuitando(true);
     try {
       const res = await client.delete<EstadoGoogle>(`/integrations/google/${servicio}?projectId=${projectId}`);
       aplicar(res?.data && 'estado' in res.data ? res.data : SIN_CONECTAR(servicio));
@@ -268,7 +276,7 @@ export default function GoogleCredencialCard({ projectId, servicio }: { projectI
       toast({ title: `${t.titulo} quitado` });
     } catch (e) {
       toast({ title: 'No se ha podido quitar', description: mensajeDe(e), variant: 'destructive' });
-    }
+    } finally { setQuitando(false); setConfirmarQuitar(false); }
   }
 
   async function buscarSitios() {
@@ -305,8 +313,8 @@ export default function GoogleCredencialCard({ projectId, servicio }: { projectI
             {data.ultima_sincronizacion?.estado === 'error' && data.ultima_sincronizacion.error && (
               <span className="text-destructive"> · falló: {data.ultima_sincronizacion.error}</span>
             )}
-            {data.conectada && !data.sincronizacion_activa && (
-              <span> · la sincronización automática está apagada en este servidor</span>
+            {data.conectada && !(data.sincronizacion?.activa ?? data.sincronizacion_activa) && (
+              <span> · la sincronización automática de este campus está apagada</span>
             )}
           </p>
         </div>
@@ -333,6 +341,14 @@ export default function GoogleCredencialCard({ projectId, servicio }: { projectI
             {data.puesta_por && <> · puesta por {data.puesta_por}</>}
             {data.actualizada_at && <> · {fecha(data.actualizada_at)}</>}
           </div>
+        )}
+
+        {data.conectada && (
+          <GoogleSincronizacion<EstadoGoogle>
+            servicio={servicio} projectId={projectId} nombre={t.titulo}
+            automatica={data.sincronizacion} ultima={data.ultima_sincronizacion}
+            umbrales={servicio === 'gsc' ? data.umbrales_aviso : null}
+            puede={puedeConectar} alCambiar={aplicar} />
         )}
 
         <div>
@@ -438,7 +454,7 @@ export default function GoogleCredencialCard({ projectId, servicio }: { projectI
               <PlugsConnected size={14} weight="bold" /> {probando ? 'Probando…' : 'Probar'}
             </button>
             {data.conectada && (
-              <button type="button" onClick={quitar}
+              <button type="button" onClick={() => setConfirmarQuitar(true)}
                 className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-destructive/30 bg-card text-sm font-semibold text-destructive hover:bg-destructive-soft ml-auto">
                 <Trash size={14} weight="bold" /> Quitar
               </button>
@@ -447,6 +463,16 @@ export default function GoogleCredencialCard({ projectId, servicio }: { projectI
         )}
       </div>
       {cargando && <div className="px-5 py-3 text-xs text-muted-foreground border-t border-border">Cargando…</div>}
+      <ConfirmDialog
+        open={confirmarQuitar}
+        tone="destructive"
+        title={`¿Quitar ${t.titulo} de este campus?`}
+        message="Lo ya traído se queda, pero dejarán de llegar datos nuevos. El interruptor y los umbrales se conservan por si se vuelve a conectar."
+        confirmLabel="Quitar"
+        loading={quitando}
+        onConfirm={quitar}
+        onCancel={() => setConfirmarQuitar(false)}
+      />
     </section>
   );
 }

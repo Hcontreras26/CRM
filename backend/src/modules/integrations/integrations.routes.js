@@ -47,6 +47,11 @@ router.put('/moodle/categorias', puede('integrations.edit'), projectAccess, cate
 // Ver, quien ve Integraciones; guardar, probar y quitar, solo admin y superadmin
 // (`integrations.google`). `:servicio` es `ga4` o `gsc`.
 router.post('/google/gsc/sitios',      puede('integrations.google'), projectAccess, google.sitios);
+// La sincronización del campus y los umbrales del aviso, desde la tarjeta (CRM#1210):
+// sin `.env`. Mismo permiso que conectar la cuenta.
+router.put('/google/gsc/umbrales',     puede('integrations.google'), projectAccess, google.guardarUmbrales);
+router.put('/google/:servicio/sincronizacion', puede('integrations.google'), projectAccess, google.ponerSincronizacion);
+router.post('/google/:servicio/sincronizar',   puede('integrations.google'), projectAccess, google.sincronizarAhora);
 router.get('/google/:servicio',        puede('integrations.view'), projectAccess, google.ver);
 router.put('/google/:servicio',        puede('integrations.google'), projectAccess, google.guardar);
 router.post('/google/:servicio/probar', puede('integrations.google'), projectAccess, google.probar);

@@ -10,6 +10,8 @@ export interface EstadoCampus {
   last_status: 'ok' | 'error' | null;
   last_error: string | null;
   backfill_done: boolean | null;
+  /** Si este campus se sincroniza solo (CRM#1210): su interruptor de Integraciones. */
+  sync_activa?: boolean;
 }
 export interface Estado { activo: boolean; campus: EstadoCampus[] }
 

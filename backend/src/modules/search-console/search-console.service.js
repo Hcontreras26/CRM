@@ -3,6 +3,7 @@ import { logger } from '../../shared/utils/logger.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { getDecryptedValue } from '../credentials/credentials.model.js';
 import { leerCredencial, analitica, inspeccionar, partirUrl, esDelSitio } from './search-console.client.js';
+import { interruptorDelCampus, envEncendido } from '../../shared/utils/interruptorCampus.js';
 
 /**
  * Search Console: lo que pasa en Google antes de la visita (CRM#36).
@@ -18,10 +19,17 @@ import { leerCredencial, analitica, inspeccionar, partirUrl, esDelSitio } from '
 
 export const SERVICIO = 'gsc';
 
-/** El interruptor de la sincronización periódica. Apagado de serie. */
+/**
+ * La variable del servidor (GSC_SYNC_ACTIVO). Desde CRM#1210 solo es la RESERVA:
+ * vale para los campus en los que nadie ha tocado el interruptor de la tarjeta.
+ */
 export function syncActivo() {
-  const v = String(process.env.GSC_SYNC_ACTIVO || '').trim().toLowerCase();
-  return v === '1' || v === 'true';
+  return envEncendido(process.env.GSC_SYNC_ACTIVO);
+}
+
+/** Si un campus se sincroniza solo, y por qué (`fila` de `proyectosConGSC`). */
+export function interruptorDe(fila) {
+  return interruptorDelCampus(fila?.sync_activo ?? null, syncActivo());
 }
 
 /** Días que se traen la primera vez: 90 y sus 90 anteriores, para comparar. */
@@ -46,7 +54,8 @@ const posicion = (suma, impresiones) => (impresiones > 0 ? Number((Number(suma) 
 export async function proyectosConGSC() {
   const { rows } = await query(
     `SELECT ac.project_id, p.nombre, COALESCE(s.site_url, p.gsc_property) AS site_url,
-            s.last_synced_at, s.last_status, s.last_error, s.backfill_done, s.indexacion_at
+            s.last_synced_at, s.last_status, s.last_error, s.backfill_done, s.indexacion_at,
+            s.sync_activo, s.aviso_caida_clics, s.aviso_caida_impresiones, s.aviso_min_clics, s.aviso_min_impresiones
        FROM api_credentials ac
        JOIN projects p ON p.id = ac.project_id
        LEFT JOIN gsc_sincronizacion s ON s.project_id = ac.project_id

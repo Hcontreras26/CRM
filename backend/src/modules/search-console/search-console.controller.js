@@ -1,7 +1,7 @@
 import { AppError } from '../../shared/utils/AppError.js';
 import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import * as service from './search-console.service.js';
-import { semanaDe, caidas } from './search-console.aviso.js';
+import { semanaDe, caidas, umbralesDelCampus } from './search-console.aviso.js';
 import { periodoSchema, campusSchema, sincronizarSchema } from './search-console.validation.js';
 
 const leer = (schema, datos) => {
@@ -18,7 +18,9 @@ export async function estado(req, res, next) {
       const mios = await campusDeLaPersona(req.user.userId);
       filas = filas.filter((f) => mios.includes(f.project_id));
     }
-    res.json({ success: true, data: { activo: service.syncActivo(), campus: filas } });
+    // Cada campus con su interruptor (CRM#1210); `activo`, si alguno de los suyos va solo.
+    filas = filas.map((f) => ({ ...f, sync_activa: service.interruptorDe(f).activo }));
+    res.json({ success: true, data: { activo: filas.some((f) => f.sync_activa), campus: filas } });
   } catch (err) { next(err); }
 }
 
@@ -72,8 +74,8 @@ export async function indexacion(req, res, next) {
 export async function semana(req, res, next) {
   try {
     const { projectId } = leer(campusSchema, req.query);
-    const s = await semanaDe(projectId);
-    // Lo que avisaría el lunes, para pintarlo en rojo.
-    res.json({ success: true, data: { ...s, caidas: caidas(s).map((x) => x.metrica) } });
+    const [s, u] = await Promise.all([semanaDe(projectId), umbralesDelCampus(projectId)]);
+    // Lo que avisaría el lunes, con los umbrales del campus (#1210), para pintarlo en rojo.
+    res.json({ success: true, data: { ...s, caidas: caidas(s, u).map((x) => x.metrica) } });
   } catch (err) { next(err); }
 }

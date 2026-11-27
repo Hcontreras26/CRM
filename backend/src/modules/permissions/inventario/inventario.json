@@ -7897,6 +7897,84 @@
   "puertas": []
  },
  {
+  "id": "PUT /api/integrations/google/gsc/umbrales",
+  "tipo": "ruta",
+  "modulo": "integrations",
+  "metodo": "PUT",
+  "ruta": "/api/integrations/google/gsc/umbrales",
+  "relativa": "PUT /google/gsc/umbrales",
+  "controlador": "guardarUmbrales",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "integrations.google"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/integrations/google/:servicio/sincronizacion",
+  "tipo": "ruta",
+  "modulo": "integrations",
+  "metodo": "PUT",
+  "ruta": "/api/integrations/google/:servicio/sincronizacion",
+  "relativa": "PUT /google/:servicio/sincronizacion",
+  "controlador": "ponerSincronizacion",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "integrations.google"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/integrations/google/:servicio/sincronizar",
+  "tipo": "ruta",
+  "modulo": "integrations",
+  "metodo": "POST",
+  "ruta": "/api/integrations/google/:servicio/sincronizar",
+  "relativa": "POST /google/:servicio/sincronizar",
+  "controlador": "sincronizarAhora",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "integrations.google"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "projectAccess"
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/integrations/google/:servicio",
   "tipo": "ruta",
   "modulo": "integrations",

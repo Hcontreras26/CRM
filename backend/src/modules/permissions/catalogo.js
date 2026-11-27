@@ -445,7 +445,9 @@ export const SECCIONES = [
           // que prueba sin cambiar nada). Solo superadmin y admin, cada uno en lo suyo.
           // CRM#1099: la cuenta de servicio de Google de cada campus (GA4 y Search
           // Console). Verla va con `view`; cargarla, probarla y quitarla, solo admin.
-          a('google', 'Conectar Google Analytics y Search Console', 'Subir la cuenta de servicio de Google de un campus, elegir su propiedad de GA4 o de Search Console, probarla y quitarla.', ADMIN),
+          // CRM#1210: y encender su sincronización, «Sincronizar ahora» y los umbrales
+          // del aviso de caída de Search Console, sin `.env`.
+          a('google', 'Conectar Google Analytics y Search Console', 'Subir la cuenta de servicio de Google de un campus, elegir su propiedad de GA4 o de Search Console, probarla y quitarla; encender su sincronización, sincronizar ahora y poner los umbrales del aviso de caída de Search Console.', ADMIN),
           a('salud', 'Ver la salud de las conexiones', 'Si cada conexión de sus campus funciona (Stripe, Moodle, WooCommerce, Brevo, Meta, webhooks), con su última señal y el motivo si falla; y comprobarlas ahora.', ADMIN),
         ],
       },

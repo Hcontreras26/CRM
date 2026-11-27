@@ -17,7 +17,9 @@ export async function estado(req, res, next) {
       const mios = await campusDeLaPersona(req.user.userId);
       filas = filas.filter((f) => mios.includes(f.project_id));
     }
-    res.json({ success: true, data: { activo: service.syncActivo(), campus: filas } });
+    // Cada campus con su interruptor (CRM#1210); `activo`, si alguno de los suyos va solo.
+    filas = filas.map((f) => ({ ...f, sync_activa: service.interruptorDe(f).activo }));
+    res.json({ success: true, data: { activo: filas.some((f) => f.sync_activa), campus: filas } });
   } catch (err) { next(err); }
 }
 
