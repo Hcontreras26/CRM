@@ -41,7 +41,7 @@ export { AVATAR_COLORS, avatarColorFor, getInitials, inputClass } from '@/shared
 
 export const SERVICES_CATALOG = [
   { service: 'brevo', name: 'Brevo (Email transaccional)', description: 'API Key para envio de emails desde cada proyecto (remitente configurable)', placeholder: 'xkeysib-...', global: false },
-  { service: 'meta', name: 'Meta Marketing API', description: 'Token larga duracion + account_id', placeholder: 'EAAD...', global: false },
+  // 'meta' ya no va aquí (CRM#1209): se configura en Meta Ads › Configuración.
   { service: 'google_ads', name: 'Google Ads API', description: 'Developer Token + OAuth2', placeholder: 'developer-token', global: false },
   { service: 'gsc', name: 'Google Search Console', description: 'OAuth2 + property URL', placeholder: 'refresh_token', global: false },
   { service: 'stripe', name: 'Stripe (Restricted Key)', description: 'Solo lectura - suscripciones', placeholder: 'rk_live_...', global: false },

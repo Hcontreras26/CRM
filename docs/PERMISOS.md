@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-1006 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
+1012 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -823,6 +823,12 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 
 | Acción | Método y ruta | Qué la protegía | Quién podía | Permiso |
 |---|---|---|---|---|
+| ver | `GET /api/meta-ads/app` | (no existía) | (ruta nueva) | `meta_ads.app` |
+| guardar | `PUT /api/meta-ads/app` | (no existía) | (ruta nueva) | `meta_ads.app` |
+| probar | `POST /api/meta-ads/app/probar` | (no existía) | (ruta nueva) | `meta_ads.app` |
+| quitar | `DELETE /api/meta-ads/app` | (no existía) | (ruta nueva) | `meta_ads.app` |
+| guardarAjustes | `PUT /api/meta-ads/app/ajustes` | (no existía) | (ruta nueva) | `meta_ads.app` |
+| renovar | `POST /api/meta-ads/app/renovar` | (no existía) | (ruta nueva) | `meta_ads.app` |
 | listAccounts | `GET /api/meta-ads/accounts` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `meta_ads.view` |
 | getAccount | `GET /api/meta-ads/account` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `meta_ads.view` |
 | connect | `POST /api/meta-ads/connect` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `meta_ads.edit` |
@@ -1586,6 +1592,7 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver Meta Ads | `meta_ads.view` | Cuentas, campañas, anuncios y su rendimiento. | Admin, Soporte, Project manager |  |
 | Conectar y sincronizar Meta Ads | `meta_ads.edit` | Conectar cuentas, sincronizarlas y asociar campañas a productos. | Admin, Soporte | `meta_ads.view` |
+| Configurar la app de Meta | `meta_ads.app` | El ID y el secreto de la app de Meta de todo el CRM, probarla y quitarla, y la renovación automática de los tokens de los campus (encenderla, sus días y «Renovar ahora»). | Admin | `meta_ads.edit`, `meta_ads.view` |
 
 ### Google Analytics
 

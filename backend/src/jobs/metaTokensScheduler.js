@@ -5,7 +5,7 @@
 // Instagram) se para sin avisar. Una vez al día, por cada cuenta:
 //
 //   · Meta Ads (meta_ad_accounts): debug_token dice si vale y cuándo caduca;
-//     si quedan menos de META_TOKENS_RENOVAR_DIAS (40, o sea: tokens con más de
+//     si quedan menos de «renovar con N días» (40, o sea: tokens con más de
 //     20 días) se cambia por otro con grant_type=fb_exchange_token. Los de un
 //     usuario del sistema no caducan (expires_at = 0) y se dejan como están.
 //   · Instagram (ig_accounts, cuando exista: #465/#467): grant_type=
@@ -20,12 +20,17 @@
 // Avisos a los admins —campana y correo con la plantilla común—:
 //   · si la renovación falla: UNA vez por fallo, no uno al día. Vuelve a avisar
 //     solo después de haber ido bien alguna vez.
-//   · si el token caduca en menos de META_TOKENS_AVISO_DIAS (7): una vez por
+//   · si el token caduca en menos de «avisar con N días» (7): una vez por
 //     fecha de caducidad (Meta no siempre alarga un token largo; entonces hay
 //     que volver a conectar la cuenta a mano).
 //
-// APAGADO DE SERIE: sin META_TOKENS_RENOVACION_ACTIVA=1 no arranca y `vuelta()`
-// no llama a Meta ni toca la base.
+// APAGADO DE SERIE: sin encenderla, `vuelta()` no llama a Meta ni toca la base.
+//
+// DESDE LA PANTALLA (CRM#1209): la app de Meta (ID y secreto), el interruptor y
+// los días se ponen en Meta Ads › Configuración › App de Meta. El `.env`
+// (META_APP_*, META_TOKENS_*) queda de reserva: ver meta-app.config.js. La tarea
+// arranca siempre y en cada vuelta mira si está encendida, para que encenderla
+// o apagarla en la pantalla no pida reiniciar el servidor.
 
 import { logger } from '../shared/utils/logger.js';
 import { query } from '../shared/config/db.js';
@@ -34,8 +39,9 @@ import * as P from '../shared/services/email-plantilla.service.js';
 import { notifyAdmins } from '../modules/notifications/notifications.service.js';
 import { packToken, unpackToken } from '../modules/meta-ads/meta-ads.service.js';
 import {
-  appDeMeta, inspeccionarTokenMeta, renovarTokenMeta, renovarTokenInstagram,
+  inspeccionarTokenMeta, renovarTokenMeta, renovarTokenInstagram,
 } from '../shared/services/metaTokens.service.js';
+import { appEnUso, valoresDeAjustes, FALTA_LA_APP } from '../modules/meta-ads/meta-app.config.js';
 import { vigilar } from './latido.js';
 
 const DIA_MS = 24 * 60 * 60 * 1000;
@@ -43,18 +49,16 @@ const TICK_MS = parseInt(process.env.META_TOKENS_TICK_MS || String(DIA_MS), 10);
 
 export const TIPO_AVISO = 'meta_token';
 
-/** El interruptor. Apagado de serie. */
+/** El interruptor DEL SERVIDOR (la reserva). Apagado de serie. */
 export function renovacionActiva() {
   const v = String(process.env.META_TOKENS_RENOVACION_ACTIVA || '').trim().toLowerCase();
   return v === '1' || v === 'true';
 }
 
-const entero = (v, def) => {
-  const n = parseInt(v, 10);
-  return Number.isFinite(n) && n > 0 ? n : def;
-};
-const diasRenovar = () => entero(process.env.META_TOKENS_RENOVAR_DIAS, 40);
-const diasAviso = () => entero(process.env.META_TOKENS_AVISO_DIAS, 7);
+/** El interruptor que vale: el de la pantalla y, si no hay, el del servidor (#1209). */
+export async function renovacionEncendida() {
+  return (await valoresDeAjustes()).renovacion_activa === true;
+}
 
 const mismaFecha = (a, b) => !!a && !!b && new Date(a).getTime() === new Date(b).getTime();
 
@@ -150,14 +154,15 @@ function venceAntesDe(expiresAt, ahora, dias) {
   return !!expiresAt && new Date(expiresAt).getTime() - ahora.getTime() < dias * DIA_MS;
 }
 
-async function revisarMetaAds(cuenta, token, ahora) {
-  const { appId, appSecret } = appDeMeta();
+async function revisarMetaAds(cuenta, token, ahora, cfg) {
+  const { appId, appSecret } = cfg.app;
+  if (!appId || !appSecret) return fallo('missing_app_config', FALTA_LA_APP);
   const insp = await inspeccionarTokenMeta({ token, appId, appSecret });
   if (!insp.ok) return fallo(insp.code, insp.message);
   if (!insp.valido) return fallo('token_invalido', insp.message || 'Meta dice que el token ya no es válido', insp.expiresAt);
   if (insp.sinCaducidad) return { ok: true, sinCaducidad: true, expiresAt: null, renovado: false };
   // Sin fecha y sin «no caduca»: se renueva igual, que es lo seguro.
-  if (insp.expiresAt && !venceAntesDe(insp.expiresAt, ahora, diasRenovar())) {
+  if (insp.expiresAt && !venceAntesDe(insp.expiresAt, ahora, cfg.renovar_dias)) {
     return { ok: true, sinCaducidad: false, expiresAt: insp.expiresAt, renovado: false };
   }
   const r = await renovarTokenMeta({ token, appId, appSecret });
@@ -175,9 +180,9 @@ async function revisarMetaAds(cuenta, token, ahora) {
   return { ok: true, sinCaducidad: false, expiresAt, renovado: true };
 }
 
-async function revisarInstagram(cuenta, token, ahora) {
+async function revisarInstagram(cuenta, token, ahora, cfg) {
   const guardada = cuenta.expiresAtGuardada;
-  if (guardada && !venceAntesDe(guardada, ahora, diasRenovar())) {
+  if (guardada && !venceAntesDe(guardada, ahora, cfg.renovar_dias)) {
     return { ok: true, sinCaducidad: false, expiresAt: guardada, renovado: false };
   }
   const r = await renovarTokenInstagram({ token });
@@ -268,7 +273,7 @@ async function avisar(motivo, cuenta, datos, ahora, adminEmails) {
 
 // ── Una cuenta ──────────────────────────────────────────────────────────────
 
-async function revisarCuenta(cuenta, ahora, adminEmails) {
+async function revisarCuenta(cuenta, ahora, adminEmails, cfg) {
   const previo = await leerEstado(cuenta.tipo, cuenta.id);
   let r;
   try {
@@ -282,8 +287,8 @@ async function revisarCuenta(cuenta, ahora, adminEmails) {
       r = fallo('token_ilegible', 'El token guardado no se puede descifrar', cuenta.expiresAtGuardada);
     } else {
       r = cuenta.tipo === 'instagram'
-        ? await revisarInstagram(cuenta, token, ahora)
-        : await revisarMetaAds(cuenta, token, ahora);
+        ? await revisarInstagram(cuenta, token, ahora, cfg)
+        : await revisarMetaAds(cuenta, token, ahora, cfg);
     }
   } catch (err) {
     r = fallo('error_interno', err?.message || String(err));
@@ -300,13 +305,13 @@ async function revisarCuenta(cuenta, ahora, adminEmails) {
       avisoFalloAt = ahora;
       avisos.push('fallo');
       // El de fallo ya dice cuándo caduca: no se manda otro de caducidad por la misma fecha.
-      if (venceAntesDe(expiresAt, ahora, diasAviso())) avisoCaducaPara = expiresAt;
+      if (venceAntesDe(expiresAt, ahora, cfg.aviso_dias)) avisoCaducaPara = expiresAt;
     }
   } else {
     avisoFalloAt = null;
   }
 
-  if (venceAntesDe(expiresAt, ahora, diasAviso()) && !mismaFecha(avisoCaducaPara, expiresAt)) {
+  if (venceAntesDe(expiresAt, ahora, cfg.aviso_dias) && !mismaFecha(avisoCaducaPara, expiresAt)) {
     await avisar('caduca', cuenta, { expiresAt }, ahora, adminEmails);
     avisoCaducaPara = expiresAt;
     avisos.push('caduca');
@@ -331,13 +336,31 @@ async function revisarCuenta(cuenta, ahora, adminEmails) {
 
 // ── La vuelta ───────────────────────────────────────────────────────────────
 
+/** Apunta la última vuelta, para el estado de la pantalla. Sin la migración 341, nada. */
+async function apuntarVuelta(ahora, resumen) {
+  try {
+    await query(
+      `INSERT INTO meta_app_ajustes (id, ultima_vuelta_at, ultima_vuelta_resumen)
+       VALUES (1, $1, $2)
+       ON CONFLICT (id) DO UPDATE SET ultima_vuelta_at = EXCLUDED.ultima_vuelta_at,
+                                      ultima_vuelta_resumen = EXCLUDED.ultima_vuelta_resumen`,
+      [ahora, JSON.stringify(resumen)]
+    );
+  } catch (err) {
+    if (err?.code !== '42P01') logger.warn({ err: err.message }, 'Tokens de Meta: no se pudo apuntar la vuelta');
+  }
+}
+
 /**
  * Una pasada por todas las cuentas (o las de un campus, con `proyectoId`).
- * Apagada, vuelve sin hacer nada.
+ * Apagada, vuelve sin hacer nada; `forzar: true` es «Renovar ahora» de la
+ * pantalla, que va aunque la automática esté apagada.
  */
-export async function vuelta({ ahora = new Date(), proyectoId = null } = {}) {
-  if (!renovacionActiva()) return { apagado: true };
-  const resumen = { revisadas: 0, renovadas: 0, fallidas: 0, avisos: 0 };
+export async function vuelta({ ahora = new Date(), proyectoId = null, forzar = false } = {}) {
+  const ajustes = await valoresDeAjustes();
+  if (!forzar && !ajustes.renovacion_activa) return { apagado: true };
+  const cfg = { ...ajustes, app: await appEnUso() };
+  const resumen = { revisadas: 0, renovadas: 0, fallidas: 0, avisos: 0, ...(forzar ? { a_mano: true } : {}) };
 
   const hayInstagram = await hayTabla('ig_accounts');
   const cuentas = [
@@ -345,29 +368,31 @@ export async function vuelta({ ahora = new Date(), proyectoId = null } = {}) {
     ...(await cuentasInstagram(proyectoId)),
   ];
   if (!proyectoId) await limpiarHuerfanas(hayInstagram);
-  if (!cuentas.length) return resumen;
+  if (!cuentas.length) {
+    await apuntarVuelta(ahora, resumen);
+    return resumen;
+  }
 
   const adminEmails = await correosDeAdmins();
   for (const cuenta of cuentas) {
-    const r = await revisarCuenta(cuenta, ahora, adminEmails);
+    const r = await revisarCuenta(cuenta, ahora, adminEmails, cfg);
     resumen.revisadas += 1;
     if (r.renovado) resumen.renovadas += 1;
     if (!r.ok) resumen.fallidas += 1;
     resumen.avisos += r.avisos.length;
   }
+  await apuntarVuelta(ahora, resumen);
   logger.info(resumen, 'Tokens de Meta: vuelta hecha');
   return resumen;
 }
 
 export function startMetaTokensScheduler() {
-  if (!renovacionActiva()) {
-    logger.info('Renovación de tokens de Meta apagada (META_TOKENS_RENOVACION_ACTIVA no está a 1)');
-    return;
-  }
+  // Arranca siempre: si está apagada (en la pantalla o, sin nada ahí, en el
+  // servidor), cada vuelta vuelve sin hacer nada. Así se enciende sin reiniciar.
   // Primera vuelta a los 15 min del arranque (la app ya estable), luego una al día.
   vigilar('tokens_meta', 'Renovación de tokens de Meta e Instagram', () => vuelta(), TICK_MS,
     { alArrancarMs: 15 * 60 * 1000 });
-  logger.info({ tickMs: TICK_MS }, 'Renovación de tokens de Meta iniciada');
+  logger.info({ tickMs: TICK_MS }, 'Renovación de tokens de Meta lista (se enciende en Meta Ads › Configuración › App de Meta)');
 }
 
 export const _internals = { revisarCuenta, leerEstado };

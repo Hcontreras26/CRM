@@ -200,7 +200,9 @@ export const AVAILABLE_EXTRA_COLUMNS = [
 
 export const PROJECT_SERVICES = [
   { service: 'brevo', name: 'Brevo (Email)', description: 'La cuenta de Brevo de esta marca, donde está autenticado su dominio. Con ella y su remitente «no contestar» (pestaña General), sus correos salen desde su dominio. Sin ella, desde el del CRM.', placeholder: 'xkeysib-...' },
-  { service: 'meta', name: 'Meta Marketing', description: 'Token + account_id del pixel/cuenta publicitaria', placeholder: 'EAAD...' },
+  // CRM#1209: «Meta Marketing» guardaba aquí un token que no leía nadie. La cuenta
+  // publicitaria del campus y la app de Meta se ponen en Meta Ads › Configuración.
+  { service: 'meta', name: 'Meta Ads', description: 'No se configura aquí: la cuenta publicitaria de este campus y la app de Meta se ponen en Meta Ads › Configuración.', placeholder: '', enlace: '/meta-ads' },
   { service: 'google_ads', name: 'Google Ads', description: 'Developer token + OAuth refresh token', placeholder: 'dev-token' },
   { service: 'gsc', name: 'Google Search Console', description: 'JSON de la cuenta de servicio de Google con "site_url" añadido ("sc-domain:web.com" o "https://web.com/"). La cuenta tiene que ser usuaria de la propiedad.', placeholder: '{"site_url":"sc-domain:…","client_email":"…","private_key":"…"}' },
   { service: 'google_analytics', name: 'Google Analytics 4', description: 'JSON de la cuenta de servicio de Google con "property_id" añadido. La cuenta tiene que ser «Lector» de la propiedad.', placeholder: '{"property_id":"…","client_email":"…","private_key":"…"}' },

@@ -566,7 +566,7 @@ if (process.env.NODE_ENV !== 'test') {
     startGoogleAnalyticsSyncScheduler();
     // Sincronización de Search Console (CRM#36). Apagada sin GSC_SYNC_ACTIVO=1.
     startSearchConsoleSyncScheduler();
-    // Renovación diaria de tokens de Meta e Instagram (#471). Apagada sin META_TOKENS_RENOVACION_ACTIVA=1.
+    // Renovación diaria de tokens de Meta e Instagram (#471). Se enciende en Meta Ads › Configuración › App de Meta (#1209).
     startMetaTokensScheduler();
     startTutorCommissionsScheduler();
     startTutoresCampusScheduler();

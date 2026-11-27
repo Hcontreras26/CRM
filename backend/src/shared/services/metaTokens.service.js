@@ -18,12 +18,19 @@ const versionGraph = () => process.env.IG_GRAPH_VERSION || 'v25.0';
 const GRAPH_FB = () => `https://graph.facebook.com/${versionGraph()}`;
 const GRAPH_IG = 'https://graph.instagram.com';
 
-/** La app de Meta de la que salen los tokens. META_APP_* y, si no, IG_APP_* (épica #464). */
-export function appDeMeta() {
-  const appId = process.env.META_APP_ID || process.env.IG_APP_ID || '';
-  const appSecret = process.env.META_APP_SECRET || process.env.IG_APP_SECRET || '';
+/**
+ * La app de Meta DEL SERVIDOR: META_APP_* y, si no, IG_APP_* (épica #464).
+ * Desde la #1209 es solo la reserva: la que se usa la decide `appEnUso()`
+ * (modules/meta-ads/meta-app.config.js), que mira antes la de la pantalla.
+ */
+export function appDeMeta(env = process.env) {
+  const appId = env.META_APP_ID || env.IG_APP_ID || '';
+  const appSecret = env.META_APP_SECRET || env.IG_APP_SECRET || '';
   return { appId, appSecret };
 }
+
+/** Lo que se contesta si no hay app. Sin nombres de variables: se pone en la pantalla (#1209). */
+const SIN_APP = { ok: false, code: 'missing_app_config', message: 'Falta la app de Meta (ID y secreto)' };
 
 async function pedir(url) {
   let res;
@@ -50,7 +57,7 @@ const segundosAFecha = (s) => new Date(Number(s) * 1000);
  * → { ok, valido, sinCaducidad, expiresAt }
  */
 export async function inspeccionarTokenMeta({ token, appId, appSecret }) {
-  if (!appId || !appSecret) return { ok: false, code: 'missing_app_config', message: 'Faltan META_APP_ID y META_APP_SECRET' };
+  if (!appId || !appSecret) return SIN_APP;
   if (!token) return { ok: false, code: 'missing_token', message: 'La cuenta no tiene token' };
   const url = `${GRAPH_FB()}/debug_token?input_token=${encodeURIComponent(token)}`
     + `&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`;
@@ -65,6 +72,8 @@ export async function inspeccionarTokenMeta({ token, appId, appSecret }) {
     valido: d.is_valid === true,
     sinCaducidad,
     expiresAt: !sinCaducidad && expira > 0 ? segundosAFecha(expira) : null,
+    // De qué app es el token: con otra app no se puede renovar (#1209, «Probar»).
+    appId: d.app_id ? String(d.app_id) : null,
     message: d.error?.message || null,
   };
 }
@@ -77,9 +86,23 @@ function conToken(r) {
   return { ok: true, accessToken, expiresIn: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : null };
 }
 
+/**
+ * «Probar» la app (#1209): pide el token de la app con grant_type=client_credentials.
+ * Si el ID o el secreto están mal, es aquí donde Meta lo dice. → { ok }
+ * El token de la app no se devuelve: solo sirve para saber que la pareja vale.
+ */
+export async function tokenDeLaApp({ appId, appSecret }) {
+  if (!appId || !appSecret) return SIN_APP;
+  const url = `${GRAPH_FB()}/oauth/access_token?grant_type=client_credentials`
+    + `&client_id=${encodeURIComponent(appId)}&client_secret=${encodeURIComponent(appSecret)}`;
+  const r = await pedir(url);
+  if (!r.ok) return r;
+  return r.data?.access_token ? { ok: true } : { ok: false, code: 'no_access_token', message: 'Meta respondió sin access_token' };
+}
+
 /** Token de larga duración de Meta (Ads) → otro de larga duración. → { ok, accessToken, expiresIn } */
 export async function renovarTokenMeta({ token, appId, appSecret }) {
-  if (!appId || !appSecret) return { ok: false, code: 'missing_app_config', message: 'Faltan META_APP_ID y META_APP_SECRET' };
+  if (!appId || !appSecret) return SIN_APP;
   if (!token) return { ok: false, code: 'missing_token', message: 'La cuenta no tiene token' };
   const url = `${GRAPH_FB()}/oauth/access_token?grant_type=fb_exchange_token`
     + `&client_id=${encodeURIComponent(appId)}&client_secret=${encodeURIComponent(appSecret)}`

@@ -4,6 +4,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import * as metaClient from './meta-ads.client.js';
 import { destinoDelCreativo, formacionDelConjunto } from './meta-ads.enlaces.js';
+import { horasGastoTotal } from './meta-app.config.js';
 
 export function packToken(plain) {
   const { encrypted, iv, authTag } = encrypt(plain);
@@ -467,8 +468,9 @@ async function recalcCampaignTotals(projectId) {
 // asociación automática conjunto ↔ formación. Ninguna de las dos tumba la
 // sincronización si falla: se apunta en el log y la próxima lo vuelve a probar.
 
-/** Cada cuánto se vuelve a pedir a Meta el gasto de toda la vida (horas). */
-const GASTO_TOTAL_CADA_HORAS = () => Number(process.env.META_GASTO_TOTAL_CADA_HORAS || 12);
+// Cada cuánto se vuelve a pedir a Meta el gasto de toda la vida (horas): se pone
+// en Meta Ads › Configuración › App de Meta, con META_GASTO_TOTAL_CADA_HORAS de
+// reserva (CRM#1209). Ver `horasGastoTotal` en meta-app.config.js.
 
 async function despuesDeSincronizar({ account, token, inicio, forzarGastoTotal = false }) {
   try {
@@ -506,7 +508,7 @@ async function gastoTotalAlDia(account) {
     [account.project_id, account.ad_account_id]
   );
   const ultima = rows[0]?.ultima ? new Date(rows[0].ultima).getTime() : 0;
-  return ultima > Date.now() - GASTO_TOTAL_CADA_HORAS() * 3600_000;
+  return ultima > Date.now() - (await horasGastoTotal()) * 3600_000;
 }
 
 /**

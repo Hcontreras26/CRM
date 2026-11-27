@@ -228,6 +228,8 @@ export function secretoVisible(value) {
     try {
       const o = JSON.parse(texto);
       if (o && typeof o.token === 'string' && o.token.length >= 4) return o.token;
+      // La app de Meta (CRM#1209): la cola del secreto, no la del JSON.
+      if (o && typeof o.app_secret === 'string' && o.app_secret.length >= 4) return o.app_secret;
       // Cuenta de servicio de Google (GA4, Search Console): el ID de la clave, que es
       // lo que enseña Google Cloud en «Claves». Nunca un trozo de `private_key`.
       if (o?.type === 'service_account') return String(o.private_key_id || o.client_email || '····');

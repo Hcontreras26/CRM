@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Key, X } from '@phosphor-icons/react';
+import { Key, X, ArrowRight } from '@phosphor-icons/react';
+import { Link } from 'react-router-dom';
 import Portal from '@/shared/components/ui/portal';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
@@ -62,7 +63,15 @@ export default function ApisTab({ project }) {
                   <p className="text-secundario text-muted-foreground">{svc.description}</p>
                   {cred && <p className="text-secundario font-mono text-muted-foreground mt-0.5">{cred.masked_value}</p>}
                 </div>
-                {cred ? (
+                {svc.enlace ? (
+                  <>
+                    {/* Lo que quedara guardado aquí no lo lee nadie (CRM#1209): se puede borrar. */}
+                    {cred && <button onClick={() => handleDelete(cred.id)} aria-label="Eliminar la credencial que no se usa" title="Guardada aquí, pero no la usa nadie" className="p-1 rounded hover:bg-destructive-soft text-destructive"><X size={14} /></button>}
+                    <Link to={svc.enlace} className="text-secundario px-3 py-1.5 rounded-lg border border-border font-semibold inline-flex items-center gap-1 hover:bg-muted">
+                      Ir a Meta Ads <ArrowRight size={12} />
+                    </Link>
+                  </>
+                ) : cred ? (
                   <>
                     <span className={`px-2 py-0.5 rounded-full text-secundario font-medium ${
                       cred.last_test_result === 'ok'

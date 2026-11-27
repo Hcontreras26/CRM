@@ -11735,6 +11735,174 @@
   "puertas": []
  },
  {
+  "id": "GET /api/meta-ads/app",
+  "tipo": "ruta",
+  "modulo": "meta-ads",
+  "metodo": "GET",
+  "ruta": "/api/meta-ads/app",
+  "relativa": "GET /app",
+  "controlador": "ver",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.app"
+    ]
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/meta-ads/app",
+  "tipo": "ruta",
+  "modulo": "meta-ads",
+  "metodo": "PUT",
+  "ruta": "/api/meta-ads/app",
+  "relativa": "PUT /app",
+  "controlador": "guardar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.app"
+    ]
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/meta-ads/app/probar",
+  "tipo": "ruta",
+  "modulo": "meta-ads",
+  "metodo": "POST",
+  "ruta": "/api/meta-ads/app/probar",
+  "relativa": "POST /app/probar",
+  "controlador": "probar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.app"
+    ]
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "DELETE /api/meta-ads/app",
+  "tipo": "ruta",
+  "modulo": "meta-ads",
+  "metodo": "DELETE",
+  "ruta": "/api/meta-ads/app",
+  "relativa": "DELETE /app",
+  "controlador": "quitar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.app"
+    ]
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "PUT /api/meta-ads/app/ajustes",
+  "tipo": "ruta",
+  "modulo": "meta-ads",
+  "metodo": "PUT",
+  "ruta": "/api/meta-ads/app/ajustes",
+  "relativa": "PUT /app/ajustes",
+  "controlador": "guardarAjustes",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.app"
+    ]
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/meta-ads/app/renovar",
+  "tipo": "ruta",
+  "modulo": "meta-ads",
+  "metodo": "POST",
+  "ruta": "/api/meta-ads/app/renovar",
+  "relativa": "POST /app/renovar",
+  "controlador": "renovar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.app"
+    ]
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "meta_ads.edit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/meta-ads/accounts",
   "tipo": "ruta",
   "modulo": "meta-ads",

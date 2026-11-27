@@ -19,6 +19,7 @@ function periodo(desde: string, hasta: string) {
 const ConnectWizard = lazy(() => import('../components/ConnectWizard'));
 const AssociateProductsDialog = lazy(() => import('../components/AssociateProductsDialog'));
 const MetaSettingsPanel = lazy(() => import('../components/MetaSettingsPanel'));
+const MetaAppCard = lazy(() => import('../components/MetaAppCard'));
 const MetaManual = lazy(() => import('../components/MetaManual'));
 
 function fmtMoney(n: number, currency = 'EUR') {
@@ -53,6 +54,8 @@ export default function MetaAdsPage() {
   // excepción puede conectarla, y un admin al que se le quita no ve un
   // asistente que acaba en 403.
   const soloVer = !can('meta_ads.edit');
+  // La app de Meta es de todo el CRM (#1209): solo quien tiene además `meta_ads.app`.
+  const veLaApp = !soloVer && can('meta_ads.app');
   const [accounts, setAccounts] = useState<MetaAccount[]>([]);
   // ID de la cuenta filtrada en la UI. null = "Todas" (agrega cross-cuentas, default).
   const [filterAccountId, setFilterAccountId] = useState<number | null>(null);
@@ -228,6 +231,11 @@ export default function MetaAdsPage() {
             onConnected={() => { setShowAddAccount(false); loadAccounts(); }}
           />
         </Suspense>
+        {veLaApp && (
+          <Suspense fallback={null}>
+            <MetaAppCard />
+          </Suspense>
+        )}
       </div>
     );
   }
@@ -456,8 +464,9 @@ export default function MetaAdsPage() {
         )}
 
         {tab === 'config' && !soloVer && (
-          <div className="p-4">
+          <div className="p-4 space-y-4">
             <Suspense fallback={<div className="h-40 bg-muted/40 rounded animate-pulse" />}>
+              {veLaApp && <MetaAppCard />}
               <MetaSettingsPanel
                 projectId={projectId}
                 account={account}

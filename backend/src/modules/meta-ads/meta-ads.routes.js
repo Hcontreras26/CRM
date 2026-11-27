@@ -4,6 +4,7 @@ import { puede } from '../../shared/middleware/permissions.js';
 import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import * as ctrl from './meta-ads.controller.js';
+import * as metaApp from './meta-app.controller.js';
 
 const router = Router();
 router.use(verifyToken);
@@ -31,6 +32,19 @@ async function deSusCampus(req, _res, next) {
 deSusCampus.regla = { tipo: 'alcance', nombre: 'deSusCampus' };
 const ver = [puede('meta_ads.view'), deSusCampus];
 const configurar = [puede('meta_ads.edit'), deSusCampus];
+
+// La app de Meta, de todo el CRM, y la renovación de sus tokens (CRM#1209). Pide
+// las dos claves: quien no conecta Meta Ads no toca su app, y conectar una
+// cuenta no basta para ver ni cambiar el secreto que renueva las de todos.
+// `meta_ads.app` va primero: es la que sale en docs/PERMISOS.md (y en el
+// catálogo «requiere» `meta_ads.edit`).
+const appDeMeta = [puede('meta_ads.app'), puede('meta_ads.edit')];
+router.get('/app', appDeMeta, metaApp.ver);
+router.put('/app', appDeMeta, metaApp.guardar);
+router.post('/app/probar', appDeMeta, metaApp.probar);
+router.delete('/app', appDeMeta, metaApp.quitar);
+router.put('/app/ajustes', appDeMeta, metaApp.guardarAjustes);
+router.post('/app/renovar', appDeMeta, metaApp.renovar);
 
 // Multi-cuenta: el proyecto puede tener N cuentas. /accounts devuelve lista.
 router.get('/accounts', ver, ctrl.listAccounts);
