@@ -15,7 +15,7 @@ import {
 import { METODOS_QUE_DISPARAN } from '../webhooks-salientes/webhooks-salientes.validation.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { proyectosDelAmbito } from '../../shared/utils/ambito.js';
-import { opcionDeCompartidas } from './compartidas.js';
+import { leerCompartidas } from './compartidas.js';
 import { alcanceComercial, acotarAlAlcance, enElAlcance } from '../../shared/utils/roles.js';
 import { campusParaRecortar } from '../../shared/utils/ambito.js';
 import { posiblesRepetidas as gruposRepetidos } from './venta-repetida.js';
@@ -147,8 +147,8 @@ export async function cuotas(req, res, next) {
 
     const data = await conversionModel.cuotasDelPeriodo({
       ...(await proyectosDelAmbito(req)), from, to, responsableId,
-      // #163: el mismo «Reparto» que la lista. Solo vale 'solo' o 'enteras'.
-      compartidas: opcionDeCompartidas(req.query.compartidas),
+      // #163: el mismo «Reparto» que la lista. Validado con Zod (#186).
+      compartidas: leerCompartidas(req.query.compartidas),
     });
     res.json({ success: true, data });
   } catch (err) { next(err); }
@@ -172,7 +172,7 @@ export async function filas(req, res, next) {
     const r = await conversionModel.filasDelPeriodo({
       ...(await proyectosDelAmbito(req)), from, to, responsableId,
       producto: req.query.producto ? String(req.query.producto) : null,
-      compartidas: req.query.compartidas || null, page, limit,
+      compartidas: leerCompartidas(req.query.compartidas), page, limit,
     });
     res.json({ success: true, data: r.filas,
       pagination: { total: r.total, page, limit, totalPages: Math.max(1, Math.ceil(r.total / limit)) } });

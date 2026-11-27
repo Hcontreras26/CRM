@@ -37,6 +37,7 @@ router.get('/resumen', ver, ctrl.resumen);
 router.get('/consultas', ver, ctrl.consultas);
 router.get('/paginas', ver, ctrl.paginas);
 router.get('/indexacion', ver, ctrl.indexacion);
+router.get('/semana', ver, ctrl.semana);
 router.post('/sincronizar', sincronizar, ctrl.sincronizar);
 
 export default router;

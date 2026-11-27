@@ -44,6 +44,45 @@ export async function notifyUsers({ targetUserIds, type, title, message = null, 
   }
 }
 
+// ── Los avisos que se retiran solos ─────────────────────────────────────────
+//
+// Una tutora, el 26/11: «estoy al día; actualizo, pero sigue apareciendo». El
+// aviso de 48 h salió con razón (la entrega llevaba 49 h sin nota) y lo corrigió
+// una hora después, pero el aviso se quedó en la campana para siempre: nada lo
+// retiraba. Un aviso que pide hacer algo tiene que irse cuando ya está hecho.
+//
+// Retirar = marcarlo leído para todos sus destinatarios y apuntar en `metadata`
+// cuándo y por qué (`resuelta_at`, `resuelta`). No se borra: queda el rastro. La
+// campana y la lista no enseñan los retirados (`list`). Sin migración: `metadata`
+// es JSONB desde la 067.
+
+/** Los avisos de ese tipo dirigidos a esa persona que siguen sin retirar (con el índice GIN de la 080). */
+export async function avisosAbiertos(userId, type) {
+  const { rows } = await query(
+    `SELECT id, metadata, created_at FROM admin_notifications
+      WHERE type = $2 AND target_user_ids IS NOT NULL AND target_user_ids @> ARRAY[$1::int]
+        AND NOT (metadata ? 'resuelta_at')
+      ORDER BY id`, [userId, type]);
+  return rows.map((r) => ({ id: Number(r.id), metadata: r.metadata || {}, createdAt: r.created_at }));
+}
+
+/** Añade campos a la `metadata` de un aviso (sin tocar lo demás). */
+export async function anotarAviso(id, campos) {
+  await query('UPDATE admin_notifications SET metadata = metadata || $2::jsonb WHERE id = $1', [id, JSON.stringify(campos)]);
+}
+
+/** Retira esos avisos: leídos para todos sus destinatarios y con el motivo. Devuelve cuántos. */
+export async function resolverAvisos(ids, motivo, ahora = new Date()) {
+  if (!Array.isArray(ids) || !ids.length) return 0;
+  const { rowCount } = await query(
+    `UPDATE admin_notifications
+        SET metadata = metadata || jsonb_build_object('resuelta_at', $3::timestamptz, 'resuelta', $2::text),
+            read_by_user_ids = ARRAY(SELECT DISTINCT x FROM unnest(read_by_user_ids || COALESCE(target_user_ids, '{}'::int[])) x)
+      WHERE id = ANY($1::int[]) AND NOT (metadata ? 'resuelta_at')`,
+    [ids, motivo, ahora]);
+  return rowCount;
+}
+
 // ── Los avisos que alguien ha apagado (#111) ────────────────────────────────
 //
 // Se usa `avisos_apagados`, que YA EXISTE desde la migracion 132 y ya esta
@@ -140,7 +179,8 @@ export async function list({ userId, role = 'gestor', unreadOnly = false, limit 
   const agrupables = tiposApagables().map((t) => t.tipo).filter(seAgrupa);
   const apagados = await apagadosDe(userId);
 
-  const condiciones = [visibilityClause(userId, role, 1)];
+  // Los retirados (ya no piden nada: `resolverAvisos`) no se enseñan.
+  const condiciones = [visibilityClause(userId, role, 1), `NOT (n.metadata ? 'resuelta_at')`];
   if (unreadOnly) condiciones.push(`NOT ($1 = ANY(n.read_by_user_ids))`);
   // Los apagados no se borran, solo se dejan de enseñar: al volver a
   // encenderlos vuelven a estar, con su fecha original.
@@ -199,7 +239,7 @@ export async function list({ userId, role = 'gestor', unreadOnly = false, limit 
  */
 export async function unreadCount(userId, role = 'gestor') {
   const apagados = await apagadosDe(userId);
-  const cond = [visibilityClause(userId, role, 1), `NOT ($1 = ANY(n.read_by_user_ids))`];
+  const cond = [visibilityClause(userId, role, 1), `NOT ($1 = ANY(n.read_by_user_ids))`, `NOT (n.metadata ? 'resuelta_at')`];
   const params = [userId];
   if (apagados.length) { cond.push(`NOT (n.type = ANY($2::text[]))`); params.push(apagados); }
 
