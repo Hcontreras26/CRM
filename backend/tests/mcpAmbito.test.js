@@ -182,6 +182,7 @@ const ARGS = {
   campanas_publicitarias: { desde: '2026-09-01', hasta: '2026-09-30', limite: 50 },
   actividad_por_comercial: { desde: '2026-09-30', hasta: '2026-09-30' },
   informe_seo: { desde: '2026-10-01', hasta: '2026-10-28', limite: 10 },
+  google_ads_campanas: { desde: '2026-11-01', hasta: '2026-11-21', limite: 30 },
 };
 
 const ejecutarTodas = async (ambito, extra = {}, omitir = []) => {
@@ -195,7 +196,7 @@ const ejecutarTodas = async (ambito, extra = {}, omitir = []) => {
       // Y las de Moodle, con la base de mentira, no encuentran ninguna
       // credencial: contestan «sin Moodle configurado» (no hay Moodle de
       // verdad; lo suyo se prueba en mcpMoodle.test.js).
-      // «informe_seo» pide «Ver Tráfico orgánico»: sin él, se niega (MCP_SIN_PERMISO).
+      // «informe_seo» pide «Ver Tráfico orgánico» y «google_ads_campanas», «Ver Google Ads»: sin él, se niegan (MCP_SIN_PERMISO).
       if (e.code !== 'MCP_NO_ENCONTRADO' && e.code !== 'MCP_SOLO_ADMIN' && e.code !== 'MOODLE_NO_DISPONIBLE' && e.code !== 'MCP_SIN_PERMISO'
         && !(h.nombre === 'ver_formacion' && e.code === 'MCP_FUERA_DE_AMBITO')) throw e;
     });
@@ -268,7 +269,7 @@ describe('cada consulta va acotada a los campus de la persona', () => {
     expect(responsableImpuesto(lider)).toEqual([7, 8, 9]);
     // La publicidad (cuentas y campañas de Meta) es del campus, no de una
     // gestora: la ve por su permiso, como la pantalla de Meta Ads. No se mira aquí.
-    await ejecutarTodas(lider, {}, ['cuentas_publicitarias', 'resumen_publicidad', 'campanas_publicitarias', 'meta_ads', 'meta_conjuntos', 'meta_anuncios', 'informe_seo']);
+    await ejecutarTodas(lider, {}, ['cuentas_publicitarias', 'resumen_publicidad', 'campanas_publicitarias', 'meta_ads', 'meta_conjuntos', 'meta_anuncios', 'informe_seo', 'google_ads_campanas']);
     const deDatos = consultas.filter((c) =>
       /\b(leads l|conversions c|invoices i)\b/.test(c.sql) && !/lead_interactions|WHERE c\.lead_id/.test(c.sql));
     expect(deDatos.length).toBeGreaterThan(10);
@@ -531,6 +532,37 @@ describe('informe_seo (Search Console, #36): por su permiso y solo de sus campus
   it('un campus ajeno se rechaza por ajeno, antes que por el permiso', async () => {
     conPermisos(persona('gestor'));
     const r = await seo().ejecutar(ambitoDe('gestor', [PROYECTOS[0]]), { proyecto_id: 20 }).catch((e) => e);
+    expect(r?.code).toBe('MCP_FUERA_DE_AMBITO');
+  });
+});
+
+describe('google_ads_campanas (#1195): por su permiso y solo de sus campus', () => {
+  const gads = () => HERRAMIENTAS.find((h) => h.nombre === 'google_ads_campanas');
+
+  it('sin «Ver Google Ads» se niega sin llegar a la base', async () => {
+    conPermisos(persona('gestor', { usa_mcp: true }));
+    const r = await gads().ejecutar(ambitoDe('gestor'), ARGS.google_ads_campanas).catch((e) => e);
+    expect(r?.code).toBe('MCP_SIN_PERMISO');
+    expect(r?.statusCode).toBe(403);
+    expect(consultas).toEqual([]);
+  });
+
+  it('con el permiso, cada consulta lleva solo el campus pedido y es de lectura', async () => {
+    conPermisos(persona('admin'));
+    const r = await gads().ejecutar(ambitoDe('admin'), { ...ARGS.google_ads_campanas, proyecto_id: 11 });
+    expect(r.campus.map((c) => c.campus_id)).toEqual([11]);
+    expect(consultas.length).toBeGreaterThan(0);
+    for (const { sql, params } of consultas) {
+      expect(sql.trim()).toMatch(/^(SELECT|WITH)\b/i);
+      expect(params).toContain(11);
+      expect(params).not.toContain(10);
+      expect(params).not.toContain(20);
+    }
+  });
+
+  it('un campus ajeno se rechaza por ajeno, antes que por el permiso', async () => {
+    conPermisos(persona('gestor'));
+    const r = await gads().ejecutar(ambitoDe('gestor', [PROYECTOS[0]]), { proyecto_id: 20 }).catch((e) => e);
     expect(r?.code).toBe('MCP_FUERA_DE_AMBITO');
   });
 });

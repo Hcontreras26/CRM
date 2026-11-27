@@ -432,3 +432,39 @@ export async function gastoPorCampana(filtroProyecto, params, desde, hasta) {
   );
   return rows;
 }
+
+/**
+ * Para la herramienta del MCP (#1195): si el campus tiene Google Ads conectado,
+ * su cuenta y el último día con gasto guardado. Todo filtrado por ESE campus
+ * (no la lista de `proyectosConGoogleAds`, que es de todos).
+ */
+export async function estadoDelCampus(projectId) {
+  const [{ rows: [cred] }, { rows: [cuenta] }, { rows: [u] }] = await Promise.all([
+    query(
+      `SELECT 1 AS hay FROM api_credentials
+        WHERE service = $1 AND project_id = $2 AND active = true
+          AND COALESCE(metadata->>'entorno', 'produccion') = 'produccion'
+        LIMIT 1`,
+      [SERVICIO, projectId]
+    ),
+    query(`SELECT customer_id, nombre, moneda, last_synced_at, last_status FROM google_ads_cuentas WHERE project_id = $1`, [projectId]),
+    query(
+      `SELECT to_char(MAX(d.fecha), 'YYYY-MM-DD') AS ultimo
+         FROM google_ads_diario d JOIN google_ads_campanas c ON c.campaign_id = d.campaign_id
+        WHERE d.nivel = 'campana' AND ${CAMPUS} = $1`,
+      [projectId]
+    ),
+  ]);
+  return {
+    conectado: Boolean(cred?.hay),
+    cuenta: cuenta ? { customer_id: cuenta.customer_id, nombre: cuenta.nombre, moneda: cuenta.moneda } : null,
+    ultima_sincronizacion: cuenta?.last_synced_at ? new Date(cuenta.last_synced_at).toISOString() : null,
+    estado_sincronizacion: cuenta?.last_status || null,
+    ultimo_dia: u?.ultimo || null,
+  };
+}
+
+/** El periodo por defecto de la pantalla «Google Ads»: de hace 30 días a ayer. */
+export function periodoPorDefecto({ desde = null, hasta = null, ahora = new Date() } = {}) {
+  return { desde: desde || haceDias(30, ahora), hasta: hasta || haceDias(1, ahora) };
+}

@@ -12,6 +12,7 @@ import * as stripe from '../stripe-payments/stripe-payments.model.js';
 import * as comisiones from '../commissions/commission.model.js';
 import * as duplicados from '../leads/dup-queue.service.js';
 import * as searchConsole from '../search-console/search-console.service.js';
+import * as googleAds from '../google-ads/google-ads.service.js';
 import * as model from './mcp.model.js';
 import { acotarProyectos, responsableImpuesto, alcanceDelAmbito, fueraDelAlcance } from './mcp.acceso.js';
 import { enteroEnv } from './mcp.config.js';
@@ -340,6 +341,7 @@ export const GRUPO_DE_CONSULTA = Object.freeze({
   moodle_recursos_externos: 'Moodle de los campus',
   moodle_estructura: 'Moodle de los campus',
   informe_seo: 'Tráfico orgánico',
+  google_ads_campanas: 'Publicidad',
   informe: 'Informes',
 });
 
@@ -995,6 +997,82 @@ export const HERRAMIENTAS = [
         });
       }
       return { desde: a.desde || null, hasta: a.hasta || null, campus };
+    },
+  },
+  // Google Ads (#54) para Claude (#1195): lee lo que ya guardó la sincronización
+  // (tablas google_ads_*); no llama a Google en cada pregunta. Las cifras son las
+  // de la pantalla «Publicidad › Google Ads», porque es la MISMA función
+  // (`campanas` del servicio). Pide su permiso (`google_ads.view`) y solo de sus campus.
+  {
+    nombre: 'google_ads_campanas',
+    titulo: 'Google Ads',
+    descripcion: 'La publicidad de Google Ads de tus campus, como la pantalla «Publicidad › Google Ads»: por campus y periodo, cada campaña con su estado, gasto, impresiones, clics, CTR (en %), '
+      + 'coste por clic y las conversiones que cuenta Google; y lo que ha traído al CRM: prospectos, ventas, vendido, cobrado, coste por prospecto, COSTE POR VENTA y retorno (cobrado menos gasto). '
+      + 'Un prospecto es de una campaña si su utm_campaign es el id o el nombre de la campaña, y cuenta el día que entró; una venta es la que ya tiene algún cobro y no es mensualidad. '
+      + 'Las «conversiones de Google» y las ventas del CRM no tienen por qué coincidir. Sin fechas, de hace 30 días a ayer (como la pantalla); como mucho 400 días. '
+      + 'Son los datos que trae la sincronización, no los de este minuto. Si un campus no tiene Google Ads conectado o aún no tiene datos, sale con un «aviso», '
+      + 'no con cero gastado. Necesita el permiso «Ver Google Ads».',
+    entrada: {
+      ...AMBITO,
+      ...PERIODO,
+      limite: z.number().int().min(1).max(100).default(30).describe('Máximo de campañas por campus (las de más gasto); el total es de todas'),
+    },
+    ejecutar: async (ambito, a) => {
+      const { projectIds } = acotar(ambito, a);
+      await conPermiso(ambito, 'google_ads.view', 'google_ads_campanas', '«Ver Google Ads»');
+      periodoEnOrden(a);
+      const { desde, hasta } = googleAds.periodoPorDefecto({ desde: a.desde, hasta: a.hasta });
+      if (desde > hasta) {
+        throw new AppError(`Sin «hasta», el periodo acaba ayer (${hasta}), antes de «desde» (${desde}).`, 400, 'MCP_PERIODO_AL_REVES');
+      }
+      if ((Date.parse(hasta) - Date.parse(desde)) / 86400000 > 400) {
+        throw new AppError('Como mucho 400 días, como la pantalla. Acorta el periodo.', 400, 'MCP_PERIODO_LARGO');
+      }
+      const nombres = new Map((ambito.proyectos || []).map((p) => [Number(p.id), p.nombre]));
+      const campus = [];
+      for (const projectId of projectIds) {
+        const entrada = { campus_id: projectId, campus: nombres.get(projectId) || String(projectId) };
+        const estado = await googleAds.estadoDelCampus(projectId);
+        if (!estado.conectado) { campus.push({ ...entrada, aviso: 'sin Google Ads conectado' }); continue; }
+        if (!estado.ultimo_dia) {
+          campus.push({
+            ...entrada,
+            aviso: estado.estado_sincronizacion === 'error'
+              ? 'Google Ads conectado, pero la sincronización falla y aún no hay datos'
+              : 'Google Ads conectado, pero aún sin datos sincronizados',
+          });
+          continue;
+        }
+        const r = await conTope(googleAds.campanas(projectId, desde, hasta), TOPE_INFORME_MS, 'google_ads_campanas');
+        const comun = {
+          ...entrada,
+          cuenta: estado.cuenta,
+          ultimo_dia: estado.ultimo_dia,
+          ultima_sincronizacion: estado.ultima_sincronizacion,
+        };
+        // La pantalla enseña las campañas activas aunque no hayan gastado; a
+        // Claude, un periodo sin gasto ni prospectos le llega como aviso, no como ceros.
+        if (!r.total.coste && !r.total.leads) {
+          campus.push({
+            ...comun,
+            aviso: estado.ultimo_dia < desde
+              ? `sin datos en el periodo: el último día guardado es ${estado.ultimo_dia}`
+              : 'sin gasto ni prospectos de Google Ads en el periodo',
+          });
+          continue;
+        }
+        const avisos = [];
+        if (estado.estado_sincronizacion === 'error') avisos.push('la última sincronización falló: los datos pueden estar atrasados');
+        if (estado.ultimo_dia < hasta) avisos.push(`el último día guardado es ${estado.ultimo_dia}: lo posterior aún no está`);
+        campus.push({
+          ...comun,
+          ...(avisos.length ? { aviso: avisos.join('; ') } : {}),
+          total: r.total,
+          campanas: r.campanas.slice(0, a.limite),
+          total_campanas: r.campanas.length,
+        });
+      }
+      return { desde, hasta, campus };
     },
   },
   {
