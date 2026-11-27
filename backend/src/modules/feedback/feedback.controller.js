@@ -101,21 +101,6 @@ export async function lista(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// GET /api/feedback/exportar -> las respuestas en CSV, con el mismo recorte
-// que el panel (#1157): una gestora, lo suyo; un admin, sus campus.
-export async function exportar(req, res, next) {
-  try {
-    const filtros = await recorteDe(req);
-    const { csv, total, tope } = await service.exportarRespuestas(filtros);
-    const rango = filtros.desde || filtros.hasta ? `${filtros.desde || 'inicio'}_${filtros.hasta || 'hoy'}` : 'desde-siempre';
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="feedback-respuestas-${rango}.csv"`);
-    res.setHeader('X-Total-Descargados', String(total));
-    res.setHeader('X-Tope', String(tope));
-    res.send(csv);
-  } catch (err) { next(err); }
-}
-
 // GET /api/feedback/lead/:leadId -> como está el suyo, para su ficha
 export async function deUnLead(req, res, next) {
   try {

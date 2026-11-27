@@ -486,30 +486,3 @@ export async function lista(filtros, { que = 'enviados', motivo = null, disparad
       LIMIT $${par.length}`, par);
   return rows;
 }
-
-/**
- * Las respuestas para el CSV del panel (#1157): lo que se ve filtrado (campus,
- * periodo, gestora) y solo lo que hace falta para leerlas.
- *
- * A PROPÓSITO no se piden ni el correo, ni el teléfono, ni el nombre del
- * prospecto, ni el token de la encuesta: el fichero sale del CRM y se reenvía.
- * Lo que no está en el SELECT no puede acabar en el CSV por un descuido.
- */
-export const TOPE_EXPORTAR = 20000;
-export async function respuestasParaExportar(filtros) {
-  const par = [];
-  const DONDE = recorte(filtros, par);
-  par.push(TOPE_EXPORTAR);
-  const { rows } = await query(
-    `SELECT to_char(f.respondido_at AT TIME ZONE '${ZONA}', 'YYYY-MM-DD') AS fecha,
-            p.nombre AS campus, u.nombre AS gestora,
-            f.motivo, f.comentario, f.respuestas
-       FROM feedback_envios f
-       LEFT JOIN users u ON u.id = f.gestora_id
-       LEFT JOIN projects p ON p.id = f.project_id
-      WHERE f.estado = 'enviado' AND f.respondido_at IS NOT NULL
-        ${DONDE}
-      ORDER BY f.respondido_at DESC
-      LIMIT $${par.length}`, par);
-  return rows;
-}

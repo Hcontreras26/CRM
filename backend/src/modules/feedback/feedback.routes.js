@@ -10,8 +10,6 @@ const router = Router();
 router.use(verifyToken);
 router.get('/panel', puede('feedback.view'), ctrl.panel);
 router.get('/lista', puede('feedback.view'), ctrl.lista);
-// #1157: lo filtrado, en CSV, sin datos de contacto.
-router.get('/exportar', puede('feedback.exportar'), ctrl.exportar);
 router.get('/lead/:leadId', puede('feedback.view'), ctrl.deUnLead);
 router.post('/lead/:leadId/enviar', puede('feedback.enviar'), ctrl.enviarLoRevisado);
 router.post('/lead/:leadId/no-enviar', puede('feedback.enviar'), ctrl.noEnviar);

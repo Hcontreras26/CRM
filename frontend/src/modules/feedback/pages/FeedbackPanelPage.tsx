@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as EventoDeTecla } from 'react';
 import { Link } from 'react-router-dom';
-import { DownloadSimple, X } from '@phosphor-icons/react';
+import { X } from '@phosphor-icons/react';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import RangoRapido from '@/shared/components/ui/RangoRapido';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import usePermission from '@/shared/hooks/usePermission';
-import { toast } from '@/shared/hooks/useToast';
 import { ponerAmbito } from '@/shared/lib/ambitoInforme';
-import { rangoEnNombre } from '@/shared/lib/csv';
 import {
-  traerPanel, traerLista, exportarRespuestas, type PanelFeedback, type FilaFeedback,
+  traerPanel, traerLista, type PanelFeedback, type FilaFeedback,
 } from '../api/feedback.api';
 
 /**
@@ -97,29 +94,6 @@ export default function FeedbackPanelPage() {
   // lista no las trae todas.
   const abrir = (titulo: string, params: Record<string, string>, total?: number) => setDetalle({ titulo, params, total });
 
-  // «Exportar CSV» (#1157): lo que se ve filtrado (campus y periodo), montado
-  // en el servidor con el alcance de quien lo baja y sin datos de contacto.
-  const { can } = usePermission();
-  const puedeExportar = can('feedback.exportar') === true;
-  const [exportando, setExportando] = useState(false);
-  async function exportarCsv() {
-    setExportando(true);
-    try {
-      const blob = await exportarRespuestas(base);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `feedback-respuestas-${rangoEnNombre(rango.from, rango.to)}.csv`;
-      a.click();
-      // Un momento después: soltarla en el acto cortaba la descarga en Firefox y Safari (#1154).
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
-      const n = t?.respondidos ?? 0;
-      toast({ title: `${n.toLocaleString('es-ES')} ${n === 1 ? 'respuesta exportada' : 'respuestas exportadas'}` });
-    } catch (err) {
-      toast({ title: 'No se ha podido exportar', description: (err as Error).message, variant: 'destructive' });
-    } finally { setExportando(false); }
-  }
-
   return (
     <div className="space-y-4">
       <PageHeader
@@ -134,13 +108,6 @@ export default function FeedbackPanelPage() {
               </button>
             )}
             <RangoRapido valor={rango} alElegir={(r) => setRango(r)} desdeSiempre />
-            {puedeExportar && (
-              <button type="button" onClick={exportarCsv} disabled={exportando || cargando || !t?.respondidos}
-                title={t && !t.respondidos ? 'No hay respuestas con estos filtros' : 'Fecha, campus, gestora, motivo, puntuación y comentario'}
-                className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-semibold hover:bg-muted disabled:opacity-50">
-                <DownloadSimple size={14} weight="bold" /> {exportando ? 'Preparando…' : 'Exportar CSV'}
-              </button>
-            )}
           </div>
         )}
       />
