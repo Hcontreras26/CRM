@@ -16466,6 +16466,32 @@
   "puertas": []
  },
  {
+  "id": "GET /api/search-console/semana",
+  "tipo": "ruta",
+  "modulo": "search-console",
+  "metodo": "GET",
+  "ruta": "/api/search-console/semana",
+  "relativa": "GET /semana",
+  "controlador": "semana",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "search_console.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "POST /api/search-console/sincronizar",
   "tipo": "ruta",
   "modulo": "search-console",

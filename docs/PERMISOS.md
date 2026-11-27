@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-1004 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
+1005 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -1118,6 +1118,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | consultas | `GET /api/search-console/consultas` | (no existía) | (ruta nueva) | `search_console.view` |
 | paginas | `GET /api/search-console/paginas` | (no existía) | (ruta nueva) | `search_console.view` |
 | indexacion | `GET /api/search-console/indexacion` | (no existía) | (ruta nueva) | `search_console.view` |
+| semana | `GET /api/search-console/semana` | (no existía) | (ruta nueva) | `search_console.view` |
 | sincronizar | `POST /api/search-console/sincronizar` | (no existía) | (ruta nueva) | `search_console.edit` |
 
 ## soporte

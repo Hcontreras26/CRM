@@ -10,6 +10,7 @@ import usePermission from '@/shared/hooks/usePermission';
 import { toast } from '@/shared/hooks/useToast';
 import { searchConsoleApi, type EstadoCampus, type DiaGsc, type Totales } from '../api/searchConsole.api';
 import { useOrganicTraffic, PRESET_PERIODS, type Preset } from '../hooks/useOrganicTraffic';
+import { LineaSemana, useSemanaGsc } from '../components/LineaSemana';
 
 /**
  * Tráfico orgánico (CRM#36): lo que pasa en Google antes de la visita, de UN
@@ -132,6 +133,7 @@ export default function SeoPage() {
   const estado = useMemo(() => estados?.find((e) => e.project_id === projectId) || null, [estados, projectId]);
   const conectado = Boolean(estado);
   const seo = useOrganicTraffic(projectId, conectado, estado?.last_synced_at);
+  const semana = useSemanaGsc(projectId, conectado, estado?.last_synced_at);
 
   const consultas = useMemo(() => {
     const f = buscarConsulta.trim().toLowerCase();
@@ -200,6 +202,7 @@ export default function SeoPage() {
             {r?.ultimo_dia && ` · Datos hasta el ${diaCorto(r.ultimo_dia)}`}
             {!syncActivo && ' · la sincronización automática está apagada'}
           </p>
+          <div className="mt-1"><LineaSemana semana={semana} /></div>
           {estado?.last_status === 'error' && (
             <p className="mt-1 flex items-start gap-1.5 text-xs text-destructive" role="alert">
               <Warning size={14} weight="bold" className="mt-0.5 shrink-0" /> La última vez falló: {estado.last_error}
