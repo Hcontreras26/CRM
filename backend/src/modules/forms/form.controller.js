@@ -12,7 +12,7 @@ import { query } from '../../shared/config/db.js';
 import { countryToPrefix, phoneToCountryName } from '../../shared/utils/countryPrefix.js';
 import { logger } from '../../shared/utils/logger.js';
 import { planificarPasosDeLead } from '../proceso/proceso.model.js';
-import { limpiarFbp, deducirCanal, clicsDelOrigen, utmsDeLaDireccion } from '../leads/canal.js';
+import { limpiarFbp, deducirCanal, clicsDelOrigen, utmsDeLaDireccion, recortarUtm } from '../leads/canal.js';
 
 /**
  * El origen de un alta por formulario o widget (#48): las UTM que vengan como
@@ -24,7 +24,8 @@ import { limpiarFbp, deducirCanal, clicsDelOrigen, utmsDeLaDireccion } from '../
 export function origenDelFormulario(campos = {}, landingUrl = null) {
   const deLaUrl = utmsDeLaDireccion(landingUrl);
   const texto = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
-  const utm = (k) => texto(campos[k]) || deLaUrl[k];
+  // Recortadas a su columna: las del campo tampoco pasan por Zod aquí (#48).
+  const utm = (k) => recortarUtm(k, texto(campos[k])) || deLaUrl[k];
   // Un referrer que es la propia página del formulario no dice nada (Elementor
   // manda la página como «referrer»): deducirCanal ya lo ignora.
   const referrer = texto(campos.referrer) || texto(campos.referer) || null;

@@ -207,3 +207,35 @@ describe('el recálculo hacia atrás pasa a IA lo que entró como «referido» d
     expect(respetadas).toBe(2);
   });
 });
+
+describe('una UTM larga se recorta a su columna y no tumba el alta (revisión de Diego, 27/11)', () => {
+  // lead_utms: utm_source y utm_medium VARCHAR(100); campaign, content y term VARCHAR(255).
+  const largo = (n, c = 'x') => c.repeat(n);
+  const pagina = `https://web.test/curso/?utm_source=${largo(150, 's')}&utm_medium=${largo(120, 'm')}`
+    + `&utm_campaign=${largo(260, 'c')}&utm_content=${largo(300, 'a')}&utm_term=${largo(400, 't')}`;
+
+  it('las de la dirección, en el formulario incrustado', async () => {
+    formModel.findByEmbed.mockResolvedValue(FORM_WIDGET);
+    const salida = await llamar(forms.publicSubmit, { body: { nombre: 'Hugo', email: 'hugo@example.com', landing_url: pagina } });
+    expect(salida.success).toBe(true);
+    const u = utmsDelAlta();
+    expect([u.utm_source, u.utm_medium, u.utm_campaign, u.utm_content, u.utm_term].map((v) => v.length)).toEqual([100, 100, 255, 255, 255]);
+  });
+
+  it('las que llegan como campo, en el webhook de formularios', async () => {
+    formModel.findByEmbed.mockResolvedValue(FORM_WEBHOOK);
+    const salida = await llamar(forms.publicWebhook, {
+      body: { nombre: 'Inés', email: 'ines@example.com', utm_source: largo(150), utm_content: largo(300) },
+    });
+    expect(salida.success).toBe(true);
+    expect(utmsDelAlta().utm_source).toHaveLength(100);
+    expect(utmsDelAlta().utm_content).toHaveLength(255);
+  });
+
+  it('las de la página del botón de WhatsApp', async () => {
+    db.query.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    expect(await guardarOrigenDeLaPagina(7, pagina)).toBe(true);
+    const [, params] = db.query.mock.calls.at(-1);
+    expect(params.slice(1, 6).map((v) => v.length)).toEqual([100, 100, 255, 255, 255]);
+  });
+});

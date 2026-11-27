@@ -167,10 +167,27 @@ export function tienePistaDeOrigen({ utm_source, utm_medium, utm_campaign, refer
   return [utm_source, utm_medium, utm_campaign, referrer, landing_url, gclid].some((v) => typeof v === 'string' && v.trim() !== '');
 }
 
-/** Las UTM que lleva pegadas una dirección (solo las que tengan texto). */
+/**
+ * Lo que cabe de cada UTM en `lead_utms` (001_initial_schema.sql) y lo que ya
+ * exige la ruta de Make (lead.validation.js). Una UTM que vino en la dirección
+ * no pasó por ninguna validación: un `utm_content={{ad.name}}` de Meta pasa de
+ * 255 sin esfuerzo y el INSERT tumbaba el alta entera (#48, revisión de Diego).
+ */
+export const TOPE_UTM = Object.freeze({
+  utm_source: 100, utm_medium: 100, utm_campaign: 255, utm_content: 255, utm_term: 255,
+});
+
+/** Una UTM recortada a lo que cabe en su columna; sin texto → null. */
+export function recortarUtm(clave, valor) {
+  if (typeof valor !== 'string' || !valor.trim()) return null;
+  const v = valor.trim();
+  return TOPE_UTM[clave] ? v.slice(0, TOPE_UTM[clave]) : v;
+}
+
+/** Las UTM que lleva pegadas una dirección (solo las que tengan texto), ya recortadas a su columna. */
 export function utmsDeLaDireccion(url) {
   const p = parametros(url);
-  const sacar = (k) => { const v = p.get(k); return v && v.trim() ? v.trim() : null; };
+  const sacar = (k) => recortarUtm(k, p.get(k));
   return {
     utm_source: sacar('utm_source'),
     utm_medium: sacar('utm_medium'),

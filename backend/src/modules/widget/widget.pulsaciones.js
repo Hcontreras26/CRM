@@ -114,6 +114,8 @@ export async function cruzarConPulsacion({ leadId, projectId, userId }) {
  * gestora al darlo de alta, y la regla de recálculo lo respeta.
  */
 export async function guardarOrigenDeLaPagina(leadId, pagina) {
+  // Ya recortadas a su columna: una UTM larga hacía fallar el UPDATE y se
+  // perdía todo el origen de la página (#48).
   const u = utmsDeLaDireccion(pagina);
   const gclid = extraerGclid(pagina);
   if (!gclid && !Object.values(u).some(Boolean)) return false;
