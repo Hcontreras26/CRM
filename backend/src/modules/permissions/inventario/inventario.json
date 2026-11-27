@@ -6687,28 +6687,6 @@
   "puertas": []
  },
  {
-  "id": "GET /api/feedback/exportar",
-  "tipo": "ruta",
-  "modulo": "feedback",
-  "metodo": "GET",
-  "ruta": "/api/feedback/exportar",
-  "relativa": "GET /exportar",
-  "controlador": "exportar",
-  "publica": false,
-  "guardias": [
-   {
-    "tipo": "token"
-   },
-   {
-    "tipo": "puede",
-    "claves": [
-     "feedback.exportar"
-    ]
-   }
-  ],
-  "puertas": []
- },
- {
   "id": "GET /api/feedback/lead/:leadId",
   "tipo": "ruta",
   "modulo": "feedback",
@@ -9736,6 +9714,28 @@
   "ruta": "/api/leads/:id/campus",
   "relativa": "GET /:id/campus",
   "controlador": "avanceEnMoodle",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "leads.view"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/leads/:id/diploma",
+  "tipo": "ruta",
+  "modulo": "leads",
+  "metodo": "GET",
+  "ruta": "/api/leads/:id/diploma",
+  "relativa": "GET /:id/diploma",
+  "controlador": "diplomaDelAlumno",
   "publica": false,
   "guardias": [
    {
@@ -16491,6 +16491,32 @@
   "ruta": "/api/search-console/indexacion",
   "relativa": "GET /indexacion",
   "controlador": "indexacion",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "search_console.view"
+    ]
+   },
+   {
+    "tipo": "alcance",
+    "nombre": "deSusCampus"
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/search-console/semana",
+  "tipo": "ruta",
+  "modulo": "search-console",
+  "metodo": "GET",
+  "ruta": "/api/search-console/semana",
+  "relativa": "GET /semana",
+  "controlador": "semana",
   "publica": false,
   "guardias": [
    {

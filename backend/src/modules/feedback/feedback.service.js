@@ -537,58 +537,6 @@ export async function resumenDelPanel(filtros) {
   };
 }
 
-/**
- * Una celda de CSV, entre comillas y a salvo de fórmulas: lo escribe gente de
- * fuera (la encuesta es pública), y un comentario `=HYPERLINK(…)` se abría en
- * Excel como fórmula. Igual que `celdaCsv` del frontend (#593).
- */
-const PELIGRO = /^[=+\-@\t\r]/;
-const BOM = String.fromCharCode(0xFEFF);
-export function celdaCsv(v) {
-  let s = String(v ?? '');
-  if (typeof v === 'string' && PELIGRO.test(s)) s = `'${s}`;
-  return `"${s.replace(/"/g, '""')}"`;
-}
-
-export const CABECERA_CSV = ['Fecha', 'Campus', 'Gestora', 'Motivo', 'Puntuación', 'Comentario'];
-
-/**
- * El CSV de las respuestas del panel (#1157): fecha (en que contestó, hora de
- * Madrid), campus, gestora, motivo, puntuación (la nota de atención, 1 a 5) y
- * comentario. Sin correo, teléfono ni token: el modelo ni los pide.
- *
- * Comentario: «Deja tus comentarios» y, tras una nota de 3 o menos, lo que
- * contó de la atención. Lo escrito en «Otro motivo» va con el motivo. Las
- * respuestas de la encuesta de antes solo traen `motivo` y `comentario` (que
- * era el «Otro motivo»).
- */
-export function respuestasEnCsv(filas) {
-  const lineas = [CABECERA_CSV.map(celdaCsv).join(',')];
-  for (const f of filas) {
-    const r = f.respuestas || {};
-    const motivo = r.motivo ?? f.motivo;
-    const motivoOtro = r.motivo_otro ?? f.comentario;
-    const nota = Number.isInteger(Number(r.nota_atencion)) && r.nota_atencion != null ? Number(r.nota_atencion) : '';
-    const comentario = [
-      r.nota_atencion_otro ? `Sobre la atención: ${r.nota_atencion_otro}` : null,
-      r.comentarios || null,
-    ].filter(Boolean).join(' · ');
-    lineas.push([
-      f.fecha || '', f.campus || '', f.gestora || 'Sin gestora',
-      motivo ? textoDeRespuesta('motivo', motivo, motivoOtro) : '',
-      nota, comentario,
-    ].map(celdaCsv).join(','));
-  }
-  // Con BOM: sin él, Excel abre las tildes como «Ã³».
-  return `${BOM}${lineas.join('\r\n')}\r\n`;
-}
-
-/** Las respuestas filtradas, ya en CSV, y cuántas son. */
-export async function exportarRespuestas(filtros) {
-  const filas = await model.respuestasParaExportar(filtros);
-  return { csv: respuestasEnCsv(filas), total: filas.length, tope: model.TOPE_EXPORTAR };
-}
-
 /** El proceso del 7.º día: una vuelta. Devuelve cuántos se pidieron. */
 /**
  * El 7.º día, en TANDAS (Diego, 28/09: «máximo 200 correos diarios, así que

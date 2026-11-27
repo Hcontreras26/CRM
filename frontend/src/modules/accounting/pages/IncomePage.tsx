@@ -869,7 +869,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
         <Suspense fallback={null}>
           <TopProductsCard projectId={projectIdParam} issuerId={issuerIdParam}
             from={rango.from || null} to={rango.to || null}
-            responsableId={effectiveResponsableId} days={null} limit={5} title={effectiveResponsableId ? `Programas vendidos por ${gestores.find(g => g.user_id === effectiveResponsableId)?.nombre || 'gestor'}` : 'Programas más vendidos'} />
+            responsableId={effectiveResponsableId} compartidas={filterCompartidas === 'todas' ? null : filterCompartidas} days={null} limit={5} title={effectiveResponsableId ? `Programas vendidos por ${gestores.find(g => g.user_id === effectiveResponsableId)?.nombre || 'gestor'}` : 'Programas más vendidos'} />
         </Suspense>
       </div>
 

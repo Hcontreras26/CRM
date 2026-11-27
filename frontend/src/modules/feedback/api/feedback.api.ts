@@ -68,15 +68,6 @@ export async function traerLista(params: URLSearchParams): Promise<FilaFeedback[
   return r?.success ? (r.data || []) : [];
 }
 
-/**
- * Las respuestas filtradas, en CSV, montado en el servidor (#1157): fecha,
- * campus, gestora, motivo, puntuación y comentario. Sin correo, teléfono ni
- * token, y con el alcance de quien lo baja.
- */
-export async function exportarRespuestas(params: URLSearchParams): Promise<Blob> {
-  return client.get(`/feedback/exportar?${params.toString()}`, { responseType: 'blob' }) as unknown as Promise<Blob>;
-}
-
 export async function envioDeUnLead(leadId: number): Promise<EnvioDeUnLead> {
   const r = await client.get(`/feedback/lead/${leadId}`);
   return r?.success ? r.data : null;

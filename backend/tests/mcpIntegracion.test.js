@@ -257,7 +257,8 @@ describe('el protocolo, con la base de verdad', () => {
     // 26 desde #325 (parte 2): «clientes». El resto de lo nuevo también entra como tipos de «informe».
     // 27 desde #325 (meta_ads): la publicidad de Meta por campaña, producto, ROI y día.
     // 29 desde #362: «meta_conjuntos» y «meta_anuncios». 30 desde #806: «listar_pagos_stripe».
-    expect(list.body.result.tools.length).toBe(30);
+    // 31 con «informe_seo» (Search Console, #36).
+    expect(list.body.result.tools.length).toBe(31);
     expect(list.body.result.tools.map((t) => t.name)).toEqual(expect.arrayContaining(['equipo', 'clientes']));
     expect(list.body.result.tools.map((t) => t.name)).toEqual(expect.arrayContaining(['listar_formaciones', 'resumen_catalogo', 'ver_formacion']));
   });

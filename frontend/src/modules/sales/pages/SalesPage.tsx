@@ -1,6 +1,6 @@
 import PageHeader from '@/shared/components/ui/PageHeader';
 import { lazy, Suspense, useState, useEffect } from 'react';
-import { Plus, Receipt, UsersThree, CaretDown, User, Users, Robot, GlobeHemisphereWest } from '@phosphor-icons/react';
+import { Plus, Receipt, UsersThree, CaretDown, User, Users, Robot, GlobeHemisphereWest, Handshake } from '@phosphor-icons/react';
 import { opcionesDePais } from '@/shared/lib/paises';
 import usePermission from '@/shared/hooks/usePermission';
 import { useProjectContext } from '@/contexts/ProjectContext';
@@ -101,6 +101,11 @@ export default function SalesPage() {
   // País de entrada (#221): el del prospecto de cada venta. Solo sale si algún
   // campus de lo que se mira tiene tabla de países (Psiko y Fono Aprende).
   const [paisEntrada, setPaisEntrada] = useState('');
+  // Todas · Solo compartidas · Solo enteras (CRM-ISEIE#186 y CRM#1176): las
+  // ventas atendidas entre dos gestoras, aparte. Lo filtra el servidor en cada
+  // tarjeta; con una gestora elegida, la compartida le sigue contando la mitad.
+  const [repartoVentas, setRepartoVentas] = useState<'todas' | 'solo' | 'enteras'>('todas');
+  const compartidas = repartoVentas === 'todas' ? null : repartoVentas;
   const opcionesPais = opcionesDePais(
     projectIdParam ? (projects || []).filter((p) => p.id === projectIdParam)
       : issuerIdParam ? (projects || []).filter((p) => Number(p.sociedad_emisora_id) === issuerIdParam)
@@ -154,6 +159,20 @@ export default function SalesPage() {
               </select>
             </div>
           )}
+          <div className="flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-border bg-card text-sm">
+            <Handshake size={14} className="text-muted-foreground" />
+            <select
+              value={repartoVentas}
+              onChange={(e) => setRepartoVentas(e.target.value as 'todas' | 'solo' | 'enteras')}
+              className="bg-transparent focus:outline-none max-w-[160px]"
+              title="Ventas atendidas entre dos gestoras"
+              aria-label="Reparto"
+            >
+              <option value="todas">Todas las ventas</option>
+              <option value="solo">Solo compartidas</option>
+              <option value="enteras">Solo enteras</option>
+            </select>
+          </div>
           {/* NUEVA VENTA, con sus tipos dentro.
               Quien no tiene mas que uno ve el boton de siempre: un desplegable
               de una sola opcion es un clic de mas por nada. */}
@@ -250,11 +269,11 @@ export default function SalesPage() {
       ) : (
         <>
           <Suspense fallback={null}>
-            <ResumenVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
+            <ResumenVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} compartidas={compartidas} />
           </Suspense>
 
           <Suspense fallback={null}>
-            <CursosVendidosCard projectId={projectIdParam} issuerId={issuerIdParam} responsableId={responsableId} paisEntrada={paisEntrada} from={rango.from} to={rango.to} />
+            <CursosVendidosCard projectId={projectIdParam} issuerId={issuerIdParam} responsableId={responsableId} paisEntrada={paisEntrada} compartidas={compartidas} from={rango.from} to={rango.to} />
           </Suspense>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -271,25 +290,25 @@ export default function SalesPage() {
               también la gestora: el servidor le devuelve solo lo suyo. */}
           {!allProjects && (
             <Suspense fallback={null}>
-              <EvolucionVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
+              <EvolucionVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} compartidas={compartidas} />
             </Suspense>
           )}
 
           {!allProjects && (
             <Suspense fallback={null}>
-              <DesgloseVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
+              <DesgloseVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} compartidas={compartidas} />
             </Suspense>
           )}
 
           {!allProjects && (
             <Suspense fallback={null}>
-              <VentasPorPais projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
+              <VentasPorPais projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} compartidas={compartidas} />
             </Suspense>
           )}
 
           {!allProjects && (
             <Suspense fallback={null}>
-              <ClientesVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} />
+              <ClientesVentas projectId={projectIdParam} issuerId={issuerIdParam} from={rango.from} to={rango.to} responsableId={responsableId} paisEntrada={paisEntrada} compartidas={compartidas} />
             </Suspense>
           )}
 

@@ -1,6 +1,7 @@
 import { AppError } from '../../shared/utils/AppError.js';
 import { veTodoElCrm, campusDeLaPersona } from '../../shared/utils/ambito.js';
 import * as service from './search-console.service.js';
+import { semanaDe, caidas } from './search-console.aviso.js';
 import { periodoSchema, campusSchema, sincronizarSchema } from './search-console.validation.js';
 
 const leer = (schema, datos) => {
@@ -60,5 +61,19 @@ export async function indexacion(req, res, next) {
   try {
     const { projectId } = leer(campusSchema, req.query);
     res.json({ success: true, data: await service.indexacion(projectId) });
+  } catch (err) { next(err); }
+}
+
+/**
+ * GET /semana?projectId — la última semana contra la anterior (#1156), para la
+ * línea de arriba de «Tráfico orgánico». Un campus sin Search Console no es un
+ * error: devuelve `con_datos: false`.
+ */
+export async function semana(req, res, next) {
+  try {
+    const { projectId } = leer(campusSchema, req.query);
+    const s = await semanaDe(projectId);
+    // Lo que avisaría el lunes, para pintarlo en rojo.
+    res.json({ success: true, data: { ...s, caidas: caidas(s).map((x) => x.metrica) } });
   } catch (err) { next(err); }
 }
