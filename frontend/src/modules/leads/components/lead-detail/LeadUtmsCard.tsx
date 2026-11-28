@@ -36,6 +36,11 @@ export default function LeadUtmsCard({ utms, leadOrigen }: { utms?: Utms | null;
               <span className="text-xs break-all">{utms.gclid}</span>
             </InfoField>
           )}
+          {utms.ttclid && (
+            <InfoField label="Clic de TikTok (ttclid)">
+              <span className="text-xs break-all">{utms.ttclid}</span>
+            </InfoField>
+          )}
           {utms.fbc && (
             <InfoField label="Clic de Meta (fbclid)">
               <span className="text-xs break-all">{utms.fbc}</span>
