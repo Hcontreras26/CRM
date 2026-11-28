@@ -22,6 +22,18 @@ export interface Tutor {
   es_de_este_proyecto: boolean;
 }
 
+/** Un «Avisar al tutor» ya enviado de ese mes: quién y cuándo (CRM#165 / CRM-ISEIE#188). */
+export interface AvisoEnviado {
+  id: number;
+  enviadoAt: string;
+  enviadoPor: string | null;
+  email: string | null;
+  total: number | null;
+}
+
+/** La cuenta que tiene que facturar: comisión + IVA − retención, por línea. */
+export interface CuentaAFacturar { base: number; iva: number; retencion: number; total: number }
+
 /** Lo que se le va a mandar al tutor, antes de mandarlo. */
 export interface AvisoAlTutor {
   tutorId: number;
@@ -30,12 +42,26 @@ export interface AvisoAlTutor {
   tieneIban: boolean;
   periodo: string;
   mes: string;
+  /** Lo que se le debe del mes (lo no pagado ni revertido). */
   pendiente: number;
   formaciones: string[];
-  cuenta: { base: number; iva: number; retencion: number; total: number };
+  /** Una factura por empresa: a nombre de quién y por cuánto. */
+  grupos: {
+    empresa: { id: number; nombre: string; razon_social: string; nif: string | null } | null;
+    campus: string[];
+    formaciones: string[];
+    cuenta: CuentaAFacturar;
+  }[];
+  cuenta: CuentaAFacturar;
+  marca: { id: number | null; nombre: string | null } | null;
+  /** Los que ya se le mandaron de ese mes, el último primero. Vacío = nunca. */
+  avisos: AvisoEnviado[];
   asunto: string;
   html: string;
 }
+
+/** El recorte de la pantalla, para que el correo diga la misma cifra que la fila. */
+export interface AmbitoDelAviso { projectId?: number | null; issuerId?: number | null }
 
 export interface Colaboracion {
   id: number;
@@ -138,9 +164,11 @@ export interface ResumenComision {
   /** Para poder pagarle sin ir a buscar su ficha. */
   tutor_email: string | null;
   tutor_iban: string | null;
-  /** Cuando se le mando el correo de «Avisar tutor». No es un estado del
-   *  dinero: una comision avisada sigue contando en `pendiente`. */
-  avisado_at: string | null;
+  /** El último «Avisar al tutor» de ese mes, quién lo mandó y cuántos van. No es
+   *  un estado del dinero: una comisión avisada sigue contando en `pendiente`. */
+  avisado_at?: string | null;
+  avisado_por_nombre?: string | null;
+  avisos_enviados?: number;
 }
 
 export interface FormacionSinTutor {
@@ -466,20 +494,24 @@ export const tutoresApi = {
   cambiarCobraDesde: (tutorId: number, desde: string) =>
     client.patch(`/tutores/${tutorId}/cobra-desde`, { desde }) as Promise<ApiResponse<ResultadoCobraDesde>>,
 
-  // «Avisar tutor» (#145 / nota del 14/09). La vista previa y el envio van
-  // separados: nadie deberia mandar un correo sin ver antes lo que sale.
-  previoDelAviso: (tutorId: number, periodo: string) =>
-    client.get(`/tutores/comisiones/aviso?tutorId=${tutorId}&periodo=${periodo}`) as Promise<ApiResponse<AvisoAlTutor>>,
+  // «Avisar al tutor» (CRM#165 / CRM-ISEIE#188). La vista previa y el envío van
+  // separados: nadie debería mandar un correo sin ver antes lo que sale.
+  previoDelAviso: (tutorId: number, periodo: string, ambito: AmbitoDelAviso = {}) =>
+    client.get('/tutores/comisiones/aviso', {
+      params: { tutorId, periodo, projectId: ambito.projectId ?? undefined, issuerId: ambito.issuerId ?? undefined },
+    }) as Promise<ApiResponse<AvisoAlTutor>>,
 
   /**
-   * Manda el aviso. `retoque` solo si se edito a mano en la pantalla — y lleva
-   * los dos campos o ninguno, que el backend rechaza medio retoque.
-   *
-   * A QUIEN va NO se manda: sale del tutor, en el servidor. Por eso esto no
-   * sirve para mandar un correo cualquiera a cualquiera.
+   * Manda el aviso. De aquí solo sale el asunto y una nota: a quién va y por
+   * cuánto lo decide el servidor. Si ya se le mandó el de ese mes, el servidor
+   * contesta 409 (`YA_AVISADO`) salvo con `repetir: true`.
    */
-  avisarTutor: (tutorId: number, periodo: string, retoque?: { asunto: string; html: string }) =>
-    client.post('/tutores/comisiones/avisar', { tutorId, periodo, ...(retoque || {}) }) as Promise<ApiResponse<{ enviado: boolean; a: string; total: number }>>,
+  avisarTutor: (datos: {
+    tutorId: number; periodo: string; asunto?: string | null; nota?: string | null; repetir?: boolean;
+  } & AmbitoDelAviso) =>
+    client.post('/tutores/comisiones/avisar', datos) as Promise<ApiResponse<{
+      enviado: boolean; a: string; total: number; avisadoAt: string | null; repetido: boolean;
+    }>>,
 
   // Mover el tramite de una comision. Solo entre las tres que no han cobrado:
   // pagar y revertir tienen su propio camino, que deja rastro de quien y por que.
