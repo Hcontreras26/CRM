@@ -359,6 +359,7 @@ export default function UsersPanel() {
           onDesbloquearBrevo={dialogo.modo === 'editar' && can('users.brevo_desbloquear')
             ? () => desbloquearEnBrevo(dialogo.user)
             : undefined}
+          verCambiosDeCorreo={dialogo.modo === 'editar' && can('users.cambios_correo')}
         />
       )}
 
