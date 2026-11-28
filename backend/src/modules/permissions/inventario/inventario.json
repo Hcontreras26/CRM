@@ -1377,6 +1377,28 @@
   "puertas": []
  },
  {
+  "id": "POST /api/certifex/diplomas/avisos/lote",
+  "tipo": "ruta",
+  "modulo": "certifex",
+  "metodo": "POST",
+  "ruta": "/api/certifex/diplomas/avisos/lote",
+  "relativa": "POST /diplomas/avisos/lote",
+  "controlador": "avisosLote",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "diplomas.emit"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "POST /api/certifex/diplomas/nuevo",
   "tipo": "ruta",
   "modulo": "certifex",

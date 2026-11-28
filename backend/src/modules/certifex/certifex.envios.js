@@ -2,7 +2,11 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import { getDecryptedValue } from '../credentials/credentials.model.js';
 import { certifex, recorrer } from './certifex.cliente.js';
-import { alcanceDe, exigirCentro } from './certifex.alcance.js';
+import { alcanceDe, buscarExpedientes, comprobarExpedientes, exigirCentro } from './certifex.alcance.js';
+import { emitidoPorElCrm } from './certifex.marcas.js';
+import { avisosLoteSchema, mensajeDeValidacion, TANDA_AVISOS_LOTE } from './certifex.validation.js';
+import { anotarEnvios } from '../diploma-confirmacion/diploma-confirmacion.puerta.js';
+import { query } from '../../shared/config/db.js';
 
 /**
  * ENVÍOS DE UN DIPLOMA, PREGUNTADOS A BREVO (Diego, 05/11/2026).
@@ -156,6 +160,8 @@ export async function envios(req, res, next) {
  * que se lo mandó a mí»): a QUIÉN se manda el diploma —el correo del titular, el mismo al
  * que Certifex lo envía— y el NOMBRE de quien aprobó el aviso. Pone en cada fila
  * `titularEmail` y, si hay aviso, `aviso.porNombre`. Si algo falla, la lista sale igual.
+ * Y `sinCorreo` (#1201): Certifex tiene su matrícula y el titular NO tiene correo (no es lo
+ * mismo que no saberlo: si no se encuentra o la consulta falla, queda en false).
  *
  * El correo sale de las matrículas aprobadas de Certifex (lo emitido desde el CRM se
  * aprobó antes); lo emitido fuera del CRM y sin aviso no se busca.
@@ -163,6 +169,7 @@ export async function envios(req, res, next) {
 export async function conDestinatario(filas, { query }) {
   for (const d of filas) {
     d.titularEmail = null;
+    d.sinCorreo = false;
     if (d.aviso) d.aviso.porNombre = null;
   }
   const buscados = new Set(filas.filter((d) => d.aviso || d.emitidoEnCrm).map((d) => d.nexpediente));
@@ -175,7 +182,10 @@ export async function conDestinatario(filas, { query }) {
         completo: (h) => h.length >= buscados.size,
       });
       const porExp = new Map(r.filas.map((c) => [c.nexpediente, String(c?.titular?.email || '').trim().toLowerCase() || null]));
-      for (const d of filas) d.titularEmail = porExp.get(d.nexpediente) ?? null;
+      for (const d of filas) {
+        d.titularEmail = porExp.get(d.nexpediente) ?? null;
+        d.sinCorreo = porExp.has(d.nexpediente) && !d.titularEmail;
+      }
     } catch (err) {
       logger.warn({ err: err.message }, 'diplomas: sin el correo de los alumnos');
     }
@@ -191,5 +201,145 @@ export async function conDestinatario(filas, { query }) {
     } catch (err) {
       logger.warn({ err: err.message }, 'diplomas: sin el nombre de quien aprobó');
     }
+  }
+}
+
+// ─────────────────────────────────────────────── «Enviar al alumno»
+
+/**
+ * Aprueba en Certifex el aviso por correo de esos diplomas, a nombre de quien pulsa (lo que
+ * diga el cuerpo se ignora), y apunta cuándo se le mandó (#768) si el correo de Certifex está
+ * encendido: aprobado pero sin salir no es «enviado». Es el envío de siempre; lo usan el de
+ * uno (`avisos`, también «Reenviar») y el lote de Emitidos (`avisosLote`, #1201).
+ */
+export async function aprobarAvisos(user, nexpedientes) {
+  const data = await certifex('POST', '/avisos', { nexpedientes, aprobadoPor: user.email }, { timeoutMs: 120_000 });
+  if (data?.correoActivo) {
+    await anotarEnvios((data?.resultados ?? []).filter((r) => r?.ok && r?.nexpediente).map((r) => r.nexpediente));
+  }
+  logger.info({ userId: user.userId, n: nexpedientes.length, correoActivo: data?.correoActivo }, 'Certifex: avisos de diploma aprobados');
+  return data;
+}
+
+/**
+ * Por qué un diploma NO entra en un envío en lote (null = sí entra). La misma regla está en el
+ * panel (`motivoSinEnviar`, CertifexDiplomasPage.tsx), que lo dice antes de pulsar; esta es la
+ * que manda. Lo ya enviado, lo revocado, lo revertido y lo emitido fuera del CRM se reenvían,
+ * si hace falta, de uno en uno («Reenviar»), a propósito. Lo que se aprobó y no salió (correo
+ * apagado, error, sin correo) sí se vuelve a intentar.
+ */
+export function motivoSinEnviar(d) {
+  if (!d) return 'no_encontrado';
+  if (d.revocada) return 'revocado';
+  if (d.anulada) return 'anulado';
+  if (d.aviso?.resultado === 'enviado') return 'ya_enviado';
+  // Entregado sin aviso del CRM: lo mandó Certifex por su cuenta (su panel o su cola). Tampoco
+  // se vuelve a mandar en lote (QA de la #1201).
+  if (d.entregado === true && !d.aviso) return 'entregado';
+  if (!emitidoPorElCrm(d)) return 'fuera_del_crm';
+  if (d.sinCorreo) return 'sin_correo';
+  return null;
+}
+
+const TEXTO_SIN_ENVIAR = {
+  no_encontrado: 'Certifex no tiene este diploma.',
+  revocado: 'Está revocado: no se envía.',
+  anulado: 'Está revertido (su número está anulado): no se envía.',
+  ya_enviado: 'Ya se le envió. Para mandarlo otra vez, «Reenviar» desde su fila.',
+  entregado: 'Certifex ya se lo entregó (desde su panel). Para mandarlo otra vez, «Reenviar» desde su fila.',
+  fuera_del_crm: 'Se emitió fuera del CRM. Si hace falta, «Reenviar» desde su fila.',
+  sin_correo: 'El alumno no tiene correo en Certifex: no hay a quién mandarlo.',
+  en_curso: 'Se está enviando ahora mismo desde otra pestaña o de otra persona.',
+};
+
+/**
+ * Los diplomas que se están enviando ahora. Un solo proceso (PM2 `instances: 1`), así que
+ * basta con memoria. Se cogen ANTES de mirar en Certifex si ya se enviaron y se sueltan al
+ * acabar: dos lotes a la vez con el mismo diploma no lo mandan dos veces (el segundo lo deja
+ * fuera, «en_curso»), y uno que llegue después ya lo ve enviado. El envío de uno («Enviar» o
+ * «Reenviar» en la fila) toma el mismo candado: fila y lote a la vez, un solo correo.
+ *
+ * Solo vale dentro de ESTE proceso: entre /testeo y producción, o entre este CRM y la gemela de
+ * ISEIE, el control tiene que estar en Certifex (issue aparte).
+ */
+const enviandoAhora = new Set();
+
+/**
+ * Coge los que nadie está enviando (sin `await` por medio: no hay carrera). Devuelve los que
+ * ha cogido (`mios`, a soltar con `soltarEnvio`) y los que ya tenía otro (`ocupados`).
+ */
+export function tomarEnvio(nexpedientes) {
+  const mios = [];
+  const ocupados = new Set();
+  for (const n of nexpedientes) {
+    if (enviandoAhora.has(n)) ocupados.add(n);
+    else { enviandoAhora.add(n); mios.push(n); }
+  }
+  return { mios, ocupados };
+}
+
+export function soltarEnvio(mios) {
+  for (const n of mios) enviandoAhora.delete(n);
+}
+
+/**
+ * Certifex no contestó (o no a tiempo: 120 s): puede que haya mandado alguno. No es «no salió
+ * nada»: se dice así para que nadie lo reintente a ciegas y lo mande dos veces.
+ */
+export const SIN_CONFIRMAR = 'Certifex no ha contestado a tiempo. Puede que algunos se hayan enviado: refresca la lista antes de volver a enviar.';
+
+/**
+ * POST /api/certifex/diplomas/avisos/lote — «Enviar al alumno (n)» en Emitidos (#1201).
+ *
+ * Como «Aprobar y emitir (n)»: lo que no toca (ver `motivoSinEnviar`) no llega a Certifex y
+ * vuelve en `omitidos`, cada uno con su motivo; lo demás sale en UNA llamada al envío de
+ * siempre (`aprobarAvisos`). Con un diploma de otro campus en el lote, 404 y no sale ninguno
+ * (como en el de uno). Hasta 10 por llamada (`avisosLoteSchema`). Si Certifex no responde, su
+ * error sale tal cual: el panel lo apunta en esos y sigue con la tanda siguiente.
+ */
+export async function avisosLote(req, res, next) {
+  let mios = [];
+  try {
+    const r = avisosLoteSchema.safeParse(req.body);
+    if (!r.success) throw new AppError(mensajeDeValidacion(r.error), 400, 'VALIDATION_ERROR');
+    const pedidos = [...new Set(r.data.nexpedientes)];
+    // Primero, coger los que nadie está enviando, antes de mirar nada en Certifex.
+    const toma = tomarEnvio(pedidos);
+    mios = toma.mios;
+    const { ocupados } = toma;
+    const alcance = await alcanceDe(req.user);
+    // Uno a uno por su número (son 10 como mucho): sin recorrer todo Certifex (QA de la #1201).
+    const filaDe = await buscarExpedientes(pedidos, { unoAUnoHasta: TANDA_AVISOS_LOTE });
+    comprobarExpedientes(alcance, pedidos, filaDe);
+
+    const omitidos = [];
+    const fuera = (nexpediente, motivo) => omitidos.push({ nexpediente, motivo, error: TEXTO_SIN_ENVIAR[motivo] });
+    // El correo del alumno, solo de los que podrían salir (`sinCorreo`, ver `conDestinatario`).
+    const candidatos = pedidos.filter((n) => !ocupados.has(n) && filaDe.has(n) && !motivoSinEnviar(filaDe.get(n)));
+    const filas = candidatos.map((n) => ({ ...filaDe.get(n), emitidoEnCrm: true }));
+    await conDestinatario(filas, { query });
+    const sinCorreo = new Set(filas.filter((d) => d.sinCorreo).map((d) => d.nexpediente));
+
+    const aEnviar = [];
+    for (const n of pedidos) {
+      if (ocupados.has(n)) { fuera(n, 'en_curso'); continue; }
+      const motivo = motivoSinEnviar(filaDe.has(n) ? { ...filaDe.get(n), sinCorreo: sinCorreo.has(n) } : null);
+      if (motivo) fuera(n, motivo);
+      else aEnviar.push(n);
+    }
+    if (omitidos.length) logger.info({ userId: req.user.userId, omitidos: omitidos.map((o) => `${o.nexpediente}:${o.motivo}`) }, 'Certifex: envío en lote, fuera');
+    if (!aEnviar.length) return res.json({ success: true, data: { correoActivo: null, resultados: [], omitidos } });
+    let data;
+    try {
+      data = await aprobarAvisos(req.user, aEnviar);
+    } catch (err) {
+      if (err?.code !== 'CERTIFEX_NO_RESPONDE') throw err;
+      throw new AppError(SIN_CONFIRMAR, 504, 'ENVIO_SIN_CONFIRMAR');
+    }
+    res.json({ success: true, data: { ...data, resultados: data?.resultados ?? [], omitidos } });
+  } catch (err) {
+    next(err);
+  } finally {
+    soltarEnvio(mios);
   }
 }
