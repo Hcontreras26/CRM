@@ -1639,7 +1639,7 @@ export async function paisesMasVendidos({ projectId, projectIds, from, to, aseso
 // «sin teléfono» de países.
 //
 // «Sin origen»: no hay fila de origen, o la fila no trae ninguna pista (ni UTM,
-// ni referrer, ni dirección) y su canal es «directo» o nulo. Un «directo» con
+// ni referrer, ni dirección, ni gclid/ttclid) y su canal es «directo» o nulo. Un «directo» con
 // la dirección guardada y sin referrer SÍ es un directo de verdad.
 //
 // Dos fechas distintas, como en países: los prospectos por su fecha de entrada
@@ -1650,7 +1650,8 @@ export const CANAL_DE_ORIGEN = `CASE
     WHEN (lu.canal_detectado IS NULL OR lu.canal_detectado = 'directo')
          AND COALESCE(lu.utm_source, '') = '' AND COALESCE(lu.utm_medium, '') = ''
          AND COALESCE(lu.utm_campaign, '') = '' AND COALESCE(lu.landing_url, '') = ''
-         AND COALESCE(lu.referrer, '') = '' AND COALESCE(lu.gclid, '') = '' THEN 'sin_origen'
+         AND COALESCE(lu.referrer, '') = '' AND COALESCE(lu.gclid, '') = ''
+         AND COALESCE(lu.ttclid, '') = '' THEN 'sin_origen'
     ELSE COALESCE(lu.canal_detectado::text, 'directo')
   END`;
 
