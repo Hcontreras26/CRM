@@ -16,6 +16,21 @@ import { decodificarEntidades } from '@/shared/lib/entidadesHtml';
 import { mesDe } from '@/modules/sales/components/FiltroPeriodo';
 import RangoRapido, { rangoDe } from '@/shared/components/ui/RangoRapido';
 import { esProyectoIA } from '@/shared/lib/proyectosIA';
+import useUrlFilters from '@/shared/hooks/useUrlFilters';
+import useAmbitoEnUrl from '@/shared/hooks/useAmbitoEnUrl';
+import { enteroDeUrl, fechaDeUrl, repartoDeUrl } from '@/modules/sales/lib/filtrosEnUrl';
+
+// Los filtros de la pantalla, en la dirección (#1194): recargar, volver atrás
+// desde la ficha de una venta o pasar el enlace los conserva. Lo que vale lo de
+// siempre no se escribe. Fuera del componente: `useUrlFilters` pide un objeto estable.
+// Las fechas: sin `desde`/`hasta` en la dirección, las de siempre (este mes, o
+// el año en curso en un proyecto IA). Borrar una a mano es «sin fecha» y se
+// escribe `SIN_FECHA`: si se quitara de la dirección volvería la de siempre.
+const FILTROS = { desde: '', hasta: '', gestora: '', curso: '', reparto: 'todas' };
+const SIN_FECHA = 'no';
+const fechaDeLaDireccion = (valor: string, porDefecto: string) => (
+  valor === SIN_FECHA ? '' : (fechaDeUrl(valor) || porDefecto)
+);
 // El recorrido guiado de la pantalla (#941). Sustituye a «Tutoriales», que abría
 // una ventana con texto: ahora se señala, paso a paso, lo que se tiene delante.
 import VerRecorrido from '@/shared/components/ui/VerRecorrido';
@@ -114,20 +129,9 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
   // Lo del #44, solo en pruebas (`shared/lib/proyectosIA`).
   const esIA = esProyectoIA(activeProject);
 
-  // Se ajusta cuando se sabe de que proyecto se trata, y UNA sola vez por
-  // proyecto: si se forzara en cada render, cambiar el filtro a mano no
-  // serviria de nada.
-  const rangoAjustado = useRef<number | null>(null);
-  useEffect(() => {
-    if (!esIA || !activeProject?.id) return;
-    if (rangoAjustado.current === activeProject.id) return;
-    rangoAjustado.current = activeProject.id;
-    const hoy = new Date();
-    setRango({
-      from: `${hoy.getFullYear()}-01-01`,
-      to: rangoDe('hoy').to,
-    });
-  }, [esIA, activeProject?.id]);
+  // El periodo con el que abre un proyecto IA es el año en curso (ver más
+  // abajo). Antes se ajustaba con un efecto, una vez por proyecto; ahora es el
+  // valor por defecto de la dirección: un enlace con fechas las respeta.
   const issuerIdParam = activeIssuerId ?? null;
   // La lista y el filtro de gestoras y el «Equipo de ventas»: por permiso y alcance
   // (25/11/2026), no por rol: soporte tiene Ingresos y no le salían.
@@ -163,13 +167,28 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
     setRegisterOpen(true);
   }
   const [reloadKey, setReloadKey] = useState(0);
-  const [viewUserId, setViewUserId] = useState('all');
+  // Un valor de la dirección que no se entiende se ignora (`filtrosEnUrl`).
+  const [filtros, setFiltros] = useUrlFilters(FILTROS);
+  useAmbitoEnUrl();
   const [gestores, setGestores] = useState([]);
-  const [filterCurso, setFilterCurso] = useState('all');
+  const [gestoresCargadas, setGestoresCargadas] = useState(false);
+  const [cursos, setCursos] = useState([]);
+  const [cursosCargados, setCursosCargados] = useState(false);
+  // La gestora de la dirección: solo para quien ve las del equipo, y solo si
+  // está en su lista (cuando ya ha llegado). Aun así el servidor la recorta a
+  // su alcance: una gestora nunca ve lo de otra aunque el enlace la nombre.
+  const gestoraUrl = enteroDeUrl(filtros.gestora);
+  const viewUserId = isAdmin && gestoraUrl
+    && (!gestoresCargadas || gestores.some((g: { user_id: number }) => Number(g.user_id) === gestoraUrl))
+    ? String(gestoraUrl) : 'all';
+  const setViewUserId = (v: string) => setFiltros({ gestora: v === 'all' ? '' : v });
+  // El curso, igual: si ya está la lista y no aparece, no se filtra por él.
+  const filterCurso = filtros.curso && (!cursosCargados || (cursos as string[]).includes(filtros.curso))
+    ? filtros.curso : 'all';
+  const setFilterCurso = (v: string) => setFiltros({ curso: v === 'all' ? '' : v });
   // Todas · Solo compartidas · Solo enteras (#163): las ventas atendidas entre
   // dos gestoras, aparte. El servidor filtra; la parte de cada una no cambia.
-  const [filterCompartidas, setFilterCompartidas] = useState<'todas' | 'solo' | 'enteras'>('todas');
-  const [cursos, setCursos] = useState([]);
+  const filterCompartidas = repartoDeUrl(filtros.reparto);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totales, setTotales] = useState({
@@ -190,7 +209,18 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
    * atras: Tarot tiene 23 ventas de enero a julio, asi que la pantalla abria
    * con seis ceros y parecia que no habia nada. El año en curso los enseña.
    */
-  const [rango, setRango] = useState(rangoDe('mes'));
+  const hoy = new Date();
+  const rangoPorDefecto = esIA ? { from: `${hoy.getFullYear()}-01-01`, to: rangoDe('hoy').to } : rangoDe('mes');
+  const rango = {
+    from: fechaDeLaDireccion(filtros.desde, rangoPorDefecto.from),
+    to: fechaDeLaDireccion(filtros.hasta, rangoPorDefecto.to),
+  };
+  // Lo que es igual al periodo de siempre no se escribe; una fecha borrada, sí.
+  const enDireccion = (valor: string, porDefecto: string) => (valor === porDefecto ? '' : (valor || SIN_FECHA));
+  const setRango = (r: { from: string; to: string }) => setFiltros({
+    desde: enDireccion(r.from, rangoPorDefecto.from),
+    hasta: enDireccion(r.to, rangoPorDefecto.to),
+  });
   // La lista de abajo con fechas puestas: ventas + cuotas facturadas, cada una
   // con su etiqueta. Sin fechas, la lista sigue siendo la de ventas.
   const [filas, setFilas] = useState<any[]>([]);
@@ -209,7 +239,8 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
       ...(issuerIdParam ? { issuerId: issuerIdParam } : {}),
       periodo: 'all' } })
       .then((r) => setGestores(r?.data?.gestores || []))
-      .catch(() => setGestores([]));
+      .catch(() => setGestores([]))
+      .finally(() => setGestoresCargadas(true));
   }, [projectIdParam, issuerIdParam, isAdmin, reloadKey]);
 
   useEffect(() => {
@@ -221,7 +252,8 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
     if (effectiveResponsableId) params.responsableId = effectiveResponsableId;
     client.get('/conversions/productos', { params })
       .then((r) => setCursos(r?.data || []))
-      .catch(() => setCursos([]));
+      .catch(() => setCursos([]))
+      .finally(() => setCursosCargados(true));
   }, [projectIdParam, issuerIdParam, effectiveResponsableId, reloadKey]);
 
   // Cualquier cambio de filtro devuelve a la primera pagina, y tira el desglose
@@ -567,7 +599,7 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
           <select
             id="filtro-compartidas"
             value={filterCompartidas}
-            onChange={(e) => setFilterCompartidas(e.target.value as 'todas' | 'solo' | 'enteras')}
+            onChange={(e) => setFiltros({ reparto: e.target.value })}
             className="h-9 px-3 rounded-md border border-border bg-card text-sm font-medium"
           >
             <option value="todas">Todas</option>
@@ -578,13 +610,14 @@ export default function IncomePage({ title = 'Ingresos', subtitlePrefix = 'Todas
               dos filas de «Hoy · Ayer · …» en Ingresos y en Ventas, que es esta
               misma pantalla (#223, #234). Queda el de su fila. */}
           <label className="text-xs font-semibold text-muted-foreground">Desde:</label>
-          <input type="date" value={rango.from} onChange={(e) => setRango((v) => ({ ...v, from: e.target.value }))}
+          <input type="date" value={rango.from} onChange={(e) => setRango({ ...rango, from: e.target.value })}
             className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
           <label className="text-xs font-semibold text-muted-foreground">Hasta:</label>
-          <input type="date" value={rango.to} onChange={(e) => setRango((v) => ({ ...v, to: e.target.value }))}
+          <input type="date" value={rango.to} onChange={(e) => setRango({ ...rango, to: e.target.value })}
             className="h-9 px-2 rounded-md border border-border bg-card text-sm" />
-          {(viewUserId !== 'all' || filterCurso !== 'all' || filterCompartidas !== 'todas' || rango.from !== rangoDe('mes').from || rango.to !== rangoDe('mes').to) && (
-            <button type="button" onClick={() => { setViewUserId('all'); setFilterCurso('all'); setFilterCompartidas('todas'); setRango(rangoDe('mes')); }} className="text-[11px] text-primary hover:underline">
+          {(viewUserId !== 'all' || filterCurso !== 'all' || filterCompartidas !== 'todas' || rango.from !== rangoPorDefecto.from || rango.to !== rangoPorDefecto.to) && (
+            // Limpia también la dirección (el campus no: ese se cambia arriba).
+            <button type="button" onClick={() => setFiltros.reset()} className="text-[11px] text-primary hover:underline">
               Quitar filtros
             </button>
           )}

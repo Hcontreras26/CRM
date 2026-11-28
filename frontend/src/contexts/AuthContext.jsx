@@ -52,6 +52,21 @@ function proyectoDeLaUrl(proyectos) {
 }
 
 /**
+ * La empresa que pide la dirección (`?issuerId=N`), si la persona tiene algún
+ * campus de ella (#1194: los enlaces de Ventas y Análisis la llevan). Igual que
+ * el campus: solo elige entre lo suyo, no da acceso a nada.
+ */
+export function empresaDeLaUrl(proyectos) {
+  try {
+    const pedida = Number(new URLSearchParams(window.location.search).get('issuerId'));
+    if (!Number.isInteger(pedida) || pedida <= 0) return null;
+    return proyectos?.some((p) => Number(p.sociedad_emisora_id) === pedida) ? pedida : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * La empresa guardada, si la persona tiene algún campus de ella (#120). Si no,
  * null: una empresa que ya no le toca no se restaura.
  */
@@ -74,12 +89,13 @@ function sociedadGuardadaDe(proyectos) {
  * primero: en CEDIA, por orden alfabético, Fono Aprende— pero dejaba la empresa
  * guardada. El selector decía «CEDIA · 8 campus» y el menú, el logo y el color
  * de Fono Aprende. Ahora: si la dirección pide un campus, manda el campus y se
- * olvida la empresa; si no y hay empresa guardada que siga siendo suya, se
- * entra en la empresa; si no, como siempre.
+ * olvida la empresa; si pide una empresa suya, esa (#1194); si no y hay empresa
+ * guardada que siga siendo suya, se entra en la empresa; si no, como siempre.
  */
-export function eleccionAlEntrar({ proyectos, deLaUrl = null, guardado = null, delServidor = null }) {
+export function eleccionAlEntrar({ proyectos, deLaUrl = null, empresaDeLaUrl: empresaUrl = null, guardado = null, delServidor = null }) {
   const sociedad = sociedadGuardadaDe(proyectos);
   if (deLaUrl) return { projectId: deLaUrl, issuerId: null };
+  if (empresaUrl !== null && proyectos?.length > 1) return { projectId: ALL_PROJECTS_ID, issuerId: empresaUrl };
   if (sociedad !== null && proyectos?.length > 1) return { projectId: ALL_PROJECTS_ID, issuerId: sociedad };
   const num = Number(guardado);
   const valido = num === ALL_PROJECTS_ID
@@ -157,6 +173,7 @@ export function AuthProvider({ children }) {
             aplicarEleccion(eleccionAlEntrar({
               proyectos: meRes.data.projects,
               deLaUrl,
+              empresaDeLaUrl: empresaDeLaUrl(meRes.data.projects),
               guardado: localStorage.getItem('crm_active_project_id'),
             }));
           }
@@ -202,6 +219,7 @@ export function AuthProvider({ children }) {
     aplicarEleccion(eleccionAlEntrar({
       proyectos: userProjects,
       deLaUrl: proyectoDeLaUrl(userProjects),
+      empresaDeLaUrl: empresaDeLaUrl(userProjects),
       guardado: localStorage.getItem('crm_active_project_id'),
       delServidor: apiProjectId,
     }));
