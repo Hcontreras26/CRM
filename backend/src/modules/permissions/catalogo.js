@@ -667,6 +667,11 @@ export const SECCIONES = [
         clave: 'correos', nombre: 'Correos', acciones: [
           a('view', 'Ver correos', 'Los correos entrantes del equipo.', yPM(ADMIN_SOPORTE)),
           a('sincronizar', 'Traer correos', 'Sincronizar el buzón.', ADMIN_SOPORTE),
+          // CRM#1032 (Diego, 23/11): varios buzones de Hostinger conectados desde el panel.
+          // Diego (CRM#1058): de serie para admin y soporte, cada uno en sus campus.
+          // «Guardar claves» (`credentials.edit`) sigue siendo solo de soporte.
+          // Las credenciales se guardan cifradas y no se ven nunca, ni con este permiso.
+          a('buzones', 'Conectar buzones', 'Conectar, probar, cambiar y quitar los buzones de correo que lee la Bandeja. Un admin, los de sus campus.', ADMIN_SOPORTE),
         ],
       },
       {

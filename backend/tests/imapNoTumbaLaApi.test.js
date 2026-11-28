@@ -56,6 +56,11 @@ vi.stubEnv('SMTP_PASSWORD', 'lo-que-sea');
 
 beforeEach(() => { llamadas.length = 0; });
 
+// Sin red: el servidor de correo «resuelve» a una dirección pública de
+// documentación, que la regla de #1032 deja pasar (ver correo-destino.js).
+const { resolutor } = await import('../src/shared/services/correo-destino.js');
+resolutor.lookup = async () => [{ address: '203.0.113.10', family: 4 }];
+
 describe('el correo que entra', () => {
   it('escucha el evento de error del cliente IMAP', async () => {
     const { leerBuzon } = await import('../src/shared/services/correo-entrante.service.js');

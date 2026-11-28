@@ -1,5 +1,5 @@
 import { logger } from '../shared/utils/logger.js';
-import { leerBuzon, hayBuzonQueLeer } from '../shared/services/correo-entrante.service.js';
+import { leerBuzon } from '../shared/services/correo-entrante.service.js';
 import { vigilar } from './latido.js';
 
 /**
@@ -18,8 +18,9 @@ import { vigilar } from './latido.js';
  * así que el siguiente recoge lo que el anterior no llegó a leer. No hay un
  * «por dónde iba» que se pueda perder.
  *
- * Y si no hay buzón configurado, ni arranca: un CRM sin `IMAP_USER` funciona
- * igual que antes, solo que sin la pestaña de recibidos.
+ * Arranca SIEMPRE (#1032): los buzones se conectan desde el panel y pueden
+ * aparecer sin reiniciar. Sin ninguno —ni en la base ni en el `.env`— cada
+ * pase es una consulta que no encuentra nada, y no se anota.
  */
 
 const TICK_MS = parseInt(process.env.CORREO_ENTRANTE_TICK_MS || String(30 * 60 * 1000), 10);
@@ -35,10 +36,6 @@ async function traer() {
 export function startCorreoEntranteScheduler() {
   if (process.env.CORREO_ENTRANTE_DISABLED === '1') {
     logger.info('Correo entrante desactivado (CORREO_ENTRANTE_DISABLED=1)');
-    return;
-  }
-  if (!hayBuzonQueLeer()) {
-    logger.info('Correo entrante: sin buzón configurado, no se lee nada');
     return;
   }
   // Un minuto después de arrancar, no en el arranque: leer el buzón tarda unos

@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-1014 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
+1021 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -328,6 +328,13 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | listar | `GET /api/correos/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 | recuento | `GET /api/correos/recuento` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 | sincronizar | `POST /api/correos/sincronizar` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.sincronizar` |
+| listar | `GET /api/correos/buzones` | (no existía) | (ruta nueva) | `correos.view` |
+| crear | `POST /api/correos/buzones` | (no existía) | (ruta nueva) | `correos.buzones` |
+| probar | `POST /api/correos/buzones/probar` | (no existía) | (ruta nueva) | `correos.buzones` |
+| cambiar | `PATCH /api/correos/buzones/:id` | (no existía) | (ruta nueva) | `correos.buzones` |
+| quitar | `DELETE /api/correos/buzones/:id` | (no existía) | (ruta nueva) | `correos.buzones` |
+| probar | `POST /api/correos/buzones/:id/probar` | (no existía) | (ruta nueva) | `correos.buzones` |
+| usarComoCorreoDeEmpresa | `POST /api/correos/buzones/:id/correo-de-empresa` | (no existía) | (ruta nueva) | `correos.buzones` |
 | uno | `GET /api/correos/:id` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 
 ## credentials
@@ -1981,6 +1988,7 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver correos | `correos.view` | Los correos entrantes del equipo. | Admin, Soporte, Project manager |  |
 | Traer correos | `correos.sincronizar` | Sincronizar el buzón. | Admin, Soporte | `correos.view` |
+| Conectar buzones | `correos.buzones` | Conectar, probar, cambiar y quitar los buzones de correo que lee la Bandeja. Un admin, los de sus campus. | Admin, Soporte | `correos.view` |
 
 ### Estado del sistema
 
