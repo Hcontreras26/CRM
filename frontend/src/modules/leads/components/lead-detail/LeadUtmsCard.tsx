@@ -22,6 +22,25 @@ export default function LeadUtmsCard({ utms, leadOrigen }: { utms?: Utms | null;
           <InfoField label="Canal detectado">
             <span className="font-semibold">{(utms.canal_detectado && CHANNEL_LABELS[utms.canal_detectado]) || utms.canal_detectado || '--'}</span>
           </InfoField>
+          {/* De dónde venía de verdad (#48): sin esto, quien llega de Perplexity sin
+              UTM salía como «ChatGPT IA» con todo en blanco y no se sabía por qué. */}
+          {utms.referrer && (
+            <div className="sm:col-span-2">
+              <InfoField label="Llegó desde (referrer)">
+                <span className="text-xs break-all">{utms.referrer}</span>
+              </InfoField>
+            </div>
+          )}
+          {utms.gclid && (
+            <InfoField label="Clic de Google Ads (gclid)">
+              <span className="text-xs break-all">{utms.gclid}</span>
+            </InfoField>
+          )}
+          {utms.fbc && (
+            <InfoField label="Clic de Meta (fbclid)">
+              <span className="text-xs break-all">{utms.fbc}</span>
+            </InfoField>
+          )}
           {utms.landing_url && (
             <div className="sm:col-span-2">
               <InfoField label="Landing URL">

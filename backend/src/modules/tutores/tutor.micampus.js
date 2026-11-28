@@ -39,6 +39,7 @@ import {
   esRolExtraDeTutora, modosDeGrupoDelCurso, modoDeLaTarea, SIN_GRUPOS, GRUPOS_VISIBLES,
 } from '../../shared/services/moodle.client.js';
 import { conexionDelCampus } from './tutor.campus.js';
+import { peticionCerrada } from '../../shared/services/moodle.limitador.js';
 
 const CACHE_MS = 2 * 60 * 1000;
 /** Lo leído con algún fallo se guarda menos: al volver a entrar se intenta otra vez. */
@@ -482,8 +483,13 @@ export function campusElegidos(suyos, pedidos) {
  * Todo «Mi campus» de una tutora. Con `refrescar`, sin la copia de dos minutos. Con
  * `campus` (ids de proyecto), solo esos campus suyos: lo demás ni se lee de Moodle.
  */
-export async function miCampus(tutorId, { refrescar = false, campus: pedidos = null, ...opciones } = {}) {
-  const suyos = await campusDeLaTutora(tutorId);
+export async function miCampus(tutorId, { refrescar = false, campus: pedidos = null, soloEn = null, ...opciones } = {}) {
+  // `soloEn` (supervisión de tutores, 26/11/2026): los campus de QUIEN MIRA. No es un
+  // filtro que se pueda saltar como `campus`: lo que no está ahí no existe para él, ni
+  // en el selector ni en lo que tiene por desarrollar. null = sin recorte.
+  const limite = Array.isArray(soloEn) ? new Set(soloEn.map(Number)) : null;
+  const dentro = (projectId) => !limite || (projectId != null && limite.has(Number(projectId)));
+  const suyos = (await campusDeLaTutora(tutorId)).filter((c) => dentro(c.projectId));
   const { elegidos, filtro } = campusElegidos(suyos, pedidos);
   const campus = [];
   let leidoAt = null;
@@ -494,16 +500,20 @@ export async function miCampus(tutorId, { refrescar = false, campus: pedidos = n
     const dura = guardado && conFallos(guardado.datos) ? CACHE_CON_FALLOS_MS : CACHE_MS;
     if (refrescar || !guardado || Date.now() - guardado.at >= dura) {
       entrada = { at: Date.now(), datos: await leerUnCampus(tutorId, c, opciones) };
-      cache.set(clave, entrada);
+      // Si la tutora cerró la página a media lectura, lo leído lleva cursos «cancelados»: no
+      // se guarda, o al volver vería esos fallos en la copia.
+      if (!peticionCerrada()) cache.set(clave, entrada);
     }
     campus.push(entrada.datos);
     // «Leído a las…»: la hora de lo más antiguo que se enseña, no la de ahora.
     if (leidoAt === null || entrada.at < leidoAt) leidoAt = entrada.at;
   }
   const pendientes = (await pendientesDeDesarrollar(tutorId))
-    .filter((p) => !filtro || p.projectId == null || filtro.has(p.projectId));
+    .filter((p) => !filtro || p.projectId == null || filtro.has(p.projectId))
+    .filter((p) => !limite || p.projectId == null || dentro(p.projectId));
   const sinConectar = (await campusSinConectar(tutorId))
-    .filter((s) => !filtro || filtro.has(s.projectId));
+    .filter((s) => !filtro || filtro.has(s.projectId))
+    .filter((s) => dentro(s.projectId));
   return sinLasYaAtendidas(tutorId, {
     leidoAt: new Date(leidoAt ?? Date.now()).toISOString(),
     campus,

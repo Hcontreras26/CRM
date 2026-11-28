@@ -8,6 +8,7 @@ import Field from '@/shared/components/ui/Field';
 import { avatarColorFor, getInitials, inputClass } from '@/shared/lib/ui';
 import { toast } from '@/shared/hooks/useToast';
 import EquipoComercial from './EquipoComercial';
+import CambioDeCorreo from './CambioDeCorreo';
 import { avisoDeLoQueFalta, type Falta } from '@/shared/lib/loQueFalta';
 import BrevoBloqueoAviso from './BrevoBloqueoAviso';
 import { listRolesAsignables, type AvisoCambioCorreo, type BrevoBloqueo, type CrmUser, type Empresa, type ProjectAssignment, type RolAsignable } from '../api/users.api';
@@ -58,6 +59,8 @@ interface Props {
   bloqueoBrevo?: BrevoBloqueo | null;
   /** «Desbloquear en Brevo»: solo con el permiso users.brevo_desbloquear. */
   onDesbloquearBrevo?: () => Promise<void>;
+  /** El cambio de correo pendiente y los anteriores (#1199): solo con users.cambios_correo. */
+  verCambiosDeCorreo?: boolean;
   loading: boolean;
   onClose: () => void;
   onSubmit: (values: UserFormValues) => void | Promise<void>;
@@ -69,6 +72,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function UserFormDialog({
   user, projects, canResetPassword, canChangeEmail, loading, onClose, onSubmit, onCheckEmail, onResetPassword,
   empresas, faltaMigracionEmpresas = false, bloqueoBrevo = null, onDesbloquearBrevo,
+  verCambiosDeCorreo = false,
 }: Props) {
   const esEdicion = !!user;
   // Escape cierra, como los demás formularios (#106).
@@ -482,6 +486,9 @@ export default function UserFormDialog({
 
             {/* Las gestoras a su cargo (Carlos, 09/11/2026): componente aparte. */}
             {esEdicion && user && <EquipoComercial userId={user.id} />}
+
+            {/* Si dice «no me llega el código» (#1199): si lo pidió, a qué dirección y hasta cuándo. */}
+            {esEdicion && user && verCambiosDeCorreo && <CambioDeCorreo userId={user.id} />}
 
             {esEdicion && !canResetPassword && (
               <div className="border-t border-border pt-3 mt-1">

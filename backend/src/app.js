@@ -64,6 +64,7 @@ import connectorsModule from './modules/connectors/index.js';
 import webhooksSalientesModule from './modules/webhooks-salientes/index.js';
 import asignacionModule from './modules/asignacion/index.js';
 import { registrarActividad } from './shared/middleware/registrarActividad.js';
+import { senalDeLaPeticion } from './shared/services/moodle.limitador.js';
 import makeModule from './modules/make/index.js';
 import messagesModule from './modules/messages/index.js';
 import statusModule from './modules/status/index.js';
@@ -220,6 +221,9 @@ app.use('/api/paypal-webhook', express.raw({ type: 'application/json', limit: '1
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));  // Elementor envía form-encoded
 app.use(cookieParser());
+// Si el navegador cierra la petición, sus llamadas a Moodle que aún esperan turno en el
+// freno común salen de la cola (moodle.limitador.js). Después de express.json a propósito.
+app.use(senalDeLaPeticion);
 // Lo que hace una gestora y no guarda su autor, para «activa en los últimos 15 min» (CRM#513).
 app.use(registrarActividad);
 

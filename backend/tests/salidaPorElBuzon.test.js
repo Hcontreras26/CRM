@@ -36,43 +36,5 @@ describe('quien sale por el buzon', () => {
   });
 });
 
-describe('el correo en texto plano', () => {
-  // Un correo de verdad lleva las dos versiones. Solo-HTML es lo que manda un
-  // boletin, y ademas se ve fatal en quien lee sin formato.
-  const html = '<p>Hola <strong>Ana</strong>,</p>'
-    + '<ul><li>Máster en Neuropsicología</li><li>Curso de Psicodrama</li></ul>'
-    + '<table><tr><td>Comisión del mes</td><td>1.000,00 €</td></tr>'
-    + '<tr><td>Total a facturar</td><td>1.060,00 €</td></tr></table>'
-    + '<p>Un saludo.</p>';
-
-  it('no queda ni una etiqueta', () => {
-    expect(comoTexto(html)).not.toMatch(/<[^>]+>/);
-  });
-
-  it('las formaciones quedan como lista, una por linea', () => {
-    const t = comoTexto(html);
-    expect(t).toContain('- Máster en Neuropsicología');
-    expect(t).toContain('- Curso de Psicodrama');
-  });
-
-  it('la cuenta se lee «concepto: importe», que es como se dicta', () => {
-    const t = comoTexto(html);
-    expect(t).toContain('Comisión del mes: 1.000,00 €');
-    expect(t).toContain('Total a facturar: 1.060,00 €');
-  });
-
-  it('no deja parrafos en blanco de sobra', () => {
-    expect(comoTexto(html)).not.toMatch(/\n\s*\n\s*\n/);
-  });
-
-  it('el texto sigue al HTML: si cambia la plantilla, cambia solo', () => {
-    // Se saca DEL HTML compuesto, no de la plantilla. Es lo que evita que un
-    // dia el HTML diga una cosa y el texto plano otra.
-    expect(comoTexto('<p>Nuevo texto</p>')).toBe('Nuevo texto');
-  });
-
-  it('aguanta lo vacio sin romperse', () => {
-    expect(comoTexto('')).toBe('');
-    expect(comoTexto(null)).toBe('');
-  });
-});
+// La version en texto plano del aviso al tutor la saca ahora P.correo
+// (avisarAlTutor.test.js); el comoTexto propio se fue con la plantilla editable.

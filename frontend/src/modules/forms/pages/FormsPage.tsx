@@ -1,6 +1,7 @@
 import { apiPublicUrl, appPublicUrl } from '@/shared/lib/direccionesPublicas';
 import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { copyToClipboard } from '@/shared/lib/clipboard';
+import { codigoIframe } from '../lib/codigoIframe';
 import { useSearchParams } from 'react-router-dom';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import client from '@/shared/api/client';
@@ -252,7 +253,7 @@ function EmbedDialog({ form, onClose }: EmbedDialogProps) {
   const apiBase = apiPublicUrl(`/forms/public/${form.embed_id}`);
   // Con la base: sin ella el iframe apuntaba a /embed/form/... fuera del CRM.
   const iframeSrc = appPublicUrl(`/embed/form/${form.embed_id}`);
-  const iframeHtml = `<iframe src="${iframeSrc}" width="100%" height="500" frameborder="0"></iframe>`;
+  const iframeHtml = codigoIframe(iframeSrc, form.embed_id);
   const scriptHtml = `<div id="crm-form-${form.embed_id}"></div>\n<script src="${appPublicUrl('/embed/form.js')}" data-form-id="${form.embed_id}"></script>`;
   return (
     <div className="fixed inset-0 !m-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
@@ -268,7 +269,7 @@ function EmbedDialog({ form, onClose }: EmbedDialogProps) {
           </div>
           <div>
             <p className="font-bold uppercase text-muted-foreground mb-1">Iframe</p>
-            <div className="flex gap-2"><code className="flex-1 p-2 bg-muted/40 rounded overflow-x-auto">{iframeHtml}</code><button onClick={() => copy(iframeHtml)} aria-label="Copiar iframe" className="p-2 rounded bg-muted"><Copy size={12} /></button></div>
+            <div className="flex gap-2"><code className="flex-1 p-2 bg-muted/40 rounded overflow-x-auto whitespace-pre">{iframeHtml}</code><button onClick={() => copy(iframeHtml)} aria-label="Copiar iframe" className="p-2 rounded bg-muted"><Copy size={12} /></button></div>
           </div>
           <div>
             <p className="font-bold uppercase text-muted-foreground mb-1">Script (Shadow DOM)</p>

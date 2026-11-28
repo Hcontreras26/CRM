@@ -25,17 +25,53 @@
  *      alianza) → `referido`: viene de alguien que no es el propio sitio.
  *   8. Sin ninguna pista → `directo`.
  *
- * LAS OTRAS IA (Perplexity, Gemini, Copilot, Claude). Hoy NO tienen canal
- * propio: los valores son una lista cerrada en el código y en la base, y cómo
- * llamarlos es una decisión pendiente (#48: meterlas en `chatgpt_ia`, renombrar
- * a `ia_generativa` —con migración— o un valor por cada una). Mientras tanto
- * van a `referido`, que es lo que son (una web que manda tráfico), y NO se pierde
- * nada: se guardan `utm_source`, `referrer` y `landing_url`, así que cuando se
- * decida el nombre, el script lo aplica hacia atrás. Para cambiarlo es una
- * constante: `CANAL_DE_LAS_OTRAS_IA`.
+ * LAS OTRAS IA (Perplexity, Gemini, Copilot, Claude). Decidido por Diego el
+ * 25/11/2026 en la #48: «ChatGPT» cuando el referrer es chatgpt.com U OTRA IA.
+ * Van a `chatgpt_ia`, que en pantalla ya se llama «ChatGPT / IA», y en el
+ * informe a la categoría fija «IA». Cuál fue exactamente no se pierde: se
+ * guardan `utm_source`, `referrer` y `landing_url`. Antes iban a `referido`;
+ * `scripts/recalcular-canal.mjs` los pasa hacia atrás (`planearRecalculo`).
+ *
+ * LOS IDENTIFICADORES DE CLIC pueden llegar pegados a la dirección o como campo
+ * suelto (un campo oculto de Elementor, Make): `gclid`, `fbclid`, `ttclid`.
+ * Valen igual por las dos vías.
  */
 
-export const CANAL_DE_LAS_OTRAS_IA = 'referido';
+export const CANAL_DE_LAS_OTRAS_IA = 'chatgpt_ia';
+
+/**
+ * LAS CATEGORÍAS FIJAS del informe (Diego, 25/11/2026, #48): Pago Google,
+ * Pago Meta, Orgánico, IA, Directo, Referido y Otros. El canal guardado es más
+ * fino (TikTok, WhatsApp, Instagram…); en el informe se agrupan aquí. Lo que no
+ * se sabe de dónde vino va aparte como «Sin origen» y no es una categoría: no se
+ * reparte entre las demás, y su porcentaje dice si la tubería funciona.
+ */
+export const CATEGORIAS = [
+  { clave: 'pago_google', texto: 'Pago Google', canales: ['google_ads'] },
+  { clave: 'pago_meta', texto: 'Pago Meta', canales: ['meta_ads'] },
+  { clave: 'organico', texto: 'Orgánico', canales: ['organico'] },
+  { clave: 'ia', texto: 'IA', canales: ['chatgpt_ia'] },
+  { clave: 'directo', texto: 'Directo', canales: ['directo'] },
+  { clave: 'referido', texto: 'Referido', canales: ['referido'] },
+  // TikTok, WhatsApp, Instagram y cualquier canal que se añada mañana.
+  { clave: 'otros', texto: 'Otros', canales: [] },
+];
+export const SIN_ORIGEN = 'sin_origen';
+
+/** La categoría fija de un canal guardado; un canal que no está en ninguna, «otros». */
+export function categoriaDelCanal(canal) {
+  if (canal === SIN_ORIGEN) return SIN_ORIGEN;
+  return CATEGORIAS.find((c) => c.canales.includes(canal))?.clave || 'otros';
+}
+
+/**
+ * Lo mismo en SQL, sobre una expresión que da el canal como texto. Se monta a
+ * partir de `CATEGORIAS` para que el informe y el código no puedan separarse.
+ */
+export function categoriaEnSql(exprCanal) {
+  const ramas = CATEGORIAS.flatMap((c) => c.canales.map((canal) => `WHEN '${canal}' THEN '${c.clave}'`));
+  return `CASE (${exprCanal}) WHEN '${SIN_ORIGEN}' THEN '${SIN_ORIGEN}' ${ramas.join(' ')} ELSE 'otros' END`;
+}
 
 const HOSTS_CHATGPT = ['chatgpt.com', 'chat.openai.com', 'openai.com'];
 const HOSTS_OTRAS_IA = ['perplexity.ai', 'gemini.google.com', 'copilot.microsoft.com', 'claude.ai', 'you.com', 'poe.com'];
@@ -71,12 +107,15 @@ function parametros(url) {
  * El canal de un prospecto, a partir de lo que se sepa de él. Cualquier campo
  * puede faltar. Devuelve siempre uno de los valores del enum `utm_channel`.
  */
-export function deducirCanal({ utm_source, utm_medium, referrer, landing_url } = {}) {
+export function deducirCanal({ utm_source, utm_medium, referrer, landing_url, gclid, fbclid, ttclid } = {}) {
   const fuente = String(utm_source || '').trim().toLowerCase();
   const medio = String(utm_medium || '').trim().toLowerCase();
   const hostRef = hostDe(referrer);
   const hostFuente = fuente.includes('.') ? hostDe(fuente) : null;
-  const clics = parametros(landing_url);
+  const deLaUrl = parametros(landing_url);
+  // El identificador de clic, de la dirección o del campo suelto.
+  const suelto = { gclid, fbclid, ttclid };
+  const clics = { get: (k) => deLaUrl.get(k) || (typeof suelto[k] === 'string' && suelto[k].trim()) || null };
   const hostPropio = hostDe(landing_url);
 
   // 1 · IA generativa
@@ -124,14 +163,31 @@ export function deducirCanal({ utm_source, utm_medium, referrer, landing_url } =
  * nada porque la tubería no se lo trajo. El porcentaje de estos últimos es el
  * que dice si #48 funciona.
  */
-export function tienePistaDeOrigen({ utm_source, utm_medium, utm_campaign, referrer, landing_url } = {}) {
-  return [utm_source, utm_medium, utm_campaign, referrer, landing_url].some((v) => typeof v === 'string' && v.trim() !== '');
+export function tienePistaDeOrigen({ utm_source, utm_medium, utm_campaign, referrer, landing_url, gclid } = {}) {
+  return [utm_source, utm_medium, utm_campaign, referrer, landing_url, gclid].some((v) => typeof v === 'string' && v.trim() !== '');
 }
 
-/** Las UTM que lleva pegadas una dirección (solo las que tengan texto). */
+/**
+ * Lo que cabe de cada UTM en `lead_utms` (001_initial_schema.sql) y lo que ya
+ * exige la ruta de Make (lead.validation.js). Una UTM que vino en la dirección
+ * no pasó por ninguna validación: un `utm_content={{ad.name}}` de Meta pasa de
+ * 255 sin esfuerzo y el INSERT tumbaba el alta entera (#48, revisión de Diego).
+ */
+export const TOPE_UTM = Object.freeze({
+  utm_source: 100, utm_medium: 100, utm_campaign: 255, utm_content: 255, utm_term: 255,
+});
+
+/** Una UTM recortada a lo que cabe en su columna; sin texto → null. */
+export function recortarUtm(clave, valor) {
+  if (typeof valor !== 'string' || !valor.trim()) return null;
+  const v = valor.trim();
+  return TOPE_UTM[clave] ? v.slice(0, TOPE_UTM[clave]) : v;
+}
+
+/** Las UTM que lleva pegadas una dirección (solo las que tengan texto), ya recortadas a su columna. */
 export function utmsDeLaDireccion(url) {
   const p = parametros(url);
-  const sacar = (k) => { const v = p.get(k); return v && v.trim() ? v.trim() : null; };
+  const sacar = (k) => recortarUtm(k, p.get(k));
   return {
     utm_source: sacar('utm_source'),
     utm_medium: sacar('utm_medium'),
@@ -167,7 +223,10 @@ export function planearRecalculo(filas) {
   let sinPista = 0;
   let respetadas = 0;
   for (const f of filas) {
-    if (!CANALES_DEBILES.has(f.canal_detectado)) { respetadas += 1; continue; }
+    // Una IA que no es ChatGPT entraba como «referido» hasta el 25/11/2026: esa
+    // sí se revisa, pero solo para pasarla a IA. Cualquier otro «referido» se respeta.
+    const iaComoReferido = f.canal_detectado === 'referido' && deducirCanal(f) === CANAL_DE_LAS_OTRAS_IA;
+    if (!CANALES_DEBILES.has(f.canal_detectado) && !iaComoReferido) { respetadas += 1; continue; }
     const deLaUrl = utmsDeLaDireccion(f.landing_url);
     const utms = {};
     for (const k of Object.keys(deLaUrl)) {
@@ -208,7 +267,27 @@ export function fbclidAFbc(fbclid, ts = Date.now()) {
   return `fb.1.${ts}.${fbclid}`;
 }
 
-const FBP_META = /^fb\.\d\.\d+\.[\w-]+$/;
+/** El `gclid` de una dirección, o null. */
+export function extraerGclid(url) {
+  const v = parametros(url).get('gclid');
+  return v && v.trim() ? v.trim() : null;
+}
+
+const suelto = (v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 500) : null);
+
+/**
+ * Lo que se guarda de los identificadores de clic de un alta (#48), venga por
+ * donde venga: el `gclid` tal cual y el `fbclid` como `fbc` (#474). Primero el
+ * de la dirección; si no trae, el campo suelto.
+ */
+export function clicsDelOrigen({ landing_url, gclid, fbclid } = {}) {
+  return {
+    gclid: extraerGclid(landing_url) || suelto(gclid),
+    fbc: fbclidAFbc(extraerFbclid(landing_url) || suelto(fbclid)),
+  };
+}
+
+const FBP_META =/^fb\.\d\.\d+\.[\w-]+$/;
 
 /**
  * El `fbp` tal como lo manda el formulario externo, validado contra el
