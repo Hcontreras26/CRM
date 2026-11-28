@@ -110,7 +110,10 @@ describe('gclid y fbclid también como campo suelto', () => {
     expect(clicsDelOrigen({ landing_url: 'https://web.test/?gclid=URL', gclid: 'SUELTO' }).gclid).toBe('URL');
     expect(clicsDelOrigen({ gclid: 'SUELTO' }).gclid).toBe('SUELTO');
     expect(clicsDelOrigen({ fbclid: 'FB9' }).fbc).toMatch(/^fb\.1\.\d+\.FB9$/);
-    expect(clicsDelOrigen({})).toEqual({ gclid: null, fbc: null });
+    expect(clicsDelOrigen({})).toEqual({ gclid: null, ttclid: null, fbc: null });
+    // #1246: el ttclid también se guarda, primero el de la dirección y recortado a 500.
+    expect(clicsDelOrigen({ landing_url: 'https://web.test/?ttclid=URL', ttclid: 'SUELTO' }).ttclid).toBe('URL');
+    expect(clicsDelOrigen({ ttclid: ` ${'t'.repeat(600)} ` }).ttclid).toBe('t'.repeat(500));
   });
 
   it('el webhook los acepta (lead.validation)', () => {
@@ -187,7 +190,7 @@ describe('el botón de WhatsApp: las UTM y el gclid de la página, sin tocar el 
     const [sql, params] = db.query.mock.calls.at(-1);
     expect(sql).not.toMatch(/canal_detectado/);
     expect(sql).toMatch(/COALESCE\(NULLIF\(utm_source, ''\), \$2\)/);
-    expect(params).toEqual([7, 'fb', null, null, null, null, 'G9', 'https://web.test/curso/?utm_source=fb&gclid=G9']);
+    expect(params).toEqual([7, 'fb', null, null, null, null, 'G9', 'https://web.test/curso/?utm_source=fb&gclid=G9', null]);
   });
 
   it('una página sin UTM ni gclid no escribe nada', async () => {

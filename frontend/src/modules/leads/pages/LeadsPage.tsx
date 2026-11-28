@@ -69,6 +69,7 @@ import AtajosDeFicha from '../components/AtajosDeFicha';
 import ReminderQuickDialog from '../components/ReminderQuickDialog';
 import BulkActionBar from '../components/BulkActionBar';
 import usePermission from '@/shared/hooks/usePermission';
+import { puedeEliminarLead, type LeadParaEliminar } from '../lib/puedeEliminar';
 import { getLeadPriority, getPriorityStyle } from '../lib/leadPriority';
 import { getLeadExportColumns } from '../lib/leadFormat';
 import { yaPaso } from '@/shared/lib/fechas';
@@ -150,11 +151,10 @@ export default function LeadsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { can, veGestoras } = usePermission();
-  // Eliminar: admin y superadmin, y desde el 01/10 la gestora con el permiso
-  // «leads.delete» (#204) en SUS leads sin venta. El servidor lo vuelve a mirar.
-  const puedeEliminar = (l: { responsable_id?: number | null; status?: string }) =>
-    ((user?.role === 'superadmin' || user?.role === 'admin') && can('leads.delete'))
-    || (can('leads.delete') && l.responsable_id === user?.id && l.status !== 'convertido');
+  // Eliminar: por permiso y con el alcance del servidor (CRM#1220). La lista
+  // trae `puede_eliminar` en cada fila: la líder de equipo, también los de su
+  // equipo; la gestora (#204), los suyos sin venta. El servidor lo vuelve a mirar.
+  const puedeEliminar = (l: LeadParaEliminar) => puedeEliminarLead(l, can, user?.id);
   const {
     leads, stats, total, page, totalPages,
     setPage, search, setSearch,

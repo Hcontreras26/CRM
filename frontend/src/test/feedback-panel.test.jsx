@@ -12,10 +12,11 @@ import { pathAllowsAll, rutaAceptaSociedad } from '@/shared/components/layout/Ap
  *     no funcionara. Ahora abre en «Desde siempre» (#242) y no manda fechas.
  */
 
-const { cabecera, get } = vi.hoisted(() => ({ cabecera: { value: {} }, get: vi.fn() }));
+const { cabecera, get, permisos } = vi.hoisted(() => ({ cabecera: { value: {} }, get: vi.fn(), permisos: { value: {} } }));
 
 vi.mock('@/contexts/ProjectContext', () => ({ useProjectContext: () => cabecera.value }));
 vi.mock('@/shared/api/client', () => ({ default: { get, post: vi.fn() }, API_BASE_URL: '/crm/api' }));
+vi.mock('@/shared/hooks/usePermission', () => ({ default: () => ({ can: (k) => permisos.value[k] === true }) }));
 
 import FeedbackPanelPage from '@/modules/feedback/pages/FeedbackPanelPage';
 
@@ -31,6 +32,7 @@ const ultimoPedido = () => {
 const abrir = () => render(<MemoryRouter><FeedbackPanelPage /></MemoryRouter>);
 
 beforeEach(() => {
+  permisos.value = {};
   get.mockReset();
   get.mockResolvedValue({ success: true, data: PANEL });
 });
@@ -109,5 +111,39 @@ describe('«Solo este campus» y la fila de la empresa', () => {
     fireEvent.click(await screen.findByRole('button', { name: '50' }));
     await waitFor(() => expect(ultimaLista()).not.toBeNull());
     expect(ultimaLista().get('issuerId')).toBe('8');
+  });
+});
+
+/**
+ * #1157: «Exportar CSV» baja lo filtrado desde el servidor, y solo lo ve quien
+ * tiene `feedback.exportar`.
+ */
+describe('«Exportar CSV» (#1157)', () => {
+  it('sin feedback.exportar no sale el botón', async () => {
+    cabecera.value = { activeProject: { id: 7, nombre: 'Psiko' }, activeIssuerId: null, activeIssuer: null, projects: [] };
+    abrir();
+    await waitFor(() => expect(screen.getByText('283')).toBeTruthy());
+    expect(screen.queryByRole('button', { name: /Exportar CSV/ })).toBeNull();
+  });
+
+  it('con el permiso, pide /feedback/exportar con el campus y las fechas que se ven', async () => {
+    permisos.value = { 'feedback.exportar': true };
+    cabecera.value = { activeProject: { id: 7, nombre: 'Psiko' }, activeIssuerId: null, activeIssuer: null, projects: [] };
+    get.mockImplementation(async (url) => (url.startsWith('/feedback/exportar')
+      ? new Blob(['x'], { type: 'text/csv' })
+      : { success: true, data: PANEL }));
+    URL.createObjectURL = vi.fn(() => 'blob:x');
+    URL.revokeObjectURL = vi.fn();
+    abrir();
+    fireEvent.click(await screen.findByRole('button', { name: 'Este mes' }));
+    const boton = await screen.findByRole('button', { name: /Exportar CSV/ });
+    await waitFor(() => expect(boton.disabled).toBe(false));
+    fireEvent.click(boton);
+    await waitFor(() => expect(get.mock.calls.some((c) => c[0].startsWith('/feedback/exportar'))).toBe(true));
+    const [url, opciones] = get.mock.calls.find((c) => c[0].startsWith('/feedback/exportar'));
+    const p = new URLSearchParams(url.split('?')[1]);
+    expect(p.get('projectId')).toBe('7');
+    expect(p.has('desde')).toBe(true);
+    expect(opciones).toEqual({ responseType: 'blob' });
   });
 });

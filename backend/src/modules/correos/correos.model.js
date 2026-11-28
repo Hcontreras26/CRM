@@ -37,7 +37,7 @@ const DIRECCIONES = ['salida', 'entrada'];
  * cuerpo de cada uno pesa mas que todo lo demas junto. Se pide al abrir uno.
  */
 export async function listar({ estado = null, direccion = null, busca = null, desde = null,
-  hasta = null, projectIds = null, limite = 100, pagina = 1 } = {}) {
+  hasta = null, projectIds = null, buzon = null, limite = 100, pagina = 1 } = {}) {
   const par = [];
   const cond = ['1=1'];
 
@@ -55,6 +55,13 @@ export async function listar({ estado = null, direccion = null, busca = null, de
   // `+ 1 dia` porque `hasta` es un dia, no un instante: sin eso, pedir «hasta
   // hoy» deja fuera todo lo de hoy salvo lo de las 00:00.
   if (hasta) { par.push(hasta); cond.push(`created_at < $${par.length}::date + INTERVAL '1 day'`); }
+  // UN BUZÓN (#1032): lo que entró por él. 'servidor' es el del .env, que no
+  // tiene fila: lo que entró sin buzón.
+  if (buzon === 'servidor') {
+    cond.push(`(direccion = 'entrada' AND buzon_id IS NULL)`);
+  } else if (Number.isInteger(buzon) && buzon > 0) {
+    par.push(buzon); cond.push(`buzon_id = $${par.length}`);
+  }
   if (Array.isArray(projectIds) && projectIds.length) {
     par.push(projectIds.map(Number));
     // Los que no son de ningun proyecto —el aviso al tutor, que cruza varios—
@@ -74,6 +81,10 @@ export async function listar({ estado = null, direccion = null, busca = null, de
     `SELECT id, created_at AS cuando, direccion,
             remitente, destinatarios, asunto, estado, intentos, etiquetas,
             project_id, error,
+            -- El buzón por el que entró (#1032), para la etiqueta de la Bandeja.
+            buzon_id,
+            (SELECT b.nombre FROM correo_buzones b WHERE b.id = email_envios.buzon_id) AS buzon_nombre,
+            (SELECT b.direccion FROM correo_buzones b WHERE b.id = email_envios.buzon_id) AS buzon_direccion,
             -- QUIÉN ES QUIÉN (Diego, 09/10). Carlos vio en esta lista un
             -- «Recordatorio vencido» mandado a admisiones@academiaia.ai y no supo
             -- que era de María Eugenia: la lista solo tenía la dirección. Ahora
@@ -102,7 +113,9 @@ export async function uno(id) {
   const { rows } = await query(
     `SELECT id, created_at AS cuando, direccion,
             remitente, destinatarios, asunto, estado, intentos, etiquetas,
-            project_id, error, brevo_msg_id, cuerpo_html,
+            project_id, error, brevo_msg_id, cuerpo_html, buzon_id,
+            (SELECT b.nombre FROM correo_buzones b WHERE b.id = email_envios.buzon_id) AS buzon_nombre,
+            (SELECT b.direccion FROM correo_buzones b WHERE b.id = email_envios.buzon_id) AS buzon_direccion,
             -- QUIÉN ES QUIÉN (Diego, 09/10). Carlos vio en esta lista un
             -- «Recordatorio vencido» mandado a admisiones@academiaia.ai y no supo
             -- que era de María Eugenia: la lista solo tenía la dirección. Ahora

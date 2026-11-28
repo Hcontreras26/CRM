@@ -241,6 +241,7 @@ export interface Utms {
   referrer?: string | null;
   /** Identificador de clic de Google Ads (#48). */
   gclid?: string | null;
+  ttclid?: string | null;
   /** Clic de Meta en formato fbc (fb.1.<hora>.<fbclid>), #474. */
   fbc?: string | null;
 }

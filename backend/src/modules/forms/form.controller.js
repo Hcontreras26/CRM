@@ -29,7 +29,7 @@ export function origenDelFormulario(campos = {}, landingUrl = null) {
   // Un referrer que es la propia página del formulario no dice nada (Elementor
   // manda la página como «referrer»): deducirCanal ya lo ignora.
   const referrer = texto(campos.referrer) || texto(campos.referer) || null;
-  const clics = clicsDelOrigen({ landing_url: landingUrl, gclid: campos.gclid, fbclid: campos.fbclid });
+  const clics = clicsDelOrigen({ landing_url: landingUrl, gclid: campos.gclid, fbclid: campos.fbclid, ttclid: campos.ttclid });
   const canal = deducirCanal({
     utm_source: utm('utm_source'),
     utm_medium: utm('utm_medium'),
@@ -572,6 +572,7 @@ async function processInboundPayload(req, res, next, body, source, preloadedForm
         referrer: origen.referrer,
         canal_detectado: origen.canal,
         gclid: origen.gclid,
+        ttclid: origen.ttclid,
         fbc: origen.fbc,
         fbp: limpiarFbp(final.fbp || body.fbp || body._fbp),
         client_ip: req.ip || null,
@@ -671,6 +672,7 @@ export async function publicSubmit(req, res, next) {
         referrer: origen.referrer,
         canal_detectado: origen.canal,
         gclid: origen.gclid,
+        ttclid: origen.ttclid,
         fbc: origen.fbc,
         fbp: null,
         client_ip: req.ip || null,

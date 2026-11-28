@@ -8,9 +8,9 @@ import { sincronizarTemario } from '../products/temario.js';
 import { certifex, certifexPuede, recorrer } from './certifex.cliente.js';
 import { alcanceDe, acotar, exigirCentro, exigirExpedientes, NO_ENCONTRADA } from './certifex.alcance.js';
 import { prepararEmision, emitirConPrograma, emitirMatriculas, resultadoBloqueado } from './certifex.emision.js';
-import { conDestinatario } from './certifex.envios.js';
+import { aprobarAvisos, conDestinatario, soltarEnvio, tomarEnvio } from './certifex.envios.js';
 import { pasarAPendientes, REF_CURSO_CRM } from './certifex.pendientes.js';
-import { anotarEnvios, conConfirmacion } from '../diploma-confirmacion/diploma-confirmacion.puerta.js';
+import { conConfirmacion } from '../diploma-confirmacion/diploma-confirmacion.puerta.js';
 import { conReversiones } from './certifex.revertir.js';
 import { conEdicion, conProgramaCrm } from './certifex.enriquecer.js';
 import { emitidoPorElCrm, revertiblePorEsteCrm } from './certifex.marcas.js';
@@ -393,14 +393,18 @@ export async function avisos(req, res, next) {
   try {
     const { nexpedientes } = parsear(avisosSchema, req.body);
     await exigirExpedientes(await alcanceDe(req.user), nexpedientes);
-    const data = await certifex('POST', '/avisos', { nexpedientes, aprobadoPor: quien(req) }, { timeoutMs: 120_000 });
-    // Cuándo se le mandó el diploma (#768), en las matrículas con confirmación del alumno.
-    // Solo si el correo de Certifex está encendido: aprobado pero sin salir no es «enviado».
-    if (data?.correoActivo) {
-      await anotarEnvios((data?.resultados ?? []).filter((r) => r?.ok && r?.nexpediente).map((r) => r.nexpediente));
+    // El mismo candado que el lote de Emitidos (#1201): si ese diploma se está enviando ahora
+    // (fila y lote a la vez, o dos pestañas), 409 y no sale un segundo correo.
+    const { mios, ocupados } = tomarEnvio([...new Set(nexpedientes)]);
+    try {
+      if (ocupados.size) throw new AppError(`Ese diploma se está enviando ahora (${[...ocupados].join(', ')}): espera a que acabe y refresca la lista.`, 409, 'ENVIO_EN_CURSO');
+      // El envío de siempre (certifex.envios.js): a nombre de quien pulsa, y apunta cuándo se le
+      // mandó (#768) si el correo de Certifex está encendido. El lote de Emitidos usa el mismo.
+      const data = await aprobarAvisos(req.user, nexpedientes);
+      res.json({ success: true, data });
+    } finally {
+      soltarEnvio(mios);
     }
-    logger.info({ userId: req.user.userId, n: nexpedientes.length, correoActivo: data?.correoActivo }, 'Certifex: avisos de diploma aprobados');
-    res.json({ success: true, data });
   } catch (err) { next(err); }
 }
 

@@ -17,10 +17,18 @@ describe('Origen y UTMs en la ficha', () => {
     expect(screen.getByText('fb.1.1700000000000.IwAR-prueba')).toBeTruthy();
   });
 
+  it('#1246: enseña el clic de TikTok como texto, sin enlace', () => {
+    render(<LeadUtmsCard utms={{ canal_detectado: 'tiktok_ads', ttclid: 'E.C.P.tiktok-prueba' }} />);
+    expect(screen.getByText('Clic de TikTok (ttclid)')).toBeTruthy();
+    const valor = screen.getByText('E.C.P.tiktok-prueba');
+    expect(valor.closest('a')).toBeNull();
+  });
+
   it('sin ellos no pinta esas filas vacías', () => {
     render(<LeadUtmsCard utms={{ utm_source: 'google', canal_detectado: 'organico' }} />);
     expect(screen.queryByText('Llegó desde (referrer)')).toBeNull();
     expect(screen.queryByText(/gclid/)).toBeNull();
     expect(screen.queryByText(/Clic de Meta/)).toBeNull();
+    expect(screen.queryByText(/ttclid/)).toBeNull();
   });
 });

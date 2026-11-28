@@ -12,6 +12,7 @@ import { tienePermiso } from '../../shared/middleware/permissions.js';
 import { soloLoSuyo, alcanceComercial, alcanceDeLider, acotarAlAlcance, enElAlcance } from '../../shared/utils/roles.js';
 import { pluginMoodleActivo } from '../../shared/config/soloEnPruebas.js';
 import { avanceDelAlumno } from './avance-moodle.js';
+import { marcarPuedeEliminar } from './puede-eliminar.js';
 import { deLaFicha as diplomaDeLaFicha } from '../diploma-confirmacion/diploma-confirmacion.model.js';
 
 // ============================================================
@@ -106,6 +107,8 @@ export async function list(req, res, next) {
       filters.reincidente = false;
     }
     const result = await leadService.list(filters);
+    // Si le sale «Eliminar» en cada fila, con la regla del borrado (CRM#1220).
+    await marcarPuedeEliminar(req, result.leads);
     res.json({
       success: true,
       data: result.leads,

@@ -74,6 +74,9 @@ router.post('/diplomas/aprobar-emitir', emitirDiplomas, diplomas.aprobarEmitir);
 router.post('/diplomas/emitir', emitirDiplomas, diplomas.emitir);
 // «Enviar diploma al alumno»: el correo con el diploma, despues de ver el PDF.
 router.post('/diplomas/avisos', emitirDiplomas, diplomas.avisos);
+// #1201: «Enviar al alumno (n)» en Emitidos. El mismo envío, dejando fuera (y diciendo por qué)
+// lo ya enviado, lo revocado o revertido, lo emitido fuera del CRM y lo que no tiene correo.
+router.post('/diplomas/avisos/lote', emitirDiplomas, envios.avisosLote);
 // «Nuevo diploma»: desde cero, eligiendo cliente y formación (19/10).
 router.post('/diplomas/nuevo', emitirDiplomas, diplomas.nuevo);
 router.get('/diplomas/formaciones', emitirDiplomas, diplomas.formaciones);
