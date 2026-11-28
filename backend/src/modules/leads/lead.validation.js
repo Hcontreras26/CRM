@@ -27,6 +27,11 @@ export const webhookLeadSchema = z.object({
   // De dónde venía la persona (document.referrer). Va junto a las UTM porque
   // ChatGPT a veces no manda utm_source y a veces no manda referrer (#48).
   referrer: z.string().max(2000).optional(),
+  // Los identificadores de clic como campo suelto (un campo oculto, Make): dicen
+  // que es de pago aunque la dirección llegue sin ellos (#48).
+  gclid: z.string().max(500).optional(),
+  fbclid: z.string().max(500).optional(),
+  ttclid: z.string().max(500).optional(),
   // La campaña, el conjunto y el anuncio de Meta (puerta 8, CRM#806): los manda
   // Make con los formularios instantáneos. Con nombre propio o como los llama Meta.
   meta_campaign_id: z.coerce.string().max(50).optional(),

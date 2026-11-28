@@ -7,7 +7,7 @@ import { normalizePhone } from '../../shared/utils/normalizePhone.js';
 import { notifyAdmins, notifyUsers } from '../notifications/notifications.service.js';
 import * as dupQueue from './dup-queue.service.js';
 import * as leadProducts from './lead-products.service.js';
-import { deducirCanal } from './canal.js';
+import { deducirCanal, clicsDelOrigen, utmsDeLaDireccion } from './canal.js';
 // La campaña, el conjunto y el anuncio de Meta de cada prospecto (puerta 8, CRM#806).
 import { resolverOrigenMeta, formacionDeLaPublicidad, guardarOrigenMeta } from './origen-meta.js';
 import { planificarPasosDeLead, ajustarPaso } from '../proceso/proceso.model.js';
@@ -55,27 +55,12 @@ async function triggerSequences(triggerEvent, leadId, projectId) {
  *
  * Lo que venga suelto en el cuerpo MANDA sobre lo que diga la direccion: si
  * alguien se molesto en mapearlo a mano, sabra por que.
+ *
+ * Recortadas a su columna de `lead_utms` (canal.js): la validación del webhook
+ * solo mira los campos sueltos, no lo que viene dentro de la dirección, y un
+ * `utm_content` de más de 255 tumbaba el alta entera (#48, revisión de Diego).
  */
-function utmsDeLaUrl(url) {
-  if (!url || typeof url !== 'string') return {};
-  let params;
-  try {
-    params = new URL(url).searchParams;
-  } catch {
-    return {};   // no es una direccion valida: no se inventa nada
-  }
-  const sacar = (clave) => {
-    const v = params.get(clave);
-    return v && v.trim() ? v.trim() : undefined;
-  };
-  return {
-    utm_source: sacar('utm_source'),
-    utm_medium: sacar('utm_medium'),
-    utm_campaign: sacar('utm_campaign'),
-    utm_content: sacar('utm_content'),
-    utm_term: sacar('utm_term'),
-  };
-}
+const utmsDeLaUrl = (url) => utmsDeLaDireccion(url);
 
 // ============================================================
 // WEBHOOK (publico, autenticado por API key)
@@ -220,6 +205,9 @@ async function _createLeadCore(project, leadData) {
     utm_medium: leadData.utm_medium,
     referrer: leadData.referrer,
     landing_url: leadData.landing_url,
+    gclid: leadData.gclid,
+    fbclid: leadData.fbclid,
+    ttclid: leadData.ttclid,
   });
   // Con un anuncio, un conjunto o una campaña de Meta reconocidos, no es «directo»
   // (un formulario instantáneo de Meta llega por Make sin UTM ni dirección).
@@ -296,6 +284,7 @@ async function _createLeadCore(project, leadData) {
       utm_term: leadData.utm_term || null,
       landing_url: leadData.landing_url || null,
       referrer: leadData.referrer || null,
+      ...clicsDelOrigen(leadData),
       canal_detectado: canalDetectado,
     },
   });

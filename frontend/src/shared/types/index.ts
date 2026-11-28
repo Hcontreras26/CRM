@@ -237,6 +237,12 @@ export interface Utms {
   utm_term?: string | null;
   canal_detectado?: LeadOrigen | null;
   landing_url?: string | null;
+  /** De dónde venía la persona (document.referrer), #48: chatgpt.com, perplexity.ai, google.com… */
+  referrer?: string | null;
+  /** Identificador de clic de Google Ads (#48). */
+  gclid?: string | null;
+  /** Clic de Meta en formato fbc (fb.1.<hora>.<fbclid>), #474. */
+  fbc?: string | null;
 }
 
 /**
