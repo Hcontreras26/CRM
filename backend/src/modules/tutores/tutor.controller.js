@@ -10,12 +10,16 @@ import {
   cobraDesdeSchema,
   busquedaDeTutorSchema, buscarTutoresSchema,
   empresaDelTutorSchema, campusDelTutorSchema, disponibleSchema,
+  supervisionTutorSchema, supervisionMiCampusSchema,
+  avisoTutorQuerySchema, avisarTutorSchema,
 } from './tutor.validation.js';
 import * as campusTutor from './tutor.campus.js';
 import * as campusDeLaTutora from './tutor.micampus.js';
 import { redaccionEnMoodle } from './tutor.redaccion.js';
 import * as correccion from './tutor.correccion.js';
 import * as administracion from './tutor.campusAdministracion.js';
+// Supervisión de tutores (la dirección, 26/11/2026): ver a los tutores de sus campus, sin tocar nada.
+import * as supervision from './tutor.supervision.js';
 import { query } from '../../shared/config/db.js';
 import { logger } from '../../shared/utils/logger.js';
 import { avisarDisponibilidad } from '../consultas/consultas.plugin.js';
@@ -732,46 +736,56 @@ export async function reactivarTutor(req, res, next) {
   } catch (err) { next(err); }
 }
 
-/** El periodo que llega por la URL, o nada. Siempre «AAAA-MM». */
-function periodoDe(req) {
-  const p = String(req.query.periodo || req.body?.periodo || '');
-  return /^\d{4}-\d{2}$/.test(p) ? p : null;
+/*
+  «Avisar al tutor» desde Comisiones (CRM#165 / CRM-ISEIE#188).
+
+  Quién: `tutores.avisar` en la ruta y, además, gestionar colaboraciones
+  (`exigirGestion`), como el resto de Comisiones. De qué tutor: uno de mis
+  campus. Con qué cifra: la del recorte de la pantalla (campus o empresa),
+  dentro de mis campus (`proyectosDelAmbito`), la misma que pinta la fila.
+*/
+async function ambitoDelAviso(req, d) {
+  // `proyectosDelAmbito` lee el campus y la empresa de la URL; en el POST
+  // llegan en el cuerpo, ya validados.
+  return proyectosDelAmbito({
+    user: req.user,
+    query: { projectId: d.projectId || undefined, issuerId: d.issuerId || undefined },
+  });
 }
 
 /**
  * GET /api/tutores/comisiones/aviso — lo que se le va a mandar, sin mandarlo.
  *
- * Existe separado del envio porque un correo no se manda a ciegas: la pantalla
- * enseña el texto, el total y la cuenta, y solo entonces aparece el boton.
+ * Separado del envío porque un correo no se manda a ciegas: la pantalla enseña
+ * el correo, la cuenta y si ya se le mandó el de ese mes; solo entonces se envía.
  */
 export async function previoDelAviso(req, res, next) {
   try {
-    // Antes bastaba con estar autenticado: cualquiera veía lo que se le debe a un tutor.
     await exigirGestion(req);
-    const periodo = periodoDe(req);
-    if (!periodo) throw new AppError('Falta el mes (AAAA-MM).', 400, 'SIN_PERIODO');
-    await exigirTutorDeMisCampus(req, Number(req.query.tutorId));
-    const datos = await previsualizar({ tutorId: Number(req.query.tutorId), periodo });
+    const d = valida(avisoTutorQuerySchema, req.query || {});
+    await exigirTutorDeMisCampus(req, d.tutorId);
+    const datos = await previsualizar({ tutorId: d.tutorId, periodo: d.periodo, ...(await ambitoDelAviso(req, d)) });
     res.json({ success: true, data: datos });
   } catch (e) { next(e); }
 }
 
-/** POST /api/tutores/comisiones/avisar — lo manda y anota cuando y quien. */
+/**
+ * POST /api/tutores/comisiones/avisar — lo manda y anota quién y cuándo.
+ * Si ya se le mandó el de ese mes, 409 `YA_AVISADO` salvo con `repetir: true`.
+ */
 export async function avisarTutor(req, res, next) {
   try {
-    // Antes bastaba con estar autenticado: cualquiera mandaba el correo de facturación a un tutor.
     await exigirGestion(req);
-    const periodo = periodoDe(req);
-    if (!periodo) throw new AppError('Falta el mes (AAAA-MM).', 400, 'SIN_PERIODO');
-    await exigirTutorDeMisCampus(req, Number(req.body?.tutorId));
+    const d = valida(avisarTutorSchema, req.body || {});
+    await exigirTutorDeMisCampus(req, d.tutorId);
     const r = await avisar({
-      tutorId: Number(req.body?.tutorId),
-      periodo,
+      tutorId: d.tutorId,
+      periodo: d.periodo,
       userId: req.user?.userId,
-      // Lo retocado a mano en la pantalla, si se retoco. Solo el texto: a quien
-      // va lo sigue decidiendo el tutor, no lo que llegue en el cuerpo.
-      asunto: req.body?.asunto,
-      html: req.body?.html,
+      ...(await ambitoDelAviso(req, d)),
+      asunto: d.asunto || null,
+      nota: d.nota || null,
+      repetir: d.repetir === true,
     });
     res.json({ success: true, data: r });
   } catch (e) { next(e); }
@@ -1012,6 +1026,40 @@ export async function miRedaccionMoodle(req, res, next) {
     const data = await redaccionEnMoodle(req.user.userId, { ella: true });
     if (!data) throw new AppError('Tutor no encontrado', 404, 'NOT_FOUND');
     res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+// ─── Supervisión de tutores (la dirección, 26/11/2026) ─────────────────────────────
+// Todo de lectura y recortado a los campus de quien mira (`tutor.supervision.js`).
+
+// GET /api/tutores/supervision
+export async function supervisionLista(req, res, next) {
+  try {
+    res.json({ success: true, data: await supervision.lista(req) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/tutores/supervision/:id/mi-campus[?refrescar=1]
+export async function supervisionMiCampus(req, res, next) {
+  try {
+    const { id, refrescar } = valida(supervisionMiCampusSchema, { ...req.params, ...req.query });
+    res.json({ success: true, data: await supervision.miCampusDe(req, id, { refrescar }) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/tutores/supervision/:id/tareas
+export async function supervisionTareas(req, res, next) {
+  try {
+    const { id } = valida(supervisionTutorSchema, req.params);
+    res.json({ success: true, data: await supervision.tareasDe(req, id) });
+  } catch (err) { next(err); }
+}
+
+// GET /api/tutores/supervision/:id/redaccion-moodle
+export async function supervisionRedaccion(req, res, next) {
+  try {
+    const { id } = valida(supervisionTutorSchema, req.params);
+    res.json({ success: true, data: await supervision.redaccionDe(req, id) });
   } catch (err) { next(err); }
 }
 

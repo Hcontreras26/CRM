@@ -296,6 +296,10 @@ export const SECCIONES = [
           // token del campus, aunque no tenga cuenta enlazada. Solo lee; corregir y responder
           // siguen siendo de la profesora del curso.
           a('campus_administracion', 'Mi campus de administración', 'Ver en «Mi campus» todos los cursos del Moodle de sus campus: consultas por responder, entregas por corregir y alumnos con su % hecho. Solo lectura; se abre en Moodle.', ADMIN),
+          // Supervisor de tutores (la dirección, 26/11/2026, para ISEIE): un tutor que ve lo que hacen
+          // los demás tutores de sus campus. Solo lee. De serie, nadie (el superadmin, siempre):
+          // se le da a la persona como excepción o con un rol a medida (tutor.supervision.js).
+          a('supervisar', 'Supervisar tutores', 'Ver, sin tocar nada, a los tutores de sus campus: su «Mi campus» (consultas, entregas por corregir, mensajes y carga), lo que redactan en Moodle y sus tareas de tutora.', NADIE),
           a('gestionar', 'Gestionar colaboraciones', 'Dar de alta tutores, asignarles cursos, calcular sus comisiones y ver las fichas de los de sus campus.', ADMIN),
           a('avisar', 'Avisar de comisiones', 'Ver el aviso de comisiones y mandarlo al tutor.', TODOS),
           a('liquidar', 'Liquidar comisiones', 'Pagar o revertir las comisiones de un tutor (mueve dinero).', ADMIN, { requiere: ['tutores.gestionar'] }),
@@ -349,7 +353,10 @@ export const SECCIONES = [
           a('anular', 'Cancelar borradores y proformas', 'Cancelar, con su motivo, una factura sin emitir o una proforma.', TODOS),
           a('emitir_borrador', 'Emitir un borrador', 'Darle número a un borrador.', TODOS),
           a('emitir', 'Poner número al cobrar', 'Que el cobro salga facturado y la proforma sin esperar visto bueno.', ADMIN),
-          a('gestionar', 'Anular y abonar', 'Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, y corregir o borrar facturas, proformas y borradores. Diego, 19/11/2026: también las gestoras, cualquier factura de su campus.', [...ADMIN, 'gestor']),
+          a('gestionar', 'Anular y abonar', 'Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, corregir facturas y borrar proformas y borradores. Diego, 19/11/2026: también las gestoras, cualquier factura de su campus.', [...ADMIN, 'gestor']),
+          // CRM#1034: borrar una EMITIDA ya no va con «Anular y abonar». Norma de Diego (19/11):
+          // anular es su abono; borrar, solo si se emitió por error.
+          a('eliminar_por_error', 'Eliminar una emitida por error', 'Borrar, con su motivo, una factura emitida por error: solo si no se ha enviado, no tiene cobro y es la última de su serie. Si no, se anula con su abono. Queda en el Registro.', ADMIN),
           a('cola', 'Emitir desde la cola', 'Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día».', NADIE),
           a('auditoria', 'Auditoría de facturación', 'Ver el aviso de facturación pausada, auditar y reanudarla con «Marcar como solucionado».', ADMIN),
           // Diego, 25/11: «Enviar factura automáticamente: Sí / No» y «Enviar a este
@@ -662,6 +669,11 @@ export const SECCIONES = [
         clave: 'correos', nombre: 'Correos', acciones: [
           a('view', 'Ver correos', 'Los correos entrantes del equipo.', yPM(ADMIN_SOPORTE)),
           a('sincronizar', 'Traer correos', 'Sincronizar el buzón.', ADMIN_SOPORTE),
+          // CRM#1032 (Diego, 23/11): varios buzones de Hostinger conectados desde el panel.
+          // Diego (CRM#1058): de serie para admin y soporte, cada uno en sus campus.
+          // «Guardar claves» (`credentials.edit`) sigue siendo solo de soporte.
+          // Las credenciales se guardan cifradas y no se ven nunca, ni con este permiso.
+          a('buzones', 'Conectar buzones', 'Conectar, probar, cambiar y quitar los buzones de correo que lee la Bandeja. Un admin, los de sus campus.', ADMIN_SOPORTE),
         ],
       },
       {
@@ -706,6 +718,8 @@ export const SECCIONES = [
           a('aviso_correo', 'Aviso de cambio de correo', 'Ver el aviso que recibe quien cambia de correo.', NADIE),
           // 17/11/2026: una gestora de ISEIE, tres semanas sin avisos por un rebote duro en Brevo.
           a('brevo_desbloquear', 'Desbloquear correos en Brevo', 'Sacar de la lista de bloqueados de Brevo el correo de alguien del equipo para que vuelvan a llegarle los avisos.', ADMIN),
+          // #1199: si alguien dice «no me llega el código», comprobar si lo pidió y a qué dirección.
+          a('cambios_correo', 'Cambios de correo', 'Ver en la ficha el cambio de correo que alguien tiene pendiente (a qué dirección, hasta cuándo, intentos) y los anteriores, y anularlo. Nunca el código.', SOPORTE, { requiere: ['users.view'] }),
         ],
       },
       {

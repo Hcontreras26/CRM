@@ -75,7 +75,13 @@ export default function EmbedFormPage() {
         // El iframe no puede leer la URL del padre con window.location (es de
         // otro dominio), pero document.referrer sí funciona: de ahí sale el
         // fbclid, si lo hay (#474).
-        body: JSON.stringify({ ...values, landing_url: document.referrer || undefined }),
+        // Y el referrer de la visita, si la web lo pasa en el `src` (#48): sin
+        // él no se sabe si la persona llegó de ChatGPT, de Google o de otra web.
+        body: JSON.stringify({
+          ...values,
+          landing_url: document.referrer || undefined,
+          referrer: new URLSearchParams(window.location.search).get('referrer') || undefined,
+        }),
       });
       const json = await res.json();
       if (json.success) {

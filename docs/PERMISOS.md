@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-1007 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
+1022 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -123,6 +123,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | aprobarEmitir | `POST /api/certifex/diplomas/aprobar-emitir` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | emitir | `POST /api/certifex/diplomas/emitir` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | avisos | `POST /api/certifex/diplomas/avisos` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
+| avisosLote | `POST /api/certifex/diplomas/avisos/lote` | (no existía) | (ruta nueva) | `diplomas.emit` |
 | nuevo | `POST /api/certifex/diplomas/nuevo` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | formaciones | `GET /api/certifex/diplomas/formaciones` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | listar | `GET /api/certifex/consultas` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `certifex_consultas.view` |
@@ -327,6 +328,13 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | listar | `GET /api/correos/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 | recuento | `GET /api/correos/recuento` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 | sincronizar | `POST /api/correos/sincronizar` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.sincronizar` |
+| listar | `GET /api/correos/buzones` | (no existía) | (ruta nueva) | `correos.view` |
+| crear | `POST /api/correos/buzones` | (no existía) | (ruta nueva) | `correos.buzones` |
+| probar | `POST /api/correos/buzones/probar` | (no existía) | (ruta nueva) | `correos.buzones` |
+| cambiar | `PATCH /api/correos/buzones/:id` | (no existía) | (ruta nueva) | `correos.buzones` |
+| quitar | `DELETE /api/correos/buzones/:id` | (no existía) | (ruta nueva) | `correos.buzones` |
+| probar | `POST /api/correos/buzones/:id/probar` | (no existía) | (ruta nueva) | `correos.buzones` |
+| usarComoCorreoDeEmpresa | `POST /api/correos/buzones/:id/correo-de-empresa` | (no existía) | (ruta nueva) | `correos.buzones` |
 | uno | `GET /api/correos/:id` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 
 ## credentials
@@ -664,6 +672,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | cancel | `POST /api/invoices/:id/cancel` | sesión | superadmin, admin, gestor, soporte, project_manager | `facturas.anular` |
 | anular | `POST /api/invoices/:id/anular` | (no existía) | (ruta nueva) | `facturas.gestionar` |
 | destroy | `DELETE /api/invoices/:id` | sesión · roleGuard(admin, superadmin, gestor) +superadmin +soporte por el atajo · a mano: invoices.model.js · puedeGestionarFactura | superadmin, admin y gestor con «factura_manager» | `facturas.gestionar` |
+| eliminarPorError | `POST /api/invoices/:id/eliminar-por-error` | (no existía) | (ruta nueva) | `facturas.eliminar_por_error` |
 | rectificar | `POST /api/invoices/:id/rectificar` | sesión · roleGuard(admin, superadmin, gestor) +superadmin +soporte por el atajo · a mano: invoices.model.js · puedeGestionarFactura | superadmin, admin y gestor con «factura_manager» | `facturas.gestionar` |
 | emitir | `POST /api/invoices/:id/emitir` | sesión | superadmin, admin, gestor, soporte, project_manager | `facturas.emitir_borrador` |
 | completarDatos | `POST /api/invoices/:id/completar-datos` | sesión | superadmin, admin, gestor, soporte, project_manager | `facturas.completar` |
@@ -1266,6 +1275,10 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | miRedaccionMoodle | `GET /api/tutores/mi-campus/redaccion-moodle` | (no existía) | (ruta nueva) | `tutores.mis_cursos` |
 | calificar | `POST /api/tutores/mi-campus/tareas/:projectId/:cursoId/:tareaId/calificar` | (no existía) | (ruta nueva) | `tutores.mis_cursos` o `tutores.campus_administracion` |
 | brochureDelCurso | `GET /api/tutores/curso/:productId/brochure` | sesión · a mano: tutor.controller.js · esTutor \|\| exigirGestion | superadmin, admin, tutor y gestor/soporte/project_manager con «gestor_colaboraciones» | `tutores.mis_cursos` o `tutores.gestionar` |
+| supervisionLista | `GET /api/tutores/supervision` | (no existía) | (ruta nueva) | `tutores.supervisar` |
+| supervisionMiCampus | `GET /api/tutores/supervision/:id/mi-campus` | (no existía) | (ruta nueva) | `tutores.supervisar` |
+| supervisionTareas | `GET /api/tutores/supervision/:id/tareas` | (no existía) | (ruta nueva) | `tutores.supervisar` |
+| supervisionRedaccion | `GET /api/tutores/supervision/:id/redaccion-moodle` | (no existía) | (ruta nueva) | `tutores.supervisar` |
 | buscar | `GET /api/tutores/buscar` | (no existía) | (ruta nueva) | `tutores.gestionar` |
 | listar | `GET /api/tutores/` | sesión · a mano: tutor.controller.js · exigirGestion | superadmin, admin y gestor/soporte/project_manager/tutor con «gestor_colaboraciones» | `tutores.gestionar` |
 | alta | `POST /api/tutores/` | sesión · a mano: tutor.controller.js · exigirGestion | superadmin, admin y gestor/soporte/project_manager/tutor con «gestor_colaboraciones» | `tutores.gestionar` |
@@ -1314,6 +1327,8 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | reactivate | `PATCH /api/users/:id/reactivate` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.edit` |
 | setPassword | `PATCH /api/users/:id/password` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo · a mano: user.controller.js · setPassword | superadmin, admin | `users.contrasena` |
 | avisoCorreo | `GET /api/users/:id/aviso-correo` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo · soloRoles(superadmin) | superadmin | `users.aviso_correo` |
+| cambiosDeCorreo | `GET /api/users/:id/cambios-de-correo` | (no existía) | (ruta nueva) | `users.cambios_correo` |
+| anularCambioDeCorreo | `POST /api/users/:id/cambios-de-correo/anular` | (no existía) | (ruta nueva) | `users.cambios_correo` |
 | desbloquearBrevo | `DELETE /api/users/:id/brevo-bloqueo` | (no existía) | (ruta nueva) | `users.brevo_desbloquear` |
 | setAvailability | `PATCH /api/users/:id/availability` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.edit` |
 | listBlocks | `GET /api/users/:id/availability-blocks` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `users.view` |
@@ -1640,6 +1655,7 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Sus cursos y comisiones | `tutores.mis_cursos` | El tutor ve sus colaboraciones, sus cursos y sus comisiones. | Tutor, Tutor redactor |  |
 | Mi campus de administración | `tutores.campus_administracion` | Ver en «Mi campus» todos los cursos del Moodle de sus campus: consultas por responder, entregas por corregir y alumnos con su % hecho. Solo lectura; se abre en Moodle. | Admin |  |
+| Supervisar tutores | `tutores.supervisar` | Ver, sin tocar nada, a los tutores de sus campus: su «Mi campus» (consultas, entregas por corregir, mensajes y carga), lo que redactan en Moodle y sus tareas de tutora. | solo superadmin |  |
 | Gestionar colaboraciones | `tutores.gestionar` | Dar de alta tutores, asignarles cursos, calcular sus comisiones y ver las fichas de los de sus campus. | Admin |  |
 | Avisar de comisiones | `tutores.avisar` | Ver el aviso de comisiones y mandarlo al tutor. | Admin, Gestora, Soporte, Project manager, Líder de equipo |  |
 | Liquidar comisiones | `tutores.liquidar` | Pagar o revertir las comisiones de un tutor (mueve dinero). | Admin | `tutores.gestionar` |
@@ -1690,7 +1706,8 @@ lo que pide para tener sentido (editar pide ver).
 | Cancelar borradores y proformas | `facturas.anular` | Cancelar, con su motivo, una factura sin emitir o una proforma. | Admin, Gestora, Soporte, Project manager, Líder de equipo | `facturas.view` |
 | Emitir un borrador | `facturas.emitir_borrador` | Darle número a un borrador. | Admin, Gestora, Soporte, Project manager, Líder de equipo | `facturas.view` |
 | Poner número al cobrar | `facturas.emitir` | Que el cobro salga facturado y la proforma sin esperar visto bueno. | Admin | `facturas.view` |
-| Anular y abonar | `facturas.gestionar` | Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, y corregir o borrar facturas, proformas y borradores. Diego, 19/11/2026: también las gestoras, cualquier factura de su campus. | Admin, Gestora, Líder de equipo | `facturas.view` |
+| Anular y abonar | `facturas.gestionar` | Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, corregir facturas y borrar proformas y borradores. Diego, 19/11/2026: también las gestoras, cualquier factura de su campus. | Admin, Gestora, Líder de equipo | `facturas.view` |
+| Eliminar una emitida por error | `facturas.eliminar_por_error` | Borrar, con su motivo, una factura emitida por error: solo si no se ha enviado, no tiene cobro y es la última de su serie. Si no, se anula con su abono. Queda en el Registro. | Admin | `facturas.view` |
 | Emitir desde la cola | `facturas.cola` | Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día». | solo superadmin | `facturas.view` |
 | Auditoría de facturación | `facturas.auditoria` | Ver el aviso de facturación pausada, auditar y reanudarla con «Marcar como solucionado». | Admin | `facturas.view` |
 | Elegir el envío de la factura | `facturas.envio_auto` | «Enviar factura automáticamente: Sí / No» y «Enviar a este correo» al registrar una venta o crear un link, y cambiarlo en la venta. | Admin | `facturas.view` |
@@ -1973,6 +1990,7 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver correos | `correos.view` | Los correos entrantes del equipo. | Admin, Soporte, Project manager |  |
 | Traer correos | `correos.sincronizar` | Sincronizar el buzón. | Admin, Soporte | `correos.view` |
+| Conectar buzones | `correos.buzones` | Conectar, probar, cambiar y quitar los buzones de correo que lee la Bandeja. Un admin, los de sus campus. | Admin, Soporte | `correos.view` |
 
 ### Estado del sistema
 
@@ -2015,6 +2033,7 @@ lo que pide para tener sentido (editar pide ver).
 | Empresas enteras y correos | `users.empresas` | Dar empresas enteras a un admin y cambiar el correo de alguien. | solo superadmin | `users.view` |
 | Aviso de cambio de correo | `users.aviso_correo` | Ver el aviso que recibe quien cambia de correo. | solo superadmin | `users.view` |
 | Desbloquear correos en Brevo | `users.brevo_desbloquear` | Sacar de la lista de bloqueados de Brevo el correo de alguien del equipo para que vuelvan a llegarle los avisos. | Admin | `users.view` |
+| Cambios de correo | `users.cambios_correo` | Ver en la ficha el cambio de correo que alguien tiene pendiente (a qué dirección, hasta cuándo, intentos) y los anteriores, y anularlo. Nunca el código. | Soporte | `users.view` |
 
 ### Equipos comerciales
 

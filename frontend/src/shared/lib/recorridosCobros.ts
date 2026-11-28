@@ -249,7 +249,7 @@ export const RECORRIDOS_COBROS: Record<IdRecorridoCobros, RecorridoCobros> = {
       {
         donde: anclaje('factura-eliminar'),
         titulo: 'Borrar, solo si se emitió por error',
-        texto: 'La papelera borra la factura. Úsala solo si se emitió por error (duplicada, a quien no era). Si la factura era buena y hay que deshacerla, anúlala: así queda su abono.',
+        texto: 'La papelera borra una factura emitida por error (duplicada, a quien no era), con su motivo, que queda en el Registro. Solo si no se ha enviado, no tiene cobro y es la última de su serie, y con el permiso «Eliminar una emitida por error». Si no, o si la factura era buena, anúlala: así queda su abono.',
       },
       {
         donde: anclaje('factura-anular'),

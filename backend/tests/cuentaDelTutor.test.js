@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cuentaAFacturar, mesEnLetra, componerCorreo, IVA_PCT, RETENCION_PCT } from '../src/modules/tutores/avisarTutor.js';
+import { cuentaAFacturar, mesEnLetra, IVA_PCT, RETENCION_PCT } from '../src/modules/tutores/avisarTutor.js';
 
 /**
  * La cuenta que el tutor tiene que facturar (Diego, 14/09).
@@ -86,56 +86,5 @@ describe('el mes, como se lee en el correo', () => {
   });
 });
 
-describe('el correo sale ENTERO, con sus dos bloques', () => {
-  // Esto nace de un fallo que ninguna de las pruebas de arriba cogio, y que solo
-  // se vio al mirar el correo renderizado: la lista de formaciones y la tabla de
-  // la cuenta salian VACIAS.
-  //
-  // `renderTemplate` sustituye todo lo que tenga la forma `{{algo}}` y lo que no
-  // encuentra en su contexto lo deja en blanco. Los dos huecos se rellenaban
-  // DESPUES, asi que para entonces ya no existian. El correo salia pidiendole al
-  // tutor una factura sin decirle de que formaciones ni por cuanto.
-  const PLANTILLA = {
-    subject: 'Tus comisiones de {{mes}}',
-    cuerpo: '<p>Hola {{tutor.nombre}}, en {{mes}} has generado {{total}}:</p>'
-      + '{{formaciones}}<p>La cuenta:</p>{{calculo}}',
-  };
-  const DATOS = {
-    nombre: 'Lola Hernández',
-    email: 'lola@nutripsicosalud.es',
-    periodo: '2026-08',
-    mes: 'agosto de 2026',
-    pendiente: 17.82,
-    formaciones: ['Diplomado en Neurociencia Aplicada', 'Experto en Nutrición Infantil'],
-    cuenta: cuentaAFacturar(17.82),
-  };
-
-  const { asunto, html } = componerCorreo({ datos: DATOS, ...PLANTILLA });
-
-  it('el asunto lleva el mes', () => {
-    expect(asunto).toBe('Tus comisiones de agosto de 2026');
-  });
-
-  it('las formaciones salen, una por una', () => {
-    for (const f of DATOS.formaciones) expect(html).toContain(f);
-  });
-
-  it('y la cuenta, con el total', () => {
-    expect(html).toContain('18,89');
-    expect(html).toContain('Total a facturar');
-  });
-
-  it('no queda ni un hueco sin rellenar', () => {
-    // Si algo quedara como «{{loquesea}}», el tutor lo leeria tal cual.
-    expect(html).not.toMatch(/\{\{|\}\}/);
-    expect(asunto).not.toMatch(/\{\{|\}\}/);
-  });
-
-  it('el nombre se escapa, para que un «<» no rompa el correo', () => {
-    const { html: h } = componerCorreo({
-      datos: { ...DATOS, nombre: 'Lola <script>' }, ...PLANTILLA,
-    });
-    expect(h).not.toContain('<script>');
-    expect(h).toContain('&lt;script&gt;');
-  });
-});
+// El correo entero (la plantilla común, la marca y la cuenta dentro) se prueba
+// en avisarAlTutor.test.js desde que sale con P.correo (CRM#165, 25/11).

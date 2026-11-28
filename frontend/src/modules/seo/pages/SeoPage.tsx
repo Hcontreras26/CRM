@@ -8,9 +8,12 @@ import { useCampusDeLaPantalla } from '@/shared/hooks/useCampusDeLaPantalla';
 import ElegirCampus from '@/shared/components/ui/ElegirCampus';
 import usePermission from '@/shared/hooks/usePermission';
 import { toast } from '@/shared/hooks/useToast';
-import { searchConsoleApi, type EstadoCampus, type DiaGsc, type Totales } from '../api/searchConsole.api';
+import {
+  searchConsoleApi, LIMITE_CONSULTAS, LIMITE_PAGINAS, type EstadoCampus, type DiaGsc, type Totales,
+} from '../api/searchConsole.api';
 import { useOrganicTraffic, PRESET_PERIODS, type Preset } from '../hooks/useOrganicTraffic';
 import { LineaSemana, useSemanaGsc } from '../components/LineaSemana';
+import { BotonCsv, consultasEnCsv, paginasEnCsv, nombreFichero } from '../components/ExportarCsvGsc';
 
 /**
  * Tráfico orgánico (CRM#36): lo que pasa en Google antes de la visita, de UN
@@ -115,6 +118,7 @@ export default function SeoPage() {
   const projectId = campus.id;
   const { can } = usePermission();
   const puedeSincronizar = can('search_console.edit');
+  const puedeVer = can('search_console.view');
 
   const [estados, setEstados] = useState<EstadoCampus[] | null>(null);
   const [syncActivo, setSyncActivo] = useState(false);
@@ -324,12 +328,18 @@ export default function SeoPage() {
                   <h2 className="text-sm font-semibold">Búsquedas</h2>
                   <p className="text-[11px] text-muted-foreground">Lo que escribe la gente en Google antes de entrar. Google oculta las poco frecuentes.</p>
                 </div>
-                <label className="relative">
-                  <span className="sr-only">Buscar búsqueda</span>
-                  <MagnifyingGlass size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                  <input value={buscarConsulta} onChange={(e) => setBuscarConsulta(e.target.value)} placeholder="máster…"
-                    className="h-8 w-40 rounded-md border border-border bg-card pl-7 pr-2 text-xs" />
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="relative">
+                    <span className="sr-only">Buscar búsqueda</span>
+                    <MagnifyingGlass size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                    <input value={buscarConsulta} onChange={(e) => setBuscarConsulta(e.target.value)} placeholder="máster…"
+                      className="h-8 w-40 rounded-md border border-border bg-card pl-7 pr-2 text-xs" />
+                  </label>
+                  {puedeVer && <BotonCsv etiqueta="búsquedas" filas={consultas.length} tope={LIMITE_CONSULTAS}
+                    recortada={seo.consultas.length >= LIMITE_CONSULTAS}
+                    generar={() => consultasEnCsv(consultas)}
+                    nombre={nombreFichero('busquedas', campus.nombre || String(projectId), seo.range.fechaDesde, seo.range.fechaHasta)} />}
+                </div>
               </div>
               {consultas.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-3">No hay búsquedas en el periodo.</p>
@@ -385,6 +395,10 @@ export default function SeoPage() {
                     <input value={buscarPagina} onChange={(e) => setBuscarPagina(e.target.value)} placeholder="/curso/…"
                       className="h-8 w-36 rounded-md border border-border bg-card pl-7 pr-2 text-xs" />
                   </label>
+                  {puedeVer && <BotonCsv etiqueta="páginas" filas={paginas.length} tope={LIMITE_PAGINAS}
+                    recortada={(seo.paginas?.filas.length || 0) >= LIMITE_PAGINAS}
+                    generar={() => paginasEnCsv(paginas)}
+                    nombre={nombreFichero('paginas', campus.nombre || String(projectId), seo.range.fechaDesde, seo.range.fechaHasta)} />}
                 </div>
               </div>
               {paginas.length === 0 ? (

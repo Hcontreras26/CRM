@@ -47,6 +47,10 @@ export const NOMBRES_HABITUALES = {
   landing_url: ['landing_url', 'page_url', 'pageurl', 'url_de_la_pagina', 'url_pagina', 'pagina_url',
     'landing_page', 'landing', 'source_url', 'form_url', 'current_url', 'url', 'pagina', 'page'],
   referrer: ['referrer', 'referer'],
+  // Los identificadores de clic, si el formulario los manda sueltos (#48).
+  gclid: ['gclid'],
+  fbclid: ['fbclid'],
+  ttclid: ['ttclid'],
   utm_source: ['utm_source'],
   utm_medium: ['utm_medium'],
   utm_campaign: ['utm_campaign'],

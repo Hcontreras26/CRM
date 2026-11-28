@@ -6,7 +6,7 @@ import * as service from './invoices.service.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { logger } from '../../shared/utils/logger.js';
 import { saveLocal, getLocal, deleteLocal } from '../../shared/services/localStorage.service.js';
-import { createInvoiceSchema, setSequenceSchema, updateConfigSchema, issuerSchema, cobrarProformaSchema, anularSchema } from './invoices.validation.js';
+import { createInvoiceSchema, setSequenceSchema, updateConfigSchema, issuerSchema, cobrarProformaSchema, anularSchema, eliminarPorErrorSchema } from './invoices.validation.js';
 import { proyectosDelAmbito, veTodoElCrm, campusDeLaPersona, campusDeTodos } from '../../shared/utils/ambito.js';
 import { tienePermiso } from '../../shared/middleware/permissions.js';
 import { alcanceDeLider } from '../../shared/utils/roles.js';
@@ -529,14 +529,38 @@ export async function destroy(req, res, next) {
     if (!(await model.esFacturaQueGestiona(req.user.userId, req.user.role, id))) {
       throw new AppError('Solo puedes eliminar tus propias facturas.', 403, 'FORBIDDEN');
     }
-    // La ruta pide «Anular y abonar» (facturas.gestionar): con él se borra también
-    // una emitida por error (Diego, 19/11/2026). Queda en el registro quién y cuál.
-    const inv = await model.deleteInvoice(id, { permitirEmitida: true });
+    // Borradores y proformas. Una emitida da 409 FACTURA_EMITIDA: se anula, o,
+    // si se emitió por error, POST /:id/eliminar-por-error (CRM#1034).
+    const inv = await model.deleteInvoice(id);
     if (inv) logger.warn({ userId: req.user.userId, invoiceId: inv.id, codigo: inv.codigo, estado: inv.estado, tipo: inv.tipo }, 'factura eliminada');
     if (!inv) throw new AppError('Factura no encontrada', 404, 'NOT_FOUND');
     res.json({ success: true, data: { id: inv.id, codigo: inv.codigo } });
   } catch (e) {
     logger.error({ e: e.message }, 'delete invoice failed');
+    next(e);
+  }
+}
+
+// POST /:id/eliminar-por-error — CRM#1034. Una EMITIDA por error, con su motivo:
+// solo si no se ha enviado, no tiene cobro y es la última de su serie (si no,
+// 409 NO_SE_PUEDE_ELIMINAR con lo que hay que hacer: anularla). Queda el apunte
+// en el Registro. La ruta pide `facturas.eliminar_por_error`.
+export async function eliminarPorError(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    const parsed = eliminarPorErrorSchema.safeParse(req.body || {});
+    if (!parsed.success) throw new AppError(parsed.error.errors[0].message, 400, 'VALIDATION_ERROR');
+    if (!(await model.esFacturaQueGestiona(req.user.userId, req.user.role, id))) {
+      throw new AppError('Solo puedes eliminar tus propias facturas.', 403, 'FORBIDDEN');
+    }
+    const inv = await model.eliminarEmitidaPorError(id, {
+      motivo: parsed.data.motivo, userId: req.user.userId, ip: req.ip || null,
+    });
+    if (!inv) throw new AppError('Factura no encontrada', 404, 'NOT_FOUND');
+    logger.warn({ userId: req.user.userId, invoiceId: inv.id, codigo: inv.codigo }, 'factura emitida eliminada por error');
+    res.json({ success: true, data: { id: inv.id, codigo: inv.codigo } });
+  } catch (e) {
+    logger.error({ e: e.message }, 'eliminar por error failed');
     next(e);
   }
 }

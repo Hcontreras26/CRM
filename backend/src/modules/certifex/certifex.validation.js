@@ -205,6 +205,16 @@ export const avisosSchema = z.object({
   nexpedientes: z.array(nexp).min(1, 'Elige al menos un diploma').max(50, 'Maximo 50 por vez: dividelo en tandas'),
 });
 
+/**
+ * «Enviar al alumno» en lote desde Emitidos (#1201): 10 por llamada, como emitir. Cada aviso
+ * genera el PDF y manda un correo, y Certifex#146 frena lo que pide a Moodle: el panel parte
+ * el lote en tandas de 10.
+ */
+export const TANDA_AVISOS_LOTE = 10;
+export const avisosLoteSchema = z.object({
+  nexpedientes: z.array(nexp).min(1, 'Elige al menos un diploma').max(TANDA_AVISOS_LOTE, `Maximo ${TANDA_AVISOS_LOTE} por vez: dividelo en tandas`),
+});
+
 export const avisosRechazoSchema = z.object({
   matriculaIds: ids(50, 'Maximo 50 por vez: dividelo en tandas'),
 });

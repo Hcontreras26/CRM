@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   EnvelopeSimple, MagnifyingGlass, X, ArrowClockwise, Warning, PaperPlaneTilt, Prohibit,
-  TrayArrowDown,
+  TrayArrowDown, GearSix,
 } from '@phosphor-icons/react';
 import { toast } from '@/shared/hooks/useToast';
 import PageHeader from '@/shared/components/ui/PageHeader';
 import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import RangoRapido from '@/shared/components/ui/RangoRapido';
+import usePermission from '@/shared/hooks/usePermission';
 // El recorrido guiado de la pantalla (#941, tanda E).
 import VerRecorrido from '@/shared/components/ui/VerRecorrido';
-import { correosApi, type CorreoEnLista, type CorreoCompleto } from '../api/correos.api';
+import { correosApi, type CorreoEnLista, type CorreoCompleto, type Buzon } from '../api/correos.api';
+import BuzonesDialog from '../components/BuzonesDialog';
 
 /**
  * La bandeja del CRM: lo que manda y lo que recibe, con su texto (#146).
@@ -30,6 +32,11 @@ import { correosApi, type CorreoEnLista, type CorreoCompleto } from '../api/corr
  * «Enviados»—. Se descartó Brevo Inbound: obliga a apuntar un subdominio entero
  * a Brevo y deja fuera el correo normal del buzón, que es justo el que se quiere
  * ver. El CRM lo abre en SOLO LECTURA: no marca, no borra, no mueve nada.
+ *
+ * VARIOS BUZONES (#1032). Diego, 23/11: «conectar varios correos de Hostinger
+ * como hicimos en CEDIA». Se conectan en «Buzones» (permiso `correos.buzones`)
+ * y aquí se elige uno o se ven todos juntos, cada correo con su buzón. Sin
+ * ninguno conectado, se sigue leyendo el del servidor como antes.
  */
 
 /**
@@ -75,6 +82,25 @@ export default function CorreosPage() {
   const [rango, setRango] = useState({ from: '', to: '' });
   const [abierto, setAbierto] = useState<CorreoCompleto | null>(null);
   const [abriendo, setAbriendo] = useState<number | null>(null);
+  const [buzones, setBuzones] = useState<Buzon[]>([]);
+  // '' = todos los buzones; si no, el id del elegido.
+  const [buzon, setBuzon] = useState<string>('');
+  const [gestionando, setGestionando] = useState(false);
+  const { can } = usePermission();
+  const puedeConectar = can('correos.buzones');
+
+  const cargarBuzones = useCallback(async () => {
+    try {
+      const r = await correosApi.buzones();
+      if (r.success) {
+        setBuzones(r.data);
+        // Si el elegido ya no está (se quitó), vuelta a todos.
+        setBuzon((b) => (b && !r.data.some((x) => String(x.id) === b) ? '' : b));
+      }
+    } catch { /* sin buzones, la Bandeja funciona igual */ }
+  }, []);
+
+  useEffect(() => { cargarBuzones(); }, [cargarBuzones]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -83,10 +109,11 @@ export default function CorreosPage() {
       const r = await correosApi.listar({
         ...filtro, busca: busca || null,
         desde: rango.from || null, hasta: rango.to || null,
+        buzon: buzon ? Number(buzon) : null,
       });
       if (r.success) { setFilas(r.data.filas); setTotal(r.data.total); }
     } finally { setCargando(false); }
-  }, [pestana, busca, rango.from, rango.to]);
+  }, [pestana, busca, rango.from, rango.to, buzon]);
 
   /**
    * Trae del buzón lo que haya llegado. El cron ya lo hace solo cada media
@@ -95,19 +122,32 @@ export default function CorreosPage() {
   async function traerDelBuzon() {
     setTrayendo(true);
     try {
-      const r = await correosApi.sincronizar();
+      // El elegido, o todos los que ve quien pulsa.
+      const r = await correosApi.sincronizar(buzon ? Number(buzon) : null);
+      const fallidos = (r.data.buzones || []).filter((b) => b.motivo === 'ERROR');
       if (r.success && r.data.motivo === 'SIN_BUZON') {
         toast({
-          title: 'No hay buzón configurado',
-          description: 'Faltan IMAP_USER e IMAP_PASSWORD en el servidor. Lo que sale se sigue viendo igual.',
+          title: 'No hay buzones conectados',
+          description: puedeConectar
+            ? 'Conéctalos en «Buzones». Lo que sale se sigue viendo igual.'
+            : 'Pide a una administradora que conecte el buzón. Lo que sale se sigue viendo igual.',
+        });
+      } else if (r.success && r.data.motivo === 'ERROR') {
+        toast({
+          title: 'No se pudo leer el buzón',
+          description: fallidos.map((b) => `${b.nombre}: ${b.detalle || 'sin conexión'}`).join(' · ') || r.data.detalle,
+          variant: 'destructive',
         });
       } else if (r.success) {
         toast({
           title: r.data.nuevos > 0 ? `${r.data.nuevos} correos nuevos` : 'Nada nuevo en el buzón',
-          description: `Leídos ${r.data.leidos}.`,
+          description: `Leídos ${r.data.leidos}.`
+            + (fallidos.length ? ` No se pudo leer: ${fallidos.map((b) => b.nombre).join(', ')}.` : ''),
         });
       }
-      await cargar();
+      await Promise.all([cargar(), cargarBuzones()]);
+    } catch (e) {
+      toast({ title: 'No se pudo leer el buzón', description: (e as Error).message, variant: 'destructive' });
     } finally { setTrayendo(false); }
   }
 
@@ -173,7 +213,27 @@ export default function CorreosPage() {
 
         <RangoRapido valor={rango} alElegir={setRango} />
 
-        <div data-recorrido="correos-buzon" className="ml-auto flex items-center gap-2">
+        {/* El buzón (#1032): uno, o todos juntos con su etiqueta. Solo si hay
+            más de uno que elegir; con uno o ninguno, no hay nada que decidir. */}
+        {buzones.length > 1 && (
+          <select
+            value={buzon}
+            onChange={(e) => setBuzon(e.target.value)}
+            aria-label="Buzón"
+            className="h-8 px-2 rounded-md border border-border bg-card text-xs font-medium max-w-[14rem]"
+          >
+            <option value="">Todos los buzones</option>
+            {buzones.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+          </select>
+        )}
+
+        <div data-recorrido="correos-buzon" className="ml-auto flex flex-wrap items-center gap-2">
+          {puedeConectar && (
+            <Button variant="outline" size="sm" onClick={() => setGestionando(true)}>
+              <GearSix size={13} weight="bold" className="mr-1.5" />
+              Buzones{buzones.length ? ` (${buzones.length})` : ''}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={traerDelBuzon} disabled={trayendo}>
             <TrayArrowDown size={13} weight="bold" className="mr-1.5" />
             {trayendo ? 'Leyendo el buzón…' : 'Traer del buzón'}
@@ -215,7 +275,7 @@ export default function CorreosPage() {
                 {/* En lo que ENTRA el destinatario somos siempre nosotros, así
                     que lo que hay que leer de un vistazo es QUIÉN escribe. En
                     lo que sale, a quién. */}
-                <span className="text-sm truncate min-w-0 flex-1">
+                <span className="text-sm truncate min-w-[12rem] flex-1">
                   {/* Con el NOMBRE de la persona del CRM delante de la dirección:
                       «admisiones@academiaia.ai» a secas no dice que es María
                       Eugenia (Diego, 09/10). */}
@@ -226,6 +286,13 @@ export default function CorreosPage() {
                   </span>
                   <span className="text-muted-foreground"> · {c.asunto}</span>
                 </span>
+                {/* El buzón por el que entró, cuando hay varios (#1032). */}
+                {c.buzon_nombre && (
+                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-info-soft text-info-soft-foreground font-semibold shrink-0"
+                    title={c.buzon_direccion || undefined}>
+                    {c.buzon_nombre}
+                  </span>
+                )}
                 {c.campus && (
                   <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{c.campus}</span>
                 )}
@@ -249,6 +316,13 @@ export default function CorreosPage() {
           primero. Con `fixed inset-0` ese margen la baja 16 px y deja una
           franja sin cubrir arriba del todo — la barra blanca que no se
           oscurecía. `ConfirmDialog` y `PromptDialog` ya lo llevan por esto. */}
+      {gestionando && (
+        <BuzonesDialog
+          onCerrar={() => setGestionando(false)}
+          onCambio={() => { cargarBuzones(); cargar(); }}
+        />
+      )}
+
       {abierto && (
         <div className="fixed inset-0 !m-0 z-50 flex items-center justify-center p-4 bg-black/50"
           onClick={() => setAbierto(null)}>
@@ -260,6 +334,7 @@ export default function CorreosPage() {
                 <p className="text-xs text-muted-foreground truncate">
                   {abierto.remitente ? `${conNombre(abierto.de_quien, abierto.remitente)} → ` : ''}
                   {conNombre(abierto.para_quien, abierto.destinatarios)}
+                  {abierto.buzon_nombre ? ` · ${abierto.buzon_nombre}` : ''}
                   {abierto.campus ? ` · ${abierto.campus}` : ''}
                   {' · '}{cuando(abierto.cuando)}
                 </p>

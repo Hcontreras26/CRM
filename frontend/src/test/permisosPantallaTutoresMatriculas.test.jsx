@@ -68,7 +68,7 @@ describe('Matrículas: validar y rechazar, con `matriculas.cambiar_estado`', () 
   });
 });
 
-describe('Comisiones de tutores: «Avisar tutor», con `tutores.avisar` (y gestionar, como el servidor)', () => {
+describe('Comisiones de tutores: «Avisar al tutor», con `tutores.avisar` (y gestionar, como el servidor)', () => {
   const RESUMEN = [{ periodo: '2026-11', tutor_id: 3, tutor: 'Tutora Prueba', lineas: 1, base: '500', pendiente: '50', pagada: '0', revertida: '0', ultima_liquidacion: null, tutor_email: 't@prueba.local', tutor_iban: null }];
   beforeEach(() => { h.tutores.resumenComisiones = async () => ({ success: true, data: RESUMEN }); });
   const pintar = async () => {
@@ -79,14 +79,14 @@ describe('Comisiones de tutores: «Avisar tutor», con `tutores.avisar` (y gesti
   it('quien gestiona colaboraciones sin ser admin, con el aviso de serie, lo ve (y no «Marcar pagado»)', async () => {
     como('gestor', { 'tutores.gestionar': true });
     await pintar();
-    expect(screen.getByRole('button', { name: /Avisar tutor/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Avisar al tutor/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Marcar pagado/ })).toBeNull();
   });
 
   it('el admin al que se le quita «Avisar de comisiones» ya no lo ve, aunque pueda liquidar', async () => {
     como('admin', { 'tutores.avisar': false });
     await pintar();
-    expect(screen.queryByRole('button', { name: /Avisar tutor/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Avisar al tutor/ })).toBeNull();
     expect(screen.getByRole('button', { name: /Marcar pagado/ })).toBeTruthy();
   });
 });

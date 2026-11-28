@@ -344,8 +344,12 @@ export const invoicesApi = {
   // Anular una factura EMITIDA (CRM#793): con su motivo; sale su abono.
   anular: (id: number, motivo: string) =>
     client.post<{ factura: Invoice; abono: Invoice | null }>(`/invoices/${id}/anular`, { motivo }),
-  // Eliminar factura + liberar su número (errores de carga) — admin/superadmin.
+  // Eliminar un borrador o una proforma. Una emitida da 409: se anula.
   remove: (id: number) => client.delete<{ id: number; codigo: string | null }>(`/invoices/${id}`),
+  // Eliminar una EMITIDA por error (CRM#1034): con su motivo; sin enviar, sin
+  // cobro y la última de su serie. Si no, 409 NO_SE_PUEDE_ELIMINAR.
+  eliminarPorError: (id: number, motivo: string) =>
+    client.post<{ id: number; codigo: string | null }>(`/invoices/${id}/eliminar-por-error`, { motivo }),
   rectificar: (id: number, body: { motivo: string; parcial?: number | null; issuerId?: number }) => client.post<Invoice>(`/invoices/${id}/rectificar`, body),
   // Corregir una factura ya emitida/pagada (IVA, datos, concepto) — admin only.
   corregir: (id: number, body: {
