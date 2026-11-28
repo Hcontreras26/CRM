@@ -6863,6 +6863,28 @@
   "puertas": []
  },
  {
+  "id": "GET /api/feedback/exportar",
+  "tipo": "ruta",
+  "modulo": "feedback",
+  "metodo": "GET",
+  "ruta": "/api/feedback/exportar",
+  "relativa": "GET /exportar",
+  "controlador": "exportar",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "feedback.exportar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/feedback/lead/:leadId",
   "tipo": "ruta",
   "modulo": "feedback",
