@@ -864,18 +864,17 @@ export async function cancel(id, { motivo = null, userId = null } = {}) {
 // serie al mayor número restante, de modo que si se borran los últimos (errores) el
 // siguiente vuelve a reutilizarlos sin dejar huecos. Solo admin/superadmin.
 // No toca la conversión ni sus pagos (la venta sigue; se podrá re-facturar).
-export async function deleteInvoice(id, { permitirEmitida = false } = {}) {
+export async function deleteInvoice(id) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
     const { rows: sel } = await client.query(`SELECT * FROM invoices WHERE id = $1 FOR UPDATE`, [id]);
     const inv = sel[0];
     if (!inv) { await client.query('ROLLBACK'); return null; }
-    // Una emitida no se borra (CRM#793): su número no puede quedar libre.
-    // Salvo desde la pantalla (Diego, 19/11/2026), por quien tiene «Anular y abonar»:
-    // una factura emitida por error. Lo normal sigue siendo anularla (su abono).
-    // El abono (rectificativa) emitido, nunca: deshace otra factura.
-    if (!permitirEmitida || inv.tipo === 'rectificativa') exigirNoEmitida(inv, 'borrar');
+    // Una emitida no se borra por aquí (CRM#793): se anula con su abono. Si se
+    // emitió por error, va por `eliminarEmitidaPorError` (CRM#1034), con su
+    // permiso, su motivo y sus condiciones.
+    exigirNoEmitida(inv, 'borrar');
     await client.query(`DELETE FROM invoices WHERE id = $1`, [id]);
     // Reajusta el correlativo al máximo restante de la SERIE Y AÑO, en todas sus
     // filas: es como numera `nextNumero`, que coge el mayor de todas.
@@ -896,6 +895,89 @@ export async function deleteInvoice(id, { permitirEmitida = false } = {}) {
         [mx[0].m, inv.ano, inv.serie]
       );
     }
+    await client.query('COMMIT');
+    return inv;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Por qué una factura emitida NO se puede eliminar por error (CRM#1034), o null.
+ *
+ * Norma de Diego (19/11/2026): anular una factura es su abono; borrarla, solo
+ * si se emitió por error. Y para que el borrado no deje rastro raro en la serie:
+ * que nadie la haya recibido, que no tenga cobro y que sea la última de su serie
+ * (si no, su número quedaría como un hueco). En cualquier otro caso, se anula.
+ *
+ * Separada de la consulta para poder probarla sola: es la parte que decide.
+ * `ultimoDeLaSerie`: el número más alto de su serie y año (todas sus filas).
+ * `tieneAbono`: hay una rectificativa que la abona.
+ */
+export function motivoParaNoEliminarPorError(inv, { ultimoDeLaSerie, tieneAbono = false } = {}) {
+  const anula = 'Anúlala con su motivo y saldrá su abono.';
+  if (!esFacturaEmitida(inv)) return 'No es una factura emitida: un borrador o una proforma se borran desde la papelera.';
+  if (inv.tipo === 'rectificativa') return `La ${inv.codigo || 'factura'} es un abono: deshace otra factura y no se borra.`;
+  if (inv.anulada_at || tieneAbono) return `La ${inv.codigo || 'factura'} ya tiene su abono: no se puede eliminar.`;
+  if (inv.sent_at || inv.estado === 'enviada') return `La ${inv.codigo || 'factura'} ya se envió al cliente. ${anula}`;
+  if (inv.estado === 'pagada' || inv.fecha_pago || inv.payment_id) return `La ${inv.codigo || 'factura'} tiene un cobro. ${anula}`;
+  if (ultimoDeLaSerie != null && Number(inv.numero) !== Number(ultimoDeLaSerie)) {
+    return `La ${inv.codigo || 'factura'} no es la última de su serie: borrarla dejaría un hueco en la numeración. ${anula}`;
+  }
+  return null;
+}
+
+/**
+ * Elimina una factura EMITIDA por error (CRM#1034), con su motivo.
+ *
+ * Solo si `motivoParaNoEliminarPorError` no pone pegas; si las pone, 409
+ * NO_SE_PUEDE_ELIMINAR con la explicación. El bloqueo de la serie se coge ANTES
+ * de mirar si es la última, el mismo que `nextNumero`: así no puede salir otra
+ * factura de la serie entre la comprobación y el borrado.
+ *
+ * Deja el apunte en `user_activity_log` (`factura.eliminar_por_error`), que el
+ * Registro ya enseña: quién, cuándo, el número y el motivo.
+ */
+export async function eliminarEmitidaPorError(id, { motivo, userId, ip = null }) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const { rows: sel } = await client.query(`SELECT * FROM invoices WHERE id = $1 FOR UPDATE`, [id]);
+    const inv = sel[0];
+    if (!inv) { await client.query('ROLLBACK'); return null; }
+
+    let ultimoDeLaSerie = null;
+    if (esFacturaEmitida(inv) && inv.serie != null) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`invoice_serie:${inv.ano}:${inv.serie}`]);
+      const { rows: mx } = await client.query(
+        `SELECT MAX(numero) AS m FROM invoices WHERE ano = $1 AND serie = $2`, [inv.ano, inv.serie]);
+      ultimoDeLaSerie = mx[0].m;
+    }
+    const { rows: ab } = await client.query(
+      `SELECT EXISTS (SELECT 1 FROM invoices WHERE rectifica_id = $1) AS hay`, [id]);
+    const pega = motivoParaNoEliminarPorError(inv, { ultimoDeLaSerie, tieneAbono: ab[0].hay });
+    if (pega) throw new AppError(pega, 409, 'NO_SE_PUEDE_ELIMINAR');
+
+    await client.query(`DELETE FROM invoices WHERE id = $1`, [id]);
+    // Era la última: el contador vuelve al número más alto que queda.
+    const { rows: mx } = await client.query(
+      `SELECT COALESCE(MAX(numero), 0) AS m FROM invoices WHERE ano = $1 AND serie = $2`, [inv.ano, inv.serie]);
+    await client.query(
+      `UPDATE invoice_sequences SET ultimo_numero = $1
+        WHERE ano = $2 AND serie = $3 AND ultimo_numero > $1`,
+      [mx[0].m, inv.ano, inv.serie]);
+
+    await client.query(
+      `INSERT INTO user_activity_log (user_id, action, details, ip_address)
+       VALUES ($1, 'factura.eliminar_por_error', $2::jsonb, $3)`,
+      [userId, JSON.stringify({
+        project_id: inv.project_id, invoice_id: inv.id, codigo: inv.codigo,
+        ano: inv.ano, serie: inv.serie, numero: inv.numero,
+        cliente: inv.cliente_nombre, total: inv.total, motivo,
+      }), ip]);
     await client.query('COMMIT');
     return inv;
   } catch (e) {

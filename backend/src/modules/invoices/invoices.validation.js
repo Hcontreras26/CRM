@@ -8,6 +8,14 @@ export const anularSchema = z.object({
     .max(500, 'El motivo no puede pasar de 500 caracteres'),
 });
 
+// Eliminar una emitida por error (CRM#1034): también con su motivo.
+export const eliminarPorErrorSchema = z.object({
+  motivo: z.string({ required_error: 'Indica por qué se emitió por error', invalid_type_error: 'Indica por qué se emitió por error' })
+    .trim()
+    .min(3, 'Indica por qué se emitió por error')
+    .max(500, 'El motivo no puede pasar de 500 caracteres'),
+});
+
 const itemSchema = z.object({
   descripcion: z.string().min(1),
   cantidad: z.number().positive().default(1),

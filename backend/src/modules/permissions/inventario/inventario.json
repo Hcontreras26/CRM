@@ -9183,6 +9183,28 @@
   ]
  },
  {
+  "id": "POST /api/invoices/:id/eliminar-por-error",
+  "tipo": "ruta",
+  "modulo": "invoices",
+  "metodo": "POST",
+  "ruta": "/api/invoices/:id/eliminar-por-error",
+  "relativa": "POST /:id/eliminar-por-error",
+  "controlador": "eliminarPorError",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.eliminar_por_error"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "POST /api/invoices/:id/rectificar",
   "tipo": "ruta",
   "modulo": "invoices",

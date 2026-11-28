@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-1006 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
+1007 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -663,6 +663,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | cancel | `POST /api/invoices/:id/cancel` | sesión | superadmin, admin, gestor, soporte, project_manager | `facturas.anular` |
 | anular | `POST /api/invoices/:id/anular` | (no existía) | (ruta nueva) | `facturas.gestionar` |
 | destroy | `DELETE /api/invoices/:id` | sesión · roleGuard(admin, superadmin, gestor) +superadmin +soporte por el atajo · a mano: invoices.model.js · puedeGestionarFactura | superadmin, admin y gestor con «factura_manager» | `facturas.gestionar` |
+| eliminarPorError | `POST /api/invoices/:id/eliminar-por-error` | (no existía) | (ruta nueva) | `facturas.eliminar_por_error` |
 | rectificar | `POST /api/invoices/:id/rectificar` | sesión · roleGuard(admin, superadmin, gestor) +superadmin +soporte por el atajo · a mano: invoices.model.js · puedeGestionarFactura | superadmin, admin y gestor con «factura_manager» | `facturas.gestionar` |
 | emitir | `POST /api/invoices/:id/emitir` | sesión | superadmin, admin, gestor, soporte, project_manager | `facturas.emitir_borrador` |
 | completarDatos | `POST /api/invoices/:id/completar-datos` | sesión | superadmin, admin, gestor, soporte, project_manager | `facturas.completar` |
@@ -1689,7 +1690,8 @@ lo que pide para tener sentido (editar pide ver).
 | Cancelar borradores y proformas | `facturas.anular` | Cancelar, con su motivo, una factura sin emitir o una proforma. | Admin, Gestora, Soporte, Project manager, Líder de equipo | `facturas.view` |
 | Emitir un borrador | `facturas.emitir_borrador` | Darle número a un borrador. | Admin, Gestora, Soporte, Project manager, Líder de equipo | `facturas.view` |
 | Poner número al cobrar | `facturas.emitir` | Que el cobro salga facturado y la proforma sin esperar visto bueno. | Admin | `facturas.view` |
-| Anular y abonar | `facturas.gestionar` | Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, y corregir o borrar facturas, proformas y borradores. Diego, 19/11/2026: también las gestoras, cualquier factura de su campus. | Admin, Gestora, Líder de equipo | `facturas.view` |
+| Anular y abonar | `facturas.gestionar` | Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, corregir facturas y borrar proformas y borradores. Diego, 19/11/2026: también las gestoras, cualquier factura de su campus. | Admin, Gestora, Líder de equipo | `facturas.view` |
+| Eliminar una emitida por error | `facturas.eliminar_por_error` | Borrar, con su motivo, una factura emitida por error: solo si no se ha enviado, no tiene cobro y es la última de su serie. Si no, se anula con su abono. Queda en el Registro. | Admin | `facturas.view` |
 | Emitir desde la cola | `facturas.cola` | Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día». | solo superadmin | `facturas.view` |
 | Auditoría de facturación | `facturas.auditoria` | Ver el aviso de facturación pausada, auditar y reanudarla con «Marcar como solucionado». | Admin | `facturas.view` |
 | Elegir el envío de la factura | `facturas.envio_auto` | «Enviar factura automáticamente: Sí / No» y «Enviar a este correo» al registrar una venta o crear un link, y cambiarlo en la venta. | Admin | `facturas.view` |

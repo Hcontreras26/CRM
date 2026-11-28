@@ -295,6 +295,8 @@ function enCristiano(action, details) {
     'usuario.cambiar_contrasena': `Cambió la contraseña de ${d.nombre || `usuario ${d.usuario_id}`}`,
     // La suya, desde «Mi perfil» (POST /auth/change-password). `change_password`
     // es como se apuntaba antes.
+    // CRM#1034: una factura emitida por error, borrada con su motivo.
+    'factura.eliminar_por_error': `Eliminó la factura ${d.codigo || `#${d.invoice_id}`}, emitida por error: ${d.motivo || '—'}`,
     password_changed: 'Cambió su contraseña',
     change_password: 'Cambió su contraseña',
   };

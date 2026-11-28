@@ -349,7 +349,10 @@ export const SECCIONES = [
           a('anular', 'Cancelar borradores y proformas', 'Cancelar, con su motivo, una factura sin emitir o una proforma.', TODOS),
           a('emitir_borrador', 'Emitir un borrador', 'Darle número a un borrador.', TODOS),
           a('emitir', 'Poner número al cobrar', 'Que el cobro salga facturado y la proforma sin esperar visto bueno.', ADMIN),
-          a('gestionar', 'Anular y abonar', 'Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, y corregir o borrar facturas, proformas y borradores. Diego, 19/11/2026: también las gestoras, cualquier factura de su campus.', [...ADMIN, 'gestor']),
+          a('gestionar', 'Anular y abonar', 'Anular una emitida con su motivo (sale su abono), abonar (rectificativa), asociar a una venta, corregir facturas y borrar proformas y borradores. Diego, 19/11/2026: también las gestoras, cualquier factura de su campus.', [...ADMIN, 'gestor']),
+          // CRM#1034: borrar una EMITIDA ya no va con «Anular y abonar». Norma de Diego (19/11):
+          // anular es su abono; borrar, solo si se emitió por error.
+          a('eliminar_por_error', 'Eliminar una emitida por error', 'Borrar, con su motivo, una factura emitida por error: solo si no se ha enviado, no tiene cobro y es la última de su serie. Si no, se anula con su abono. Queda en el Registro.', ADMIN),
           a('cola', 'Emitir desde la cola', 'Emitir los cobros de la cola, cobrar proformas y mover la fecha «al día».', NADIE),
           a('auditoria', 'Auditoría de facturación', 'Ver el aviso de facturación pausada, auditar y reanudarla con «Marcar como solucionado».', ADMIN),
           // Diego, 25/11: «Enviar factura automáticamente: Sí / No» y «Enviar a este
