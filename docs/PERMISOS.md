@@ -1592,7 +1592,7 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver Meta Ads | `meta_ads.view` | Cuentas, campañas, anuncios y su rendimiento. | Admin, Soporte, Project manager |  |
 | Conectar y sincronizar Meta Ads | `meta_ads.edit` | Conectar cuentas, sincronizarlas y asociar campañas a productos. | Admin, Soporte | `meta_ads.view` |
-| Configurar la app de Meta | `meta_ads.app` | El ID y el secreto de la app de Meta de todo el CRM, probarla y quitarla, y la renovación automática de los tokens de los campus (encenderla, sus días y «Renovar ahora»). | Admin | `meta_ads.edit`, `meta_ads.view` |
+| Configurar la app de Meta | `meta_ads.app` | El ID y el secreto de la app de Meta de todo el CRM, probarla y quitarla, y la renovación automática de los tokens de todos los campus (encenderla, sus días y «Renovar ahora»). Solo para quien ve el CRM entero. | solo superadmin | `meta_ads.edit`, `meta_ads.view` |
 
 ### Google Analytics
 

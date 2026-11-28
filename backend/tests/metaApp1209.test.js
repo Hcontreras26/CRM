@@ -12,7 +12,9 @@ import jwt from 'jsonwebtoken';
  *   · la renovación usa la app y los ajustes de la pantalla sin META_* en el
  *     `.env`; el `.env` solo hace de reserva y la pantalla dice de dónde sale;
  *   · «Renovar ahora» renueva aunque la automática esté apagada;
- *   · sin `meta_ads.edit`, o sin `meta_ads.app`, 403.
+ *   · sin `meta_ads.edit`, o sin `meta_ads.app`, 403;
+ *   · la app es de todo el CRM: un admin recortado a sus campus no entra ni
+ *     con `meta_ads.app` por excepción (403 en ver y en «Renovar ahora»).
  *
  *   cd backend && npx vitest run tests/metaApp1209.test.js
  */
@@ -93,10 +95,16 @@ beforeAll(async () => {
     `INSERT INTO meta_ad_accounts (project_id, ad_account_id, ad_account_nombre, access_token_enc)
      VALUES ($1, $2, $3, $4) RETURNING id`,
     [PROYECTO, `act_${Date.now()}`, `${MARCA} Ads`, packToken(TOKEN_VIEJO)]));
-  await persona('admin', 'admin');
+  // Quien configura la app: solo el superadmin la trae (CRM#1222, Diego 28/11).
+  await persona('admin', 'superadmin');
   await persona('soporte', 'soporte'); // tiene meta_ads.edit, no meta_ads.app
-  await persona('adminSinApp', 'admin', [['meta_ads', 'app', false]]);
-  await persona('adminSinEdit', 'admin', [['meta_ads', 'edit', false]]);
+  await persona('adminDeCampus', 'admin'); // ni la trae su rol
+  await persona('adminConApp', 'admin', [['meta_ads', 'app', true]]); // por excepción, pero de un campus
+  // Soporte ve todo el CRM: con la app por excepción y sin `edit`, el que falla es el permiso.
+  await persona('sinEdit', 'soporte', [['meta_ads', 'app', true], ['meta_ads', 'edit', false]]);
+  for (const c of ['adminDeCampus', 'adminConApp']) {
+    await q('INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2)', [U[c].id, PROYECTO]);
+  }
   // Que no quede nada de otra pasada.
   await q(`UPDATE api_credentials SET active = false WHERE service = 'meta_app'`);
   await q(`DELETE FROM meta_app_ajustes`);
@@ -111,6 +119,7 @@ afterAll(async () => {
   await q(`DELETE FROM meta_tokens_renovacion WHERE project_id = $1`, [PROYECTO]);
   await q(`DELETE FROM meta_ad_accounts WHERE project_id = $1`, [PROYECTO]);
   await q('DELETE FROM user_permission_overrides WHERE user_id = ANY($1::int[])', [us]);
+  await q('DELETE FROM user_projects WHERE user_id = ANY($1::int[])', [us]);
   await q('DELETE FROM user_activity_log WHERE user_id = ANY($1::int[])', [us]);
   await q('DELETE FROM users WHERE id = ANY($1::int[])', [us]);
   await q(`DELETE FROM projects WHERE id = $1`, [PROYECTO]);
@@ -131,8 +140,8 @@ afterEach(() => { globalThis.fetch = fetchOriginal; });
 const miToken = (estado) => estado.tokens.find((t) => t.tipo === 'meta_ads' && t.cuenta_id === CUENTA);
 
 describe('permisos', () => {
-  it('sin meta_ads.app (soporte, o admin al que se le quita): 403', async () => {
-    for (const quien of ['soporte', 'adminSinApp']) {
+  it('sin meta_ads.app (soporte, o un admin, que ya no la trae): 403', async () => {
+    for (const quien of ['soporte', 'adminDeCampus']) {
       const r = await request.get('/api/meta-ads/app').set(como(quien));
       expect(r.status, quien).toBe(403);
       const p = await request.put('/api/meta-ads/app').set(como(quien)).send({ app_id: APP_ID, app_secret: SECRETO });
@@ -141,8 +150,20 @@ describe('permisos', () => {
   });
 
   it('sin meta_ads.edit: 403 aunque tenga meta_ads.app', async () => {
-    const r = await request.post('/api/meta-ads/app/renovar').set(como('adminSinEdit')).send({});
+    const r = await request.post('/api/meta-ads/app/renovar').set(como('sinEdit')).send({});
     expect(r.status).toBe(403);
+  });
+
+  it('un admin de un campus con meta_ads.app por excepción: 403, no ve los tokens de todos ni renueva', async () => {
+    const r = await request.get('/api/meta-ads/app').set(como('adminConApp'));
+    expect(r.status, JSON.stringify(r.body)).toBe(403);
+    expect(r.body.code).toBe('FORBIDDEN');
+    expect(r.body.data).toBeUndefined();
+    const renovar = await request.post('/api/meta-ads/app/renovar').set(como('adminConApp')).send({});
+    expect(renovar.status).toBe(403);
+    expect(llamadas).toHaveLength(0); // no ha llegado a Meta
+    const quitar = await request.delete('/api/meta-ads/app').set(como('adminConApp'));
+    expect(quitar.status).toBe(403);
   });
 });
 
@@ -216,7 +237,7 @@ describe('ajustes', () => {
     expect(r.status, JSON.stringify(r.body)).toBe(200);
     expect(r.body.data.ajustes.renovacion_activa).toMatchObject({ valor: true, origen: 'pantalla' });
     expect(r.body.data.ajustes.renovar_dias).toMatchObject({ valor: 30, origen: 'pantalla' });
-    expect(r.body.data.ajustes_cambiados_por).toBe(`${MARCA} admin`);
+    expect(r.body.data.ajustes_cambiados_por).toBe(`${MARCA} admin`); // el superadmin
   });
 
   it('con null vuelven al del servidor, y si no hay, al de siempre', async () => {

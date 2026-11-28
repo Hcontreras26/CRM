@@ -37,7 +37,8 @@ const configurar = [puede('meta_ads.edit'), deSusCampus];
 // las dos claves: quien no conecta Meta Ads no toca su app, y conectar una
 // cuenta no basta para ver ni cambiar el secreto que renueva las de todos.
 // `meta_ads.app` va primero: es la que sale en docs/PERMISOS.md (y en el
-// catálogo «requiere» `meta_ads.edit`).
+// catálogo «requiere» `meta_ads.edit`). Además, el controlador solo deja
+// pasar a quien ve el CRM entero (`veTodoElCrm`), aunque tenga la clave.
 const appDeMeta = [puede('meta_ads.app'), puede('meta_ads.edit')];
 router.get('/app', appDeMeta, metaApp.ver);
 router.put('/app', appDeMeta, metaApp.guardar);
