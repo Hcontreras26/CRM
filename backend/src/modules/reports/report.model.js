@@ -1639,7 +1639,7 @@ export async function paisesMasVendidos({ projectId, projectIds, from, to, aseso
 // «sin teléfono» de países.
 //
 // «Sin origen»: no hay fila de origen, o la fila no trae ninguna pista (ni UTM,
-// ni referrer, ni dirección) y su canal es «directo» o nulo. Un «directo» con
+// ni referrer, ni dirección, ni gclid/ttclid) y su canal es «directo» o nulo. Un «directo» con
 // la dirección guardada y sin referrer SÍ es un directo de verdad.
 //
 // Dos fechas distintas, como en países: los prospectos por su fecha de entrada
@@ -1650,7 +1650,8 @@ export const CANAL_DE_ORIGEN = `CASE
     WHEN (lu.canal_detectado IS NULL OR lu.canal_detectado = 'directo')
          AND COALESCE(lu.utm_source, '') = '' AND COALESCE(lu.utm_medium, '') = ''
          AND COALESCE(lu.utm_campaign, '') = '' AND COALESCE(lu.landing_url, '') = ''
-         AND COALESCE(lu.referrer, '') = '' AND COALESCE(lu.gclid, '') = '' THEN 'sin_origen'
+         AND COALESCE(lu.referrer, '') = '' AND COALESCE(lu.gclid, '') = ''
+         AND COALESCE(lu.ttclid, '') = '' THEN 'sin_origen'
     ELSE COALESCE(lu.canal_detectado::text, 'directo')
   END`;
 
@@ -1737,16 +1738,26 @@ export async function paisesDeEntrada({ projectId, projectIds, from, to, asesora
   const fl = buildFilter({ projectId, projectIds, from, to, asesoraId, paisEntrada }, ENTRY, 'l.project_id');
   const off = fv.params.length;
   const wl = fl.where.replace(/\$(\d+)/g, (_, n) => '$' + (Number(n) + off));
+  // Con una gestora, su PARTE de cada venta (`conversion_reparto`), igual que
+  // `paisesMasVendidos`: la compartida le cuenta la mitad, no entera (QA de
+  // CRM#1182 y CRM-ISEIE#820). Su parámetro va el último.
+  const params = [...fv.params, ...fl.params];
+  let peso = '1';
+  if (asesoraId) {
+    params.push(comoIds(asesoraId));
+    peso = `COALESCE((SELECT SUM(r.peso) FROM conversion_reparto r
+                      WHERE r.conversion_id = c.id AND r.vendedora_id = ANY($${params.length}::int[])), 1)`;
+  }
 
   const { rows } = await query(
     `WITH ventas AS (
        SELECT c.project_id, lv.pais_origen AS pais,
               COUNT(*)::int AS ventas,
               COUNT(DISTINCT c.lead_id)::int AS clientes,
-              ROUND(COALESCE(SUM(c.importe_total), 0), 2) AS vendido,
+              ROUND(COALESCE(SUM(c.importe_total * ${peso}), 0), 2) AS vendido,
               ROUND(COALESCE(SUM(
                 (SELECT COALESCE(SUM(cp.importe), 0)
-                   FROM conversion_payments cp WHERE cp.conversion_id = c.id)), 0), 2) AS cobrado
+                   FROM conversion_payments cp WHERE cp.conversion_id = c.id) * ${peso}), 0), 2) AS cobrado
          FROM conversions c
          LEFT JOIN leads lv ON lv.id = c.lead_id
          ${fv.where}
@@ -1780,7 +1791,7 @@ export async function paisesDeEntrada({ projectId, projectIds, from, to, asesora
                           AND lds.pais IS NOT DISTINCT FROM ventas.pais
        LEFT JOIN projects p ON p.id = COALESCE(ventas.project_id, lds.project_id)
       ORDER BY p.nombre, (COALESCE(ventas.pais, lds.pais) IS NULL), vendido DESC, leads DESC`,
-    [...fv.params, ...fl.params]
+    params
   );
   return rows.map((r) => ({
     ...r,

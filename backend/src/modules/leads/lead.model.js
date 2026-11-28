@@ -588,15 +588,15 @@ export async function createLeadWithRoundRobin({ projectId, nombre, email, telef
     if (
       utms && (
         utms.utm_source || utms.utm_medium || utms.utm_campaign ||
-        utms.canal_detectado || utms.landing_url || utms.referrer || utms.gclid ||
+        utms.canal_detectado || utms.landing_url || utms.referrer || utms.gclid || utms.ttclid ||
         utms.fbc || utms.fbp || utms.client_ip || utms.user_agent
       )
     ) {
       await client.query(
-        `INSERT INTO lead_utms (lead_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, canal_detectado, referrer, fbc, fbp, client_ip, user_agent, gclid)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        `INSERT INTO lead_utms (lead_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, canal_detectado, referrer, fbc, fbp, client_ip, user_agent, gclid, ttclid)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
         [lead.id, utms.utm_source, utms.utm_medium, utms.utm_campaign, utms.utm_content, utms.utm_term, utms.landing_url, utms.canal_detectado, utms.referrer || null,
-         utms.fbc || null, utms.fbp || null, utms.client_ip || null, utms.user_agent || null, utms.gclid || null]
+         utms.fbc || null, utms.fbp || null, utms.client_ip || null, utms.user_agent || null, utms.gclid || null, utms.ttclid || null]
       );
     }
 

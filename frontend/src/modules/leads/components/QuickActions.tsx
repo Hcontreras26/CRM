@@ -28,7 +28,7 @@ interface Props {
   onLogInteraction?: (lead: LeadLite, kind: string) => void;
   onCreateReminder?: (lead: LeadLite) => void;
   onEnrollSequence?: (lead: LeadLite) => void;
-  onSoftDelete?: (lead: LeadLite) => void;  // superadmin
+  onSoftDelete?: (lead: LeadLite) => void;  // quien puede eliminar ESTE (CRM#1220)
   onReportSpam?: (lead: LeadLite) => void;  // cualquier rol
   templates?: WhatsappTemplate[];
   projectName?: string;
@@ -185,7 +185,8 @@ export default function QuickActions({
       {onSoftDelete && (
         <button
           onClick={() => onSoftDelete(lead)}
-          title="Eliminar (superadmin)"
+          title="Eliminar"
+          aria-label="Eliminar"
           className="p-1.5 rounded hover:bg-destructive-soft text-muted-foreground hover:text-destructive transition-colors"
         >
           <Trash size={14} weight="regular" />

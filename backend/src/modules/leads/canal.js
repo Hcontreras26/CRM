@@ -163,8 +163,8 @@ export function deducirCanal({ utm_source, utm_medium, referrer, landing_url, gc
  * nada porque la tubería no se lo trajo. El porcentaje de estos últimos es el
  * que dice si #48 funciona.
  */
-export function tienePistaDeOrigen({ utm_source, utm_medium, utm_campaign, referrer, landing_url, gclid } = {}) {
-  return [utm_source, utm_medium, utm_campaign, referrer, landing_url, gclid].some((v) => typeof v === 'string' && v.trim() !== '');
+export function tienePistaDeOrigen({ utm_source, utm_medium, utm_campaign, referrer, landing_url, gclid, ttclid } = {}) {
+  return [utm_source, utm_medium, utm_campaign, referrer, landing_url, gclid, ttclid].some((v) => typeof v === 'string' && v.trim() !== '');
 }
 
 /**
@@ -273,16 +273,23 @@ export function extraerGclid(url) {
   return v && v.trim() ? v.trim() : null;
 }
 
+/** El `ttclid` de TikTok de una dirección, o null (#1246). */
+export function extraerTtclid(url) {
+  const v = parametros(url).get('ttclid');
+  return v && v.trim() ? v.trim().slice(0, 500) : null;
+}
+
 const suelto = (v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 500) : null);
 
 /**
  * Lo que se guarda de los identificadores de clic de un alta (#48), venga por
- * donde venga: el `gclid` tal cual y el `fbclid` como `fbc` (#474). Primero el
- * de la dirección; si no trae, el campo suelto.
+ * donde venga: el `gclid` y el `ttclid` (#1246) tal cual y el `fbclid` como
+ * `fbc` (#474). Primero el de la dirección; si no trae, el campo suelto.
  */
-export function clicsDelOrigen({ landing_url, gclid, fbclid } = {}) {
+export function clicsDelOrigen({ landing_url, gclid, fbclid, ttclid } = {}) {
   return {
     gclid: extraerGclid(landing_url) || suelto(gclid),
+    ttclid: extraerTtclid(landing_url) || suelto(ttclid),
     fbc: fbclidAFbc(extraerFbclid(landing_url) || suelto(fbclid)),
   };
 }

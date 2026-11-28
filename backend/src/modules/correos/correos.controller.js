@@ -1,6 +1,9 @@
 import * as model from './correos.model.js';
+import * as buzonesModel from './buzones.model.js';
 import { listaDelAmbito, campusParaRecortar } from '../../shared/utils/ambito.js';
-import { leerBuzon, hayBuzonQueLeer } from '../../shared/services/correo-entrante.service.js';
+import { leerBuzon } from '../../shared/services/correo-entrante.service.js';
+import { sincronizarSchema } from './buzones.validation.js';
+import { buzonVisible } from './buzones.controller.js';
 
 const fecha = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : null);
 
@@ -15,6 +18,8 @@ export async function listar(req, res, next) {
       busca: (req.query.busca || '').trim() || null,
       desde: fecha(req.query.desde),
       hasta: fecha(req.query.hasta),
+      // Un buzón (#1032): su id, o 'servidor' para lo que entró por el del .env.
+      buzon: req.query.buzon === 'servidor' ? 'servidor' : (Number(req.query.buzon) || null),
       projectIds,
       limite: req.query.limite,
       pagina: req.query.pagina,
@@ -49,9 +54,33 @@ export async function recuento(req, res, next) {
  */
 export async function sincronizar(req, res, next) {
   try {
-    if (!hayBuzonQueLeer()) {
-      return res.json({ success: true, data: { leidos: 0, nuevos: 0, motivo: 'SIN_BUZON' } });
+    // Uno (#1032) o todos. Sin buzones —ni en la base ni en el .env— el
+    // servicio contesta SIN_BUZON, igual que antes.
+    const r = sincronizarSchema.safeParse(req.body || {});
+    const buzonId = r.success ? r.data.buzonId || null : null;
+    if (buzonId) {
+      await buzonVisible(req, buzonId);
+      return res.json({ success: true, data: await leerBuzon({ buzonId }) });
     }
-    res.json({ success: true, data: await leerBuzon() });
+    // Todos los que ve quien pulsa. Quien ve el CRM entero, todos; el resto,
+    // los de sus campus, uno a uno: no lee el buzón de otra empresa.
+    // Sin buzones en la base, el del .env para quien tenga el permiso: como
+    // antes de la #1032.
+    const campus = await campusParaRecortar(req);
+    const todos = await buzonesModel.listar(null);
+    if (!campus || !todos.length) return res.json({ success: true, data: await leerBuzon() });
+    const suyos = todos.filter((b) => b.project_id != null && campus.includes(Number(b.project_id)));
+    if (!suyos.length) {
+      return res.json({ success: true, data: { leidos: 0, nuevos: 0, motivo: 'SIN_BUZON', buzones: [] } });
+    }
+    const total = { leidos: 0, nuevos: 0, buzones: [] };
+    for (const b of suyos) {
+      const uno = await leerBuzon({ buzonId: b.id });
+      total.leidos += uno.leidos;
+      total.nuevos += uno.nuevos;
+      total.buzones.push(...(uno.buzones || []));
+    }
+    if (total.buzones.length && total.buzones.every((b) => b.motivo === 'ERROR')) total.motivo = 'ERROR';
+    res.json({ success: true, data: total });
   } catch (e) { next(e); }
 }

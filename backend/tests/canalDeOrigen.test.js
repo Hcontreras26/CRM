@@ -131,6 +131,8 @@ describe('«sin origen» no es lo mismo que «directo»', () => {
   it('hay pista si hay cualquier campo con texto', () => {
     expect(tienePistaDeOrigen({ landing_url: LANDING })).toBe(true);
     expect(tienePistaDeOrigen({ referrer: 'https://chatgpt.com/' })).toBe(true);
+    // #1246: con solo el ttclid de TikTok también hay pista.
+    expect(tienePistaDeOrigen({ ttclid: 'E.C.P.1246' })).toBe(true);
     expect(tienePistaDeOrigen({ utm_campaign: '123' })).toBe(true);
   });
 

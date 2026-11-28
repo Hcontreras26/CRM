@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Trash, Warning } from '@phosphor-icons/react';
 import client from '@/shared/api/client';
 import { toast } from '@/shared/hooks/useToast';
-import { useAuth } from '@/contexts/AuthContext';
 import usePermission from '@/shared/hooks/usePermission';
 
 interface LeadLite {
@@ -31,10 +30,10 @@ const MOTIVOS_DE_GESTORA = ['test', 'spam', 'duplicado_manual'];
 
 // Soft delete. Permite recuperar el lead luego desde DB si hace falta.
 export default function SoftDeleteDialog({ open, lead, onClose, onDeleted }: Props) {
-  const { user } = useAuth();
   // Lo que dice el servidor (#423): sale si salía antes Y tiene el permiso.
   const { can } = usePermission();
-  const esJefe = (user?.role === 'superadmin' || user?.role === 'admin' || user?.role === 'soporte') && can('leads.delete_cualquiera');
+  // Todos los motivos, con el permiso que el servidor mira para eso; sin rol (CRM#1220).
+  const esJefe = can('leads.delete_cualquiera');
   const motivos = esJefe ? REASONS : REASONS.filter((r) => MOTIVOS_DE_GESTORA.includes(r.value));
   const [reason, setReason] = useState<string>('spam');
   const [motivo, setMotivo] = useState('');

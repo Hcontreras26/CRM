@@ -283,3 +283,106 @@ export async function paginas(projectId, desde, hasta, { limite = 200 } = {}) {
     lead_por_sesion: tasa(r.leads, r.sesiones),
   }));
 }
+
+/**
+ * Cómo está un campus para el informe del MCP (CRM#1247): si tiene credencial
+ * de producción, el último día que tiene guardado y cómo fue la última vuelta.
+ */
+export async function estadoDelCampus(projectId) {
+  const [{ rows: [cred] }, { rows: [u] }, { rows: [s] }] = await Promise.all([
+    query(
+      `SELECT 1 AS hay FROM api_credentials
+        WHERE service = $1 AND project_id = $2 AND active = true
+          AND COALESCE(metadata->>'entorno', 'produccion') = 'produccion'
+        LIMIT 1`,
+      [SERVICIO, projectId]
+    ),
+    query(`SELECT to_char(MAX(fecha), 'YYYY-MM-DD') AS ultimo FROM ga4_canales_diarios WHERE project_id = $1`, [projectId]),
+    query(`SELECT last_synced_at, last_status FROM ga4_sincronizacion WHERE project_id = $1`, [projectId]),
+  ]);
+  return {
+    conectado: Boolean(cred?.hay),
+    ultimo_dia: u?.ultimo || null,
+    ultima_sincronizacion: s?.last_synced_at ? new Date(s.last_synced_at).toISOString() : null,
+    estado_sincronizacion: s?.last_status || null,
+  };
+}
+
+const pct = (ahora, antes) => (antes > 0 ? Number(((ahora - antes) / antes * 100).toFixed(1)) : null);
+
+/** El periodo anterior de la misma longitud, pegado por delante. */
+export function periodoAnterior(desde, hasta) {
+  const d = Date.parse(`${desde}T00:00:00Z`);
+  const largo = Math.round((Date.parse(`${hasta}T00:00:00Z`) - d) / 86400000) + 1;
+  return { desde: dia(new Date(d - largo * 86400000)), hasta: dia(new Date(d - 86400000)) };
+}
+
+/**
+ * Los totales del periodo con las MISMAS funciones que la pantalla: sesiones,
+ * leads y ventas salen de `embudo`; usuarios y eventos clave, de sus canales
+ * (la suma de los canales es la de los días). `dias_con_datos`: días con fila de GA4.
+ */
+async function totalesDelPeriodo(projectId, desde, hasta) {
+  const e = await embudo(projectId, desde, hasta);
+  const suma = (k) => e.canales.reduce((t, c) => t + Number(c[k] || 0), 0);
+  return {
+    dias_con_datos: e.dias.filter((d) => d.sesiones != null).length,
+    total: {
+      sesiones: e.total.sesiones ?? 0,
+      usuarios: suma('usuarios'),
+      conversiones: Number(suma('eventos_clave').toFixed(2)),
+      leads: e.total.leads,
+      ventas: e.total.ventas,
+      lead_por_sesion: e.total.lead_por_sesion,
+      venta_por_lead: e.total.venta_por_lead,
+    },
+    canales: e.canales.map((c) => ({ canal: c.canal, sesiones: c.sesiones, usuarios: c.usuarios, conversiones: c.eventos_clave })),
+  };
+}
+
+/** Lo que cambia de un periodo al otro, en unidades y en %. */
+export function cambioEntre(actual, anterior) {
+  const r = {};
+  for (const k of ['sesiones', 'usuarios', 'conversiones', 'leads', 'ventas']) {
+    r[k] = Number((actual[k] - anterior[k]).toFixed(2));
+    r[`${k}_pct`] = pct(actual[k], anterior[k]);
+  }
+  return r;
+}
+
+/**
+ * El informe de GA4 de un campus para el MCP (CRM#1247): lo mismo que la
+ * pantalla «Google Analytics» (`embudo` y `paginas`), con las páginas de más
+ * tráfico y, si `comparar`, el periodo anterior de la misma longitud.
+ */
+export async function informeGa4(projectId, desde, hasta, { limite = 10, comparar = true } = {}) {
+  const ant = comparar ? periodoAnterior(desde, hasta) : null;
+  const [actual, pags, extra] = await Promise.all([
+    totalesDelPeriodo(projectId, desde, hasta),
+    paginas(projectId, desde, hasta, { limite }),
+    comparar
+      ? Promise.all([totalesDelPeriodo(projectId, ant.desde, ant.hasta), paginas(projectId, ant.desde, ant.hasta, { limite: 1000 })])
+      : null,
+  ]);
+  const top = pags.map((p) => ({
+    pagina: p.pagina, sesiones: p.sesiones, usuarios: p.usuarios, conversiones: p.eventos_clave,
+    leads: p.leads, ventas: p.ventas, lead_por_sesion: p.lead_por_sesion,
+  }));
+  const informe = {
+    periodo: { desde, hasta, dias_con_datos: actual.dias_con_datos },
+    total: actual.total,
+    canales: actual.canales,
+    paginas: { top },
+  };
+  if (!extra) return informe;
+  const [anterior, pagsAntes] = extra;
+  const antes = new Map(pagsAntes.map((p) => [p.pagina, p]));
+  return {
+    ...informe,
+    anterior: { ...ant, dias_con_datos: anterior.dias_con_datos, ...anterior.total },
+    cambio: cambioEntre(actual.total, anterior.total),
+    paginas: {
+      top: top.map((p) => ({ ...p, sesiones_antes: antes.get(p.pagina)?.sesiones ?? 0, leads_antes: antes.get(p.pagina)?.leads ?? 0 })),
+    },
+  };
+}

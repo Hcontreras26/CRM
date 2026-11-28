@@ -5,7 +5,7 @@
 > y de las comprobaciones a mano apuntadas en `inventario/manuales.js`. Una prueba
 > falla si el código cambia y esto no.
 
-1019 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
+1028 rutas en 76 módulos, y 31 acciones con condición dentro de una ruta.
 Ningún guardia sin clasificar.
 
 **Cómo leerlo.** «Qué la protegía» es lo que había en el código antes de #423 (congelado en `inventario/antes-423.json`): `roleGuard` dejaba pasar
@@ -123,6 +123,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | aprobarEmitir | `POST /api/certifex/diplomas/aprobar-emitir` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | emitir | `POST /api/certifex/diplomas/emitir` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | avisos | `POST /api/certifex/diplomas/avisos` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
+| avisosLote | `POST /api/certifex/diplomas/avisos/lote` | (no existía) | (ruta nueva) | `diplomas.emit` |
 | nuevo | `POST /api/certifex/diplomas/nuevo` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | formaciones | `GET /api/certifex/diplomas/formaciones` | sesión · rol (admin, superadmin) o permiso diplomas.emit | superadmin, admin y quien tenga el permiso por rol a medida o excepción | `diplomas.emit` |
 | listar | `GET /api/certifex/consultas` | sesión · roleGuard(admin, superadmin, soporte) +superadmin +soporte por el atajo | superadmin, admin, soporte | `certifex_consultas.view` |
@@ -327,6 +328,13 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 | listar | `GET /api/correos/` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 | recuento | `GET /api/correos/recuento` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 | sincronizar | `POST /api/correos/sincronizar` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.sincronizar` |
+| listar | `GET /api/correos/buzones` | (no existía) | (ruta nueva) | `correos.view` |
+| crear | `POST /api/correos/buzones` | (no existía) | (ruta nueva) | `correos.buzones` |
+| probar | `POST /api/correos/buzones/probar` | (no existía) | (ruta nueva) | `correos.buzones` |
+| cambiar | `PATCH /api/correos/buzones/:id` | (no existía) | (ruta nueva) | `correos.buzones` |
+| quitar | `DELETE /api/correos/buzones/:id` | (no existía) | (ruta nueva) | `correos.buzones` |
+| probar | `POST /api/correos/buzones/:id/probar` | (no existía) | (ruta nueva) | `correos.buzones` |
+| usarComoCorreoDeEmpresa | `POST /api/correos/buzones/:id/correo-de-empresa` | (no existía) | (ruta nueva) | `correos.buzones` |
 | uno | `GET /api/correos/:id` | sesión · roleGuard(admin, superadmin) +superadmin +soporte por el atajo | superadmin, admin, soporte | `correos.view` |
 
 ## credentials
@@ -500,6 +508,7 @@ alcance —qué campus, qué prospectos— no cambia quién entra y va al final.
 |---|---|---|---|---|
 | panel | `GET /api/feedback/panel` | sesión | superadmin, admin, gestor, soporte, project_manager | `feedback.view` |
 | lista | `GET /api/feedback/lista` | sesión | superadmin, admin, gestor, soporte, project_manager | `feedback.view` |
+| exportar | `GET /api/feedback/exportar` | (no existía) | (ruta nueva) | `feedback.exportar` |
 | deUnLead | `GET /api/feedback/lead/:leadId` | sesión | superadmin, admin, gestor, soporte, project_manager | `feedback.view` |
 | enviarLoRevisado | `POST /api/feedback/lead/:leadId/enviar` | sesión | superadmin, admin, gestor, soporte, project_manager | `feedback.enviar` |
 | noEnviar | `POST /api/feedback/lead/:leadId/no-enviar` | sesión | superadmin, admin, gestor, soporte, project_manager | `feedback.enviar` |
@@ -1819,6 +1828,7 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver feedback | `feedback.view` | El panel y las respuestas de los clientes. | Admin, Gestora, Soporte, Project manager, Líder de equipo |  |
 | Enviar la encuesta | `feedback.enviar` | Mandar, o no, la encuesta revisada a un cliente. | Admin, Gestora, Soporte, Project manager, Líder de equipo | `feedback.view` |
+| Exportar las respuestas | `feedback.exportar` | Bajar en CSV las respuestas filtradas: fecha, campus, gestora, motivo, puntuación y comentario, sin datos de contacto. | Admin, Gestora, Soporte, Project manager, Líder de equipo | `feedback.view` |
 
 ### Análisis IA
 
@@ -1987,6 +1997,7 @@ lo que pide para tener sentido (editar pide ver).
 |---|---|---|---|---|
 | Ver correos | `correos.view` | Los correos entrantes del equipo. | Admin, Soporte, Project manager |  |
 | Traer correos | `correos.sincronizar` | Sincronizar el buzón. | Admin, Soporte | `correos.view` |
+| Conectar buzones | `correos.buzones` | Conectar, probar, cambiar y quitar los buzones de correo que lee la Bandeja. Un admin, los de sus campus. | Admin, Soporte | `correos.view` |
 
 ### Estado del sistema
 
