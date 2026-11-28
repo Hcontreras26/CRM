@@ -163,6 +163,76 @@ describe('informe_seo', () => {
     await expect(correr(ADMIN, { desde: '2026-10-28', hasta: '2026-10-01' })).rejects.toMatchObject({ code: 'MCP_PERIODO_AL_REVES' });
   });
 
+  it('el top de búsquedas sale por clics, respeta «limite» y trae lo que cambia', async () => {
+    const { consultas } = (await correr(ADMIN, ACTUAL)).campus[0];
+    expect(consultas.top.map((x) => x.consulta)).toEqual(['master duelo', 'nueva', 'igual', 'curso apego']);
+    expect(consultas.top[0]).toEqual({
+      consulta: 'master duelo', clics: 40, impresiones: 400, ctr: 10, posicion: 3,
+      clics_antes: 10, impresiones_antes: 200, ctr_antes: 5, posicion_antes: 5,
+      cambio: { clics: 30, clics_pct: 300, impresiones: 200, impresiones_pct: 100, ctr_puntos: 5, posicion: -2 },
+    });
+    // La que viene de 0: sin posición de antes ni porcentaje.
+    expect(consultas.top[1]).toMatchObject({ consulta: 'nueva', clics_antes: 0, posicion_antes: null, cambio: { clics: 12, clics_pct: null } });
+    const corto = (await correr(ADMIN, { ...ACTUAL, limite: 2 })).campus[0];
+    expect(corto.consultas.top.map((x) => x.consulta)).toEqual(['master duelo', 'nueva']);
+    expect(corto.paginas.top).toHaveLength(2);
+  });
+
+  it('el top cuadra con la pantalla «Tráfico orgánico»', async () => {
+    const { consultas } = (await correr(ADMIN, ACTUAL)).campus[0];
+    const pantalla = await gsc.consultas(P, ACTUAL.desde, ACTUAL.hasta);
+    expect(consultas.top.map(({ consulta, clics, impresiones, ctr, posicion, clics_antes }) => ({ consulta, clics, impresiones, ctr, posicion, clics_antes })))
+      .toEqual(pantalla.map(({ consulta, clics, impresiones, ctr, posicion, clics_antes }) => ({ consulta, clics, impresiones, ctr, posicion, clics_antes: clics_antes ?? 0 })));
+  });
+
+  it('el top de páginas, por clics y con su host', async () => {
+    const { paginas } = (await correr(ADMIN, ACTUAL)).campus[0];
+    expect(paginas.top.map((x) => [x.pagina, x.clics, x.clics_antes])).toEqual([
+      ['psikoaprende.com/curso/duelo', 60, 20],
+      ['mx.psikoaprende.com/curso/duelo', 10, 25],
+    ]);
+  });
+
+  it('la evolución: una fila por semana con datos, hasta el último día guardado, y suma lo mismo que el total', async () => {
+    const c = (await correr(ADMIN, { desde: '2026-10-01', hasta: '2026-10-28' })).campus[0];
+    expect(c.evolucion).toEqual({
+      por: 'semana',
+      filas: [
+        // La semana del 12/10 no tiene datos: no sale.
+        { desde: '2026-10-05', hasta: '2026-10-11', dias_con_datos: 1, clics: 100, impresiones: 2000, ctr: 5, posicion: 10 },
+        // Cortada en el último día guardado (20/10), no en el «hasta» pedido.
+        { desde: '2026-10-19', hasta: '2026-10-20', dias_con_datos: 1, clics: 150, impresiones: 2500, ctr: 6, posicion: 8 },
+      ],
+    });
+    const suma = (k) => c.evolucion.filas.reduce((s, f) => s + f[k], 0);
+    expect({ clics: suma('clics'), impresiones: suma('impresiones') }).toEqual({ clics: c.total.clics, impresiones: c.total.impresiones });
+    // El primer tramo no empieza antes del periodo.
+    const enMedio = (await correr(ADMIN, ACTUAL)).campus[0].evolucion.filas;
+    expect(enMedio).toEqual([expect.objectContaining({ desde: '2026-10-19', hasta: '2026-10-20', clics: 150 })]);
+  });
+
+  it('la evolución va por meses si el periodo pasa de 90 días', async () => {
+    const c = (await correr(ADMIN, { desde: '2026-06-01', hasta: '2026-10-28' })).campus[0];
+    expect(c.evolucion).toEqual({
+      por: 'mes',
+      filas: [{ desde: '2026-10-01', hasta: '2026-10-20', dias_con_datos: 2, clics: 250, impresiones: 4500, ctr: 5.56, posicion: 8.9 }],
+    });
+    expect(c.evolucion.filas[0].clics).toBe(c.total.clics);
+  });
+
+  it('con comparar_con_periodo_anterior: false no hay «anterior» ni «cambio»', async () => {
+    const c = (await correr(ADMIN, { ...ACTUAL, comparar_con_periodo_anterior: false })).campus[0];
+    expect(c.anterior).toBeUndefined();
+    expect(c.cambio).toBeUndefined();
+    expect(c.total).toEqual({ clics: 150, impresiones: 2500, ctr: 6, posicion: 8 });
+    expect(Object.keys(c.consultas)).toEqual(['top']);
+    expect(Object.keys(c.paginas)).toEqual(['top']);
+    expect(c.consultas.top[0]).toEqual({ consulta: 'master duelo', clics: 40, impresiones: 400, ctr: 10, posicion: 3 });
+    expect(c.evolucion.filas).toHaveLength(1);
+    // Sin el parámetro, compara.
+    expect((await correr(ADMIN, ACTUAL)).campus[0].cambio).toBeDefined();
+  });
+
   it('periodoDelInforme y cambioEntre, sueltos', () => {
     expect(gsc.periodoDelInforme({ ultimoDia: '2026-11-23' })).toEqual({ desde: '2026-10-27', hasta: '2026-11-23' });
     expect(gsc.periodoDelInforme({ desde: '2026-11-01', ultimoDia: '2026-11-23' })).toEqual({ desde: '2026-11-01', hasta: '2026-11-23' });

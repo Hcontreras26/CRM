@@ -6,7 +6,7 @@ import { AppError } from '../../shared/utils/AppError.js';
 import { saveLocal, getLocal, deleteLocal } from '../../shared/services/localStorage.service.js';
 import crypto from 'crypto';
 import { tienePermiso } from '../../shared/middleware/permissions.js';
-import { alcanceDeLider } from '../../shared/utils/roles.js';
+import { alcanceDeLider, tieneRol } from '../../shared/utils/roles.js';
 
 /**
  * A quién ve en Usuarios quien pregunta (Diego, 04/11: «el project manager ve
@@ -453,5 +453,53 @@ export async function desbloquearBrevo(req, res, next) {
     await exigirPersonaDeSusCampus(req, id);
     const { desbloquear } = await import('./brevo-bloqueos.js');
     res.json({ success: true, data: await desbloquear({ userId: id, porQuien: req.user?.userId }) });
+  } catch (err) { next(err); }
+}
+
+// ===== CAMBIO DE CORREO EN LA FICHA (#1199) =====
+
+/**
+ * La persona tiene que ser de alguno de los campus de quien mira (o ser él
+ * mismo). Superadmin y soporte, cualquiera. A diferencia de la ficha, aquí no
+ * se abre a quien tenga «Editar usuarios»: el permiso es de soporte y un admin
+ * que lo reciba como excepción actúa en lo suyo (`exigirCampusSuyo`). Fuera de
+ * sus campus, o si no existe, 404: no se confirma que haya alguien con ese id.
+ * La de un superadmin, solo otro superadmin (o él mismo).
+ */
+async function exigirPersonaSuyaParaCorreo(req, id) {
+  const user = await userModel.findById(id);
+  if (!user) throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+  if (Number(id) === Number(req.user?.userId)) return;
+  // La cuenta de un superadmin (también como rol añadido) solo la mira otro
+  // superadmin: ni soporte, que ve el CRM entero, ni un admin con la
+  // excepción. Para los demás, no existe.
+  if (tieneRol(user, 'superadmin') && !tieneRol(req.user, 'superadmin')) {
+    throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+  }
+  const campus = await campusParaRecortar(req);
+  if (!campus) return;
+  const suyos = await campusDeLaPersona(id);
+  if (!suyos.some((c) => campus.includes(c))) throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+}
+
+/** GET /api/users/:id/cambios-de-correo — el pendiente y el historial (permiso users.cambios_correo). */
+export async function cambiosDeCorreo(req, res, next) {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
+    await exigirPersonaSuyaParaCorreo(req, id);
+    const { cambiosDeLaPersona } = await import('./cambio-de-correo.js');
+    res.json({ success: true, data: await cambiosDeLaPersona(id) });
+  } catch (err) { next(err); }
+}
+
+/** POST /api/users/:id/cambios-de-correo/anular — deja sin efecto el pendiente. */
+export async function anularCambioDeCorreo(req, res, next) {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) throw new AppError('ID invalido', 400, 'INVALID_ID');
+    await exigirPersonaSuyaParaCorreo(req, id);
+    const { anularPendiente } = await import('./cambio-de-correo.js');
+    res.json({ success: true, data: await anularPendiente({ userId: id, porUserId: req.user?.userId, ip: req.ip }) });
   } catch (err) { next(err); }
 }

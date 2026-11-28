@@ -17,12 +17,16 @@
 // formato de meta_ad_accounts.access_token_enc) y la caducidad y el resultado
 // quedan en meta_tokens_renovacion (migración 295).
 //
-// Avisos a los admins —campana y correo con la plantilla común—:
+// Avisos a quien puede volver a conectar la cuenta de ESE campus (#1192)
+// —campana y correo con la plantilla común—:
 //   · si la renovación falla: UNA vez por fallo, no uno al día. Vuelve a avisar
 //     solo después de haber ido bien alguna vez.
 //   · si el token caduca en menos de META_TOKENS_AVISO_DIAS (7): una vez por
 //     fecha de caducidad (Meta no siempre alarga un token largo; entonces hay
 //     que volver a conectar la cuenta a mano).
+//   · si en el campus nadie puede reconectarla, no se avisa a nadie (tampoco a
+//     los de otros campus) y no se apunta como avisado: se vuelve a intentar en
+//     la vuelta siguiente, por si ya hay alguien.
 //
 // APAGADO DE SERIE: sin META_TOKENS_RENOVACION_ACTIVA=1 no arranca y `vuelta()`
 // no llama a Meta ni toca la base.
@@ -31,7 +35,8 @@ import { logger } from '../shared/utils/logger.js';
 import { query } from '../shared/config/db.js';
 import { sendEmail } from '../shared/services/brevo.service.js';
 import * as P from '../shared/services/email-plantilla.service.js';
-import { notifyAdmins } from '../modules/notifications/notifications.service.js';
+import { notifyUsers } from '../modules/notifications/notifications.service.js';
+import { explicarPermisos } from '../modules/permissions/permissions.service.js';
 import { packToken, unpackToken } from '../modules/meta-ads/meta-ads.service.js';
 import {
   appDeMeta, inspeccionarTokenMeta, renovarTokenMeta, renovarTokenInstagram,
@@ -192,11 +197,37 @@ async function revisarInstagram(cuenta, token, ahora) {
 
 // ── Avisar ──────────────────────────────────────────────────────────────────
 
-async function correosDeAdmins() {
+/**
+ * A quién avisar (#1192): quien puede VOLVER A CONECTAR la cuenta de ese campus,
+ * igual que `quienPuedeVerlo` de Search Console (#1165) y `destinatariosDeAcceso`
+ * de soporte.
+ *
+ *   · El ALCANCE: super admin y soporte ven todos los campus; el resto, los suyos
+ *     (`user_projects` activos). El rol solo cuenta para esto.
+ *   · De ahí, solo quien tenga `meta_ads.edit` según `explicarPermisos`: al admin
+ *     al que se le ha quitado no le llega; a quien lo tiene por excepción, sí.
+ *
+ * Una cuenta sin campus solo se la avisa a quien ve todos. Vacío = no se avisa.
+ */
+export async function quienPuedeReconectar(projectId) {
   const { rows } = await query(
-    `SELECT email FROM users
-      WHERE active = true AND role IN ('superadmin', 'admin') AND email IS NOT NULL`);
-  return rows.map((r) => r.email);
+    `SELECT u.id, u.email FROM users u
+      WHERE u.active AND (u.role IN ('superadmin', 'soporte')
+         OR ($1::int IS NOT NULL AND EXISTS (SELECT 1 FROM user_projects up
+              WHERE up.user_id = u.id AND up.project_id = $1 AND up.active)))
+      ORDER BY u.id`,
+    [projectId ?? null]
+  );
+  const out = [];
+  for (const { id, email } of rows) {
+    try {
+      const e = await explicarPermisos(id);
+      if (e?.mapa?.['meta_ads.edit'] === true) out.push({ id, email });
+    } catch (err) {
+      logger.warn({ err: err.message, userId: id }, 'Tokens de Meta: no se pudieron leer los permisos de un destinatario');
+    }
+  }
+  return out;
 }
 
 const MARCA_GENERAL = { nombre: 'MultiCRM' };
@@ -229,14 +260,23 @@ function textos(motivo, cuenta, { error, expiresAt }) {
   };
 }
 
-async function avisar(motivo, cuenta, datos, ahora, adminEmails) {
+// Devuelve si se avisó a alguien. `notifyUsers` con la lista vacía avisa a
+// TODOS los admin: por eso, sin destinatarios, ni se llama.
+async function avisar(motivo, cuenta, datos, ahora, destinatarios) {
+  if (!destinatarios.length) {
+    logger.warn({ motivo, tipo: cuenta.tipo, cuentaId: cuenta.id, projectId: cuenta.project_id },
+      'Tokens de Meta: en el campus nadie puede reconectar la cuenta; no se avisa');
+    return false;
+  }
   const t = textos(motivo, cuenta, datos);
   const enlace = cuenta.tipo === 'meta_ads' ? '/meta-ads' : null;
-  await notifyAdmins({
+  await notifyUsers({
+    targetUserIds: destinatarios.map((d) => d.id),
     type: TIPO_AVISO, title: t.titulo, message: t.mensaje, link_path: enlace,
     metadata: { motivo, tipo: cuenta.tipo, cuenta_id: cuenta.id, project_id: cuenta.project_id },
   });
-  if (!adminEmails.length) return;
+  const correos = destinatarios.map((d) => d.email).filter(Boolean);
+  if (!correos.length) return true;
   try {
     const correo = P.correo({
       proyecto: marcaDe(cuenta.proyecto),
@@ -254,7 +294,7 @@ async function avisar(motivo, cuenta, datos, ahora, adminEmails) {
       ? ahora.toISOString().slice(0, 10)
       : new Date(datos.expiresAt).toISOString().slice(0, 10);
     await sendEmail({
-      to: adminEmails.join(','),
+      to: correos.join(','),
       subject: t.asunto,
       ...correo,
       projectId: cuenta.project_id ?? null,
@@ -264,11 +304,12 @@ async function avisar(motivo, cuenta, datos, ahora, adminEmails) {
   } catch (err) {
     logger.warn({ err: err.message, tipo: cuenta.tipo, cuentaId: cuenta.id }, 'Tokens de Meta: el correo de aviso falló');
   }
+  return true;
 }
 
 // ── Una cuenta ──────────────────────────────────────────────────────────────
 
-async function revisarCuenta(cuenta, ahora, adminEmails) {
+async function revisarCuenta(cuenta, ahora, destinatarios) {
   const previo = await leerEstado(cuenta.tipo, cuenta.id);
   let r;
   try {
@@ -295,8 +336,7 @@ async function revisarCuenta(cuenta, ahora, adminEmails) {
   const avisos = [];
 
   if (!r.ok) {
-    if (!avisoFalloAt) {
-      await avisar('fallo', cuenta, { error: r.error, expiresAt }, ahora, adminEmails);
+    if (!avisoFalloAt && await avisar('fallo', cuenta, { error: r.error, expiresAt }, ahora, destinatarios)) {
       avisoFalloAt = ahora;
       avisos.push('fallo');
       // El de fallo ya dice cuándo caduca: no se manda otro de caducidad por la misma fecha.
@@ -306,8 +346,8 @@ async function revisarCuenta(cuenta, ahora, adminEmails) {
     avisoFalloAt = null;
   }
 
-  if (venceAntesDe(expiresAt, ahora, diasAviso()) && !mismaFecha(avisoCaducaPara, expiresAt)) {
-    await avisar('caduca', cuenta, { expiresAt }, ahora, adminEmails);
+  if (venceAntesDe(expiresAt, ahora, diasAviso()) && !mismaFecha(avisoCaducaPara, expiresAt)
+      && await avisar('caduca', cuenta, { expiresAt }, ahora, destinatarios)) {
     avisoCaducaPara = expiresAt;
     avisos.push('caduca');
   }
@@ -347,9 +387,15 @@ export async function vuelta({ ahora = new Date(), proyectoId = null } = {}) {
   if (!proyectoId) await limpiarHuerfanas(hayInstagram);
   if (!cuentas.length) return resumen;
 
-  const adminEmails = await correosDeAdmins();
+  // Los destinatarios, una vez por campus en cada vuelta.
+  const porCampus = new Map();
+  const destinatariosDe = async (projectId) => {
+    const k = projectId ?? 'sin_campus';
+    if (!porCampus.has(k)) porCampus.set(k, await quienPuedeReconectar(projectId));
+    return porCampus.get(k);
+  };
   for (const cuenta of cuentas) {
-    const r = await revisarCuenta(cuenta, ahora, adminEmails);
+    const r = await revisarCuenta(cuenta, ahora, await destinatariosDe(cuenta.project_id));
     resumen.revisadas += 1;
     if (r.renovado) resumen.renovadas += 1;
     if (!r.ok) resumen.fallidas += 1;

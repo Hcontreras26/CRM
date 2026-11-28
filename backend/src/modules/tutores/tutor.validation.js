@@ -6,6 +6,15 @@ import { ibanValido, normalizarIban } from '../../shared/utils/iban.js';
 // una colaboracion que empieza el 1 acaba empezando el 31 del mes anterior.
 const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha en formato AAAA-MM-DD');
 
+// Supervisión de tutores (26/11/2026): el `:id` de la ruta y `?refrescar=1`.
+export const supervisionTutorSchema = z.object({
+  id: z.coerce.number({ invalid_type_error: 'Tutor no válido' }).int('Tutor no válido').positive('Tutor no válido'),
+});
+export const supervisionMiCampusSchema = supervisionTutorSchema.extend({
+  refrescar: z.enum(['0', '1'], { errorMap: () => ({ message: 'refrescar es 0 o 1' }) })
+    .optional().transform((v) => v === '1'),
+});
+
 export const altaTutorSchema = z.object({
   nombre: z.string().min(2, 'El nombre es obligatorio'),
   email: z.string().email('Correo no valido'),
@@ -173,4 +182,36 @@ export const campusDelTutorSchema = z.object({
 export const disponibleSchema = z.object({
   disponible: z.boolean({ required_error: 'Falta si está disponible o no' }),
   motivo: z.string().trim().max(200, 'El motivo, en 200 caracteres como mucho').nullable().optional(),
+});
+
+/*
+  «Avisar al tutor» desde Comisiones (CRM#165 / CRM-ISEIE#188). El tutor y el
+  mes, y el recorte de la pantalla —el campus o la empresa elegidos— para que
+  el correo diga la misma cifra que la fila. De fuera solo entra el asunto y
+  una nota: a quién va y cuánto, lo decide el servidor.
+*/
+const idOpcional = z.coerce.number().int().positive().optional().nullable();
+const periodoMes = z.string({ required_error: 'Falta el mes (AAAA-MM).' })
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'El mes, en formato AAAA-MM');
+// Sí o no, como booleano o en texto (lo mismo que `booleanoDeQuery` en tareas).
+// Sin esto, `repetir: "true"` contestaba en inglés «Expected boolean, received
+// string» (QA del 26/11).
+const siONo = z.union([
+  z.boolean(),
+  z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1'),
+], { errorMap: () => ({ message: '«repetir» tiene que ser sí o no (true o false)' }) });
+
+export const avisoTutorQuerySchema = z.object({
+  tutorId: z.coerce.number({ invalid_type_error: 'Falta el tutor' }).int().positive('Falta el tutor'),
+  periodo: periodoMes,
+  projectId: idOpcional,
+  issuerId: idOpcional,
+});
+
+export const avisarTutorSchema = avisoTutorQuerySchema.extend({
+  asunto: z.string().trim().max(200, 'El asunto, en 200 caracteres como mucho').optional().nullable(),
+  nota: z.string().trim().max(2000, 'La nota, en 2000 caracteres como mucho').optional().nullable(),
+  // Ya se le mandó el de ese mes: hace falta decirlo a propósito para repetirlo.
+  // También en texto («true», «1»…), como llega de un formulario o de un script.
+  repetir: siONo.optional().default(false),
 });

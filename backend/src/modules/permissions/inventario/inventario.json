@@ -9261,6 +9261,28 @@
   ]
  },
  {
+  "id": "POST /api/invoices/:id/eliminar-por-error",
+  "tipo": "ruta",
+  "modulo": "invoices",
+  "metodo": "POST",
+  "ruta": "/api/invoices/:id/eliminar-por-error",
+  "relativa": "POST /:id/eliminar-por-error",
+  "controlador": "eliminarPorError",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "facturas.eliminar_por_error"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "POST /api/invoices/:id/rectificar",
   "tipo": "ruta",
   "modulo": "invoices",
@@ -19269,6 +19291,94 @@
   ]
  },
  {
+  "id": "GET /api/tutores/supervision",
+  "tipo": "ruta",
+  "modulo": "tutores",
+  "metodo": "GET",
+  "ruta": "/api/tutores/supervision",
+  "relativa": "GET /supervision",
+  "controlador": "supervisionLista",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.supervisar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/tutores/supervision/:id/mi-campus",
+  "tipo": "ruta",
+  "modulo": "tutores",
+  "metodo": "GET",
+  "ruta": "/api/tutores/supervision/:id/mi-campus",
+  "relativa": "GET /supervision/:id/mi-campus",
+  "controlador": "supervisionMiCampus",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.supervisar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/tutores/supervision/:id/tareas",
+  "tipo": "ruta",
+  "modulo": "tutores",
+  "metodo": "GET",
+  "ruta": "/api/tutores/supervision/:id/tareas",
+  "relativa": "GET /supervision/:id/tareas",
+  "controlador": "supervisionTareas",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.supervisar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/tutores/supervision/:id/redaccion-moodle",
+  "tipo": "ruta",
+  "modulo": "tutores",
+  "metodo": "GET",
+  "ruta": "/api/tutores/supervision/:id/redaccion-moodle",
+  "relativa": "GET /supervision/:id/redaccion-moodle",
+  "controlador": "supervisionRedaccion",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "tutores.supervisar"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
   "id": "GET /api/tutores/buscar",
   "tipo": "ruta",
   "modulo": "tutores",
@@ -20084,6 +20194,50 @@
     "tipo": "puede",
     "claves": [
      "users.aviso_correo"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "GET /api/users/:id/cambios-de-correo",
+  "tipo": "ruta",
+  "modulo": "users",
+  "metodo": "GET",
+  "ruta": "/api/users/:id/cambios-de-correo",
+  "relativa": "GET /:id/cambios-de-correo",
+  "controlador": "cambiosDeCorreo",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "users.cambios_correo"
+    ]
+   }
+  ],
+  "puertas": []
+ },
+ {
+  "id": "POST /api/users/:id/cambios-de-correo/anular",
+  "tipo": "ruta",
+  "modulo": "users",
+  "metodo": "POST",
+  "ruta": "/api/users/:id/cambios-de-correo/anular",
+  "relativa": "POST /:id/cambios-de-correo/anular",
+  "controlador": "anularCambioDeCorreo",
+  "publica": false,
+  "guardias": [
+   {
+    "tipo": "token"
+   },
+   {
+    "tipo": "puede",
+    "claves": [
+     "users.cambios_correo"
     ]
    }
   ],

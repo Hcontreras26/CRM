@@ -21,6 +21,7 @@ import EmitirBorradorDialog from '../components/EmitirBorradorDialog';
 import AsociarVentaDialog from '../components/AsociarVentaDialog';
 import CobrarProformaDialog from '../components/CobrarProformaDialog';
 import AnularFacturaDialog from '../components/AnularFacturaDialog';
+import EliminarPorErrorDialog from '../components/EliminarPorErrorDialog';
 import TutorialButton from '../components/TutorialButton';
 import VerRecorrido from '@/shared/components/ui/VerRecorrido';
 import VerComoFunciona from '@/shared/components/ui/VerComoFunciona';
@@ -87,6 +88,8 @@ export default function InvoicesPage() {
   // todas las facturas del campus y se corrigen, lleve o no un equipo.
   const accesoFacturacion = can('facturas.emitir');
   const puedeCorregir = canManage && (!llevaEquipo || accesoFacturacion);
+  // CRM#1034: borrar una EMITIDA por error es un permiso aparte.
+  const puedeEliminarPorError = can('facturas.eliminar_por_error');
   const puedeFacturar = can('facturas.cola');
   const pid = activeProject?.id;
   // «Todos los proyectos» (#218): sin campus, las de todos los suyos. El servidor
@@ -180,6 +183,8 @@ export default function InvoicesPage() {
   const [cobrarInv, setCobrarInv] = useState<Invoice | null>(null);
   // Anular una emitida con su motivo (CRM#793).
   const [anularInv, setAnularInv] = useState<Invoice | null>(null);
+  // Eliminar una emitida por error, con su motivo (CRM#1034).
+  const [eliminarErrorInv, setEliminarErrorInv] = useState<Invoice | null>(null);
   // Cobro por Stripe: al descargar se elige entre la factura del alumno (bruto)
   // y la copia de gestión (neto liquidado).
   const [descargarInv, setDescargarInv] = useState<Invoice | null>(null);
@@ -942,10 +947,13 @@ export default function InvoicesPage() {
                           <X size={11} weight="bold" /> Anular
                         </button>
                       )}
-                      {/* Eliminar: borradores y proformas, y también una emitida POR ERROR (Diego,
-                          19/11/2026); lo normal con una emitida es anularla (sale su abono). */}
-                      {puedeCorregir && inv.estado !== 'cancelada' && !(esFacturaEmitida(inv) && inv.tipo === 'rectificativa') && (
-                        <button onClick={() => setDeletingInv(inv)} data-recorrido="factura-eliminar"
+                      {/* Eliminar: borradores y proformas con «Anular y abonar»; una emitida, solo
+                          POR ERROR y con su permiso (CRM#1034): sin enviar, sin cobro y la última de
+                          su serie. Lo normal con una emitida es anularla (sale su abono). */}
+                      {inv.estado !== 'cancelada' && (esFacturaEmitida(inv)
+                        ? puedeEliminarPorError && inv.tipo !== 'rectificativa' && !inv.anulada_at
+                        : puedeCorregir) && (
+                        <button onClick={() => (esFacturaEmitida(inv) ? setEliminarErrorInv(inv) : setDeletingInv(inv))} data-recorrido="factura-eliminar"
                           title={esFacturaEmitida(inv) ? 'Eliminar: solo si se emitió por error (si no, «Anular»)' : inv.tipo === 'proforma' ? 'Eliminar la proforma' : 'Eliminar el borrador'}
                           className="h-7 px-2 rounded border border-destructive/40 text-[11px] text-destructive hover:bg-destructive-soft inline-flex items-center gap-1">
                           <Trash size={11} weight="bold" />
@@ -1045,6 +1053,11 @@ export default function InvoicesPage() {
         <AnularFacturaDialog invoice={anularInv} onClose={() => setAnularInv(null)}
           onAnulada={() => { setAnularInv(null); load(); }} />
       )}
+      {eliminarErrorInv && (
+        <EliminarPorErrorDialog invoice={eliminarErrorInv} onClose={() => setEliminarErrorInv(null)}
+          onEliminada={() => { setEliminarErrorInv(null); load(); }}
+          onAnular={puedeCorregir ? () => { setAnularInv(eliminarErrorInv); setEliminarErrorInv(null); } : undefined} />
+      )}
 
       {/* Confirmación de borrado de factura (libera el número). */}
       {deletingInv && (
@@ -1054,9 +1067,7 @@ export default function InvoicesPage() {
             <h3 className="font-semibold text-base mb-1 flex items-center gap-2 text-destructive"><Trash size={18} weight="bold" /> Eliminar factura</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Vas a eliminar <b>{deletingInv.tipo === 'proforma' ? 'la proforma' : 'la factura'} {deletingInv.codigo}</b> ({fmt(Number(deletingInv.total))}).
-              {esFacturaEmitida(deletingInv)
-                ? <>Es una factura <b>emitida</b>: bórrala solo si se emitió por error. Si la factura era buena, no la borres: anúlala (sale su abono). Si no es la última de su serie, su número queda libre y sale el aviso de huecos. </>
-                : <>Es {deletingInv.tipo === 'proforma' ? 'una proforma' : 'un borrador'}: no es una factura emitida, así que se puede borrar. </>}
+              Es {deletingInv.tipo === 'proforma' ? 'una proforma' : 'un borrador'}: no es una factura emitida, así que se puede borrar.
               La venta se mantiene y podrás volver a facturarla. Esta acción no se puede deshacer.
             </p>
             <div className="flex justify-end gap-2">

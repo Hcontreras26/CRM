@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Coins, ArrowsClockwise, Warning, Info, CheckCircle, ArrowCounterClockwise, CaretRight, Envelope, Bank, Copy, PaperPlaneTilt, X, PencilSimple, ArrowUUpLeft } from '@phosphor-icons/react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Coins, ArrowsClockwise, Warning, Info, CheckCircle, ArrowCounterClockwise, CaretRight, Envelope, Bank, Copy, PaperPlaneTilt } from '@phosphor-icons/react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { toast } from '@/shared/hooks/useToast';
@@ -11,11 +11,12 @@ import EmptyState from '@/shared/components/ui/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import Entregables from '../components/Entregables';
 import LoQueFactura from '../components/LoQueFactura';
+import AvisarTutorDialog, { avisadoEnLaFila, cuandoFue } from '../components/AvisarTutorDialog';
 import { useProyectosDelAmbito } from '@/shared/hooks/useAmbito';
 import usePermission from '@/shared/hooks/usePermission';
 import {
   tutoresApi,
-  type ComisionReal, type ResumenComision, type AjustesTutores, type PagoSinFormacion, type AvisoAlTutor,
+  type ComisionReal, type ResumenComision, type AjustesTutores, type PagoSinFormacion,
 } from '../api/tutores.api';
 
 // Lo que hay que pagarle a cada tutor este mes, y el botón de darlo por pagado.
@@ -81,16 +82,8 @@ export default function ComisionesTutoresPage() {
   const issuerId = !projectId ? activeIssuerId : null;
 
   const [periodo, setPeriodo] = useState(mesActual());
-  // «Avisar tutor»: primero se mira lo que sale, y solo entonces se manda.
-  const [aviso, setAviso] = useState<AvisoAlTutor | null>(null);
-  const [preparando, setPreparando] = useState<number | null>(null);
-  const [enviando, setEnviando] = useState(false);
-  // Retocar el correo antes de mandarlo. La plantilla no puede preverlo todo —un
-  // mes con devolución, algo que explicarle— y salirse al webmail para eso deja
-  // el envío sin anotar en ninguna parte.
-  const [editando, setEditando] = useState(false);
-  const [asuntoEd, setAsuntoEd] = useState('');
-  const cuerpoRef = useRef<HTMLDivElement | null>(null);
+  // «Avisar al tutor»: la fila de la que se abre el diálogo (CRM#165 / CRM-ISEIE#188).
+  const [avisando, setAvisando] = useState<ResumenComision | null>(null);
   const [resumen, setResumen] = useState<ResumenComision[]>([]);
   const [lineas, setLineas] = useState<ComisionReal[]>([]);
   const [sinFormacion, setSinFormacion] = useState<PagoSinFormacion[]>([]);
@@ -150,51 +143,6 @@ export default function ComisionesTutoresPage() {
       toast({ title: 'No se ha podido calcular', description: e instanceof Error ? e.message : '', variant: 'destructive' });
     } finally { setTrabajando(false); }
   }
-
-  /**
-   * Prepara el aviso y lo enseña. No manda nada.
-   *
-   * Un correo que sale mal no se puede recoger, y este lleva una cifra por la
-   * que el tutor va a facturar: se mira antes.
-   */
-  async function verElAviso(r: ResumenComision) {
-    setPreparando(r.tutor_id);
-    try {
-      const res = await tutoresApi.previoDelAviso(r.tutor_id, r.periodo);
-      if (!res.success || !res.data) throw new Error(res.error || 'no se pudo preparar');
-      // Cada aviso se abre SIN retocar, aunque el anterior se retocara: lo que
-      // se escribió para un tutor no puede salir hacia otro.
-      setEditando(false);
-      setAsuntoEd(res.data.asunto);
-      setAviso(res.data);
-    } catch (err) {
-      toast({ title: 'No se puede avisar todavía', description: err instanceof Error ? err.message : '', variant: 'destructive' });
-    } finally { setPreparando(null); }
-  }
-
-  async function mandarElAviso() {
-    if (!aviso) return;
-    setEnviando(true);
-    try {
-      // Si se ha retocado, va lo retocado; si no, no se manda nada y el
-      // servidor lo compone como siempre. El cuerpo se lee del propio recuadro
-      // —es el que se ha estado editando— y no de un estado paralelo que
-      // tendria que ir sincronizando a cada tecla.
-      const retoque = editando && cuerpoRef.current
-        ? { asunto: asuntoEd.trim(), html: cuerpoRef.current.innerHTML }
-        : undefined;
-      const res = await tutoresApi.avisarTutor(aviso.tutorId, aviso.periodo, retoque);
-      if (!res.success) throw new Error(res.error || 'no se pudo enviar');
-      toast({ title: `Avisado ${aviso.nombre}`, description: `Correo enviado a ${aviso.email}.` });
-      setAviso(null);
-      cargar();
-    } catch (err) {
-      // El motivo se enseña entero: «no se pudo enviar» a secas manda a mirar
-      // el sitio equivocado, y el de Brevo suele ser el remitente sin verificar.
-      toast({ title: 'No se ha enviado', description: err instanceof Error ? err.message : '', variant: 'destructive' });
-    } finally { setEnviando(false); }
-  }
-
 
   async function pagar(r: ResumenComision) {
     setTrabajando(true);
@@ -406,24 +354,26 @@ export default function ComisionesTutoresPage() {
                       </Button>
                     )}
 
-                    {/* «Avisar tutor». Va junto a pagar y no dentro del
-                        desplegable: es la otra cosa que se hace con una fila.
-                        Lo que pide el servidor: `tutores.avisar` y gestionar
-                        colaboraciones (`exigirGestion`), no liquidar. */}
+                    {/* «Avisar al tutor» (CRM#165 / CRM-ISEIE#188). Va junto a pagar
+                        y no dentro del desplegable: es la otra cosa que se hace
+                        con una fila. Lo que pide el servidor: `tutores.avisar` y
+                        gestionar colaboraciones (`exigirGestion`), no liquidar. */}
                     {puede && can('tutores.avisar') && Number(r.pendiente) > 0 && (
-                      <Button size="sm" variant="outline" disabled={preparando === r.tutor_id}
+                      <Button size="sm" variant="outline"
                         title={r.tutor_email ? `Escribir a ${r.tutor_email}` : 'Este tutor no tiene correo en su ficha'}
-                        onClick={() => verElAviso(r)}>
+                        onClick={() => setAvisando(r)}>
                         <PaperPlaneTilt size={14} weight="bold" className="mr-1.5" />
-                        {preparando === r.tutor_id ? 'Preparando…' : 'Avisar tutor'}
+                        Avisar al tutor
                       </Button>
                     )}
 
-                    {/* Que ya se le aviso se dice al lado, no en el estado del
-                        dinero: sigue debiendosele hasta que se le pague. */}
+                    {/* Que ya se le avisó, quién y cuántas veces, al lado: no en el
+                        estado del dinero, que sigue debiéndosele hasta que se pague. */}
                     {r.avisado_at && (
-                      <span className="text-xs text-muted-foreground shrink-0" title={r.avisado_at}>
-                        avisado el {soloFecha(r.avisado_at)}
+                      // «05/03/2026» en hora de Madrid, igual que el diálogo (con
+                      // formatDateNumeric salía «5/3/2026»).
+                      <span className="text-xs text-muted-foreground shrink-0" title={`Avisado el ${cuandoFue(r.avisado_at)}`}>
+                        {avisadoEnLaFila(r)}
                       </span>
                     )}
                     {Number(r.pendiente) === 0 && r.ultima_liquidacion && (
@@ -538,126 +488,16 @@ export default function ComisionesTutoresPage() {
         )}
       </div>
 
-      {/* La vista previa. Existe porque un correo no se recoge, y este lleva la
-          cifra por la que el tutor va a facturar.
-
-          `!m-0` en la capa: es hija del `space-y-3` de la pagina, que le mete
-          `margin-top` a todo hijo que no sea el primero. Con `fixed inset-0`
-          ese margen la baja 12 px y deja arriba una franja sin oscurecer.
-          `ConfirmDialog` y `PromptDialog` ya lo llevan por lo mismo. */}
-      {aviso && (
-        <div className="fixed inset-0 !m-0 z-50 flex items-center justify-center p-4 bg-black/50"
-          onClick={() => !enviando && setAviso(null)}>
-          {/* Columna con el pie FIJO: antes la tarjeta entera hacía scroll y
-              los botones se iban con él — había que bajar para poder enviar.
-              Ahora solo se desplaza el correo, y «Enviar» está siempre. */}
-          <div onClick={(e) => e.stopPropagation()}
-            className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col">
-            <div className="flex items-start justify-between gap-3 p-4 border-b border-border shrink-0">
-              <div className="min-w-0">
-                <h2 className="font-bold truncate">Avisar a {aviso.nombre}</h2>
-                <p className="text-xs text-muted-foreground truncate">
-                  {aviso.email} · {aviso.mes}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Retocar el correo antes de mandarlo. A quién va NO se toca:
-                    sale del tutor, en el servidor. */}
-                {!editando ? (
-                  <Button variant="outline" size="sm" onClick={() => setEditando(true)} disabled={enviando}>
-                    <PencilSimple size={13} weight="bold" className="mr-1.5" /> Editar
-                  </Button>
-                ) : (
-                  <Button variant="outline" size="sm" disabled={enviando}
-                    onClick={() => {
-                      // Se vuelve al texto de la plantilla, y se vuelve de
-                      // verdad: el recuadro lo lleva editando el navegador, así
-                      // que hay que devolvérselo a mano.
-                      if (cuerpoRef.current) cuerpoRef.current.innerHTML = aviso.html;
-                      setAsuntoEd(aviso.asunto);
-                      setEditando(false);
-                    }}>
-                    <ArrowUUpLeft size={13} weight="bold" className="mr-1.5" /> Descartar cambios
-                  </Button>
-                )}
-                <button type="button" onClick={() => setAviso(null)} disabled={enviando}
-                  className="text-muted-foreground hover:text-foreground">
-                  <X size={16} weight="bold" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
-              {editando ? (
-                <label className="flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground shrink-0">Asunto</span>
-                  <input
-                    value={asuntoEd}
-                    onChange={(e) => setAsuntoEd(e.target.value)}
-                    className="flex-1 min-w-0 h-8 px-2.5 rounded-md border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </label>
-              ) : (
-                <div className="text-xs">
-                  <span className="text-muted-foreground">Asunto: </span>
-                  <span className="font-medium">{aviso.asunto}</span>
-                </div>
-              )}
-
-              {/* El correo tal cual va a salir, y sobre FONDO BLANCO aunque el CRM
-                  esté en oscuro: así se ve en la bandeja de quien lo recibe.
-                  Con el fondo del panel no era solo cuestión de gusto — los
-                  grises del correo, pensados para papel blanco, quedaban
-                  ilegibles sobre oscuro y media tabla no se leía. */}
-              {/* Editando, se escribe SOBRE el propio correo: se ve lo que va a
-                  salir mientras se cambia, y la tabla de la cuenta sigue en su
-                  sitio. Lo que se mande es el contenido de este recuadro. */}
-              <div
-                ref={cuerpoRef}
-                contentEditable={editando}
-                suppressContentEditableWarning
-                spellCheck={editando}
-                className={`border rounded-md p-4 text-sm overflow-x-auto ${
-                  editando
-                    ? 'border-primary ring-2 ring-primary/30 outline-none'
-                    : 'border-border'
-                }`}
-                style={{ background: '#ffffff', color: '#18181b', colorScheme: 'light' }}
-                dangerouslySetInnerHTML={{ __html: aviso.html }}
-              />
-
-              {editando && (
-                <p className="text-xs text-muted-foreground flex gap-1.5">
-                  <PencilSimple size={13} weight="bold" className="shrink-0 mt-0.5" />
-                  <span>
-                    Escribe directamente sobre el correo. Se manda tal y como queda aquí —
-                    <strong> a {aviso.email}</strong>, que eso no se cambia.
-                  </span>
-                </p>
-              )}
-
-              {!aviso.tieneIban && (
-                <p className="text-xs flex gap-1.5 text-warning-soft-foreground">
-                  <Warning size={14} weight="fill" className="shrink-0 mt-0.5" />
-                  <span>No tenemos su IBAN. El correo se lo pide — cuando conteste, hay que meterlo en su ficha.</span>
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-2 p-4 border-t border-border shrink-0">
-              {editando && (
-                <span className="text-xs text-muted-foreground mr-auto">Con tus cambios</span>
-              )}
-              <Button variant="outline" size="sm" onClick={() => setAviso(null)} disabled={enviando}>
-                Cancelar
-              </Button>
-              <Button size="sm" onClick={mandarElAviso} disabled={enviando || (editando && !asuntoEd.trim())}>
-                <PaperPlaneTilt size={14} weight="bold" className="mr-1.5" />
-                {enviando ? 'Enviando…' : `Enviar a ${aviso.email}`}
-              </Button>
-            </div>
-          </div>
-        </div>
+      {/* La vista previa y el envío (CRM#165 / CRM-ISEIE#188): primero se ve el
+          correo tal cual sale, y si ya se le mandó el de ese mes, se dice. */}
+      {avisando && (
+        <AvisarTutorDialog
+          tutorId={avisando.tutor_id}
+          periodo={avisando.periodo}
+          ambito={{ projectId, issuerId }}
+          onClose={() => setAvisando(null)}
+          onEnviado={() => { setAvisando(null); cargar(); }}
+        />
       )}
     </div>
   );

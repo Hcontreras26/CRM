@@ -396,7 +396,7 @@ export const RECORRIDOS_FINANZAS: Record<IdRecorridoFinanzas, RecorridoFinanzas>
       {
         donde: anclaje('comtutores-fila'),
         titulo: 'Pagar y avisar',
-        texto: '«Marcar pagado» apunta como pagado lo de ese mes. «Avisar tutor» te enseña antes el correo con su cuenta, y puedes retocarlo antes de mandarlo.',
+        texto: '«Marcar pagado» apunta como pagado lo de ese mes. «Avisar al tutor» te enseña antes el correo con lo que se le debe y lo que tiene que facturar; puedes cambiar el asunto y añadirle una nota. Si ya se le mandó el de ese mes, te dice quién y cuándo.',
         permiso: ['tutores.liquidar', 'tutores.avisar'],
       },
       { titulo: 'Y listo', texto: FINAL },

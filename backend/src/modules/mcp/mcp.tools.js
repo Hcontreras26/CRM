@@ -954,15 +954,19 @@ export const HERRAMIENTAS = [
   {
     nombre: 'informe_seo',
     titulo: 'Informe SEO (Search Console)',
-    descripcion: 'El tráfico orgánico de Google de tus campus, como la pantalla «Tráfico orgánico»: por campus y periodo, clics, impresiones, CTR (en %) y posición media, '
-      + 'comparados con el periodo anterior de la misma longitud («cambio»; la posición BAJA cuando mejora), y las búsquedas y las páginas que más SUBEN y más BAJAN en clics. '
+    descripcion: 'El tráfico orgánico de Google de tus campus, como la pantalla «Tráfico orgánico»: por campus y periodo, clics, impresiones, CTR (en %) y posición media; '
+      + 'su evolución por semana (por mes si el periodo pasa de 90 días; solo los tramos con datos, el primero y el último pueden estar a medias); '
+      + 'las búsquedas y las páginas con MÁS CLICS («top»); y, salvo con comparar_con_periodo_anterior: false, '
+      + 'el periodo anterior de la misma longitud, lo que cambia («cambio»; la posición BAJA cuando mejora) y las búsquedas y páginas que más SUBEN y más BAJAN en clics. '
       + 'Sin fechas, las últimas cuatro semanas hasta el último día que tiene guardado cada campus (Google va dos o tres días por detrás: no cuentes los días que faltan como caída). '
       + 'Son los datos que trae la sincronización diaria, no los de este minuto. Si un campus no tiene Search Console conectado o aún no tiene datos, sale con un «aviso», '
       + 'no con cero clics. Necesita el permiso «Ver Tráfico orgánico».',
     entrada: {
       ...AMBITO,
       ...PERIODO,
-      limite: z.number().int().min(1).max(50).default(10).describe('Cuántas búsquedas y páginas en cada lista (las que suben y las que bajan)'),
+      limite: z.number().int().min(1).max(50).default(10).describe('Cuántas búsquedas y páginas en cada lista (el top, las que suben y las que bajan)'),
+      comparar_con_periodo_anterior: z.boolean().default(true)
+        .describe('true (de serie): compara con el periodo anterior de la misma longitud. false: ni se calcula ni se devuelve (sin «anterior», «cambio», «suben» ni «bajan»)'),
     },
     ejecutar: async (ambito, a) => {
       const { projectIds } = acotar(ambito, a);
@@ -985,7 +989,11 @@ export const HERRAMIENTAS = [
           campus.push({ ...entrada, aviso: `el último día guardado es ${estado.ultimo_dia}, anterior a «desde» (${desde})`, ultimo_dia: estado.ultimo_dia });
           continue;
         }
-        const informe = await conTope(searchConsole.informeSeo(projectId, desde, hasta, { limite: a.limite }), TOPE_INFORME_MS, 'informe_seo');
+        const informe = await conTope(searchConsole.informeSeo(projectId, desde, hasta, {
+          limite: a.limite,
+          comparar: a.comparar_con_periodo_anterior !== false,
+          tope: estado.ultimo_dia,
+        }), TOPE_INFORME_MS, 'informe_seo');
         campus.push({
           ...entrada,
           ultimo_dia: estado.ultimo_dia,

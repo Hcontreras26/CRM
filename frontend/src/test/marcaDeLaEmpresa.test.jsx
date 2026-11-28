@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
 
 /*
@@ -13,7 +13,7 @@ import { render } from '@testing-library/react';
   - La versión ya no se escribe a mano: sale de Novedades (versionQueSeVe.test.jsx).
 */
 
-const { eleccionAlEntrar, nombreCortoDeEmpresa, ALL_PROJECTS_ID } = await import('@/contexts/AuthContext');
+const { eleccionAlEntrar, empresaDeLaUrl, nombreCortoDeEmpresa, ALL_PROJECTS_ID } = await import('@/contexts/AuthContext');
 const { EmpresaAvatar, resolverLogoEmpresa } = await import('@/shared/components/ui/ProjectAvatar');
 
 const CEDIA = 8; const ICTESS = 9;
@@ -51,6 +51,35 @@ describe('al entrar, la empresa y el campus no van a la vez', () => {
   it('con un solo campus no hay empresa que elegir', () => {
     localStorage.setItem('crm_active_issuer_id', String(ICTESS));
     expect(eleccionAlEntrar({ proyectos: [CAMPUS[2]] })).toEqual({ projectId: 4, issuerId: null });
+  });
+});
+
+// #1194: el enlace de Ventas o Análisis con una empresa la abre con esa empresa.
+describe('la empresa que pide la dirección (#1194)', () => {
+  const conDireccion = (busqueda) => window.history.replaceState(null, '', `/finanzas/ventas${busqueda}`);
+  afterEach(() => conDireccion(''));
+
+  it('una empresa suya se entra en ella, aunque tenga otra guardada', () => {
+    localStorage.setItem('crm_active_issuer_id', String(ICTESS));
+    conDireccion(`?issuerId=${CEDIA}`);
+    const empresa = empresaDeLaUrl(CAMPUS);
+    expect(empresa).toBe(CEDIA);
+    expect(eleccionAlEntrar({ proyectos: CAMPUS, empresaDeLaUrl: empresa, guardado: '4' }))
+      .toEqual({ projectId: ALL_PROJECTS_ID, issuerId: CEDIA });
+  });
+
+  it('una empresa que no es suya, o un valor raro, no se tiene en cuenta', () => {
+    conDireccion('?issuerId=99');
+    expect(empresaDeLaUrl(CAMPUS)).toBeNull();
+    conDireccion('?issuerId=abc');
+    expect(empresaDeLaUrl(CAMPUS)).toBeNull();
+    expect(eleccionAlEntrar({ proyectos: CAMPUS, empresaDeLaUrl: null, guardado: '4' }))
+      .toEqual({ projectId: 4, issuerId: null });
+  });
+
+  it('si la dirección pide un campus, manda el campus', () => {
+    expect(eleccionAlEntrar({ proyectos: CAMPUS, deLaUrl: 6, empresaDeLaUrl: CEDIA }))
+      .toEqual({ projectId: 6, issuerId: null });
   });
 });
 

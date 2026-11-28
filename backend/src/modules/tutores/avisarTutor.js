@@ -1,69 +1,94 @@
-import { query } from '../../shared/config/db.js';
+import { query, getClient } from '../../shared/config/db.js';
 import { sendEmail } from '../../shared/services/brevo.service.js';
-import { renderTemplate } from '../email-templates/email-templates.service.js';
+import * as P from '../../shared/services/email-plantilla.service.js';
+import { marcaDeLosCampus, remitenteDe, nombreCortoDeEmpresa } from '../../shared/services/marca.service.js';
 import { comisiones, resumenComisiones } from './tutor.model.js';
 import { AppError } from '../../shared/utils/AppError.js';
 import { NO_ESCRIBIR_A_TUTORES } from '../../shared/config/frenoTutores.js';
 
 /**
- * «Avisar tutor»: el correo mensual de comisiones. Diego, 14/09:
+ * «Avisar al tutor»: el correo mensual de facturación, desde Comisiones.
+ * CRM#165 y su gemela CRM-ISEIE#188. El mismo fichero en los dos CRM.
  *
- *     «En el apartado de comisiones necesito un apartado que sea "Avisar
- *      tutor", que envie un correo desde facturacion@cediaidsl.com. El punto es
- *      que yo de un clic pueda avisar y cambie el status a "avisado". La
- *      plantilla por definir — es decir que sea editable.»
+ * Diego, 25/11/2026:
+ *
+ *     «En Comisiones, botón "Avisar al tutor" que le manda el correo de
+ *      facturación (con la plantilla P.correo y la marca del campus, como todos
+ *      los correos), con el detalle de lo que se le debe y lo que tiene que
+ *      facturar. Queda anotado quién y cuándo lo mandó, y avisa si ya se le
+ *      mandó ese mes. Permiso del catálogo.»
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * DE DONDE SALE CADA NUMERO
  *
- * De `comisiones()` y `resumenComisiones()`, que son las MISMAS que pinta el
- * panel. Si el correo dijera una cifra y la pantalla otra, no habria forma de
- * saber cual vale — y la que se queda el tutor es la del correo.
+ * De `comisiones()` y `resumenComisiones()`, las MISMAS que pinta el panel y con
+ * el MISMO recorte (el campus o la empresa elegidos, dentro de los de quien lo
+ * manda). Si el correo dijera una cifra y la pantalla otra no habría forma de
+ * saber cuál vale, y la que se queda el tutor es la del correo (#187).
  *
- * Se manda lo PENDIENTE del mes, no todo lo generado: es por lo que tiene que
- * facturar. Pedirle factura por algo que ya se le pago es como se hacen las
- * facturas que hay que devolver.
+ * Se manda lo que SE LE DEBE del mes —lo que no está pagado ni revertido—, no
+ * todo lo generado: es por lo que tiene que facturar. Antes se leían solo las
+ * líneas en `pendiente`, y un segundo aviso (ya en `notificada`) salía sin
+ * ninguna formación.
  *
- * LA CUENTA VA DENTRO, Y ESO NO ES ADORNO
+ * A QUIÉN FACTURA
  *
- * El documento es tajante: decirle «mandame tu factura +IVA -Retencion» sin
- * darle el numero es justo lo que provoca las facturas mal hechas. Asi que el
- * correo lleva la resta hecha.
+ * Cada campus es de una empresa (`projects.sociedad_emisora_id`), y el tutor
+ * factura a la empresa, no al campus. Si en el mes cobró de campus de dos
+ * empresas, son dos facturas: el correo lleva una cuenta y unos datos fiscales
+ * por empresa. Antes llevaba los de CEDIA escritos a mano para todos.
  *
- * El redondeo es POR LINEA, no al final: con 17,82 el IVA sale 3,7422 y la
- * retencion 2,673; redondeando al final el total se va un centimo y el tutor
- * factura otra cosa.
+ * LA MARCA
  *
- * Y el 15 % es UNA SUPOSICION. Hay profesionales con el 7 % de los primeros
- * años. Por eso el aviso de que cada uno aplica la suya sale siempre, y no como
- * nota al pie escondida.
+ * La regla de todos los correos (`marcaDeLosCampus`): un campus, el suyo; varios
+ * de una empresa, la empresa; si mezclan empresas, la del CRM.
+ *
+ * LA CUENTA VA DENTRO
+ *
+ * Decirle «mándame tu factura + IVA − retención» sin darle el número es lo que
+ * provoca las facturas mal hechas. El redondeo es POR LÍNEA: con 17,82 el IVA es
+ * 3,7422 y la retención 2,673; redondeando al final el total se va un céntimo.
+ * El 15 % es una suposición (hay quien aplica el 7 %): el aviso sale siempre.
  */
 
 /** Los dos porcentajes, en un solo sitio. */
 export const IVA_PCT = 21;
 export const RETENCION_PCT = 15;
 
-/**
- * El remitente. Es una cuenta de Hostinger, y tiene que estar VERIFICADA EN
- * BREVO o los correos no salen — y no salen en silencio, que es lo peor.
- * Configurable para no tener que tocar codigo el dia que cambie.
- */
-const REMITENTE = process.env.AVISO_TUTOR_FROM || 'facturacion@cediaidsl.com';
-const REMITENTE_NOMBRE = process.env.AVISO_TUTOR_FROM_NAME || 'Facturación CEDIA';
-
-const PLANTILLA = 'Avisar tutor · comisiones del mes';
+/** Hasta dónde se deja escribir en la nota y en el asunto (lo valida también Zod). */
+export const MAX_NOTA = 2000;
+export const MAX_ASUNTO = 200;
 
 const eur = (v) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' })
   .format(Number(v) || 0);
 
 const dosDecimales = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
-/** Comision + IVA − retencion, redondeando CADA LINEA. */
+const primerNombre = (n) => String(n || '').trim().split(/\s+/)[0] || null;
+
+const tz = () => process.env.APP_TIMEZONE || 'Europe/Madrid';
+
+/** «12/11/2026 a las 10:20», en hora de Madrid. */
+export function cuandoEnLetra(fecha) {
+  const f = new Date(fecha);
+  if (Number.isNaN(f.getTime())) return '';
+  const dia = f.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: tz() });
+  const hora = f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: tz() });
+  return `${dia} a las ${hora}`;
+}
+
+/** Comisión + IVA − retención, redondeando CADA LÍNEA. */
 export function cuentaAFacturar(comision) {
   const base = dosDecimales(comision);
   const iva = dosDecimales(base * (IVA_PCT / 100));
   const retencion = dosDecimales(base * (RETENCION_PCT / 100));
   return { base, iva, retencion, total: dosDecimales(base + iva - retencion) };
+}
+
+/** Varias cuentas (una por empresa), sumadas línea a línea: el total es lo que suman las facturas. */
+export function sumarCuentas(cuentas = []) {
+  const s = (k) => dosDecimales(cuentas.reduce((a, c) => a + Number(c[k] || 0), 0));
+  return { base: s('base'), iva: s('iva'), retencion: s('retencion'), total: s('total') };
 }
 
 /** «2026-08» → «agosto de 2026». */
@@ -75,24 +100,133 @@ export function mesEnLetra(periodo) {
   return nombre ? `${nombre} de ${a}` : String(periodo || '');
 }
 
+/** Lo que se le debe: ni pagado ni revertido (lo mismo que suma «Por pagar»). */
+export const seLeDebe = (l) => l.estado !== 'pagada' && l.estado !== 'revertida';
+
+/** Los datos fiscales están para imprimirse: sin NIF, o con el marcador de la 102, no. */
+export function datosFiscalesCompletos(e) {
+  const nif = String(e?.nif || '').trim();
+  return Boolean(e?.razon_social && nif && !/^PENDIENTE/i.test(nif) && e?.direccion);
+}
+
+/**
+ * Las líneas que se le deben, agrupadas por la empresa a la que factura.
+ *
+ * `empresas`: una fila por campus con su empresa (`empresasDeLosCampus`). Una
+ * línea sin campus, o de un campus sin empresa, va en un grupo sin empresa: el
+ * correo le dice que pregunte antes de facturar, en vez de inventarse a quién.
+ */
+export function agruparPorEmpresa(lineas = [], empresas = []) {
+  const porCampus = new Map(empresas.map((e) => [Number(e.project_id), e]));
+  const grupos = new Map();
+  for (const l of lineas.filter(seLeDebe)) {
+    const e = porCampus.get(Number(l.project_id)) || null;
+    const clave = e?.issuer_id ? `e${e.issuer_id}` : 'sin';
+    if (!grupos.has(clave)) {
+      grupos.set(clave, {
+        empresa: e?.issuer_id ? {
+          id: Number(e.issuer_id),
+          nombre: nombreCortoDeEmpresa(e),
+          razon_social: e.razon_social,
+          nif: e.nif,
+          direccion: e.direccion,
+          cp: e.cp,
+          ciudad: e.ciudad,
+          pais: e.pais,
+          email: e.email,
+        } : null,
+        campus: [], formaciones: [], comisiones: [], base: 0,
+      });
+    }
+    const g = grupos.get(clave);
+    if (l.proyecto && !g.campus.includes(l.proyecto)) g.campus.push(l.proyecto);
+    // Sin repetir: si cobró tres veces del mismo curso, necesita saber de qué
+    // curso viene, no verlo tres veces.
+    if (l.formacion && !g.formaciones.includes(l.formacion)) g.formaciones.push(l.formacion);
+    g.comisiones.push(Number(l.id));
+    g.base += Number(l.importe) || 0;
+  }
+  // Primero lo que más pesa: es la factura que más le importa.
+  return [...grupos.values()]
+    .map(({ base, ...g }) => ({ ...g, cuenta: cuentaAFacturar(base) }))
+    .sort((a, b) => b.cuenta.base - a.cuenta.base);
+}
+
+/** La empresa de cada campus, con sus datos fiscales. */
+export async function empresasDeLosCampus(projectIds = []) {
+  const ids = [...new Set(projectIds.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+  if (!ids.length) return [];
+  const { rows } = await query(
+    `SELECT p.id AS project_id, i.id AS issuer_id, i.razon_social, i.alias, i.nif,
+            i.direccion, i.cp, i.ciudad, i.pais, i.email
+       FROM projects p
+       LEFT JOIN invoice_issuers i ON i.id = p.sociedad_emisora_id
+      WHERE p.id = ANY($1::int[])`,
+    [ids],
+  );
+  return rows;
+}
+
+/**
+ * Los avisos que ya se le mandaron de ese mes, el último primero.
+ *
+ * `campus`: los de lo que se va a mandar. Solo cuentan los avisos que llevaban
+ * alguno de esos campus: un tutor que cobra de dos empresas recibe un aviso de
+ * cada una, y el de CEDIA no decía nada de lo de Fono. Antes bastaba con el
+ * tutor y el mes, y quien abría el de Fono tenía que «mandarlo otra vez» algo
+ * que nunca se había mandado (QA del 26/11).
+ *
+ * Un aviso sin campus anotados cuenta siempre: no se sabe qué llevaba, y es
+ * mejor preguntar que pedirle dos facturas.
+ */
+export async function avisosDelMes({ tutorId, periodo, campus = null }) {
+  const ids = Array.isArray(campus)
+    ? [...new Set(campus.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
+    : [];
+  const { rows } = await query(
+    `SELECT a.id, a.enviado_at, a.email, a.total, u.nombre AS enviado_por
+       FROM tutor_avisos_comisiones a
+       LEFT JOIN users u ON u.id = a.enviado_por
+      WHERE a.tutor_id = $1 AND a.periodo = $2
+        AND ($3::int[] IS NULL
+             OR COALESCE(cardinality(a.project_ids), 0) = 0
+             OR a.project_ids && $3::int[])
+      ORDER BY a.enviado_at DESC`,
+    [tutorId, periodo, ids.length ? ids : null],
+  );
+  return rows.map((r) => ({
+    id: Number(r.id),
+    enviadoAt: r.enviado_at,
+    enviadoPor: r.enviado_por || null,
+    email: r.email || null,
+    total: r.total === null || r.total === undefined ? null : Number(r.total),
+  }));
+}
+
 /** Lo que va a salir en el correo, sin mandarlo. Es lo que pinta la vista previa. */
-export async function datosDelAviso({ tutorId, periodo }) {
-  const resumen = (await resumenComisiones({ periodo, tutorId }))
+export async function datosDelAviso({ tutorId, periodo, projectId = null, projectIds = null }) {
+  const ambito = { periodo, tutorId, projectId, projectIds };
+  const resumen = (await resumenComisiones(ambito))
     .find((r) => Number(r.tutor_id) === Number(tutorId));
   if (!resumen) throw new AppError('Ese tutor no tiene comisiones en ese mes.', 404, 'SIN_COMISIONES');
   if (!resumen.tutor_email) {
     throw new AppError(`${resumen.tutor} no tiene correo en su ficha.`, 400, 'SIN_CORREO');
   }
-
-  const pendiente = Number(resumen.pendiente) || 0;
+  const pendiente = dosDecimales(resumen.pendiente);
   if (pendiente <= 0) {
     throw new AppError('No hay nada pendiente que reclamar en ese mes.', 400, 'NADA_PENDIENTE');
   }
 
-  // Las formaciones, sin repetir: si cobro tres veces del mismo curso, el tutor
-  // no necesita verlo tres veces — necesita saber de que curso viene.
-  const lineas = await comisiones({ periodo, tutorId, estado: 'pendiente' });
-  const formaciones = [...new Set(lineas.map((l) => l.formacion).filter(Boolean))];
+  const lineas = (await comisiones(ambito)).filter(seLeDebe);
+  const campusIds = [...new Set(lineas.map((l) => Number(l.project_id)).filter(Boolean))];
+  const [empresas, marca, avisos] = await Promise.all([
+    empresasDeLosCampus(campusIds),
+    marcaDeLosCampus(campusIds),
+    // Solo los que llevaban alguno de ESTOS campus: el aviso de otra empresa no
+    // es «ya se le mandó» de esto.
+    avisosDelMes({ tutorId, periodo, campus: campusIds }),
+  ]);
+  const grupos = agruparPorEmpresa(lineas, empresas);
 
   return {
     tutorId: Number(tutorId),
@@ -102,237 +236,262 @@ export async function datosDelAviso({ tutorId, periodo }) {
     periodo,
     mes: mesEnLetra(periodo),
     pendiente,
-    formaciones,
-    cuenta: cuentaAFacturar(pendiente),
+    formaciones: [...new Set(lineas.map((l) => l.formacion).filter(Boolean))],
+    grupos,
+    cuenta: sumarCuentas(grupos.map((g) => g.cuenta)),
+    comisiones: lineas.map((l) => Number(l.id)),
+    campus: campusIds,
+    marca: marca ? { id: marca.id ?? null, nombre: marca.nombre || null, slug: marca.slug || null,
+      logo_url: marca.logo_url || null, emoji: marca.emoji || null } : null,
+    avisos,
   };
 }
 
 /**
- * La cuenta, con aspecto de factura.
- *
- * Es lo que evita las facturas mal hechas: el tutor copia estas cuatro lineas
- * en la suya. Por eso se parece a una factura y no a un parrafo — se lee de un
- * vistazo y se distingue del texto que la rodea.
- *
- * TODO EL ESTILO VA EN LINEA, y las separaciones con `border` de celda en vez
- * de con clases: Gmail borra las hojas de estilo y Outlook ignora la mitad de
- * lo que no sea una tabla. Una tabla con estilos en linea es lo unico que se ve
- * igual en todos los lectores de correo.
+ * La cuenta, con aspecto de factura: el tutor copia estas cuatro líneas en la
+ * suya. Tabla con estilos en línea, que es lo único que se ve igual en Gmail y
+ * en Outlook; los colores, los del CRM (`P.T`).
  */
 export function tablaDeLaCuenta({ base, iva, retencion, total }) {
-  const GRIS = '#e4e4e7';
-  const celda = 'padding:9px 14px;font-size:14px';
-  const fila = (rotulo, valor, o = {}) => `<tr${o.fondo ? ` style="background:${o.fondo}"` : ''}>`
-    + `<td style="${celda};border-top:1px solid ${GRIS};color:${o.color || '#3f3f46'}">`
+  const celda = `padding:9px 14px;font-family:${P.T.fuente};font-size:14px;line-height:20px`;
+  const fila = (rotulo, valor, o = {}) => `<tr${o.fondo ? ` style="background-color:${o.fondo}"` : ''}>`
+    + `<td class="txt linea" style="${celda};border-top:1px solid ${P.T.borde};color:${o.color || P.T.texto}">`
     + `${o.fuerte ? `<strong>${rotulo}</strong>` : rotulo}</td>`
-    + `<td style="${celda};border-top:1px solid ${GRIS};text-align:right;white-space:nowrap;`
-    + `font-variant-numeric:tabular-nums;color:${o.color || '#18181b'}">`
+    + `<td class="txt linea" align="right" style="${celda};border-top:1px solid ${P.T.borde};text-align:right;white-space:nowrap;`
+    + `color:${o.color || P.T.texto}">`
     + `${o.fuerte ? `<strong>${valor}</strong>` : valor}</td></tr>`;
 
-  return `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:14px 0;width:100%;max-width:420px;border:1px solid ${GRIS};border-radius:6px">
-    <tr style="background:#fafafa">
-      <th align="left" style="${celda};font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#71717a;font-weight:600">Concepto</th>
-      <th align="right" style="${celda};font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#71717a;font-weight:600">Importe</th>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+    style="border-collapse:collapse;margin:0 0 10px;max-width:440px;border:1px solid ${P.T.borde};border-radius:${P.T.radio.md}">
+    <tr style="background-color:${P.T.suaveFondo}">
+      <th align="left" class="tenue" style="${celda};font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:${P.T.tenue};font-weight:700">Concepto</th>
+      <th align="right" class="tenue" style="${celda};font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:${P.T.tenue};font-weight:700">Importe</th>
     </tr>
     ${fila('Comisión del mes', eur(base))}
     ${fila(`IVA ${IVA_PCT} %`, `+ ${eur(iva)}`)}
-    ${fila(`Retención IRPF ${RETENCION_PCT} %`, `− ${eur(retencion)}`, { color: '#b91c1c' })}
-    ${fila('Total a facturar', eur(total), { fuerte: true, fondo: '#fafafa' })}
-  </table>
-  <p style="font-size:12px;color:#71717a;margin:0 0 14px;max-width:420px">
-    Comisión sujeta a IVA (${IVA_PCT} %). La retención de IRPF es orientativa:
-    cada profesional aplica la suya, y el ${RETENCION_PCT} % es la más común.
-  </p>`;
+    ${fila(`Retención IRPF ${RETENCION_PCT} %`, `− ${eur(retencion)}`)}
+    ${fila('Total a facturar', eur(total), { fuerte: true, fondo: P.T.suaveFondo })}
+  </table>`;
 }
 
-/** La plantilla comun, la que se edita desde el CRM. */
-async function plantilla() {
-  const { rows } = await query(
-    `SELECT subject, body_html FROM email_templates
-      WHERE name = $1 AND active AND project_id IS NULL LIMIT 1`,
-    [PLANTILLA],
-  );
-  if (!rows[0]) {
-    throw new AppError(
-      `No existe la plantilla «${PLANTILLA}». La crea la migracion 160.`,
-      500, 'SIN_PLANTILLA',
+/** La misma cuenta en líneas «concepto: importe», para la versión en texto plano. */
+const cuentaEnTexto = ({ base, iva, retencion, total }) => P.parrafo([
+  `Comisión del mes: ${eur(base)}`,
+  `IVA ${IVA_PCT} %: + ${eur(iva)}`,
+  `Retención IRPF ${RETENCION_PCT} %: − ${eur(retencion)}`,
+  `Total a facturar: ${eur(total)}`,
+].join('<br>'));
+
+const lista = (items) => `<ul class="txt" style="font-family:${P.T.fuente};font-size:14px;line-height:22px;color:${P.T.texto};margin:0 0 14px;padding-left:20px">${
+  items.map((f) => `<li style="margin:0 0 2px">${P.esc(f)}</li>`).join('')}</ul>`;
+
+/** Los datos para la factura, o la advertencia de que faltan. */
+function datosDeLaEmpresa(e) {
+  if (!e) {
+    return P.nota('Una parte de estas comisiones no tiene empresa asignada en el CRM. '
+      + '<strong>Contesta a este correo antes de hacer la factura</strong> y te decimos a nombre de quién va.');
+  }
+  if (!datosFiscalesCompletos(e)) {
+    return P.nota(`Factura a nombre de <strong>${P.esc(e.razon_social)}</strong>. Sus datos fiscales no están completos `
+      + 'en el CRM: <strong>contesta a este correo</strong> y te los mandamos antes de que hagas la factura.');
+  }
+  const lugar = [e.cp, e.ciudad].filter(Boolean).join(' ');
+  return P.nota([
+    `Factura a nombre de <strong>${P.esc(e.razon_social)}</strong>`,
+    `NIF: ${P.esc(e.nif)}`,
+    [e.direccion, lugar, e.pais].filter(Boolean).map(P.esc).join(' · '),
+  ].join('<br>'));
+}
+
+/**
+ * El asunto por defecto. Lleva la marca: un tutor que da clase en dos campus
+ * tiene que saber de cuál le escriben sin abrirlo.
+ */
+export const asuntoDe = (datos) => `Tus comisiones de ${datos.mes}${datos.marca?.nombre ? ` · ${datos.marca.nombre}` : ''}`;
+
+/**
+ * Arma el correo con la plantilla común (`P.correo`) y la marca de su campus.
+ * Sin base y sin red: es una función, y así se puede ver el correo exacto sin
+ * mandarlo ni sembrar nada.
+ *
+ * `nota`: lo que quien lo manda quiera añadirle (una devolución, algo que
+ * explicarle). Va escapada y en su recuadro: es texto, no HTML, y no puede
+ * tocar ni la cuenta ni a quién va.
+ */
+export function componerCorreo({ datos, asunto = null, nota = null }) {
+  const varias = datos.grupos.length > 1;
+  const notaLimpia = String(nota || '').trim().slice(0, MAX_NOTA);
+
+  const bloques = (enTexto) => [
+    P.parrafo(`Durante <strong>${P.esc(datos.mes)}</strong> has generado <strong>${eur(datos.pendiente)}</strong> en comisiones`
+      + `${varias ? ` con ${datos.grupos.length} empresas, así que son <strong>${datos.grupos.length} facturas</strong>, una para cada una` : ''}.`),
+    ...datos.grupos.flatMap((g) => [
+      varias ? P.seccion(g.empresa ? `Factura a ${g.empresa.nombre}` : 'Sin empresa asignada') : null,
+      g.formaciones.length ? P.parrafo(g.formaciones.length === 1 ? 'De la formación:' : 'De las formaciones:') : null,
+      g.formaciones.length ? (enTexto ? P.parrafo(g.formaciones.map((x) => `- ${P.esc(x)}`).join('<br>')) : lista(g.formaciones)) : null,
+      enTexto ? cuentaEnTexto(g.cuenta) : tablaDeLaCuenta(g.cuenta),
+      datosDeLaEmpresa(g.empresa),
+    ]),
+    varias ? P.parrafo(`En total, <strong>${eur(datos.cuenta.total)}</strong> entre las ${datos.grupos.length} facturas.`) : null,
+    P.parrafo('Contesta a este mismo correo con tu factura <strong>+ IVA − retención</strong>.'),
+    datos.tieneIban ? null
+      : P.nota('<strong>Envíanos tu IBAN</strong> si no nos lo has dado todavía: sin él no se te puede pagar.'),
+    notaLimpia ? P.nota(P.esc(notaLimpia).replace(/\r?\n/g, '<br>')) : null,
+    P.parrafo(`<span class="tenue" style="font-size:12px;color:${P.T.tenue}">La comisión lleva IVA (${IVA_PCT} %). `
+      + `La retención de IRPF es orientativa: cada profesional aplica la suya, y el ${RETENCION_PCT} % es la más común.</span>`),
+    P.parrafo('Muchas gracias.'),
+  ];
+
+  const comun = {
+    proyecto: datos.marca || {},
+    titulo: `Tus comisiones de ${datos.mes}`,
+    saludo: primerNombre(datos.nombre),
+    resumen: `${eur(datos.cuenta.total)} a facturar · ${datos.mes}`,
+    pie: `Te lo manda el equipo de facturación${datos.marca?.nombre ? ` de <strong class="txt">${P.esc(datos.marca.nombre)}</strong>` : ''}. `
+      + 'Para cualquier duda, contesta a este correo.',
+  };
+  const { htmlContent } = P.correo({ ...comun, bloques: bloques(false) });
+  // El texto plano sale del mismo correo, con la cuenta en líneas «concepto:
+  // importe» en vez de en celdas (que en texto quedarían pegadas).
+  const { textContent } = P.correo({ ...comun, bloques: bloques(true) });
+
+  const a = String(asunto || '').trim().slice(0, MAX_ASUNTO);
+  return { asunto: a || asuntoDe(datos), html: htmlContent, texto: textContent };
+}
+
+export async function previsualizar({ tutorId, periodo, projectId = null, projectIds = null }) {
+  const datos = await datosDelAviso({ tutorId, periodo, projectId, projectIds });
+  return { ...datos, ...componerCorreo({ datos }) };
+}
+
+/**
+ * ¿Se puede mandar? Si ya se le mandó el de ese mes, solo con `repetir`: un
+ * tutor que perdió el correo necesita que se le vuelva a mandar, pero mandarlo
+ * dos veces sin querer es pedirle dos facturas.
+ */
+export function comprobarRepetido(datos, repetir) {
+  const ultimo = datos.avisos?.[0];
+  if (!ultimo || repetir) return;
+  throw new AppError(
+    `Ya se le mandó el aviso de ${datos.mes} el ${cuandoEnLetra(ultimo.enviadoAt)}`
+      + `${ultimo.enviadoPor ? ` (${ultimo.enviadoPor})` : ''}. Confírmalo para mandarlo otra vez.`,
+    409, 'YA_AVISADO');
+}
+
+/**
+ * El buzón de facturación del que sale y al que contesta el tutor con su
+ * factura. Por orden:
+ *
+ *   1. `AVISO_TUTOR_FROM`, si está en el `.env`.
+ *   2. El correo de la empresa (`invoice_issuers.email`), si factura a una sola.
+ *      En CEDIA es `facturacion@cediaidsl.com`, el de siempre (migración 161),
+ *      y así sigue saliendo por su buzón cuando lo tiene (`correo-buzon`).
+ *   3. Nada: sale con el remitente de la marca, como cualquier otro correo.
+ *
+ * Tiene que estar verificado en Brevo. Si no lo está, `sendEmail` lo reintenta
+ * por la cuenta del CRM: llega igual, con otro remitente.
+ */
+export function buzonDeFacturacion(datos) {
+  const propio = String(process.env.AVISO_TUTOR_FROM || '').trim();
+  if (propio) return propio;
+  const correos = [...new Set(datos.grupos
+    .map((g) => String(g.empresa?.email || '').trim().toLowerCase())
+    .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)))];
+  return correos.length === 1 ? correos[0] : undefined;
+}
+
+/** Deja anotado quién lo mandó y cuándo, y mueve sus líneas a «notificada». */
+export async function anotarAviso({ datos, userId, asunto, brevoMsgId = null }) {
+  const cliente = await getClient();
+  try {
+    await cliente.query('BEGIN');
+    const { rows: [fila] } = await cliente.query(
+      `INSERT INTO tutor_avisos_comisiones
+         (tutor_id, periodo, enviado_por, email, pendiente, total, asunto, project_ids, comisiones, brevo_msg_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::int[], $9::int[], $10)
+       RETURNING id, enviado_at`,
+      [datos.tutorId, datos.periodo, userId || null, datos.email, datos.pendiente, datos.cuenta.total,
+        asunto, datos.campus, datos.comisiones, brevoMsgId],
     );
+    // El estado dice POR DÓNDE VA el trámite; `avisado_at`, CUÁNDO. Avisar no es
+    // cobrar: `notificada` sigue contando en «Por pagar». Solo las líneas que
+    // iban en el correo, no las de otros campus que no se le reclamaron.
+    await cliente.query(
+      `UPDATE tutor_commissions
+          SET estado = CASE WHEN estado = 'pendiente' THEN 'notificada' ELSE estado END,
+              avisado_at = $2, avisado_por = $3, updated_at = NOW()
+        WHERE id = ANY($1::int[]) AND estado NOT IN ('pagada', 'revertida')`,
+      [datos.comisiones, fila.enviado_at, userId || null],
+    );
+    await cliente.query('COMMIT');
+    return fila;
+  } catch (e) {
+    await cliente.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    cliente.release();
   }
-  return rows[0];
-}
-
-/** Lo que se va a mandar, ya con los huecos rellenos. */
-/**
- * Rellena la plantilla con los datos de un tutor. Sin base y sin red: es una
- * funcion, y por eso se puede ver el correo exacto sin mandarlo ni sembrar
- * nada — que es como se revisa un texto que va a salir a un tercero.
- */
-/**
- * El mismo correo, en texto plano.
- *
- * Un correo de verdad lleva las dos versiones. Mandar solo HTML es lo que hace
- * un boletin, y se nota: puntua peor en los filtros, y quien lee sin formato
- * —un movil viejo, un lector de pantalla, quien lo tiene desactivado— recibe
- * una pagina de etiquetas.
- *
- * Se saca DEL HTML ya compuesto, no de la plantilla. Asi las dos versiones
- * dicen lo mismo siempre, aunque alguien edite la plantilla desde el CRM y
- * nadie se acuerde de tocar nada mas.
- */
-export function comoTexto(html) {
-  const salto = String.fromCharCode(10);
-  return String(html || '')
-    // La tabla de la cuenta se lee «Concepto ... importe», que es como se dicta
-    // por telefono. Se hace ANTES de quitar etiquetas, que es cuando aun se
-    // sabe donde acababa cada celda.
-    .replace(/<\/t[dh]>\s*<t[dh][^>]*>/gi, ': ')
-    .replace(/<\/tr>/gi, salto)
-    .replace(/<li[^>]*>/gi, `${salto}  - `)
-    .replace(/<(br|\/p|\/div|\/h[1-6]|\/ul|\/table)[^>]*>/gi, salto)
-    .replace(/<[^>]+>/g, '')
-    // Las entidades que de verdad salen en este correo: el euro, las comillas
-    // españolas, el menos de la retencion.
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .split(salto).map((l) => l.trim())
-    // Tres lineas en blanco seguidas son las que dejaba el HTML, no el texto.
-    .join(salto).replace(new RegExp(`${salto}{3,}`, 'g'), salto + salto)
-    .trim();
-}
-
-export function componerCorreo({ datos, subject, cuerpo }) {
-  const ctx = {
-    mes: datos.mes,
-    total: eur(datos.pendiente),
-    tutor: { nombre: datos.nombre, email: datos.email },
-  };
-  // `formaciones` y `calculo` son HTML a proposito —una lista y una tabla— y por
-  // eso NO pasan por `renderTemplate`, que escapa los valores. Bien hecho por su
-  // parte: un nombre con `<` no puede romper el correo.
-  //
-  // Y se ponen ANTES, no despues. Despues no funcionaba: `renderTemplate`
-  // sustituye TODO lo que tenga la forma `{{algo}}`, y lo que no encuentra en su
-  // contexto lo deja VACIO. Asi que se llevaba por delante los dos huecos y el
-  // correo salia pidiendo la factura sin decir de que formaciones ni cuanto.
-  // Al ponerlos antes, lo inyectado no lleva llaves y le pasa por delante.
-  const conHtml = cuerpo
-    .replace('{{formaciones}}', `<ul>${datos.formaciones.map((f) => `<li>${f}</li>`).join('')}</ul>`)
-    .replace('{{calculo}}', tablaDeLaCuenta(datos.cuenta));
-  // El asunto sin escapar —es texto plano— y el cuerpo escapado, que es HTML.
-  const html = renderTemplate(conHtml, ctx);
-  return {
-    asunto: renderTemplate(subject, ctx, { escapar: false }),
-    html,
-    texto: comoTexto(html),
-  };
-}
-
-export async function previsualizar({ tutorId, periodo }) {
-  const datos = await datosDelAviso({ tutorId, periodo });
-  const { subject, body_html: cuerpo } = await plantilla();
-  return { ...datos, ...componerCorreo({ datos, subject, cuerpo }) };
 }
 
 /**
- * Manda el correo y deja anotado cuando y quien.
+ * Manda el correo y deja anotado cuándo y quién.
  *
- * Se puede reenviar: un tutor que no contesta o que perdio el correo necesita
- * que se le vuelva a mandar, y bloquearlo obliga a salirse del CRM para eso. Lo
- * que se guarda es la ULTIMA vez.
- *
- * El aviso NO toca `estado`. Diego lo pidio como «que cambie el status a
- * avisado», pero ese campo dice donde esta el dinero —pendiente, pagada,
- * revertida— y una comision avisada sigue sin pagarse: si entrara ahi,
- * desapareceria de los «Por pagar» y el tutor se quedaria sin cobrar.
+ * El destinatario sale SIEMPRE del tutor, en el servidor: de fuera solo se
+ * acepta el asunto y una nota. Por eso esto no sirve para mandar un correo
+ * cualquiera a cualquiera.
  */
-/**
- * El texto retocado a mano, si lo hay.
- *
- * Se admite porque la plantilla no puede preverlo todo: un mes con una
- * devolucion, un tutor al que hay que explicarle algo, una errata. Antes habia
- * que salirse del CRM y escribirle desde el webmail — y entonces el envio no
- * quedaba anotado en ningun sitio.
- *
- * LO QUE NO SE TOCA ES A QUIEN VA. El destinatario sale del tutor, siempre, y
- * por eso esto no sirve para mandar un correo cualquiera a cualquiera: el unico
- * correo que puede salir de aqui es el de este tutor.
- */
-const MAX_HTML = 200_000;
+export async function avisar({
+  tutorId, periodo, userId, projectId = null, projectIds = null, asunto = null, nota = null, repetir = false,
+}) {
+  const datos = await datosDelAviso({ tutorId, periodo, projectId, projectIds });
+  comprobarRepetido(datos, repetir);
+  const correo = componerCorreo({ datos, asunto, nota });
 
-export function loRetocado({ asunto, html }) {
-  const a = typeof asunto === 'string' ? asunto.trim() : '';
-  const h = typeof html === 'string' ? html.trim() : '';
-  if (!a && !h) return null;
-  // Si se retoca, tiene que venir entero: mandar un correo con el asunto nuevo
-  // y el cuerpo viejo —o al reves— es peor que no dejar retocarlo.
-  if (!a || !h) {
-    throw new AppError('Para mandar el aviso retocado hacen falta el asunto y el cuerpo.',
-      400, 'RETOQUE_INCOMPLETO');
-  }
-  if (h.length > MAX_HTML) {
-    throw new AppError('El cuerpo del aviso es demasiado largo.', 400, 'RETOQUE_ENORME');
-  }
-  return { asunto: a, html: h, texto: comoTexto(h) };
-}
-
-export async function avisar({ tutorId, periodo, userId, asunto, html }) {
-  const compuesto = await previsualizar({ tutorId, periodo });
-  // Lo retocado pisa al compuesto, pero solo el texto: el resto del aviso
-  // —a quien, cuanto, de que formaciones— sigue saliendo de la base.
-  const aviso = { ...compuesto, ...(loRetocado({ asunto, html }) || {}) };
-
-  // El freno del 15/09. Se corta AQUI, despues de calcular el aviso, para que
-  // la vista previa siga funcionando: se puede repasar lo que se le mandaria y
-  // la cuenta que lleva, sin que salga nada.
+  // El freno de los correos a tutores (15/09). Se corta aquí, después de
+  // calcular, para que la vista previa siga funcionando.
   if (NO_ESCRIBIR_A_TUTORES) {
     throw new AppError(
-      'Los correos a tutores estan parados. Puedes ver la vista previa, pero no se envia nada hasta que Diego lo levante.',
+      'Los correos a tutores están parados. Puedes ver la vista previa, pero no se envía nada hasta que Diego lo levante.',
       423, 'CORREOS_A_TUTORES_PARADOS');
   }
 
-  // SIN `clave`, y es la decision de poder reenviar: `sendEmail` deduplica por
-  // esa clave, asi que pasarla bloquearia el segundo envio del mes. Un tutor que
-  // no contesta o que perdio el correo necesita que se le vuelva a mandar.
+  // Sale como todos los correos: por la cuenta y con el nombre de su marca
+  // (`remitenteDe`), y desde el buzón de facturación si lo hay.
+  // Sin `clave` a propósito: con ella `sendEmail` no dejaría reenviarlo; el
+  // «ya se le mandó» lo decide `comprobarRepetido`, con confirmación.
+  const { projectId: cuentaDe, fromName } = remitenteDe(datos.marca);
+  const buzon = buzonDeFacturacion(datos);
   const r = await sendEmail({
-    to: aviso.email,
-    subject: aviso.asunto,
-    htmlContent: aviso.html,
-    textContent: aviso.texto,
+    to: { email: datos.email, name: datos.nombre },
+    subject: correo.asunto,
+    htmlContent: correo.html,
+    textContent: correo.texto,
     tags: ['aviso-tutor'],
-    fromEmail: REMITENTE,
-    fromName: REMITENTE_NOMBRE,
-    // El correo le pide que CONTESTE con su factura: la respuesta tiene que
-    // caer en ese buzon, y no depender de a quien responda Brevo por defecto.
-    replyTo: REMITENTE,
+    projectId: cuentaDe,
+    fromEmail: buzon,
+    fromName: process.env.AVISO_TUTOR_FROM_NAME || (fromName ? `${fromName} · Facturación` : 'Facturación'),
+    // Le pide que CONTESTE con su factura: la respuesta tiene que caer en el
+    // buzón de facturación, no en el «no responder» de la marca.
+    replyTo: buzon,
   });
 
   if (!r?.sent) {
-    // Cada motivo se dice con sus palabras: «no se pudo enviar» a secas manda a
-    // mirar el sitio equivocado, y estos tres se arreglan en sitios distintos.
+    // Cada motivo con sus palabras: se arreglan en sitios distintos.
     const porque = {
-      FRENO_DE_PRUEBAS: `Fuera de produccion solo salen correos a la lista blanca, y ${aviso.email} no esta en ella. Se añade en EMAIL_LISTA_BLANCA.`,
+      FRENO_DE_PRUEBAS: `Fuera de producción solo salen correos a la lista blanca, y ${datos.email} no está en ella. Se añade en EMAIL_LISTA_BLANCA.`,
       NO_API_KEY: 'No hay clave de Brevo configurada en este entorno.',
       YA_ENVIADO: 'Brevo lo tiene por repetido.',
     }[r?.reason] || r?.motivo || r?.detalle
-      || `Brevo no lo acepto desde ${REMITENTE}. Lo primero que hay que mirar es si ese remitente esta verificado alli: sin verificar, no sale y no avisa.`;
+      || 'Brevo no lo aceptó. Lo primero que hay que mirar es si el remitente está verificado allí: sin verificar, no sale y no avisa.';
     throw new AppError(porque, 502, r?.reason || 'NO_ENVIADO');
   }
 
-  // Queda «notificada», que es lo que pidio Diego, y ademas se anota CUANDO.
-  //
-  // Puede hacerse porque `notificada` sigue contando como que se le debe —lo
-  // que se debe es lo que no esta pagada ni revertida—, asi que avisar a un
-  // tutor ya no lo saca de «Por pagar». Antes de la 163 habria sido justo eso.
-  //
-  // El estado dice POR DONDE VA; `avisado_at`, CUANDO fue. No sobra ninguno: si
-  // alguien lo mueve a «falta factura» a mano, la fecha del aviso se conserva.
-  await query(
-    `UPDATE tutor_commissions
-        SET estado = 'notificada', avisado_at = NOW(), avisado_por = $3
-      WHERE tutor_id = $1 AND periodo = $2 AND estado NOT IN ('pagada', 'revertida')`,
-    [tutorId, periodo, userId || null],
-  );
-
-  return { enviado: true, a: aviso.email, total: aviso.cuenta.total };
+  const fila = await anotarAviso({ datos, userId, asunto: correo.asunto, brevoMsgId: r.messageId || null });
+  return {
+    enviado: true,
+    a: datos.email,
+    total: datos.cuenta.total,
+    avisadoAt: fila?.enviado_at || null,
+    repetido: datos.avisos.length > 0,
+  };
 }
