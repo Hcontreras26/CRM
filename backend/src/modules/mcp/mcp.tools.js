@@ -12,6 +12,7 @@ import * as stripe from '../stripe-payments/stripe-payments.model.js';
 import * as comisiones from '../commissions/commission.model.js';
 import * as duplicados from '../leads/dup-queue.service.js';
 import * as searchConsole from '../search-console/search-console.service.js';
+import * as googleAnalytics from '../google-analytics/google-analytics.service.js';
 import * as model from './mcp.model.js';
 import { acotarProyectos, responsableImpuesto, alcanceDelAmbito, fueraDelAlcance } from './mcp.acceso.js';
 import { enteroEnv } from './mcp.config.js';
@@ -340,6 +341,7 @@ export const GRUPO_DE_CONSULTA = Object.freeze({
   moodle_recursos_externos: 'Moodle de los campus',
   moodle_estructura: 'Moodle de los campus',
   informe_seo: 'Tráfico orgánico',
+  informe_ga4: 'Google Analytics',
   informe: 'Informes',
 });
 
@@ -994,6 +996,64 @@ export const HERRAMIENTAS = [
           comparar: a.comparar_con_periodo_anterior !== false,
           tope: estado.ultimo_dia,
         }), TOPE_INFORME_MS, 'informe_seo');
+        campus.push({
+          ...entrada,
+          ultimo_dia: estado.ultimo_dia,
+          ultima_sincronizacion: estado.ultima_sincronizacion,
+          ...(estado.estado_sincronizacion === 'error' ? { aviso: 'la última sincronización falló: los datos pueden estar atrasados' } : {}),
+          ...informe,
+        });
+      }
+      return { desde: a.desde || null, hasta: a.hasta || null, campus };
+    },
+  },
+  // Google Analytics 4 (#55) para Claude (#1247): lee lo que ya guardó la
+  // sincronización (tablas ga4_*) con las MISMAS funciones que la pantalla
+  // «Google Analytics» (`embudo` y `paginas`). Pide su permiso
+  // (`google_analytics.view`) y solo de sus campus, como «informe_seo».
+  {
+    nombre: 'informe_ga4',
+    titulo: 'Informe de Google Analytics 4',
+    descripcion: 'Las visitas a la web de tus campus según Google Analytics 4, como la pantalla «Google Analytics»: por campus y periodo, '
+      + 'sesiones, usuarios, conversiones (eventos clave de GA4), y cuántas acaban en prospecto y en venta (lead_por_sesion y venta_por_lead, en %); '
+      + 'el reparto por canal de GA4; las páginas de entrada (las de formación) con MÁS SESIONES, con sus prospectos y ventas; y, salvo con comparar_con_periodo_anterior: false, '
+      + 'el periodo anterior de la misma longitud y lo que cambia («cambio»). '
+      + 'Sin fechas, las últimas cuatro semanas hasta el último día que tiene guardado cada campus. '
+      + 'Los usuarios son la suma por día y canal, como en la pantalla: no son personas únicas. '
+      + 'Son los datos que trae la sincronización, no los de este minuto. Si un campus no tiene GA4 conectado o aún no tiene datos, sale con un «aviso», '
+      + 'no con cero sesiones. Necesita el permiso «Ver Google Analytics».',
+    entrada: {
+      ...AMBITO,
+      ...PERIODO,
+      limite: z.number().int().min(1).max(50).default(10).describe('Cuántas páginas en el top'),
+      comparar_con_periodo_anterior: z.boolean().default(true)
+        .describe('true (de serie): compara con el periodo anterior de la misma longitud. false: ni se calcula ni se devuelve (sin «anterior» ni «cambio»)'),
+    },
+    ejecutar: async (ambito, a) => {
+      const { projectIds } = acotar(ambito, a);
+      await conPermiso(ambito, 'google_analytics.view', 'informe_ga4', '«Ver Google Analytics»');
+      periodoEnOrden(a);
+      const nombres = new Map((ambito.proyectos || []).map((p) => [Number(p.id), p.nombre]));
+      const campus = [];
+      for (const projectId of projectIds) {
+        const entrada = { campus_id: projectId, campus: nombres.get(projectId) || String(projectId) };
+        const estado = await googleAnalytics.estadoDelCampus(projectId);
+        if (!estado.ultimo_dia) {
+          campus.push({
+            ...entrada,
+            aviso: estado.conectado ? 'Google Analytics 4 conectado, pero aún sin datos sincronizados' : 'sin Google Analytics 4 conectado',
+          });
+          continue;
+        }
+        const { desde, hasta } = searchConsole.periodoDelInforme({ desde: a.desde, hasta: a.hasta, ultimoDia: estado.ultimo_dia });
+        if (desde > hasta) {
+          campus.push({ ...entrada, aviso: `el último día guardado es ${estado.ultimo_dia}, anterior a «desde» (${desde})`, ultimo_dia: estado.ultimo_dia });
+          continue;
+        }
+        const informe = await conTope(googleAnalytics.informeGa4(projectId, desde, hasta, {
+          limite: a.limite,
+          comparar: a.comparar_con_periodo_anterior !== false,
+        }), TOPE_INFORME_MS, 'informe_ga4');
         campus.push({
           ...entrada,
           ultimo_dia: estado.ultimo_dia,
