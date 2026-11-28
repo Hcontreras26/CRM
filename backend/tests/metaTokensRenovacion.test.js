@@ -65,17 +65,20 @@ beforeAll(async () => {
     `INSERT INTO projects (nombre, slug, webhook_api_key) VALUES ($1, $2, $3) RETURNING id`,
     [`${MARCA} Campus`, MARCA.toLowerCase(), `${MARCA}-key`]
   );
-  // Un admin activo, para que haya a quién mandar el correo.
-  await q(
-    `INSERT INTO users (nombre, email, password_hash, role) VALUES ($1, $2, 'x', 'admin')`,
+  // Un admin activo DEL CAMPUS, para que haya a quién mandar el correo (#1192:
+  // solo se avisa a quien puede reconectar la cuenta de ese campus).
+  const [{ id: admin }] = await q(
+    `INSERT INTO users (nombre, email, password_hash, role) VALUES ($1, $2, 'x', 'admin') RETURNING id`,
     [`${MARCA} Admin`, `admin@${MARCA.toLowerCase()}.test`]
   );
+  await q(`INSERT INTO user_projects (user_id, project_id) VALUES ($1, $2)`, [admin, PROYECTO]);
 });
 
 afterAll(async () => {
   await q(`DELETE FROM admin_notifications WHERE type = $1 AND metadata->>'project_id' = $2`, [TIPO_AVISO, String(PROYECTO)]);
   await q(`DELETE FROM meta_tokens_renovacion WHERE project_id = $1`, [PROYECTO]);
   await q(`DELETE FROM meta_ad_accounts WHERE project_id = $1`, [PROYECTO]);
+  await q(`DELETE FROM user_projects WHERE project_id = $1`, [PROYECTO]);
   await q(`DELETE FROM users WHERE email = $1`, [`admin@${MARCA.toLowerCase()}.test`]);
   await q(`DELETE FROM projects WHERE id = $1`, [PROYECTO]);
 });
