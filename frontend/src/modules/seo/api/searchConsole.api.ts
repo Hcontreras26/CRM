@@ -73,6 +73,10 @@ export interface Semana {
 
 type Cuerpo<T> = { success?: boolean; data?: T };
 const datos = <T,>(r: unknown) => (r as Cuerpo<T>).data as T;
+/** Lo más que pide la pantalla: si llega justo esto, la lista está recortada (#1193). */
+export const LIMITE_CONSULTAS = 200;
+export const LIMITE_PAGINAS = 500;
+
 const qs = (projectId: number, desde: string, hasta: string) =>
   new URLSearchParams({ projectId: String(projectId), desde, hasta }).toString();
 
@@ -81,9 +85,9 @@ export const searchConsoleApi = {
   resumen: (projectId: number, desde: string, hasta: string) =>
     client.get(`/search-console/resumen?${qs(projectId, desde, hasta)}`).then(datos<Resumen>),
   consultas: (projectId: number, desde: string, hasta: string) =>
-    client.get(`/search-console/consultas?${qs(projectId, desde, hasta)}&limite=200`).then(datos<ConsultaGsc[]>),
+    client.get(`/search-console/consultas?${qs(projectId, desde, hasta)}&limite=${LIMITE_CONSULTAS}`).then(datos<ConsultaGsc[]>),
   paginas: (projectId: number, desde: string, hasta: string) =>
-    client.get(`/search-console/paginas?${qs(projectId, desde, hasta)}&limite=500`).then(datos<Paginas>),
+    client.get(`/search-console/paginas?${qs(projectId, desde, hasta)}&limite=${LIMITE_PAGINAS}`).then(datos<Paginas>),
   indexacion: (projectId: number) =>
     client.get(`/search-console/indexacion?projectId=${projectId}`).then(datos<Indexacion>),
   semana: (projectId: number) =>
